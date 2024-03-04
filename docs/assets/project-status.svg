@@ -1,0 +1,792 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="271mm"
+   height="170mm"
+   viewBox="0 0 271 170"
+   version="1.1"
+   id="svg1"
+   inkscape:version="1.3.2 (091e20ef0f, 2023-11-25, custom)"
+   sodipodi:docname="project-status.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview1"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:document-units="mm"
+     showgrid="true"
+     inkscape:zoom="1.3918328"
+     inkscape:cx="560.77138"
+     inkscape:cy="344.86901"
+     inkscape:window-width="2250"
+     inkscape:window-height="1449"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="layer1">
+    <inkscape:grid
+       id="grid8"
+       units="mm"
+       originx="0"
+       originy="0"
+       spacingx="1"
+       spacingy="1"
+       empcolor="#04abff"
+       empopacity="0.8"
+       color="#c9edff"
+       opacity="0.14901961"
+       empspacing="5"
+       dotted="true"
+       gridanglex="30"
+       gridanglez="30"
+       visible="true" />
+  </sodipodi:namedview>
+  <defs
+     id="defs1">
+    <rect
+       x="-232.40317"
+       y="188.90897"
+       width="100.11971"
+       height="75.657951"
+       id="rect59" />
+    <rect
+       x="118.3774"
+       y="130.38545"
+       width="114.6373"
+       height="38.457546"
+       id="rect2" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect1"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="15" />
+    <text
+       xml:space="preserve"
+       id="text1"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="21.957638"><tspan
+         id="tspan2"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">ld/0-global</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text3"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="11.277267"><tspan
+         id="tspan3"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Linker</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect4"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="24.98811" />
+    <text
+       xml:space="preserve"
+       id="text4"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="31.957638"><tspan
+         id="tspan4"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">ld/1-omc</tspan></text>
+    <rect
+       style="fill:#00e1e1;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect5"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="34.976223" />
+    <text
+       xml:space="preserve"
+       id="text5"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="41.957638"><tspan
+         sodipodi:role="line"
+         id="tspan7"
+         x="72.9823"
+         y="41.957638"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">ld/2-full</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect11"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="15" />
+    <text
+       xml:space="preserve"
+       id="text11"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="21.957638"><tspan
+         id="tspan11"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">as/0-basic</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text12"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="11.277266"><tspan
+         id="tspan12"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Assembler</tspan></text>
+    <rect
+       style="fill:#00e1e1;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect12"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="24.98811" />
+    <text
+       xml:space="preserve"
+       id="text13"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="31.957638"><tspan
+         id="tspan13"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">as/1-compound</tspan></text>
+    <rect
+       style="fill:#00e1e1;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect13"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="34.976223" />
+    <text
+       xml:space="preserve"
+       id="text14"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="41.957638"><tspan
+         sodipodi:role="line"
+         id="tspan14"
+         x="127.9823"
+         y="41.957638"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">as/2-full</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect14"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="15" />
+    <text
+       xml:space="preserve"
+       id="text15"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="21.957638"><tspan
+         id="tspan15"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cci/0-omc</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text16"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="11.277266"><tspan
+         id="tspan16"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Compiler</tspan></text>
+    <rect
+       style="fill:#ffff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect16"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="24.98811" />
+    <text
+       xml:space="preserve"
+       id="text17"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="31.957638"><tspan
+         id="tspan17"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cci/1-opc</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;fill-rule:evenodd;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect17"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="34.976223" />
+    <text
+       xml:space="preserve"
+       id="text18"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="41.957638"><tspan
+         sodipodi:role="line"
+         id="tspan18"
+         x="182.9823"
+         y="41.957638"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cci/2-full</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect18"
+       width="45.964336"
+       height="9.9881124"
+       x="215"
+       y="15" />
+    <text
+       xml:space="preserve"
+       id="text19"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="21.957638"><tspan
+         id="tspan19"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cpp/0-strip</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text20"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="11.277266"><tspan
+         id="tspan20"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Preprocessor</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect20"
+       width="45.964336"
+       height="9.9881124"
+       x="215"
+       y="24.98811" />
+    <text
+       xml:space="preserve"
+       id="text21"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="31.957638"><tspan
+         id="tspan21"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cpp/1-omc</tspan></text>
+    <rect
+       style="fill:#fffe00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect21"
+       width="45.964336"
+       height="9.9881124"
+       x="215"
+       y="34.976223" />
+    <text
+       xml:space="preserve"
+       id="text22"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="41.957638"><tspan
+         sodipodi:role="line"
+         id="tspan22"
+         x="237.9823"
+         y="41.957638"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cpp/2-full</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect22"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="65" />
+    <text
+       xml:space="preserve"
+       id="text23"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="71.957634"><tspan
+         id="tspan23"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">libc/0-oo</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text24"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="61.277267"><tspan
+         id="tspan24"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Standard Library</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect24"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="74.988106" />
+    <text
+       xml:space="preserve"
+       id="text25"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="81.957626"><tspan
+         id="tspan25"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">libc/1-omc</tspan></text>
+    <rect
+       style="fill:#ff7f00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect25"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="84.976219" />
+    <text
+       xml:space="preserve"
+       id="text26"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="91.957626"><tspan
+         sodipodi:role="line"
+         id="tspan26"
+         x="72.9823"
+         y="91.957626"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">libc/2-opc</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect26"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="95" />
+    <text
+       xml:space="preserve"
+       id="text27"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="101.98141"><tspan
+         sodipodi:role="line"
+         id="tspan27"
+         x="72.9823"
+         y="101.98141"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">libc/3-full</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect27"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="65" />
+    <text
+       xml:space="preserve"
+       id="text28"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="71.957634"><tspan
+         id="tspan28"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">ar/0-cat</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text29"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="61.277267"><tspan
+         id="tspan29"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Archiver</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect29"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="74.988106" />
+    <text
+       xml:space="preserve"
+       id="text30"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="81.957626"><tspan
+         id="tspan30"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">ar/1-unix</tspan></text>
+    <rect
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect32"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="65" />
+    <text
+       xml:space="preserve"
+       id="text32"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="71.957634"><tspan
+         id="tspan32"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">cc</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text33"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="61.277267"><tspan
+         id="tspan33"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Driver</tspan></text>
+    <rect
+       style="fill:#ff7f00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect34"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="90" />
+    <text
+       xml:space="preserve"
+       id="text34"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="96.957642"><tspan
+         id="tspan34"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">sh</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text35"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="86.277283"><tspan
+         id="tspan35"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Shell</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect35"
+       width="45.964336"
+       height="9.9881124"
+       x="215"
+       y="65" />
+    <text
+       xml:space="preserve"
+       id="text36"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="71.957634"><tspan
+         id="tspan36"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">os/0-minfs</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text37"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="61.277267"><tspan
+         id="tspan37"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Operating System</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect37"
+       width="45.964336"
+       height="9.9881124"
+       x="215"
+       y="74.988106" />
+    <text
+       xml:space="preserve"
+       id="text38"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="81.957626"><tspan
+         id="tspan38"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">os/1-full</tspan></text>
+    <g
+       id="g7"
+       transform="translate(-13.963034,-26.871767)">
+      <rect
+         style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.5;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+         id="rect38"
+         width="5.0000005"
+         height="4.9999952"
+         x="230"
+         y="170" />
+      <rect
+         style="fill:#00e1e1;fill-opacity:1;stroke:#000000;stroke-width:0.5;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+         id="rect39"
+         width="5.0000005"
+         height="4.9999952"
+         x="230"
+         y="175" />
+      <rect
+         style="fill:#ffff00;fill-opacity:1;stroke:#000000;stroke-width:0.5;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+         id="rect40"
+         width="5.0000005"
+         height="4.9999952"
+         x="230"
+         y="180" />
+      <rect
+         style="fill:#ff7f00;fill-opacity:1;stroke:#000000;stroke-width:0.5;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+         id="rect41"
+         width="5.0000005"
+         height="4.9999952"
+         x="230"
+         y="185" />
+      <rect
+         style="fill:#ff0000;stroke:#000000;stroke-width:0.5;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+         id="rect42"
+         width="5.0000005"
+         height="4.9999952"
+         x="230"
+         y="190" />
+      <text
+         xml:space="preserve"
+         id="text42"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;text-align:start;word-spacing:0px;text-anchor:start;white-space:pre"
+         x="236.52094"
+         y="173.99698"><tspan
+           sodipodi:role="line"
+           id="tspan42"
+           x="236.52094"
+           y="173.99698"
+           style="font-size:4.23333px;text-align:start;text-anchor:start">Fully done</tspan></text>
+      <text
+         xml:space="preserve"
+         id="text46"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;text-align:start;word-spacing:0px;text-anchor:start;white-space:pre"
+         x="236.52094"
+         y="178.99666"><tspan
+           sodipodi:role="line"
+           id="tspan46"
+           x="236.52094"
+           y="178.99666"
+           style="font-size:4.23333px;text-align:start;text-anchor:start">Usable, mostly done</tspan></text>
+      <text
+         xml:space="preserve"
+         id="text47"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;text-align:start;word-spacing:0px;text-anchor:start;white-space:pre"
+         x="236.52094"
+         y="183.99666"><tspan
+           sodipodi:role="line"
+           id="tspan47"
+           x="236.52094"
+           y="183.99666"
+           style="font-size:4.23333px;text-align:start;text-anchor:start">Partially done</tspan></text>
+      <text
+         xml:space="preserve"
+         id="text48"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;text-align:start;word-spacing:0px;text-anchor:start;white-space:pre"
+         x="236.52094"
+         y="188.99666"><tspan
+           sodipodi:role="line"
+           id="tspan48"
+           x="236.52094"
+           y="188.99666"
+           style="font-size:4.23333px;text-align:start;text-anchor:start">Started, not working</tspan></text>
+      <text
+         xml:space="preserve"
+         id="text49"
+         style="font-size:4.23333px;line-height:1.25;font-family:sans-serif;text-align:start;word-spacing:0px;text-anchor:start;white-space:pre"
+         x="236.52094"
+         y="193.99666"><tspan
+           sodipodi:role="line"
+           id="tspan49"
+           x="236.52094"
+           y="193.99666"
+           style="font-size:4.23333px;text-align:start;text-anchor:start">Not started</tspan></text>
+    </g>
+    <rect
+       style="fill:#ffff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect50"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="125" />
+    <text
+       xml:space="preserve"
+       id="text50"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="131.95764"><tspan
+         id="tspan50"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">vm/x86_64-linux</tspan></text>
+    <text
+       xml:space="preserve"
+       id="text51"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="121.27727"><tspan
+         id="tspan51"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Hosted</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect51"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="134.98811" />
+    <text
+       xml:space="preserve"
+       id="text52"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="141.95764"><tspan
+         id="tspan52"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">vm/x86-windows</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect52"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="144.97623" />
+    <text
+       xml:space="preserve"
+       id="text53"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="151.95764"><tspan
+         sodipodi:role="line"
+         id="tspan53"
+         x="72.9823"
+         y="151.95764"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">vm/aarch64-linux</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect53"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="125" />
+    <text
+       xml:space="preserve"
+       id="text54"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="131.95764">vm/x86_64-uefi</text>
+    <text
+       xml:space="preserve"
+       id="text55"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="121.27727"><tspan
+         id="tspan55"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Freestanding</tspan></text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect55"
+       width="45.964336"
+       height="9.9881124"
+       x="105"
+       y="134.98811" />
+    <text
+       xml:space="preserve"
+       id="text56"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="127.9823"
+       y="141.95764">vm/x86-bios</text>
+    <rect
+       style="fill:#ff0000;fill-opacity:1;stroke:#000000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       id="rect57"
+       width="45.964336"
+       height="9.9881124"
+       x="50"
+       y="155" />
+    <text
+       xml:space="preserve"
+       id="text58"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="72.9823"
+       y="161.98141"><tspan
+         sodipodi:role="line"
+         id="tspan58"
+         x="72.9823"
+         y="161.98141"
+         style="font-size:4.93889px;text-align:center;text-anchor:middle">vm/riscv-linux</tspan></text>
+    <text
+       xml:space="preserve"
+       transform="matrix(0.26458333,0,0,0.26458333,75.251722,1.934917)"
+       id="text59"
+       style="font-size:21.3333px;line-height:1.25;font-family:sans-serif;word-spacing:0px;white-space:pre;shape-inside:url(#rect59);display:inline"><tspan
+         x="-232.40234"
+         y="208.31884"
+         id="tspan1">core/</tspan></text>
+    <text
+       xml:space="preserve"
+       style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;word-spacing:0px;stroke-width:0.264583"
+       x="2.6244736"
+       y="141.48166"
+       id="text60"><tspan
+         sodipodi:role="line"
+         id="tspan60"
+         style="stroke-width:0.264583"
+         x="2.6244736"
+         y="141.48166">platform/</tspan></text>
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="M 44.999999,5 C 30,5 40,55 30,55 c 10,0 -0.182506,50.25594 14.999999,50"
+       id="path60"
+       sodipodi:nodetypes="ccc" />
+    <path
+       style="fill:none;stroke:#000000;stroke-width:0.186876px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+       d="m 45.001341,115.06849 c -15.007143,0 -5.00238,24.93127 -15.007143,24.93127 10.004763,0 -0.182593,25.05889 15.007143,24.93127"
+       id="path61"
+       sodipodi:nodetypes="ccc" />
+    <rect
+       style="fill:#ffff00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect3"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="125" />
+    <text
+       xml:space="preserve"
+       id="text6"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="131.95764">vm/c89</text>
+    <text
+       xml:space="preserve"
+       id="text7"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="121.27728"><tspan
+         id="tspan6"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">High-Level</tspan></text>
+    <rect
+       style="fill:#ffff00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect6"
+       width="45.964336"
+       height="9.9881124"
+       x="215"
+       y="125" />
+    <text
+       xml:space="preserve"
+       id="text8"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="131.95764">vm/c-debugger</text>
+    <text
+       xml:space="preserve"
+       id="text9"
+       style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;line-height:1.25;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="237.9823"
+       y="121.27728"><tspan
+         id="tspan8"
+         style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Debugger</tspan></text>
+    <rect
+       style="fill:#ffff00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect9"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="135" />
+    <text
+       xml:space="preserve"
+       id="text10"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="141.95764">vm/python</text>
+    <rect
+       style="fill:#ff7f00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       id="rect10"
+       width="45.964336"
+       height="9.9881124"
+       x="160"
+       y="145" />
+    <text
+       xml:space="preserve"
+       id="text31"
+       style="font-size:4.93889px;line-height:1.25;font-family:sans-serif;text-align:center;word-spacing:0px;text-anchor:middle;white-space:pre"
+       x="182.9823"
+       y="151.95764">vm/sh</text>
+  </g>
+</svg>

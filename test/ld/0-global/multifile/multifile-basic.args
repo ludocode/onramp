@@ -1,0 +1,1 @@
+${TESTFILE}.1 ${TESTFILE}.2 -o $OUTPUT

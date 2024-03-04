@@ -1,0 +1,526 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the first stage Onramp archive tool.
+;
+; It only supports "rc", i.e. creating an archive. It's basically a glorified
+; cat: it simply concatenates the files together with `%<filename>` lines to
+; delimit them.
+;
+; It's written in object code and linked (manually) against libc. Our entry
+; point is main().
+
+
+
+; ==========================================================
+; const char error_incorrect_arguments[];
+; ==========================================================
+
+=error_incorrect_arguments
+    ; "Incorrect arguments." '0A
+    ; "Usage: <ar> rc [output] [input]..." '00
+    49 6e 63 6f 72 72 65 63  74
+  ;  I  n  c  o  r  r  e  c   t
+    20 61 72 67 75 6d 65 6e  74 73 2e 0a 55 73 61 67
+  ;     a  r  g  u  m  e  n   t  s  . \n  U  s  a  g
+    65 3a 20 3c 61 72 3e 20  72 63 20 5b 6f 75 74 70
+  ;  e  :     <  a  r  >      r  c     [  o  u  t  p
+    75 74 5d 20 5b 69 6e 70  75 74 5d 2e 2e 2e 00
+  ;  u  t  ]     [  i  n  p   u  t  ]  .  .  . \0
+
+
+
+;==========================================
+; const char error_input_file[];
+;==========================================
+
+=error_input_file
+    ; "Failed to read input file." '00
+    46 61 69 6c 65 64 20 74  6f
+  ;  F  a  i  l  e  d     t   o
+    20 72 65 61 64 20 69 6e  70 75 74 20 66 69 6c 65
+  ;     r  e  a  d     i  n  p  u  t     f  i  l  e
+    2e 00
+  ;  . \0
+
+
+
+;==========================================
+; const char error_output_file[];
+;==========================================
+
+=error_output_file
+    ; "Failed to write output file." '00
+    46 61 69 6c 65 64 20 74  6f
+  ;  F  a  i  l  e  d     t   o
+    20 77 72 69 74 65 20 6f  75 74 70 75 74 20 66 69
+  ;     w  r  i  t  e     o   u  t  p  u  t     f  i
+    6c 65 2e 00
+  ;  l  e  . \0
+
+
+
+; ==========================================================
+; FILE* input_file;
+; ==========================================================
+=input_file
+    00 00 00 00
+
+
+
+; ==========================================================
+; FILE* output_file;
+; ==========================================================
+=output_file
+    00 00 00 00
+
+
+
+; ==========================================================
+; void* buffer;
+; ==========================================================
+; A pointer to a buffer of 256 bytes allocated with malloc() for copying data
+; from one file to another.
+; ==========================================================
+=buffer
+    00 00 00 00
+
+
+
+; ==========================================================
+; int main(int argc, char** argv);
+; ==========================================================
+; The entry point of the archiver.
+;
+; vars:
+; - argc: r0
+; - argv: r1, rfp-4
+; - index: r2, rfp-8
+; ==========================================================
+
+=main
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp        ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+
+    ; check the arguments
+
+    ; check that we have at least four arguments
+    ; (program name, "rc", output file, and at least one input file)
+    7D 8A 80 04                      ; cmp ra r0 4
+    7D 8A 8A FF                      ; cmp ra ra -1
+    7E 8A &main_incorrect_arguments  ; jz ra &main_incorrect_arguments
+
+    ; preserve argv
+    71 8C 8C 04    ; sub rsp rsp 4    ; push r1
+    79 81 00 8C    ; stw r1 0 rsp     ; ...
+
+    ; push "rc" to the stack for comparison
+    7C 8A 00 00    ; ims ra '00 '00
+    7C 8A 72 63    ; ims ra "rc"
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 8A 00 8C    ; stw ra 0 rsp
+
+    ; check if "rc" is the first argument
+    78 80 81 04                     ; ldw r0 r1 4       ; r0 = argv[1]
+    70 81 00 8C                     ; add r1 0 rsp      ; r1 = rsp ("rc")
+        ; call strcmp
+        7C 8A <strcmp                   ; ims ra <strcmp
+        7C 8A >strcmp                   ; ims ra >strcmp
+        71 8C 8C 04                     ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08                     ; add rb rip 8      ; ...
+        79 8B 00 8C                     ; stw rb 0 rsp      ; ...
+        70 8F 8E 8A                     ; add rip rpp ra    ; jump
+        70 8C 8C 04                     ; add rsp rsp 4     ; pop return address
+    7E 80 &main_args_ok             ; jz r0 &main_args_ok
+
+    ; bad arguments. fatal error
+:main_incorrect_arguments
+    7C 80 <error_incorrect_arguments   ; ims r0 <error_incorrect_arguments
+    7C 80 >error_incorrect_arguments   ; ims r0 >error_incorrect_arguments
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; arguments are good. pop "rc"
+:main_args_ok
+    70 8C 8C 04    ; add rsp rsp 4
+
+
+    ; open the output file
+
+    ; push "w" to the stack (we don't care about the high bits!)
+    7C 8A 77 00    ; ims ra "w" ^00
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 8A 00 8C    ; stw ra 0 rsp
+
+    ; open the output file
+    78 80 8D FC        ; ldw r0 rfp -4    ; r0 = argv
+    78 80 80 08        ; ldw r0 r0 8      ; r0 = argv[2]
+    70 81 00 8C        ; add r1 0 rsp     ; r1 = "r"
+    7C 8A <fopen       ; ims ra <fopen
+    7C 8A >fopen       ; ims ra >fopen
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; make sure it's good
+    7D 8A 80 00              ; cmp ra r0 0
+    7E 8A &main_output_error  ; jz ra &main_output_error
+    7E 00 &main_output_ok     ; jz 0 &main_output_ok
+
+    ; opening output failed, fatal error
+:main_output_error
+    7C 80 <error_output_file   ; ims r0 <error_output_file
+    7C 80 >error_output_file   ; ims r0 >error_output_file
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; opening output succeeded, store it
+:main_output_ok
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    79 80 8E 8A            ; stw r0 rpp ra
+
+    ; pop "w"
+    70 8C 8C 04    ; add rsp rsp 4
+
+
+    ; allocate a buffer
+
+    ; call malloc(256)
+    72 80 10 10        ; mul r0 16 16      ; r0 = 256
+    7C 8A <malloc      ; ims ra <malloc
+    7C 8A >malloc      ; ims ra >malloc
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; check that the allocated buffer is not null (this isn't really going to
+    ; happen in practice so we don't care what the error message actually is)
+    7E 80 &main_output_error  ; jz r0 &main_output_error
+
+    ; store it in buffer
+    7C 8A <buffer     ; ims ra <buffer
+    7C 8A >buffer     ; ims ra >buffer
+    79 80 8E 8A       ; stw r0 rpp ra
+
+
+    ; call add() on each input file
+
+    ; push an iterator to the stack. we're starting at arg 3, so offset 12
+    71 8C 8C 04    ; sub rsp rsp 4   ; push 12
+    79 0C 00 8C    ; stw 12 0 rsp    ; ...
+
+:main_loop
+
+    ; get the current argument
+    78 82 00 8C    ; ldw r2 0 rsp     ; r2 = index (*4)
+    78 81 8D FC    ; ldw r1 rfp -4    ; r1 = argv
+    78 80 81 82    ; ldw r0 r1 r2     ; r0 = argv[index]
+
+    ; if the argument is null, we're done
+    7E 80 &main_done   ; jz r0 &main_done
+
+    ; increment the iterator
+    70 82 82 04    ; add r2 r2 4
+    79 82 00 8C    ; stw r2 0 rsp
+
+    ; call add()
+    7C 8A <add        ; ims ra <add
+    7C 8A >add        ; ims ra >add
+    71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08       ; add rb rip 8      ; ...
+    79 8B 00 8C       ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A       ; add rip rpp ra    ; jump
+    70 8C 8C 04       ; add rsp rsp 4     ; pop return address
+
+    ; loop
+    7E 00 &main_loop
+
+:main_done
+
+    ; get the output file
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 80 8E 8A            ; ldw r0 rpp ra
+
+    ; call fclose()
+    7C 8A <fclose      ; ims ra <fclose
+    7C 8A >fclose      ; ims ra >fclose
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+    79 80 8D F8        ; stw r0 rfp -8
+
+    ; return zero
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void add(const char* filename);
+; ==========================================================
+; Adds the given file to the archive.
+;
+; - filename/input_file: rfp-4
+; ==========================================================
+
+=add
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp        ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; preserve the filename
+    71 8C 8C 04    ; sub rsp rsp 4    ; push r1
+    79 80 00 8C    ; stw r0 0 rsp     ; ...
+
+    ; call set_current_filename(filename)
+    7C 8A <set_current_filename   ; ims ra <set_current_filename
+    7C 8A >set_current_filename   ; ims ra >set_current_filename
+    71 8C 8C 04             ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08             ; add rb rip 8
+    79 8B 00 8C             ; stw rb 0 rsp
+    70 8F 8E 8A             ; add rip rpp ra    ; jump
+    70 8C 8C 04             ; add rsp rsp 4     ; pop return address
+
+    ; call write_metadata(filename)
+    78 80 00 8C    ; ldw r0 0 rsp
+    7C 8A <write_metadata   ; ims ra <write_metadata
+    7C 8A >write_metadata   ; ims ra >write_metadata
+    71 8C 8C 04             ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08             ; add rb rip 8
+    79 8B 00 8C             ; stw rb 0 rsp
+    70 8F 8E 8A             ; add rip rpp ra    ; jump
+    70 8C 8C 04             ; add rsp rsp 4     ; pop return address
+
+    ; open input file
+
+    ; push "r" to the stack (we don't care about the high bits!
+    7C 8A 72 00    ; ims ra "r" ^00
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 8A 00 8C    ; stw ra 0 rsp
+
+    ; open the file
+    78 80 8D FC        ; ldw r0 rfp -4    ; r0 = filename
+    70 81 00 8C        ; add r1 0 rsp     ; r1 = "r"
+    7C 8A <fopen       ; ims ra <fopen
+    7C 8A >fopen       ; ims ra >fopen
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; make sure it's good
+    7D 8A 80 00             ; cmp ra r0 0
+    7E 8A &add_input_error  ; jz ra &add_input_error
+    7E 00 &add_input_ok     ; jz 0 &add_input_ok
+
+    ; opening input failed, fatal error
+:add_input_error
+    7C 80 <error_input_file   ; ims r0 <error_input_file
+    7C 80 >error_input_file   ; ims r0 >error_input_file
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; opening input succeeded
+:add_input_ok
+    ; pop "r"
+    70 8C 8C 04     ; add rsp rsp 4      ; popd
+    ; preserve the input_file on the stack (replacing filename)
+    79 80 00 8C    ; stw r0 0 rsp
+
+
+    ; loop copying data from input to output
+
+:add_loop
+
+    ; prepare args for fread()
+    7C 8A <buffer     ; ims ra <buffer
+    7C 8A >buffer     ; ims ra >buffer
+    78 80 8E 8A       ; ldw r0 rpp ra                   ; r0 = buffer
+    70 81 00 01       ; add r1 0 1       ; mov r1 1     ; r1 = 1
+    72 82 10 10       ; mul r2 16 16                    ; r2 = 256 (buffer size)
+    78 83 8D FC       ; ldw r3 rfp -4                   ; r3 = input_file
+
+    ; call fread()
+    7C 8A <fread   ; ims ra <fread
+    7C 8A >fread   ; ims ra >fread
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if fread() returned 0, assume it's end-of-file
+    7E 80 &add_done   ; jz r0 &add_done
+
+    ; TODO check the buffer for %, error if found
+
+    ; prepare args for fwrite()
+    70 82 00 80            ; add r2 0 r0   ; mov r2 r0   ; r2 = bytes read from fread()
+    7C 8A <buffer          ; ims ra <buffer
+    7C 8A >buffer          ; ims ra >buffer
+    78 80 8E 8A            ; ldw r0 rpp ra               ; r0 = buffer
+    70 81 00 01            ; add r1 0 1    ; mov r1 1    ; r1 = 1
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 83 8E 8A            ; ldw r3 rpp ra               ; r3 = output_file
+
+    ; call fwrite()
+    7C 8A <fwrite  ; ims ra <fwrite
+    7C 8A >fwrite  ; ims ra >fwrite
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop
+    7E 00 &add_loop
+
+:add_done
+
+
+    ; always write an extra newline (in case the file ends in a comment without
+    ; a trailing newline)
+
+    ; prepare args for fputc()
+    70 80 00 0A            ; add r0 0 '0A         ; r0 = '\n'
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 81 8E 8A            ; ldw r1 rpp ra        ; r1 = output_file
+
+    ; call fputc('\n', output_file)
+    7C 8A <fputc   ; ims ra <fputc
+    7C 8A >fputc   ; ims ra >fputc
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void write_metadata(const char* filename);
+; ==========================================================
+; Writes the archive info line for the given filename to the output.
+;
+; - filename: rfp-4
+; ==========================================================
+
+=write_metadata
+    ; no stack frame
+
+    ; preserve filename
+    71 8C 8C 04    ; sub rsp rsp 4    ; push r1
+    79 80 00 8C    ; stw r0 0 rsp     ; ...
+
+    ; prepare args for fputc()
+    70 80 00 25            ; add r0 0 "%"         ; r0 = '%'
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 81 8E 8A            ; ldw r1 rpp ra        ; r1 = output_file
+
+    ; call fputc('%', output_file)
+    7C 8A <fputc   ; ims ra <fputc
+    7C 8A >fputc   ; ims ra >fputc
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call strlen(filename)
+    78 80 00 8C        ; ldw r0 0 rsp      ; r0 = filename
+    7C 8A <strlen      ; ims ra <strlen
+    7C 8A >strlen      ; ims ra >strlen
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; prepare args for fwrite()
+    70 82 00 80            ; add r2 0 r0   ; mov r2 r0     ; r2 = strlen(filename)
+    78 80 00 8C            ; ldw r0 0 rsp                  ; r0 = filename
+    70 81 00 01            ; add r1 0 1    ; mov r1 1      ; r1 = 1
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 83 8E 8A            ; ldw r3 rpp ra                 ; r3 = output_file
+
+    ; call fwrite(filename, 1, strlen(filename), output_file)
+    7C 8A <fwrite  ; ims ra <fwrite
+    7C 8A >fwrite  ; ims ra >fwrite
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; prepare args for fputc()
+    70 80 00 0A            ; add r0 0 '0A         ; r0 = '\n'
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 81 8E 8A            ; ldw r1 rpp ra        ; r1 = output_file
+
+    ; call fputc('\n', output_file)
+    7C 8A <fputc   ; ims ra <fputc
+    7C 8A >fputc   ; ims ra >fputc
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return
+    70 8C 8C 04     ; add rsp rsp 4      ; popd (filename)
+    78 8F 00 8C     ; ldw rip 0 rsp      ; ret

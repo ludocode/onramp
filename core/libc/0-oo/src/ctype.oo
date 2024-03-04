@@ -1,0 +1,344 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; ==========================================================
+; int isupper(int c);
+; ==========================================================
+; Returns true if the given character is an uppercase letter (i.e. in the range
+; 'A'-'Z'), false otherwise.
+; ==========================================================
+
+=isupper
+    7D 8A 80 41   ; cmpu ra r0 "A"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isupper_false
+    7D 8A 80 5A   ; cmpu ra r0 "Z"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isupper_false
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isupper_false
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int islower(int c);
+; ==========================================================
+; Returns true if the given character is a lowercase letter (i.e. in the range
+; 'a'-'z'), false otherwise.
+; ==========================================================
+
+=islower
+    7D 8A 80 61   ; cmpu ra r0 "a"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__islower_false
+    7D 8A 80 7A   ; cmpu ra r0 "z"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__islower_false
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__islower_false
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isalpha(int c);
+; ==========================================================
+; Returns true if the given character is a letter, i.e. either `isupper(c)` or
+; islower(c)` is true.
+; ==========================================================
+
+=isalpha
+
+    ; check lowercase
+    7D 8A 80 61   ; cmpu ra r0 "a"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isalpha_not_lower
+    7D 8A 80 7A   ; cmpu ra r0 "z"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isalpha_not_lower
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isalpha_not_lower
+
+    ; check uppercase
+    7D 8A 80 41   ; cmpu ra r0 "A"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isalpha_not_upper
+    7D 8A 80 5A   ; cmpu ra r0 "Z"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isalpha_not_upper
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isalpha_not_upper
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isdigit(int c);
+; ==========================================================
+; Returns true if the given character is a decimal digit (i.e. in the range
+; '0'-'9'), false otherwise.
+; ==========================================================
+
+=isdigit
+    7D 8A 80 30   ; cmpu ra r0 "0"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isdigit_false
+    7D 8A 80 39   ; cmpu ra r0 "9"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isdigit_false
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isdigit_false
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isalnum(int c);
+; ==========================================================
+; Returns true if the given character is a letter or a decimal digit, i.e.
+; either `isalpha(c)` or isdigit(c)` is true.
+; ==========================================================
+
+=isalnum
+
+    ; check digit
+    7D 8A 80 30   ; cmpu ra r0 "0"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isalnum_not_digit
+    7D 8A 80 39   ; cmpu ra r0 "9"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isalnum_not_digit
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isalnum_not_digit
+
+    ; tail-call isalpha
+    7C 8A <isalpha    ; ims ra <isalpha
+    7C 8A >isalpha    ; ims ra >isalpha
+    70 8F 8E 8A       ; add rip rpp ra    ; jump
+
+
+
+; ==========================================================
+; int isxdigit(int c);
+; ==========================================================
+; Returns true if the given character is hexadecimal digit, i.e. it is a
+; numerical digit 0-9 or it is a letter in the range a-f or A-F.
+; ==========================================================
+
+=isxdigit
+
+    ; check digit
+    7D 8A 80 30   ; cmpu ra r0 "0"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isxdigit_not_number
+    7D 8A 80 39   ; cmpu ra r0 "9"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isxdigit_not_number
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isxdigit_not_number
+
+    ; check lowercase
+    7D 8A 80 61   ; cmpu ra r0 "a"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isxdigit_not_lower
+    7D 8A 80 66   ; cmpu ra r0 "f"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isxdigit_not_lower
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isxdigit_not_lower
+
+    ; check uppercase
+    7D 8A 80 41   ; cmpu ra r0 "A"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isxdigit_not_upper
+    7D 8A 80 46   ; cmpu ra r0 "F"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isxdigit_not_upper
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isxdigit_not_upper
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isspace(int c);
+; ==========================================================
+; Returns true if the given character is a whitespace character, false
+; otherwise.
+; ==========================================================
+
+=isspace
+    7D 8A 80 20   ; cmpu ra r0 " "  (space)
+    7E 8A &__isspace_true
+    7D 8A 80 09   ; cmpu ra r0 \t   (horizontal tab)
+    7E 8A &__isspace_true
+    7D 8A 80 0A   ; cmpu ra r0 \n   (line feed)
+    7E 8A &__isspace_true
+    7D 8A 80 0B   ; cmpu ra r0 \v   (vertical tab)
+    7E 8A &__isspace_true
+    7D 8A 80 0C   ; cmpu ra r0 \f   (form feed)
+    7E 8A &__isspace_true
+    7D 8A 80 0D   ; cmpu ra r0 \r   (carriage return)
+    7E 8A &__isspace_true
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isspace_true
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isblank(int c);
+; ==========================================================
+; Returns true if the given character is blank (i.e. space or horizontal tab),
+; false otherwise.
+; ==========================================================
+
+=isblank
+    7D 8A 80 20   ; cmpu ra r0 " "  (space)
+    7E 8A &__isblank_true
+    7D 8A 80 09   ; cmpu ra r0 \t   (horizontal tab)
+    7E 8A &__isblank_true
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isblank_true
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isprint(int c);
+; ==========================================================
+; Returns true if the given character is printable (i.e. in the range
+; 0x20-0x7E), false otherwise.
+; ==========================================================
+
+=isprint
+    7D 8A 80 20   ; cmpu ra r0 0x20
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isprint_false
+    7D 8A 80 7E   ; cmpu ra r0 0x7E
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isprint_false
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isprint_false
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int isgraph(int c);
+; ==========================================================
+; Returns true if the given character is graphical (i.e. in the range
+; 0x21-0x7E), false otherwise.
+; ==========================================================
+
+=isgraph
+    7D 8A 80 21   ; cmpu ra r0 0x21
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A &__isgraph_false
+    7D 8A 80 7E   ; cmpu ra r0 0x7E
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A &__isgraph_false
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:__isgraph_false
+
+    ; return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret

@@ -1,0 +1,30 @@
+=a
+aa
+
+=b
+bb bb
+
+=c
+cc cc cc
+
+=d
+dd dd dd dd
+
+=e
+ee ee ee ee ee
+
+=f
+ff ff ff ff ff ff
+
+=g
+11 11 11 11 11 11 11
+
+=h
+22 22 22 22 22 22 22 22
+
+=i_a ^a
+=i_b >b
+=i_c ^c
+=i_d >d
+=i_e ^e
+=i_f >f

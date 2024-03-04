@@ -1,0 +1,20 @@
+#line manual
+#line 1 "a.c"
+=__start
+1234
+#line 10
+56
+78
+#
+abcd
+#
+ef
+#line 15 "b.c"
+=foo
+1234
+#
+5678
+#line 4 "c.c"
+abcd
+#line 10 "d.c"
+ef

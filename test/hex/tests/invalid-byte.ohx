@@ -1,0 +1,9 @@
+;
+; some blank lines to also test line number in error messages
+;
+
+
+48 65 6C 6G 6C 6F  ; Hel*lo, 6G is an invalid hex byte
+
+
+#

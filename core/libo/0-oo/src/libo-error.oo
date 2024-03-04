@@ -1,0 +1,362 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This contains common error-handling routines for components of the Onramp
+; toolchain:
+;
+; - error_out_of_memory
+; - current_filename
+; - current_line
+; - set_current_filename()
+; - fatal()
+
+
+
+=error_out_of_memory
+    ; "Out of memory." '00
+    4f 75 74 20 6f 66 20 6d  65 6d 6f 72 79 2e 00
+  ;  O  u  t     o  f     m   e  m  o  r  y  . \0
+
+
+
+; ==========================================================
+; char* current_filename;
+; ==========================================================
+; The filename to print on fatal() calls. If it's null, no filename is printed.
+;
+; This is an allocated string. Use set_current_filename() to change it.
+; ==========================================================
+
+=current_filename
+    00 00 00 00
+
+
+
+; ==========================================================
+; int current_line;
+; ==========================================================
+; The line number to print on fatal() calls. If it's zero, or if
+; current_filename is null, no line number is printed.
+; ==========================================================
+
+=current_line
+    00 00 00 00
+
+
+
+; ==========================================================
+; void set_current_filename(const char* filename);
+; ==========================================================
+; Sets the source filename to be printed on errors (when fatal() is called.)
+; The filename is copied.
+;
+; NULL can be passed to clear the current filename.
+; ==========================================================
+
+=set_current_filename
+
+    ; push the given filename
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ^^^
+
+    ; get the old filename
+    7C 8A <current_filename         ; ims ra <current_filename
+    7C 8A >current_filename         ; ims ra >current_filename
+    78 80 8E 8A                        ; ldw r0 rpp ra
+
+    ; call free()
+    7C 8A <free     ; ims ra <free
+    7C 8A >free     ; ims ra >free
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; pop the given filename
+    78 80 00 8C     ; ldw r0 0 rsp     ; pop r0
+    70 8C 8C 04     ; add rsp rsp 4    ; ^^^
+
+    ; if the current filename is null, skip strdup
+    7E 80 &set_current_filename_skip_strdup   ; jz r0 &set_current_filename_skip_strdup
+
+    ; call strdup()
+    7C 8A <strdup   ; ims ra <strdup
+    7C 8A >strdup   ; ims ra >strdup
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; make sure the allocation didn't fail
+    7E 80 &set_current_filename_fail
+:set_current_filename_skip_strdup
+
+    ; store the new filename
+    7C 8A <current_filename     ; ims ra <current_filename
+    7C 8A >current_filename     ; ims ra >current_filename
+    79 80 8E 8A                 ; stw r0 rpp ra
+
+    ; done
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:set_current_filename_fail
+
+    ; memory allocation failed. clear the filename
+    7C 8A <current_filename   ; ims ra <current_filename
+    7C 8A >current_filename   ; ims ra >current_filename
+    79 00 8E 8A               ; stw 0 rpp ra
+
+    ; fatal error
+    7C 80 <error_out_of_memory   ; ims r0 <error_out_of_memory
+    7C 80 >error_out_of_memory   ; ims r0 >error_out_of_memory
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+
+
+; ==========================================================
+; void fatal_prefix(void);
+; ==========================================================
+; Prints the string prefix for a fatal() call.
+;
+; - The string "ERROR" is printed;
+; - If there is a current filename, it is printed;
+; - If there is also a non-zero line number, it is printed.
+;
+; TODO make this global, put it in headers, cci/1 needs to use it to implement fatal_2() etc.
+; ==========================================================
+
+@fatal_prefix
+
+; uncomment to get a stack trace instead of an error message
+;FF FF FF FF
+
+    ; get args for fputs("ERROR", stderr)
+    7C 80 <fatal_prefix_error    ; ims r0 <fatal_prefix_error
+    7C 80 >fatal_prefix_error    ; ims r0 >fatal_prefix_error
+    70 80 8E 80        ; add r0 rpp r0
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputs()
+    7C 8A <fputs    ; ims ra <fputs
+    7C 8A >fputs    ; ims ra >fputs
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; check if we have a filename
+    7C 80 <current_filename    ; ims r0 <current_filename
+    7C 80 >current_filename    ; ims r0 >current_filename
+    78 80 8E 80                ; ldw r0 rpp r0
+    7E 80 &fatal_prefix_colon  ; jz 80 &fatal_prefix_colon
+
+    ; we have a filename. get args for fputs(" at ", stderr)
+    7C 80 <fatal_prefix_at    ; ims r0 <fatal_prefix_at
+    7C 80 >fatal_prefix_at    ; ims r0 >fatal_prefix_at
+    70 80 8E 80        ; add r0 rpp r0
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputs()
+    7C 8A <fputs    ; ims ra <fputs
+    7C 8A >fputs    ; ims ra >fputs
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; get args for fputs(current_filename, stderr)
+    7C 80 <current_filename    ; ims r0 <current_filename
+    7C 80 >current_filename    ; ims r0 >current_filename
+    78 80 8E 80        ; ldw r0 rpp r0
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputs()
+    7C 8A <fputs    ; ims ra <fputs
+    7C 8A >fputs    ; ims ra >fputs
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; check if we have a line number
+    7C 80 <current_line        ; ims r0 <current_line
+    7C 80 >current_line        ; ims r0 >current_line
+    78 80 8E 80                ; ldw r0 rpp r0
+    7E 80 &fatal_prefix_colon  ; jz 80 &fatal_prefix_colon
+
+    ; we have a line number. get args for fputc(':', stderr)
+    70 80 00 3A        ; add r0 '00 ":"
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputc()
+    7C 8A <fputc  ; ims ra <fputc
+    7C 8A >fputc  ; ims ra >fputc
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; get args for fputd(current_line, stderr)
+    7C 80 <current_line    ; ims r0 <current_line
+    7C 80 >current_line    ; ims r0 >current_line
+    78 80 8E 80            ; ldw r0 rpp r0
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputd()
+    7C 8A <fputd    ; ims ra <fputd
+    7C 8A >fputd    ; ims ra >fputd
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+:fatal_prefix_colon
+
+    ; get args for fputc(':', stderr)
+    70 80 00 3A        ; add r0 '00 ":"
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputc()
+    7C 8A <fputc  ; ims ra <fputc
+    7C 8A >fputc  ; ims ra >fputc
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; get args for fputc(' ', stderr)
+    70 80 00 20        ; add r0 '00 " "
+    7C 81 <stderr      ; ims r1 <stderr
+    7C 81 >stderr      ; ims r1 >stderr
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; call fputc()
+    7C 8A <fputc  ; ims ra <fputc
+    7C 8A >fputc  ; ims ra >fputc
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; done
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+@fatal_prefix_error
+    ; "ERROR" '00
+    45 52 52 4f 52 00
+  ;  E  R  R  O  R \0
+
+@fatal_prefix_at
+    ; " at " '00
+    20 61 74 20 00
+  ;     a  t    \0
+
+
+
+; ==========================================================
+; [[noreturn]] void fatal(const char* message);
+; ==========================================================
+; Prints a fatal error at the current file and line and exits.
+;
+; If there is no current filename, this skips printing location information.
+; ==========================================================
+
+=fatal
+
+    ; store the message
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ^^^
+
+    ; call fatal_prefix()
+    7C 8A <fatal_prefix    ; ims ra <fatal_prefix
+    7C 8A >fatal_prefix    ; ims ra >fatal_prefix
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; get args for fputs(message, stderr)
+    78 80 8C 00      ; ldw r0 rsp '00    ; pop r0
+    70 8C 8C 04      ; add rsp rsp '04   ; ^^^
+    7C 81 <stderr    ; ims r1 <stderr
+    7C 81 >stderr    ; ims r1 >stderr
+    78 81 8E 81      ; ldw r1 rpp r1
+
+    ; call fputs()
+    7C 8A <fputs    ; ims ra <fputs
+    7C 8A >fputs    ; ims ra >fputs
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; get args for fputc('\n', stderr)
+    70 80 00 0A   ; add r0 '00 '0A
+    7C 81 <stderr    ; ims r1 <stderr
+    7C 81 >stderr    ; ims r1 >stderr
+    78 81 8E 81      ; ldw r1 rpp r1
+
+    ; call fputc()
+    7C 8A <fputc  ; ims ra <fputc
+    7C 8A >fputc  ; ims ra >fputc
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; uncomment to get a stack trace from the debugger
+    ;FF FF FF FF
+
+    ; tail-call _Exit(1)
+    70 80 00 01   ; add r0 0 1      ; mov r0 1
+    7C 8A <_Exit  ; ims ra <_Exit
+    7C 8A >_Exit  ; ims ra >_Exit
+    70 8F 8E 8A   ; add rip rpp ra    ; jump

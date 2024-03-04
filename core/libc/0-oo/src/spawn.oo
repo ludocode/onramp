@@ -1,0 +1,107 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; ==========================================================
+; int __onramp_spawn(
+;         const char* executable,
+;         const char* working_directory,
+;         const char** arguments,
+;         const char** environment,
+;         int stdin_fd,
+;         int stdout_fd,
+;         int stderr_fd);
+; ==========================================================
+; Runs an Onramp executable as a child process within this VM.
+; ==========================================================
+
+;=__onramp_spawn
+    ; TODO
+    ; - call malloc() for process info table, fill most of it out
+    ; - warn here that we don't bother to copy arguments and environment (we should to allow child process to change them, final stage will do it)
+    ; - open the file
+    ; - call __malloc_largest for process memory
+    ; - read the file into the process memory, set break
+    ; - close it
+    ; - note that we don't need to look for FILEs to flush because they're unbuffered
+    ; - push a return address to the stack
+    ; - jump to the program
+    ;FF
+
+
+
+; TODO above doc is wrong, args are pit, start, end
+
+=__onramp_spawn
+
+    ; switch stacks
+    70 8A 8C 00    ; add ra rsp 0      ; mov ra rsp
+    70 8C 82 00    ; add rsp r2 0      ; mov rsp r2
+
+    ; store the old stack, frame and program pointers
+    71 8C 8C 0C    ; sub rsp rsp 12
+    79 8A 8C 00    ; stw ra rsp 0
+    79 8D 8C 04    ; stw rfp rsp 4
+    79 8E 8C 08    ; stw rpp rsp 8
+
+    ; change the program pointer
+    70 8E 81 00    ; add rpp r1 0    ; mov rpp r1
+
+    ; Our method of exiting programs is rather terrible at the moment. The
+    ; child program just jumps to the address in the PIT without having to fix
+    ; up the stack pointer or anything else. We therefore have no reasonable
+    ; way of recovering our state; we can't even store it in global variables
+    ; because we can't resolve them without restoring rpp.
+    ;
+    ; Until this is fixed, we're going to do this hack where we stash the rsp
+    ; at a rip-relative address within this symbol.
+    70 8A 00 00                 ; add ra 0 0
+    7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
+    77 8A 8A 1E                 ; ror ra ra 30   (convert words to bytes)
+    70 8A 8A 8F                 ; add ra ra rip
+    79 8C 8A F8                 ; stw rsp ra -8
+
+    ; store the return address (after the jump)
+    70 8A 8F 08    ; add ra rip 8
+    79 8A 80 08    ; stw ra r0 8
+
+    ; jump!
+    70 8F 81 00    ; add rip r1 0    ; mov rip r1
+
+    ; hack to recover rsp
+    70 8A 00 00                 ; add ra 0 0
+    7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
+    77 8A 8A 1E                 ; ror ra ra 30   (convert words to bytes)
+    70 8A 8A 8F                 ; add ra ra rip
+    78 8C 8A F8                 ; ldw rsp ra -8
+
+    ; restore the old stack, frame and program pointers
+    78 8E 8C 08    ; ldw rpp rsp 8
+    78 8D 8C 04    ; ldw rfp rsp 4
+    78 8C 8C 00    ; ldw rsp rsp 0
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+:__onramp_spawn_rsp
+    FF FF FF FF

@@ -1,0 +1,36 @@
+@0x00 =_start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info vector in r9
+    70 89 80 00   ; add r9 r0 0
+
+    ; get the output file descriptor
+    70 8A 89 10   ; add ra r9 16  (output stream handle)
+    78 80 8A 00   ; ldw r0 ra 0
+
+    ; output("Hello world!")
+    70 81 8E 40   ; add r1 rpp 0x40   ; set output buffer parameter ("Hello world!")
+    70 82 0D 00   ; add r2 12 0       ; set output length parameter (12)
+    7F 13 00 00   ; sys write 0 0
+
+    ; get the exit address
+    70 8A 89 08   ; add ra r9 8  (exit address)
+    78 8A 8A 00   ; ldw ra ra 0
+
+    ; exit(0)
+    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
+    70 8F 8A 00   ; add rip ra 0      ; jump to exit address
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+@0x40 =hello_world
+    48 65 6c 6c 6f  ; Hello
+    20              ; <space>
+    77 6f 72 6c 64  ; world
+    21              ; !
+    0a              ; \n

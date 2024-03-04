@@ -1,0 +1,11 @@
+; start of the file
+@0x0 hello
+48 65 6c 6c 6f  ; Hello
+20              ; <space>
+
+# another comment
+@0x6 world
+    776F726C64      # world
+	21              # !
+
+@0xC end

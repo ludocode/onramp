@@ -1,0 +1,972 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the Onramp hex tool for native x86_64 Linux.
+;
+; This tool does not implement address assertions, instead treating them as
+; comments. It implements most other checks including invalid characters and
+; improper usage. It provides reasonable error messages but without line
+; numbers.
+;
+; It is implemented directly in hexadecimal machine code in an ELF executable.
+; It can be converted with any Onramp hex tool or any hexadecimal-to-binary
+; converter that strips line comments (`;`, `#` and `@`.) e.g.:
+;
+;     sed 's/[;#@].*//' | xxd -r -p
+;
+; This tool is self-hosting.
+
+
+
+; See docs/coding-without-labels.md for implementation tips.
+;
+; This implementation currently does a system call to read and write each
+; individual byte. It's slow but not noticeably so. It could be modified to use
+; buffers easily enough but there's probably no point.
+
+
+
+; Virtual memory is divided into three sections:
+;
+; - Program code at 0x400000
+; - Read-only data at 0x500000
+; - Read-write data (initially zero) at 0x600000
+;
+; The file data is loaded into the first two segments at addresses offset by
+; their position within the executable. For example, the error string "Failed
+; to open input file" is at 0x190 within this file so it is at 0x500190 in
+; virtual memory.
+
+;   global variables table:
+; 0x600000 input_filename
+; 0x600008 output_filename
+; 0x600010 input_fd
+; 0x600018 output_fd
+
+;   string table:
+; 0x500100 "Usage: hex <input> -o <output>\n"
+; 0x500120 "ERROR: Expected argument -o followed by output filename.\n"
+; 0x500160 "ERROR: Incorrect number of arguments.\n"
+; 0x500190 "ERROR: Failed to open input file.\n"
+; 0x5001C0 "ERROR: Failed to open output file.\n"
+; 0x5001F0 "ERROR: Failed to read from input file.\n"
+; 0x500220 "ERROR: Failed to write to output file.\n"
+; 0x500250 "ERROR: Invalid or truncated hexadecimal.\n"
+
+;   function table:
+; 0x400300 _start
+; 0x400330 strlen
+; 0x400350 print_error
+; 0x400380 exit
+; 0x400390 exit_error
+; 0x4003D0 parse_args
+; 0x400480 open_files
+; 0x400510 write_byte
+; 0x400550 read_byte
+; 0x4005B0 read_byte_or_done
+; 0x4005E0 hex_to_value
+; 0x400640 parse_hex_byte
+; 0x4006B0 parse_token
+
+
+
+; ELF Header
+
+@0x00
+
+    7F 45 4C 46   ; "ELF" magic header
+    02            ; 64-bit
+    01            ; Little-endian
+    01            ; Version 1
+    00            ; SysV ABI (unused by Linux)
+    00            ; ABI Version (ignored)
+
+    00 00 00 00 00 00 00   ; Padding
+
+@0x10
+
+    02 00         ; type: Executable
+    3E 00         ; machine: x86_64
+    01 00 00 00   ; version: 1 again
+
+    00 03 40 00 00 00 00 00   ; Entry point: 0x400300 (address of _start)
+
+@0x20
+
+    40 00 00 00 00 00 00 00   ; Offset of the first program header: 0x40
+    00 00 00 00 00 00 00 00   ; Offset of the first section header: n/a
+
+@0x30
+
+    00 00 00 00   ; Processor-specific flags: n/a
+    40 00         ; ELF header size: Always 64 for 64-bit
+
+    ; We have 3 program headers describing our virtual memory segments.
+    38 00         ; Program header entry size: Always 0x38
+    03 00         ; Number of program header entries: 3 (see below)
+
+    ; We have no sections.
+    40 00         ; Section header entry size: Always 0x40
+    00 00         ; Number of section entries: 0
+    00 00         ; Index of section containing section names: n/a
+
+@0x40
+
+
+
+; We define three program headers:
+;
+;   - text (code) segment, read-execute, at 0x400000
+;   - rodata (strings) segment, read-only, at 0x500000
+;   - bss (global variables) segment, read-write (zero), at 0x600000
+;
+; The first two have data loaded into them from this file. The third is
+; initially zero.
+
+; Program code.
+; We map this to 0x400000 plus its address in this file.
+@0x40 program header -- text
+    01 00 00 00  ; segment type: loadable
+    05 00 00 00  ; segment dependent flags (read==4, execute==1)
+    00 03 00 00 00 00 00 00  ; offset within the file
+    00 03 40 00 00 00 00 00  ; virtual address in memory
+    00 03 40 00 00 00 00 00  ; physical address in memory (ignored)
+    20 04 00 00 00 00 00 00  ; size of the segment in the file
+    20 04 00 00 00 00 00 00  ; size of the segment in memory
+    00 10 00 00 00 00 00 00  ; required alignment
+@0x78
+
+
+; Constant data (strings, etc.)
+; We map it to 0x500000 plus its address in this file.
+@0x78 program header -- rodata
+    01 00 00 00  ; segment type: loadable
+    04 00 00 00  ; segment dependent flags (read==4)
+    00 01 00 00 00 00 00 00  ; offset within the file
+    00 01 50 00 00 00 00 00  ; virtual address in memory
+    00 01 50 00 00 00 00 00  ; physical address in memory (ignored)
+    00 02 00 00 00 00 00 00  ; size of the segment in the file
+    00 02 00 00 00 00 00 00  ; size of the segment in memory
+    00 10 00 00 00 00 00 00  ; required alignment
+@0xB0
+
+
+; Space for storing global variables. starts at 0x600000, one 4k page, not
+; mapped to anything in the file.
+@0xB0 program header -- bss
+    01 00 00 00  ; segment type: loadable
+    06 00 00 00  ; segment dependent flags (read==4, write==2)
+    00 00 00 00 00 00 00 00  ; offset within the file
+    00 00 60 00 00 00 00 00  ; virtual address in memory
+    00 00 60 00 00 00 00 00  ; physical address in memory (ignored)
+    00 00 00 00 00 00 00 00  ; size of the segment in the file
+    00 10 00 00 00 00 00 00  ; size of the segment in memory
+    00 10 00 00 00 00 00 00  ; required alignment
+@0xE8
+
+
+
+; padding to line up strings at 0x100
+00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00
+
+
+
+; We put our strings first in the file.
+; Each string is padded to align to 16-byte boundary.
+
+@0x100 rodata section
+
+@0x100 "Usage: hex <input> -o <output>\n"
+    55 73 61 67 65 3a 20 68  65 78 20 3c 69 6e 70 75
+  ;  U  s  a  g  e  :     h   e  x     <  i  n  p  u
+    74 3e 20 2d 6f 20 3c 6f  75 74 70 75 74 3e 0a 00
+  ;  t  >     -  o     <  o   u  t  p  u  t  > \n
+
+@0x120 "ERROR: Expected argument -o followed by output filename.\n"
+    45 52 52 4f 52 3a 20 45  78 70 65 63 74 65 64 20
+  ;  E  R  R  O  R  :     E   x  p  e  c  t  e  d
+    61 72 67 75 6d 65 6e 74  20 2d 6f 20 66 6f 6c 6c
+  ;  a  r  g  u  m  e  n  t      -  o     f  o  l  l
+    6f 77 65 64 20 62 79 20  6f 75 74 70 75 74 20 66
+  ;  o  w  e  d     b  y      o  u  t  p  u  t     f
+    69 6c 65 6e 61 6d 65 2e  0a 00 00 00 00 00 00 00
+  ;  i  l  e  n  a  m  e  .  \n
+
+@0x160 "ERROR: Incorrect number of arguments.\n"
+    45 52 52 4f 52 3a 20 49  6e 63 6f 72 72 65 63 74
+  ;  E  R  R  O  R  :     I   n  c  o  r  r  e  c  t
+    20 6e 75 6d 62 65 72 20  6f 66 20 61 72 67 75 6d
+  ;  n  u  m  b  e  r     o   f     a  r  g  u  m  e
+    65 6e 74 73 2e 0a 00 00  00 00 00 00 00 00 00 00
+  ;  n  t  s  . \n
+
+@0x190 "ERROR: Failed to open input file.\n"
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 6f 70 65 6e 20 69 6e  70 75 74 20 66 69 6c 65
+  ;     o  p  e  n     i  n  p   u  t     f  i  l  e
+    2e 0a 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  . \n
+
+@0x1C0 "ERROR: Failed to open output file.\n"
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 6f 70 65 6e 20 6f 75  74 70 75 74 20 66 69 6c
+  ;     o  p  e  n     o  u   t  p  u  t     f  i  l
+    65 2e 0a 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  e  . \n
+
+@0x1F0 "ERROR: Failed to read from input file.\n"
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 72 65 61 64 20 66 72  6f 6d 20 69 6e 70 75 74
+  ;     r  e  a  d     f  r   o  m     i  n  p  u  t
+    20 66 69 6c 65 2e 0a 00  00 00 00 00 00 00 00 00
+  ;  f  i  l  e  . \n
+
+@0x220 "ERROR: Failed to write to output file.\n"
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 77 72 69 74 65 20 74  6f 20 6f 75 74 70 75 74
+  ;     w  r  i  t  e     t   o     o  u  t  p  u  t
+    20 66 69 6c 65 2e 0a 00  00 00 00 00 00 00 00 00
+  ;     f  i  l  e  . \n
+
+@0x250 "ERROR: Invalid or truncated hexadecimal.\n"
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 6f
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     o
+    72 20 74 72 75 6e 63 61  74 65 64 20 68 65 78 61
+  ;  r     t  r  u  n  c  a   t  e  d     h  e  x  a
+    64 65 63 69 6d 61 6c 2e  0a 00 00 00 00 00 00 00
+  ;  d  e  c  i  m  a  l  .  \n
+
+@0x280 end of rodata
+
+; Padding to line up text section at 0x300
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
+@0x300
+
+
+
+; The text section follows. Each function is padded to align to (at least) a
+; 16-byte boundary.
+
+
+
+; ==========================================================
+; _start
+; ==========================================================
+
+@0x300 _start
+    ; call parse_args
+    ; command-line arguments are at rsp. we pass them in rdi.
+    48 89 E7                ; mov rdi, rsp
+    B8 D0 03 40 00          ; mov rax, parse_args (0x4003D0)
+    FF D0                   ; call rax
+
+    ; call open_files
+    B8 80 04 40 00          ; mov rax, open_files (0x400480)
+    FF D0                   ; call rax
+
+    ; call parse_token, looping on it forever. it will exit the program when
+    ; the input runs out or an error occurs.
+;main_loop:
+    B8 B0 06 40 00          ; mov rax, parse_token (0x4006B0)
+    FF D0                   ; call rax
+    EB F7                   ; jmp main_loop (-9)
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90
+@0x330
+
+
+
+; ==========================================================
+; size_t strlen(char* str)
+; ==========================================================
+; Returns the length of the string, not including the null-terminator.
+;
+; This is the standard C strlen() function.
+;
+; params:
+;     - str: rdi
+; ==========================================================
+
+@0x330 strlen
+    B8 00 00 00 00    ; mov eax,0x0
+
+    ; - rdi points to the current position in the string
+    ; - rsi holds the current character
+    ; - rax accumulates the length of the string
+
+;strlen_loop:
+    48 0F B6 37       ; movzx rsi,byte [rdi]
+    48 83 FE 00       ; cmp rsi,byte +0x0
+    74 08             ; jz strlen_ret (+8)
+    48 FF C0          ; inc rax
+    48 FF C7          ; inc rdi
+    EB EE             ; jmp strlen_loop (-18)
+
+;strlen_ret:
+    C3                ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+@0x350
+
+
+
+; ==========================================================
+; void print_error(char* message)
+; ==========================================================
+; Prints the given message to stderr.
+;
+; params:
+;     - message: rdi
+; ==========================================================
+
+@0x350 print_error
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp,rsp
+
+    ; get the length of the string
+    57                    ; push rdi
+    B8 30 03 40 00        ; mov rax, strlen (0x400330)
+    FF D0                 ; call rax
+    5F                    ; pop rdi
+
+    ; call write()
+    48 89 FE                       ; mov rsi,rdi  ; string
+    48 89 C2                       ; mov rdx,rax  ; length
+    B8 01 00 00 00                 ; mov eax, 1   ; syscall: write (1)
+    BF 02 00 00 00                 ; mov edi, 2   ; file descriptor: stderr (2)
+    0F 05                          ; syscall
+
+    ; return
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x380
+
+
+
+; ==========================================================
+; void exit(int return_code)
+; ==========================================================
+; Exits with the given return code (0 for success, otherwise error.)
+;
+; params:
+;     return_code: rdi
+; ==========================================================
+
+@0x380 exit
+    ; we don't bother to set up a stack frame.
+
+    ; we also don't even bother to close files.
+
+    ; TODO the ABI says there's an atexit function in a starting register we're
+    ; supposed to call.
+
+    ; the return code is already in rdi. we just leave it there.
+    B8 3C 00 00 00                  ; mov eax, 0x3c  ; syscall: exit (60)
+    0F 05                           ; syscall
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90
+@0x390
+
+
+
+; ==========================================================
+; void exit_error(char* error_msg, bool usage)
+; ==========================================================
+; Exits the program, returning an error status and printing the given message
+; first, and optionally printing usage information.
+;
+; First the error message is printed; then, if usage is true, usage information
+; is printed; then the program exits with status 1.
+;
+; params:
+;     error_msg: rdi
+;     usage:     rsi
+; ==========================================================
+
+@0x390 exit_error
+    ; we don't bother to set up a stack frame.
+
+    ; the error message is already in rdi. pass it along to print_error.
+    56                    ; push rsi
+    B8 50 03 40 00        ; mov rax, print_error (0x400350)
+    FF D0                 ; call rax
+    5E                    ; pop rsi
+
+    ; if usage is false, skip printing usage
+    48 83 FE 00           ; cmp rsi, 0
+    74 0C                 ; je exit_error_skip_usage (+12)
+
+    ; print usage
+    BF 00 01 50 00        ; mov rdi, "Usage: ..." (0x500100)
+    B8 50 03 40 00        ; mov rax, print_error (0x400350)
+    FF D0                 ; call rax
+
+;exit_error_skip_usage:
+    ; call exit
+    BF 01 00 00 00        ; mov rdi, 1
+    B8 80 03 40 00        ; mov rax, exit (0x400380)
+    FF D0                 ; call rax
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x3D0
+
+
+
+; ==========================================================
+; void parse_args(void)
+; ==========================================================
+; Parses command-line arguments, storing the input filename and output filename
+; in global variables.
+;
+; Exits with an error message and usage information if the command-line
+; argument syntax is incorrect.
+;
+; params:
+;     - command-line arguments: rdi
+; ==========================================================
+
+@0x3D0 parse_args
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp,rsp
+
+    ; arguments are in rdi.
+    ; [rdi] is the argument count
+    ; [rdi+8] is the program name
+    ; [rdi+8*2] is the first argument
+    ; [rdi+8*3] is the second argument
+    ; [rdi+8*4] is the third argument
+
+    ; check that we have exactly three arguments (plus the app name)
+    48 8B 07          ; mov rax, [rdi]
+    48 83 F8 04       ; cmp rax, 4
+    74 11             ; jz check_first_arg (+17)
+
+    ; wrong number of arguments. error out.
+    BF 60 01 50 00          ; mov rdi, "ERROR: Incorrect..." (0x500160)
+    BE 01 00 00 00          ; mov rsi, 1 (print usage information)
+    B8 90 03 40 00          ; mov rax, exit_error (0x400390)
+    FF D0                   ; call rax
+
+;check_first_arg:
+    ; check if the first argument is -o
+    48 8B 77 10      ; mov rsi, [rdi+8*2]
+    80 3E 2D         ; cmp byte [rsi], '-'
+    75 2A            ; jne check_second_arg (+42)
+    48 FF C6         ; inc rsi
+    80 3E 6F         ; cmp byte [rsi], 'o'
+    75 22            ; jne check_second_arg (+34)
+    48 FF C6         ; inc rsi
+    80 3E 00         ; cmp byte [rsi], '\0'
+    75 1A            ; jne check_second_arg (+26)
+
+    ; found -o. set filenames and return.
+    ;     first argument is -o
+    ;     second argument is output filename
+    ;     third argument is input filename
+    48 8B 47 20                ; mov rax, [rdi+8*4]
+    48 89 04 25 00 00 60 00    ; mov [input_filename] (0x600000), rax
+    48 8B 47 18                ; mov rax, [rdi+8*3]
+    48 89 04 25 08 00 60 00    ; mov [output_filename] (0x600008), rax
+    5D                         ; pop rbp
+    C3                         ; ret
+
+;check_second_arg:
+    ; check if the second argument is -o
+    48 8B 77 18      ; mov rsi, [rdi+8*3]
+    80 3E 2D         ; cmp byte [rsi], '-'
+    75 2A            ; jne invalid_dash_o (+42)
+    48 FF C6         ; inc rsi
+    80 3E 6F         ; cmp byte [rsi], 'o'
+    75 22            ; jne invalid_dash_o (+34)
+    48 FF C6         ; inc rsi
+    80 3E 00         ; cmp byte [rsi], '\0'
+    75 1A            ; jne invalid_dash_o (+26)
+
+    ; found -o. set filenames and return.
+    ;     first argument is input filename
+    ;     second argument is -o
+    ;     third argument is output filename
+    48 8B 47 10                ; mov rax, [rdi+8*2]
+    48 89 04 25 00 00 60 00    ; mov [input_filename] (0x600000), rax
+    48 8B 47 20                ; mov rax, [rdi+8*4]
+    48 89 04 25 08 00 60 00    ; mov [output_filename] (0x600008), rax
+    5D                         ; pop rbp
+    C3                         ; ret
+
+;invalid_dash_o:
+    ; -o not found. error out.
+    BF 20 01 50 00           ; mov rdi, "ERROR: Expected argument -o..." (0x500120)
+    BE 01 00 00 00           ; mov rsi, 1 (print usage information)
+    B8 90 03 40 00           ; mov rax, exit_error (0x400390)
+    FF D0                    ; call rax
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+@0x480
+
+
+
+; ==========================================================
+; void open_files(void)
+; ==========================================================
+; Opens input and output files.
+;
+; Filenames and file descriptors are in global variables.
+;
+; If any errors occur, the program exits with an error message.
+; ==========================================================
+
+@0x480 open_files
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp,rsp
+
+    ; open input file
+    B8 02 00 00 00           ; mov eax, 0x2         ; syscall: open (2)
+    48 8B 3C 25 00 00 60 00  ; mov rdi, [0x600000]  ; input filename
+    BE 00 00 00 00           ; mov esi, 0x0         ; read-only (O_RDONLY)
+    0F 05                    ; syscall
+    48 89 04 25 10 00 60 00  ; mov [0x600010], rax  ; store input fd
+
+    ; check for errors
+    48 83 F8 00                    ; cmp rax, byte +0x0
+    7D 11                          ; jnl open_output (+17)
+
+    ; error, exit with message
+    BF 90 01 50 00          ; mov rdi, "ERROR: Failed to open input file\n" (0x500190)
+    BE 00 00 00 00          ; mov rsi, 0 (don't print usage information)
+    B8 90 03 40 00          ; mov rax, exit_error (0x400390)
+    FF D0                   ; call rax
+
+;open_output:
+    ; open output file
+    B8 02 00 00 00           ; mov eax, 0x2         ; syscall: open (2)
+    48 8B 3C 25 08 00 60 00  ; mov rdi, [0x600008]  ; output filename
+    BE 41 02 00 00           ; mov esi, 577         ; O_CREAT|O_WRONLY|O_TRUNC
+    BA A4 01 00 00           ; mov edx, 0o644       ; S_IRUSR|S_IWUSR|S_IRGRP|S_IROTH
+    0F 05                    ; syscall
+    48 89 04 25 18 00 60 00  ; mov [0x600018], rax  ; store output fd
+
+    ; check for errors
+    48 83 F8 00                    ; cmp rax, byte +0x0
+    7D 11                          ; jnl open_files_return (+17)
+
+    ; error, exit with message
+    BF C0 01 50 00           ; mov rdi, "ERROR: Failed to open output file\n" (0x5001C0)
+    BE 00 00 00 00           ; mov rsi, 0 (don't print usage information)
+    B8 90 03 40 00           ; mov rax, exit_error (0x400390)
+    FF D0                    ; call rax
+
+;open_files_return:
+    ; return
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x510
+
+
+; ==========================================================
+; void write_byte(char byte)
+; ==========================================================
+; Writes one byte to the output file.
+;
+; params:
+;     byte: rdi
+; ==========================================================
+
+@0x510 write_byte
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; push our byte to the stack so we can pass a pointer to it
+    57                             ; push rdi
+
+    ; do the write syscall
+    B8 01 00 00 00             ; mov eax, 1           ; syscall: write (1)
+    48 8B 3C 25 18 00 60 00    ; mov rdi, [0x600018]  ; output fd
+    48 89 E6                   ; mov rsi, rsp         ; buffer
+    BA 01 00 00 00             ; mov edx, 1           ; count
+    0F 05                      ; syscall
+
+    ; check for errors. it must return exactly 1 byte written.
+    48 83 F8 01                    ; cmp rax, 1
+    74 11                          ; je write_byte_return (+17)
+
+    ; error. exit with error message
+    BF E3 20 02 50            ; mov edi, "ERROR: Failed to write..." (0x500220)
+    BE 00 00 00 00            ; mov rsi, 0 (don't print usage information)
+    B8 E3 90 03 40            ; mov eax, exit_error (0x400390)
+    FF D0                     ; call rax
+
+;write_byte_return:
+    ; return
+    5F                             ; pop rdi
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90
+@0x550
+
+
+
+; ==========================================================
+; char read_byte(void)
+; ==========================================================
+; Reads one byte from the input file.
+; ==========================================================
+
+@0x550 read_byte
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; we'll read our byte onto the stack, but we want to keep it aligned so we
+    ; push a full register. rsp works.
+    54                ; push rsp
+
+    ; do the read syscall
+    B8 00 00 00 00             ; mov eax, 0           ; syscall: read (0)
+    48 8B 3C 25 10 00 60 00    ; mov rdi, [0x600010]  ; input fd
+    48 89 E6                   ; mov rsi, rsp         ; buffer
+    BA 01 00 00 00             ; mov edx, 1           ; count
+    0F 05                      ; syscall
+
+    ; check for errors
+    48 83 F8 00                    ; cmp rax, 0
+    7D 11                          ; jnl read_byte_ok (+17)
+
+    ; error. exit with error message
+    BF E3 F0 01 50            ; mov edi, "ERROR: Failed to read..." (0x5001F0)
+    BE 00 00 00 00            ; mov rsi, 0 (don't print usage information)
+    B8 E3 90 03 40            ; mov eax, exit_error (0x400390)
+    FF D0                     ; call rax
+
+;read_byte_ok:
+    ; check for end of input
+    ; TODO this doesn't make sense, we're just checking for 0 again
+    48 83 F8 00                    ; cmp rax, 0
+    75 09                          ; jne read_byte_valid (+9)
+
+    ; end_of_input, set return value to -1
+    48 C7 C0 FF FF FF FF           ; mov rax,0xffffffffffffffff
+    EB 05                          ; jmp read_byte_return (+5)
+
+;read_byte_valid:
+    ; set return value to the byte we read
+    48 0F B6 04 24                 ; movzx rax,byte [rsp]
+
+;read_byte_return:
+    48 89 EC                       ; mov rsp, rbp
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90
+@0x5B0
+
+
+
+; ==========================================================
+; char read_byte_or_done(void)
+; ==========================================================
+; Reads one byte from the input file, exiting with status 0 if we've reached
+; the end of the file.
+; ==========================================================
+
+@0x5B0
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp,rsp
+
+    ; call read_byte
+    B8 50 05 40 00                 ; mov eax, read_byte (0x400550)
+    FF D0                          ; call rax
+
+    ; check if we've reached the end of the input
+    48 83 F8 00                    ; cmp rax, byte +0x0
+    7D 0C                          ; jnl read_byte_or_exit_return (+12)
+
+    ; end of input; exit with status code 0
+    BF 00 00 00 00                 ; mov edi, 0 (status code)
+    B8 80 03 40 00                 ; mov rax, exit (0x400380)
+    FF D0                          ; call rax
+
+    ; read_byte_or_exit_return:
+    ; return byte
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x5E0
+
+
+
+; ==========================================================
+; int hex_to_value(char a)
+; ==========================================================
+; Returns the value of the given hex character.
+;
+; Exits with an error if the given character is not hexadecimal.
+;
+; params:
+;     a: rdi
+; ==========================================================
+
+@0x5E0 hex_to_value
+    ; we don't bother to set up a stack frame.
+
+    ; check for decimals
+    48 89 F8       ; mov rax,rdi
+    48 83 F8 30    ; cmp rax, '0' (48)
+    7C 0B          ; jl hex_to_value_try_lowercase (+11)
+    48 83 F8 39    ; cmp rax, '9' (57)
+    7F 05          ; jg hex_to_value_try_lowercase (+5)
+    48 83 E8 30    ; sub rax, '0' (48)
+    C3             ; ret
+
+;hex_to_value_try_lowercase:
+    ; check for lowercase
+    48 83 F8 61    ; cmp rax, 'a' (97)
+    7C 0F          ; jl hex_to_value_try_uppercase (+15)
+    48 83 F8 66    ; cmp rax, 'f' (102)
+    7F 09          ; jg hex_to_value_try_uppercase (+9)
+    48 83 E8 61    ; sub rax, 'a'
+    48 83 C0 0A    ; add rax, 10
+    C3             ; ret
+
+;hex_to_value_try_uppercase:
+    ; check for uppercase
+    48 83 F8 41    ; cmp rax, 'A' (65)
+    7C 0F          ; jl hex_to_value_fail (+15)
+    48 83 F8 46    ; cmp rax, 'F' (70)
+    7F 09          ; jg hex_to_value_fail (+9)
+    48 83 E8 41    ; sub rax, 'A' (65)
+    48 83 C0 0A    ; add rax, 10
+    C3             ; ret
+
+;hex_to_value_fail:
+    ; failed to parse. exit with error.
+    BF 50 02 50 00   ; mov rdi, "ERROR: Invalid..." (0x500250)
+    BE 00 00 00 00   ; mov rsi, 0 (don't print usage information)
+    B8 90 03 40 00   ; mov rax, exit_error (0x400390)
+    FF D0            ; call rax
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x640
+
+
+
+; ==========================================================
+; int parse_hex_byte(char a)
+; ==========================================================
+; Parses two characters that form a hex byte, writing it to the output.
+;
+; The first byte is passed in as argument. The second is read from the input.
+;
+; Exits with an error if parsing fails.
+;
+; params:
+;     a: rsi
+; ==========================================================
+
+@0x640 parse_hex_byte
+
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp,rsp
+
+    ; parse hex, store it on the stack
+    ; char is already in rdi. pass it along.
+    B8 E0 05 40 00   ; mov eax, hex_to_value (0x4005E0)
+    FF D0            ; call rax
+    50               ; push rax
+
+    ; read next char, making sure it exists
+    B8 50 05 40 00   ; mov eax, read_byte (0x400550)
+    FF D0            ; call rax
+    48 83 F8 FF      ; cmp rax, -1
+    75 11            ; jne parse_hex_byte_read (+17)
+
+    ; hex byte is truncated. exit with error.
+    BF 50 02 50 00   ; mov edi, "ERROR: Invalid..." (0x500250)
+    BE 00 00 00 00   ; mov rsi, 0 (don't print usage information)
+    B8 90 03 40 00   ; mov eax, exit_error (0x400390)
+    FF D0            ; call rax
+
+;parse_hex_byte_read:
+    ; parse hex
+    48 89 C7         ; mov rdi, rax
+    B8 E0 05 40 00   ; mov eax, hex_to_value (0x4005E0)
+    FF D0            ; call rax
+
+    ; add up the hex values into rdi
+    5F               ; pop rdi
+    48 C1 E7 04      ; shl rdi, 4 (multiply by 16)
+    48 01 C7         ; add rdi, rax
+
+    ; write the byte
+    B8 10 05 40 00   ; mov rax, write_byte (0x400510)
+    FF D0            ; call rax
+
+    ; return
+    48 89 EC         ; mov rsp, rbp
+    5D               ; pop rbp
+    C3               ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+@0x6B0
+
+
+
+; ==========================================================
+; void parse_token(void)
+; ==========================================================
+; Performs one step of processing, reading and handling one hexadecimal byte,
+; whitespace character or comment line.
+;
+; This exits the program when the input runs out or when any error occurs.
+; ==========================================================
+
+@0x6B0 parse_token
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp,rsp
+
+    ; read a char, and exit if we've reached the end
+    B8 B0 05 40 00     ; mov rax, read_byte_or_done
+    FF D0              ; call rax
+
+    ; We've wrapped this function in a loop so that we can parse with a series
+    ; of independent blocks with early returns. Each jump is therefore kept
+    ; contained within its block. This lets us edit or re-order the blocks
+    ; without breaking other relative jumps.
+
+    ; handle whitespace
+    48 83 F8 20   ; cmp rax, ' ' (32)
+    74 14         ; je whitespace (+20)
+    48 83 F8 09   ; cmp rax, '\t' (9)
+    74 0E         ; je whitespace (+14)
+    48 83 F8 0A   ; cmp rax, '\n' (10)
+    74 08         ; je whitespace (+8)
+    48 83 F8 0D   ; cmp rax, '\r'
+    74 02         ; je whitespace (+2)
+    EB 02         ; jmp not_whitespace (+2)
+;whitespace:
+    5D            ; pop rbp
+    C3            ; ret
+;not_whitespace:
+
+    ; handle comments
+    48 83 F8 3B             ; cmp rax, ';' (59)
+    74 0E                   ; je skip_comment (+14)
+    48 83 F8 23             ; cmp rax, '#' (35)
+    74 08                   ; je skip_comment (+8)
+    48 83 F8 40             ; cmp rax, '@' (64)
+    74 02                   ; je skip_comment (+2)
+    EB 17                   ; jmp not_a_comment (+23)
+;skip_comment:
+    B8 B0 05 40 00          ; mov rax, read_byte_or_done
+    FF D0                   ; call rax
+    48 83 F8 0A             ; cmp rax, '\n' (10)
+    74 08                   ; je end_of_comment (+8)
+    48 83 F8 0D             ; cmp rax, '\r' (13)
+    74 02                   ; je end_of_comment (+2)
+    EB EB                   ; jmp skip_comment (-21)
+;end_of_comment:
+    5D                      ; pop rbp
+    C3                      ; ret
+;not_a_comment:
+
+    ; otherwise it must be a hex byte. we handle this in a separate function
+    ; which includes all error handling.
+    48 89 C7             ; mov rdi, rax
+    B8 40 06 40 00       ; mov rax, parse_hex_byte (0x400640)
+    FF D0                ; call rax
+    5D                   ; pop rbp
+    C3                   ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90
+@0x720
+
+
+
+@0x720 end of text segment. This address must agree with the
+     ; sizes in the program header.

@@ -1,0 +1,7 @@
+; format indicator `~Onr~amp~   `
+7E 4F 6E 72   ; jz 79 29294
+7E 61 6D 70   ; jz 97 28781
+7E 20 20 20   ; jz 32 8224
+
+; the destination of add must be a register. this is invalid
+70 00 01 02

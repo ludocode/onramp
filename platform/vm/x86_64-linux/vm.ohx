@@ -1,0 +1,2025 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the Onramp Virtual Machine for native x86_64 Linux.
+;
+; It is implemented directly in hexadecimal machine code in an ELF executable.
+; It can be converted with any Onramp hex tool or any hexadecimal-to-binary
+; converter that strips line comments (`;`, `#` and `@`.) e.g.:
+;
+;     sed 's/[;#@].*//' vm.ohx | xxd -r -p > vm && chmod +x vm
+
+
+
+; Here's an overview of the implementation:
+;
+; The VM uses a 16 MB segment mapped at 0x1000000 for the VM heap. These
+; addresses are passed to the VM untranslated so the program can access any
+; memory from 0x1000000 to 0x1FFFFFF. Registers are stored as global variables
+; at 0x600000 through 0x60003C and open I/O handles are stored at 0x600040
+; through 0x60007C. Constants are at 0x500000 and the VM code is mapped at
+; 0x400000.
+;
+; Each function is given a fixed address, padded and aligned to a 16-byte
+; boundary. All function calls are performed by indirect jump: we load the
+; function's address into a register and then jump to it. This makes it easy to
+; edit functions and, if necessary, move them around in the file. Relative
+; jumps are used only within functions and they are structured to keep most
+; jumps short.
+;
+; The initialization process copies various data into the VM heap to make it
+; accessible to the program. The start of the VM heap is used as the process
+; info table. The VM copies command-line arguments, environment variables,
+; working directory and other things needed by the program into the VM heap,
+; followed by the program bytecode. Finally it finishes filling out the process
+; info table and the initial register and handle states and then starts running
+; the program.
+;
+; The run loop loads the current instruction and increments the instruction
+; pointer. It then checks the opcode and uses a mask to determine whether it
+; should pre-process the arguments. 11 of the 16 opcodes share the same format
+; so their argument processing is shared. Then a jump table is used to handle
+; the opcode (see opcode_table.) Some of the opcodes call out to standalone
+; functions.
+;
+; Each syscall is implemented with a standalone function. Syscalls are
+; dispatched by a function call table stored in rodata (see syscall_table.)
+
+
+
+; Virtual memory is divided into four sections:
+;
+; - Program code at 0x400000
+; - Read-only data at 0x500000
+; - Read-write data (initially zero) at 0x600000
+; - The VM heap (initially zero) at 0x1000000 (note the extra 0)
+;
+; The file data is loaded into the first two segments at addresses offset by
+; their position within the executable. For example, the error string "ERROR: A
+; program name is required" is at 0x200 within this file so it is at 0x500200
+; in virtual memory.
+;
+;   global variables table
+; 0x600000 registers (64 bytes)
+;     0x600000 r0   0x600004 r1   0x600008 r2   0x60000C r3
+;     0x600010 r4   0x600014 r5   0x600018 r6   0x60001C r7
+;     0x600020 r8   0x600024 r9   0x600028 ra   0x60002C rb
+;     0x600030 rsp  0x600034 rfp  0x600038 rpp  0x60003C rip
+; 0x600040 io handles (4x16==64 bytes)
+;     the index in the array is the I/O handle passed to the program.
+;     the value in the array is the Linux file descriptor.
+;
+;   vm heap
+; 0x1000000 start of heap
+;     0x1000000 process info table
+;         0x1000000 version (0)
+;         0x1000004 program break
+;         0x1000008 exit address
+;         0x100000C input stream handle
+;         0x1000010 output stream handle
+;         0x1000014 error stream handle
+;         0x1000018 command-line arguments
+;         0x100001C environment variables
+;         0x1000020 working directory
+; 0x1FFFFFF last byte in heap (16 MB)
+;
+;   function table
+; 0x400500 _start
+; 0x400570 print_error
+; 0x4005A0 fatal
+; 0x4005D0 exit
+; 0x4005E0 strlen
+; 0x400600 load_args_env
+; 0x400680 strcpy
+; 0x4006A0 copy_strings
+; 0x400770 load_program
+; 0x400800 check_buffer
+; 0x400810 check_string
+; 0x400820 setup_halt
+; 0x400870 load_working_directory
+; 0x4008D0 initialize
+; 0x400980 check_byte
+; 0x4009B0 check_word
+; 0x4009F0 parse_register
+; 0x400A30 parse_mix
+; 0x400A80 run_instruction
+; 0x400B40 opcode_table
+; 0x400D40 store_helper
+; 0x400D90 opcode_jz
+; 0x400DC0 opcode_sys
+; 0x400E20 syscall_halt
+; 0x400E30 parse_io_handle
+; 0x400E60 syscall_write
+;
+;   rodata table
+; 0x500200 "ERROR: A program name is required.\n\0"
+; 0x500230 "ERROR: Failed to read program.\n\0"
+; 0x500250 "ERROR: An internal error has occurred.\n\0"
+; 0x500280 "ERROR: Failed to get the working directory.\n\0"
+; 0x5002B0 "ERROR: The instruction pointer is invalid.\n\0"
+; 0x5002E0 "ERROR: Invalid instruction.\n\0"
+; 0x500300 "ERROR: Invalid syscall.\n\0"
+; 0x500320 "ERROR: A memory access is invalid.\n\0"
+; 0x500350 "ERROR: Invalid register.\n\0"
+; 0x500370 "ERROR: Invalid mix-type argument.\n\0"
+; 0x5003A0 "ERROR: Invalid I/O handle.\n\0"
+; 0x500480 syscall_table
+
+
+
+; ELF Header
+
+@0x00
+
+    7F 45 4C 46   ; "ELF" magic header
+    02            ; 64-bit
+    01            ; Little-endian
+    01            ; Version 1
+    00            ; SysV ABI (unused by Linux)
+    00            ; ABI Version (ignored)
+
+    00 00 00 00 00 00 00   ; Padding
+
+@0x10
+
+    02 00         ; type: Executable
+    3E 00         ; machine: x86_64
+    01 00 00 00   ; version: 1 again
+
+    00 05 40 00 00 00 00 00   ; Entry point: 0x400500 (address of _start)
+
+@0x20
+
+    40 00 00 00 00 00 00 00   ; Offset of the first program header: 0x40
+    00 00 00 00 00 00 00 00   ; Offset of the first section header: n/a
+
+@0x30
+
+    00 00 00 00   ; Processor-specific flags: n/a
+    40 00         ; ELF header size: Always 64 for 64-bit
+
+    ; We have 4 program headers describing our virtual memory segments.
+    38 00         ; Program header entry size: Always 0x38
+    04 00         ; Number of program header entries: 4 (see below)
+
+    ; We have no sections.
+    40 00         ; Section header entry size: Always 0x40
+    00 00         ; Number of section entries: 0
+    00 00         ; Index of section containing section names: n/a
+
+@0x40
+
+
+
+; We define four program headers:
+;
+;   - text (code) segment, read-execute, at 0x400000
+;   - rodata (strings) segment, read-only, at 0x500000
+;   - bss (global variables) segment, read-write (zero), at 0x600000
+;   - bss (vm heap) segment, read-write (zero), at 0x1000000 (note the extra 0)
+;
+; The first two have data loaded into them from this file. The other two are
+; initially zero.
+;
+; The VM heap is in its own bss segment just for convenience.
+
+; Program code.
+; We map this to 0x400000 plus its address in this file.
+@0x40 program header -- text
+    01 00 00 00  ; segment type: loadable
+    05 00 00 00  ; segment dependent flags (read==4, execute==1)
+    00 05 00 00 00 00 00 00  ; offset within the file: 0x500
+    00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
+    00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
+    00 00 01 00 00 00 00 00  ; size of the segment in the file: 0x1000 (TODO)
+    00 00 01 00 00 00 00 00  ; size of the segment in memory: 0x1000 (TODO)
+    00 10 00 00 00 00 00 00  ; required alignment: 4 KB
+@0x78
+
+; Constant data (strings, etc.)
+; We map it to 0x500000 plus its address in this file.
+@0x78 program header -- rodata
+    01 00 00 00  ; segment type: loadable (1)
+    04 00 00 00  ; segment dependent flags (read==4)
+    00 02 00 00 00 00 00 00  ; offset within the file: 0x200
+    00 02 50 00 00 00 00 00  ; virtual address in memory: 0x500200
+    00 02 50 00 00 00 00 00  ; physical address in memory (ignored)
+    00 03 00 00 00 00 00 00  ; size of the segment in the file: 0x300
+    00 03 00 00 00 00 00 00  ; size of the segment in memory: 0x300
+    00 10 00 00 00 00 00 00  ; required alignment: 4 KB
+@0xB0
+
+; Space for storing global variables. starts at 0x600000, one 4k page, not
+; mapped to anything in the file.
+@0xB0 program header -- bss (globals)
+    01 00 00 00  ; segment type: loadable
+    06 00 00 00  ; segment dependent flags (read==4, write==2)
+    00 00 00 00 00 00 00 00  ; offset within the file: 0
+    00 00 60 00 00 00 00 00  ; virtual address in memory: 0x600000
+    00 00 60 00 00 00 00 00  ; physical address in memory (ignored)
+    00 00 00 00 00 00 00 00  ; size of the segment in the file: 0 (n/a)
+    00 10 00 00 00 00 00 00  ; size of the segment in memory: 4 KB
+    00 10 00 00 00 00 00 00  ; required alignment: 4 KB
+@0xE8
+
+; The VM heap. 16 MB at 0x1000000.
+@0xE8 program header -- bss (vm heap)
+    01 00 00 00  ; segment type: loadable
+    06 00 00 00  ; segment dependent flags (read==4, write==2)
+    00 00 00 00 00 00 00 00  ; offset within the file: 0
+    00 00 00 01 00 00 00 00  ; virtual address in memory: 0x1000000
+    00 00 00 01 00 00 00 00  ; physical address in memory (ignored)
+    00 00 00 00 00 00 00 00  ; size of the segment in the file: 0 (n/a)
+    00 00 00 01 00 00 00 00  ; size of the segment in memory: 16 MB
+    00 10 00 00 00 00 00 00  ; required alignment: 4 KB
+@0x120
+
+
+
+; padding to line up strings at 0x200
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+
+
+
+; We put our strings first in the file.
+; Each string is padded to align to 16-byte boundary.
+
+@0x200 rodata section
+
+@0x200 "ERROR: A program name is required.\n\0"
+    45 52 52 4f 52 3a 20 41  20 70 72 6f 67 72 61 6d
+  ;  E  R  R  O  R  :     A      p  r  o  g  r  a  m
+    20 6e 61 6d 65 20 69 73  20 72 65 71 75 69 72 65
+  ;     n  a  m  e     i  s      r  e  q  u  i  r  e
+    64 2e 0a 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  d  . \n \0
+
+@0x230 "ERROR: Failed to read program.\n\0"
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 72 65 61 64 20 70 72  6f 67 72 61 6d 2e 0a 00
+  ;     r  e  a  d     p  r   o  g  r  a  m  . \n \0
+
+@0x250 "ERROR: An internal error has occurred.\n\0"
+    45 52 52 4f 52 3a 20 41  6e 20 69 6e 74 65 72 6e
+  ;  E  R  R  O  R  :     A   n     i  n  t  e  r  n
+    61 6c 20 65 72 72 6f 72  20 68 61 73 20 6f 63 63
+  ;  a  l     e  r  r  o  r      h  a  s     o  c  c
+    75 72 72 65 64 2e 0a 00  00 00 00 00 00 00 00 00
+  ;  u  r  r  e  d  . \n \0
+
+@0x280 "ERROR: Failed to get the working directory.\n\0"
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 67 65 74 20 74 68 65  20 77 6f 72 6b 69 6e 67
+  ;     g  e  t     t  h  e      w  o  r  k  i  n  g
+    20 64 69 72 65 63 74 6f  72 79 2e 0a 00 00 00 00
+  ;     d  i  r  e  c  t  o   r  y  . \n \0
+
+@0x2B0 "ERROR: The instruction pointer is invalid.\n\0" ; TODO not used?
+    45 52 52 4f 52 3a 20 54  68 65 20 69 6e 73 74 72
+  ;  E  R  R  O  R  :     T   h  e     i  n  s  t  r
+    75 63 74 69 6f 6e 20 70  6f 69 6e 74 65 72 20 69
+  ;  u  c  t  i  o  n     p   o  i  n  t  e  r     i
+    73 20 69 6e 76 61 6c 69  64 2e 0a 00 00 00 00 00
+  ;  s     i  n  v  a  l  i   d  . \n \0
+
+@0x2E0 "ERROR: Invalid instruction.\n\0"
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 69
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     i
+    6e 73 74 72 75 63 74 69  6f 6e 2e 0a 00 00 00 00
+  ;  n  s  t  r  u  c  t  i   o  n  . \n \0
+
+@0x300 "ERROR: Invalid syscall.\n\0"
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 73
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     s
+    79 73 63 61 6c 6c 2e 0a  00 00 00 00 00 00 00 00
+  ;  y  s  c  a  l  l  . \n  \0
+
+@0x320 "ERROR: A memory access is invalid.\n\0"
+    45 52 52 4f 52 3a 20 41  20 6d 65 6d 6f 72 79 20
+  ;  E  R  R  O  R  :     A      m  e  m  o  r  y
+    61 63 63 65 73 73 20 69  73 20 69 6e 76 61 6c 69
+  ;  a  c  c  e  s  s     i   s     i  n  v  a  l  i
+    64 2e 0a 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  d  . \n \0
+
+@0x350 "ERROR: Invalid register.\n\0"
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 72
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     r
+    65 67 69 73 74 65 72 2e  0a 00 00 00 00 00 00 00
+  ;  e  g  i  s  t  e  r  .  \n \0
+
+@0x370 "ERROR: Invalid mix-type argument.\n\0"
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 6d
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     m
+    69 78 2d 74 79 70 65 20  61 72 67 75 6d 65 6e 74
+  ;  i  x  -  t  y  p  e      a  r  g  u  m  e  n  t
+    2e 0a 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  . \n \0
+
+@0x3A0 "ERROR: Invalid I/O handle.\n\0"
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 49
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     I
+    2f 4f 20 68 61 6e 64 6c  65 2e 0a 00 00 00 00 00
+  ;  /  O     h  a  n  d  l   e  . \n \0
+
+@0x3C0 end of strings
+
+; padding
+
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+
+; Our syscall table contains the low two bytes of the address of the syscall
+; function, i.e. the address in this file. The opcode_sys function adds
+; 0x400000 to the value.
+@0x480 syscall_table
+; system
+    20 0E  ; 0x00 halt (0xE20)
+    00 00  ; 0x01 time (not yet implemented)
+    ; 0x02-0x0F unassigned
+                00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+; i/o handles
+    00 00  ; 0x10 open (not yet implemented)
+    00 00  ; 0x11 close (not yet implemented)
+    00 00  ; 0x12 read (not yet implemented)
+    60 0E  ; 0x13 write (0xE60)
+    00 00  ; 0x14 seek (not yet implemented)
+    00 00  ; 0x15 tell (not yet implemented)
+    00 00  ; 0x16 truncate (not yet implemented)
+    00 00  ; 0x17 type (not yet implemented)
+    ; 0x18-0x1F unassigned
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+; filesystem
+    00 00  ; 0x20 stat (not yet implemented)
+    00 00  ; 0x21 rename (not yet implemented)
+    00 00  ; 0x22 symlink (not yet implemented)
+    00 00  ; 0x23 unlink (not yet implemented)
+    00 00  ; 0x24 chmod (not yet implemented)
+    00 00  ; 0x25 mkdir (not yet implemented)
+    00 00  ; 0x26 rmdir (not yet implemented)
+    ; 0x27-0x2F unassigned
+                                               00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+; freestanding
+    ; 0x30-0x3F unimplemented or unassigned
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+@0x500
+
+; end of rodata
+
+
+
+; The text section follows. Each function is padded to align to (at least) a
+; 16-byte boundary.
+
+
+
+; ==========================================================
+; _start
+; ==========================================================
+
+@0x500 _start
+    ; set up stack frame
+    48 89 E5                       ; mov rbp, rsp
+
+    ; call initialize
+    48 89 E7          ; mov rdi, rsp
+    B8 D0 08 40 00    ; mov eax, initialize (0x4008D0)
+    FF D0             ; call rax
+
+    ; go!
+;run_instruction_loop:
+    B8 80 0A 40 00    ; mov eax, run_instruction (0x400A80)
+    FF D0             ; call rax
+    EB F7             ; jmp run_instruction_loop (-9)
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90
+@0x570
+
+
+
+; ==========================================================
+; void print_error(char* message)
+; ==========================================================
+; Prints the given message to stderr.
+;
+; params:
+;     - message: rdi
+; ==========================================================
+
+@0x570 print_error
+    ; set up our stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; get the length of the string
+    57                             ; push rdi
+    B8 E0 05 40 00                 ; mov eax, strlen (0x4005E0)
+    FF D0                          ; call rax
+    5F                             ; pop rdi
+
+    ; call write()
+    48 89 FE                       ; mov rsi, rdi  ; string
+    48 89 C2                       ; mov rdx, rax  ; length
+    B8 01 00 00 00                 ; mov eax, 1    ; syscall: write (1)
+    BF 02 00 00 00                 ; mov edi, 2    ; file descriptor: stderr (2)
+    0F 05                          ; syscall
+
+    ; return
+    48 89 EC                       ; mov rsp, rbp
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90
+@0x5A0
+
+
+
+; ==========================================================
+; void fatal(char* error_msg)
+; ==========================================================
+; Prints the given error message and exits the VM with status 125.
+;
+; params:
+;     error_msg: rdi
+; ==========================================================
+
+@0x5A0 fatal
+    ; we don't bother to set up a stack frame.
+
+    ; the error message is already in rdi. pass it along to print_error.
+    56               ; push rsi
+    B8 70 05 40 00   ; mov eax, print_error (0x400570)
+    FF D0            ; call rax
+    5E               ; pop rsi
+
+    ; call exit(125)
+    BF 7D 00 00 00    ; mov edi, 125
+    B8 D0 05 40 00    ; mov eax, exit (0x4005D0)
+    FF D0             ; call rax
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+@0x5D0
+
+
+
+; ==========================================================
+; void exit(int return_code)
+; ==========================================================
+; Exits with the given return code (0 for success, otherwise error.)
+;
+; params:
+;     return_code: rdi
+; ==========================================================
+
+@0x5D0 exit
+    ; we don't bother to set up a stack frame.
+
+    ; we also don't even bother to close files.
+
+    ; TODO the ABI says there's an atexit function in a starting register we're
+    ; supposed to call.
+
+    ; the return code is already in rdi. we just leave it there.
+    B8 3C 00 00 00                  ; mov eax, 0x3c  ; syscall: exit (60)
+    0F 05                           ; syscall
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90
+@0x5E0
+
+
+
+; ==========================================================
+; size_t strlen(char* str)
+; ==========================================================
+; Returns the length of the string, not including the null-terminator.
+;
+; This is the standard C strlen() function.
+;
+; params:
+;     - str: rdi
+; ==========================================================
+
+@0x5E0 strlen
+    B8 00 00 00 00    ; mov eax,0x0
+
+    ; - rdi points to the current position in the string
+    ; - rsi holds the current character
+    ; - rax accumulates the length of the string
+
+;strlen_loop:
+    48 0F B6 37       ; movzx rsi, byte [rdi]
+    48 83 FE 00       ; cmp rsi, 0
+    74 08             ; jz strlen_ret (+8)
+    48 FF C0          ; inc rax
+    48 FF C7          ; inc rdi
+    EB EE             ; jmp strlen_loop (-18)
+;strlen_ret:
+    C3                ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+@0x600
+
+
+
+; ==========================================================
+; void load_args_env(void* stack_base)
+; ==========================================================
+; Loads command-line arguments and environment variables into the VM heap.
+;
+; - stack: the stack pointer address on program launch
+; ==========================================================
+
+@0x600 load_args_env
+    ; set up stack frame
+    55                ; push rbp
+    48 89 E5          ; mov rbp, rsp
+
+    ; store the stack base
+    57                ; push rdi
+
+    ; check that we have at least two arguments, the VM name plus the program
+    ; to run
+    48 8B 45 F8    ; mov rax, [rbp-8]
+    48 8B 00       ; mov rax, [rax]
+    48 83 F8 02    ; cmp rax, 2
+    7D 0C          ; jge load_args_env_ok (+12)    ; TODO compare unsigned
+
+    ; not enough args. bail
+    BF 00 02 50 00   ; mov edi, "ERROR: A program name..." (0x500200)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+
+;load_args_env_ok:
+    ; get a pointer to the command line arguments, skipping the VM name
+    48 8B 7D F8       ; mov rdi, [rbp-8]
+    48 83 C7 10       ; add rdi, 16
+
+    ; call copy_strings on them
+    B8 A0 06 40 00    ; mov eax, copy_strings (0x4006A0)
+    FF D0             ; call rax
+
+    ; put the result in the process info table
+    BF 18 00 00 01    ; mov edi, command-line args (0x1000018)
+    ;48 83 C7 04       ; add rdi, 4
+    89 07             ; mov [rdi], eax
+
+    ; get a pointer to the environment variables
+    48 8B 7D F8       ; mov rdi, [rbp-8]
+    48 8B 37          ; mov rsi, [rdi]  ; command-line argument count
+    48 83 C7 10       ; add rdi, 16
+    48 8D 3C F7       ; lea rdi, [rdi+rsi*8]
+
+    ; call copy_strings on them
+    B8 A0 06 40 00    ; mov eax, copy_strings (0x4006A0)
+    FF D0             ; call rax
+
+    ; put the result in the process info table
+    BF 1C 00 00 01    ; mov edi, environment variables (0x100001C)
+    ;48 83 C7 08       ; add rdi, 8
+    89 07             ; mov [rdi], eax
+
+    ; return
+    48 89 EC          ; mov rsp, rbp
+    5D                ; pop rbp
+    C3                ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90
+@0x680
+
+
+
+; ==========================================================
+; void* strcpy(void* dest, void* src)
+; ==========================================================
+; Copies src to dest, stopping after copying a null-terminator. Returns a
+; pointer to the null-terminator copied to the end of dest.
+;
+; params:
+; - dest: rdi
+; - src: rsi
+; ==========================================================
+
+@0x680 strcpy
+    ; we don't bother to set up a stack frame
+    48 31 C0            ; xor rax, rax
+
+;strcpy_loop:
+    8A 06               ; mov al, [rsi]
+    88 07               ; mov [rdi], al
+    48 83 F8 00         ; cmp rax, byte 0
+    74 08               ; jz strcpy_exit (+8)
+    48 FF C6            ; inc rsi
+    48 FF C7            ; inc rdi
+    EB EE               ; jmp strcpy (-18)
+;strcpy_exit:
+
+    ; return the address of the null terminator of the destination string
+    48 89 F8            ; mov rax, rdi
+    C3                  ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90
+@0x6A0
+
+
+
+; ==========================================================
+; char** copy_strings(char** strings)
+; ==========================================================
+; Copies a null-terminated array of strings into the VM heap, returning its
+; address.
+;
+; The strings are copied to the current break address, and the break address is
+; incremented past the newly copied strings.
+;
+; params:
+; - stack (rdi): the stack pointer address on program launch
+; vars:
+; - src_table (rbp-8)
+; - dest_table (rbp-16)
+; - current_src (rbp-24)
+; - break (rbp-32)
+; - current_dest (rbp-40)
+; ==========================================================
+
+@0x6A0 copy_strings
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; move our source string table to the stack
+    57                             ; push rdi    ; src_table
+
+    ; also preserve the current break, that's where our destination string
+    ; table will be.
+    B8 04 00 00 01  ; mov eax, program break (0x1000004)
+    8B 00           ; mov eax, [rax]
+    50              ; push rax    ; dest_table
+
+    ; push them again to be incremented in our copy loop
+    57              ; push rdi    ; current_src
+    50              ; push rax    ; break
+    50              ; push rax    ; current_dest
+
+    ; count how many args there are (including the null-terminator)
+    48 31 C0           ; xor rax, rax
+;copy_strings_count:
+    48 FF C0           ; inc rax
+    48 8B 37           ; mov rsi, [rdi]
+    48 83 FE 00        ; cmp rsi, 0
+    74 06              ; jz copy_strings_count_done (+6)
+    48 83 C7 08        ; add rdi, 8
+    EB EE              ; jmp copy_strings_count (-18)
+;copy_strings_count_done:
+
+    ; increment the break to reserve space for the array
+    48 8B 7D E0          ; mov rdi, [rbp-32]
+    48 8D 3C 87          ; lea rdi, [rdi+rax*4]
+    48 89 7D E0          ; mov [rbp-32], rdi
+
+    ; TODO break this into a separate pseudo-function copy_strings_loop, just
+    ; put a jump here to 0x6E0 instead of actually running all these nops
+
+    ; these are some big jumps so we use absolute addresses instead of working
+    ; out relative jumps. we add padding to align for cleanliness and so we can
+    ; change things without having to constantly adjust these numbers.
+    ; (this is also just initialization code so we aren't worried about
+    ; executing a bunch of nops)
+
+    90 90 90 90 90 90 90 90 ; nop
+    90 90 90 90 90 90 90
+@0x6E0 copy_strings_loop
+
+    ; check if this is the end of the source table
+    48 8B 45 E8          ; mov rax, [rbp-24]
+    48 8B 00             ; mov rax, [rax]
+    48 83 F8 00          ; cmp rax, 0
+
+    ; if it is, jump to the end (inverted because there's no conditional
+    ; indirect jump in x86)
+    75 07                ; jne copy_strings_loop_not_done (+7)
+    B9 40 07 40 00       ; mov ecx, copy_strings_loop_done (0x400740)
+    FF E1                ; jmp rcx
+;copy_strings_loop_not_done:
+
+    ; assign the current break into the destination table; we're going to copy
+    ; the string there
+    48 8B 7D E0          ; mov rdi, [rbp-32]
+    48 8B 75 D8          ; mov rsi, [rbp-40]
+    89 3E                ; mov [rsi], edi
+    48 83 C6 04          ; add rsi, 4
+    48 89 75 D8          ; mov [rbp-40], rsi
+
+    ; strcpy() the string to the current break
+    48 8B 75 E8          ; mov rsi, [rbp-24]
+    48 8B 36             ; mov rsi, [rsi]
+    B8 80 06 40 00       ; mov rax, strcpy (0x400680)
+    FF D0                ; call rax
+
+    ; the return value of strcpy() is the new break
+    ; (plus one for the null-terminator)
+    48 FF C0            ; inc rax
+    48 89 45 E0         ; mov [rbp-32], rax
+
+    ; increment current_src
+    48 8B 75 E8         ; mov rsi, [rbp-24]
+    48 83 C6 08         ; add rsi, 8
+    48 89 75 E8         ; mov [rbp-24], rsi
+
+    ; jmp copy_strings_loop
+    B9 E0 06 40 00      ; mov ecx, copy_strings_loop (0x4006EO)
+    FF E1               ; jmp rcx
+
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90
+@0x740 copy_strings_loop_done
+
+    ; assign the null-terminator at the end of the table
+    48 8B 75 D8          ; mov rsi, [rbp-40]
+    48 31 C0             ; xor rax, rax
+    89 06                ; mov [rsi], eax
+
+    ; align the break
+    48 8B 7D E0       ; mov rdi, [rbp-32]
+    83 C7 03          ; add edi, 3
+    B8 03 00 00 00    ; mov eax, 3
+    48 F7 D0          ; not rax
+    48 21 C7          ; and rdi, rax
+
+    ; store the break in the process info table
+    B8 04 00 00 01    ; mov eax, program break (0x1000004)
+    89 38             ; mov [rax], edi
+
+    ; return the original break, where we stored the destination table
+    48 8B 45 F0                    ; mov rax, [rbp-16]
+    48 89 EC                       ; mov rsp, rbp
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding
+    90 90 90 90 90
+@0x770
+
+
+
+; ==========================================================
+; void load_program(const char* path);
+; ==========================================================
+; Loads the base program into the VM heap.
+; ==========================================================
+
+@0x770 load_program
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; perform open syscall (filename is already in rdi)
+    B8 02 00 00 00           ; mov eax, 0x2         ; syscall: open (2)
+    BE 00 00 00 00           ; mov esi, 0x0         ; read-only (O_RDONLY)
+    0F 05                    ; syscall
+
+    ; if it failed, error out
+    4883F800         ; cmp rax, 0
+    7D 0C            ; jge load_program_open_ok (+12)
+    BF 30 02 50 00   ; mov edi, "ERROR: Failed to read..." (0x500230)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;load_program_open_ok:
+
+    ; store input fd, and put it in rdi for our read syscall
+    50                             ; push rax
+    4889C7            ; mov rdi,rax
+
+    ; get the program break
+    B8 04 00 00 01   ; mov eax, program break (0x1000004)
+    8B 30            ; mov esi, dword [rax]
+
+    ; calculate the remaining space
+    BA 00 00 00 02   ; mov edx,0x2000000
+    4829F2           ; sub rdx,rsi
+
+;load_program_loop:
+
+    ; perform read syscall
+    ; (fd is in rdi, buffer is in rsi, remaining space is in rdx)
+    B8 00 00 00 00             ; mov eax, 0           ; syscall: read (0)
+    ;48 8B 7D F8                ; mov rdi, [rbp-8]     ; input fd
+    0F 05                      ; syscall
+
+    ; if we read negative bytes, error out
+    4883F800         ; cmp rax, 0
+    7D 0C            ; jge load_program_loop_not_error (+12)
+    BF 30 02 50 00   ; mov edi, "ERROR: Failed to read..." (0x500230)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;load_program_loop_not_error:
+
+    ; if we read zero bytes, exit the loop
+    74 08              ; je load_program_loop_done (+8)
+
+    ; advance and reduce count however much we read
+    48 29 C2            ; sub rdx,rax
+    48 01 C6            ; add rsi,rax
+
+    ; keep reading
+    EB DD               ; jmp load_program_loop (-35)
+
+;load_program_loop_done:
+
+    ; perform close syscall (fd is in rdi)
+    B8 03 00 00 00           ; mov eax, 3         ; syscall: close (3)
+    0F 05                    ; syscall
+
+    ; TODO check for shebang #! or REM to see if this program is wrapped. If so
+    ; we should increment rpp by 1024 or whatever. Could do this here or in
+    ; caller.
+
+    ; set the break
+    B8 04 00 00 01    ; mov eax, program break (0x1000004)
+    89 30             ; mov [rax], esi
+
+    ; return
+    48 89 EC                       ; mov rsp, rbp
+    5D                             ; pop rbp
+    C3                             ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
+@0x800
+
+
+
+; ==========================================================
+; void check_buffer(void* buffer, size_t count)
+; ==========================================================
+; Checks that the given buffer is mapped in VM memory.
+;
+; params:
+; - buffer: rdi
+; - count: rsi
+; ==========================================================
+
+@0x800 check_buffer
+    ; TODO
+    C3 ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x810
+
+
+; ==========================================================
+; void check_string(const char* string)
+; ==========================================================
+; Checks that the given null-terminated string is valid in VM memory.
+; ==========================================================
+
+; TODO this function is not used
+@0x810 check_string
+    ; TODO
+    C3 ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x820
+
+
+
+; ==========================================================
+; void setup_halt(void);
+; ==========================================================
+; Places an instruction to halt into the VM heap and places its address as the
+; exit address in the process info table.
+; ==========================================================
+
+@0x820 setup_halt
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; we'll put the halt instructions at the current break
+    B8 04 00 00 01    ; mov eax, program break (0x1000004)
+    8B 00             ; mov eax, dword [rax]
+
+    ; syscall is 0x7F and syscall number 0 is halt.
+    C7 00 7F 00 00 00      ; mov dword [rax],   0x0000007F  ; syscall 0
+
+    ; the address goes in the process info table
+    BF 08 00 00 01    ; mov edi, exit address (0x1000008)
+    89 07             ; mov [rdi], eax
+            ;
+            ;    ; the address of the halt code needs to be pushed on the VM stack. this
+            ;    ; makes it the return address of __start. it's the only thing on the stack
+            ;    ; which makes it the last word in the heap.
+            ;    BF FC FF FF 01    ; mov edi, 0x1FFFFFC (last word in heap)
+            ;    89 07             ; mov [rdi], eax
+            ;
+            ;    ; we also need to put this value into rsp, the initial stack pointer.
+            ;    BF 30 00 60 00     ; mov edi, rsp (0x600030)
+            ;    C7 07 FC FF FF 01  ; mov dword [rdi], 0x1FFFFFC (last word in heap)
+            ;
+
+                ; TODO no, we shouldn't be halting with 0
+                ; The halt code consists of two bytecode instructions:
+                ;     70 80 00 00  ; add r0 0 0
+                ;     7F 00 00 00  ; sys halt
+                ; This halts with an exit code of 0.
+            ;    C7 40 04 7F 00 00 00   ; mov dword [rax+4], 0x0000007F
+
+    ; finally, we increment the break past our bytecode and store it
+    83 C0 04          ; add eax, 4
+    BF 04 00 00 01    ; mov edi, program break (0x1000004)
+    89 07             ; mov [rdi], eax
+
+    ; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x870
+
+
+
+; ==========================================================
+; void load_working_directory(void)
+; ==========================================================
+
+@0x870 load_working_directory
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the program break
+    BF 04 00 00 01   ; mov edi, program break (0x1000004)
+    8B 3F            ; mov edi, [rdi]
+
+    ; store it in the process info table
+    B8 20 00 00 01   ; mov eax, working directory (0x1000020)
+    89 38            ; mov [rax], edi
+
+    ; perform getcwd syscall
+    B8 4F 00 00 00           ; mov eax, 0x4F   ; syscall: getcwd (79)
+    BE 00 20 00 00           ; mov esi, 0x2000 ; 8 kB size, plenty large enough
+    0F 05                    ; syscall
+
+    ; it will have returned the number of characters
+    83 F8 FF     ; cmp eax, -1
+    75 0C        ; jne load_working_directory_success (+12)
+
+    ; getcwd() failed, fatal error
+    BF 80 02 50 00   ; mov edi, "ERROR: Failed to get working dir..." (0x500280)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;load_working_directory_success:
+
+                ;    ; scan past null terminator
+                ;;load_working_directory_walk:
+                ;    8A 07          ; mov al, [rdi]
+                ;    3C 00          ; cmp al, 0
+                ;    FF C7          ; inc edi
+                ;    75 F8          ; jne load_working_directory_walk (-8)
+
+    ; increment and align the break
+    01 C7             ; add edi, eax
+    83 C7 03          ; add edi, 3
+    B8 03 00 00 00    ; mov eax, 3
+    48 F7 D0          ; not rax
+    48 21 C7          ; and rdi, rax
+
+    ; store the new break
+    B8 04 00 00 01  ; mov eax, program break (0x1000004)
+    89 38           ; mov [rax], edi
+
+    ; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
+@0x8D0
+
+
+; ==========================================================
+; void initialize(void)
+; ==========================================================
+; - rdi: stack base, where the command-line args and other info are
+; - [rbp-4]: current position in the heap
+; ==========================================================
+
+@0x8D0 initialize
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; preserve the stack base
+    57   ; push rdi
+
+
+    ; copy stuff into the vm heap
+
+    ; set the program break to after the process info table. other
+    ; initialization functions will use this to add stuff to the vm heap.
+    BE 04 00 00 01   ; mov esi, program break (0x1000004)
+    B8 24 00 00 01   ; mov eax, end of process info table (0x1000024)
+    89 06            ; mov [rsi], eax
+
+    ; load command line and environment vars into vm heap
+    B8 00 06 40 00    ; mov eax, load_args_env (0x400600)
+    FF D0             ; call rax
+
+    ; load the working directory into vm heap
+    B8 70 08 40 00    ; mov eax, load_working_directory (0x400870)
+    FF D0             ; call rax
+
+    ; load the halt instruction into the heap
+    B8 20 08 40 00    ; mov eax, setup_halt (0x400820)
+    FF D0             ; call rax
+
+    ; we will load the program next, set the break into rip and rpp
+    BF 04 00 00 01   ; mov edi, program break (0x1000004)
+    89 38            ; mov [rax], edi
+    BF 38 00 60 00   ; mov edi, rpp (0x600038)
+    89 07            ; mov [rdi], eax
+    BF 3C 00 60 00   ; mov edi, rip (0x60003C)
+    89 07            ; mov [rdi], eax
+
+    ; load the program into the vm heap (load_args_env above checked that it was given)
+    488B7DF8          ; mov rdi, [rbp - 8]
+    488B7F10          ; mov rdi, [rdi + 16]    ; program path from command line
+    B8 70 07 40 00    ; mov eax, load_program (0x400770)
+    FF D0             ; call rax
+
+
+    ; load the remaining data into the process info table
+
+    ; version
+    BF 00 00 00 01   ; mov edi, version (0x1000000)
+    B8 00 00 00 00   ; mov eax, 0
+    89 07            ; mov [rdi], eax
+
+    ; input stream handle
+    BF 0C 00 00 01   ; mov edi, input stream handle (0x100000C)
+    B8 00 00 00 00   ; mov eax, 0
+    89 07            ; mov [rdi], eax
+
+    ; output stream handle
+    BF 10 00 00 01   ; mov edi, input stream handle (0x1000010)
+    B8 01 00 00 00   ; mov eax, 1
+    89 07            ; mov [rdi], eax
+
+    ; error stream handle
+    BF 14 00 00 01   ; mov edi, error stream handle (0x1000014)
+    B8 02 00 00 00   ; mov eax, 1
+    89 07            ; mov [rdi], eax
+
+
+    ; set the initial values of the remaining registers
+
+    ; r0 -- program break
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    B8 00 00 00 01   ; mov eax, process info table (0x1000000)
+    89 07            ; mov [rdi], eax
+
+    ; rsp -- end of heap
+    BF 30 00 60 00   ; mov edi, rsp (0x600030)
+    B8 00 00 00 02   ; mov eax, end of heap (0x2000000)
+    89 07            ; mov [rdi], eax
+
+;
+;                    ; the current break is where we will load the program. assign it to rbp and rip
+;                    8B 00             ; mov eax, dword [rax]
+;                    BF 38 00 60 00    ; mov edi, rpp (0x600038)
+;                    89 07             ; mov [rdi], eax
+;                    BF 3C 00 60 00    ; mov edi, rip (0x60003c)
+;                    89 07             ; mov [rdi], eax
+
+
+    ; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x980
+
+
+
+; ==========================================================
+; void check_byte(void* address)
+; ==========================================================
+; Checks that the given address points to a valid byte in VM memory.
+;
+; The address must be in bounds. If any checks fail, the VM aborts.
+;
+; params:
+;     address: edi
+; ==========================================================
+
+@0x980 check_byte
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; check that the address is in bounds
+    B8 00 00 00 01    ; mov eax, 0x1000000
+    39 C7             ; cmp edi, eax
+    7C 0E             ; jl check_byte_fail (+14)
+    B8 00 00 00 02    ; mov eax, 0x2000000
+    39 C7             ; cmp edi,eax
+    7D 05             ; jge check_byte_fail (+5)
+
+    ; everything's ok; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+;check_byte_fail:
+    BF 20 03 50 00   ; mov edi, "ERROR: A memory access..." (0x500320)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+
+    90 90 90 90 90 90 90 90
+    90
+@0x9B0
+
+
+
+; ==========================================================
+; void check_word(void* address)
+; ==========================================================
+; Checks that the given address points to a valid 4-byte word in VM memory.
+;
+; The address must be correctly aligned and in bounds. If any checks fail, the
+; VM aborts.
+;
+; params:
+;     address: edi
+; ==========================================================
+
+@0x9B0 check_word
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; check that the address is aligned
+    89 F8             ; mov eax, edi
+    83 E0 03          ; and eax, 3
+    83 F8 00          ; cmp eax, 0
+    75 17             ; jne check_word_fail (+23)
+
+    ; check that the address is in bounds
+    B8 00 00 00 01    ; mov eax, 0x1000000
+    39 C7             ; cmp edi, eax
+    7C 0E             ; jl check_word_fail (+14)
+    B8 00 00 00 02    ; mov eax, 0x2000000
+    39 C7             ; cmp edi,eax
+    7D 05             ; jge check_word_fail (+5)
+
+    ; everything's ok; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+;check_word_fail:
+    BF 20 03 50 00   ; mov edi, "ERROR: A memory access..." (0x500320)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x9F0
+
+
+
+; ==========================================================
+; uint32_t parse_register(uint8_t register)
+; ==========================================================
+; Parses a register-type argument, returning the address of the named register.
+;
+; If the value does not name a register, the program aborts.
+; ==========================================================
+
+@0x9F0 parse_register
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; make sure the register starts with 0x8
+    89 F8            ; mov eax, edi
+    25 F0 00 00 00   ; and eax, 0xF0
+    3D 80 00 00 00   ; cmp eax, 0x80
+    74 0C            ; je parse_register_ok (+12)
+
+    ; if the register is bad, bail out
+    BF 50 03 50 00   ; mov edi, "ERROR: Invalid register" (0x500350)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;parse_register_ok:
+
+    ; mask off the 0x80 from the register
+    83 E7 0F         ; and edi, 0x0F
+
+    ; calculate the address of the register
+    C1 E7 02          ; shl edi, 2
+    B8 00 00 60 00    ; mov eax, registers (0x600000)
+    01 F8             ; add eax, edi
+
+    ; return it
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+@0xA30
+
+
+
+; ==========================================================
+; uint32_t parse_mix(uint8_t value)
+; ==========================================================
+; Parses a mix-type argument into its full value.
+;
+; - If the value is the name of a register, the content of the named register
+;   is returned;
+; - If the value is the name of an opcode, the VM aborts;
+; - If the value is in the range 0x00-0x7F, it is returned unchanged;
+; - If the value is in the range 0x90-0xFF, it is sign-extended to 32 bits
+;   (i.e. it is returned as a 32-bit negative number)
+; ==========================================================
+
+@0xA30 parse_mix
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; take the top nibble
+    89 F8            ; mov eax, edi
+    25 F0 00 00 00   ; and eax, 0xF0
+
+    ; if it's an opcode, bail out
+    83 F8 70         ; cmp eax, 0x70
+    75 0C            ; jne parse_mix_not_opcode (+12)
+    BF 70 03 50 00   ; mov edi, "ERROR: Invalid mix-type..." (0x500370)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;parse_mix_not_opcode:
+
+    ; if it's a register, defer to parse_register
+    3D 80 00 00 00   ; cmp eax, 0x80
+    75 0E            ; jne parse_mix_not_register (+14)
+    B8 F0 09 40 00   ; mov eax, parse_register (0x4009F0)
+    FF D0            ; call rax
+    ; and return the contents
+    8B 00            ; mov eax, [rax]
+    48 89 EC         ; mov rsp, rbp
+    5D               ; pop rbp
+    C3               ; ret
+;parse_mix_not_register:
+
+    ; if it's negative, sign-extend it
+    ; TODO just use movzx?
+    25 80 00 00 00      ; and eax, 0x80
+    83 F8 00            ; cmp eax, 0
+    74 06               ; je parse_mix_not_negative (+6)
+    81 CF 00 FF FF FF   ; or edi, 0xFFFFFF00
+;parse_mix_not_negative:
+
+    ; return the value
+    89 F8     ; mov eax, edi
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+    90 90 90 90 90 90 90 90
+@0xA80
+
+
+
+; ==========================================================
+; void run_instruction(void)
+; ==========================================================
+; Runs one instruction.
+;
+; vars:
+; - opcode: edi
+; - arg1: esi
+; - arg2: edx
+; - arg3: ecx
+; ==========================================================
+
+@0xA80 run_instruction
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; fetch rip into edi
+    BF 3C 00 60 00   ; mov edi, rip (0x60003C)
+    8B 3F            ; mov edi, [rdi]
+
+    ; ensure rip is valid
+    57                ; push rdi
+    B8 B0 09 40 00    ; mov eax, check_word (0x4009B0)
+    FF D0             ; call rax
+    5F                ; pop rdi
+    89 F8             ; mov eax, edi
+
+    ; read the opcode and three arguments. we store them in the argument
+    ; registers for x86_64 function calls so our opcode table can call
+    ; functions naturally.
+    0F B6 38            ; movzx edi, byte [rax]
+    0F B6 70 01         ; movzx esi, byte [rax + 1]
+    0F B6 50 02         ; movzx edx, byte [rax + 2]
+    0F B6 48 03         ; movzx ecx, byte [rax + 3]
+
+    ; increment rip
+    83 C0 04         ; add eax, 4
+    57               ; push rdi
+    BF 3C 00 60 00   ; mov edi, rip (0x60003C)
+    89 07            ; mov [rdi], eax
+    5F               ; pop rdi
+
+    ; make sure the opcode starts with 0x7
+    89 F8            ; mov eax, edi
+    25 F0 00 00 00   ; and eax, 0xF0
+    83 F8 70         ; cmp eax, 0x70
+    74 0C            ; je run_instruction_opcode_ok (+12)
+
+    ; if the opcode is bad, bail out
+    BF E0 02 50 00   ; mov edi, "ERROR: Invalid instruction" (0x5002E0)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;run_instruction_opcode_ok:
+
+    ; mask off the 0x70 from the opcode
+    83 E7 0F         ; and edi, 0x0F
+
+    ; check it against this mask to see if it's one of our 11 instructions that
+    ; takes arguments of the form <reg> <mix> <mix>.
+    ;     0b0010'0101'1111'1111 == 9727 == 0x25FF
+    ;       0sys 0stb 1ror 1div
+    ;        0jz  1ldb 1xor 1mul
+    ;         1cmp 0stw 1or  1sub
+    ;          0ims 1ldw 1and 1add
+    ; (we have to put the shift amount in cl so we push it)
+    51               ; push rcx
+    89 F9            ; mov ecx, edi
+    B8 01 00 00 00   ; mov eax, 1
+    D3 E0            ; shl eax, cl
+    59               ; pop rcx
+    25 FF 25 00 00   ; and eax, 0b0010010111111111
+    83 F8 00         ; cmp eax, 0
+    74 39            ; je run_instruction_skip_preprocessing (+57)
+
+    ; it matches so can pre-parse the arguments right away. we use functions
+    ; for this so we have to put everything on the stack
+    57               ; push rdi
+    56               ; push rsi
+    52               ; push rdx
+    51               ; push rcx
+
+    ; arg1 in rsi is a register  (17 bytes)
+    48 8B 7C 24 10        ; mov rdi, [rsp + 16]
+    B8 F0 09 40 00        ; mov eax, parse_register (0x4009F0)
+    FF D0                 ; call rax
+    48 89 44 24 10        ; mov [rsp + 16], rax
+
+    ; arg2 in rdx is mix  (17 bytes)
+    48 8B 7C 24 08        ; mov rdi, [rsp + 8]
+    B8 30 0A 40 00        ; mov eax, parse_mix (0x400A30)
+    FF D0                 ; call rax
+    48 89 44 24 08        ; mov [rsp + 8], rax
+
+    ; arg3 in rcx is mix  (15 bytes)
+    48 8B 3C 24           ; mov rdi, [rsp]
+    B8 30 0A 40 00        ; mov eax, parse_mix (0x400A30)
+    FF D0                 ; call rax
+    48 89 04 24           ; mov [rsp], rax
+
+    ; done argument parsing
+    59               ; pop rcx
+    5A               ; pop rdx
+    5E               ; pop rsi
+    5F               ; pop rdi
+;run_instruction_skip_preprocessing:
+
+    ; call into the opcode table
+    C1 E7 05            ; shl edi, 5   ; multiply by 32, the stride of the opcode table
+    B8 40 0B 40 00      ; mov eax, opcode_table (0x400B40)
+    01 F8               ; add eax, edi
+    FF D0               ; call rax
+
+    ; note that the opcode handling may call arbitrary functions (especially for
+    ; syscalls) which will not preserve registers. that's fine, after this we
+    ; just return.
+
+    ; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
+@0xB40
+
+
+
+; ==========================================================
+; opcode_table
+; ==========================================================
+; This pseudo-function is the jump table used to handle instructions in
+; run_instruction. It's not really a function because it shares registers and a
+; stack frame with run_instruction but it is still called with call/ret for
+; convenience.
+;
+; params:
+; - (edi is reserved for the parsed opcode number)
+; - arg1: esi
+; - arg2: edx
+; - arg3: ecx
+; ==========================================================
+
+@0xB40 opcode_table
+
+@0xB40 add
+    01 CA   ; add edx, ecx
+    89 16   ; mov [rsi], edx
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xB60 sub
+    29 CA   ; sub edx, ecx
+    89 16   ; mov [rsi], edx
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xB80 mul
+    89 D0   ; mov eax, edx
+    F7 E1   ; mul ecx
+    89 06   ; mov [rsi], eax
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+
+@0xBA0 div
+    89 D0   ; mov eax,edx
+    31 D2   ; xor edx,edx
+    F7 F1   ; div ecx
+    89 06   ; mov [rsi],eax
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+
+@0xBC0 and
+    21 CA   ; and edx, ecx
+    89 16   ; mov [rsi], edx
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xBE0 or
+    09 CA   ; or edx, ecx
+    89 16   ; mov [rsi], edx
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xC00 xor
+    31 CA   ; or edx, ecx
+    89 16   ; mov [rsi], edx
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xC20 ror
+    D3 CA   ; ror edx, cl
+    89 16   ; mov [rsi], edx
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xC40 ldw
+    ; check the address
+    01 CA             ; add edx, ecx
+    89 D7             ; mov edi, edx
+    57                ; push rdi
+    56                ; push rsi
+    B8 B0 09 40 00    ; mov eax, check_word (0x4009B0)
+    FF D0             ; call rax
+    5E                ; pop rsi
+    5F                ; pop rdi
+    ; fetch it into the register
+    8B 07       ; mov eax, [rdi]
+    89 06       ; mov [rsi], eax
+    C3          ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90
+
+@0xC60 stw
+    ; parse the args
+    B8 40 0D 40 00    ; mov eax, store_helper (0x400D40)
+    FF D0             ; call rax
+    ; check the address
+    57                ; push rdi
+    56                ; push rsi
+    B8 B0 09 40 00    ; mov eax, check_word (0x4009B0)
+    FF D0             ; call rax
+    5E                ; pop rsi
+    5F                ; pop rdi
+    ; store it
+    89 37   ; mov [rdi], esi
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xC80 ldb
+    ; check the address
+    01 CA             ; add edx, ecx
+    89 D7             ; mov edi, edx
+    57                ; push rdi
+    56                ; push rsi
+    B8 80 09 40 00    ; mov eax, check_byte (0x400980)
+    FF D0             ; call rax
+    5E                ; pop rsi
+    5F                ; pop rdi
+    ; fetch it into the register
+    0F B6 07    ; movzx eax, byte [rdi]
+    89 06       ; mov [rsi], eax
+    C3          ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0xCA0 stb
+    ; parse the args
+    B8 40 0D 40 00    ; mov eax, store_helper (0x400D40)
+    FF D0             ; call rax
+    ; check the address
+    57                ; push rdi
+    56                ; push rsi
+    B8 80 09 40 00    ; mov eax, check_byte (0x400980)
+    FF D0             ; call rax
+    5E                ; pop rsi
+    5F                ; pop rdi
+    ; store it
+    89 F0   ; mov eax, esi
+    88 07   ; mov [rdi], al
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90
+
+@0xCC0 ims
+    ; combine bytes into immediate value
+    C1 E1 08         ; shl ecx, 8
+    09 CA            ; or edx, ecx
+    52               ; push rdx
+    ; parse register
+    89 F7            ; mov edi, esi
+    B8 F0 09 40 00   ; mov eax, parse_register (0x4009F0)
+    FF D0            ; call rax
+    ; shift the register contents up and mask in the low bits
+    8B 08            ; mov ecx, [rax]
+    C1 E1 10         ; shl ecx, 16
+    5A               ; pop rdx
+    09 D1            ; or ecx, edx
+    89 08            ; mov [rax], ecx
+    C3               ; ret
+    90 90 90 90 90 90
+
+@0xCE0 cmp
+    31 C0   ; xor eax, eax
+    39 CA   ; cmp edx, ecx
+    7C 04   ; jl cmp_less (+4)
+    7F 06   ; jg cmp_greater (+6)
+    EB 06   ; jmp cmp_done (+6)
+;cmp_less:
+    FF C8   ; dec eax
+    EB 02   ; jmp cmp_done (+2)
+;cmp_greater:
+    FF C0   ; inc eax
+;cmp_done:
+    89 06   ; mov [rsi], eax
+    C3      ; ret
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
+
+@0xD00 jz
+    B8 90 0D 40 00   ; mov eax, opcode_jz (0x400D90)
+    FF E0            ; jmp rax
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+
+@0xD20 sys
+    B8 C0 0D 40 00   ; mov eax, opcode_sys (0x400DC0)
+    FF E0            ; jmp rax
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+
+
+
+; ==========================================================
+; store_helper
+; ==========================================================
+; This pseudo-function performs the common operations of the two store opcodes.
+;
+; All three arguments are mix-type so we parse them, then we add the last two
+; arguments together to form the destination address.
+;
+; The destination address (unchecked) is placed in rdi and the value to store
+; is placed in rsi.
+;
+; This is probably super slow and could be improved.
+;
+; params:
+; - (edi is reserved for the parsed opcode number)
+; - arg1: esi  (mix-type value)
+; - arg2: edx  (mix-type base)
+; - arg3: ecx  (mix-type offset)
+; ==========================================================
+
+@0xD40 store_helper
+    56    ; push rsi
+    52    ; push rdx
+    51    ; push rcx
+
+    ; arg1 in rsi is mix
+    48 8B 7C 24 10        ; mov rdi, [rsp + 16]
+    B8 30 0A 40 00        ; mov eax, parse_mix (0x400A30)
+    FF D0                 ; call rax
+    48 89 44 24 10        ; mov [rsp + 16], rax
+
+    ; arg2 in rdx is mix
+    48 8B 7C 24 08        ; mov rdi, [rsp + 8]
+    B8 30 0A 40 00        ; mov eax, parse_mix (0x400A30)
+    FF D0                 ; call rax
+    48 89 44 24 08        ; mov [rsp + 8], rax
+
+    ; arg3 in rcx is mix
+    48 8B 3C 24           ; mov rdi, [rsp]
+    B8 30 0A 40 00        ; mov eax, parse_mix (0x400A30)
+    FF D0                 ; call rax
+    48 89 04 24           ; mov [rsp], rax
+
+    ; done argument parsing
+    59    ; pop rcx
+    5A    ; pop rdx
+    5E    ; pop rsi
+
+    ; form the address into edi
+    01 CA   ; add edx, ecx
+    89 D7   ; mov edi, edx
+
+    ; done
+    C3 ; ret
+
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90
+@0xD90
+
+
+
+; ==========================================================
+; opcode_jz
+; ==========================================================
+; Our jz opcode just barely doesn't fit in the opcode table. It's implemented
+; here as its own function.
+;
+; params:
+; - (edi is reserved for the parsed opcode number)
+; - arg1: esi  (predicate, mix-type)
+; - arg2: edx  (offset low byte)
+; - arg3: ecx  (offset high byte)
+; ==========================================================
+
+@0xD90 opcode_jz
+
+    ; form the offset
+    ; (it's in instructions, not in bytes, so we multiply by four)
+    C1 E1 08         ; shl ecx, 8
+    09 CA            ; or edx, ecx
+    C1 E2 02         ; shl edx, 2     ; multiply by four
+    0F BF C2         ; movsx eax, dx
+
+    ; parse predicate (and swap our registers around a bit)
+    50                ; push rax
+    89 F7             ; mov edi, esi
+    B8 30 0A 40 00    ; mov eax, parse_mix (0x400A30)
+    FF D0             ; call rax
+    5E                ; pop rsi
+
+    ; if zero, add the offset to rip
+    83 F8 00          ; cmp eax, 0
+    75 0D             ; jnz jz_not_zero (+13)
+    BF 3C 00 60 00    ; mov edi, rip (0x60003C)
+    67 8B 07          ; mov eax, [edi]
+    01 F0             ; add eax, esi
+    67 89 07          ; mov [edi], eax
+
+;jz_not_zero:
+    C3 ; ret
+
+    90 90 90 90 90 90 90
+@0xDC0
+
+
+
+; ==========================================================
+; opcode_sys
+; ==========================================================
+; Performs a syscall.
+;
+; params:
+; - (edi is reserved for the parsed opcode number)
+; - arg1: esi  (syscall number)
+; - arg2: edx  (must be zero)
+; - arg3: ecx  (must be zero)
+; ==========================================================
+
+@0xDC0 opcode_sys
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; the second and third arguments to syscall must both be zero.
+    09 CA      ; or edx, ecx
+    83 FA 00   ; cmp edx, 0
+    74 0C      ; je opcode_sys_no_extra_args (+12)
+    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;opcode_sys_no_extra_args:
+
+    ; our syscall table has 64 entries
+    83 FE 40         ; cmp esi, 0x40
+    72 0C            ; jb opcode_sys_in_range (+12)
+    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;opcode_sys_in_range:
+
+    ; get the syscall function address
+    B8 80 04 50 00    ; mov eax, syscall table (0x500480)
+    C1 E6 01          ; shl esi, 1
+    01 F0             ; add eax, esi
+    8B 00             ; mov eax, [rax]
+
+    ; if the syscall is zero, we don't support it
+    83 F8 00         ; cmp eax, 0
+    75 0C            ; jne opcode_sys_not_zero (+12)
+    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;opcode_sys_not_zero:
+
+    ; call it
+    05 00 00 40 00    ; add eax, text section (0x400000)
+    FF D0             ; call rax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0xE20
+
+
+
+; ==========================================================
+; void syscall_halt(void)
+; ==========================================================
+; Halts the VM.
+;
+; r0 contains the exit code. It must be in the range of 0 to 255.
+; ==========================================================
+
+@0xE20 syscall_halt
+    ; don't bother with a stack frame
+
+    ; get the exit code from r0
+    B8 00 00 60 00    ; mov eax, r0 (0x600000)
+    8B 38             ; mov edi, [rax]
+
+    ; TODO check that the exit code is valid
+
+    ; call exit
+    B8 D0 05 40 00    ; mov rax, exit (0x4005D0)
+    FF D0             ; call rax
+
+    ; padding
+    90 90
+@0xE30
+
+
+
+; ==========================================================
+; int parse_io_handle(void)
+; ==========================================================
+; Returns the file descriptor for an I/O handle in a syscall.
+;
+; All syscalls that accept an I/O handle take it as the first argument so we
+; pull the handle out of r0.
+;
+; If the handle is invalid, the VM aborts.
+; ==========================================================
+
+@0xE30 parse_io_handle
+    ; no stack frame
+
+    ; get the io handle and check it
+    B8 00 00 60 00    ; mov eax, r0 (0x600000)
+    ; TODO CHECK BOUNDS
+    ;83 F8 40          ; cmp eax, 0
+    ;77 09             ; ja parse_io_handle_bad (+9)
+90 90 90 90 90
+    8B 00             ; mov eax, [rax]
+    83 F8 FF          ; cmp eax, -1
+    74 02             ; je parse_io_handle_bad (+2)
+    EB 0C             ; jmp parse_io_handle_ok (+12)
+
+    ; if the io handle is bad, bail out
+;parse_io_handle_bad:
+    BF E0 02 50 00   ; mov edi, "ERROR: Invalid instruction" (0x5002E0)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+;parse_io_handle_ok:
+
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+@0xE60
+
+
+
+; ==========================================================
+; void syscall_write(void)
+; ==========================================================
+; Writes the given buffer to the given I/O handle.
+;
+; If writing fails, the VM aborts.
+;
+; params:
+;    - r0: io handle
+;    - r1: buffer
+;    - r2: count
+; ==========================================================
+
+@0xE60 syscall_write
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the file descriptor (and check it)
+    B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
+    FF D0             ; call rax
+    50                ; push rax
+
+    ; get the buffer (and check it)
+    B8 04 00 60 00    ; mov eax, r1 (0x600004)
+    8B 38             ; mov edi, [rax]
+    B8 08 00 60 00    ; mov eax, r2 (0x600008)
+    8B 30             ; mov esi, [rax]
+    57                ; push rdi
+    56                ; push rsi
+    B8 00 08 40 00    ; mov eax, check_buffer (0x400800)
+    FF D0             ; call rax
+
+    ; call write() syscall
+    B8 01 00 00 00   ; mov eax, 0x1  ; syscall: write (1)
+    5A               ; pop rdx       ; length
+    5E               ; pop rsi       ; buffer
+    5F               ; pop rdi       ; file descriptor
+    0F 05            ; syscall
+
+    ; TODO check return value?
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90
+@0xEA0

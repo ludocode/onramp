@@ -1,0 +1,2 @@
+#undef FOO
+FOO

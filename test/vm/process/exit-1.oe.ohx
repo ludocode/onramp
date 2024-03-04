@@ -1,0 +1,13 @@
+; format indicator `~Onr~amp~   `
+7E 4F 6E 72   ; jz 79 29294
+7E 61 6D 70   ; jz 97 28781
+7E 20 20 20   ; jz 32 8224
+
+; move process info table to r9
+70 89 00 80   ; add r9 0 r0
+
+; set exit status to 1
+70 80 00 01   ; add r0 0 1
+
+; move exit address into rip
+78 8F 89 08   ; ldw rip r9 8  (exit address)

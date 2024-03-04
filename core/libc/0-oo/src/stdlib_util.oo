@@ -1,0 +1,224 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This file contains additional stdlib functions that are not overridden by the
+; next stage libc.
+
+
+
+; ==========================================================
+; void* __memdup(const void* p, size_t count);
+; ==========================================================
+; Allocates and returns a copy of the given region of memory.
+;
+; This function is used in strdup(). It's available for Onramp programs to use
+; but it's non-standard so we give it a reserved `__` prefix.
+; ==========================================================
+
+=__memdup
+    ; don't bother to set up a stack frame
+
+    ; store the pointer and count
+    71 8C 8C 08            ; sub rsp rsp 8
+    79 80 8C 00            ; stw r0 rsp 0
+    79 81 8C 04            ; stw r1 rsp 4
+
+    ; call malloc
+    70 80 00 81            ; add r0 0 r1       ; mov r0 r1
+    7C 8A <malloc          ; ims ra <malloc
+    7C 8A >malloc          ; ims ra >malloc
+    71 8C 8C 04            ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+    70 8C 8C 04            ; add rsp rsp 4     ; pop return address
+
+    ; make sure the return value is non-zero
+    7D 8A 80 00           ; cmp ra r0 0
+    7E 8A &__memdup_ret   ; jz ra &__memdup_ret
+
+    ; prepare args to call memcpy
+    78 81 8C 00            ; ldw r1 rsp 0
+    78 82 8C 04            ; ldw r2 rsp 4
+    79 80 8C 00            ; stw r0 rsp 0
+
+    ; call memcpy
+    7C 8A <memcpy          ; ims ra <memcpy
+    7C 8A >memcpy          ; ims ra >memcpy
+    71 8C 8C 04            ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+    70 8C 8C 04            ; add rsp rsp 4     ; pop return address
+    ; the return value in r0 is the new allocation.
+
+:__memdup_ret
+    70 8C 8C 08     ; add rsp rsp 8
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void* strdup(const char* str);
+; ==========================================================
+; Allocates and returns a copy of the given null-terminated string.
+; ==========================================================
+
+=strdup
+    ; don't bother to set up a stack frame
+
+    ; store the string
+    71 8C 8C 04            ; sub rsp rsp 4     ; push r0
+    79 80 00 8C            ; stw r0 0 rsp      ; ^^^
+
+    ; call strlen
+    7C 8A <strlen          ; ims ra <strlen
+    7C 8A >strlen          ; ims ra >strlen
+    71 8C 8C 04            ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+    70 8C 8C 04            ; add rsp rsp 4     ; pop return address
+
+    ; add 1 to the length to copy the null-terminator
+    70 80 80 01
+
+    ; setup args for memdup
+    70 81 00 80            ; add r1 0 r0       ; mov r1 r0
+    78 80 00 8C            ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04            ; add rsp rsp 4     ; ^^^
+
+    ; tail-call memdup
+    7C 8A <__memdup        ; ims ra <__memdup
+    7C 8A >__memdup        ; ims ra >__memdup
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+
+
+
+; ==========================================================
+; void* strndup(const char* str, size_t n);
+; ==========================================================
+; Allocates and returns a copy of the given null-terminated string.
+;
+; vars:
+; - actual length: r2
+; ==========================================================
+
+=strndup
+    ; don't bother to set up a stack frame
+
+    ; store the string
+    71 8C 8C 04            ; sub rsp rsp 4     ; push r0
+    79 80 00 8C            ; stw r0 0 rsp      ; ^^^
+
+    ; search at most n bytes for a null-terminator
+    70 82 00 00
+:__strndup_loop
+    71 8A 81 82            ; sub ra r1 r2
+    7E 8A &__strndup_end   ; jz ra &__strndup_end
+    7A 8A 80 82            ; ldb ra r0 r2
+    7E 8A &__strndup_end   ; jz ra &__strndup_end
+    70 82 82 01            ; add r2 r2 1          ; inc r2
+    7E 00 &__strndup_loop  ; jz 0 &__strndup_loop
+:__strndup_end
+
+    ; store the length
+    71 8C 8C 04            ; sub rsp rsp 4     ; push r2
+    79 82 00 8C            ; stw r2 0 rsp      ; ^^^
+
+    ; call malloc(len + 1)
+    70 80 82 01            ; add r0 r2 1
+    7C 8A <malloc          ; ims ra <malloc
+    7C 8A >malloc          ; ims ra >malloc
+    71 8C 8C 04            ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+    70 8C 8C 04            ; add rsp rsp 4     ; pop return address
+
+    ; check for malloc failure
+    7E 80 &__strndup_fail  ; jz r0 &__strndup_fail
+
+    ; store null-terminator
+    78 82 00 8C            ; ldw r2 0 rsp      ; pop r2
+    70 8C 8C 04            ; add rsp rsp 4     ; ^^^
+    7B 00 80 82            ; stb 0 r0 r2
+
+    ; tail-call memcpy
+    78 81 00 8C            ; ldw r1 0 rsp      ; pop r1
+    70 8C 8C 04            ; add rsp rsp 4     ; ^^^
+    7C 8A <memcpy          ; ims ra <memcpy
+    7C 8A >memcpy          ; ims ra >memcpy
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+
+:__strndup_fail
+    ; 0 is already in r0
+    78 8F 00 8C            ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void* calloc(size_t element_count, size_t element_size);
+; ==========================================================
+
+=calloc
+    ; no stack frame
+
+    ; multiply arguments together
+    ; TODO overflow check
+    72 80 80 81            ; mul r0 r0 r1
+
+    ; store total size
+    71 8C 8C 04            ; sub rsp rsp 4     ; push r0
+    79 80 00 8C            ; stw r0 0 rsp      ; ^^^
+
+    ; call malloc
+    7C 8A <malloc          ; ims ra <malloc
+    7C 8A >malloc          ; ims ra >malloc
+    71 8C 8C 04            ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+    70 8C 8C 04            ; add rsp rsp 4     ; pop return address
+
+    ; restore total size into r2
+    78 82 00 8C            ; ldw r2 0 rsp      ; pop r2
+    70 8C 8C 04            ; add rsp rsp 4     ; ^^^
+
+    ; skip memset if return value is zero
+    7E 80 &__calloc_done
+
+    ; call memset(r0, 0, count)
+    70 81 00 00            ; add r1 0 0        ; zero r1
+    7C 8A <memset          ; ims ra <memset
+    7C 8A >memset          ; ims ra >memset
+    71 8C 8C 04            ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra    ; jump
+    70 8C 8C 04            ; add rsp rsp 4     ; pop return address
+
+    ; memset returns the pointer.
+:__calloc_done
+    78 8F 00 8C            ; ldw rip 0 rsp     ; ret

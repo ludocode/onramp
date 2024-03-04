@@ -1,0 +1,328 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; Generates all solutions to the 8 queens problem, printing them to standard
+; output.
+
+
+
+; global vars:
+; - process_info_table: r9
+; - queens: r8
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+
+@0x00 =_start
+    ; format indicator "~Onr~amp~   "
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; put process info table in r9
+    70 89 00 80   ; add r9 0 r0
+
+    ; put queens array in r8
+    70 88 8E 60   ; add r8 rpp '60
+
+    ; call place_queen(0)
+    70 80 00 00    ; add r0 0 0
+    7C 8A 00 00    ; ims ra <place_queen
+    7C 8A E0 00    ; ims ra >place_queen
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; jump to exit with status 0
+    70 80 00 00    ; add r0 0 0
+    78 8F 89 08    ; ldw rip r9 8     ; load exit address into rip
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x60
+
+
+
+; ======================================
+; char queens[8];
+; ======================================
+; An array of queen y positions. (The index is x.)
+; ======================================
+
+@0x60
+    FF FF FF FF FF FF FF FF
+
+    ; padding
+    00 00 00 00 00 00 00 00
+
+
+
+; ======================================
+; bool is_queen_valid(int x, int y);
+; ======================================
+; Returns true if the queen in the given row and column would be valid given
+; the queens in the preceding columns, or false otherwise
+;
+; vars:
+; - x: 0
+; - y: 1
+; - i: r2      ; iterating over columns < x
+; - diff: r3   ; difference x-i (for checking diagonals)
+; - q: r4      ; queen position in column i
+; ======================================
+
+@0x70 =is_queen_valid
+    ; no stack frame
+
+    ; iterate i from 0 to x
+    70 82 00 00   ; add r2 0 0
+;:place_queen_next_i
+
+    ; if i==x, we've passed all tests, return true.
+    7D 8A 82 80   ; cmpu ra r2 r0
+    7E 8A 01 00   ; jz ra +1
+    7E 00 02 00   ; jz 0 +2
+    70 80 00 01   ; add r0 0 1
+    78 8F 00 8C   ; ldw rip 0 rsp     ; ret
+
+    ; calculate the difference in x for checking diagonals
+    71 83 80 82   ; sub r3 r0 r2
+
+    ; get the queen's position in column i
+    7A 84 88 82   ; ldb r4 r8 r2
+
+    ; check if there's a queen in the same row
+    7D 8A 84 81   ; cmp ra r4 r1
+    7E 8A 08 00   ; jz ra &is_queen_valid_fail (+8)
+
+    ; check if there's a queen diagonally up
+    70 8A 81 83   ; add ra r1 r3
+    7D 8A 84 8A   ; cmp ra r4 ra
+    7E 8A 05 00   ; jz ra &is_queen_valid_fail (+5)
+
+    ; check if there's a queen diagonally down
+    71 8A 81 83   ; sub ra r1 r3
+    7D 8A 84 8A   ; cmp ra r4 ra
+    7E 8A 02 00   ; jz ra &is_queen_valid_fail (+2)
+
+    ; next i
+    70 82 82 01   ; add r2 r2 1    ; inc r2
+    7E 00 EF FF   ; jz 0 &place_queen_next_i (-17)
+
+;is_queen_valid_fail
+    ; return false
+    70 80 00 00   ; add r0 0 0
+    78 8F 00 8C   ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0xE0
+
+
+
+; ======================================
+; void place_queen(int x)
+; ======================================
+; Places a queen at all valid positions in the given column, recursing for each
+; to place the next column.
+;
+; If the column number is 8, this instead prints the board.
+;
+; vars:
+; - x: r0, rfp-4
+; - y: r1, rfp-8
+; ======================================
+
+@0xE0 =place_queen
+
+    ; if x is 8, we print the board instead of placing queens.
+    7D 8A 80 08    ; cmpu ra r0 8
+    7E 8A 01 00    ; jz ra &place_queen_print (+1)
+    7E 00 08 00    ; jz 0 &place_queen_not_print (+8)
+    
+;:place_queen_print
+
+        ; call print_board()
+        7C 8A 00 00    ; ims ra <print_board
+        7C 8A C0 01    ; ims ra >print_board
+        71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08    ; add rb rip 8
+        79 8B 00 8C    ; stw rb 0 rsp
+        70 8F 8E 8A    ; add rip rpp ra    ; jump
+        70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+        ; return
+        78 8F 00 8C   ; ldw rip 0 rsp     ; ret
+
+;:place_queen_not_print
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp        ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; load our vars into the frame
+    71 8C 8C 08     ; sub rsp rsp 8
+    79 80 8D FC     ; stw r0 rfp -4   ; store x
+    79 00 8D F8     ; stw 0 rfp -8    ; store y=0
+
+;:place_queen_next_y
+
+    ; check if a queen in this position is valid
+    78 80 8D FC    ; ldw r0 rfp -4    ; load x
+    78 81 8D F8    ; ldw r1 rfp -8    ; load y
+    7C 8A 00 00    ; ims ra <is_queen_valid
+    7C 8A 70 00    ; ims ra >is_queen_valid
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if not valid, don't recurse
+    7E 80 0B 00    ; jz r0 &place_queen_inc_y (+11)
+
+    ; queen is valid. recurse place_queen(x+1)
+    78 80 8D FC    ; ldw r0 rfp -4    ; load x
+    78 81 8D F8    ; ldw r1 rfp -8    ; load y
+    7B 81 88 80    ; stb r1 r8 r0     ; queens[x] = y
+    70 80 80 01    ; add r0 r0 1      ; inc r0
+    7C 8A 00 00    ; ims ra <place_queen
+    7C 8A E0 00    ; ims ra >place_queen
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+;:place_queen_inc_y
+    ; inc y
+    78 81 8D F8    ; ldw r1 rfp -8    ; load y
+    70 81 81 01    ; add r1 r1 1      ; inc r1
+    79 81 8D F8    ; stw r1 rfp -8    ; store y
+
+    ; next y
+    7D 8A 81 08   ; cmpu ra r1 8
+    7E 8A 01 00   ; jz ra +1
+    7E 00 E5 FF   ; jz 0 &place_queen_next_y (-27)
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1C0
+
+
+
+; ======================================
+; void print_board(void)
+; ======================================
+; vars:
+; - x: r3
+; - y: r4
+; "Q": rsp
+; ".": rsp+1
+; " ": rsp+2
+; "\n": rsp+3
+; ======================================
+
+@0x1C0 =print_board
+
+    ; push "Q. \n" to the stack
+    71 8C 8C 04    ; sub rsp rsp 4
+    7C 8A 20 0A    ; imm ra " \n"
+    7C 8A 51 2E    ; imm ra "Q."
+    79 8A 8C 00    ; stw ra rsp 0
+
+    ; prepare syscall args
+    78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
+    70 82 00 01   ; mov r2 0 1       ; r2 = string length (1)
+
+    ; iterate over y from 0 to 8
+    70 84 00 00   ; add r4 0 0
+    ;:print_board_next_y
+
+        ; iterate over x from 0 to 8
+        70 83 00 00   ; add r3 0 0
+        ;:print_board_next_x
+
+            ; check whether there is a queen in this position. 0 for "Q", 1 for "."
+            7A 8A 88 83    ; ldb ra r8 r3
+            7D 8A 8A 84    ; cmpu ra ra r4
+            74 8A 8A 01    ; and ra ra 1
+
+            ; print the character, syscall write(stdout, rsp+ra, 1)
+            70 81 8C 8A   ; add r1 rsp ra    ; r1 = string address (rsp+ra)
+            7F 13 00 00   ; sys write 0 0
+
+            ; increment x
+            70 83 83 01    ; add r3 r3 1   ; inc r3
+            7D 8A 83 08    ; cmp ra r3 8
+            7E 8A 03 00    ; jz ra &print_board_x_done (+3)
+
+            ; print a space for alignment
+            70 81 8C 02   ; add r1 rsp 2    ; r1 = string address (rsp+2)
+            7F 13 00 00   ; sys write 0 0
+
+            ; next
+            7E 00 F5 FF    ; jz 0 &print_board_next_x (-11)
+        ;print_board_x_done
+
+        ; print newline
+        70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
+        7F 13 00 00   ; sys write 0 0
+
+        ; next y
+        70 84 84 01    ; add r4 r4 1   ; inc r4
+        7D 8A 84 08    ; cmp ra r4 8
+        7E 8A 01 00    ; jz ra 1
+        7E 00 EE FF    ; jz 0 &print_board_next_y (-18)
+
+    ; print two newlines
+    70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
+    7F 13 00 00   ; sys write 0 0
+    7F 13 00 00   ; sys write 0 0
+
+    ; return
+    70 8C 8C 04    ; add rsp rsp 4
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret

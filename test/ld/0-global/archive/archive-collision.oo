@@ -1,0 +1,13 @@
+%file_1.oo
+@foo
+aa
+bb
+@bar
+^foo
+%file_2.oo
+; file scope is not supported by the first stage linker. this causes an error
+; in the first stage but works in later stages.
+@foo
+cc dd
+@bar
+^foo

@@ -1,0 +1,13 @@
+%file_1.oo
+@foo
+aa
+bb
+@bar
+^foo
+%file_2.oo
+; static symbols and labels can be re-used in different archived files. this
+; should not cause an error.
+@foo
+cc dd
+@bar
+^foo

@@ -1,0 +1,1450 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the implementation of the basic first stage assembler. It is written
+; in Onramp object code.
+;
+; Its main purpose is simply to replace keywords with bytes. Keywords are the
+; names of opcodes, registers and syscalls. When it encounters a keyword, it
+; finds it in the replacement map and emits the corresponding byte as hex.
+;
+; In addition:
+;
+; - linker directives (symbol and label declarations and invocations) are
+;   passed through to the output verbatim;
+; - strings are converted to hexadecimal; and
+; - quoted hexadecimal bytes are output without the quote.
+;
+; This constitutes the total functionality of the first-stage assembler.
+;
+; It is linked against our first stage libc so we have a lot of standard
+; functionality available. Our entry point is main().
+;
+; (This stage does not verify that keywords make sense in the context in which
+; they are used. Keywords must still be used correctly, otherwise the program
+; will not be forward-compatible with the higher-level assemblers.)
+
+
+
+; ==========================================================
+; char* keyword_map;
+; ==========================================================
+; This is a mapping of keywords to single hex bytes. Each entry is a
+; null-terminated string followed by the replacement byte, and the list itself
+; is null-terminated.
+;
+; When the assembler encounters a keyword, it searches this map linearly,
+; checking if each name matches. When it finds a match it emits the
+; corresponding byte in hexadecimal. If no match is found, an error is printed
+; and the assembler aborts.
+; ==========================================================
+
+=keyword_map
+
+    ; registers
+    72 30         00      80    ; r0
+    72 31         00      81    ; r1
+    72 32         00      82    ; r2
+    72 33         00      83    ; r3
+    72 34         00      84    ; r4
+    72 35         00      85    ; r5
+    72 36         00      86    ; r6
+    72 37         00      87    ; r7
+    72 38         00      88    ; r8
+    72 39         00      89    ; r9
+    72 61         00      8a    ; ra
+    72 62         00      8b    ; rb
+    72 73 70      00      8c    ; rsp
+    72 66 70      00      8d    ; rfp
+    72 70 70      00      8e    ; rpp
+    72 69 70      00      8f    ; rip
+
+    ; opcodes
+    61 64 64      00      70    ; add
+    73 75 62      00      71    ; sub
+    6d 75 6c      00      72    ; mul
+    64 69 76 75   00      73    ; divu
+    61 6e 64      00      74    ; and
+    6f 72         00      75    ; or
+    78 6f 72      00      76    ; xor
+    72 6f 72      00      77    ; ror
+    6c 64 77      00      78    ; ldw
+    73 74 77      00      79    ; stw
+    6c 64 62      00      7a    ; ldb
+    73 74 62      00      7b    ; stb
+    69 6d 73      00      7c    ; ims
+    63 6d 70 75   00      7d    ; cmpu
+    6a 7a         00      7e    ; jz
+    73 79 73      00      7f    ; sys
+
+    ; syscalls
+    ;  system
+    68 61 6c 74               00   00    ; halt
+    74 69 6d 65               00   01    ; time
+    73 70 61 77 6e            00   02    ; spawn
+    ;  io handles
+    6f 70 65 6e               00   10    ; open
+    63 6c 6f 73 65            00   11    ; close
+    72 65 61 64               00   12    ; read
+    77 72 69 74 65            00   13    ; write
+    73 65 65 6b               00   14    ; seek
+    74 65 6c 6c               00   15    ; tell
+    74 72 75 6e 63 61 74 65   00   16    ; truncate
+    74 79 70 65               00   17    ; type
+    ;  filesystem
+    73 74 61 74               00   20    ; stat
+    72 65 6e 61 6d 65         00   21    ; rename
+    73 79 6d 6c 69 6e 6b      00   22    ; symlink
+    75 6e 6c 69 6e 6b         00   23    ; unlink
+    63 68 6d 6f 64            00   24    ; chmod
+    6d 6b 64 69 72            00   25    ; mkdir
+    72 6d 64 69 72            00   26    ; rmdir
+
+    ; end of list
+    00
+
+
+
+; ==========================================================
+; const char error_incorrect_arguments[];
+; ==========================================================
+
+=error_incorrect_arguments
+    ; "Incorrect arguments." '0A
+    ; "Usage: <as> [input] -o [output]" '00
+    49 6e 63 6f 72 72 65 63  74
+  ;  I  n  c  o  r  r  e  c   t
+    20 61 72 67 75 6d 65 6e  74 73 2e 0a 55 73 61 67
+  ;     a  r  g  u  m  e  n   t  s  . \n  U  s  a  g
+    65 3a 20 3c 61 73 3e 20  5b 69 6e 70 75 74 5d 20
+  ;  e  :     <  a  s  >      [  i  n  p  u  t  ]
+    2d 6f 20 5b 6f 75 74 70  75 74 5d 00
+  ;  -  o     [  o  u  t  p   u  t  ] \0
+
+
+
+;==========================================
+; const char error_input_file[];
+;==========================================
+
+=error_input_file
+    ; "Failed to read input file." '0A '00
+    46 61 69 6c 65 64 20 74  6f
+  ;  F  a  i  l  e  d     t   o
+    20 72 65 61 64 20 69 6e  70 75 74 20 66 69 6c 65
+  ;     r  e  a  d     i  n  p  u  t     f  i  l  e
+    2e 00
+  ;  . \0
+
+
+
+;==========================================
+; const char error_output_file[];
+;==========================================
+
+=error_output_file
+    ; "Failed to write output file." '0A '00
+    46 61 69 6c 65 64 20 74 6f
+  ;  F  a  i  l  e  d     t  o
+    20 77 72 69 74 65 20 6f  75 74 70 75 74 20 66 69
+  ;     w  r  i  t  e     o   u  t  p  u  t     f  i
+    6c 65 2e 00
+  ;  l  e  . \0
+
+
+
+;==========================================
+; const char error_invalid_character[];
+;==========================================
+
+=error_invalid_character
+    ; "Invalid character." '0A '00
+    49 6e 76 61 6c 69 64 20 63
+  ;  I  n  v  a  l  i  d     c
+    68 61 72 61 63 74 65 72  2e 00
+  ;  h  a  r  a  c  t  e  r   . \0
+
+
+
+;==========================================
+; const char error_invalid_string[];
+;==========================================
+
+=error_invalid_string
+    ; "Invalid string." '0A '00
+    49  6e 76 61 6c 69 64 20 73
+  ;  I   n  v  a  l  i  d     s
+    74 72 69 6e 67 2e 00
+  ;  t  r  i  n  g  . \0
+
+
+
+;==========================================
+; const char error_invalid_keyword[];
+;==========================================
+
+=error_invalid_keyword
+    ; "Invalid keyword." '0A '00
+    49 6e 76 61 6c 69 64 20 6b
+  ;  I  n  v  a  l  i  d     k
+    65 79 77 6f 72 64 2e 00
+  ;  e  y  w  o  r  d  . \0
+
+
+
+; ==========================================================
+; FILE* input_file;
+; ==========================================================
+=input_file
+    00 00 00 00
+
+
+
+; ==========================================================
+; FILE* output_file;
+; ==========================================================
+=output_file
+    00 00 00 00
+
+
+
+; ==========================================================
+; char current_char;
+; ==========================================================
+; The current character being processed.
+;
+; This is a full word because it's -1 if the end of the file has been reached.
+; ==========================================================
+=current_char
+    00 00 00 00
+
+
+
+; ==========================================================
+; char current_keyword[];
+; ==========================================================
+; The current keyword as a null-terminated string.
+;
+; We store at most 15 characters (plus null terminator) since all of our
+; keywords are short. Label and symbol names and strings do not go through
+; this; they are fed directly to the output.
+; ==========================================================
+=current_token
+    00 00 00 00
+    00 00 00 00
+    00 00 00 00
+    00 00 00 00
+
+
+
+; ==========================================================
+; int main(int argc, char** argv);
+; ==========================================================
+; The entry point of the assembler. We parse the arguments to determine the
+; input and output filenames, then hand over control to open_files().
+;
+; params:
+; - argc: r0
+; - argv: r1
+; vars:
+; - input filename index: r2
+; - output filename index: r3
+; ==========================================================
+
+=main
+    ; set up a stack frame (without pushing rfp because we won't return)
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; check that we have exactly four arguments
+    7D 8A 80 04                      ; cmp ra r0 4
+    7E 8A &main_four_args            ; jz ra &main_four_args
+    7E 00 &main_incorrect_arguments  ; jz 0 &main_incorrect_arguments
+:main_four_args
+
+    ; preserve r1 now
+    71 8C 8C 04    ; sub rsp rsp 4    ; push r1
+    79 81 00 8C    ; stw r1 0 rsp     ; ...
+
+    ; push "-o" to the stack for comparison
+    7C 8A 00 00    ; ims ra '00 '00
+    7C 8A 2D 6F    ; ims ra "-o"
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 8A 00 8C    ; stw ra 0 rsp
+
+    ; check if -o is the first argument
+    78 80 81 04                     ; ldw r0 r1 4       ; r0 = argv[1]
+    70 81 00 8C                     ; add r1 0 rsp      ; r1 = rsp ("-o")
+        ; call strcmp
+        7C 8A <strcmp                   ; ims ra <strcmp
+        7C 8A >strcmp                   ; ims ra >strcmp
+        71 8C 8C 04                     ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08                     ; add rb rip 8      ; ...
+        79 8B 00 8C                     ; stw rb 0 rsp      ; ...
+        70 8F 8E 8A                     ; add rip rpp ra    ; jump
+        70 8C 8C 04                     ; add rsp rsp 4     ; pop return address
+    78 81 8D FC                     ; ldw r1 rfp -4     ; restore r1
+    7E 80 &main_first_arg           ; jz r0 &main_first_arg
+    7E 00 &main_check_second_arg    ; jz 0 &main_check_second_arg
+
+    ; -o is the first argument.
+:main_first_arg
+    70 82 00 03       ; add r2 0 3
+    70 83 00 02       ; add r3 0 2
+    7E 00 &main_parsed_arguments   ; jz 0 &main_parsed_arguments
+
+    ; check if -o is the second argument
+:main_check_second_arg
+    78 80 81 08                     ; ldw r0 r1 8       ; r0 = argv[2]
+    70 81 00 8C                     ; add r1 0 rsp      ; r1 = rsp ("-o")
+        ; call strcmp
+        7C 8A <strcmp                   ; ims ra <strcmp
+        7C 8A >strcmp                   ; ims ra >strcmp
+        71 8C 8C 04                     ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08                     ; add rb rip 8      ; ...
+        79 8B 00 8C                     ; stw rb 0 rsp      ; ...
+        70 8F 8E 8A                     ; add rip rpp ra    ; jump
+        70 8C 8C 04                     ; add rsp rsp 4     ; pop return address
+    78 81 8D FC                     ; ldw r1 rfp -4     ; restore r1
+    7E 80 &main_second_arg          ; jz r0 &main_second_arg
+    7E 00 &main_incorrect_arguments ; jz 0 &main_incorrect_arguments
+
+    ; -o is the second argument.
+:main_second_arg
+    70 82 00 01       ; add r2 0 1
+    70 83 00 03       ; add r3 0 3
+    7E 00 &main_parsed_arguments   ; jz 0 &main_parsed_arguments
+
+:main_incorrect_arguments
+    7C 80 <error_incorrect_arguments   ; ims r0 <error_incorrect_arguments
+    7C 80 >error_incorrect_arguments   ; ims r0 >error_incorrect_arguments
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; argument parsing is done. get the filenames
+:main_parsed_arguments
+    72 82 82 04          ; mul r2 r2 4
+    78 80 81 82          ; ldw r0 r1 r2
+    72 83 83 04          ; mul r3 r3 4
+    78 81 81 83          ; ldw r1 r1 r3
+
+    ; clean up our stack and jump to open_files(). (it never returns.)
+    70 8C 8D 00          ; add rsp rfp 0     ; mov rsp rfp
+    7C 8A <open_files    ; ims ra <open_files
+    7C 8A >open_files    ; ims ra >open_files
+    70 8F 8E 8A          ; add rip rpp ra
+
+
+
+; ==========================================================
+; [[noreturn]] void open_files(const char* input_filename, const char* output_filename);
+; ==========================================================
+; params/vars:
+; - input_filename, input_file: r0, rfp-4
+; - output_filename, output_file: r1, rfp-8
+; - "r": rfp-10
+; - "w": rfp-12
+; ==========================================================
+
+=open_files
+    ; set up a stack frame (without pushing rfp because we won't return)
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; preserve r0 and r1 on the stack
+    79 80 8D FC    ; stw r0 rfp -4   ; push r0
+    79 81 8D F8    ; stw r1 rfp -8   ; push r1
+
+    ; push "r" and "w" to the stack (in one word)
+    7C 8A 72 00        ; ims ra "r" '00
+    7C 8A 77 00        ; ims ra "w" '00
+    79 8A 8D F4        ; stw ra rfp -12   ; push "w\0r\0"
+
+    ; call set_current_filename(input_filename)
+    78 80 8D FC        ; ldw r0 rfp -4    ; input_filename
+    7C 8A <set_current_filename   ; ims ra <set_current_filename
+    7C 8A >set_current_filename   ; ims ra >set_current_filename
+    71 8C 8C 04             ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08             ; add rb rip 8
+    79 8B 00 8C             ; stw rb 0 rsp
+    70 8F 8E 8A             ; add rip rpp ra    ; jump
+    70 8C 8C 04             ; add rsp rsp 4     ; pop return address
+
+    ; open input: fopen(input_filename, "r")
+    78 80 8D FC        ; ldw r0 rfp -4    ; input_filename
+    70 81 8D F6        ; add r1 rfp -10   ; "r"
+    7C 8A <fopen       ; ims ra <fopen
+    7C 8A >fopen       ; ims ra >fopen
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; make sure it's good
+    7D 8A 80 00                    ; cmp ra r0 0
+    7E 8A &open_files_input_error  ; jz ra &open_files_input_error
+    7E 00 &open_files_input_ok     ; jz 0 &open_files_input_ok
+
+    ; opening input failed, fatal error
+:open_files_input_error
+    7C 80 <error_input_file   ; ims r0 <error_input_file
+    7C 80 >error_input_file   ; ims r0 >error_input_file
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; opening input succeeded, store it
+:open_files_input_ok
+    7C 8A <input_file     ; ims ra <input_file
+    7C 8A >input_file     ; ims ra >input_file
+    79 80 8E 8A           ; stw r0 rpp ra
+
+    ; open output: fopen(output_filename, "w")
+    78 80 8D F8        ; ldw r0 rfp -8
+    70 81 8D F4        ; add r1 rfp -12
+    7C 8A <fopen       ; ims ra <fopen
+    7C 8A >fopen       ; ims ra >fopen
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+    79 80 8D F8        ; stw r0 rfp -8
+
+    ; make sure it's good
+    7D 8A 80 00                     ; cmp ra r0 0
+    7E 8A &open_files_output_error  ; jz ra &open_files_output_error
+    7E 00 &open_files_output_ok     ; jz 0 &open_files_output_ok
+
+    ; opening output failed, fatal error
+:open_files_output_error
+    7C 80 <error_output_file   ; ims r0 <error_output_file
+    7C 80 >error_output_file   ; ims r0 >error_output_file
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; opening output succeeded, store it
+:open_files_output_ok
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    79 80 8E 8A            ; stw r0 rpp ra
+
+    ; set our starting line number to 1
+    7C 81 <current_line   ; ims r0 <current_line
+    7C 81 >current_line   ; ims r0 >current_line
+    78 80 8E 81           ; ldw r0 rpp r1
+    70 80 00 01           ; add r0 00 1    ; mov r0 1
+    79 80 8E 81           ; stw r0 rpp r1
+
+    ; clean up our stack and jump to run. (it never returns.)
+    70 8C 8D 00          ; add rsp rfp 0     ; mov rsp rfp
+    7C 8A <run           ; ims ra <run
+    7C 8A >run           ; ims ra >run
+    70 8F 8E 8A          ; add rip rpp ra
+
+
+
+; ==========================================================
+; [[noreturn]] void run(void);
+; ==========================================================
+; Parses until the input file is exhausted, then closes files and exits.
+; ==========================================================
+
+=run
+    ; no stack frame
+
+    ; read the first character
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+:run_loop
+
+    ; see if it's EOF. if so we're done
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 8A 8E 8A           ; ldw ra rpp ra
+    7D 8A 8A FF           ; cmp ra ra -1
+    7E 8A &run_loop_done  ; jz ra &run_loop_done
+
+    ; Each of these "try" functions attempts to parse a construct, consuming as
+    ; much as is necessary to parse it. If they successfully parse something
+    ; they return true which sends us back to the top of the run loop.
+
+    ; try to parse whitespace, call try_parse_whitespace()
+    7C 8A <try_parse_whitespace    ; ims ra <try_parse_whitespace
+    7C 8A >try_parse_whitespace    ; ims ra >try_parse_whitespace
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; try to parse a quoted byte, call try_parse_quoted_byte()
+    7C 8A <try_parse_quoted_byte   ; ims ra <try_parse_quoted_byte
+    7C 8A >try_parse_quoted_byte   ; ims ra >try_parse_quoted_byte
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; try to parse a keyword, call try_parse_keyword()
+    7C 8A <try_parse_keyword       ; ims ra <try_parse_keyword
+    7C 8A >try_parse_keyword       ; ims ra >try_parse_keyword
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; try to parse a comment, call try_parse_comment()
+    7C 8A <try_parse_comment       ; ims ra <try_parse_comment
+    7C 8A >try_parse_comment       ; ims ra >try_parse_comment
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; try to parse a debug line, call try_parse_debug()
+    7C 8A <try_parse_debug         ; ims ra <try_parse_debug
+    7C 8A >try_parse_debug         ; ims ra >try_parse_debug
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; try to parse a string, call try_parse_string()
+    7C 8A <try_parse_string        ; ims ra <try_parse_string
+    7C 8A >try_parse_string        ; ims ra >try_parse_string
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; try to parse a linker directive, call try_parse_linker()
+    7C 8A <try_parse_linker        ; ims ra <try_parse_linker
+    7C 8A >try_parse_linker        ; ims ra >try_parse_linker
+    71 8C 8C 04                    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08                    ; add rb rip 8
+    79 8B 00 8C                    ; stw rb 0 rsp
+    70 8F 8E 8A                    ; add rip rpp ra    ; jump
+    70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
+    7D 8A 80 01                    ; cmpu ra r0 1
+    7E 8A &run_loop                ; jz ra run_loop
+
+    ; parsing failed. fatal error
+    7C 80 <error_invalid_character   ; ims r0 <error_invalid_character
+    7C 80 >error_invalid_character   ; ims r0 >error_invalid_character
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+:run_loop_done
+
+    ; get the output file
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 80 8E 8A            ; ldw r0 rpp ra
+
+    ; call fclose
+    7C 8A <fclose      ; ims ra <fclose
+    7C 8A >fclose      ; ims ra >fclose
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; get the input file
+    7C 8A <input_file      ; ims ra <input_file
+    7C 8A >input_file      ; ims ra >input_file
+    78 80 8E 8A            ; ldw r0 rpp ra
+
+    ; call fclose
+    7C 8A <fclose      ; ims ra <fclose
+    7C 8A >fclose      ; ims ra >fclose
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; tail-call _Exit(0)
+    70 80 00 00        ; add r0 0 0
+    7C 8A <_Exit       ; ims ra <_Exit
+    7C 8A >_Exit       ; ims ra >_Exit
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+
+
+
+;==========================================
+; void read_char(void);
+;==========================================
+; Reads a character, or -1 if the end of the file has been reached, into
+; current_char.
+;==========================================
+
+=read_char
+    ; don't bother to set up a stack frame
+
+    ; get the address of current_char into r0
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    70 80 8E 8A           ; add r0 rpp ra
+
+    ; element_size and count are both 1
+    70 81 00 01           ; add r1 0 1
+    70 82 00 01           ; add r2 0 1
+
+    ; input file goes in r3
+    7C 8A <input_file     ; ims ra <input_file
+    7C 8A >input_file     ; ims ra >input_file
+    78 83 8E 8A           ; ldw r3 rpp ra
+
+    ; call fread
+    7C 8A <fread   ; ims ra <fread
+    7C 8A >fread   ; ims ra >fread
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if return value is 0, assume it's the end of the file
+    7E 80 &read_char_eof
+    7E 00 &read_char_done
+
+    ; on end-of-file set current_char to -1
+:read_char_eof
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    79 FF 8E 8A           ; stw -1 rpp ra
+
+:read_char_done
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void emit_byte(char c);
+; ==========================================================
+; Writes the given byte to the output file.
+; ==========================================================
+
+=emit_byte
+    ; no stack frame
+
+    ; push the byte to the stack
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; prepare args for fwrite
+    70 80 00 8C            ; add r0 0 rsp  ; mov r0 rsp    ; r0 = &c
+    70 81 00 01            ; add r1 0 1    ; mov r1 1      ; r1 = 1
+    70 82 00 01            ; add r2 0 1    ; mov r2 1      ; r2 = 1
+    7C 8A <output_file     ; ims ra <output_file
+    7C 8A >output_file     ; ims ra >output_file
+    78 83 8E 8A            ; ldw r3 rpp ra                 ; r3 = output_file
+
+    ; call fwrite
+    7C 8A <fwrite  ; ims ra <fwrite
+    7C 8A >fwrite  ; ims ra >fwrite
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; TODO check for error
+
+    ; done
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void emit_hex_bits(char c);
+; ==========================================================
+; Emits the given four bits as one hexadecimal character.
+; ==========================================================
+
+=emit_hex_bits
+    ; don't bother to set up a stack frame
+
+    ; see if we need a letter or a number
+    7D 81 80 09                 ; cmpu r1 r0 9
+    7D 81 81 01                 ; cmpu r1 r1 1
+    7E 81 &emit_hex_bits_alpha  ; jz r1 &emit_hex_bits_alpha
+
+    ; number
+    70 80 80 30                 ; add r0 r0 "0"
+    7E 00 &emit_hex_bits_done   ; jz 0 &emit_hex_bits_done
+
+    ; letter
+:emit_hex_bits_alpha
+    70 80 80 37                 ; add r0 r0 A-10
+
+    ; tail-call emit_byte
+:emit_hex_bits_done
+    7C 8A <emit_byte      ; ims ra <emit_byte
+    7C 8A >emit_byte      ; ims ra >emit_byte
+    70 8F 8E 8A           ; add rip rpp ra
+
+
+
+; ==========================================================
+; void emit_as_hex(char c);
+; ==========================================================
+; Writes the hexadecimal representation of the given byte to the output file.
+; ==========================================================
+
+=emit_as_hex
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; collect the low bits and push them to the stack
+    74 81 80 0F     ; and r1 r0 15
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r1
+    79 81 00 8C     ; stw r1 0 rsp
+
+    ; collect the high bits and call emit_hex_bits
+    77 80 80 04             ; ror r0 r0 4
+    74 80 80 0F             ; and r0 r0 15
+    7C 8A <emit_hex_bits    ; ims ra <emit_hex_bits
+    7C 8A >emit_hex_bits    ; ims ra >emit_hex_bits
+    71 8C 8C 04             ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08             ; add rb rip 8
+    79 8B 00 8C             ; stw rb 0 rsp
+    70 8F 8E 8A             ; add rip rpp ra         ; jump
+    70 8C 8C 04             ; add rsp rsp 4          ; pop return address
+
+    ; pop the low bits and call emit_hex_bits
+    78 80 00 8C             ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04             ; add rsp rsp 4
+    7C 8A <emit_hex_bits    ; ims ra <emit_hex_bits
+    7C 8A >emit_hex_bits    ; ims ra >emit_hex_bits
+    71 8C 8C 04             ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08             ; add rb rip 8
+    79 8B 00 8C             ; stw rb 0 rsp
+    70 8F 8E 8A             ; add rip rpp ra         ; jump
+    70 8C 8C 04             ; add rsp rsp 4          ; pop return address
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void try_parse_whitespace(void);
+; ==========================================================
+
+=try_parse_whitespace
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's a newline. these are handled separately.
+    ; TODO check for carriage returns
+    7D 8A 80 0A   ; cmpu ra r0 \n   (line feed)
+    7E 8A &try_parse_whitespace_newline
+
+    ; check if it's whitespace, call isspace()
+    7C 8A <isspace   ; ims ra <isspace
+    7C 8A >isspace   ; ims ra >isspace
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; if false, return false
+    7E 80 &try_parse_whitespace_false
+
+    ; consume the character, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; return true
+    70 80 00 01     ; add r0 0 1        ; mov r0 1
+:try_parse_whitespace_false
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:try_parse_whitespace_newline
+
+    ; when we encounter a newline, we emit a newline. this helps us debug the
+    ; output. we also increment the line number to improve debugging.
+
+    ; call emit_byte('\n')  ('\n' is already in r0)
+    7C 8A <emit_byte   ; ims ra <emit_byte
+    7C 8A >emit_byte   ; ims ra >emit_byte
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; consume the newline, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; increment the line number
+    7C 81 <current_line   ; ims r0 <current_line
+    7C 81 >current_line   ; ims r0 >current_line
+    78 80 8E 81           ; ldw r0 rpp r1
+    70 80 80 01           ; add r0 r0 1    ; inc r0
+    79 80 8E 81           ; stw r0 rpp r1
+
+    ; return true
+    70 80 00 01     ; add r0 0 1        ; mov r0 1
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void try_parse_quoted_byte(void);
+; ==========================================================
+
+=try_parse_quoted_byte
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's a single quote
+    7D 8A 80 27    ; cmpu ra r0 "'"
+    7E 8A &try_parse_byte_found
+
+    ; not a quote, return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_byte_found
+
+    ; consume the quote, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; push a loop flag to the stack
+    71 8C 8C 04     ; sub rsp rsp 4     ; push 1
+    79 01 00 8C     ; stw 1 0 rsp       ; ^^^
+
+:try_parse_byte_loop
+
+    ; get the char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; make sure it's hex, call isxdigit()
+    7C 8A <isxdigit    ; ims ra <isxdigit
+    7C 8A >isxdigit    ; ims ra >isxdigit
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+    7E 80 &try_parse_byte_error    ; jz r0 &try_parse_byte_error
+
+    ; get the char again
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; emit it to the output
+    7C 8A <emit_byte   ; ims ra <emit_byte
+    7C 8A >emit_byte   ; ims ra >emit_byte
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; consume the hex char, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; get our loop flag. if it's zero, we're done
+    78 8A 00 8C     ; ldw r0 0 rsp
+    7E 8A &try_parse_byte_done   ; jz 0 &try_parse_byte_done
+
+    ; clear the flag and loop
+    79 00 00 8C                  ; stw 0 0 rsp
+    7E 00 &try_parse_byte_loop   ; jz 0 &try_parse_byte_loop
+
+:try_parse_byte_done
+
+    ; pop the loop flag
+    70 8C 8C 04     ; add rsp rsp 4
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_byte_error
+    7C 80 <error_invalid_character   ; ims r0 <error_invalid_character
+    7C 80 >error_invalid_character   ; ims r0 >error_invalid_character
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+
+
+; ==========================================================
+; void try_parse_comment(void);
+; ==========================================================
+
+=try_parse_comment
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's the start of a comment
+    7D 8A 80 3B    ; cmpu ra r0 ";"
+    7E 8A &try_parse_comment_loop
+
+    ; not a comment, return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_comment_loop
+
+    ; consume the current char, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's the end of a line or the end of the file
+    7D 8A 80 0A                    ; cmpu ra r0 "\n"  (line feed)
+    7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
+    7D 8A 80 0D                    ; cmpu ra r0 "\r"  (carriage return)
+    7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
+    7D 8A 80 FF                    ; cmpu ra r0 -1  (end-of-file)
+    7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
+
+    ; keep looping
+    7E 00 &try_parse_comment_loop  ; jz 0 &try_parse_comment_loop
+
+:try_parse_comment_done
+
+    ;return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; void try_parse_debug(void);
+; ==========================================================
+
+=try_parse_debug
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's the start of a debug line
+    7D 8A 80 23    ; cmpu ra r0 "#"
+    7E 8A &try_parse_debug_found
+
+    ; not a debug line, return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_debug_found
+
+    ; TODO for now we treat it as a comment
+    7C 8A <try_parse_comment_loop
+    7C 8A >try_parse_comment_loop
+    70 8F 8E 8A                    ; add rip rpp ra
+
+
+
+; ==========================================================
+; void try_parse_string(void);
+; ==========================================================
+
+=try_parse_string
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's the start of a string
+    7D 8A 80 22    ; cmpu ra r0 \"
+    7E 8A &try_parse_string_loop
+
+    ; not a string, return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_string_loop
+
+    ; consume the current char, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check for end-of-file or backslash. if so, fatal error
+    7D 8A 80 FF                    ; cmp ra r0 -1
+    7E 8A &try_parse_string_error  ; jz ra &try_parse_string_error
+    7D 8A 80 5C                    ; cmp ra r0 "\"
+    7E 8A &try_parse_string_error  ; jz ra &try_parse_string_error
+
+    ; check for a double quote. if so, it's the end of the string
+    7D 8A 80 22                    ; cmpu ra r0 \"
+    7E 8A &try_parse_string_done   ; jz ra &try_parse_string_done
+
+    ; check if it's a printable character, call isprint()
+    7C 8A <isprint   ; ims ra <isprint
+    7C 8A >isprint   ; ims ra >isprint
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; if it's not printable, fatal error
+    7E 80 &try_parse_string_error  ; jz r0 &try_parse_string_error
+
+    ; get the current char back into r0
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; emit it in hexadecimal, call emit_as_hex
+    7C 8A <emit_as_hex   ; ims ra <emit_as_hex
+    7C 8A >emit_as_hex   ; ims ra >emit_as_hex
+    71 8C 8C 04          ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra    ; jump
+    70 8C 8C 04          ; add rsp rsp 4     ; pop return address
+
+    ; keep looping
+    7E 00 &try_parse_string_loop  ; jz 0 &try_parse_string_loop
+
+:try_parse_string_done
+
+    ; consume the closing quote, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ;return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_string_error
+    7C 80 <error_invalid_string   ; ims r0 <error_invalid_string
+    7C 80 >error_invalid_string   ; ims r0 >error_invalid_string
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+
+
+; ==========================================================
+; void try_parse_linker(void);
+; ==========================================================
+; Parses a linker directive, i.e. a symbol or label declaration or invocation.
+;
+; The linker directive is emitted verbatim to the output (with a trailing space
+; to prevent hex bytes from being concatenated with it.)
+;
+; This stage of the assembler only supports the stage 0 linker directives (not
+; weak, zero or constructor/destructor.) The next stage assembler supports all
+; of them.
+; ==========================================================
+
+=try_parse_linker
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's the start of linker directive
+    7D 8A 80 3A                    ; cmpu ra r0 ":"
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+    7D 8A 80 3D                    ; cmpu ra r0 "="
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+    7D 8A 80 40                    ; cmpu ra r0 "@"
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+    7D 8A 80 5E                    ; cmpu ra r0 "^"
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+    7D 8A 80 3C                    ; cmpu ra r0 "<"
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+    7D 8A 80 3E                    ; cmpu ra r0 ">"
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+    7D 8A 80 26                    ; cmpu ra r0 "&"
+    7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
+
+    ; not a linker directive, return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_linker_found
+
+    ; TODO emit and consume the control character, then check that we have the
+    ; start of a valid label, i.e. an identifier char that is not a digit.
+    ; see test/linker-invalid.os
+
+:try_parse_linker_loop
+
+    ; emit the current character, call emit_byte
+    ; (the current character is already in r0)
+    7C 8A <emit_byte   ; ims ra <emit_byte
+    7C 8A >emit_byte   ; ims ra >emit_byte
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; consume the character, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; if it's a special identifier char, loop right away (keeping
+    ; the char in r0)
+    7D 8A 80 5F                    ; cmpu ra r0 "_"
+    7E 8A &try_parse_linker_loop   ; jz ra &try_parse_linker_loop
+    7D 8A 80 24                    ; cmpu ra r0 "$"
+    7E 8A &try_parse_linker_loop   ; jz ra &try_parse_linker_loop
+
+    ; check if it's alphanumeric, call isalnum()
+    7C 8A <isalnum   ; ims ra <isalnum
+    7C 8A >isalnum   ; ims ra >isalnum
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; if false, we're done
+    7E 80 &try_parse_linker_done
+
+    ; get the current char back into r0
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; keep looping
+    7E 00 &try_parse_linker_loop  ; jz 0 &try_parse_linker_loop
+
+:try_parse_linker_done
+
+    ; emit a space, call emit_byte(' ')
+    70 80 00 20        ; add r0 0 " "
+    7C 8A <emit_byte   ; ims ra <emit_byte
+    7C 8A >emit_byte   ; ims ra >emit_byte
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; return true
+    70 80 00 01         ; add r0 0 1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; void try_parse_keyword(void);
+; ==========================================================
+; Parses a keyword, emitting the corresponding byte.
+;
+; The keyword is read onto the stack as a null-terminated string. We then walk
+; the keyword map comparing each string. When a match is found, the
+; corresponding byte is emitted as hex. If no match is found it's a fatal
+; error.
+;
+; vars:
+; - length/iterator: r1, rfp-4
+; - buffer: rfp-16
+; ==========================================================
+
+=try_parse_keyword
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's a letter
+    7C 8A <isalpha   ; ims ra <isalpha
+    7C 8A >isalpha   ; ims ra >isalpha
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    7E 80 &try_parse_keyword_false
+    7E 00 &try_parse_keyword_found
+
+:try_parse_keyword_false
+
+    ; not a letter, return false
+    70 80 00 00         ; add r0 0 0
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+:try_parse_keyword_found
+
+    ; we've found the start of a keyword. we're going to read it onto the stack.
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; push a length iterator to the stack
+    71 8C 8C 04    ; sub rsp rsp 4    ; push 0
+    79 00 00 8C    ; stw 0 0 rsp      ; ^^^
+
+    ; create twelve bytes worth of space for the keyword
+    71 8C 8C 0C    ; sub rsp rsp 12
+
+:try_parse_keyword_read_loop
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; get the length into r1
+    78 81 8D FC    ; ldw r1 rfp -4
+
+    ; store the current char into the string
+    70 8A 8D F0    ; add ra rfp -16
+    7B 80 8A 81    ; stb r0 ra r1
+
+    ; increment the length
+    70 81 81 01    ; add r1 r1 1     ; inc r1
+    79 81 8D FC    ; stw r1 rfp -4
+
+    ; check that the length isn't too long
+    7D 8A 81 0A                      ; cmpu ra r1 10
+    7E 8A &try_parse_keyword_error   ; jz ra &try_parse_keyword_error
+
+    ; consume the character, call read_char()
+    7C 8A <read_char   ; ims ra <read_char
+    7C 8A >read_char   ; ims ra >read_char
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+
+    ; get the current char
+    7C 8A <current_char   ; ims ra <current_char
+    7C 8A >current_char   ; ims ra >current_char
+    78 80 8E 8A           ; ldw r0 rpp ra
+
+    ; check if it's a letter or digit
+    7C 8A <isalnum   ; ims ra <isalnum
+    7C 8A >isalnum   ; ims ra >isalnum
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; not a letter or digit, we're done reading
+    7E 80 &try_parse_keyword_read_done
+
+    ; keep reading
+    7E 00 &try_parse_keyword_read_loop
+
+:try_parse_keyword_read_done
+
+    ; append a null-terminator onto the string
+    78 81 8D FC    ; ldw r1 rfp -4
+    70 8A 8D F0    ; add ra rfp -16
+    7B 00 8A 81    ; stb 0 ra r1
+
+    ; replace our length with a map iterator
+    7C 8A <keyword_map   ; ims ra <keyword_map
+    7C 8A >keyword_map   ; ims ra >keyword_map
+    70 8A 8E 8A          ; add ra rpp ra
+    79 8A 8D FC          ; stw ra rfp -4
+
+:try_parse_keyword_find_loop
+
+    ; strcmp() the current map iterator with the keyword we read
+    70 80 8D F0      ; add r0 rfp -16    ; read buffer
+    78 81 8D FC      ; ldw r1 rfp -4     ; map iterator
+    7C 8A <strcmp    ; ims ra <strcmp
+    7C 8A >strcmp    ; ims ra >strcmp
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; walk our map iterator to the end of the string
+        78 81 8D FC      ; ldw r1 rfp -4
+    :try_parse_keyword_next_loop
+        70 81 81 01      ; add r1 r1 1    ; inc r1
+        7A 8A 00 81      ; ldb ra 0 r1
+        7E 8A &try_parse_keyword_next_done   ; jz ra &try_parse_keyword_next_done
+        7E 00 &try_parse_keyword_next_loop   ; jz ra &try_parse_keyword_next_loop
+    :try_parse_keyword_next_done
+        70 81 81 01      ; add r1 r1 1    ; inc r1
+
+    ; if strcmp() returned zero, we've found a match
+    7E 80 &try_parse_keyword_done
+
+    ; otherwise, skip the replacement byte
+    70 81 81 01      ; add r1 r1 1    ; inc r1
+    79 81 8D FC      ; stw r1 rfp -4
+
+    ; if we're pointing to the end of the map, the keyword was not found
+    7A 8A 00 81          ; ldb ra 0 r1
+    7E 8A &try_parse_keyword_error   ; jz ra &try_parse_keyword_error
+
+    ; keep searching
+    7E 00 &try_parse_keyword_find_loop
+
+:try_parse_keyword_done
+
+    ; r1 points to our replacement byte. emit it as hex.
+    7A 80 00 81          ; ldb r0 0 r1
+    7C 8A <emit_as_hex   ; ims ra <emit_as_hex
+    7C 8A >emit_as_hex   ; ims ra >emit_as_hex
+    71 8C 8C 04          ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra    ; jump
+    70 8C 8C 04          ; add rsp rsp 4     ; pop return address
+
+    ; return true
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    70 80 00 01     ; add r0 0 1
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:try_parse_keyword_error
+    7C 80 <error_invalid_keyword   ; ims r0 <error_invalid_keyword
+    7C 80 >error_invalid_keyword   ; ims r0 >error_invalid_keyword
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <fatal       ; ims ra <fatal
+    7C 8A >fatal       ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra

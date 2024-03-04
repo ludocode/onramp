@@ -1,0 +1,213 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This file contains the implementation of malloc for the first stage Onramp
+; libc. It is a simple bump allocator that does not reclaim memory; free() does
+; nothing.
+;
+; This file is overridden by stdlib_malloc.c in libc/1.
+
+
+
+; ==========================================================
+; void __malloc_init(void);
+; ==========================================================
+; Initializes the allocator.
+; ==========================================================
+
+=__malloc_init
+
+    ; set up a stack frame
+    ;71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    ;79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^
+    ;70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; load the process info table into r9
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+
+    ; align the break
+    78 80 89 04       ; ldw r0 r9 4
+    70 80 80 03       ; add r0 r0 3
+    74 80 80 FC       ; and r0 r0 -4
+
+    ; store it in __malloc_break
+    7C 8B <__malloc_break   ; ims rb <__malloc_break
+    7C 8B >__malloc_break   ; ims rb >__malloc_break
+    79 80 8E 8B             ; stw r0 rpp rb
+
+    ; TODO we should also be choosing a stack size and saving the end of the
+    ; heap to make sure we aren't overrunning our stack
+
+    ; return
+    ;70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    ;78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    ;70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void* __malloc_break;
+; ==========================================================
+; The current program break.
+; ==========================================================
+
+@__malloc_break
+    00 00 00 00
+
+
+
+; ==========================================================
+; void* malloc(size_t size)
+; ==========================================================
+; Allocates a chunk of memory of the given size from the heap.
+;
+; This is a simple bump allocator. There is no way to free allocated memory
+; (without exiting the program.)
+;
+; If allocation fails, the program aborts.
+;
+; params:
+;   - size: r0
+; vars:
+;   - __malloc_break: r1
+;   - old_break: r2
+;   - new_break: r3
+; ==========================================================
+
+=malloc
+    ; don't bother to set up a stack frame
+
+    ; we always give a unique allocation. if the size is zero,
+    ; make it one.
+    7E 80 &malloc_zero       ; jz r0 &malloc_zero
+    7E 00 &malloc_not_zero   ; jz 0 &malloc_not_zero   ; jmp &malloc_not_zero
+:malloc_zero
+    70 80 00 01              ; add r0 0 1              ; mov r0 1
+:malloc_not_zero
+
+    ; make sure the size is reasonable. (we'll check again later; this just
+    ; makes sure our alignment check won't overflow.)
+    7D 8A 80 F0                     ; cmpu ra r0 -16
+    7D 8A 8A FF                     ; cmpu ra ra -1
+    7E 8A &malloc_size_reasonable   ; jz ra &malloc_size_reasonable
+    7E 00 &malloc_fatal             ; jz 0 &malloc_fatal              ; jmp &malloc_fatal
+:malloc_size_reasonable
+
+    ; align the size (rounding up to a multiple of 4)
+    70 80 80 03       ; add r0 r0 3
+    74 80 80 FC       ; and r0 r0 -4
+
+    ; load the current break
+    7C 81 <__malloc_break   ; ims r1 <__malloc_break
+    7C 81 >__malloc_break   ; ims r1 >__malloc_break
+    78 82 8E 81             ; ldw r2 rpp r1
+
+    ; increment it by the size
+    ; TODO we should check that the size doesn't overflow the heap and
+    ; overwrite the stack
+    70 83 82 80             ; add r3 r2 r0
+    79 83 8E 81             ; stw r3 rpp r1
+
+    ; return the old break
+    70 80 00 82             ; add r0 0 r2              ; mov r0 r2
+    78 8F 00 8C             ; ldw rip 0 rsp            ; ret
+
+:malloc_fatal
+    7C 80 <__malloc_fatal_str   ; ims ra <__malloc_fatal_str
+    7C 80 >__malloc_fatal_str   ; ims ra >__malloc_fatal_str
+    70 80 8E 80                 ; add r0 rpp r0
+    7C 8A <__fatal   ; ims ra <__fatal
+    7C 8A >__fatal   ; ims ra >__fatal
+    70 8F 8E 8A      ; add rip rpp ra   ; jump
+
+
+
+; ==========================================================
+; const char* __malloc_fatal_str;
+; ==========================================================
+; The error message printed when malloc() fails.
+; ==========================================================
+
+@__malloc_fatal_str
+    ; "ERROR: malloc() failed." ^0A ^00
+    45 52 52 4f 52 3a 20 6d  61 6c 6c 6f 63 28 29 20
+  ;  E  R  R  O  R  :     m   a  l  l  o  c  (  )
+    66 61 69 6c 65 64 2e 0a  00
+  ;  f  a  i  l  e  d  . \n  \0
+
+
+
+; ==========================================================
+; void free(void* p);
+; ==========================================================
+; Does nothing.
+;
+; This currently only exists for compatibility with the later stage libcs that
+; reclaim memory. The early stages call this anyway though. I have some ideas
+; to turn this into a stack allocator to reduce the memory required for
+; bootstrapping but there are some complications with how our lexers work. In
+; any case there's no point in doing it now.
+;
+; TODO actually it would be nice to make this work as our earlier stages are
+; now calling malloc() more, especially cci/0 and ld/1, and freeing with a
+; stack allocator is a bad idea because it will be more challenging than I
+; thought to control allocation order the way we need especially since libo/0
+; is now calling malloc() as well.
+
+; The simplest thing to do is to maintain a singly-linked free list without any
+; coalescing or splitting of blocks. On a free() insert in the list. On
+; malloc() search the free list for the smallest matching block, and if none
+; match then we bump the heap. Use a large minimum size (maybe 32 bytes) to
+; avoid too many unusably small allocations.
+;
+; I'll get around to it at some point. If it works well enough we could even
+; get rid of the libc/1 malloc entirely.
+;
+; TODO ld/1 is linked with this and will be used to bootstrap cci/2. It's
+; probably going to be important to either get this working or rebuild ld/1
+; against libc/1 before moving on to cci/1.
+; ==========================================================
+
+=free
+    ; no-op.
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void* __malloc_largest_unused(size_t* out_size);
+; ==========================================================
+; Returns the bounds of the largest region of memory that is currently
+; unallocated.
+;
+; This can be used as the heap for child processes.
+; ==========================================================
+
+; TODO nothing uses this until libc/1 is bootstrapped.
+;=__malloc_largest
+
+;    FF;TODO

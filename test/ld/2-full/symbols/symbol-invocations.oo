@@ -1,0 +1,13 @@
+=__start
+01 02 03 04
+^bar
+
+=foo
+05 06 07 08
+>bar
+&__start
+
+=bar
+09 0a 0b 0c
+>foo
+<foo

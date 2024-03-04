@@ -1,0 +1,118 @@
+; Calculates Fibonacci sequence, printing out first 20 entries.
+
+:_start
+
+; jump main
+7A 8A <main   ; add ra 0 64      ; imm ra main
+7A 8A >main   ; add ra 0 64      ; imm ra main
+7A 8B 8F 04   ; add rlr rpc 4    ; set return address
+7A 8F 8E 8A   ; add rpc rbp ra   ; jump main
+; TODO sys exit instead of halt
+FF FF FF FF   ; halt
+
+
+
+;==========================================
+:main
+
+; TODO set up frame pointer
+
+; r0: a
+; r1: b
+; r2: c  (not preserved)
+; r4: i
+
+; initialize variables
+7A 80 00 00   ; add r0 0 0    ; a = 0
+7A 81 00 01   ; add r1 0 0    ; b = 1
+7A 84 00 14   ; add r4 0 20   ; i = 20
+
+; main_loop:
+
+    ; call output_int(a)
+    7B 8D 8D 18         ; sub rsp rsp 24    ; push stack
+    77 80 8D 14         ; store r0 rsp 20   ; preserve a
+    77 81 8D 10         ; store r1 rsp 16   ; preserve b
+    77 82 8D 0C         ; store r2 rsp 12   ; preserve c        ; TODO we don't actually need to preserve c
+    77 84 8D 08         ; store r4 rsp 8    ; preserve i
+    77 8B 8D 04         ; store rlr rsp 4   ; preserve rlr
+    77 80 8D 00         ; store r0 rsp 0    ; pass argument a
+    75 8A <output_int         ; imm ra 0
+    75 8A >output_int         ; imm ra 192        ; imm ra output_int
+    7A 8B 8F 04         ; add rlr rpc 4     ; set return address
+    7A 8F 8E 8A         ; add rpc rbp ra    ; jump output_int
+    76 8B 8D 04         ; load rlr rsp 4    ; restore rlr
+    76 84 8D 08         ; load r4 rsp 8     ; restore i
+    76 82 8D 0C         ; load r2 rsp 12    ; restore c
+    76 81 8D 10         ; load r1 rsp 16    ; restore b
+    76 80 8D 14         ; load r0 rsp 20    ; restore a
+    7A 8D 8D 18         ; add rsp rsp 24    ; pop stack
+
+    ; calculate fibonacci
+    7A 82 80 81   ; add r2 r0 r1   ; c = a + b
+    7A 80 81 00   ; add r0 r1 0    ; a = b
+    7A 81 82 00   ; add r1 r2 0    ; b = c
+
+    ; loop
+    7B 84 84 01   ; sub r4 r4 1    ; i -= 1
+    7F 84 00 04   ; jz r4 4        ; if (i != 0)...
+    7F 00 FF A4   ; jz 0 -92       ; goto main_loop
+
+; return
+7A 8F 8B 00   ; add rsp rlr 0   ; jump to return address
+
+
+
+;==========================================
+:output_int
+
+; TODO set up frame pointer
+
+; r0: a  ; remaining decimal to convert
+; r1: b  ; a / 10
+; r2: c  ; a % 10
+; r3: d  ; ascii character
+
+; load argument
+76 80 8D 00   ; load r0 rsp 0   ; argument a
+
+; push a null-terminator
+7B 8D 8D 04   ; sub rsp rsp 4
+77 00 8D 00   ; store 0 rsp 0
+
+; convert char to decimal, pushing chars onto stack
+; decimal_loop:
+    7D 81 80 0A   ; div r1 r0 10    ; b = a / 10
+    7C 82 81 0A   ; mul r2 r1 10    ; c = b * 10
+    7B 82 80 82   ; sub r2 r0 r2    ; c = a - c  (i.e. c = a % 10)
+    7A 83 82 30   ; add r3 r2 '0'   ; d = c + '0'
+    7B 8D 8D 04   ; sub rsp rsp 4
+    77 83 8D 00   ; store r3 rsp 0  ; push d
+    7A 80 81 00   ; add r0 r1 0     ; a = b
+    7F 80 00 04   ; jz r0 4         ; if (a != 0)...
+    7F 00 FF DC   ; jz 0 -36        ; goto decimal_loop
+
+; pop chars and output
+; print_loop:
+    76 83 8D 00   ; load r3 rsp 0    ; pop d
+    7F 83 00 18   ; jz r0 24         ; if d == '\0': break
+    7B 8D 8D 08   ; sub rsp rsp 8
+    77 01 8D 00   ; store 1 rsp 0    ; push 1
+    77 83 8D 04   ; store r3 rsp 4   ; push d
+    79 01 00 00   ; sys write        ; syscall write()
+    7A 8D 8D 0C   ; add rsp rsp 12   ; pop args and digit
+    7F 00 FF E0   ; jz 0 -32         ; jump print_loop
+
+; output newline and clean up
+7B 8D 8D 08   ; sub rsp rsp 8
+77 01 8D 00   ; store 1 rsp 0      ; push 1
+77 0A 8D 04   ; store '\n' rsp 4   ; push '\n'
+79 01 00 00   ; sys write          ; syscall write()
+7A 8D 8D 0C   ; add rsp rsp 12     ; pop args and null terminator
+
+; return
+7A 8F 8B 00   ; add rsp rlr 0   ; jump to return address
+
+; padding
+FF FF FF FF FF FF FF FF FF FF FF FF
+FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF

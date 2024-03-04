@@ -1,0 +1,173 @@
+; Calculates Fibonacci sequence, printing out first 20 entries.
+
+; function table:
+;   hex  dec  function
+;     0    0  _start
+;    30   48  process_info_table
+;    34   52  exit_address
+;    40   64  main
+;    C0  192  output_int
+
+
+
+;==========================================
+; _start
+;==========================================
+@0x00 =_start
+
+    ; format indicator "~Onr~amp~   "
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info table
+    79 80 8E 30   ; stw r0 rpp ^30
+
+    ; call main
+    70 8A 00 40   ; add ra 0 ^40     ; imm ra main
+    70 8B 8F 0C   ; add rb rip 12    ; compute return address
+    71 8C 8C 04   ; sub rsp rsp 4    ; push stack
+    79 8B 8C 00   ; stw rb rsp 0     ; store return address
+    70 8F 8E 8A   ; add rip rpp ra   ; jump main
+
+    ; jump to exit
+    78 8A 8E 30   ; ldw ra rpp ^30   ; load process info table
+    78 8F 8A 08   ; ldw rip ra 8     ; load exit address into rip
+
+    ; padding
+    00 00 00 00
+
+
+
+;==========================================
+; globals
+;==========================================
+@0x30 =process_info_table
+    FF FF FF FF
+
+
+
+    ; padding
+    FF FF FF FF
+    FF FF FF FF FF FF FF FF
+
+
+
+;==========================================
+; main
+;==========================================
+@0x40 =main
+
+    ; set up stack frame
+    71 8C 8C 04 ; sub rsp rsp 4
+    79 8D 8C 00 ; push rfp
+    70 8D 8C 00 ; add rfp rsp 0
+
+    ; r0: a
+    ; r1: b
+    ; r2: c  (not preserved)
+    ; r4: i
+
+    ; initialize variables
+    70 80 00 00   ; add r0 0 0    ; a = 0
+    70 81 00 01   ; add r1 0 1    ; b = 1
+    70 84 00 14   ; add r4 0 20   ; i = 20
+
+    ;main_loop:
+
+        ; call output_int(a) (using stack-based calling convention)
+        71 8C 8C 14         ; sub rsp rsp 20    ; push stack
+        79 80 8C 10         ; store r0 rsp 16   ; preserve a
+        79 81 8C 0C         ; store r1 rsp 12   ; preserve b
+        79 84 8C 08         ; store r4 rsp 8    ; preserve i
+        79 80 8C 04         ; store r0 rsp 4    ; push argument a
+        7C 8A 00 00         ; imm ra 0
+        7C 8A C0 00         ; imm ra 192        ; ra <- output_int
+        70 8B 8F 08         ; add rb rip 8      ; compute return address
+        79 8B 8C 00         ; store rb rsp 0    ; push return address
+        70 8F 8E 8A         ; add rip rpp ra    ; jump output_int
+        78 84 8C 08         ; ldw r4 rsp 8     ; restore i
+        78 81 8C 0C         ; ldw r1 rsp 12    ; restore b
+        78 80 8C 10         ; ldw r0 rsp 16    ; restore a
+        70 8C 8C 14         ; add rsp rsp 20    ; pop stack
+
+        ; calculate fibonacci
+        70 82 80 81   ; add r2 r0 r1   ; c = a + b
+        70 80 81 00   ; add r0 r1 0    ; a = b
+        70 81 82 00   ; add r1 r2 0    ; b = c
+
+        ; loop
+        71 84 84 01   ; sub r4 r4 1    ; i -= 1
+        7E 84 01 00   ; jz r4 1        ; if (i != 0)...
+        7E 00 EC FF   ; jz 0 -20       ; goto main_loop
+
+    ; return
+    70 80 00 00   ; add r0 0 0      ; return value 0 (success)
+    70 8C 8D 00   ; add rsp rfp 0   ; reset frame pointer
+    78 8F 8C 04   ; ldw r0 rsp 4    ; jump to return address
+
+    ; padding
+    FF FF FF FF FF FF FF FF FF FF FF FF
+
+
+
+;==========================================
+; output_int(int)
+;
+; (This is using an alternate calling convention where all arguments are pushed
+; to the stack.)
+;==========================================
+@0xC0 =output_int
+
+    ; r0: a  ; remaining decimal to convert
+    ; r1: b  ; a / 10
+    ; r2: c  ; a % 10
+    ; r3: d  ; ascii character
+    ; r4: s  ; string address
+    ; r5: l  ; string length
+
+    ; set up stack frame
+    71 8C 8C 04 ; sub rsp rsp 4
+    79 8D 8C 00 ; store rfp rsp 0  ; push rfp
+    70 8D 8C 00 ; add rfp rsp 0    ; mov rfp rsp
+
+    ; make room for our string
+    70 84 8C 00 ; add r4 rsp 0
+    71 8C 8C 0C ; sub rsp rsp 12
+
+    ; load argument
+    78 80 8D 08   ; ldw r0 rfp 8    ; argument a
+
+    ; end with a newline
+    71 84 84 01   ; sub r4 r4 1
+    7B 0A 84 00   ; stb '\n' r4 0
+
+    ; convert char to decimal, pushing chars onto stack
+    ; decimal_loop:
+        73 81 80 0A   ; div r1 r0 10    ; b = a / 10
+        72 82 81 0A   ; mul r2 r1 10    ; c = b * 10
+        71 82 80 82   ; sub r2 r0 r2    ; c = a - c  (i.e. c = a % 10)
+        70 83 82 30   ; add r3 r2 '0'   ; d = c + '0'
+        71 84 84 01   ; sub r4 r4 1
+        7B 83 84 00   ; stb r3 r4 0
+        70 80 81 00   ; add r0 r1 0     ; a = b
+        7E 80 01 00   ; jz r0 1         ; if (a != 0)...
+        7E 00 F7 FF   ; jz 0 -9         ; goto decimal_loop
+
+    ; calculate string length into r5
+    70 85 8C 0C   ; add r5 rsp 12
+    71 85 85 84   ; sub r5 r5 r4
+
+    ; syscall write(stdout, string, length)
+    78 8A 8E 30   ; ldw ra rpp ^30   ; load process info table
+    78 80 8A 10   ; ldw r0 ra 16     ; r0 = stdout
+    70 81 00 84   ; mov r1 r4        ; r1 = string address
+    70 82 00 85   ; mov r2 r5        ; r2 = string length
+    7F 13 00 00   ; sys write 0 0
+
+    ; return
+    70 8C 8D 00   ; add rsp rfp 0   ; reset stack pointer
+    78 8D 8C 00   ; ldw rfp rsp 0   ; restore old frame pointer
+    70 8C 8C 04   ; add rsp rsp 4   ; pop old frame pointer
+    78 8F 8C 00   ; ldw r0 rsp 0    ; jump to return address
+

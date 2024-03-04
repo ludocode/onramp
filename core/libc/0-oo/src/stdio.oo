@@ -1,0 +1,1022 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; ==========================================================
+; FILE* stdin;
+; ==========================================================
+=stdin
+    00 00 00 00
+
+
+
+; ==========================================================
+; FILE* stdout;
+; ==========================================================
+=stdout
+    00 00 00 00
+
+
+
+; ==========================================================
+; FILE* stderr;
+; ==========================================================
+=stderr
+    00 00 00 00
+
+
+
+; ==========================================================
+; FILE files[16];
+; ==========================================================
+; The array of file info. A FILE* is a pointer into this array.
+;
+; Each FILE consists of two words: the I/O handle to use and the current
+; position in the file.
+;
+; The first three files are assigned to stdin, stdout and stderr respectively
+; on startup.
+;
+; (Files are unbuffered in the stage 0 libc.)
+; ==========================================================
+@__files
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+    FF FF FF FF  FF FF FF FF
+
+
+
+; ==========================================================
+; void __stdio_init(void);
+; ==========================================================
+; Initializes the standard IO functionality.
+;
+; vars:
+;    - stdin: r0
+;    - stdout: r1
+;    - stderr: r2
+;    - __files: r8
+;    - process_info_table: r9
+; ==========================================================
+
+=__stdio_init
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; get the files array into r8
+    7C 88 <__files   ; ims r8 <__files
+    7C 88 >__files   ; ims r8 >__files
+    70 88 8E 88      ; add r8 rpp r8
+
+    ; load the process info table into r9
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+
+    ; copy the handles for our standard streams into the files array
+    78 8A 89 0C   ; ldw ra r9 12     ; copy stdin handle
+    79 8A 88 00   ; stw ra r8 0      ;     to files[0]
+    78 8A 89 10   ; ldw ra r9 16     ; copy stdout handle
+    79 8A 88 08   ; stw ra r8 8      ;     to files[1]
+    78 8A 89 14   ; ldw ra r9 20     ; copy stderr handle
+    79 8A 88 10   ; stw ra r8 16     ;     to files[2]
+
+    ; assign stdin
+    7C 8A <stdin     ; ims ra <stdin
+    7C 8A >stdin     ; ims ra >stdin
+    79 88 8E 8A      ; stw r8 rpp ra
+
+    ; assign stdout
+    70 87 88 08      ; add r7 r8 8
+    7C 8A <stdout    ; ims ra <stdout
+    7C 8A >stdout    ; ims ra >stdout
+    79 87 8E 8A      ; stw r7 rpp ra
+
+    ; assign stderr
+    70 87 88 10      ; add r7 r8 17
+    7C 8A <stderr    ; ims ra <stderr
+    7C 8A >stderr    ; ims ra >stderr
+    79 87 8E 8A      ; stw r7 rpp ra
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; char* __prepend_wd(const char* filename);
+; ==========================================================
+; Prepends the working directory to the given path.
+; ==========================================================
+
+; TODO decide if we're actually going to do this
+
+;=__prepend_wd
+;
+;    ; set up a stack frame
+;    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+;    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+;    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+;
+;    ; preserve the filename
+;    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+;    79 80 00 8C     ; stw r0 0 rsp      ; ...
+;
+;    ; call strlen on the filename
+;    7C 8A <strlen      ; ims ra <strlen
+;    7C 8A >strlen      ; ims ra >strlen
+;    71 8C 8C 04        ; sub rsp rsp 4          ; push return address
+;    70 8B 8F 08        ; add rb rip 8
+;    79 8B 00 8C        ; stw rb 0 rsp
+;    70 8F 8E 8A        ; add rip rpp ra         ; jump
+;    70 8C 8C 04        ; add rsp rsp 4          ; pop return address
+;
+;    ; TODO call strlen on the working directory
+;
+;    ; we then allocate the buffer with malloc. we
+;
+;    ; call malloc
+;    7C 8A <malloc   ; ims ra <malloc
+;    7C 8A >malloc   ; ims ra >malloc
+;    71 8C 8C 04           ; sub rsp rsp 4          ; push return address
+;    70 8B 8F 08           ; add rb rip 8
+;    79 8B 00 8C           ; stw rb 0 rsp
+;    70 8F 8E 8A           ; add rip rpp ra         ; jump
+;    70 8C 8C 04           ; add rsp rsp 4          ; pop return address
+;
+;    ; return
+;    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+;    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+;    70 8C 8C 04     ; add rsp rsp 4     ; ...
+;    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; const char* __files_error_too_many_files;
+; ==========================================================
+
+=__files_error_too_many_files
+    ; "ERROR: Too many open files." '0A '00
+    45 52 52 4f 52 3a 20 54  6f 6f 20 6d 61 6e 79 20
+  ;  E  R  R  O  R  :     T   o  o     m  a  n  y
+    6f 70 65 6e 20 66 69 6c  65 73 2e 0a 00
+  ;  o  p  e  n     f  i  l   e  s  . \n \0
+
+
+
+; ==========================================================
+; const char* __files_error_syscall_failed;
+; ==========================================================
+
+=__files_error_syscall_failed
+    ; "ERROR: Failed to open file." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 6f 70 65 6e 20 66 69  6c 65 2e 0a 00
+  ;     o  p  e  n     f  i   l  e  . \n \0
+
+
+
+; ==========================================================
+; const char* __files_error_invalid_fopen_mode;
+; ==========================================================
+
+=__files_error_invalid_fopen_mode
+    ; "ERROR: Invalid fopen() mode." '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 66
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     f
+    6f 70 65 6e 28 29 20 6d  6f 64 65 2e 0a 00 00 00
+  ;  o  p  e  n  (  )     m   o  d  e  . \n \0
+
+
+
+; ==========================================================
+; const char* __files_error_bad_element_size;
+; ==========================================================
+
+=__files_error_bad_element_size
+    ; "ERROR: The element size for fread() and fwrite() must be 1." '0A '00
+    45 52 52 4f 52 3a 20 54  68 65 20 65 6c 65 6d 65
+  ;  E  R  R  O  R  :     T   h  e     e  l  e  m  e
+    6e 74 20 73 69 7a 65 20  66 6f 72 20 66 72 65 61
+  ;  n  t     s  i  z  e      f  o  r     f  r  e  a
+    64 28 29 20 61 6e 64 20  66 77 72 69 74 65 28 29
+  ;  d  (  )     a  n  d      f  w  r  i  t  e  (  )
+    20 6d 75 73 74 20 62 65  20 31 2e 0a 00
+  ;     m  u  s  t     b  e      1  . \n \0
+
+
+
+; ==========================================================
+; FILE* fopen(const char* filename, const char* mode);
+; ==========================================================
+; Opens the file with the given name in the given mode.
+;
+; The mode must be "r" or "w". No other modes are supported.
+;
+; vars:
+; - filename: r0, rfp-4
+; - mode: r1, rfp-8
+; - FILE*: r2, rfp-12
+; - end of __files: r3
+; ==========================================================
+
+=fopen
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; make space for locals, save args
+    71 8C 8C 0C     ; sub rsp rsp 12
+    79 80 8D FC     ; stw r0 rfp -4
+    79 81 8D F8     ; stw r1 rfp -8
+
+;    ; if the filename doesn't start with '/', it's a relative path.
+;    7A 8A 00 80                ; ldb ra 00 r0
+;    7D 8A 8A 5C                ; cmp ra ra "/"
+;    7E 8A &__fopen_filename_ok   ; jz ra &__fopen_filename_ok
+;
+;    ; the VM doesn't support relative paths so we need to prepend the working
+;    ; directory. first we preserve our mode
+;    71 8C 8C 04              ; sub rsp rsp 4          ; push r1 (preserve mode)
+;    79 81 00 8C              ; stw r1 0 rsp           ; ...
+;
+;    ; call __prepend_wd
+;    7C 8A <__prepend_wd      ; ims ra <__prepend_wd
+;    7C 8A >__prepend_wd      ; ims ra >__prepend_wd
+;    71 8C 8C 04              ; sub rsp rsp 4          ; push return address
+;    70 8B 8F 08              ; add rb rip 8
+;    79 8B 00 8C              ; stw rb 0 rsp
+;    70 8F 8E 8A              ; add rip rpp ra         ; jump
+;    70 8C 8C 04              ; add rsp rsp 4          ; pop return address
+;
+;    ; restore mode
+;    78 81 00 8C     ; ldw r1 0 rsp     ; pop r1
+;    70 8C 8C 04     ; add rsp rsp 4    ; ...
+
+:__fopen_filename_ok
+
+    ; get the bounds of the __files array
+    7C 82 <__files   ; ims r8 <__files
+    7C 82 >__files   ; ims r8 >__files
+    70 82 82 8E      ; add r2 r2 rpp
+    70 83 82 40      ; add r3 r2 64    ; add 64 twice for a total of 128
+    70 83 83 40      ; add r3 r2 64
+
+    ; find a free file slot
+:__fopen_slot_search
+    78 8A 00 82                  ; ldw ra 0 r2
+    7D 8A 8A FF                  ; cmp ra ra -1
+    7E 8A &__fopen_slot_found    ; jz ra &__fopen_slot_found
+    70 82 82 08                  ; add r2 r2 8
+    7D 8A 82 83                  ; cmp ra r2 r3
+    7E 8A &__fopen_no_slot       ; jz ra &__fopen_no_slot
+    7E 00 &__fopen_slot_search   ; jz 0 &__fopen_slot_search
+
+:__fopen_slot_found
+    79 82 8D F4     ; stw r2 rfp -12
+
+    ; see if mode is "w" or "r". we don't support any other chars.
+    7A 8A 00 81            ; ldb ra 0 r1
+    7D 8B 8A 72            ; cmp rb ra "r"
+    7E 8B &__fopen_read    ; jz rb &__fopen_read
+    7D 8B 8A 77            ; cmp rb ra "w"
+    7E 8B &__fopen_write   ; jz rb &__fopen_write
+    ; TODO for now we also support "a", we don't really need this except for
+    ; temporary wrap support in ld/1, can be removed later. we open for writing
+    ; then seek to the end.
+    ; TODO nope, disabling this. we want to keep the behaviour of truncating
+    ; when opening for writing, not going to add the truncate syscall yet
+;;    7D 8B 8A 61            ; cmp rb ra "a"
+;;    7E 8B &__fopen_write   ; jz rb &__fopen_write
+    7E 00 &__fopen_invalid_mode   ; jz rb &__fopen_invalid_mode
+
+:__fopen_read
+    70 81 00 00            ; add r1 0 0
+    7E 00 &__fopen_sys     ; jz 0 &__fopen_sys
+
+:__fopen_write
+    70 81 00 01          ; add r1 0 1
+
+:__fopen_sys
+    7F 10 00 00          ; sys open 0 0
+
+    ; if return value is -1, file open failed
+    7D 8A 80 FF                   ; cmp ra r0 -1
+    7E 8A &__fopen_syscall_failed ; jz ra &__fopen_syscall_failed
+
+    ; save metadata in the file slot
+    79 80 82 00     ; stw r0 r2 0    ; i/o handle
+    79 00 82 04     ; stw 0 r2 4     ; position in file
+
+;;    ; check again if mode is append
+;;    78 81 8D F8     ; ldw r1 rfp -8
+;;    7A 8A 00 81     ; ldb ra 0 r1
+;;    7D 8B 8A 61     ; cmp rb ra "a"
+;;    7E 8B 01 00     ; jz rb +1
+;;    7E 00 &__fopen_not_append   ; jz 0 &__fopen_not_append
+;;
+;;    ; mode is append. seek to the end, store the position
+;;    70 81 00 FF     ; add r1 0 -1     ; mov r1 -1
+;;    70 82 00 FF     ; add r2 0 -1     ; mov r2 -1
+;;    7F 14 00 00     ; sys seek 0 0
+;;    78 82 8D F4     ; ldw r2 rfp -12
+;;    79 80 82 04     ; stw 0 r2 4      ; position in file
+;;:__fopen_not_append
+
+    ; return value is the pointer to the file metadata
+    78 80 8D F4     ; ldw r0 rfp -12
+    7E 00 &__fopen_syscall_return   ; jz 0 &__fopen_syscall_return
+
+:__fopen_syscall_failed
+    ; failure. return NULL
+    70 80 00 00     ; add r0 0 0    ; zero r0
+
+:__fopen_syscall_return
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:__fopen_no_slot
+    ; no free slot is a fatal error.
+    7C 80 <__files_error_too_many_files   ; ims r0 <__files_error_too_many_files
+    7C 80 >__files_error_too_many_files   ; ims r0 >__files_error_too_many_files
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+:__fopen_invalid_mode
+    7C 80 <__files_error_invalid_fopen_mode   ; ims r0 <__files_error_invalid_fopen_mode
+    7C 80 >__files_error_invalid_fopen_mode   ; ims r0 >__files_error_invalid_fopen_mode
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+
+
+; ==========================================================
+; void fclose(FILE* file);
+; ==========================================================
+; Closes the given file.
+;
+; If this is called on the standard streams (stdin, stdout and stderr), the
+; call is ignored.
+;
+; args:
+; - file: r0
+; vars:
+; - handle: r1
+; - stdin/stdout/stderr: r8
+; ==========================================================
+
+=fclose
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; skip if the file is stdin, stdout or stderr
+    7C 88 <__files        ; ims r8 <__files
+    7C 88 >__files        ; ims r8 >__files        ; r8 = stdin
+    7D 8A 80 88           ; cmp ra r0 r8
+    7E 8A &__fclose_done  ; jz ra &__fclose_done
+    70 88 88 04           ; add r8 r8 04           ; r8 = stdout
+    7D 8A 80 88           ; cmp ra r0 r8
+    7E 8A &__fclose_done  ; jz ra &__fclose_done
+    70 88 88 04           ; add r8 r8 04           ; r8 = stderr
+    7D 8A 80 88           ; cmp ra r0 r8
+    7E 8A &__fclose_done  ; jz ra &__fclose_done
+
+    ; get the handle
+    78 81 00 80         ; ldw r1 0 r0
+
+    ; clear the file
+    79 FF 00 80         ; stw -1 0 r0
+
+    ; make the syscall
+    70 80 00 81         ; add r0 0 r1      ; mov r0 r1
+    7F 11 00 00         ; sys close 0 0
+
+:__fclose_done
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; bool __closing_all_files;
+; ==========================================================
+; A flag to make sure __close_all_files doesn't recurse.
+; ==========================================================
+
+=__closing_all_files
+    00
+
+
+
+; ==========================================================
+; void __close_all_files(void);
+; ==========================================================
+; Closes all files (except the standard streams.) This is called automatically
+; when exiting the program.
+; ==========================================================
+
+=__close_all_files
+    ; don't bother setting up a stack frame
+
+; TODO this isn't working yet, skip it for now, fix it later
+78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; make sure we haven't recursed
+    7C 8A <__closing_all_files         ; ims r2 <__closing_all_files
+    7C 8A >__closing_all_files         ; ims r2 >__closing_all_files
+    7A 80 8E 8A                        ; ldb r0 rpp ra
+    7D 80 80 01                        ; cmp r0 r0 1
+    7E 80 &__close_all_files_recursed  ; jz r0 &__close_all_files_recursed
+    7B 01 8E 8A                        ; stb 1 rpp ra
+
+    ; push an iterator
+    ; skip the standard streams, start at file 3 (which is at 12 bytes)
+    70 81 00 0C     ; add r1 0 12
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r1
+    79 81 00 8C     ; stw r1 0 rsp      ; ...
+
+:__close_all_files_loop
+
+    ; get the file to close
+    7C 82 <__files   ; ims r2 <__files
+    7C 82 >__files   ; ims r2 >__files
+    70 82 8E 82      ; add r2 rpp r2
+    70 80 82 81      ; add r0 r2 r1
+
+    ; if the file handle is -1, skip it
+    7D 8A 80 FF                     ; cmp ra r0 -1
+    7E 8A &__close_all_files_skip   ; jz ra &__close_all_files_skip
+
+    ; close it
+    7C 8A <fclose        ; ims ra <fclose
+    7C 8A >fclose        ; ims ra >fclose
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+:__close_all_files_skip
+
+    ; get and increment the iterator
+    78 81 00 8C     ; ldw r1 0 rsp
+    70 81 81 04     ; add r1 r1 04
+
+    ; if the iterator is at 64 (16*4), we're done
+    7D 8A 81 40     ; cmpu ra r1 64
+    7E 8A &__close_all_files_done
+
+    ; otherwise keep going
+    7E 00 &__close_all_files_loop
+
+:__close_all_files_done
+
+    ; pop the iterator
+    70 8C 8C 04     ; add rsp rsp 4
+
+    ; return
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; Note that we never clear the recursion flag. This can only be called once
+    ; as part of exiting the program.
+
+:__close_all_files_recursed
+    ; Something went wrong closing files. It's not safe to exit a subprogram
+    ; because we would leak open files. We have to halt the whole VM.
+    70 80 00 01    ; add r0 0 1
+    7F 00 00 00    ; sys halt 0 0
+
+
+
+; ==========================================================
+; size_t fread(void* buffer, size_t element_size, size_t element_count, FILE* file);
+; ==========================================================
+; Reads bytes.
+;
+; We match the C prototype but the element size must be 1. (This restriction is
+; lifted in a later libc stage.)
+;
+; (Element sizes other than 1 would require buffering which we don't do yet,
+; plus there are overflow checks and other considerations needed to do it
+; correctly. It's better to just forbid it during bootstrapping.)
+;
+; vars:
+; - file: rfp-4
+; - i/o handle: rfp-8
+; ==========================================================
+
+=fread
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store the file
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r3
+    79 83 00 8C     ; stw r3 0 rsp      ; ...
+
+    ; make sure the element size is 1
+    7D 81 81 01     ; cmpu r1 r1 1
+    7E 81 &__fread_size_ok
+
+    ; element size is not 1, fatal error
+    7C 80 <__files_error_bad_element_size   ; ims r0 <__files_error_bad_element_size
+    7C 80 >__files_error_bad_element_size   ; ims r0 >__files_error_bad_element_size
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+:__fread_size_ok
+
+    ; put the buffer into r1 (count is already in r2)
+    70 81 00 80     ; add r1 0 r0     ; mov r1 r0
+
+    ; get the handle into r0 and save it on the stack
+    78 80 00 83     ; ldw r0 0 r3
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; we'll be accumulating the total read in r3
+    70 83 00 00     ; add r3 0 0      ; zero r3
+
+:__fread_loop
+
+    ; make the syscall
+    7F 12 00 00        ; sys read 0 0
+
+    ; if nothing was returned, we're done
+    7D 8A 80 00          ; cmp ra r0 0
+    7E 8A &__fread_done  ; jz ra &__fread_done
+
+    ; add it to the total
+    70 83 83 80        ; add r3 r3 r0
+
+    ; adjust the remaining count. if it's zero, we're done
+    71 82 82 80          ; sub r2 r2 r0
+    7D 8A 82 00          ; cmp ra r2 0
+    7E 8A &__fread_done  ; jz ra &__fread_done
+
+    ; adjust the read position
+    70 81 81 80        ; add r1 r1 r0
+
+    ; get the handle again
+    78 80 00 8C        ; ldw r0 0 rsp
+
+    ; and loop
+    7E 00 &__fread_loop  ; jz 0 &__fread_loop
+
+:__fread_done
+
+    ; increment the file position by the total
+    78 80 8D FC     ; ldw r0 rfp -4
+    78 81 80 04     ; ldw r1 r0 4
+    70 81 81 83     ; add r1 r1 r3
+    79 81 80 04     ; stw r1 r0 4
+
+    ; put our total in r0 to return it
+    70 80 00 83     ; add r0 0 r3       ; mov r0 r3
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; size_t fwrite(const void* data, size_t element_size, size_t element_count, FILE* file);
+; ==========================================================
+; Writes bytes.
+;
+; We match the C prototype but the element size must be 1. (This restriction is
+; lifted in a later libc stage.)
+;
+; (Element sizes other than 1 would require buffering which we don't do yet,
+; plus there are overflow checks and other considerations needed to do it
+; correctly. It's better to just forbid it during bootstrapping.)
+; ==========================================================
+
+=fwrite
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store the file
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r3
+    79 83 00 8C     ; stw r3 0 rsp      ; ...
+
+    ; make sure the element size is 1
+    7D 81 81 01     ; cmp r1 r1 1
+    7E 81 &__fwrite_size_ok
+
+    ; element size is not 1, fatal error
+    7C 80 <__files_error_bad_element_size   ; ims r0 <__files_error_bad_element_size
+    7C 80 >__files_error_bad_element_size   ; ims r0 >__files_error_bad_element_size
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+:__fwrite_size_ok
+
+    ; put the buffer into r1 (count is already in r2)
+    70 81 00 80     ; add r1 0 r0     ; mov r1 r0
+
+    ; get the handle into r0 and save it on the stack
+    78 80 00 83     ; ldw r0 0 r3
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; we'll be accumulating the total write in r3
+    70 83 00 00     ; add r3 0 0      ; zero r3
+
+:__fwrite_loop
+
+    ; make the syscall
+    7F 13 00 00         ; sys write 0 0
+
+    ; if nothing was returned, we're done
+    7E 80 &__fwrite_done  ; jz r0 &__fwrite_done
+
+    ; add it to the total
+    70 83 83 80         ; add r3 r3 r0
+
+    ; adjust the remaining count. if it's zero, we're done
+    71 82 82 80           ; sub r2 r2 r0
+    7E 82 &__fwrite_done  ; jz r2 &__fwrite_done
+
+    ; adjust the write position
+    70 81 81 80         ; add r1 r1 r0
+
+    ; get the handle again
+    78 80 00 8C         ; ldw r0 0 rsp
+
+        ; TODO loop disabled for now, VMs aren't currently returning anything for
+        ; write. Not sure yet if I want to allow VMs to do partial writes or if VMs
+        ; should return nothing and just abort if writing fails. Downside of latter
+        ; option is that VMs must implement the loop. But upside is that it's
+        ; simpler bytecode and much easier to specify
+        70 83 82 00           ; add r3 r2 0
+        7E 00 &__fwrite_done  ; jz 0 &__fwrite_done
+
+    ; and loop
+    7E 00 &__fwrite_loop  ; jz 0 &__fwrite_loop
+
+:__fwrite_done
+
+    ; increment the file position by the total
+    78 80 8D FC     ; ldw r0 rfp -4
+    78 81 80 04     ; ldw r1 r0 4
+    70 81 81 83     ; add r1 r1 r3
+    79 81 80 04     ; stw r1 r0 4
+
+    ; put our total in r0 to return it
+    70 80 00 83     ; add r0 0 r3       ; mov r0 r3
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; long ftell(FILE* file);
+; ==========================================================
+; Returns the current position in the given file.
+; ==========================================================
+
+=ftell
+    78 80 80 04     ; ldw r0 r0 4
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int fseek(FILE* stream, long offset, int base);
+; ==========================================================
+; TODO doc
+;
+; TODO support base, or at least check it, for now we're assuming it's SEEK_SET
+; ==========================================================
+
+=fseek
+    ; TODO check base, do the math properly
+    ; in the case of SEEK_END, need to do seek(-1),
+
+    ; store the offset
+    79 81 80 04     ; stw r1 r0 4
+
+    ; make the syscall
+    78 80 80 00     ; ldw r0 r0 0
+    7F 14 00 00     ; sys seek 0 0
+
+    ; TODO error checking!
+    ; TODO get the return value and store that
+
+    ; done
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int feof(FILE* file);
+; ==========================================================
+
+=feof
+    ; TODO
+    70 80 00 01     ; add r0 0 1
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int fgetc(FILE* file);
+; ==========================================================
+
+=fgetc
+    ; make space on the stack to read a character
+    71 8C 8C 04     ; sub rsp rsp 4
+
+    ; setup args to fread
+    70 83 00 80     ; add r3 0 r0    ; mov r3 r0
+    70 80 00 8C     ; add r0 0 rsp   ; mov r0 rsp
+    70 81 00 01     ; add r1 0 1     ; mov r1 1
+    70 82 00 01     ; add r2 0 1     ; mov r2 1
+
+    ; call fread
+    7C 8A <fread         ; ims ra <fread
+    7C 8A >fread         ; ims ra >fread
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; check if it failed
+    7E 80 &__fgetc_fail
+
+    ; return the byte read
+    7A 80 00 8C     ; ldb r0 0 rsp
+    70 8C 8C 04     ; add rsp rsp 4
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; on failure, return -1
+:__fgetc_fail
+    70 8C 8C 04     ; add rsp rsp 4
+    70 80 00 FF     ; add r0 0 -1     ; mov r0 -1
+    78 8F 00 8C     ; ldw rip 0 rsp   ; ret
+
+
+
+; ==========================================================
+; int fputc(int c, FILE* file);
+; ==========================================================
+
+=fputc
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; push c onto the stack so have a pointer to it
+    71 8C 8C 04     ; sub rsp rsp 4     ; push c
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; set up our args to fwrite
+    70 83 00 81      ; add r3 0 r1     ; mov r3 r1
+    70 80 00 8C      ; add r0 0 rsp    ; mov r0 rsp
+    70 81 00 01      ; add r1 0 1      ; mov r1 1
+    70 82 00 01      ; add r2 0 1      ; mov r2 1
+
+    ; call fwrite
+    7C 8A <fwrite        ; ims ra <fwrite
+    7C 8A >fwrite        ; ims ra >fwrite
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; on error, fwrite() will return 0. fputc() should return EOF, which we
+    ; define as -1.
+    7D 8A 80 00            ; cmpu ra r0 0
+    7E 8A &__fputc_error   ; jz ra &__fputc_error
+    7E 00 &__fputc_ok      ; jz 0 &__fputc_ok
+:__fputc_error
+    70 80 00 FF            ; add r0 0 -1
+    7E 00 &__fputc_return  ; jz 0 &__fputc_return
+
+    ; on success, fputc is supposed to return the unsigned char written (and
+    ; not the int given) so we only load the one byte.
+:__fputc_ok
+    7A 80 00 8C          ; ldb r0 0 rsp
+
+    ; return
+:__fputc_return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int fputs(const char* s, FILE* file);
+; ==========================================================
+
+=fputs
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store string and file on the stack
+    71 8C 8C 08     ; sub rsp rsp 8
+    79 80 8C 00     ; stw r0 rsp 0
+    79 81 8C 04     ; stw r1 rsp 4
+
+    ; call strlen()
+    7C 8A <strlen        ; ims ra <strlen
+    7C 8A >strlen        ; ims ra >strlen
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; set up our args to fwrite
+    70 82 00 80      ; add r2 0 r0     ; mov r2 r0
+    78 80 8C 00      ; ldw r0 rsp 0
+    70 81 00 01      ; add r1 0 1      ; mov r1 1
+    78 83 8C 04      ; ldw r3 rsp 4
+
+    ; call fwrite()
+    7C 8A <fwrite        ; ims ra <fwrite
+    7C 8A >fwrite        ; ims ra >fwrite
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; TODO check the return value of fwrite. for now we don't bother since this
+    ; is always used either to write to stdout/stderr or to write output file
+    ; comments.
+
+    ; fputs must return a non-negative value on success. we always return 0.
+    70 80 00 00     ; add r0 0 0        ; zero r0
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int puts(const char* s);
+; ==========================================================
+
+=puts
+    ; no stack frame
+
+    ; load stdout into r1
+    7C 8A <stdout    ; ims ra <stdout
+    7C 8A >stdout    ; ims ra >stdout
+    78 81 8E 8A      ; ldw r1 rpp ra
+
+    ; call fputs
+    ; TODO for now we ignore the return value
+    7C 8A <fputs        ; ims ra <fputs
+    7C 8A >fputs        ; ims ra >fputs
+    71 8C 8C 04         ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08         ; add rb rip 8
+    79 8B 00 8C         ; stw rb 0 rsp
+    70 8F 8E 8A         ; add rip rpp ra         ; jump
+    70 8C 8C 04         ; add rsp rsp 4          ; pop return address
+
+    ; call putchar('\n')
+    ; TODO for now we ignore the return value
+    70 80 00 0A         ; add r0 r0 '\n'
+    7C 8A <putchar      ; ims ra <putchar
+    7C 8A >putchar      ; ims ra >putchar
+    71 8C 8C 04         ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08         ; add rb rip 8
+    79 8B 00 8C         ; stw rb 0 rsp
+    70 8F 8E 8A         ; add rip rpp ra         ; jump
+    70 8C 8C 04         ; add rsp rsp 4          ; pop return address
+
+    ; puts must return a non-negative value on success. we always return 0.
+    70 80 00 00     ; add r0 0 0
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int putchar(int c);
+; ==========================================================
+
+=putchar
+    ; no stack frame
+
+    ; load stdout into r1
+    7C 8A <stdout    ; ims ra <stdout
+    7C 8A >stdout    ; ims ra >stdout
+    78 81 8E 8A      ; ldw r1 rpp ra
+
+    ; tail-call fputc
+    7C 8A <fputc        ; ims ra <fputc
+    7C 8A >fputc        ; ims ra >fputc
+    70 8F 8E 8A         ; add rip rpp ra      ; jump
+
+
+
+; ==========================================================
+; int fileno(FILE* file);
+; ==========================================================
+
+=fileno
+    78 80 00 80    ; ldw r0 0 r0
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int fchmod(int fileno, int mode);
+; ==========================================================
+
+=fchmod
+    7F 24 00 00    ; sys chmod 0 0
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int remove(FILE* file);
+; ==========================================================
+
+=remove
+    ; TODO call unlink for directories, rmdir for files. in this stage we only
+    ; support files.
+    7F 23 00 00    ; sys unlink 0 0
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret

@@ -1,0 +1,288 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; ==========================================================
+; size_t strlen(char* str)
+; ==========================================================
+; Returns the length of the given null-terminated string, not including the
+; null-terminator.
+;
+; This is the standard C strlen() function.
+;
+; params:
+;     - str: r0
+; vars:
+;     - count: r1
+; ==========================================================
+
+=strlen
+    ; don't bother to set up a stack frame
+    ; we accumulate the count in r1, then move it to r0
+    70 81 00 00           ; add r1 0 0           ; zero r1
+:__strlen_loop
+    7A 8A 80 81           ; ldb ra r0 r1
+    7E 8A &__strlen_done  ; jz ra &__strlen_done
+    70 81 81 01           ; add r1 r1 1          ; inc r1
+    7E 00 &__strlen_loop  ; jz 0 &__strlen_loop
+:__strlen_done
+    70 80 00 81           ; add r0 0 r1          ; mov r0 r1
+    78 8F 00 8C           ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; char* strcpy(char* dest, const char* src)
+; ==========================================================
+; Copies null-terminated string src to dest, returning dest.
+;
+; This is the standard C strcpy() function.
+;
+; params:
+;     - dest: r0
+;     - src: r1
+; vars:
+;     - index: r2
+; ==========================================================
+
+=strcpy
+    ; don't bother to set up a stack frame
+    ; we use an index because it's faster than incrementing both src and dest
+    70 82 00 00           ; add r2 0 0           ; zero r2
+:__strcpy_loop
+    7A 8A 81 82           ; ldb ra r1 r2
+    7B 8A 80 82           ; stb ra r0 r2
+    7E 8A &__strcpy_done  ; jz ra &__strcpy_done
+    70 82 82 01           ; add r2 r2 1          ; inc r2
+    7E 00 &__strcpy_loop  ; jz 0 &__strcpy_loop    ; jmp &__strcpy_loop
+:__strcpy_done
+    ; dest is already in r0
+    78 8F 00 8C           ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int strcmp(const char* left, const char* right)
+; ==========================================================
+; Compares null-terminated strings left to right lexicographically. Returns -1
+; if left comes before right, 1 if left comes after right, 0 if they are equal.
+;
+; This is the standard C strcmp() function.
+;
+; params:
+;     - left: r0
+;     - right: r1
+; vars:
+;     - index: r2
+; ==========================================================
+
+=strcmp
+    ; don't bother to set up a stack frame
+
+    ; we use an index because it's faster than incrementing both src and dest
+    70 82 00 00                  ; add r2 0 0           ; zero r2
+
+:__strcmp_loop
+    7A 8A 80 82                  ; ldb ra r0 r2
+    7A 8B 81 82                  ; ldb rb r1 r2
+    7D 8A 8A 8B                  ; cmp ra ra rb
+    7E 8A &__strcmp_byte_match   ; jz ra &__strcmp_byte_match
+    ; bytes not equal, return the comparison result
+    70 80 00 8A                  ; add r0 0 ra          ; mov r0 ra
+    78 8F 00 8C                  ; ldw rip 0 rsp        ; ret
+
+:__strcmp_byte_match
+    ; bytes match. if zero, strings are equal, return 0
+    7E 8B &__strcmp_equal        ; jz rb &__strcmp_equal
+
+    ; otherwise keep looping
+    70 82 82 01                  ; add r2 r2 1          ; inc r2
+    7E 00 &__strcmp_loop         ; jz 0 &__strcmp_loop    ; jmp &__strcmp_loop
+
+:__strcmp_equal
+    ; strings are equal, return 0
+    70 80 00 00                  ; add r0 0 0           ; zero r0
+    78 8F 00 8C                  ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; void* memcpy(void* dest, const void* src, size_t count)
+; ==========================================================
+; Copies count bytes from src to the non-overlapping memory region dest.
+;
+; This is the standard C memcpy() function.
+;
+; params:
+;     - dest: r0
+;     - src: r1
+;     - count: r2
+; ==========================================================
+
+=memcpy
+    ; tail-call memmove
+    7C 8A <memmove        ; ims ra <memmove
+    7C 8A >memmove        ; ims ra >memmove
+    70 8F 8E 8A           ; add rip rpp ra      ; jump
+
+
+
+; ==========================================================
+; void* memmove(void* dest, const void* src, size_t count)
+; ==========================================================
+; Copies count bytes from src to the potentially overlapping memory region
+; dest.
+;
+; This is the standard C memmove() function.
+;
+; params:
+;     - dest: r0
+;     - src: r1
+;     - count: r2
+;     - index: r3
+; ==========================================================
+
+=memmove
+    ; don't bother to set up a stack frame
+
+    ; check whether we should copy down or up
+    7D 8A 81 80              ; cmpu ra r1 r0
+    7E 8A &__memmove_ret     ; jz ra &__memmove_ret
+    70 83 00 00              ; add r3 0 0            ; zero r3
+    74 8A 8A FE              ; and ra ra -2
+    7E 8A &__memmove_up      ; jz ra &__memmove_up
+
+    ; copy down
+:__memmove_down
+    7E 82 &__memmove_ret    ; jz r2 &__memmove_ret
+    71 82 82 01             ; sub r2 r2 1           ; dec r2
+    7A 8A 81 82             ; ldb ra r1 r2
+    7B 8A 80 82             ; stb ra r0 r2
+    7E 00 &__memmove_down   ; jz 0 &__memmove_down  ; jmp &__memmove_down
+
+    ; copy up
+:__memmove_up
+    71 8A 82 83             ; sub ra r2 r3
+    7E 8A &__memmove_ret    ; jz ra &__memmove_ret
+    7A 8A 81 83             ; ldb ra r1 r3
+    7B 8A 80 83             ; stb ra r0 r3
+    70 83 83 01             ; add r3 r3 1           ; inc r3
+    7E 00 &__memmove_up     ; jz 0 &__memmove_up    ; jmp &__memmove_up
+
+    ; done
+:__memmove_ret
+    ; dest is already in r0
+    78 8F 00 8C             ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; void* memset(void* dest, int c, size_t count)
+; ==========================================================
+; Sets count bytes in dest to the byte c, returning dest.
+;
+; This is the standard C memset() function.
+;
+; params:
+;     - dest: r0
+;     - src: r1
+;     - count: r2
+; ==========================================================
+
+=memset
+    ; don't bother to set up a stack frame
+    7E 82 &__memset_done    ; jz r2 &__memset_done
+    71 82 82 01             ; sub r2 r2 1           ; dec r2
+    7B 81 80 82             ; stb r1 r0 r2
+    7E 00 &memset           ; jz 0 &memset          ; jmp &memset
+:__memset_done
+    ; dest is already in r0
+    78 8F 00 8C             ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; int memcmp(const char* left, const char* right, size_t count)
+; ==========================================================
+; Compares left to right regions of count length lexicographically. Returns -1
+; if left comes before right, 1 if left comes after right, 0 if they are equal.
+;
+; This is the standard C memcmp() function.
+;
+; params:
+;     - left: r0
+;     - right: r1
+;     - count: r2
+; vars:
+;     - index: r3
+; ==========================================================
+=memcmp
+    70 83 00 00                  ; add r3 0 0           ; zero r3
+
+:__memcmp_loop
+    7D 8A 82 83                  ; cmpu ra r2 r3
+    7E 8A &__memcmp_equal        ; jz ra &__memcmp_equal
+    7A 8A 80 83                  ; ldb ra r0 r3
+    7A 8B 81 83                  ; ldb rb r1 r3
+    7D 8A 8A 8B                  ; cmpu ra ra rb
+    7E 8A &__memcmp_byte_match   ; jz ra &__memcmp_byte_match
+
+    ; bytes not equal, return the comparison result
+    70 80 00 8A                  ; add r0 0 ra          ; mov r0 ra
+    78 8F 00 8C                  ; ldw rip 0 rsp        ; ret
+
+:__memcmp_byte_match
+    ; bytes match, keep looping
+    70 83 83 01                  ; add r3 r3 1          ; inc r3
+    7E 00 &__memcmp_loop         ; jz 0 &__memcmp_loop    ; jmp &__memcmp_loop
+
+:__memcmp_equal
+    ; memory regions are equal, return 0
+    70 80 00 00                  ; add r0 0 0           ; zero r0
+    78 8F 00 8C                  ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; char* strchr(const char* s, int c);
+; ==========================================================
+; Returns a pointer to the first occurrance of c in s, or NULL if s does not
+; contain c.
+; ==========================================================
+
+=strchr
+
+:strchr_loop
+    7A 8A 80 00           ; ldb ra r0 0
+    7D 8B 8A 81           ; cmpu rb ra r1
+    7E 8B &strchr_match   ; jz rb &strchr_match
+    7D 8B 8A 81           ; cmpu rb ra 0
+    7E 8B &strchr_match   ; jz rb &strchr_no_match
+    70 80 80 01           ; add r0 r0 1             ; inc r0
+    7E 00 &strchr_loop    ; jz 0 &strchr_loop       ; jmp &strchr_loop
+
+:strchr_no_match
+    70 80 00 00     ; zero r0
+    ; fallthrough
+:strchr_match
+    78 8F 00 8C     ; ldw rip 0 rsp        ; ret

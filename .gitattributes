@@ -1,0 +1,6 @@
+# Tell GitHub to syntax highlight our Onramp files correctly
+*.ohx linguist-language=asm
+*.oo linguist-language=asm
+*.os linguist-language=asm
+*.oa linguist-language=asm
+*.i linguist-language=c

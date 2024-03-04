@@ -1,0 +1,41 @@
+; format indicator `~Onr~amp~   `
+7E 4F 6E 72   ; jz 79 29294
+7E 61 6D 70   ; jz 97 28781
+7E 20 20 20   ; jz 32 8224
+
+; we put our data first and jump over it so we can access it with a single
+; mix-type byte
+7E 00 02 00  ; jz 0 2
+@0x10
+56 34 12 00  ; 0x123456
+@0x14
+BC 9A 78 56  ; 0x56789ABC
+
+; move process info table to r9
+70 89 00 80   ; add r9 0 r0
+
+; put 1 into r0 now, we'll exit if an error occurs
+70 80 00 01   ; add r0 0 1
+
+; put 0x12 into r0, then insert 0x3456 using ims, make sure it matches our data
+70 81 00 00   ; add r1 0 0   ; zero r1
+70 81 00 12   ; add r1 0 0x12
+7C 81 56 34   ; ims r1 0x3456
+78 82 8E 10   ; ldw r2 rpp 0x10
+7D 8A 81 82   ; cmpu ra r1 r2
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; load 0x56789ABC into r0 with double ims, make sure it matches our data
+70 81 00 00   ; add r1 0 0   ; zero r1
+7C 81 78 56   ; ims r1 0x1234    ; testing overflow
+7C 81 78 56   ; ims r1 0x5678
+7C 81 BC 9A   ; ims r1 0x9ABC
+78 82 8E 14   ; ldw r2 rpp 0x14
+7D 8A 81 82   ; cmpu ra r1 r2
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; success. exit 0
+70 80 00 00   ; add r0 0 0
+78 8F 89 08   ; ldw rip r9 8  (exit address)

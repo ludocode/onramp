@@ -1,0 +1,36 @@
+; format indicator `~Onr~amp~   `
+7E 4F 6E 72   ; jz 79 29294
+7E 61 6D 70   ; jz 97 28781
+7E 20 20 20   ; jz 32 8224
+
+; we put our data first and jump over it so we can access it with a single
+; mix-type byte
+7E 00 01 00  ; jz 0 1
+@0x10
+65 87 A9 CB  ; 0xCBA98765
+
+; move process info table to r9
+70 89 00 80   ; add r9 0 r0
+
+; put 1 into r0 now, we'll exit if an error occurs
+70 80 00 01   ; add r0 0 1
+
+; load 0xCBA98765 into r0 with double ims, make sure it matches our data
+7C 81 A9 CB   ; ims r1 0xCBA9
+7C 81 65 87   ; ims r1 0x8765
+78 82 8E 10   ; ldw r2 rpp 0x10
+7D 8A 81 82   ; cmpu ra r1 r2
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; load 0xFFFFFFFF into r0 containing negative value, make sure shifting negative works correctly
+70 81 00 FE   ; add r1 0 -2   ; start out with -2
+7C 81 FF FF   ; ims r1 0xFFFF
+7C 81 FF FF   ; ims r1 0xFFFF
+7D 8A 81 FF   ; cmpu ra r1 -1
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; success. exit 0
+70 80 00 00   ; add r0 0 0
+78 8F 89 08   ; ldw rip r9 8  (exit address)

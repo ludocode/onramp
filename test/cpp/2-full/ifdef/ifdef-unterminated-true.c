@@ -1,0 +1,2 @@
+#define FOO
+#ifdef FOO

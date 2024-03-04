@@ -1,0 +1,1364 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the implementation of the Onramp hex tool in hexadecimal Onramp
+; bytecode.
+;
+; All error checks are implemented including address assertions and trailing
+; backslashes. It passes all tests. It gives reasonable error messages but
+; without line numbers.
+;
+; Note that r9 is not treated as caller-preserved. Instead it always points to
+; a table of global variables allocated during initialization. See the global
+; variables table below.
+
+
+
+; global variables:
+;  name                  offset from r9
+;   process_info_table     0    00
+;   input_io_handle        4    04
+;   output_io_handle       8    08
+;   current_char          12    0C
+;   byte_count            16    10
+;      total               20    14
+
+
+
+; symbol table:
+;  addr  name
+;     0  __start
+;    20  error_truncated_hex_byte
+;    50  error_invalid_arguments
+;    90  error_input_file
+;    C0  error_output_file
+;    F0  error_invalid_character
+;   110  strlen
+;   130  fatal
+;   180  start
+;   210  initialize
+;   240  open_input_file
+;   280  open_output_file
+;   2C0  arg_is_dash_o
+;   320  parse_args
+;   410  open_files
+;   480  read_char
+;   4B0  parse_character
+;   580  try_parse_whitespace
+;   5F0  emit_byte
+;   650  hex_value
+;   6E0  try_parse_hex
+;   800  try_parse_comment
+;   840  consume_comment
+;   8D0  error_backslash_eol
+;   900  error_address_assertion
+;   930  try_parse_address
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+; The entry point. This must come first.
+;
+; We forward control over to start().
+;==========================================
+
+@0x00 =__start
+    ; format indicator "~Onr~amp~   "
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; jump to start
+    7C 8A 00 00   ; ims ra <start
+    7C 8A 80 01   ; ims ra >start
+    70 8F 8E 8A   ; add rip rpp ra        ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+@0x20
+
+
+
+;==========================================
+; const char error_truncated_hex_byte[];
+;==========================================
+
+@0x20 =error_truncated_hex_byte
+    ; "ERROR: Truncated or invalid hex byte." '0A '00
+    45 52 52 4f 52 3a 20 54  72 75 6e 63 61 74 65 64
+  ;  E  R  R  O  R  :     T   r  u  n  c  a  t  e  d
+    20 6f 72 20 69 6e 76 61  6c 69 64 20 68 65 78 20
+  ;     o  r     i  n  v  a   l  i  d     h  e  x
+    62 79 74 65 2e 0a 00 00  00 00 00 00 00 00 00 00
+  ;  b  y  t  e  . \n \0
+@0x50
+
+
+
+; ==========================================================
+; const char error_invalid_arguments[];
+; ==========================================================
+
+@0x50 =error_invalid_arguments
+    ; "ERROR: Incorrect arguments." '0A
+    ; "Usage: <hex> [input] -o [output]" '0A '00
+    45 52 52 4f 52 3a 20 49  6e 63 6f 72 72 65 63 74
+  ;  E  R  R  O  R  :     I   n  c  o  r  r  e  c  t
+    20 61 72 67 75 6d 65 6e  74 73 2e 0a 55 73 61 67
+  ;     a  r  g  u  m  e  n   t  s  . \n  U  s  a  g
+    65 3a 20 3c 68 65 78 3e  20 5b 69 6e 70 75 74 5d
+  ;  e  :     <  h  e  x  >      [  i  n  p  u  t  ]
+    20 2d 6f 20 5b 6f 75 74 70  75 74 5d 0a 00 00 00
+  ;     -  o     [  o  u  t  p   u  t  ] \n \0
+@0x90
+
+
+
+;==========================================
+; const char error_input_file[];
+;==========================================
+
+@0x90 =error_input_file
+    ; "ERROR: Failed to read input file." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F  a  i  l  e  d     t  o
+    20 72 65 61 64 20 69 6e  70 75 74 20 66 69 6c 65
+  ;     r  e  a  d     i  n  p  u  t     f  i  l  e
+    2e 0a 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  . \n \0
+@0xC0
+
+
+
+;==========================================
+; const char error_output_file[];
+;==========================================
+
+@0xC0 =error_output_file
+    ; "ERROR: Failed to write output file." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 77 72 69 74 65 20 6f  75 74 70 75 74 20 66 69
+  ;     w  r  i  t  e     o   u  t  p  u  t     f  i
+    6c 65 2e 0a 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  l  e  . \n \0
+@0xF0
+
+
+
+;==========================================
+; const char error_invalid_character[];
+;==========================================
+
+@0xF0 error_invalid_character
+    ; "ERROR: Invalid character." '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 63
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     c
+    68 61 72 61 63 74 65 72  2e 0a 00 00 00 00 00 00
+  ;  h  a  r  a  c  t  e  r   . \n \0
+@0x110
+
+
+
+; ==========================================================
+; size_t strlen(char* str)
+; ==========================================================
+; Returns the length of the given null-terminated string, not including the
+; null-terminator.
+;
+; This is the standard C strlen() function.
+;
+; params:
+;     - str: r0
+; vars:
+;     - count: r1
+; ==========================================================
+
+@0x110 =strlen
+    ; don't bother to set up a stack frame
+    ; we accumulate the count in r1, then move it to r0
+    70 81 00 00         ; add r1 0 0           ; zero r1
+;:strlen_loop
+    7A 8A 80 81         ; ldb ra r0 r1
+    7E 8A 02 00         ; jz ra &strlen_done (+2)
+    70 81 81 01         ; add r1 r1 1          ; inc r1
+    7E 00 FC FF         ; jz 0 &strlen_loop (-4)
+;:strlen_done
+    70 80 00 81         ; add r0 0 r1          ; mov r0 r1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00
+@0x130
+
+
+
+;==========================================
+; [[noreturn] void fatal(const char* message);
+;==========================================
+; Prints the given error message and exits.
+;==========================================
+
+@0x130 =fatal
+    ; don't bother to set up a stack frame, we're exiting
+
+    ; push message
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; call strlen
+    7C 8A 00 00    ; ims ra <strlen
+    7C 8A 10 01    ; ims ra >strlen
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; setup args to write
+    70 82 00 80    ; add r2 0 r0   ; mov r2 r0
+    78 81 00 8C    ; ldw r1 0 rsp
+
+    ; get process info table into r8
+    78 88 89 00    ; ldw r8 r9 0
+
+    ; write to stderr
+    78 80 88 14    ; ldw r0 r8 20   ; stderr
+    7F 13 00 00    ; sys write 0 0
+
+    ; exit with status 1
+    70 80 00 01    ; add r0 0 1
+    78 8A 88 08    ; ldw ra r8 8
+    70 8F 00 8A    ; add rip 0 ra
+
+    ; padding
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x180
+
+
+
+;==========================================
+; [[noreturn]] void start(uint32_t* process_info_table);
+;==========================================
+
+@0x180 =start
+    ; no stack frame, we don't return
+
+    ; call initialize
+    7C 8A 00 00    ; ims ra <initialize
+    7C 8A 10 02    ; ims ra >initialize
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call parse_args() (which also opens files)
+    7C 8A 00 00    ; ims ra <parse_args
+    7C 8A 20 03    ; ims ra >parse_args
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; read the first char, call read_char()
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop calling parse_character()
+    ;:start_loop
+        7C 8A 00 00    ; ims ra <parse_character
+        7C 8A B0 04    ; ims ra >parse_character
+        71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08    ; add rb rip 8
+        79 8B 00 8C    ; stw rb 0 rsp
+        70 8F 8E 8A    ; add rip rpp ra    ; jump
+        70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    7E 00 F8 FF    ; jz 0 &start_loop (-8)
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x210
+
+
+
+;==========================================
+; void initialize(uint32_t* process_info_table);
+;==========================================
+; Initializes all global variables, placing a pointer to them in r9.
+;==========================================
+
+@0x210 =initialize
+    ; don't bother to set up a stack frame
+
+    ; get the program break into r9. it will be the address of our global
+    ; variables.
+    78 89 80 04   ; ldw r9 r0 4
+
+    ; allocate our global variables
+    ; TODO we don't actually do anything with this
+    ;70 81 89 14   ; add r1 r9 20
+
+    ; fill out our global variables
+    79 80 89 00   ; stw r0 r9  0       ; process_info_table
+    79 00 89 0C   ; stw  0 r9 12       ; current_char
+    79 00 89 10   ; stw  0 r9 16       ; byte count
+    ; the rest don't need to be initialized
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x240
+
+
+
+;==========================================
+; void open_input_file(const char* filename);
+;==========================================
+; Opens the input file.
+;==========================================
+
+@0x240 =open_input_file
+    ; don't bother to set up a stack frame
+
+    ; syscall open
+    70 81 00 00    ; add r1 0 0     ; read-only
+    7F 10 00 00    ; sys open 0 0
+
+    ; return value must not be -1
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra &open_input_file_fail (+1)
+    7E 00 06 00    ; jz 0 &open_input_file_ok (+6)
+
+    ; failed to open input file. fatal
+;:open_input_file_fail
+    7C 80 00 00    ; ims r0 <error_input_file
+    7C 80 90 00    ; ims r0 >error_input_file
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:open_input_file_ok
+
+    ; store input handle in globals
+    79 80 89 04    ; stw r0 r9 4
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x280
+
+
+
+;==========================================
+; void open_output_file(const char* filename);
+;==========================================
+; Opens the output file.
+;==========================================
+
+@0x280 =open_output_file
+    ; don't bother to set up a stack frame
+
+    ; syscall open
+    70 81 00 01    ; add r1 0 1     ; writeable
+    7F 10 00 00    ; sys open 0 0
+
+    ; return value must not be -1
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra &open_output_file_fail (+1)
+    7E 00 06 00    ; jz ra &open_output_file_ok (+6)
+
+    ; failed to open output file. fatal
+;:open_output_file_fail
+    7C 80 00 00    ; ims r0 <error_output_file
+    7C 80 C0 00    ; ims r0 >error_output_file
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:open_output_file_ok
+
+    ; store output handle in globals
+    79 80 89 08    ; stw r0 r9 8
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x2C0
+
+
+
+;==========================================
+; void arg_is_dash_o(int arg_offset);
+;==========================================
+; Returns true if the argument with the given offset is equal to "-o"; false
+; otherwise.
+;==========================================
+
+@0x2C0 =arg_is_dash_o
+    ; no stack frame
+
+    ; get the arg into r0
+    78 8A 89 00     ; ldw ra r9 0   (process info table)
+    78 81 8A 18     ; ldw r1 ra 24  (command-line args)
+    78 80 81 80     ; ldw r0 r1 r0
+
+    ; check "-"
+    7A 8A 80 00     ; ldw ra r0 0
+    7D 8A 8A 2D     ; cmp ra ra "-"
+    7E 8A 02 00     ; jz ra +2
+    70 80 00 00     ; add r0 0 0       ; set return value false
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
+
+    ; check "o"
+    7A 8A 80 01     ; ldw ra r0 1
+    7D 8A 8A 6F     ; cmp ra ra "o"
+    7E 8A 02 00     ; jz ra +2
+    70 80 00 00     ; add r0 0 0       ; set return value false
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
+
+    ; check null-terminator
+    7A 8A 80 02     ; ldw ra r0 2
+    7D 8A 8A 00     ; cmp ra ra 0
+    7E 8A 02 00     ; jz ra +2
+    70 80 00 00     ; add r0 0 0       ; set return value false
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
+
+    ; return true
+    70 80 00 01     ; add r0 0 1       ; set return value true
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x320
+
+
+
+;==========================================
+; void parse_args(void);
+;==========================================
+; Verifies that the arguments are valid and opens the input and output files.
+;==========================================
+
+@0x320 =parse_args
+    ; no stack frame
+
+    ; check that we have exactly four arguments
+    78 88 89 00     ; ldw r8 r9 00  (process info table)
+    78 81 88 18     ; ldw r1 r8 24  (command-line args)
+    78 8A 81 00     ; ldw ra r1 0
+    7E 8A 09 00     ; jz ra &parse_args_arg_count_wrong (+9)
+    78 8A 81 04     ; ldw ra r1 4
+    7E 8A 07 00     ; jz ra &parse_args_arg_count_wrong (+7)
+    78 8A 81 08     ; ldw ra r1 8
+    7E 8A 05 00     ; jz ra &parse_args_arg_count_wrong (+5)
+    78 8A 81 0C     ; ldw ra r1 12
+    7E 8A 03 00     ; jz ra &parse_args_arg_count_wrong (+3)
+    78 8A 81 10     ; ldw ra r1 16
+    7E 00 06 00     ; jz 0 &parse_args_arg_count_ok (+6)
+
+;:parse_args_arg_count_wrong
+    ; fatal error_invalid_arguments
+    7C 80 00 00        ; ims r0 <error_invalid_arguments
+    7C 80 50 00        ; ims r0 >error_invalid_arguments
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A 00 00        ; ims ra <fatal
+    7C 8A 30 01        ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+;:parse_args_arg_count_ok
+
+    ; check if the first argument is -o, call arg_is_dash_o
+    70 80 00 04    ; add r0 0 4
+    7C 8A 00 00    ; ims ra <arg_is_dash_o
+    7C 8A C0 02    ; ims ra >arg_is_dash_o
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if yes, tail-call open_files
+    7E 80 05 00    ; jz r0 &parse_args_not_first (+5)
+    70 80 00 0C    ; add r0 0 12   ; input file is third arg
+    70 81 00 08    ; add r1 0 8    ; output file is second arg
+    7C 8A 00 00    ; ims ra <open_files
+    7C 8A 10 04    ; ims ra >open_files
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:parse_args_not_first
+
+    ; check if the second argument is -o, call arg_is_dash_o
+    70 80 00 08    ; add r0 0 8
+    7C 8A 00 00    ; ims ra <arg_is_dash_o
+    7C 8A C0 02    ; ims ra >arg_is_dash_o
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if yes, tail-call open_files
+    7E 80 05 00    ; jz r0 &parse_args_not_second (+5)
+    70 80 00 04    ; add r0 0 8    ; input file is first arg
+    70 81 00 0C    ; add r1 0 12   ; output file is third arg
+    7C 8A 00 00    ; ims ra <open_files
+    7C 8A 10 04    ; ims ra >open_files
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:parse_args_not_second
+
+    ; fatal error_invalid_arguments
+    7C 80 00 00        ; ims r0 <error_invalid_arguments
+    7C 80 50 00        ; ims r0 >error_invalid_arguments
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A 00 00        ; ims ra <fatal
+    7C 8A 30 01        ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x410
+
+
+
+; ==========================================================
+; void open_files(int input_arg_offset, int output_arg_offset);
+; ==========================================================
+
+@0x410 =open_files
+
+    ; get input and output filenames
+    78 8A 89 00     ; ldw ra r9 0   (process info table)
+    78 8A 8A 18     ; ldw ra ra 24  (command-line args)
+    78 80 8A 80     ; ldw r0 ra r0
+    78 81 8A 81     ; ldw r1 ra r1
+
+    ; push output filename
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 81 00 8C    ; stw r1 0 rsp
+
+    ; call open_input_file
+    7C 8A 00 00    ; ims ra <open_input_file
+    7C 8A 40 02    ; ims ra >open_input_file
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; pop output filename
+    78 80 00 8C    ; ldw r0 0 rsp
+    70 8C 8C 04    ; add rsp rsp 4
+
+    ; call open_output_file
+    7C 8A 00 00    ; ims ra <open_output_file
+    7C 8A 80 02    ; ims ra >open_output_file
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x480
+
+
+
+;==========================================
+; void read_char(void);
+;==========================================
+; Reads a character, or -1 if the end of the file has been reached, into
+; current_char.
+;==========================================
+
+@0x480 =read_char
+    ; don't bother to set up a stack frame
+
+    ; syscall read(input_io_handle, &current_char, 1)
+    78 80 89 04     ; ldw r0 r9 4     ; input_io_handle
+    70 81 89 0C     ; add r1 r9 12    ; &current_char
+    70 82 00 01     ; add r2 0 1      ; 1
+    7F 12 00 00     ; sys read 0 0
+
+    ; r0 contains the number of bytes read. if it's zero, assume it's the end
+    ; of the file.
+    7E 80 01 00    ; jz r0 &read_char_eof (+1)
+    7E 00 01 00    ; jz 0 &read_char_ret (+1)
+
+    ; at end of file, put -1 (as an int) into current_char
+;:read_char_eof
+    79 FF 89 0C    ; stw -1 r9 12   ; current_char
+
+;:read_char_ret
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x4B0
+
+
+
+;==========================================
+; void parse_character(void);
+;==========================================
+; Parses the current character.
+;
+; This will consume the current character and however many additional
+; characters are necessary. It will leave an unparsed character (or -1 for
+; end-of-file) in current_char.
+;==========================================
+
+@0x4B0 =parse_character
+
+    ; This works by calling a series of try_parse functions that return true
+    ; when they successfully parse. As soon as one returns true, we return. If
+    ; none return true, it's a fatal error. They are ordered roughly in order
+    ; of likelyhood.
+
+    ; check for end of file
+    78 80 89 0C    ; ldw r0 r9 12    ; current_char
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra +1
+    7E 00 04 00    ; jz 0 &parse_character_no_eof (+4)
+
+    ; if end of file, exit with status 0
+    ; TODO we need to close the file
+    70 80 00 00    ; add r0 0 0
+    78 8A 89 00    ; ldw ra r9 0   (process info table)
+    78 8A 8A 08    ; ldw ra ra 8   (exit address)
+    70 8F 00 8A    ; add rip 0 ra
+;:parse_character_no_eof
+
+    ; whitespace
+    7C 8A 00 00    ; ims ra <try_parse_whitespace
+    7C 8A 80 05    ; ims ra >try_parse_whitespace
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    7E 80 01 00    ; jz r0 &parse_character_not_whitespace (+1)
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+;:parse_character_not_whitespace
+
+    ; hex
+    7C 8A 00 00    ; ims ra <try_parse_hex
+    7C 8A E0 06    ; ims ra >try_parse_hex
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    7E 80 01 00    ; jz r0 &parse_character_not_hex (+1)
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+;:parse_character_not_hex
+
+    ; comment
+    7C 8A 00 00    ; ims ra <try_parse_comment
+    7C 8A 00 08    ; ims ra >try_parse_comment
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    7E 80 01 00    ; jz r0 &parse_character_not_comment (+1)
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+;:parse_character_not_comment
+
+    ; address assertion
+    7C 8A 00 00    ; ims ra <try_parse_address
+    7C 8A 30 09    ; ims ra >try_parse_address
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    7E 80 01 00    ; jz r0 &parse_character_not_address (+1)
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+;:parse_character_not_address
+
+    ; fatal error_invalid_character
+    7C 80 00 00    ; ims r0 <error_invalid_character
+    7C 80 F0 00    ; ims r0 >error_invalid_character
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+@0x580
+
+
+
+;==========================================
+; bool try_parse_whitespace(void);
+;==========================================
+; Tries to parse a whitespace character. Returns true if a whitespace character
+; was consumed, false otherwise.
+;
+; (This only consumes one whitespace character, not a string of whitespace.)
+;==========================================
+
+@0x580 =try_parse_whitespace
+    ; don't bother to set up a stack frame
+
+    ; get the current char
+    7A 80 89 0C     ; ldb r0 r9 12    ; current_char
+
+    ; check for whitespace
+    7D 8A 80 20    ; cmp ra r0 " "   (space)
+    7E 8A 0C 00    ; jz ra &try_parse_whitespace_true (+12)
+    7D 8A 80 0A    ; cmp ra r0 "\n"  (line feed)
+    7E 8A 0A 00    ; jz ra &try_parse_whitespace_true (+10)
+    7D 8A 80 09    ; cmp ra r0 "\t"  (horizontal tab)
+    7E 8A 08 00    ; jz ra &try_parse_whitespace_true (+8)
+    7D 8A 80 0D    ; cmp ra r0 "\r"  (carriage return)
+    7E 8A 06 00    ; jz ra &try_parse_whitespace_true (+6)
+    7D 8A 80 0C    ; cmp ra r0 "\f"  (form feed)
+    7E 8A 04 00    ; jz ra &try_parse_whitespace_true (+4)
+    7D 8A 80 0B    ; cmp ra r0 "\v"  (vertical tab)
+    7E 8A 02 00    ; jz ra &try_parse_whitespace_true (+2)
+
+    ; not whitespace. return false
+    70 80 00 00    ; add r0 0 0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+;:try_parse_whitespace_true
+
+    ; it's whitespace. consume it
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return true
+    70 80 00 01    ; add r0 0 1
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x5F0
+
+
+
+;==========================================
+; void emit_byte(char c);
+;==========================================
+; Writes a byte to current output if in the second pass.
+;
+; If any error occurs, the program aborts.
+;==========================================
+
+@0x5F0 =emit_byte
+    ; don't bother to set up a stack frame
+
+    ; push the char to the stack so we can get an address to it
+    71 8C 8C 04    ; sub rsp rsp 4
+    7B 80 00 8C    ; stb r0 0 rsp
+
+    ; make the syscall
+    78 80 89 08    ; ldw r0 r9 8      ; output handle
+    70 81 00 8C    ; add r1 0 rsp     ; buffer
+    70 82 00 01    ; add r2 0 1       ; count
+    7F 13 00 00    ; sys write 0 0
+
+    ; increment byte count
+    78 8A 89 10    ; ldw ra r9 16
+    70 8A 8A 01    ; add ra ra 1     ; inc ra
+    79 8A 89 10    ; stw ra r9 16
+
+    ; return
+    70 8C 8C 04    ; add rsp rsp 4
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x650
+
+
+
+;==========================================
+; int hex_value(char c);
+;==========================================
+; Returns the hex value of the given char, or -1 if it's not hex.
+;==========================================
+
+@0x650 =hex_value
+    ; don't bother to set up a stack frame
+
+    ; check if it's a number 0-9
+    7D 8A 80 30   ; cmpu ra r0 "0"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A 05 00   ; jz ra &hex_value_not_number (+5)
+    7D 8A 80 39   ; cmpu ra r0 "9"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A 02 00   ; jz ra &hex_value_not_number (+2)
+
+    ; it's 0-9
+    71 80 80 30         ; sub r0 r0 "0"
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+;:hex_value_not_number
+
+    ; check if it's uppercase A-F
+    7D 8A 80 41   ; cmpu ra r0 "A"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A 05 00   ; jz ra &hex_value_not_uppercase (+5)
+    7D 8A 80 46   ; cmpu ra r0 "F"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A 02 00   ; jz ra &hex_value_not_uppercase (+2)
+
+    ; it's A-F
+    71 80 80 37         ; sub r0 r0 '37 ('A' == 0x41)
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+;:hex_value_not_uppercase
+
+    ; check if it's lowercase a-f
+    7D 8A 80 61   ; cmpu ra r0 "a"
+    7D 8A 8A FF   ; cmpu ra ra -1
+    7E 8A 05 00   ; jz ra &hex_value_not_lowercase (+5)
+    7D 8A 80 66   ; cmpu ra r0 "f"
+    7D 8A 8A 01   ; cmpu ra ra 1
+    7E 8A 02 00   ; jz ra &hex_value_not_lowercase (+2)
+
+    ; it's a-f
+    71 80 80 57         ; sub r0 r0 '57 ('a' == 0x61)
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+;:hex_value_not_lowercase
+
+    ; it's not hex.
+    70 80 00 FF         ; add r0 0 -1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x6E0
+
+
+
+;==========================================
+; bool try_parse_hex(void);
+;==========================================
+; Tries to parse a hex byte, returning true if a hex byte was consumed.
+;
+; If a hex byte is found, the current address is incremented and, in the second
+; pass, the byte is emitted to the output.
+;==========================================
+
+@0x6E0 =try_parse_hex
+    ; no stack frame
+
+    ; convert the first char to its hex value
+    7A 80 89 0C    ; ldb r0 r9 12    ; current_char
+    7C 8A 00 00    ; ims ra <hex_value
+    7C 8A 50 06    ; ims ra >hex_value
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check if it's actually hex
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra &parse_hex_false (+1)
+    7E 00 02 00    ; jz ra &parse_hex_found (+2)
+
+    ; it's not hex. return false
+;:parse_hex_false
+    70 80 00 00    ; add r0 0 0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; we've found a hex char!
+;:parse_hex_found
+
+    ; shift up the high hex bits
+    77 80 80 1C    ; ror r0 r0 28    ; rol r0 r0 4
+
+    ; put it on the stack
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r0
+    79 80 00 8C    ; stw r0 0 rsp      ; ...
+
+    ; consume the character
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; make sure it's not the end of the file
+    7A 80 89 0C    ; ldb r0 r9 12    ; current_char
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 0A 00    ; jz ra &parse_hex_byte_invalid (+10)
+
+    ; convert the second char to its hex value
+    7C 8A 00 00    ; ims ra <hex_value
+    7C 8A 50 06    ; ims ra >hex_value
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; make sure it's actually a hex char
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra &parse_hex_byte_invalid (+1)
+    7E 00 06 00    ; jz ra &parse_hex_byte_valid (+6)
+
+    ; invalid or eof, fatal error_truncated_hex_byte
+;:parse_hex_byte_invalid
+    7C 80 00 00    ; ims r0 <error_truncated_hex_byte
+    7C 80 20 00    ; ims r0 >error_truncated_hex_byte
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:parse_hex_byte_valid
+
+    ; pop the high bits
+    78 81 00 8C    ; ldw r1 0 rsp      ; pop r1
+    70 8C 8C 04    ; add rsp rsp 4     ; ...
+
+    ; mask them in
+    75 80 80 81     ; or r0 r0 r1
+
+    ; call emit_byte
+    7C 8A 00 00    ; ims ra <emit_byte
+    7C 8A F0 05    ; ims ra >emit_byte
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; consume the second hex character
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done, return true
+    70 80 00 01    ; add r0 0 1
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x800
+
+
+
+;==========================================
+; bool try_parse_comment(void);
+;==========================================
+; Tries to parse a comment. Returns true if a comment was consumed, false
+; otherwise.
+;==========================================
+
+@0x800 =try_parse_comment
+    ; don't bother to set up a stack frame
+
+    ; get the current char
+    7A 80 89 0C    ; ldb r0 r9 12    ; current_char
+
+    ; check if comment (we treat debug lines as comments)
+    7D 8A 80 23    ; cmp ra r0 "#"
+    7E 8A 04 00    ; jz ra &try_parse_comment_loop (+4)
+    7D 8A 80 3B    ; cmp ra r0 ";"
+    7E 8A 02 00    ; jz ra &try_parse_comment_loop (+2)
+
+    ; not a comment. return false
+    70 80 00 00    ; add r0 0 0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; it's a comment. tail-call consume_comment()
+    7C 8A 00 00    ; ims ra <consume_comment
+    7C 8A 40 08    ; ims ra >consume_comment
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x840
+
+
+
+;==========================================
+; bool consume_comment(void);
+;==========================================
+; Consumes a comment, returning true.
+;
+; (This returns true so that try_parse functions can tail-call it.)
+;==========================================
+
+@0x840 =consume_comment
+
+    ; push a flag to test for a trailing backslash
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 00 8C 00    ; stw 0 rsp 0    ; clear the flag
+
+;:consume_comment_loop
+
+    ; get the current char
+    78 80 89 0C    ; ldw r0 r9 12    ; current_char
+
+    ; check if newline (\n or \r) or end of file
+    7D 8A 80 0A    ; cmp ra r0 "\n"
+    7E 8A 11 00    ; jz ra &consume_comment_done (+17)
+    7D 8A 80 0D    ; cmp ra r0 "\r"
+    7E 8A 0F 00    ; jz ra &consume_comment_done (+15)
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 0D 00    ; jz ra &consume_comment_done (+13)
+
+    ; check if backslash
+    7D 8A 80 5C    ; cmp ra r0 "\"
+    7E 8A 02 00    ; jz ra +2
+    79 00 8C 00    ; stw 0 rsp 0    ; clear the flag
+    7E 00 01 00    ; jz 0 +1
+    79 01 8C 00    ; stw 1 rsp 0    ; set the flag
+
+    ; consume the character
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop
+    7E 00 EC FF    ; jz 0 &consume_comment_loop (-20)
+
+;:consume_comment_done
+
+    ; if the backslash flag is set, fatal error
+    78 8A 8C 00    ; ldw ra rsp 0
+    7E 8A 06 00    ; jz ra &consume_comment_ok (+6)
+    7C 80 00 00    ; ims r0 <error_backslash_eol
+    7C 80 D0 08    ; ims r0 >error_backslash_eol
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:consume_comment_ok
+    70 8C 8C 04    ; add rsp rsp 4     ; pop backslash flag
+
+    ; we've consumed the whole comment. return true.
+    70 80 00 01    ; add r0 0 1
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x8D0
+
+
+
+;==========================================
+; const char error_backslash_eol[];
+;==========================================
+
+@0x8D0 =error_backslash_eol
+    ; "ERROR: Backslash at end of line is forbidden." '0A '00
+    45 52 52 4f 52 3a 20 42  61 63 6b 73 6c 61 73 68
+  ;  E  R  R  O  R  :     B   a  c  k  s  l  a  s  h
+    20 61 74 20 65 6e 64 20  6f 66 20 6c 69 6e 65 20
+  ;     a  t     e  n  d     o   f     l  i  n  e
+    69 73 20 66 6f 72 62 69  64 64 65 6e 2e 0a 00 00
+  ;  i  s     f  o  r  b  i  d  d  e  n  .  \n \0
+@0x900
+
+
+
+;==========================================
+; const char error_address_assertion[];
+;==========================================
+
+@0x900 =error_address_assertion
+    ; "ERROR: Invalid address assertion." '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 61
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     a
+    64 64 72 65 73 73 20 61  73 73 65 72 74 69 6f 6e
+  ;  d  d  r  e  s  s     a   s  s  e  r  t  i  o  n
+    2e 0a 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  . \n \0
+@0x930
+
+
+
+;==========================================
+; bool try_parse_address(void);
+;==========================================
+; Tries to parse an address assertion.
+;
+; vars:
+; - address: rfp-4
+; - digit count: rfp-8
+;==========================================
+
+@0x930 =try_parse_address
+
+    ; get the current char
+    7A 80 89 0C    ; ldb r0 r9 12    ; current_char
+
+    ; check if it's an address assertion
+    7D 8A 80 40    ; cmp ra r0 "@"
+    7E 8A 02 00    ; jz ra &try_parse_address_found (+2)
+
+    ; not an address assertion, return false
+    70 80 00 00    ; add r0 0 0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+;:try_parse_address_found
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; setup local vars
+    71 8C 8C 08    ; sub rsp rsp 8
+    79 00 8D F8    ; stw 0 rfp -8    ; digit count
+    79 00 8D FC    ; stw 0 rfp -4    ; address
+
+    ; consume the "@"
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; make sure the next char is "0", otherwise fatal error
+    7A 80 89 0C    ; ldb r0 r9 12    ; current_char
+    7D 8A 80 30    ; cmp ra r0 "0"
+    7E 8A 06 00    ; jz ra &try_parse_address_zero (+6)
+    7C 80 00 00    ; ims r0 <error_address_assertion
+    7C 80 00 09    ; ims r0 >error_address_assertion
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:try_parse_address_zero
+
+    ; consume the "0"
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; make sure the next char is "x" or "X", otherwise fatal error
+    7A 80 89 0C    ; ldb r0 r9 12    ; current_char
+    70 8B 30 48    ; add rb 48 72    ; put "x" into rb (too big for mix-type)
+    7D 8A 80 8B    ; cmp ra r0 rb
+    7E 8A 08 00    ; jz ra &try_parse_address_x (+8)
+    7D 8A 80 58    ; cmp ra r0 "X"
+    7E 8A 06 00    ; jz ra &try_parse_address_x (+6)
+    7C 80 00 00    ; ims r0 <error_address_assertion
+    7C 80 00 09    ; ims r0 >error_address_assertion
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:try_parse_address_x
+
+    ; consume the "x"
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+;:try_parse_address_loop
+
+    ; check if the current char is whitespace or end-of-file
+    78 80 89 0C    ; ldw r0 r9 12    ; current_char
+    7D 8A 80 FF    ; cmp ra r0 -1    (end of file)
+    7E 8A 0E 00    ; jz ra &try_parse_address_is_space (+12)
+    7D 8A 80 20    ; cmp ra r0 " "   (space)
+    7E 8A 0C 00    ; jz ra &try_parse_address_is_space (+12)
+    7D 8A 80 0A    ; cmp ra r0 "\n"  (line feed)
+    7E 8A 0A 00    ; jz ra &try_parse_address_is_space (+10)
+    7D 8A 80 09    ; cmp ra r0 "\t"  (horizontal tab)
+    7E 8A 08 00    ; jz ra &try_parse_address_is_space (+8)
+    7D 8A 80 0D    ; cmp ra r0 "\r"  (carriage return)
+    7E 8A 06 00    ; jz ra &try_parse_address_is_space (+6)
+    7D 8A 80 0C    ; cmp ra r0 "\f"  (form feed)
+    7E 8A 04 00    ; jz ra &try_parse_address_is_space (+4)
+    7D 8A 80 0B    ; cmp ra r0 "\v"  (vertical tab)
+    7E 8A 02 00    ; jz ra &try_parse_address_is_space (+2)
+
+    ; (we jump to this little shunt to make it easier for us to change the
+    ; below without having to change everything above)
+    7E 00 02 00    ; jz 0 &try_parse_address_not_space (+2)
+    00 00 00 00    ; padding
+;:try_parse_address_is_space
+    7E 00 28 00    ; jz 0 &try_parse_address_loop_done (+40)
+;:try_parse_address_not_space
+
+    ; get the hex value of the current digit
+    7C 8A 00 00    ; ims ra <hex_value
+    7C 8A 50 06    ; ims ra >hex_value
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if it's -1, fatal error
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra +1
+    7E 00 06 00    ; jz 0 &try_parse_address_hex_ok (+6)
+    7C 80 00 00    ; ims r0 <error_address_assertion
+    7C 80 00 09    ; ims r0 >error_address_assertion
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:try_parse_address_hex_ok
+
+    ; increment digit count. if we already have 8, fatal error
+    78 8A 8D F8    ; ldw ra rfp -8    ; load digit count
+    7D 8B 8A 08    ; cmp rb ra 8
+    7E 8B 01 00    ; jz rb +1
+    7E 00 06 00    ; jz 0 +6
+        7C 80 00 00    ; ims r0 <error_address_assertion
+        7C 80 00 09    ; ims r0 >error_address_assertion
+        70 80 8E 80    ; add r0 rpp r0
+        7C 8A 00 00    ; ims ra <fatal
+        7C 8A 30 01    ; ims ra >fatal
+        70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8A 8A 01    ; add ra ra 1      ; inc ra
+    79 8A 8D F8    ; stw ra rfp -8    ; store digit count
+
+    ; shift up the address and add the new digit
+    78 8A 8D FC    ; ldw ra rfp -4   ; load address
+    77 8A 8A 1C    ; ror ra ra 28    ; rol ra ra 4
+    70 80 8A 80    ; add r0 ra r0
+    79 80 8D FC    ; stw r0 rfp -4   ; store address
+
+    ; consume the digit
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A 80 04    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop
+    7E 00 C6 FF    ; jz 0 &try_parse_address_loop (-58)
+
+;:try_parse_address_loop_done
+
+    ; check that we had at least one digit, and check that the address matches.
+    ; if not, fatal error
+    78 8A 8D F8    ; ldw ra rfp -8    ; load digit count
+    7E 8A 04 00    ; jz ra +4
+    78 8A 8D FC    ; ldw ra rfp -4   ; load address
+    78 8B 89 10    ; ldw ra r9 16    ; load byte count
+    7D 8A 8A 8B    ; cmpu ra ra rb
+    7E 8A 06 00    ; jz ra +6
+        7C 80 00 00    ; ims r0 <error_address_assertion
+        7C 80 00 09    ; ims r0 >error_address_assertion
+        70 80 8E 80    ; add r0 rpp r0
+        7C 8A 00 00    ; ims ra <fatal
+        7C 8A 30 01    ; ims ra >fatal
+        70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; clean up our stack frame
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+
+    ; the rest of the line is a comment. tail-call consume_comment()
+    7C 8A 00 00    ; ims ra <consume_comment
+    7C 8A 40 08    ; ims ra >consume_comment
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xB40

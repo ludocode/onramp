@@ -1,0 +1,5 @@
+# This file can be used to change or override compiler flags for all test
+# Makefiles. Copy it to local.mk and edit it to your liking.
+
+CFLAGS += -fsanitize=address
+CPPFLAGS += -Werror

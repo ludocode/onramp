@@ -1,0 +1,258 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+;==========================================
+; uint32_t fnv1a_cstr(const char* str);
+;==========================================
+; Calculates the fnv1a hash of the given null-terminated string.
+;
+; We use FNV-1a as our hash function because it's extremely simple to
+; implement (only 15 instructions.)
+;
+; params:
+; - str: r0
+; vars:
+; - hash: r0
+; - current_str: r1
+; - current_char: r2
+; - fnv_prime: r3
+;==========================================
+
+=fnv1a_cstr
+    ; don't bother to set up a stack frame
+
+; test with hashing disabled: return 0
+;70 80 00 00    ; add r0 0 0           ; zero r0
+;78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; move the string to r1
+    70 81 00 80    ; add r1 0 r0
+
+    ; load the FNV-1a initial value (0x811C9DC5) and prime (0x1000193)
+    7C 80 1C 81    ; ims r0 '1C '81    ; imw r0 2166136261
+    7C 80 C5 9D    ; ims r0 'C5 '9D    ; ^^^
+    7C 83 00 01    ; ims r3 '00 '01    ; imw r3 16777619
+    7C 83 93 01    ; ims r3 '93 '01    ; ^^^
+
+:fnv1a_cstr_loop
+
+    ; pop the next character
+    7A 82 00 81    ; ldb r2 0 r1
+    70 81 81 01    ; add r1 r1 1       ; inc r1
+
+    ; see if it's the end of the string
+    7D 8A 82 00          ; cmp ra r2 0
+    7E 8A &fnv1a_cstr_done    ; jz ra &fnv1a_cstr_done
+
+    ; update the hash
+    75 8A 80 82     ; or ra r0 r2    ; xor r0 r0 r2
+    74 8B 80 82     ; and rb r0 r2   ; ^^^
+    71 80 8A 8B     ; sub r0 ra rb   ; ^^^
+        ;76 80 80 82    ; xor r0 r0 r2   ; TODO we're removing xor
+    72 80 80 83    ; mul r0 r0 r3
+
+    ; loop
+    7E 00 &fnv1a_cstr_loop    ; jz 0 &fnv1a_cstr_loop
+
+:fnv1a_cstr_done
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+
+
+; ==========================================================
+; char* itoa_d(int value, char* buffer);
+; ==========================================================
+; Converts an integer to signed decimal into the given buffer.
+;
+; The buffer needs to be at least 12 bytes in size.
+;
+; Returns the given buffer.
+;
+; vars:
+; - remaining value: r0
+; - buffer: r1
+; - length: r2
+; - was_negative: r3
+; - half_length: r4
+; - i: r5
+; ==========================================================
+
+=itoa_d
+    ; no stack frame
+
+    ; check for zero
+    7E 80 &itoa_d_zero       ; jz r0 &itoa_d_zero
+
+    ; init
+    70 82 00 00                ; add r2 0 0
+    70 83 00 00                ; add r3 0 0
+
+    ; check sign
+    77 8B 01 01                  ; ror rb 1 1    ; rb = 0x80000000
+    70 8A 8B 80                  ; add ra rb r0
+    7D 8A 8A 8B                  ; cmpu ra ra rb
+    7D 8A 8A 01                  ; cmpu ra ra 1
+    7E 8A &itoa_d_print_loop   ; jz ra &itoa_d_print_loop
+
+    ; the number is negative, convert it to positive
+    ; (this works even for INT_MIN because we do the rest as unsigned)
+    70 83 00 01                ; add r3 0 1
+    71 80 00 80                ; sub r0 0 r0
+
+:itoa_d_print_loop
+
+    ; extract a digit into r9
+    73 8A 80 0A    ; div ra r0 10
+    72 8B 8A 0A    ; mul rb ra 10
+    71 89 80 8B    ; sub r9 r0 rb
+    70 80 00 8A    ; add r0 0 ra   ; mov r0 ra
+
+    ; append it to the string
+    70 89 89 30    ; add r9 r9 "0"
+    7B 89 81 82    ; stb r9 r1 r2
+    70 82 82 01    ; add r2 r2 1    ; inc r2
+
+    ; if we have number left, keep looping
+    7E 80 &itoa_d_print_done   ; jz r0 &itoa_d_print_done
+    7E 00 &itoa_d_print_loop   ; jz 0 &itoa_d_print_loop
+
+:itoa_d_print_done
+
+    ; if negative, append "-"
+    7E 83 &itoa_d_positive    ; jz r3 &itoa_d_positive
+    7B 2D 81 82               ; stb "-" r1 r2
+    70 82 82 01               ; add r2 r2 1    ; inc r2
+:itoa_d_positive
+
+    ; null-terminate
+    7B 00 81 82     ; stb 0 r1 r2
+
+    ; calculate half the string length into r4
+    ; TODO replace these two lines with shru
+    77 84 82 01     ; ror r4 r2 1
+    74 84 84 7F     ; and r4 r4 127
+
+    ; prepare to reverse the string
+    70 85 00 00     ; add r5 0 0       ; zero r5
+    71 82 82 01     ; sub r2 r2 1      ; dec r2
+:itoa_d_reverse_loop
+    71 8A 85 84     ; sub ra r5 r4
+    7E 8A &itoa_d_reverse_done    ; jz ra &itoa_d_reverse_done
+    71 8B 82 85     ; sub rb r2 r5
+
+    ; swap characters
+    7A 89 81 8B     ; ldb r9 r1 rb
+    7A 88 81 85     ; ldb r8 r1 r5
+    7B 88 81 8B     ; stb r8 r1 rb
+    7B 89 81 85     ; stb r9 r1 r5
+
+    ; loop
+    70 85 85 01     ; add r5 r5 1      ; inc r5
+    7E 00 &itoa_d_reverse_loop   ; jz 0 &itoa_d_reverse_loop
+
+:itoa_d_reverse_done
+    70 80 00 81        ; add r0 0 r1       ; mov r0 r1
+    78 8F 00 8C        ; ldw rip 0 rsp     ; ret
+
+    ; special case for zero
+:itoa_d_zero
+    7B 30 81 00        ; stb "0" r1 0
+    7B 00 81 01        ; stb 0 r1 1
+    70 80 00 81        ; add r0 0 r1       ; mov r0 r1
+    78 8F 00 8C        ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void fputd(int number, FILE* file);
+; ==========================================================
+; Writes an integer in decimal to the given file.
+;
+; vars:
+; - file: rfp-4
+; - buffer: rsp, rfp-16
+; ==========================================================
+
+=fputd
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; push the file
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r1
+    79 81 00 8C     ; stw r1 0 rsp      ; ...
+
+    ; make stack space to format number
+    71 8C 8C 0C    ; sub rsp rsp 12
+    70 81 8C 00    ; add r1 rsp 0
+
+    ; convert number to decimal
+    7C 8A <itoa_d       ; ims ra <itoa_d
+    7C 8A >itoa_d       ; ims ra >itoa_d
+    71 8C 8C 04         ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08         ; add rb rip 8
+    79 8B 00 8C         ; stw rb 0 rsp
+    70 8F 8E 8A         ; add rip rpp ra         ; jump
+    70 8C 8C 04         ; add rsp rsp 4          ; pop return address
+
+    ; prepare args to fputs()
+    70 80 8C 00      ; add r0 rsp 0
+    78 81 8D FC      ; ldw r1 rfp -4
+
+    ; call fputs()
+    7C 8A <fputs        ; ims ra <fputs
+    7C 8A >fputs        ; ims ra >fputs
+    71 8C 8C 04         ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08         ; add rb rip 8
+    79 8B 00 8C         ; stw rb 0 rsp
+    70 8F 8E 8A         ; add rip rpp ra         ; jump
+    70 8C 8C 04         ; add rsp rsp 4          ; pop return address
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; void putd(int number);
+; ==========================================================
+; Writes an integer in decimal to standard output.
+; ==========================================================
+
+=putd
+    ; load stdout
+    7C 81 <stdout      ; ims r1 <stdout
+    7C 81 >stdout      ; ims r1 >stdout
+    78 81 8E 81        ; ldw r1 rpp r1
+
+    ; tail-call fputd()
+    7C 8A <fputd       ; ims ra <fputd
+    7C 8A >fputd       ; ims ra >fputd
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+

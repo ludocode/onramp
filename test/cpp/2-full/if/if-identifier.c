@@ -1,0 +1,3 @@
+#if hello
+hello
+#endif

@@ -1,0 +1,262 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; ==========================================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+; ==========================================================
+; Initializes the libc, parses the process info table, and calls main().
+;
+; This is the entry point of the program. It must come first in this file, and
+; this file must be given first to the linker.
+; ==========================================================
+
+=__start
+    ; format indicator "~Onr~amp~   "
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; the process info table is given in r0. store it in __process_info_table
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    79 80 8E 8A                    ; stw r0 rpp ra
+
+    ; call __malloc_init
+    7C 8A <__malloc_init   ; ims ra <__malloc_init
+    7C 8A >__malloc_init   ; ims ra >__malloc_init
+    71 8C 8C 04            ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08            ; add rb rip 8
+    79 8B 00 8C            ; stw rb 0 rsp
+    70 8F 8E 8A            ; add rip rpp ra         ; jump
+    70 8C 8C 04            ; add rsp rsp 4          ; pop return address
+
+    ; call __stdio_init
+    7C 8A <__stdio_init   ; ims ra <__stdio_init
+    7C 8A >__stdio_init   ; ims ra >__stdio_init
+    71 8C 8C 04           ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08           ; add rb rip 8
+    79 8B 00 8C           ; stw rb 0 rsp
+    70 8F 8E 8A           ; add rip rpp ra         ; jump
+    70 8C 8C 04           ; add rsp rsp 4          ; pop return address
+
+    ; jump to __start_main
+    ; (don't bother to push a return address because it never returns.)
+    7C 8A <__start_main   ; ims ra <__start_main
+    7C 8A >__start_main   ; ims ra >__start_main
+    70 8F 8E 8A           ; add rip rpp ra         ; jump
+
+
+
+; ==========================================================
+; const void* __process_info_table;
+; ==========================================================
+; A pointer to the process info table given by the parent process (or VM.)
+; ==========================================================
+
+=__process_info_table
+    00 00 00 00
+
+
+
+; ==========================================================
+; const char* const* __argv;
+; ==========================================================
+; A pointer to the null-terminated list of command-line arguments.
+;
+; The first argument is the name of the program.
+; ==========================================================
+
+=__argv
+    00 00 00 00
+
+
+
+; ==========================================================
+; size_t __argc;
+; ==========================================================
+; The number of command-line arguments (including the name of the program.)
+; ==========================================================
+
+=__argc
+    00 00 00 00
+
+
+
+; ==========================================================
+; const char* const* environ;
+; ==========================================================
+; A pointer to the null-terminated list of environment variables.
+; ==========================================================
+
+=environ
+    00 00 00 00
+
+
+
+; ==========================================================
+; [[noreturn]] void __start_main(void);
+; ==========================================================
+; Initializes the globals for command-line arguments and environment variables
+; and calls main().
+;
+; vars:
+;    - argv: r0
+;    - argc: r1
+;    - environ: r2
+;    - process_info_table: r9
+; ==========================================================
+
+=__start_main
+    ; don't bother setting up a stack frame
+
+    ; load the process info table into r9
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+
+    ; put the environment variables into r2 and environ
+    78 82 89 1C        ; ldw r2 r9 28  (environment variables)
+    7C 8A <environ     ; ims ra <environ
+    7C 8A >environ     ; ims ra >environ
+    79 82 8E 8A        ; stw r2 rpp ra
+
+    ; put the command-line arguments into r1 and __argv
+    78 81 89 18     ; ldw r1 r9 24  (command-line args)
+    7C 8A <__argv   ; ims ra <__argv
+    7C 8A >__argv   ; ims ra >__argv
+    79 81 8E 8A     ; stw r1 rpp ra
+
+    ; count the command line args into r0 and copy to __argc
+    70 8A 00 81   ; add ra 0 r1
+    70 80 00 00   ; add r0 0 0
+:__start_argc_loop
+    78 8B 00 8A                   ; ldw rb 0 ra
+    7D 8B 8B 00                   ; cmp rb rb 0
+    7E 8B &__start_argc_loop_end  ; jz rb &__start_argc_loop_end
+    70 80 80 01                   ; add r0 r0 1
+    70 8A 8A 04                   ; add ra ra 4
+    7E 00 &__start_argc_loop      ; jz 0 &__start_argc_loop
+:__start_argc_loop_end
+    7C 8A <__argc   ; ims ra <__argc
+    7C 8A >__argc   ; ims ra >__argc
+    79 80 8E 8A     ; stw r0 rpp ra
+
+    ; call main() with our above arguments
+    7C 8A <main   ; ims ra <main
+    7C 8A >main   ; ims ra >main
+    71 8C 8C 04   ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08   ; add rb rip 8
+    79 8B 00 8C   ; stw rb 0 rsp
+    70 8F 8E 8A   ; add rip rpp ra         ; jump
+    70 8C 8C 04   ; add rsp rsp 4          ; pop return address
+
+    ; If main() returned, jump to _Exit() (and not exit(), because we don't
+    ; have it!) The return value of main() is in r0 so we just forward it
+    ; along. (Don't bother to push a return address because exit() never
+    ; returns.)
+    7C 8A <_Exit   ; ims ra <_Exit
+    7C 8A >_Exit   ; ims ra >_Exit
+    70 8F 8E 8A    ; add rip rpp ra   ; jump
+
+
+
+; ==========================================================
+; [[noreturn]] void _Exit(int status);
+; ==========================================================
+; Exits without closing anything or cleaning anything up.
+;
+; You must close file descriptors yourself before exiting the program!
+;
+; TODO we should probably try to close files, especially if we're
+; exiting from __fatal().
+;
+; params:
+;     status: r0
+; ==========================================================
+
+=_Exit
+    ; don't bother to set up a stack frame, we're exiting
+
+    ; push exit status
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; call __close_all_files
+    7C 8A <__close_all_files   ; ims ra <__close_all_files
+    7C 8A >__close_all_files   ; ims ra >__close_all_files
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; pop exit status
+    78 80 00 8C     ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+
+    ; get the process info table
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 8A 8E 8A                    ; ldw ra rpp ra
+
+    ; get the exit address
+    78 8A 8A 08    ; ldw ra ra 8
+
+    ; (exit status is already in r0)
+    ; jump to it
+    70 8F 00 8A    ; add rip 0 ra   ; jmp 0 ra
+
+
+
+; ==========================================================
+; [[noreturn]] void __fatal(const char* message);
+; ==========================================================
+; Prints the given error message and exits the program with status 1.
+;
+; Note that this is different from `fatal()` in libo which prints current line
+; and file.
+; ==========================================================
+
+=__fatal
+    ; don't bother to set up a stack frame, we're exiting
+
+    ; get stderr
+    7C 8A <stderr        ; ims ra <stderr
+    7C 8A >stderr        ; ims ra >stderr
+    78 81 8E 8A          ; ldw r1 rpp ra
+
+    ; call fputs(message, stderr)
+    7C 8A <fputs         ; ims ra <fputs
+    7C 8A >fputs         ; ims ra >fputs
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; call _Exit(1)
+    70 80 00 01    ; add r0 0 1
+    7C 8A <_Exit   ; ims ra <_Exit
+    7C 8A >_Exit   ; ims ra >_Exit
+    70 8F 8E 8A    ; add rip rpp ra   ; jump

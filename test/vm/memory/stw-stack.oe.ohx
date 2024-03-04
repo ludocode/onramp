@@ -1,0 +1,55 @@
+; format indicator `~Onr~amp~   `
+7E 4F 6E 72   ; jz 79 29294
+7E 61 6D 70   ; jz 97 28781
+7E 20 20 20   ; jz 32 8224
+
+; move process info table to r9
+70 89 00 80   ; add r9 0 r0
+
+; put 1 into r0 now, we'll exit if an error occurs
+70 80 00 01   ; add r0 0 1
+
+; make sure we can push things to the stack
+71 8C 8C 04   ; sub rsp rsp 4    ; push -1
+79 FF 8C 00   ; stw -1 rsp 0
+71 8C 8C 04   ; sub rsp rsp 4    ; push -3
+79 FD 8C 00   ; stw -3 rsp 0
+
+# make sure we can read them back out again
+78 8A 8C 00   ; ldw ra rsp 0
+7D 8A 8A FD   ; cmpu ra ra -3
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+78 8A 8C 04   ; ldw ra rsp 4
+7D 8A 8A FF   ; cmpu ra ra -1
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; make sure we can create a stack frame
+71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+; write some stuff to it
+71 8C 8C 04   ; sub rsp rsp 8     ; make room for two words
+79 15 8D F8   ; stw 21 rfp -8
+79 07 8D FC   ; stw 7 rfp -4
+
+; read it back out again
+78 8A 8D F8   ; ldw ra rfp -8
+7D 8A 8A 15   ; cmpu ra ra 21
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+78 8A 8D FC   ; ldw ra rfp -4
+7D 8A 8A 07   ; cmpu ra ra 7
+7E 8A 01 00   ; jz ra 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; leave our stack frame
+70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+70 8C 8C 04     ; add rsp rsp 4     ; ...
+
+; success. exit 0
+70 80 00 00   ; add r0 0 0
+78 8F 89 08   ; ldw rip r9 8  (exit address)

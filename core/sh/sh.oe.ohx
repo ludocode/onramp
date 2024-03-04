@@ -1,0 +1,728 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the implementation of the Onramp shell script tool. It is written in
+; hexadecimal Onramp bytecode.
+;
+; Although technically usable as a shell, it mainly exists for running the
+; Onramp bootstrap script (scripts/onramp/build.sh) so that the entire
+; bootstrap process happens in the VM.
+;
+; Note that r9 is not treated as caller-preserved. Instead it always points to
+; a table of global variables allocated during initialization. See the global
+; variables table below.
+
+; TODO this tool is nowhere near done yet.
+
+
+
+; global variables:
+;  name                  offset from r9
+;   process_info_table     0    00
+;   input_io_handle        4    04
+;   token_count            8    08
+;   current_char          12    0C
+;   last_token            16    10
+;   last_status_code      20    14
+;   heap_start            24    18
+;   heap_position         28    1C
+;   fatal_errors          32    20
+;      total               36    24
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+
+@0x00 =__start
+    ; format indicator "~Onr~amp~   "
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; jump to start
+    7C 8A 00 00   ; ims ra <start
+    7C 8A EE EE   ; ims ra >start
+    70 8F 8E 8A   ; add rip rpp ra        ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+@0x20
+
+
+
+;==========================================
+; void* commands;
+;==========================================
+; A mapping of command names and function pointers.
+;
+; This is a null-terminated list of pairs. Each pair consists of the address of
+; the name of a command (as a null-terminated string) and the address of the
+; function to handle it. All addresses are relative to the program pointer.
+;==========================================
+
+@0x20 =commands
+
+    60 00 00 00   EE EE 00 00    ; echo
+    65 00 00 00   EE EE 00 00    ; mkdir
+    6B 00 00 00   EE EE 00 00    ; onrampvm
+    74 00 00 00   EE EE 00 00    ; set
+    78 00 00 00   EE EE 00 00    ; cp
+    7B 00 00 00   EE EE 00 00    ; sh
+    00 00 00 00   00 00 00 00    ; null terminator
+
+    ; padding
+    00 00 00 00 00 00 00 00
+
+@0x60 "echo"
+    65 63 68 6f 00
+  ;  e  c  h  o \0
+@0x65 "mkdir"
+    6d 6b 64 69 72 00
+  ;  m  k  d  i  r \0
+@0x6B "onrampvm"
+    6f 6e 72 61 6d 70 76 6d  00
+  ; o  n  r  a  m  p  v  m   \0
+@0x74 "set"
+    73 65 74 00
+  ;  s  e  t \0
+@0x78 "cp"
+    63 70 00
+  ;  c  p \0
+@0x7B "sh"
+    73 68 0a
+  ;  s  h \0
+
+    ; padding
+                      00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x90
+
+
+
+;==========================================
+; const char error_input[];
+;==========================================
+
+@0x90 =error_input
+    ; "ERROR: Failed to read input." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F  a  i  l  e  d     t  o
+    20 72 65 61 64 20 66 69  6c 65 2e 0a 00 00 00 00
+  ;     r  e  a  d     f  i   l  e  . \n \0
+@0xB0
+
+
+
+;==========================================
+; const char error_usage[];
+;==========================================
+
+@0xB0 =error_usage
+    ; "ERROR: Invalid arguments." '0A
+    ; "Usage: <sh> [script]" '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 61
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     a
+    72 67 75 6d 65 6e 74 73  2e 0a 55 73 61 67 65 3a
+  ;  r  g  u  m  e  n  t  s   . \n  U  s  a  g  e  :
+    20 3c 73 68 3e 20 5b 73  63 72 69 70 74 5d 0a 00
+  ;     <  s  h  >     [  s   c  r  i  p  t  ] \n \0
+@0xE0
+
+
+
+;==========================================
+; const char error_escape[];
+;==========================================
+
+@0xE0 =error_escape
+    ; "ERROR: Invalid escape sequence. Only end-of-line characters can be escaped." '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 65
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     e
+    73 63 61 70 65 20 73 65  71 75 65 6e 63 65 2e 20
+  ;  s  c  a  p  e     s  e   q  u  e  n  c  e  .
+    4f 6e 6c 79 20 65 6e 64  2d 6f 66 2d 6c 69 6e 65
+  ;  O  n  l  y     e  n  d   -  o  f  -  l  i  n  e
+    20 63 68 61 72 61 63 74  65 72 73 20 63 61 6e 20
+  ;     c  h  a  r  a  c  t   e  r  s     c  a  n
+    62 65 20 65 73 63 61 70  65 64 2e 0a 00 00 00 00
+  ;  b  e     e  s  c  a  p   e  d  . \n \0
+@0x130
+
+
+
+; ==========================================================
+; size_t strlen(char* str)
+; ==========================================================
+; Returns the length of the given null-terminated string, not including the
+; null-terminator.
+;
+; This is the standard C strlen() function.
+;
+; params:
+;     - str: r0
+; vars:
+;     - count: r1
+; ==========================================================
+
+#@0x110 =strlen
+    ; don't bother to set up a stack frame
+    ; we accumulate the count in r1, then move it to r0
+    70 81 00 00         ; add r1 0 0           ; zero r1
+;:strlen_loop
+    7A 8A 80 81         ; ldb ra r0 r1
+    7E 8A 02 00         ; jz ra &strlen_done (+2)
+    70 81 81 01         ; add r1 r1 1          ; inc r1
+    7E 00 FC FF         ; jz 0 &strlen_loop (-4)
+;:strlen_done
+    70 80 00 81         ; add r0 0 r1          ; mov r0 r1
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00
+#@0x130
+
+
+
+; ==========================================================
+; int strcmp(const char* left, const char* right)
+; ==========================================================
+; Compares null-terminated strings left to right lexicographically. Returns -1
+; if left comes before right, 1 if left comes after right, 0 if they are equal.
+;
+; This is the standard C strcmp() function.
+;
+; params:
+;     - left: r0
+;     - right: r1
+; vars:
+;     - index: r2
+; ==========================================================
+
+#@0x150 =strcmp
+    ; don't bother to set up a stack frame
+
+    ; we use an index because it's faster than incrementing both src and dest
+    70 82 00 00                ; add r2 0 0           ; zero r2
+
+;:strcmp_loop
+    7A 8A 80 82                ; ldb ra r0 r2
+    7A 8B 81 82                ; ldb rb r1 r2
+    7D 8A 8A 8B                ; cmp ra ra rb
+    7E 8A 02 00                ; jz ra &strcmp_byte_match (+2)
+    ; bytes not equal, return the comparison result
+    70 80 00 8A                ; add r0 0 ra          ; mov r0 ra
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+
+;:strcmp_byte_match
+    ; bytes match. if zero, strings are equal, return 0
+    7E 8B 02 00                ; jz rb &strcmp_equal (+2)
+
+    ; otherwise keep looping
+    70 82 82 01                ; add r2 r2 1             ; inc r2
+    7E 00 F7 FF                ; jz 0 &strcmp_loop (-9)  ; jmp &strcmp_loop
+
+;:strcmp_equal
+    ; strings are equal, return 0
+    70 80 00 00                ; add r0 0 0           ; zero r0
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+#@0x180
+
+
+
+;==========================================
+; [[noreturn] void fatal(const char* message);
+;==========================================
+; Prints the given error message and exits.
+;==========================================
+
+#@0x130 =fatal
+    ; don't bother to set up a stack frame, we're exiting
+
+    ; push message
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; call strlen
+    7C 8A 00 00    ; ims ra <strlen
+    7C 8A 10 01    ; ims ra >strlen
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; setup args to write
+    70 82 00 80    ; add r2 0 r0   ; mov r2 r0
+    78 81 00 8C    ; ldw r1 0 rsp
+
+    ; get process info table into r8
+    78 88 89 00    ; ldw r8 r9 0
+
+    ; write to stderr
+    78 80 88 14    ; ldw r0 r8 20   ; stderr
+    7F 13 00 00    ; sys write 0 0
+
+    ; exit with status 1
+    70 80 00 01    ; add r0 0 1
+    78 8A 88 08    ; ldw r8 r8 8
+    70 8F 00 8A    ; add rip 0 ra
+
+    ; padding
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+#@0x180
+
+
+
+;==========================================
+; bool error(const char* message);
+;==========================================
+; Prints the given error, then either returns false or exits (depending on
+; whether `set -e` was specified.)
+;==========================================
+
+#@0x0 =error
+
+    ; if set -e specified, just forward to fatal
+
+    ; otherwise print the error
+
+    ; probably share the contents of fatal() and error()
+
+#@0x0
+
+
+
+;==========================================
+; [[noreturn]] void start(uint32_t* process_info_table);
+;==========================================
+
+#@0x180 =start
+    ; no stack frame, we don't return
+
+    ; call initialize
+    7C 8A 00 00    ; ims ra <initialize
+    7C 8A EE EE    ; ims ra >initialize
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call open_script()
+    7C 8A 00 00    ; ims ra <open_script
+    7C 8A EE EE    ; ims ra >open_script
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop calling parse()
+    ;:start_loop
+        7C 8A 00 00    ; ims ra <parse
+        7C 8A EE EE    ; ims ra >parse
+        71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08    ; add rb rip 8
+        79 8B 00 8C    ; stw rb 0 rsp
+        70 8F 8E 8A    ; add rip rpp ra    ; jump
+        70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    7E 00 F8 FF    ; jz 0 &start_loop (-8)
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+#@0x210
+
+
+
+;==========================================
+; void initialize(uint32_t* process_info_table);
+;==========================================
+; Initializes all global variables, placing a pointer to them in r9.
+;==========================================
+
+#@0x210 =initialize
+    ; don't bother to set up a stack frame
+
+    ; get the program break into r9. it will be the address of our global
+    ; variables.
+    78 89 80 04   ; ldw r9 r0 4
+
+    ; allocate our global variables
+    70 81 89 20   ; add r1 r9 32
+
+    ; fill out our global variables
+    79 80 89 00   ; stw r0 r9  0       ; process_info_table
+    79 00 89 0C   ; stw  0 r9 12       ; current_char
+    79 00 89 10   ; stw  0 r9 16       ; last_token
+    79 00 89 14   ; stw  0 r9 20       ; last_status_code
+    79 81 89 18   ; stw r1 r9 24       ; heap_start
+    79 00 89 20   ; stw  0 r9 32       ; fatal_errors
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+#@0x240
+
+
+
+;==========================================
+; void open_script(void);
+;==========================================
+; Opens the input file, if any.
+;==========================================
+
+#@0x210 =open_script
+    ; no stack frame
+
+    ; check if we have no script.
+    78 88 89 00     ; ldw r8 r9 00  (process info table)
+    78 81 88 18     ; ldw r1 r8 24  (command-line args)
+    78 8A 81 00     ; ldw ra r1 0
+    7E 8A 03 00     ; jz ra &open_script_none (+3)  ; safety check against bad vm
+    78 8A 81 04     ; ldw ra r1 4
+    7E 8A 01 00     ; jz ra &open_script_none (+1)
+    7E 00 03 00     ; jz 0 &open_script_found (+3)
+
+;:open_script_none
+    ; no script. set the input file handle to stdin.
+    78 8A 88 0C    ; ldw ra r8 12   ; load stdin from process info table
+    79 8A 89 04    ; stw ra r9  4   ; store stdin in global vars
+    78 8F 00 8C    ; ldw rip 0 rsp  ; ret
+
+;:open_script_found
+    ; check if there are any extra args. if so, fatal error
+    78 8A 81 08     ; ldw ra r1 8
+    7E 8A 01 00     ; jz ra &open_script_args_ok (+6)
+    7C 80 00 00        ; ims r0 <error_usage
+    7C 80 EE EE        ; ims r0 >error_usage
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A 00 00        ; ims ra <fatal
+    7C 8A EE EE        ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+;:open_script_args_ok
+
+    ; syscall open
+    78 80 81 04    ; ldw ra r1 4
+    70 81 00 00    ; add r1 0 0     ; read-only
+    7F 10 00 00    ; sys open 0 0
+
+    ; return value must not be -1
+    7D 8A 80 FF    ; cmp ra r0 -1
+    7E 8A 01 00    ; jz ra &open_script_fail (+1)
+    7E 00 06 00    ; jz 0 &open_script_opened (+6)
+
+;:open_script_fail
+    7C 80 00 00        ; ims r0 <error_input
+    7C 80 EE EE        ; ims r0 >error_input
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A 00 00        ; ims ra <fatal
+    7C 8A EE EE        ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+;:open_script_opened
+    ; store input handle in globals
+    79 80 89 04    ; stw r0 r9  4
+
+    ; read the first char, call read_char()
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A EE EE    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+#@0x0
+
+
+
+;==========================================
+; void read_char(void);
+;==========================================
+; Reads a character, or -1 if the end of the file has been reached, into
+; current_char.
+;==========================================
+
+#@0x480 =read_char
+    ; don't bother to set up a stack frame
+
+    ; syscall read(input_io_handle, &current_char, 1)
+    78 80 89 04     ; ldw r0 r9 4     ; input_io_handle
+    70 81 89 0C     ; add r1 r9 12    ; &current_char
+    70 82 00 01     ; add r2 0 1      ; 1
+    7F 12 00 00     ; sys read 0 0
+
+    ; r0 contains the number of bytes read. if it's zero, assume it's the end
+    ; of the file.
+    7E 80 01 00    ; jz r0 &read_char_eof (+1)
+    7E 00 01 00    ; jz 0 &read_char_ret (+1)
+
+    ; at end of file, put -1 (as an int) into current_char
+;:read_char_eof
+    79 FF 89 0C    ; stw -1 r9 12   ; current_char
+
+;:read_char_ret
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+#@0x4B0
+
+
+
+;==========================================
+; void consume_horizontal_space(void);
+;==========================================
+; Consumes all horizontal space (spaces and horizontal tabs.)
+;==========================================
+
+#@0x0 =consume_horizontal_space
+    ; don't bother to set up a stack frame
+
+    ; get the current char
+    78 80 89 0C     ; ldw r0 r9 12    ; current_char
+
+    ; check for horizontal whitespace
+    7D 8A 80 20    ; cmp ra r0 " "   (space)
+    7E 8A 03 00    ; jz ra &try_parse_whitespace_true (+3)
+    7D 8A 80 09    ; cmp ra r0 "\t"  (horizontal tab)
+    7E 8A 01 00    ; jz ra &try_parse_whitespace_true (+1)
+
+    ; not horizontal space. return
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; consume it, call read_char()
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A EE EE    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop
+    7E 00 F2 FF    ; jz 0 &consume_horizontal_space (-14)
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+#@0x210
+
+
+
+;==========================================
+; void consume_escape(void);
+;==========================================
+; Consumes an escaped newline. (No other escapes exist.)
+;
+; The current character must be '\'.
+;==========================================
+
+#@0x0 =consume_escape
+    ; no stack frame
+
+    ; the current character is '\'. consume it, call read_char()
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A EE EE    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check if the current character is a line feed
+    78 80 89 0C     ; ldw r0 r9 12    ; current_char
+    7D 8A 80 0A     ; cmpu ra r0 "\n"
+    7E 8A 01 00     ; jz ra +1
+    7E 00 08 00     ; jz 0 +8
+
+    ; it's a line feed. consume it and return
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A EE EE    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; check if the current character is a carriage return.
+    7D 8A 80 0D     ; cmpu ra r0 "\r"
+    7E 00 06 00     ; jz 0 +6
+
+    ; not line feed and not carriage return. fatal error
+    ; TODO not fatal error, we don't necessarily quit on error. instead have an
+    ; error() function that works like fatal except it returns false if `set
+    ; -e` has not been specified.
+    7C 80 00 00        ; ims r0 <error_escape
+    7C 80 EE EE        ; ims r0 >error_escape
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A 00 00        ; ims ra <fatal
+    7C 8A EE EE        ; ims ra >fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+    ; it's a carriage return. consume it
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A EE EE    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; a carriage return can be followed by a line feed, check it
+    78 80 89 0C     ; ldw r0 r9 12    ; current_char
+    7D 8A 80 0A     ; cmpu ra r0 "\n"
+    7E 8A 01 00     ; jz ra +1
+    7E 00 07 00     ; jz 0 +7
+
+    ; it's a line feed. consume it
+    7C 8A 00 00    ; ims ra <read_char
+    7C 8A EE EE    ; ims ra >read_char
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+#@0x0
+
+
+
+;==========================================
+; void parse(void);
+;==========================================
+; Parses a line (including escaped newlines) and runs the command, if any.
+;
+; Tokens are parsed in a linked list. Each linked list entry is a link to the
+; next entry followed by the string.
+;
+; Once the end of the line is reached, run_command is called on the list.
+;==========================================
+
+#@0x0 =parse
+    ; no stack frame (yet?)
+
+    ; clear the last command
+    79 00 89 08   ; stw  0 r9  8       ; token_count
+    78 8A 89 18   ; ldw ra r9 24       ; heap_start
+    79 8A 89 1C   ; stw ra r9 28       ; heap_position
+
+;:parse_loop
+
+    ; consume horizontal whitespace
+    7C 8A 00 00    ; ims ra <consume_horizontal_space
+    7C 8A EE EE    ; ims ra >consume_horizontal_space
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the current character
+    78 80 89 0C     ; ldw r0 r9 12    ; current_char
+
+    ; check if we have a backslash
+
+    ; if so, consume the escape sequence and restart the loop.
+
+    ; check if we have a comment
+
+    ; if so, consume the rest of the line, call consume_comment()
+
+    ; otherwise alloc space for a new token, zero it, point last token to it
+
+    ; collect chars until whitespace (still calling escape_backslash on
+    ; backslashes in case it's an escaped newline in the middle of a word)
+
+;:parse_loop_end
+
+    ; NOTE: when we see a line ending, we need to not consume it until AFTER
+    ; running the command! otherwise we'll block on input when running
+    ; interactively.
+
+    ; call run_command()
+    7C 8A 00 00    ; ims ra <run_command
+    7C 8A EE EE    ; ims ra >run_command
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; consume line endings (any number of \n and \r)
+    ; (maybe make this a separate function for simplicity, tail-call it)
+
+
+
+;==========================================
+; void run_command(void);
+;==========================================
+; Converts the linked list of arguments to an array, then searches the command
+; table for a function to handle it.
+;==========================================
+
+    ; allocate array, store null-terminator at end
+
+    ; walk linked list starting at program break. store each item into the
+    ; array
+
+    ; walk table, call strcmp() on each. if match, tail-call command.
+
+    ; if no match, call error (not fatal)
+
+
+

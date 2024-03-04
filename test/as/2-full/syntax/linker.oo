@@ -1,0 +1,15 @@
+#line 1 "./syntax/linker.os"
+=foo 
+00:bar 
+10@baz 
+<a >b ^c 
+ABCD&d 
+
+=a 
+=b 
+=c 
+=d 
+
+=main 
+70800000
+788F008C

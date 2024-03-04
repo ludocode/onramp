@@ -1,0 +1,15 @@
+
+
+
+; this should convert to a zero-byte file.
+
+
+
+# another comment
+
+
+
+@0x0 line assertion
+
+
+

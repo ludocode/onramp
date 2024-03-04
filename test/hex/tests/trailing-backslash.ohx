@@ -1,0 +1,5 @@
+;
+; this is an error: \
+; not all implementations of hex will diagnose it
+;
+48 65 6c 6c 6f  ; Hello
