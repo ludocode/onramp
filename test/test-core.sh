@@ -31,6 +31,10 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Setup for a POSIX environment
+#scripts/posix/setup.sh
+. scripts/posix/env.sh
+
 # linker
 make -C test/ld/0-global
 make -C test/ar/0-cat

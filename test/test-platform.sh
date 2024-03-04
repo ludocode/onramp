@@ -33,6 +33,10 @@
 set -e
 cd "$(dirname "$0")/.."
 
+# Setup for a POSIX environment
+#scripts/posix/setup.sh
+. scripts/posix/env.sh
+
 
 
 ################

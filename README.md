@@ -41,12 +41,6 @@ Once you have a VM, Onramp bootstraps itself. Read the full bootstrapping path [
 
 
 
-## Build Status
-
-[![Tests](https://github.com/ludocode/onramp/workflows/Tests/badge.svg)](https://github.com/ludocode/onramp/actions?query=workflow%3A%22Tests%22)
-
-
-
 ## Under Construction!
 
 Onramp is not yet complete. My immediate goal is to support enough of C to compile Doom for command-line.
@@ -66,6 +60,12 @@ I welcome bug reports but I am not currently accepting contributions. Feel free 
 <div style="text-align:center">
     <img src="docs/assets/project-status.svg" alt="Current status of Onramp components." />
 </div>
+
+
+
+## Build Status
+
+[![Tests](https://github.com/ludocode/onramp/workflows/Tests/badge.svg)](https://github.com/ludocode/onramp/actions?query=workflow%3A%22Tests%22)
 
 
 
