@@ -1,6 +1,6 @@
 # Onramp Compiler -- First Stage
 
-This is the first-stage compiler. It is implemented in [Onramp Compound Assembly](../../../docs/assembly.md) and compiles [Onramp Minimal C (omC)](../../../docs/minimal-c.md).
+This is the first-stage compiler. It is implemented in compound [Onramp Assembly](../../../docs/assembly.md) and compiles [Onramp Minimal C (omC)](../../../docs/minimal-c.md).
 
 
 
@@ -94,8 +94,8 @@ To do this, we place the preamble at the end of the function. For example, a fun
 
 =foo
     enter
-    imw r0 <framesize>
-    sub rsp rsp r0
+    imw r9 <framesize>
+    sub rsp rsp r9
     jmp ^_F_foo
 ```
 
@@ -132,8 +132,8 @@ When a literal string appears in a function, we assign the string a unique id, c
 
 =bar
     enter
-    imw r0 <framesize>
-    sub rsp rsp r0
+    imw r9 <framesize>
+    sub rsp rsp r9
     jmp ^_F_bar
 
 @_Sx0

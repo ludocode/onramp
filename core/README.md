@@ -4,6 +4,26 @@ This folder contains source code for all of the Onramp core components.
 
 All core components are written in Onramp languages and are fully platform-independent. The build scripts are written in [Onramp Shell](../docs/shell.md) so they can run inside an Onramp VM.
 
+
+
+## Table of Components
+
+| Program          | Description            | Operation                                         |
+|------------------|------------------------|---------------------------------------------------|
+| [`cc`](cc/)      | Driver                 | Performs any or all phases of translation         |
+| [`cpp`](cpp/)    | Preprocessor           | Preprocesses `.c` to `.i`                         |
+| [`cci`](cci/)    | Compiler               | Compiles `.i` to `.os`                            |
+| [`as`](as/)      | Assembler              | Assembles `.os` to `.oo` object file              |
+| [`ar`](ar/)      | Archiver               | Combines `.oo` object files into `.oa` library    |
+| [`ld`](ld/)      | Linker                 | Links `.oo` and `.oa` into `.oe` executable       |
+| [`libc`](libc/)  | Standard library       | Provides C and POSIX library functions            |
+| [`sh`](sh/)      | Shell                  | Runs scripts                                      |
+| [`os`](os/)      | Operating System       | Implements a filesystem and syscalls              |
+
+
+
+## Folder Structure
+
 The core sources are organized with the following folder structure:
 
 ```

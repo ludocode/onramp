@@ -25,13 +25,13 @@ The first stage Onramp assembler recognizes only the following primitive instruc
 - Arithmetic: `add`, `sub`, `mul`, `div`
 - Logic: `and`, `or`, `xor`, `ror`
 - Memory: `ldw`, `stw`, `ldb`, `stb`
-- Control: `imms`, `cmp`, `jz`, `sys`
+- Control: `ims`, `cmp`, `jz`, `sys`
 
 Each of these instructions takes three bytes of arguments and maps directly to an instruction in Onramp bytecode. The behaviour and required arguments of each is documented below.
 
 In the first stage assembler, arguments can be passed as register or syscall names, as characters (provided they are in range), or as raw bytes.
 
-In the full assembler, arguments can additionally be passed as numbers (decimal), and a number argument may represent multiple bytes (for example as the 16-bit argument to `imms` or `jz`.)
+In the full assembler, arguments can additionally be passed as numbers (decimal or hexadecimal) and a number argument may represent multiple bytes (for example as the 16-bit argument to `ims` or `jz`.)
 
 
 
@@ -41,7 +41,7 @@ The Onramp assembler recognizes the following register names:
 
 - `r0`, `r1`, `r2`, `r3`
 - `r4`, `r5`, `r6`, `r7`
-- `r8`, `r9`, `r10`, `r11`
+- `r8`, `r9`, `ra`, `rb`
 - `rfp`, `rsp`, `rpp`, `rip`
 
 Register names are replaced by their literal bytes (`80` through `8F`.) These must only be used as the argument to an instruction where a register is accepted. The early stage assemblers may not verify that a register name makes sense in the context in which it is used.
@@ -52,9 +52,9 @@ Register names are replaced by their literal bytes (`80` through `8F`.) These mu
 
 Raw hex bytes can be output by prefixing each one with `'`.
 
-- `'` `<hex>`: A raw hex byte.
+- `'<hex>`: A raw hex byte.
 
-The `'` must be followed by two hexadecimal characters. The hexadecimal byte is output as-is (as plain text) without the leading `'`.
+The `'` must be followed by two hexadecimal characters with no whitespace in between. The hexadecimal byte is output as-is (in plain text) without the leading `'`.
 
 When outputting multiple bytes, each one must be prefixed with `'`.
 
@@ -69,6 +69,8 @@ When outputting multiple bytes, each one must be prefixed with `'`.
 ### Debug Info
 
 `#` starts a debug info annotation that runs until the end of the line. The assembler may pass the annotation verbatim to the output, or it may ignore it (treating it as a comment.)
+
+Valid debug info consists of `#line` and `#pragma` directives. See the [Debug Info](debug-info.md) document for a description of the debug info format.
 
 
 

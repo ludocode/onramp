@@ -1,6 +1,8 @@
 # Onramp Driver
 
-This is the Onramp C compiler driver. It is a single stage written in [Onramp Minimal C (omC)](../docs/minimal-c.md).
+This is the Onramp C compiler driver. It is a single stage written in [Onramp Minimal C (omC)](../../docs/minimal-c.md).
+
+The full command-line syntax is documented in the [Usage Guide](../../docs/usage-guide.md). This document describes the implementation and provides some notes on bootstrapping.
 
 
 
@@ -21,7 +23,7 @@ The output of linking is an Onramp bytecode executable, optionally wrapped for t
 
 ## Bootstrapping
 
-By default, the compiler driver expects to use the final bootstrapped versions of the underlying tools and libc. During bootstrapping, these are not available yet. The tools to use can be overridden using the following command-line options:
+By default, the compiler driver expects to use the final bootstrapped versions of the underlying tools and libc. During bootstrapping, these do not exist yet. The tools to use can be overridden using the following command-line options:
 
 - `-with-cpp=<path/to/cpp.oe>` -- Sets the path to the preprocessor
 - `-with-cci=<path/to/cci.oe>` -- Sets the path to the compiler

@@ -150,7 +150,7 @@ The working directory is the base directory that the program should use for rela
 
 In a freestanding environment, the command-line, environment variables and working directory may all be null.
 
-The capabilities field contains a set of flags describing what features are supported by the VM.
+The capabilities field contains a set of flags describing what features are supported by the VM. (The capabilities bitmap is not yet defined. For now it's just zero.)
 
 Note that the process information table and its associated information must not be written to, except that command-line arguments and environment variables may be modified (for example with `strtok()`.) Any other changes are undefined behaviour, and may crash the VM or corrupt the parent process.
 
@@ -341,9 +341,64 @@ Making a system call is similar to making a function call. The main difference i
 
 Note that you do not push a return address as you would with a function call. System calls also preserve all registers (except for the instruction pointer and return value registers.)
 
-TODO: The above will likely change soon; system calls will be more like function calls, requiring a return address and not preserving registers. The `sys` instruction might be removed as well, instead being replaced by a function call table passed in the process info table. This will require changes to a few bytecode programs and to the libc.
+TODO: The above will likely change soon; system calls will be more like function calls, requiring a return address and not preserving registers. The `sys` instruction might be removed as well, instead being replaced by a function call table passed in the process info table. This will require changes to a few bytecode programs and to the libc. These changes are necessary to simplify the Onramp OS.
 
 Here's a quick reference for the syscall table:
+
+Misc:
+
+| Hex | Name     | Arguments            | Return Value             |  Description                    |
+|-----|----------|----------------------|--------------------------|---------------------------------|
+| 00  | halt     | exit code            | n/a (doesn't return)     | halts the VM                    |
+| 01  | time     | timespec             | error code               | gets the current time           |
+| 02  | spawn    | path, in, out, err   | error code               | runs a program outside the VM   |
+
+Input/Output:
+
+| Hex | Name     | Arguments            | Return Value             |  Description                    |
+|-----|----------|----------------------|--------------------------|---------------------------------|
+| 10  | fopen    | path, writeable      | handle or error code     | opens a file                    |
+| 11  | fclose   | handle               | none                     | closes a file                   |
+| 12  | fread    | handle, buffer, size | number of bytes read     | reads from a file or stream     |
+| 13  | fwrite   | handle, buffer, size | number of bytes written  | writes to a file or stream      |
+| 14  | fseek    | handle, position     | current position         | seeks to a position in a file   |
+| 15  | ftrunc   | handle, position     | none                     | truncates a file                |
+
+Filesystem:
+
+| Hex | Name     | Arguments            | Return Value             |  Description                    |
+|-----|----------|----------------------|--------------------------|---------------------------------|
+| 20  | stat     | path, buffer         | error code               | gets file metadata              |
+| 21  | rename   | path, path           | error code               | renames a file                  |
+| 22  | symlink  | path, path           | error code               | creats a symlink                |
+| 23  | unlink   | path                 | error code               | deletes a file                  |
+| 24  | chmod    | path, mode           | error code               | changes permissions of a file   |
+| 25  | mkdir    | path                 | error code               | creates a directory             |
+| 26  | rmdir    | path                 | error code               | deletes an empty directory      |
+
+Directories:
+
+| Hex | Name     | Arguments            | Return Value             |  Description                          |
+|-----|----------|----------------------|--------------------------|---------------------------------------|
+| 30  | dopen    | path                 | handle or error code     | opens a directory                     |
+| 31  | dclose   | handle               | none                     | closes a directory                    |
+| 32  | dread    | handle, buffer       | error code               | reads one file entry from a directory |
+
+TODO: Expand documentation of these syscalls, perhaps in a separate document. Most VMs currently only implement a fraction of these syscalls.
+
+
+
+### Filesystem
+
+A filesystem is made up of directories and files. Directories can contain other directories and files. Files contain data of arbitrary type and length, and grow automatically as data is written to them.
+
+The character `/` is used to delimit files and directories. A file or directory name can contain any character except `/` and a null byte. (Onramp itself only uses ASCII letters, numbers, and the characters `-`, `_` and `.` in its implementation. Programs compiled by Onramp may use any characters.)
+
+The filesystem must have a root directory. A path is a string of up to 255 bytes that contains the hierarchy of directories that must be navigated from the root to reach a file. For example `/foo/bar` is a path to a file or directory called `bar` in a directory called `foo` in the root directory.
+
+The VM must provide a directory to store temporary files. If it is not called `/tmp/`, a `TMPDIR` environment variable must be provided that contains its path.
+
+The filesystem implemented by a VM resembles that of a POSIX system as described above. If your host filesystem is different, the VM must translate paths to make them appropriate for Onramp. For example if you have a path like `C:\Foo\Bar`, the VM should translate it to something like `/c/Foo/Bar`.
 
 
 

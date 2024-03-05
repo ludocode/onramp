@@ -2,7 +2,7 @@
 
 This is the implementation of the Onramp second stage compiler. It is written in [Onramp Minimal C](../../../docs/minimal-c.md) and compiles [Onramp Practical C](../../../docs/practical-c.md).
 
-This adds `else`, `for`, `struct`, `enum`, `switch`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
+This adds `else`, `for`, `struct`, `enum`, `switch`, `long long`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
 
 This document describes the implementation. For a description of the language it compiles, see [Onramp Practical C](../../../docs/practical-c.md).
 
@@ -32,7 +32,7 @@ It needs to be extended to compile opC. We need to fix or add:
 
 ## Types
 
-opC has signed and unsigned integer types, `void`, `struct`, `union`, `enum`, pointers and arrays. However, it has no function pointers, no multi-dimensional arrays, and no pointers to arrays. Additionally, the `const` and `volatile` qualifiers are ignored.
+opC has all C99 signed and unsigned integer types, `void`, `struct`, `union`, `enum`, pointers and arrays. However, it has no function pointers, no multi-dimensional arrays, and no pointers to arrays. Additionally, the `const` and `volatile` qualifiers are ignored.
 
 These simplifications mean we do not have to store a real declarator list. The only items allowed in a declarator list before the final array size are pointers, so we can flatten the entire declarator list down to a pointer count and an array size.
 
@@ -113,9 +113,9 @@ This is all valid omC. Of course this has many limitations: it's very slow, it's
 
 ## Enums
 
-Enum types are treated as equivalent to `int`, and enum values are treated as global variables of type `int`. In fact, the compiler does not even keep track of enum declarations. The identifier for an enum type is ignored entirely.
+Enum types are treated as equivalent to `int`, and enum values are treated as global variables of type `int`. In fact, the compiler does not even keep track of enum declarations. The name of an enum type is ignored entirely.
 
-Whenever the compiler encounters `enum`, it consumes and ignores the identifier that follows it. Then, if at global scope, it checks for `{`; if found, each enum value it contains is defined as a global integer variable. After that, the fact that it was an `enum` is discarded; it is simply returned as type `int`.
+Whenever the compiler encounters `enum`, it consumes and ignores the name that follows it. Then, if at global scope, it checks for `{`; if found, each enum value it contains is defined as a global integer variable. After that, the fact that it was an `enum` is discarded; it is simply returned as type `int`.
 
 This means enums can be forward declared, and can be used without ever being defined, and enum values can even be modified. For example:
 
@@ -128,6 +128,8 @@ enum foo {
 enum foo {  // invalid, duplicate enum
     foo_2 = 2;
 };
+
+enum while; // invalid, enum name is a keyword
 
 unsigned enum foo foo = 2; // invalid, unsigned value of enum type
 

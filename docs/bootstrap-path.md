@@ -1,5 +1,7 @@
 # Boostrapping Path
 
+This document describes the bootstrap process that Onramp takes to get from nothing all the way to a full implementation of C.
+
 
 
 ## Overview
@@ -107,23 +109,15 @@ If you want to try them, you can compile all of the above with `onrampcc`, excep
 
 ### Platform-Specific Language
 
-Our first tools are platform-specific.
+Our first tools are platform-specific. See the [Setup Guide](setup-guide.md) for information on how to set these up.
 
-Onramp includes versions of these tools for many platforms and languages. If you use one of the "Quick Start" scripts, they will be chosen automatically. If not, hopefully you can choose one that is supported on your system. It may be interpreted, such as Python or POSIX shell, in which case there's nothing to build; otherwise you may need to compile it.
-
-The choices don't have to match. The typical path on POSIX systems is to use the shell hex tool to bootstrap a native binary written in hexadecimal machine code.
-
-If your system isn't supported (for example, if you're an extra-terrestrial, or if you're an archaeologist 100,000 years from now and you just dug Onramp out of an ancient fallout shelter), you will need to implement these from scratch yourself. Thankfully this can be done in a few hundred lines in any high-level language.
-
-If you want to really learn how the Onramp VM works I recommend spending an afternoon to implement these in your preferred language.
-
-#### hex
+#### [hex](../platform/hex/)
 
 The hex tool lets us handwrite binary files in commented hexadecimal.
 
 The machine code VMs are written in this commented hexadecimal format so we bootstrap it first. Even if you don't need a hex tool to build your VM you'll still need one to convert the initial Onramp binaries.
 
-#### vm
+#### [vm](../platform/vm/)
 
 Any implementation for your system.
 
@@ -135,19 +129,17 @@ We have an Onramp VM! We can now write portable programs in [Onramp bytecode](vi
 
 We don't have a linker yet so we have to write each tool in a single file of commented hexadecimal. We'll lean on our strategies for [coding without labels](coding-without-labels.md).
 
-#### hex/onramp
+#### [hex/onramp](../platform/hex/onramp/)
 
 We build the Onramp implementation of the hex tool. This one is platform-independent and we can use it inside the VM. It also performs all error checking (including address assertions) in case the platform-specific hex tool did not.
 
-#### sh
+#### [sh](../core/sh/)
 
 The Onramp shell, to run the bootstrap shell script inside the VM.
 
-Although these last two tools are platform-independent, building them must be done in a platform-dependent manner. Onramp includes scripts for platforms that are popular today, but a future archaeologist or alien civilization would have to bootstrap the above manually.
+Although these last two tools are platform-independent, building them must be done in a platform-dependent manner. That isn't the case for the rest of this process. Now that we have a shell tool, we can use it to run [this shell script](../core/build.sh) that will perform the entire rest of the bootstrap process inside the VM automatically.
 
-That isn't the case for the rest of this process. Now that we have a shell tool, we can use it to run [this shell script](../core/build.sh) that will perform the entire rest of the bootstrap process inside the VM automatically.
-
-#### ld/0-global
+#### [ld/0-global](../core/ld/0-global/)
 
 The basic linker written in hexadecimal bytecode, giving us support for labels
 
@@ -159,19 +151,19 @@ We have a linker! We can now write programs in [Onramp object code](object-code.
 
 This also means we can implement code in multiple files, and we can even re-use code files in different programs. We'll use this to immediately implement a primitive libc so we can stop duplicating functionality like `strcmp()` in each program.
 
-#### libc/0-oo
+#### [libc/0-oo](../core/libc/0-oo/)
 
 A basic libc. `_start()`/`exit()`, `memcpy()`/`strcmp()`, `fopen()`/`fread()`/`fwrite()`, etc.
 
 The libc is written but we don't actually do anything to compile it yet; it's already in object code. We need another tool to collect it into a static library.
 
-#### libo/0-oo
+#### [libo/0-oo](../core/libo/0-oo/)
 
 The Onramp utility library used in the implementation of all core tools. This first stage just includes some error handling (e.g. a `fatal()` function) and utilities like `itoa()` and `fnv1a_cstr()`.
 
 As with the libc, there's nothing to build yet.
 
-#### ar/0-cat
+#### [ar/0-cat](../core/ar/0-cat/)
 
 A static archive tool. This is essentially a glorified `cat`. It combines object files delimited by a bit of metadata into a static archive.
 
@@ -179,37 +171,37 @@ We compile it by manually providing all our libc and libo sources to the linker 
 
 We then immediately use it to form the libc and libo into static libraries. From now on we can just provide these static archives to the linker so we don't have to list all files anymore.
 
-#### as/0-basic
+#### [as/0-basic](../core/as/0-basic/)
 
 A basic assembler written in object code.
 
-This just does straight keyword replacement: "add" is replaced with 70, "rsp" is replaced with 8C, and so on. It also converts strings to hexadecimal.
+This just does straight keyword replacement: `add` is replaced with `70`, `rsp` is replaced with `8C`, and so on. It also converts strings to hexadecimal.
 
 Although this tool is quite trivial, assembly is much more readable. We can now write larger scale programs. From this point on, most programs will span across several source files.
 
 
 
-### Assembly Lanuage
+### Assembly Language
 
 We finally have an [assembly language](assembly.md)! We don't have to write our opcodes and registers directly in hexadecimal anymore.
 
 We can also write strings normally from this point on. This makes it much easier to provide rich error messages.
 
-#### as/1-compound
+#### [as/1-compound](../core/as/1-compound/)
 
-Our first step is to build a more powerful assembler. The compound assembler supports many more opcodes: `call`/`ret`, `enter`/`leave`, `push`/`pop`, `shrs`/`shru`/`shl`, etc.
+Our first step is to build a more powerful assembler. The compound assembler supports many more opcodes: `call`/`ret`, `enter`/`leave`, `push`/`pop`, signed math, etc.
 
 The resulting assembly language is powerful enough to implement our compiler.
 
-#### cpp/0-strip
+#### [cpp/0-strip](../core/cpp/0-strip/)
 
 This is the first stage C preprocessor. We call it a "preprocessor" but really it just strips comments and preprocessor directives.
 
-This breaks a "chicken-and-egg" dependency in bootstrap our next stage preprocessor that is written in omC. We want it to be portable (to test it on any modern system) but portability requires including C headers. The stripping preprocessor gives us a nice workaround.
+This breaks a "chicken-and-egg" dependency in bootstraping our next stage preprocessor that is written in omC. We want it to be portable (to test it with a modern C compiler) but portability requires including C headers. The stripping preprocessor gives us a nice workaround.
 
 In addition to this, being able to strip comments in the preprocessor right away means that no version of our C compiler ever needs to parse comments.
 
-#### cci/0-omc
+#### [cci/0-omc](../core/cci/0-omc/)
 
 This is the first real C compiler. It's written in compound assembly and it compiles Onramp Minimal C.
 
@@ -219,23 +211,23 @@ We've kept omC as limited as possible in order to minimize the amount of assembl
 
 ### Primitive C
 
-We can finally compile C! Well, something like C, with a whole lot of limitations. From here on out, everything is written in (some subset of) C.
+We can finally compile C! Well, something like C, with a whole lot of limitations. From here on out, everything is written in some subset of C.
 
 We don't have a real preprocessor yet, and our linker can't link multiple C files together because their generated label names would clash. Let's solve those problems next.
 
-#### cpp/1-omc
+#### [cpp/1-omc](../core/cpp/1-omc/)
 
-The basic omC preprocessor. Only `#include`, `#ifdef`/`#ifndef` and object-like `#define` are supported. This lets us write idiomatic C include files with header guards, allowing us to write large-scale projects with idiomatic code organization.
+The basic omC preprocessor. Only `#include`, `#ifdef`/`#ifndef` and object-like `#define` are supported. This lets us write typical C include files with header guards, allowing us to write large-scale projects with idiomatic code organization.
 
-#### ld/1-omc
+#### [ld/1-omc](../core/ld/1-omc/)
 
 Our new linker adds support for file scope.
 
-Until now we've been able to get away with all labels and symbols being global. We've been manually naming all labels and symbols so we've been able to keep them unique.
+Until now we've been able to get away with all labels being global because we've been manually giving each label a unique name. We now have a compiler that generates labels; this new linker uses it to avoid clashes between files.
 
-We now have a compiler that generates labels, so this new linker avoids clashes between files. This also fixes variables and functions with `static` linkage. We can now write multi-file C projects.
+This also fixes variables and functions with `static` linkage. We can now write multi-file C projects.
 
-#### libc/1-omc
+#### [libc/1-omc](../core/libc/1-omc/)
 
 Now that we can link multiple `.c` files we can re-implement parts of our libc in omC.
 
@@ -243,7 +235,7 @@ This gives us a much more featureful libc. It adds a real `malloc()` and `free()
 
 Most of the functionality of the first-stage libc doesn't need to be re-implemented so this is structured like an overlay. Some files are replaced; others are kept as is. The build process for this archives some files from both stage 0 and stage 1 into a new `libc.oa` static library.
 
-#### cc
+#### [cc](../core/cc/)
 
 The compiler driver. We no longer need to manually run all the individual steps to compile something.
 
@@ -251,21 +243,21 @@ The compiler driver. We no longer need to manually run all the individual steps 
 
 ### Upgrading to modern C
 
-#### cci/1-opc
+#### [cci/1-opc](../core/cci/1-opc/)
 
 The C99-ish compiler we will use to build our final stage C compiler. We call this Onramp Practical C.
 
 We now have a C compiler powerful enough to write "comfortably", in a reasonably modern idiomatic style similar to C99. We use this to write our full C compiler.
 
-#### libc/2-opc
+#### [libc/2-opc](../core/libc/2-opc/)
 
 The nearly full libc. It adds some features we need for our full C compiler, in particular `printf()`.
 
-#### cci/2-full
+#### [cci/2-full](../core/cci/2-full/)
 
 This is the full C compiler.
 
-#### cpp/2-full
+#### [cpp/2-full](../core/cpp/2-full/)
 
 The full-featured C preprocessor (`#if`, variadic function-like macros, `#embed`, `__has_include`, etc.)
 
@@ -276,7 +268,7 @@ We now have a working compiler for modern C, but there are still a few features 
 
 Thankfully, since we have full C support now, we can write everything in modern C.
 
-#### libc/3-full
+#### [libc/3-full](../core/libc/3-full/)
 
 The full libc. This mainly adds floating point math.
 

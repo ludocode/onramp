@@ -31,6 +31,13 @@ extern int current_line;
 
 void set_current_filename(const char* filename);
 
+/**
+ * Prints the given error message along with the current file and line and
+ * exits the program.
+ *
+ * Note that the message cannot contain `%` because this function takes a
+ * format string in the final stage libo.
+ */
 _Noreturn
 void fatal(const char* message);
 

@@ -6,8 +6,8 @@ This is a description of the implementation stages of the preprocessor. The inpu
 
 The preprocessor is written in three stages:
 
-- cpp/0-strip is written in compound assembly. It just strips comments and preprocessor directives (ignoring all `#define` and `#include` and treating all `#ifdef` and `#ifndef` as if they were true.)
+- [`0-strip`](0-strip/) is written in compound assembly. It just strips comments and preprocessor directives.
 
-- cpp/1-omc is written in Onramp Minimal C, except it depends on only the previous stage directive-stripping preprocessor. It preprocesses Onramp Minimal C.
+- [`1-omc`](1-omc/) is written in Onramp Minimal C, except it depends on only the previous stage directive-stripping preprocessor. It preprocesses Onramp Minimal C.
 
-- cpp/2-full is written in C and implements all preprocessor features of C.
+- [`2-full`](2-full/) is written in C and implements all preprocessor features of C.

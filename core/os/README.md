@@ -14,9 +14,9 @@ I intend to start writing this once I get the Onramp compiler able to build some
 
 The OS will be written in two stages:
 
-- os/0-minfs - The first stage will be written directly in hexadecimal Onramp bytecode. It will implement a trivial in-memory filesystem. Files can only be created (not modified), and only one file can be open for writing at a time; the file data is simply appended to the end of the filesystem memory. Directory syscalls are not supported. This is enough to bootstrap the full Onramp toolchain.
+- [`0-minfs`](0-minfs/) - The first stage will be written directly in hexadecimal Onramp bytecode. It will implement a trivial in-memory filesystem. Files can only be created (not modified), and only one file can be open for writing at a time; the file data is simply appended to the end of the filesystem memory. Directory syscalls are not supported. This is enough to bootstrap the full Onramp toolchain.
 
-- os/1-full - The final stage will be written in C. Once the Onramp compiler is bootstrapped, we build this OS and jump into it. It will convert the trivial filesystem to a "real" one with directories, segmented files, writing multiple files at a time, opening files for modification, etc.
+- [`1-full`](1-full/) - The final stage will be written in C. Once the Onramp compiler is bootstrapped, we build this OS and jump into it. It will convert the trivial filesystem to a "real" one with directories, segmented files, writing multiple files at a time, opening files for modification, etc.
 
 When the first stage OS starts up, it will run an init script in the Onramp shell. The init script will bootstrap Onramp, build the final stage OS, and launch it. The final stage OS will then run another init script which will do whatever the user desires (e.g. building a native OS.)
 

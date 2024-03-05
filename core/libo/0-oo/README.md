@@ -7,11 +7,10 @@ We don't implement much in the first stage because it's painful to implement in 
 We implement:
 
 - Error handling functions and variables
-    - `current_filename`
-    - `current_line`
+    - `current_filename` and `current_line`, the source location during parsing
     - `set_current_filename()` to store an allocated copy of it
-    - `fatal()`, printing an error at the current file+line and exiting
+    - `fatal()`, printing an error at the current file and line and exiting the program
 - Utilities
     - `fnv1a_cstr()`, the hash function for all our hashtables
-    - `itoa()`, a common but non-standard integer-to-string function
-    - `fputn()`, a function to write a number to a file
+    - `itoa_d()`, similar to a common non-standard integer-to-string function
+    - `fputd()` and `putd()`, functions for outputting decimal numbers

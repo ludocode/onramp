@@ -88,7 +88,7 @@ scripts/posix/install.sh
 
 Since Onramp is self-bootstrapping, this works even on a system that does not have a C compiler, binutils, make or any other build tools. Try it on a barebones x86\_64 Linux with nothing but coreutils.
 
-<!-- See the [Setup Guide]() for more information on how to configure the bootstrap process, how to install Onramp, and how to use it to build tools such as [GNU Make]() and [TinyCC](). -->
+See the [Setup Guide](docs/setup-guide.md) for more information on how to build Onramp and the [Usage Guide](docs/usage-guide.md) for how to use it.
 
 
 
@@ -104,6 +104,7 @@ Since Onramp is self-bootstrapping, this works even on a system that does not ha
 
 ## Documentation Index
 
+- [Setup Guide](docs/setup-guide.md)
 - [Usage Guide](docs/usage-guide.md)
 - Languages:
     - [Onramp Hexadecimal](docs/hexadecimal.md)

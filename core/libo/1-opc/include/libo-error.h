@@ -35,6 +35,10 @@ extern int current_line;
 
 void set_current_filename(const char* filename);
 
+/**
+ * Prints the given formatted error message along with the current file and
+ * line and exits the program.
+ */
 _Noreturn
 void fatal(const char* message, ...);
 
