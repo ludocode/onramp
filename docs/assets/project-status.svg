@@ -24,9 +24,9 @@
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="mm"
      showgrid="true"
-     inkscape:zoom="1.3918328"
-     inkscape:cx="560.77138"
-     inkscape:cy="344.86901"
+     inkscape:zoom="1.1621942"
+     inkscape:cx="475.39386"
+     inkscape:cy="263.29506"
      inkscape:window-width="2250"
      inkscape:window-height="1449"
      inkscape:window-x="0"
@@ -65,6 +65,19 @@
        height="38.457546"
        id="rect2" />
   </defs>
+  <g
+     inkscape:groupmode="layer"
+     id="layer2"
+     inkscape:label="background"
+     sodipodi:insensitive="true">
+    <rect
+       style="fill:#ffffff;fill-rule:evenodd;paint-order:markers fill stroke"
+       id="rect110"
+       width="271"
+       height="170"
+       x="0"
+       y="0" />
+  </g>
   <g
      inkscape:label="Layer 1"
      inkscape:groupmode="layer"
@@ -698,7 +711,7 @@
        style="font-size:21.3333px;line-height:1.25;font-family:sans-serif;word-spacing:0px;white-space:pre;shape-inside:url(#rect59);display:inline"><tspan
          x="-232.40234"
          y="208.31884"
-         id="tspan1">core/</tspan></text>
+         id="tspan5">core/</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;word-spacing:0px;stroke-width:0.264583"
