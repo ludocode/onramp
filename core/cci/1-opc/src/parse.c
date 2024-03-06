@@ -624,7 +624,7 @@ static void parse_statement(void) {
 static void parse_local_declaration(type_t* type) {
     char* name = parse_alphanumeric();
     //printf("defining new variable %s\n",name);
-    locals_add(name, type, false);
+    locals_add(name, type);
 
     if (lexer_accept(";")) {
         // No initializer.
@@ -682,10 +682,10 @@ static bool try_parse_block(void) {
     }
 
     // track the maximum extent of the function's stack frame
-    int local_size;
-    local_size = locals_local_size();
-    if (function_frame_size < local_size) {
-        function_frame_size = local_size;
+    int frame_size;
+    frame_size = locals_frame_size();
+    if (function_frame_size < frame_size) {
+        function_frame_size = frame_size;
     }
 
     locals_pop(previous_locals_count);
@@ -716,8 +716,6 @@ static void parse_output_strings(void) {
 
 // Parses a function declaration (and definition, if provided.)
 static void parse_function_declaration(type_t* return_type, char* name) {
-    //scope_push();
-    int previous_locals_count = locals_count;
     int arg_count = 0;
 
     while (!lexer_accept(")")) {
@@ -745,7 +743,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         }
 
         // add variable
-        locals_add(varname, type, false);
+        locals_add(varname, type);
         arg_count = (arg_count + 1);
     }
 
@@ -769,7 +767,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         emit_global_divider();
     }
 
-    locals_pop(previous_locals_count);
+    locals_pop(0);
 }
 
 static void parse_typedef(void) {

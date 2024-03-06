@@ -10,11 +10,6 @@
  */
 extern int locals_count;
 
-/**
- * The total number of global variables defined so far.
- */
-extern int locals_global_count;
-
 void locals_init(void);
 void locals_destroy(void);
 
@@ -24,7 +19,7 @@ void locals_destroy(void);
  * This takes ownership of the given name. It will be freed when locals_pop()
  * is called.
  */
-void locals_add(char* name, type_t* type, bool global);
+void locals_add(char* name, type_t* type);
 
 /**
  * Destroys all variables beyond the given variable count.
@@ -37,9 +32,10 @@ void locals_pop(int previous_locals_count);
 bool locals_find(const char* name, const type_t** type, int* offset);
 
 /**
- * Returns the total size of all local variables currently defined.
+ * Returns the total size of all local variables currently defined, i.e. the
+ * necessary stack frame size to store them.
  */
-int locals_local_size(void);
+int locals_frame_size(void);
 
 /**
  * Prints all variables.

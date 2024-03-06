@@ -13,12 +13,12 @@ static int* locals_offsets;
 int locals_count;
 int locals_global_count;
 
-#define VARIABLE_MAX 128
+#define LOCALS_MAX 128
 
 void locals_init(void) {
-    locals_names = malloc(VARIABLE_MAX * sizeof(char*));
-    locals_types = malloc(VARIABLE_MAX * sizeof(type_t*));
-    locals_offsets = malloc(VARIABLE_MAX * sizeof(int));
+    locals_names = malloc(LOCALS_MAX * sizeof(char*));
+    locals_types = malloc(LOCALS_MAX * sizeof(type_t*));
+    locals_offsets = malloc(LOCALS_MAX * sizeof(int));
 }
 
 void locals_destroy(void) {
@@ -28,22 +28,15 @@ void locals_destroy(void) {
     free(locals_types);
 }
 
-void locals_add(char* name, type_t* type, bool global) {
+void locals_add(char* name, type_t* type) {
     //printf("%s\n",name);
-    if (locals_count == VARIABLE_MAX) {
-        fatal("Too many variables.");
+    if (locals_count == LOCALS_MAX) {
+        fatal("Too many local variables.");
     }
     *(locals_names + locals_count) = name;
     *(locals_types + locals_count) = type;
 
-    if (global) {
-        *(locals_offsets + locals_count) = 0;
-        locals_global_count = (locals_global_count + 1);
-    }
-    if (!global) {
-        *(locals_offsets + locals_count) =
-            (-((locals_count - locals_global_count) + 1) * 4);
-    }
+    *(locals_offsets + locals_count) = (-(locals_count + 1) * 4);
 
     //printf("    adding variable %s with offset %i\n", name, locals_offsets[locals_count]);
     locals_count = (locals_count + 1);
@@ -81,9 +74,9 @@ bool locals_find(const char* name, const type_t** type, int* offset) {
     return false;
 }
 
-int locals_local_size(void) {
+int locals_frame_size(void) {
     //printf("%i %i\n", locals_count, locals_global_count);
-    return (locals_count - locals_global_count) * 4;
+    return locals_count * 4;
 }
 
 void dump_variables(void) {
