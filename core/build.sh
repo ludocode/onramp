@@ -62,6 +62,9 @@ sh core/ld/1-omc/build.sh
 sh core/libc/1-omc/build.sh
 sh core/cc/build.sh
 
+# Next build up to the full C compiler
+sh core/cci/1-opc/build.sh
+
         # TODO the rest of the bootstrap process is not implemented yet. For
         # now we stop here and package everything manually to produce a
         # workable compiler.
@@ -71,7 +74,7 @@ sh core/cc/build.sh
         mkdir -p build/output/bin
         cp build/intermediate/cc/cc.oe build/output/bin/cc.oe
         cp build/intermediate/cpp-1-omc/cpp.oe build/output/bin/cpp.oe
-        cp build/intermediate/cci-0-omc/cci.oe build/output/bin/cci.oe
+        cp build/intermediate/cci-1-opc/cci.oe build/output/bin/cci.oe
         cp build/intermediate/as-1-compound/as.oe build/output/bin/as.oe
         cp build/intermediate/ld-1-omc/ld.oe build/output/bin/ld.oe
         cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
@@ -104,8 +107,6 @@ sh core/cc/build.sh
         cp core/libc/0-oo/include/string.h build/output/include/string.h
         cp core/libc/0-oo/include/unistd.h build/output/include/unistd.h
 
-## # Next build up to the full C compiler
-## sh core/cci/1-opc/build.sh
 ## sh core/libc/2-opc/build.sh
 ## sh core/cpp/2-full/build.sh
 ## sh core/cci/2-full/build.sh

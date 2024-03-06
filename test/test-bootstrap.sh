@@ -57,20 +57,22 @@ cd "$(dirname "$0")/.."
 ( core/libc/1-omc/build.sh && true ) # TODO test libc
 ( core/cc/build.sh && cd test/cc && ./run.sh . onrampvm ../../../build/intermediate/cc/cc.oe )
 
-
-
-# TODO the rest of this is not bootstrappable yet
-exit 0
-
-
-
 # Next build up to the full C compiler
 ( core/cci/1-opc/build.sh && cd test/cci/1-opc && \
     ../run.sh . onrampvm ../../../build/intermediate/cci-1-opc/cci.oe && \
     ../run.sh --other-stage ../0-omc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
+                #
+                #
+                # TODO the rest of this is not bootstrappable yet
+                exit 0
+                #
+                #
 ( core/libc/2-opc/build.sh && true ) # TODO test libc
 ( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
-( core/cci/2-full/build.sh && cd test/cci/2-full && ../run.sh . onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
+( core/cci/2-full/build.sh && cd test/cci/2-full && \
+    ../run.sh . onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
+    ../run.sh --other-stage ../1-opc onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
+    ../run.sh --other-stage ../0-omc onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
 
 # Build the rest of the C toolchain
 core/libc/3-full/build.sh
