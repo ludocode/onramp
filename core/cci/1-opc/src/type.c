@@ -213,7 +213,7 @@ int type_size(const type_t* ptype) {
 
     // If there is no indirection, we can compare the basic types directly.
     if (type == TYPE_BASIC_VOID) {
-        fatal("void type does not have a size.");
+        return 1;
     }
     if (type == TYPE_BASIC_CHAR) {
         return 1;

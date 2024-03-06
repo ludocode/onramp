@@ -15,6 +15,8 @@ static bool first_term;
 
 static char* emit_decimal_buffer;
 
+static bool emit_enabled;
+
 
 
 /*
@@ -22,10 +24,14 @@ static char* emit_decimal_buffer;
  */
 
 void emit_char(char c) {
+    if (!emit_enabled)
+        return;
     fputc(c, output_file);
 }
 
 void emit_string(const char* c) {
+    if (!emit_enabled)
+        return;
     fputs(c, output_file);
 }
 
@@ -222,6 +228,8 @@ void emit_character_literal(char c) {
 
 void emit_init(const char* output_filename) {
     emit_decimal_buffer = malloc(12);
+    first_term = true;
+    emit_enabled = true;
 
     output_file = fopen(output_filename, "wb");
     if (output_file == NULL) {
@@ -231,8 +239,6 @@ void emit_init(const char* output_filename) {
     // We put the debug info in manual line control mode. We'll be outputting a
     // line increment directive (a lone '#') for each newline in the input.
     emit_string("#line manual\n");
-
-    first_term = true;
 }
 
 void emit_destroy(void) {
@@ -240,6 +246,14 @@ void emit_destroy(void) {
     emit_char('\n');
     fclose(output_file);
     free(emit_decimal_buffer);
+}
+
+void emit_set_enabled(bool enabled) {
+    emit_enabled = enabled;
+}
+
+bool emit_is_enabled(void) {
+    return emit_enabled;
 }
 
 void emit_global_divider(void) {
@@ -250,14 +264,24 @@ void emit_global_divider(void) {
 }
 
 void emit_line_increment_directive(void) {
+    // always emit line directives
+    bool was_enabled = emit_enabled;
+    emit_enabled = true;
+
     if (!first_term) {
         emit_newline();
     }
     emit_char('#');
     emit_char('\n');
+
+    emit_enabled = was_enabled;
 }
 
 void emit_line_directive(void) {
+    // always emit line directives
+    bool was_enabled = emit_enabled;
+    emit_enabled = true;
+
     if (!first_term) {
         emit_newline();
     }
@@ -266,4 +290,6 @@ void emit_line_directive(void) {
     emit_string(" \"");
     emit_string(lexer_filename); // TODO check for special characters, escape them somehow
     emit_string("\"\n");
+
+    emit_enabled = was_enabled;
 }

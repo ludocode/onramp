@@ -3,9 +3,22 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 void emit_init(const char* output_filename);
 void emit_destroy(void);
+
+/**
+ * Toggles output on or off.
+ *
+ * When off, nothing is emitted except for line directives; all other emit
+ * functions are ignored. This is used to implement sizeof().
+ *
+ * Output is on by default.
+ */
+void emit_set_enabled(bool enabled);
+
+bool emit_is_enabled(void);
 
 void emit_char(char c);
 void emit_string(const char* c);

@@ -7,6 +7,20 @@ void compile_init(void);
 void compile_destroy(void);
 
 /**
+ * Toggles compilation on or off.
+ *
+ * When off, nothing is emitted when compile functions are called, but type
+ * manipulations are still performed. This is used to implement sizeof().
+ *
+ * Compilation is on by default. This is forwarded to emit_set_enabled(); this
+ * is just here so that we have a clean separation between parse, compile and
+ * emit.
+ */
+void compile_set_enabled(bool enabled);
+
+bool compile_is_enabled(void);
+
+/**
  * Compiles a global variable with the given type and name.
  */
 void compile_global_variable(const type_t* type, const char* name);
@@ -45,6 +59,16 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right);
  * Places the given number in r0.
  */
 type_t* compile_immediate(const char* number);
+
+/**
+ * Places the given number in r0.
+ */
+type_t* compile_immediate_int(int x);
+
+/**
+ * Places the size of the given type in r0, returning unsigned int.
+ */
+type_t* compile_sizeof(type_t* type);
 
 /**
  * Places the given character in r0.

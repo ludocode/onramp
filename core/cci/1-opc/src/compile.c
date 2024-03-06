@@ -42,6 +42,14 @@ void compile_destroy(void) {
     //free(compile_scope_variable_count);
 }
 
+void compile_set_enabled(bool enabled) {
+    emit_set_enabled(enabled);
+}
+
+bool compile_is_enabled(void) {
+    return emit_is_enabled();
+}
+
 void compile_global_variable(const type_t* type, const char* name) {
     emit_label('=', name);
     emit_newline();
@@ -159,6 +167,22 @@ type_t* compile_immediate(const char* number) {
     emit_term(number);
     emit_newline();
     return type_new(TYPE_BASIC_INT, 0);
+}
+
+type_t* compile_immediate_int(int x) {
+    // TODO see above optimization potential. compile_immediate() should call
+    // this, also should have better names for these two functions
+    emit_term("imw");
+    emit_term("r0");
+    emit_int(x);
+    emit_newline();
+    return type_new(TYPE_BASIC_INT, 0);
+}
+
+type_t* compile_sizeof(type_t* type) {
+    size_t size = type_size(type);
+    type_delete(type);
+    return compile_immediate_int(size);
 }
 
 type_t* compile_character_literal(char c) {

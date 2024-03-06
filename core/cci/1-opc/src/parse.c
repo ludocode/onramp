@@ -286,6 +286,30 @@ static type_t* parse_postfix_expression(void) {
     return ret;
 }
 
+static type_t* parse_sizeof(void) {
+    bool paren = lexer_accept("(");
+    if (paren) {
+        type_t* type = try_parse_type();
+        if (type) {
+            lexer_expect(")", "Expected `)` after `sizeof(type`");
+            return compile_sizeof(type);
+        }
+    }
+
+    // Parse the expression with compilation disabled. We only want to do type
+    // resolution.
+    bool was_enabled = compile_is_enabled();
+    compile_set_enabled(false);
+    type_t* type = parse_expression();
+    compile_set_enabled(was_enabled);
+
+    if (paren) {
+        lexer_expect(")", "Expected `)` after `sizeof(expression`");
+    }
+
+    return compile_sizeof(type);
+}
+
 static type_t* parse_unary_expression(void) {
     if (lexer_accept("+")) {
         // TODO
@@ -342,6 +366,10 @@ static type_t* parse_unary_expression(void) {
         compile_dereference_if_lvalue(type, 0);
         type_delete(type);
         return compile_not();
+    }
+    
+    if (lexer_accept("sizeof")) {
+        return parse_sizeof();
     }
 
     return parse_postfix_expression();
