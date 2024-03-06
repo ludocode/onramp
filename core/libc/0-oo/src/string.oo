@@ -273,13 +273,14 @@
 =strchr
 
 :strchr_loop
-    7A 8A 80 00           ; ldb ra r0 0
-    7D 8B 8A 81           ; cmpu rb ra r1
-    7E 8B &strchr_match   ; jz rb &strchr_match
-    7D 8B 8A 81           ; cmpu rb ra 0
-    7E 8B &strchr_match   ; jz rb &strchr_no_match
-    70 80 80 01           ; add r0 r0 1             ; inc r0
-    7E 00 &strchr_loop    ; jz 0 &strchr_loop       ; jmp &strchr_loop
+    ; we check for a match before checking for a null byte because the given
+    ; character might be null.
+    7A 8A 80 00               ; ldb ra r0 0
+    71 8B 8A 81               ; sub rb ra r1
+    7E 8B &strchr_match       ; jz rb &strchr_match
+    7E 8A &strchr_no_match    ; jz ra &strchr_no_match
+    70 80 80 01               ; add r0 r0 1             ; inc r0
+    7E 00 &strchr_loop        ; jz 0 &strchr_loop       ; jmp &strchr_loop
 
 :strchr_no_match
     70 80 00 00     ; zero r0
