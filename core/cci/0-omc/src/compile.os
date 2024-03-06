@@ -1030,6 +1030,31 @@
     call ^compile_dereference_if_lvalue
     stw r0 rfp -8
 
+    ; for all other operations we also promote char to int.
+
+    ; promote left to int
+    ldw r0 rfp -8
+    sub r9 r0 0x20
+    jnz r9 &compile_add_sub_left_not_char
+    mov r1 0x30
+    mov r2 1
+    call ^compile_cast
+    stw r0 rfp -8
+:compile_add_sub_left_not_char
+
+    ; promote right to int
+    ldw r0 rfp -12
+    sub r9 r0 0x20
+    jnz r9 &compile_add_sub_right_not_char
+    mov r1 0x30
+    zero r2
+    call ^compile_cast
+    stw r0 rfp -12
+:compile_add_sub_right_not_char
+
+    ; finally we just check all our operators to find the right one and output
+    ; the right code.
+
     ; check arithmetic ops
     ldw r0 rfp -4
     ldw r1 rfp -8
@@ -1388,6 +1413,7 @@
     ; it all the time)
     ldw r0 rfp -8
     ldw r1 rfp -4
+    zero r2
     call ^compile_cast
 
     ; figure out whether we're storing a byte or a word
@@ -1443,12 +1469,13 @@
 
     ; If both sides are pointers, their types must match. We do the arithmetic
     ; first, then divide by the arithmetic factor.
-
+    ;
     ; If only one side is a pointer, we multiply the other by its arithmetic
     ; factor first, then do the arithmetic. The result is the same pointer
     ; again.
-
-    ; If neither side is a pointer, we promote to int.
+    ;
+    ; Non-pointer values have already been promoted from char to int. If
+    ; neither side is a pointer, we return int.
 
     ; setup our stack frame
     enter
@@ -1849,24 +1876,31 @@
 
 
 ; ==========================================================
-; char compile_cast(char current_type, char desired_type);
+; char compile_cast(char current_type, char desired_type, int register);
 ; ==========================================================
-; Compiles a cast of the value in r0 from its current type to the desired type.
+; Compiles a cast of the value in the given register from its current type to
+; the desired type.
 ;
 ; Both types must be r-values.
+;
+; vars:
+; - current_type: rfp-4
+; - desired_type: rfp-8
+; - register: rfp-12
 ; ==========================================================
 
 =compile_cast
     enter
     push r0
     push r1
+    push r2
 
     ; cast from char or to char does sign extension.
     ; TODO probably we shouldn't bother if both types are char though?
-    sub r2 r0 0x20
-    jz r2 &compile_cast_sxb
-    sub r2 r1 0x20
-    jz r2 &compile_cast_sxb
+    sub r3 r0 0x20
+    jz r3 &compile_cast_sxb
+    sub r3 r1 0x20
+    jz r3 &compile_cast_sxb
 
     ; cast to anything else does nothing.
     jmp &compile_cast_done
@@ -1877,53 +1911,30 @@
     ; now we do this lame thing of shift up and back down which is very slow.
     ; we'll fix it later
 
-    ; emit "shl r0 r0 24"
+    ; emit "shl <reg> <reg> 24"
     imw r0 ^str_shl
     add r0 rpp r0
     call ^emit_term
-    zero r0
+    ldw r0 rfp -12
     call ^emit_register
-    zero r0
+    ldw r0 rfp -12
     call ^emit_register
     mov r0 24
     call ^emit_int
     call ^emit_newline
 
-    ; emit "shrs r0 r0 24"
+    ; emit "shrs <reg> <reg> 24"
     imw r0 ^str_shrs
     add r0 rpp r0
     call ^emit_term
-    zero r0
+    ldw r0 rfp -12
     call ^emit_register
-    zero r0
+    ldw r0 rfp -12
     call ^emit_register
     mov r0 24
     call ^emit_int
     call ^emit_newline
 
-; old code to cast to unsigned char
-;    ; emit "imw r9 0xff"
-;    imw r0 ^str_imw
-;    add r0 rpp r0
-;    call ^emit_term
-;    mov r0 9
-;    call ^emit_register
-;    imw r0 0xff
-;    call ^emit_int
-;    call ^emit_newline
-;
-;    ; emit "and r0 r0 r9"
-;    imw r0 ^str_and
-;    add r0 rpp r0
-;    call ^emit_term
-;    zero r0
-;    call ^emit_register
-;    zero r0
-;    call ^emit_register
-;    mov r0 9
-;    call ^emit_register
-;    call ^emit_newline
-;
 :compile_cast_done
     ; return the desired type
     ldw r0 rfp -8

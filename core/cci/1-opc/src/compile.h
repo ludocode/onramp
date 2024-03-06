@@ -116,6 +116,6 @@ type_t* compile_bitwise_not(void);
  *
  * Both types must be r-values.
  */
-type_t* compile_cast(type_t* current_type, type_t* desired_type);
+type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_num);
 
 #endif

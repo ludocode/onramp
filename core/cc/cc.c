@@ -514,7 +514,7 @@ static void parse_options_file(const char* filename) {
     size_t index = 0;
     *fileargs_buffer = 0;
     while (true) {
-        char c = fgetc(file);
+        int c = fgetc(file);
 
         // see if it's the end of an option
         if ((c == EOF) | isspace(c)) {

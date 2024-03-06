@@ -5,6 +5,8 @@ shrs r0 r0 0x18
 push r0 
 imw r0 0x23 
 pop r1 
+shl r1 r1 0x18 
+shrs r1 r1 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -19,6 +21,8 @@ shrs r0 r0 0x18
 push r0 
 imw r0 0xffffffaa 
 pop r1 
+shl r1 r1 0x18 
+shrs r1 r1 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -70,6 +74,8 @@ ldw r0 0 r0
 shl r0 r0 0x18 
 shrs r0 r0 0x18 
 pop r1 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 

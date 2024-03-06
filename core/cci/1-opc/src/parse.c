@@ -128,7 +128,7 @@ static type_t* parse_primary_expression(void) {
             lexer_expect(")", "Expected ) after type in cast");
             type_t* current_type = parse_unary_expression();
             current_type = compile_dereference_if_lvalue(current_type, 0);
-            return compile_cast(current_type, desired_type);
+            return compile_cast(current_type, desired_type, 0);
         }
 
         type_t* type = parse_expression();

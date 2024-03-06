@@ -503,8 +503,8 @@
   push r0 
   add r0 rfp -4 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
   and r0 r0 1 
@@ -520,8 +520,8 @@
   push r0 
   add r0 rfp -12 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   add r0 r1 r0 
   pop r1 
   ldb r0 0 r0 
@@ -535,8 +535,8 @@
   push r0 
   add r0 rfp -12 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   sub r0 r1 r0 
   pop r1 
   stw r0 0 r1 
@@ -545,8 +545,8 @@
   push r0 
   add r0 rfp -8 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 
@@ -557,8 +557,8 @@
   push r0 
   add r0 rfp -20 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   sub r0 r1 r0 
   pop r1 
   ldw r1 0 r1 
@@ -574,8 +574,8 @@
   push r0 
   add r0 rfp -20 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   add r0 r1 r0 
   pop r1 
   ldw r1 0 r1 
@@ -682,8 +682,8 @@
   push r0 
   add r0 rfp -4 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   add r0 r1 r0 
   push r0 
   add r0 rfp -8 
@@ -782,14 +782,16 @@
   push r0 
   add r0 rfp -8 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   add r0 r1 r0 
   push r0 
   add r0 rfp -4 
   pop r1 
-  ldb r1 0 r1 
   ldw r0 0 r0 
+  ldb r1 0 r1 
+  shl r1 r1 24 
+  shrs r1 r1 24 
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 

@@ -121,6 +121,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -140,6 +142,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -159,6 +163,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -178,6 +184,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -197,6 +205,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -216,6 +226,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -235,6 +247,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 
@@ -254,6 +268,8 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
+shl r0 r0 0x18 
+shrs r0 r0 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 

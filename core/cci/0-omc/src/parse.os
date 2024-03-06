@@ -961,6 +961,7 @@
     call ^compile_dereference_if_lvalue
     ldb r1 rsp 0
     popd
+    zero r2
     jmp ^compile_cast
 
 :parse_primary_expression_not_cast

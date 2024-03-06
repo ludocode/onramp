@@ -338,6 +338,8 @@ add r0 rfp r0
 pop r1 
 ldw r0 0 r0 
 ldb r1 0 r1 
+shl r1 r1 0x18 
+shrs r1 r1 0x18 
 sub r0 r1 r0 
 jz r0 0x1 
 mov r0 0x1 

@@ -143,8 +143,8 @@
   push r0 
   add r0 rfp -8 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   add r0 r1 r0 
   pop r1 
   ldw r1 0 r1 
@@ -244,8 +244,8 @@
   push r0 
   add r0 rfp -28 
   pop r1 
-  ldw r1 0 r1 
   ldw r0 0 r0 
+  ldw r1 0 r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx5 

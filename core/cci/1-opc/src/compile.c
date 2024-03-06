@@ -354,7 +354,7 @@ type_t* compile_assign(type_t* left, type_t* right) {
     size_t size = type_size(left);
 
     // cast the types (performing sign extension, etc.)
-    type_t* result = compile_cast(right, left);
+    type_t* result = compile_cast(right, left, 0);
 
     // assign stores the right value into the left.
     if (size == 1) {
@@ -381,7 +381,7 @@ type_t* compile_assign(type_t* left, type_t* right) {
  * For pointers this is essentially the sizeof() of the pointed-to type. We
  * handle a few extra special cases here.
  */
-static void compile_arithmetic_factor(const type_t* type, int reg, bool multiply) {
+static void compile_arithmetic_factor(const type_t* type, int register_num, bool multiply) {
 
     // We can't perform arithmetic on void or void*.
     if (*type == TYPE_BASIC_VOID) {
@@ -411,8 +411,8 @@ static void compile_arithmetic_factor(const type_t* type, int reg, bool multiply
     if (!multiply) {
         emit_term("shrs");
     }
-    emit_register(reg);
-    emit_register(reg);
+    emit_register(register_num);
+    emit_register(register_num);
     emit_term("2");
     emit_newline();
 }
@@ -592,14 +592,24 @@ type_t* compile_basic_op(const char* op) {
 // The result of the left expression is in r1.
 // The result of the right expression is in r0.
 type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
+
+    // The right-hand side is always an r-value.
+    right = compile_dereference_if_lvalue(right, 0);
+
+    // Handle assignment first because it has a lot of special behaviour.
     if (0 == strcmp(op, "=")) {
         return compile_assign(left, right);
     }
 
-    // For the remaining operations, we need to dereference both to compute the
-    // result
-    left = compile_dereference_if_lvalue(left, 1);  // TODO move this one up above compile_assign()
-    right = compile_dereference_if_lvalue(right, 0);
+    // For all remaining operations, the left type is also an r-value, and both
+    // types should be promoted from char to int.
+    left = compile_dereference_if_lvalue(left, 1);
+    if (*left == TYPE_BASIC_CHAR) {
+        left = compile_cast(left, type_new(TYPE_BASIC_INT, 0), 1);
+    }
+    if (*right == TYPE_BASIC_CHAR) {
+        right = compile_cast(right, type_new(TYPE_BASIC_INT, 0), 0);
+    }
 
     // add/sub
     if (0 == strcmp(op, "+")) {
@@ -665,7 +675,7 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     fatal_2("op not yet implemented: ", op);
 }
 
-type_t* compile_cast(type_t* current_type, type_t* desired_type) {
+type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_num) {
 
     // if neither type is char, we do nothing.
     if ((*current_type != TYPE_BASIC_CHAR) & (*desired_type != TYPE_BASIC_CHAR)) {
@@ -677,13 +687,13 @@ type_t* compile_cast(type_t* current_type, type_t* desired_type) {
     
     // TODO use sxb in assembly, not implemented yet
     emit_term("shl");
-    emit_term("r0");
-    emit_term("r0");
+    emit_register(register_num);
+    emit_register(register_num);
     emit_term("24");
     emit_newline();
     emit_term("shrs");
-    emit_term("r0");
-    emit_term("r0");
+    emit_register(register_num);
+    emit_register(register_num);
     emit_term("24");
     emit_newline();
 
