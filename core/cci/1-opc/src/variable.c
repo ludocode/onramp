@@ -7,7 +7,7 @@
 #include "common.h"
 
 static char** variable_names;
-static type_t* variable_types;
+static type_t** variable_types;
 static int* variable_offsets;
 
 int variable_count;
@@ -17,7 +17,7 @@ int variable_global_count;
 
 void variable_init(void) {
     variable_names = malloc(VARIABLE_MAX * sizeof(char*));
-    variable_types = malloc(VARIABLE_MAX * TYPE_T_SIZE);
+    variable_types = malloc(VARIABLE_MAX * sizeof(type_t*));
     variable_offsets = malloc(VARIABLE_MAX * sizeof(int));
 }
 
@@ -28,7 +28,7 @@ void variable_destroy(void) {
     free(variable_types);
 }
 
-void variable_add(char* name, type_t type, bool global) {
+void variable_add(char* name, type_t* type, bool global) {
     //printf("%s\n",name);
     if (variable_count == VARIABLE_MAX) {
         fatal("Too many variables.");
@@ -53,11 +53,12 @@ void variable_pop(int previous_variable_count) {
     for (int i = previous_variable_count; i < variable_count; ++i) {
         //printf("    popping variable %s\n", variable_names[i]);
         free(variable_names[i]);
+        type_delete(variable_types[i]);
     }
     variable_count = previous_variable_count;
 }
 
-bool variable_find(const char* name, type_t* type, int* offset) {
+bool variable_find(const char* name, const type_t** type, int* offset) {
 
     // We search backwards in order to handle shadowing properly.
     int i = variable_count;

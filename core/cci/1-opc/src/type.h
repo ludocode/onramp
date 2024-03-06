@@ -1,6 +1,8 @@
 #ifndef TYPE_H_INCLUDED
 #define TYPE_H_INCLUDED
 
+#include <stdbool.h>
+#include <stddef.h>
 
 
 #if 1&&0
@@ -16,13 +18,7 @@ typedef void type_t;
 
 //type_t* type_new_record(record_t* record, size_t indirection_count, size_t array_count);
 
-void type_delete(type_t* type);
-
-type_t* type_clone(type_t* other);
-
 base_t type_base(type_t* type);
-
-void type_set_base(type_t* type, base_t base);
 
 record_t* type_record(type_t* type);
 
@@ -46,8 +42,6 @@ void type_set_indirections(type_t* type, int count);
 int type_array_length(type_t* type);
 
 void type_set_array_length(type_t* type, int array_length);
-
-size_t type_size(type_t type);
 #endif
 
 
@@ -75,35 +69,55 @@ size_t type_size(type_t type);
 typedef char type_t;
 
 /**
- * We don't have sizeof so this is sizeof(type_t).
+ * Allocates a new type.
  */
-#define TYPE_T_SIZE 1
+type_t* type_new_blank(void);
 
 /**
- * Makes a type.
+ * Allocates a new type.
  */
-type_t type_make(int base, int indirection);
+type_t* type_new(int base, int indirection);
+
+/**
+ * Deletes a type.
+ */
+void type_delete(type_t* type);
+
+/**
+ * Allocate a new copy of a type.
+ */
+type_t* type_clone(const type_t* other);
 
 /**
  * Returns the size of a type.
  */
-int type_size(type_t type);
+int type_size(const type_t* type);
 
 /**
- * Returns the basic type of the given type_t.
+ * Returns the base type of the given type_t.
  */
-int type_basic(type_t type);
+int type_base(const type_t* type);
+
+void type_set_base(type_t* type, int base);
 
 /**
  * Returns the indirection count of the given type_t.
  */
-int type_indirection(type_t type);
+int type_indirections(const type_t* type);
+
+void type_set_indirections(type_t* type, int count);
 
 /**
  * Decrements the indirection count of the given type, keeping the rest the
  * same.
  */
-type_t type_decrement_indirection(type_t type);
+type_t* type_decrement_indirection(type_t* type);
+
+type_t* type_increment_indirection(type_t* type);
+
+bool type_is_lvalue(const type_t* type);
+
+void type_set_lvalue(type_t* type, bool lvalue);
 
 
 
@@ -120,10 +134,10 @@ void typedef_destroy(void);
 /**
  * Adds a new typedef.
  *
- * This takes ownership of the given name.
+ * This takes ownership of the given name and type.
  */
-void typedef_add(char* name, type_t type);
+void typedef_add(char* name, type_t* type);
 
-int typedef_find(const char* name, type_t* out_type);
+const type_t* typedef_find(const char* name);
 
 #endif

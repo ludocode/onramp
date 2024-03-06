@@ -24,7 +24,7 @@ void variable_destroy(void);
  * This takes ownership of the given name. It will be freed when variable_pop()
  * is called.
  */
-void variable_add(char* name, type_t type, bool global);
+void variable_add(char* name, type_t* type, bool global);
 
 /**
  * Destroys all variables beyond the given variable count.
@@ -34,7 +34,7 @@ void variable_pop(int previous_variable_count);
 /**
  * Finds a variable, returning its type and offset.
  */
-bool variable_find(const char* name, type_t* type, int* offset);
+bool variable_find(const char* name, const type_t** type, int* offset);
 
 /**
  * Returns the total size of all local variables currently defined.

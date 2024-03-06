@@ -48,6 +48,8 @@ A qualified base type means either a basic type or a record type. A basic type i
 
 These fields are wrapped in a type called `type_t` which is allocated and passed by pointer (see "emulated structs" below.) Expression parsing functions that generate a type (functions whose name starts with `parse` or `try_parse`) typically return ownership of one so the caller must free it or pass it along. Most other functions either return a type while retaining ownership of it (such as variable lookup) or modify a given type (such as `compile_dereference_if_lvalue()`.)
 
+Generally speaking, if a function takes a non-const type as an argument, it takes ownership of it, and if a function returns a non-const type, it is returning ownership of it. Functions that modify a given type return it again in order to stick to this rule.
+
 The record pointer points to an immutable type called `record_t`. This contains a linked list of immutable `field_t`, each of which describes the name, type and offset of the fields in the struct. Records and fields are owned by the record table and exist for the lifetime of the compiler.
 
 

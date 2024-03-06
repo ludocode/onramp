@@ -42,7 +42,7 @@ void compile_destroy(void) {
     //free(compile_scope_variable_count);
 }
 
-void compile_global_variable(type_t type, const char* name) {
+void compile_global_variable(const type_t* type, const char* name) {
     emit_label('=', name);
     emit_newline();
 
@@ -149,7 +149,7 @@ void compile_function_close(const char* name, int arg_count, int frame_size) {
     emit_global_divider();
 }
 
-type_t compile_immediate(const char* number) {
+type_t* compile_immediate(const char* number) {
     // TODO an obvious optimization here is to output numbers in range
     // -160 to +254 using add instead of imw
     emit_term("imw");
@@ -158,15 +158,15 @@ type_t compile_immediate(const char* number) {
     // type! e.g. if assigning to char, need to truncate (or do we?)
     emit_term(number);
     emit_newline();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_character_literal(char c) {
+type_t* compile_character_literal(char c) {
     emit_term("mov");
     emit_term("r0");
     emit_character_literal(c);
     emit_newline();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
 #if 0
@@ -189,10 +189,10 @@ void compile_block_close(void) {
 }
 #endif
 
-type_t compile_variable(const char* name) {
+type_t* compile_variable(const char* name) {
 
     // find the variable
-    type_t type;
+    const type_t* type;
     int offset;
     if (!variable_find(name, &type, &offset)) {
         fatal_2("Variable not found: ", name);
@@ -231,7 +231,9 @@ type_t compile_variable(const char* name) {
     emit_newline();
 
     // return it as an lvalue
-    return type | TYPE_FLAG_LVALUE;
+    type_t* ret = type_new_blank();
+    *ret = *type | TYPE_FLAG_LVALUE;
+    return ret;
 }
 
 void compile_string_literal_invocation(int label_index) {
@@ -290,7 +292,7 @@ void compile_store(const char* name) {
  * Emits code to dereference the value of the given type stored in the given
  * register.
  */
-void compile_dereference(type_t type, int register_num) {
+void compile_dereference(type_t* type, int register_num) {
     if (type_size(type) == 1) {
         //printf("compiling ldb for %x\n",type);
         emit_term("ldb");
@@ -303,29 +305,30 @@ void compile_dereference(type_t type, int register_num) {
     emit_newline();
 }
 
-type_t compile_dereference_if_lvalue(type_t type, int register_num) {
-    if (type & TYPE_FLAG_LVALUE) {
-        type &= ~TYPE_FLAG_LVALUE;
+type_t* compile_dereference_if_lvalue(type_t* type, int register_num) {
+    if (*type & TYPE_FLAG_LVALUE) {
+        *type &= ~TYPE_FLAG_LVALUE;
         compile_dereference(type, register_num);
     }
     return type;
 }
 
-type_t compile_assign(type_t left, type_t right) {
+type_t* compile_assign(type_t* left, type_t* right) {
 
     // We're storing into the left. It must be an lvalue.
-    if (!(left & TYPE_FLAG_LVALUE)) {
+    if (!(*left & TYPE_FLAG_LVALUE)) {
         fatal("Assignment location is not an lvalue.");
     }
 
     // If the right is an lvalue, dereference it.
-    if (right & TYPE_FLAG_LVALUE) {
-        right &= ~TYPE_FLAG_LVALUE;
+    if (*right & TYPE_FLAG_LVALUE) {
+        *right &= ~TYPE_FLAG_LVALUE;
         compile_dereference(right, 0);
     }
 
     // assign stores the right value into the left.
-    if (type_size(left & ~TYPE_FLAG_LVALUE) == 1) {
+    //if (type_size(*left & ~TYPE_FLAG_LVALUE) == 1) {
+    if (type_size(left) == 1) {
         emit_term("stb");
     } else {
         emit_term("stw");
@@ -337,6 +340,7 @@ type_t compile_assign(type_t left, type_t right) {
 
     // TODO for now we're returning right, this is probably wrong, if left is
     // char we maybe are supposed to truncate to char but also promote to int?
+    type_delete(left);
     return right;
 }
 
@@ -344,14 +348,14 @@ type_t compile_assign(type_t left, type_t right) {
 //
 // If this is a pointer to anything but char, this returns 4, because the other
 // term must be multiplied by 4. Otherwise it returns 1.
-static int compile_arithmetic_factor(type_t type) {
+static int compile_arithmetic_factor(const type_t* type) {
 
     // A char* has a factor of 1.
-    if (type == type_make(TYPE_BASIC_CHAR, 1))
+    if (*type == (TYPE_BASIC_CHAR|1))
         return 1;
 
     // A non-pointer has a factor of 1.
-    if (type_indirection(type) == 0)
+    if (type_indirections(type) == 0)
         return 1;
 
     // TODO we should disallow arithmetic on void and void* (but not void**)
@@ -361,9 +365,9 @@ static int compile_arithmetic_factor(type_t type) {
     return 4;
 }
 
-type_t compile_add_sub(bool add, type_t left, type_t right) {
-    int left_indirection = type_indirection(left);
-    int right_indirection = type_indirection(right);
+type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
+    int left_indirection = type_indirections(left);
+    int right_indirection = type_indirections(right);
 
     // Only one side is allowed to be a pointer.
     if (left_indirection > 0 && right_indirection > 0) {
@@ -403,14 +407,18 @@ type_t compile_add_sub(bool add, type_t left, type_t right) {
     //printf("addsub %02x %02x\n",left,right);
     if (left_indirection > 0) {
         //printf("returning left\n");
+        type_delete(right);
         return left;
     }
     if (right_indirection > 0) {
+        type_delete(left);
         return right;
     }
 
     // If neither is, promote to int.
-    return TYPE_BASIC_INT;
+    type_delete(left);
+    type_delete(right);
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
 // If the result of a comparison in r0 is 0, r0 is set to 1; otherwise it's set
@@ -462,70 +470,70 @@ static void compile_compare_term(const char* term) {
     emit_newline();
 }
 
-type_t compile_lt(void) {
+type_t* compile_lt(void) {
     compile_compare_signed();
     compile_compare_term("-1");
     compile_cmp_to_true();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_gt(void) {
+type_t* compile_gt(void) {
     compile_compare_signed();
     compile_compare_term("1");
     compile_cmp_to_true();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_ge(void) {
+type_t* compile_ge(void) {
     compile_compare_signed();
     compile_compare_term("-1");
     compile_cmp_to_false();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_le(void) {
+type_t* compile_le(void) {
     compile_compare_signed();
     compile_compare_term("1");
     compile_cmp_to_false();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_eq(void) {
+type_t* compile_eq(void) {
     compile_compare_unsigned();
     compile_cmp_to_true();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_ne(void) {
+type_t* compile_ne(void) {
     compile_compare_unsigned();
     compile_cmp_to_false();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_not(void) {
+type_t* compile_not(void) {
     emit_term("cmpu");
     emit_term("r0");
     emit_term("r0");
     emit_term("0");
     emit_newline();
     compile_cmp_to_true();
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t compile_basic_op(const char* op) {
+type_t* compile_basic_op(const char* op) {
     emit_term(op);
     emit_term("r0");
     emit_term("r1");
     emit_term("r0");
     emit_newline();
     // TODO ignore pointers, just return int for now
-    return TYPE_BASIC_INT;
+    return type_new(TYPE_BASIC_INT, 0);
 }
 
 // Compiles a binary operation.
 // The result of the left expression is in r1.
 // The result of the right expression is in r0.
-type_t compile_binary_op(const char* op, type_t left, type_t right) {
+type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     if (0 == strcmp(op, "=")) {
         return compile_assign(left, right);
     }
@@ -542,6 +550,11 @@ type_t compile_binary_op(const char* op, type_t left, type_t right) {
     if (0 == strcmp(op, "-")) {
         return compile_add_sub(false, left, right);
     }
+
+    // all the rest of these ignore the types
+    // TODO need to cast/promote
+    type_delete(left);
+    type_delete(right);
 
     // mul/div/mod
     if (0 == strcmp(op, "*")) {
