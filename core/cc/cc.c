@@ -546,9 +546,6 @@ static void parse_options_file(const char* filename) {
 
 static void parse_options(char** argv) {
 
-    // skip the program name
-    argv = (argv + 1);
-
     while (*argv != 0) {
 
         // check for an options file
@@ -1119,9 +1116,9 @@ static void do_link(void) {
 
 int main(int argc, char** argv) {
 
-    // First we collect and verify command-line options.
+    // Collect and verify command-line options
     set_default_options(*argv);
-    parse_options(argv);
+    parse_options(argv + 1);
     check_options();
 
     // Each file is preprocessed, compiled and assembled first (depending on mode.)

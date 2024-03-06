@@ -1,4 +1,3 @@
--v
 -with-cpp=build/intermediate/cpp-1-omc/cpp.oe
 -with-cci=build/intermediate/cci-0-omc/cci.oe
 -with-as=build/intermediate/as-1-compound/as.oe
