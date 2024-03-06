@@ -64,9 +64,9 @@ void globals_destroy(void) {
 static global_t** global_find_bucket(const char* name) {
     int hash = fnv1a_cstr(name);
     int mask = (globals_buckets - 1);
-    int index = hash & mask;
+    int index = (hash & mask);
     while (1) {
-        global_t** bucket = globals + index;
+        global_t** bucket = (globals + index);
         if (*bucket == NULL) {
             return bucket;
         }
@@ -198,5 +198,5 @@ int global_function_arg_count(const global_t* global) {
 
 type_t* global_function_arg_type(const global_t* global, int index) {
     assert(index < global_function_arg_count(global));
-    return *(type_t**)((void**)global + GLOBAL_ARG_TYPES_OFFSET + index);
+    return *(type_t**)((void**)global + (GLOBAL_ARG_TYPES_OFFSET + index));
 }
