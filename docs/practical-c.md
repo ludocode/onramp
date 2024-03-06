@@ -16,7 +16,8 @@ Starting from the ANSI C spec, we backport a few quality-of-life features from C
 - `for` loop variable declarations;
 - C++-style `//` comments;
 - `long long`;
-- trailing commas in enums.
+- trailing commas in enums;
+- flexible array members (struct hack);
 
 However, we exclude a few ANSI C features and common extensions:
 
@@ -39,6 +40,7 @@ We also simplify a few others (in some cases violating proper C rules):
 - All C11 attributes including `[[noreturn]]` and `[[deprecated]]` are ignored.
 - Alignment specifiers are ignored.
 - Enum types are equivalent to `int`, and enum values are integer global variables.
+- `enum`, `struct`, `union` and `typedef` definitions are only allowed at file scope.
 
 The syntax for many of these features is still parsed so that our final stage C compiler can use them and recompile itself to take advantage of them.
 

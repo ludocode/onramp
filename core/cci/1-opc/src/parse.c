@@ -261,7 +261,7 @@ static type_t* parse_postfix_expression(void) {
         ret = parse_function_call(name);
     }
     if (!paren) {
-        ret = compile_variable(name);
+        ret = compile_load_variable(name);
     }
 
     free(name);
@@ -640,7 +640,7 @@ static void parse_local_declaration(type_t* type) {
     // operation.
 
     // compile and push the variable
-    type_t* var_type = compile_variable(name);
+    type_t* var_type = compile_load_variable(name);
     emit_term("push");
     emit_term("r0");
     emit_newline();
@@ -806,8 +806,7 @@ void parse_global(void) {
 
     // see if this is a global variable declaration
     if (lexer_accept(";")) {
-        variable_add(name, type, true);
-        //printf("   parsed global %s\n",name);
+        global_declare_variable(type, name);
         if (!is_extern) {
             compile_global_variable(type, name);
         }

@@ -5,6 +5,7 @@
 
 #include "emit.h"
 #include "variable.h"
+#include "global.h"
 
 void compile_init(void) {
 }
@@ -168,18 +169,41 @@ type_t* compile_character_literal(char c) {
     return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t* compile_variable(const char* name) {
+type_t* compile_load_variable(const char* name) {
 
-    // find the variable
+    // locals shadow globals so we check locals first.
     const type_t* type;
     int offset;
-    if (!variable_find(name, &type, &offset)) {
-        fatal_2("Variable not found: ", name);
+    bool local = variable_find(name, &type, &offset);
+    if (local) {
+        if (offset > -0x80) {
+            // the offset fits in a mix-type byte
+            emit_term("add");
+            emit_term("r0");
+            emit_term("rfp");
+            emit_int(offset);
+        }
+        if (offset <= -0x80) {
+            // the offset needs an immediate load
+            emit_term("imw");
+            emit_term("r0");
+            emit_int(offset);
+            emit_newline();
+            emit_term("add");
+            emit_term("r0");
+            emit_term("rfp");
+            emit_term("r0");
+        }
     }
-
-    // put its address into r0
-    if (offset == 0) {
-        // it's a global variable
+    if (!local) {
+        global_t* global = global_find(name);
+        if (global == NULL) {
+            fatal_2("Variable not found: ", name);
+        }
+        if (global_is_function(global)) {
+            fatal_2("Cannot use function as a variable: ", name);
+        }
+        type = global_type(global);
         emit_term("imw");
         emit_term("r0");
         emit_label('^', name);
@@ -188,35 +212,12 @@ type_t* compile_variable(const char* name) {
         emit_term("r0");
         emit_term("rpp");
         emit_term("r0");
-
     }
-
-    if (!(offset == 0) & !(offset >= 0x80)) {
-        // the offset fits in a mix-type byte
-        emit_term("add");
-        emit_term("r0");
-        emit_term("rfp");
-        emit_int(offset);
-    }
-
-    if (offset >= 0x80) {
-        // the offset needs to go in a temporary register
-        emit_term("imw");
-        emit_term("r0");
-        emit_int(offset);
-        emit_newline();
-        emit_term("add");
-        emit_term("r0");
-        emit_term("rfp");
-        emit_term("r0");
-    }
-
     emit_newline();
 
     // return it as an lvalue
-    type_t* ret = type_new_blank();
-    *ret = (*type | TYPE_FLAG_LVALUE);
-    return ret;
+    type_t* ret = type_clone(type);
+    return type_set_lvalue(ret, true);
 }
 
 void compile_string_literal_invocation(int label_index) {

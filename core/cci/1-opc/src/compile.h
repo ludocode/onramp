@@ -74,9 +74,10 @@ void compile_string_literal_invocation(int label_index);
 void compile_string_literal_definition(int label_index, const char* string);
 
 /**
- * Places the address of the given variable in r0.
+ * Emits code to load the variable with the given name as an l-value into r0,
+ * returning its type.
  */
-type_t* compile_variable(const char* name);
+type_t* compile_load_variable(const char* name);
 
 /**
  * Emits code to dereference the value of the given type stored in the given
