@@ -19,7 +19,7 @@ int main(void) {
     if (*ppx != &x) {
         return 1;
     }
-    if (*pz != (3 * (*(*ppx)))) { // TODO fix extra parens
+    if (*pz != (3 * **ppx)) {
         return 1;
     }
 

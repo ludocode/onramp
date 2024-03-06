@@ -34,6 +34,12 @@
 # given status code. Otherwise, the program must return with status 0
 # (success.)
 
+IGNORE_OUTPUT=0
+if [ "$1" == "--ignore-output" ]; then
+    IGNORE_OUTPUT=1
+    shift
+fi
+
 if [ "$1" == "" ]; then
     echo "Need folder to test."
     exit 1
@@ -113,6 +119,8 @@ for TESTFILE in $FILES; do
         if [ $RET -ne 0 ]; then
             echo "ERROR: $BASENAME failed; expected success."
             THIS_ERROR=1
+        elif [ $IGNORE_OUTPUT -eq 1 ]; then
+            true # don't compare assembly
         elif ! diff -q $BASENAME.os $TEMP_OS > /dev/null; then
             echo "ERROR: $BASENAME did not match expected $BASENAME.os"
             THIS_ERROR=1

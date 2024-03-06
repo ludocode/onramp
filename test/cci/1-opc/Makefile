@@ -53,8 +53,13 @@ $(OUT)/cci: $(SRCS) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-test: build FORCE
+test-0: build FORCE
+	../run.sh --ignore-output ../0-omc $(OUT)/cci
+
+test-1: build FORCE
 	../run.sh . $(OUT)/cci
+
+test: test-1 FORCE # test-0
 
 generate: build FORCE $(VM)
 	../generate.sh . $(VM) $(OUT)/cci

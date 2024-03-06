@@ -312,12 +312,12 @@ static type_t* parse_sizeof(void) {
 
 static type_t* parse_unary_expression(void) {
     if (lexer_accept("+")) {
-        // TODO
-        return parse_postfix_expression();
+        // TODO we should remove l-value and promote to int
+        return parse_unary_expression();
     }
 
     if (lexer_accept("-")) {
-        type_t* type = parse_postfix_expression();
+        type_t* type = parse_unary_expression();
         // TODO is unary - allowed on pointers? maybe we should check that
         // there is no indirection
         // negate r0
@@ -331,7 +331,7 @@ static type_t* parse_unary_expression(void) {
     }
 
     if (lexer_accept("*")) {
-        type_t* type = parse_postfix_expression();
+        type_t* type = parse_unary_expression();
         if (type_indirections(type) == 0) {
             fatal("Type to dereference is not a pointer");
         }
@@ -351,7 +351,7 @@ static type_t* parse_unary_expression(void) {
     }
 
     if (lexer_accept("&")) {
-        type_t* type = parse_postfix_expression();
+        type_t* type = parse_unary_expression();
         if (!(*type & TYPE_FLAG_LVALUE)) {
             fatal("Cannot take the address of an r-value");
         }
@@ -362,10 +362,17 @@ static type_t* parse_unary_expression(void) {
     }
 
     if (lexer_accept("!")) {
-        type_t* type = parse_postfix_expression();
+        type_t* type = parse_unary_expression();
         compile_dereference_if_lvalue(type, 0);
         type_delete(type);
-        return compile_not();
+        return compile_boolean_not();
+    }
+    
+    if (lexer_accept("~")) {
+        type_t* type = parse_unary_expression();
+        compile_dereference_if_lvalue(type, 0);
+        type_delete(type);
+        return compile_bitwise_not();
     }
     
     if (lexer_accept("sizeof")) {

@@ -107,6 +107,8 @@ void compile_dereference(type_t* type, int register_num);
  */
 type_t* compile_dereference_if_lvalue(type_t* type, int register_num);
 
-type_t* compile_not(void);
+type_t* compile_boolean_not(void);
+
+type_t* compile_bitwise_not(void);
 
 #endif

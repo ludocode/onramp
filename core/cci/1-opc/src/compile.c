@@ -534,13 +534,22 @@ type_t* compile_ne(void) {
     return type_new(TYPE_BASIC_INT, 0);
 }
 
-type_t* compile_not(void) {
+type_t* compile_boolean_not(void) {
+    // TODO use isz
     emit_term("cmpu");
     emit_term("r0");
     emit_term("r0");
     emit_term("0");
     emit_newline();
-    compile_cmp_to_true();
+    compile_cmp_to_true(); // TODO is this even necessary?
+    return type_new(TYPE_BASIC_INT, 0);
+}
+
+type_t* compile_bitwise_not(void) {
+    emit_term("not");
+    emit_term("r0");
+    emit_term("r0");
+    emit_newline();
     return type_new(TYPE_BASIC_INT, 0);
 }
 
