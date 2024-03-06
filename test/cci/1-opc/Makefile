@@ -59,7 +59,7 @@ test-0: build FORCE
 test-1: build FORCE
 	../run.sh . $(OUT)/cci
 
-test: test-1 FORCE # test-0
+test: test-1 test-0 FORCE
 
 generate: build FORCE $(VM)
 	../generate.sh . $(VM) $(OUT)/cci

@@ -333,8 +333,8 @@ static type_t* parse_unary_expression(void) {
         // make it an lvalue, and it will be dereferenced if and when it is
         // needed.
         if (*type & TYPE_FLAG_LVALUE) {
-            type = type_decrement_indirection(type);
             compile_dereference(type, 0);
+            type = type_decrement_indirection(type);
         } else {
             type = type_decrement_indirection(type);
             *type |= TYPE_FLAG_LVALUE;
