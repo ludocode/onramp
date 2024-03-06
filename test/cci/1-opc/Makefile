@@ -54,7 +54,7 @@ $(OUT)/cci: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test-0: build FORCE
-	../run.sh --ignore-output ../0-omc $(OUT)/cci
+	../run.sh --other-stage ../0-omc $(OUT)/cci
 
 test-1: build FORCE
 	../run.sh . $(OUT)/cci

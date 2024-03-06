@@ -151,7 +151,9 @@ static char** typedef_names;
 static type_t** typedef_types;
 static size_t typedef_count;
 
-#define TYPEDEF_MAX 32
+// TODO huge number here to temporarily pass cci/0 tests, we're going to
+// change this to a hashtable soon
+#define TYPEDEF_MAX 512
 
 type_t* type_new_blank(void) {
     return calloc(1, 1);
@@ -175,6 +177,7 @@ void typedef_add(char* name, type_t* type) {
     if (typedef_count == TYPEDEF_MAX) {
         fatal("Too many typedefs.");
     }
+    // TODO check for duplicates, allowed as long as the type matches
     *(typedef_names + typedef_count) = name;
     *(typedef_types + typedef_count) = type;
     ++typedef_count;

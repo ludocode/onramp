@@ -33,10 +33,14 @@
 # - If a corresponding .status file exists, the program must return with the
 # given status code. Otherwise, the program must return with status 0
 # (success.)
+#
+# Pass --other-stage as the first argument to run tests with a different stage
+# than the one for which the tests were intended. The assembly output will not
+# be compared and any tests with a .nonstd file will be skipped.
 
-IGNORE_OUTPUT=0
-if [ "$1" == "--ignore-output" ]; then
-    IGNORE_OUTPUT=1
+OTHER_STAGE=0
+if [ "$1" == "--other-stage" ]; then
+    OTHER_STAGE=1
     shift
 fi
 
@@ -85,6 +89,12 @@ FILES="$(find $SOURCE_FOLDER/* -name '*.c') $(find $SOURCE_FOLDER/* -name '*.i')
 for TESTFILE in $FILES; do
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\..$//')
+
+    if [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ]; then
+        echo "Skipping $BASENAME"
+        continue
+    fi
+
     echo "Testing $BASENAME"
 
     # preprocess
@@ -119,7 +129,7 @@ for TESTFILE in $FILES; do
         if [ $RET -ne 0 ]; then
             echo "ERROR: $BASENAME failed; expected success."
             THIS_ERROR=1
-        elif [ $IGNORE_OUTPUT -eq 1 ]; then
+        elif [ $OTHER_STAGE -eq 1 ]; then
             true # don't compare assembly
         elif ! diff -q $BASENAME.os $TEMP_OS > /dev/null; then
             echo "ERROR: $BASENAME did not match expected $BASENAME.os"

@@ -596,11 +596,10 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
         return compile_basic_op("mul");
     }
     if (0 == strcmp(op, "/")) {
-        return compile_basic_op("div");
+        return compile_basic_op("divs");
     }
     if (0 == strcmp(op, "%")) {
-        // TODO this doesn't exist
-        return compile_basic_op("mod");
+        return compile_basic_op("mods");
     }
 
     // bitwise ops

@@ -237,12 +237,12 @@ static void lexer_consume_string_literal(void) {
             break;
         }
 
-        if (c == '\\') {
-            c = lexer_consume_escape_sequence();
-        }
-
         if (lexer_is_end_of_line(c)) {
             fatal("Unclosed string literal");
+        }
+
+        if (c == '\\') {
+            c = lexer_consume_escape_sequence();
         }
 
         lexer_token_append(size++, c);
