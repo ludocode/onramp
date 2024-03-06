@@ -524,6 +524,8 @@
   add r0 r1 r0 
   pop r1 
   ldb r0 0 r0 
+  shl r0 r0 24 
+  shrs r0 r0 24 
   stw r0 0 r1 
 #
   add r0 rfp -20 
@@ -686,6 +688,8 @@
   add r0 rfp -8 
   pop r1 
   ldw r0 0 r0 
+  shl r0 r0 24 
+  shrs r0 r0 24 
   stb r0 0 r1 
 #
   add r0 rfp -4 

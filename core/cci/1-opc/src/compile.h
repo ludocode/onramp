@@ -111,4 +111,11 @@ type_t* compile_boolean_not(void);
 
 type_t* compile_bitwise_not(void);
 
+/**
+ * Compiles a cast of the value in r0 from its current type to the desired type.
+ *
+ * Both types must be r-values.
+ */
+type_t* compile_cast(type_t* current_type, type_t* desired_type);
+
 #endif

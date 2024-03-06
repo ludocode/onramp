@@ -1375,9 +1375,6 @@
     sub rsp rsp 8
     stw r1 rfp -8
 
-    ; TODO we should probably do some kind of type check. for now we ignore the
-    ; right-hand type and silently cast.
-
     ; the left type must be an l-value
     and r2 r0 0x40   ; l-value flag
     jz r2 &compile_binary_assign_not_lvalue
@@ -1852,9 +1849,11 @@
 
 
 ; ==========================================================
-; static char compile_cast(char current_type, char target_type);
+; char compile_cast(char current_type, char desired_type);
 ; ==========================================================
-; Compiles a cast of the value in r0 from its current type to the target type.
+; Compiles a cast of the value in r0 from its current type to the desired type.
+;
+; Both types must be r-values.
 ; ==========================================================
 
 =compile_cast
@@ -1863,6 +1862,7 @@
     push r1
 
     ; cast from char or to char does sign extension.
+    ; TODO probably we shouldn't bother if both types are char though?
     sub r2 r0 0x20
     jz r2 &compile_cast_sxb
     sub r2 r1 0x20
@@ -1925,7 +1925,7 @@
 ;    call ^emit_newline
 ;
 :compile_cast_done
-    ; return the target type
+    ; return the desired type
     ldw r0 rfp -8
     leave
     ret

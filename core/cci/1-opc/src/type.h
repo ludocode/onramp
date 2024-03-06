@@ -26,7 +26,7 @@ void type_set_record(type_t* type, record_t* record);
 
 bool type_is_lvalue(type_t* type);
 
-void type_set_lvalue(type_t* type, bool lvalue);
+type_t* type_set_lvalue(type_t* type, bool lvalue);
 
 /**
  * Returns the indirection count, i.e. the number of pointers.
@@ -117,7 +117,7 @@ type_t* type_increment_indirection(type_t* type);
 
 bool type_is_lvalue(const type_t* type);
 
-void type_set_lvalue(type_t* type, bool lvalue);
+type_t* type_set_lvalue(type_t* type, bool lvalue);
 
 
 

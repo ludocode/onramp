@@ -74,7 +74,7 @@ TEMP_OS=/tmp/onramp-test.os
 TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
-ANY_ERROR=0
+TOTAL_ERRORS=0
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -193,7 +193,7 @@ for TESTFILE in $FILES; do
         if [ -e $BASENAME.stdout ]; then
             echo "    diff -q $BASENAME.stdout $TEMP_STDOUT"
         fi
-        ANY_ERROR=1
+        TOTAL_ERRORS=$(( $TOTAL_ERRORS + 1 ))
     fi
 
     # clean up
@@ -204,8 +204,8 @@ for TESTFILE in $FILES; do
     rm -f $TEMP_STDOUT
 done
 
-if [ $ANY_ERROR -eq 1 ]; then
-    echo "Errors occurred."
+if [ $TOTAL_ERRORS -ne 0 ]; then
+    echo "$TOTAL_ERRORS tests failed."
     exit 1
 fi
 

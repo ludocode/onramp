@@ -259,11 +259,12 @@ bool type_is_lvalue(const type_t* type) {
     return !!(*type & TYPE_LVALUE_MASK);
 }
 
-void type_set_lvalue(type_t* type, bool lvalue) {
+type_t* type_set_lvalue(type_t* type, bool lvalue) {
     if (lvalue) {
         *type |= TYPE_LVALUE_MASK;
     }
     if (!lvalue) {
         *type &= ~TYPE_LVALUE_MASK;
     }
+    return type;
 }

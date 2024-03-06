@@ -123,22 +123,15 @@ static type_t* parse_primary_expression(void) {
     if (lexer_accept("(")) {
 
         // if the token is a type name, we have a cast expression.
-        type_t* type = try_parse_type();
-        if (type) {
+        type_t* desired_type = try_parse_type();
+        if (desired_type) {
             lexer_expect(")", "Expected ) after type in cast");
-            type_t* actual_type = parse_unary_expression();
-
-            // if the actual type is an l-value, we have to dereference it. we
-            // otherwise ignore the type.
-            // TODO fix this, need to compile a cast (sign extension on byte),
-            // make it like cci/0
-            compile_dereference_if_lvalue(actual_type, 0);
-
-            type_delete(actual_type);
-            return type;
+            type_t* current_type = parse_unary_expression();
+            current_type = compile_dereference_if_lvalue(current_type, 0);
+            return compile_cast(current_type, desired_type);
         }
 
-        type = parse_expression();
+        type_t* type = parse_expression();
         lexer_expect(")", "Expected ) after parenthesized expression");
         return type;
     }

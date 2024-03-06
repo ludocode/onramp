@@ -350,9 +350,14 @@ type_t* compile_assign(type_t* left, type_t* right) {
         compile_dereference(right, 0);
     }
 
+    left = type_set_lvalue(left, false);
+    size_t size = type_size(left);
+
+    // cast the types (performing sign extension, etc.)
+    type_t* result = compile_cast(right, left);
+
     // assign stores the right value into the left.
-    //if (type_size(*left & ~TYPE_FLAG_LVALUE) == 1) {
-    if (type_size(left) == 1) {
+    if (size == 1) {
         emit_term("stb");
     } else {
         emit_term("stw");
@@ -362,10 +367,7 @@ type_t* compile_assign(type_t* left, type_t* right) {
     emit_term("r1");
     emit_newline();
 
-    // TODO for now we're returning right, this is probably wrong, if left is
-    // char we maybe are supposed to truncate to char but also promote to int?
-    type_delete(left);
-    return right;
+    return result;
 }
 
 // Returns the factor to use for the other term for arithmetic with this type.
@@ -639,4 +641,30 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     }
 
     fatal_2("op not yet implemented: ", op);
+}
+
+type_t* compile_cast(type_t* current_type, type_t* desired_type) {
+
+    // if neither type is char, we do nothing.
+    if ((*current_type != TYPE_BASIC_CHAR) & (*desired_type != TYPE_BASIC_CHAR)) {
+        type_delete(current_type);
+        return desired_type;
+    }
+
+    // casting to or from char does sign extension.
+    
+    // TODO use sxb in assembly, not implemented yet
+    emit_term("shl");
+    emit_term("r0");
+    emit_term("r0");
+    emit_term("24");
+    emit_newline();
+    emit_term("shrs");
+    emit_term("r0");
+    emit_term("r0");
+    emit_term("24");
+    emit_newline();
+
+    type_delete(current_type);
+    return desired_type;
 }
