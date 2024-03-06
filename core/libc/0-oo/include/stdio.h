@@ -53,6 +53,7 @@ int fseek(FILE* stream, long offset, int base);
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+int fgetc(FILE* file);
 int fputc(int c, FILE* file);
 int fputs(const char* s, FILE* file);
 int putchar(int c);

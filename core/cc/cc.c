@@ -45,6 +45,7 @@
 
 #define _GNU_SOURCE
 
+#include <ctype.h>
 #include <spawn.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -73,6 +74,8 @@ extern int* __process_info_table;
 #define PIT_ENVIRON 7
 #define PIT_WORKDIR 8
 
+static void parse_options(char** argv);
+
 
 
 /*
@@ -89,8 +92,16 @@ extern int* __process_info_table;
 #define TYPE_I 3
 #define TYPE_C 4
 
+#define FILEARGS_BUFFER_SIZE 256
+
 // misc state
 static int temp_id;
+
+// arguments files
+static char* fileargs_buffer;
+char** fileargs;
+size_t fileargs_count;
+size_t fileargs_capacity;
 
 // options
 static const char* output_filename;
@@ -213,7 +224,6 @@ static void string_array_append(char*** array, size_t* count,
 /**
  * Frees a string array in which the strings were allocated.
  */
-/*
 static void string_array_free(char** array, size_t count) {
     while (count > 0) {
         count = (count - 1);
@@ -221,7 +231,6 @@ static void string_array_free(char** array, size_t count) {
     }
     free(array);
 }
-*/
 
 static bool starts_with(const char* string, const char* prefix) {
     size_t len = strlen(prefix);
@@ -483,15 +492,76 @@ static void set_default_options(const char* cc_filename) {
     libc_include = create_tool_path(cc_filename, path_len, "../include");
 }
 
+static void parse_options_file(const char* filename) {
+    if (fileargs_buffer == NULL) {
+        fileargs_buffer = malloc(FILEARGS_BUFFER_SIZE);
+        if (fileargs_buffer == NULL) {
+            fatal_cleanup("Out of memory.");
+        }
+    }
+
+    FILE* file = fopen(filename, "rb");
+    if (!file) {
+        fatal_cleanup("Failed to open options file.");
+    }
+
+    // We support multiple @file arguments and we need all their strings to
+    // stick around until the end. To keep this simple we add them all to one
+    // big string array and only pass the just-parsed subset of it to
+    // parse_options().
+    size_t fileargs_start = fileargs_count;
+
+    size_t index = 0;
+    *fileargs_buffer = 0;
+    while (true) {
+        char c = fgetc(file);
+
+        // see if it's the end of an option
+        if ((c == EOF) | isspace(c)) {
+            if (index > 0) {
+                *(fileargs_buffer + index) = 0;
+                string_array_append(&fileargs, &fileargs_count,
+                        &fileargs_capacity, strdup_checked(fileargs_buffer));
+                index = 0;
+            }
+            if (c == EOF) {
+                break;
+            }
+            continue;
+        }
+
+        // otherwise add it to the buffer
+        *(fileargs_buffer + index) = c;
+        index = (index + 1);
+        if (index == FILEARGS_BUFFER_SIZE) {
+            fatal_cleanup("Argument in arguments file is too long.");
+        }
+    }
+
+    // We temporarily append a null-terminator just for options parsing.
+    string_array_append(&fileargs, &fileargs_count, &fileargs_capacity, NULL);
+    parse_options(fileargs + fileargs_start);
+    fileargs_count = (fileargs_count - 1);
+}
+
 static void parse_options(char** argv) {
 
     // skip the program name
     argv = (argv + 1);
 
     while (*argv != 0) {
+
+        // check for an options file
+        if (starts_with(*argv, "@")) {
+            parse_options_file(*argv + 1);
+            argv = (argv + 1);
+            continue;
+        }
+
+        // check for an option
         if (starts_with(*argv, "-")) {
 
-            // see if it's a supported option
+            // see if it's supported
             if (try_parse_output(&argv)) {
                 continue;
             }
@@ -598,6 +668,8 @@ static void free_options(void) {
     free(tool_cci);
     free(tool_as);
     free(tool_ld);
+    free(fileargs_buffer);
+    string_array_free(fileargs, fileargs_count);
 }
 
 

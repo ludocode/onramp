@@ -33,74 +33,49 @@ mkdir -p build/intermediate
 
 echo Compiling cci/1-opc common.c
 onrampvm build/intermediate/cc/cc.oe \
-    -v \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
-    -nostddef \
-    -D__onramp__=1 \
-    -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
-    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-    -Icore/libc/1-omc/include \
-    -Icore/libc/0-oo/include \
-    -Icore/libo/0-oo/include \
-    -include __onramp/__predef.h \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/common.c \
     -o build/intermediate/cci-1-opc/common.oo
 
 echo Compiling cci/1-opc compile.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/compile.c \
     -o build/intermediate/cci-1-opc/compile.oo
 
 echo Compiling cci/1-opc emit.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/emit.c \
     -o build/intermediate/cci-1-opc/emit.oo
 
 echo Compiling cci/1-opc lexer.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/lexer.c \
     -o build/intermediate/cci-1-opc/lexer.oo
 
 echo Compiling cci/1-opc main.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/main.c \
     -o build/intermediate/cci-1-opc/main.oo
 
 echo Compiling cci/1-opc parse.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/parse.c \
     -o build/intermediate/cci-1-opc/parse.oo
 
 echo Compiling cci/1-opc type.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/type.c \
     -o build/intermediate/cci-1-opc/type.oo
 
 echo Compiling cci/1-opc variable.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/variable.c \
     -o build/intermediate/cci-1-opc/variable.oo
 

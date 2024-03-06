@@ -1,0 +1,14 @@
+-v
+-###
+-with-cpp=build/intermediate/cpp-1-omc/cpp.oe
+-with-cci=build/intermediate/cci-0-omc/cci.oe
+-with-as=build/intermediate/as-1-compound/as.oe
+-nostddef
+-nostdinc
+-D__onramp__=1
+-D__onramp_cci__=1 -D__onramp_cci_omc__=1
+-D__onramp_cpp__=1 -D__onramp_cpp_omc__=1
+-Icore/libc/1-omc/include
+-Icore/libc/0-oo/include
+-Icore/libo/0-oo/include
+-include __onramp/__predef.h
