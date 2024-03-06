@@ -608,7 +608,7 @@ void lexer_expect(const char* token, const char* error_message) {
     lexer_consume();
 }
 
-bool lexer_try(const char* token) {
+bool lexer_accept(const char* token) {
     //printf("      try %s %s\n",token,lexer_token);
     if (!lexer_is(token)) {
         return false;

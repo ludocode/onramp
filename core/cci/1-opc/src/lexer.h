@@ -108,12 +108,8 @@ void lexer_expect(const char* token, const char* error_message);
  *
  * This always returns false if the current token is a string literal, a
  * character literal or the end of the input.
- *
- * TODO consider renaming this to lexer_accept(). we're breaking up the
- * internals of the lexer into try-style functions, e.g.
- * lexer_try_alphanumeric(), etc.
  */
-bool lexer_try(const char* token);
+bool lexer_accept(const char* token);
 
 /**
  * Returns true if the current token matches that given without consuming it.

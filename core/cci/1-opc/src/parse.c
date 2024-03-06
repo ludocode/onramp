@@ -58,16 +58,16 @@ void parse_destroy(void) {
 static type_t* try_parse_type(void) {
 
     // Ignore const, except that if we find it, this has to be a type
-    bool has_const = lexer_try("const");
+    bool has_const = lexer_accept("const");
 
     type_t* type;
-    if (lexer_try("int")) {
+    if (lexer_accept("int")) {
         type = type_new_blank();
         type_set_base(type, TYPE_BASIC_INT);
-    } else if (lexer_try("char")) {
+    } else if (lexer_accept("char")) {
         type = type_new_blank();
         type_set_base(type, TYPE_BASIC_CHAR);
-    } else if (lexer_try("void")) {
+    } else if (lexer_accept("void")) {
         type = type_new_blank();
         type_set_base(type, TYPE_BASIC_VOID);
     } else {
@@ -84,8 +84,8 @@ static type_t* try_parse_type(void) {
 
     // Collect additional indirections, each of which may be prefixed by const
     int indirections = type_indirections(type);
-    while (lexer_try("*")) {
-        lexer_try("const");
+    while (lexer_accept("*")) {
+        lexer_accept("const");
         ++indirections;
     }
     type_set_indirections(type, indirections);
@@ -95,9 +95,9 @@ static type_t* try_parse_type(void) {
     // (It seems silly to support all this in the most basic compiler but this
     // is all to make even our intermediate header files as correct and
     // forward-compatible as possible.)
-    lexer_try("const");
-    lexer_try("restrict");
-    lexer_try("const");
+    lexer_accept("const");
+    lexer_accept("restrict");
+    lexer_accept("const");
 
     return type;
 }
@@ -120,7 +120,7 @@ static char* parse_alphanumeric(void) {
 static type_t* parse_primary_expression(void) {
 
     // parenthesis
-    if (lexer_try("(")) {
+    if (lexer_accept("(")) {
 
         // if the token is a type name, we have a cast expression.
         type_t* type = try_parse_type();
@@ -182,7 +182,7 @@ static type_t* parse_function_call(const char* name) {
     //emit_term("; function call");
     //emit_newline();
 
-    while (!lexer_try(")")) {
+    while (!lexer_accept(")")) {
         if (arg_count > 0)
             lexer_expect(",", NULL);
         ++arg_count;
@@ -274,7 +274,7 @@ static type_t* parse_postfix_expression(void) {
     // an alphanumeric is either a variable or a function call
     type_t* ret;
     char* name = lexer_take();
-    bool paren = lexer_try("(");
+    bool paren = lexer_accept("(");
     if (paren) {
         ret = parse_function_call(name);
     }
@@ -287,12 +287,12 @@ static type_t* parse_postfix_expression(void) {
 }
 
 static type_t* parse_unary_expression(void) {
-    if (lexer_try("+")) {
+    if (lexer_accept("+")) {
         // TODO
         return parse_postfix_expression();
     }
 
-    if (lexer_try("-")) {
+    if (lexer_accept("-")) {
         type_t* type = parse_postfix_expression();
         // TODO is unary - allowed on pointers? maybe we should check that
         // there is no indirection
@@ -306,7 +306,7 @@ static type_t* parse_unary_expression(void) {
         return type;
     }
 
-    if (lexer_try("*")) {
+    if (lexer_accept("*")) {
         type_t* type = parse_postfix_expression();
         if (type_indirections(type) == 0) {
             fatal("Type to dereference is not a pointer");
@@ -326,7 +326,7 @@ static type_t* parse_unary_expression(void) {
         return type;
     }
 
-    if (lexer_try("&")) {
+    if (lexer_accept("&")) {
         type_t* type = parse_postfix_expression();
         if (!(*type & TYPE_FLAG_LVALUE)) {
             fatal("Cannot take the address of an r-value");
@@ -337,7 +337,7 @@ static type_t* parse_unary_expression(void) {
         return type;
     }
 
-    if (lexer_try("!")) {
+    if (lexer_accept("!")) {
         type_t* type = parse_postfix_expression();
         compile_dereference_if_lvalue(type, 0);
         type_delete(type);
@@ -431,7 +431,7 @@ static type_t* parse_expression(void) {
     // lower stages.
     // TODO yes, implement it in opC, we want full expression syntax
     type_t* type = parse_binary_expression();
-    if (lexer_try(",")) {
+    if (lexer_accept(",")) {
         fatal("Comma expression is not supported.");
     }
     return type;
@@ -467,7 +467,7 @@ static void parse_if(void) {
     parse_statement(); // TODO maybe not exactly right, not sure how labels work here
 
     // check for else
-    bool has_else = lexer_try("else");
+    bool has_else = lexer_accept("else");
     if (has_else) {
 
         // we're still in the if block, so skip the else block.
@@ -528,7 +528,7 @@ static void parse_while(void) {
 }
 
 static void parse_break(void) {
-    if (!lexer_try(";")) {
+    if (!lexer_accept(";")) {
         fatal("Expected ; after break.");
     }
     if (while_end_label == -1) {
@@ -540,7 +540,7 @@ static void parse_break(void) {
 }
 
 static void parse_continue(void) {
-    if (!lexer_try(";")) {
+    if (!lexer_accept(";")) {
         fatal("Expected ; after continue.");
     }
     if (while_end_label == -1) {
@@ -552,7 +552,7 @@ static void parse_continue(void) {
 }
 
 static void parse_return(void) {
-    int argument = !lexer_try(";");
+    int argument = !lexer_accept(";");
 
     if (argument) {
         type_t* type = parse_expression();
@@ -576,7 +576,7 @@ static void parse_return(void) {
 }
 
 static void parse_statement(void) {
-    if (lexer_try(";")) {
+    if (lexer_accept(";")) {
         // empty statement
         return;
     }
@@ -588,27 +588,27 @@ static void parse_statement(void) {
         return;
     }
 
-    if (lexer_try("if")) {
+    if (lexer_accept("if")) {
         parse_if();
         return;
     }
 
-    if (lexer_try("while")) {
+    if (lexer_accept("while")) {
         parse_while();
         return;
     }
 
-    if (lexer_try("break")) {
+    if (lexer_accept("break")) {
         parse_break();
         return;
     }
 
-    if (lexer_try("continue")) {
+    if (lexer_accept("continue")) {
         parse_continue();
         return;
     }
 
-    if (lexer_try("return")) {
+    if (lexer_accept("return")) {
         parse_return();
         return;
     }
@@ -624,13 +624,13 @@ static void parse_local_declaration(type_t* type) {
     //printf("defining new variable %s\n",name);
     variable_add(name, type, false);
 
-    if (lexer_try(";")) {
+    if (lexer_accept(";")) {
         // No initializer.
         return;
     }
     type = type_clone(type);
 
-    if (!lexer_try("=")) {
+    if (!lexer_accept("=")) {
         fatal("Expected ; or = after local variable declaration.");
     }
 
@@ -660,7 +660,7 @@ static void parse_local_declaration(type_t* type) {
 }
 
 static bool try_parse_block(void) {
-    if (!lexer_try("{")) {
+    if (!lexer_accept("{")) {
         return false;
     }
 
@@ -669,7 +669,7 @@ static bool try_parse_block(void) {
 
     int previous_variable_count = variable_count;
 
-    while (!lexer_try("}")) {
+    while (!lexer_accept("}")) {
         type_t* type = try_parse_type();
         if (type) {
             parse_local_declaration(type);
@@ -716,10 +716,10 @@ static void parse_function_declaration(type_t* return_type, char* name) {
     int previous_variable_count = variable_count;
     int arg_count = 0;
 
-    if (lexer_try(")")) {
+    if (lexer_accept(")")) {
         // nothing
     } else {
-        while (!lexer_try(")")) {
+        while (!lexer_accept(")")) {
             if (arg_count > 0)
                 lexer_expect(",", "Expected , or ) after argument");
 
@@ -728,7 +728,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
 
             // check for (void)
             // TODO can probably remove hack now that names are optional
-            if (arg_count == 0 && *type == TYPE_BASIC_VOID && lexer_try(")")) {
+            if (arg_count == 0 && *type == TYPE_BASIC_VOID && lexer_accept(")")) {
                 type_delete(type);
                 break;
             }
@@ -755,7 +755,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
     functions_count = (functions_count + 1);
 
     //printf("   parsed function declaration %s\n",name);
-    if (lexer_try(";")) {
+    if (lexer_accept(";")) {
         // nothing to do
     } else {
         //printf("   parsing function body\n");
@@ -786,21 +786,21 @@ static void parse_typedef(void) {
 void parse_global(void) {
 //printf("   parse_global()\n");
 
-    if (lexer_try("typedef")) {
+    if (lexer_accept("typedef")) {
         parse_typedef();
         return;
     }
 
     // TODO
-    lexer_try("_Noreturn");
+    lexer_accept("_Noreturn");
 
     bool is_extern = false;
-    if (lexer_try("extern")) {
+    if (lexer_accept("extern")) {
         is_extern = true;
     }
 
     bool is_static = false;
-    if (lexer_try("static")) {
+    if (lexer_accept("static")) {
         is_static = true;
     }
     (void)is_static; // TODO not yet used
@@ -809,7 +809,7 @@ void parse_global(void) {
     char* name = parse_alphanumeric();
 
     // see if this is a global variable declaration
-    if (lexer_try(";")) {
+    if (lexer_accept(";")) {
         variable_add(name, type, true);
         //printf("   parsed global %s\n",name);
         if (!is_extern)
@@ -818,7 +818,7 @@ void parse_global(void) {
     }
 
     // parse a function declaration or definition
-    if (lexer_try("(")) {
+    if (lexer_accept("(")) {
         parse_function_declaration(type, name);
         return;
     }
