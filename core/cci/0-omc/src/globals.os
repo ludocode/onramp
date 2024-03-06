@@ -273,8 +273,7 @@
     call ^globals_bucket
     shl r1 r0 2
 
-    ; if the name already exists, it's a fatal error. (we don't support
-    ; redundant definitions of global variables.)
+    ; check if the name already exists
     imw r9 ^globals_names
     ldw r9 r9 rpp
     ldw r2 r9 r1
@@ -315,6 +314,7 @@
 ; ==========================================================
 ; void globals_add_variable(char type, char* name);
 ; ==========================================================
+; Declares a new global variable of the given name and type.
 ; ==========================================================
 
 =globals_add_variable
@@ -324,7 +324,10 @@
 
 
 ; ==========================================================
-; void globals_add_function(char type, char* name, int arg_count, char* arg_types);
+; void globals_add_function(char return_type, char* name,
+;                           int arg_count, char* arg_types);
+; ==========================================================
+; Declares a new function with the given properties.
 ; ==========================================================
 
 =globals_add_function

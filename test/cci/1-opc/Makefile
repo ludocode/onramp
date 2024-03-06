@@ -43,6 +43,7 @@ SRCS=\
 	$(SRC)/common.c \
 	$(SRC)/compile.c \
 	$(SRC)/emit.c \
+	$(SRC)/global.c \
 	$(SRC)/lexer.c \
 	$(SRC)/main.c \
 	$(SRC)/parse.c \

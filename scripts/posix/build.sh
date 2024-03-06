@@ -82,4 +82,6 @@ cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
 # Cleanup
 ##################################
 
-echo "POSIX setup complete."
+echo
+echo "POSIX build complete."
+echo

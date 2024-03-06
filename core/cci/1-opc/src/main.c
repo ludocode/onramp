@@ -9,6 +9,7 @@
 #include "parse.h"
 #include "type.h"
 #include "variable.h"
+#include "global.h"
 
 static void usage(const char* name) {
     fputs("\nUsage: ", stderr);
@@ -69,6 +70,7 @@ int main(int argc, const char** argv) {
         usage(*argv);
     }
 
+    globals_init();
     emit_init(output_filename);
     lexer_init(input_filename);
     typedef_init();
@@ -84,5 +86,6 @@ int main(int argc, const char** argv) {
     typedef_destroy();
     lexer_destroy();
     emit_destroy();
+    globals_destroy();
     return EXIT_SUCCESS;
 }

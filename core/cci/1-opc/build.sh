@@ -27,11 +27,6 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/cci-1-opc
 
-# TODO implement @file in cc. each build program can have a `ccargs` file which
-# contains arguments to the compiler.
-
-# TODO or, alternatively, just pass all input files to a single call to cc
-
 echo Compiling cci/1-opc common.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
@@ -49,6 +44,12 @@ onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
     -c core/cci/1-opc/src/emit.c \
     -o build/intermediate/cci-1-opc/emit.oo
+
+echo Compiling cci/1-opc global.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/1-opc/build-ccargs \
+    -c core/cci/1-opc/src/global.c \
+    -o build/intermediate/cci-1-opc/global.oo
 
 echo Compiling cci/1-opc lexer.c
 onrampvm build/intermediate/cc/cc.oe \
@@ -87,6 +88,7 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/common.oo \
     build/intermediate/cci-1-opc/compile.oo \
     build/intermediate/cci-1-opc/emit.oo \
+    build/intermediate/cci-1-opc/global.oo \
     build/intermediate/cci-1-opc/lexer.oo \
     build/intermediate/cci-1-opc/main.oo \
     build/intermediate/cci-1-opc/parse.oo \

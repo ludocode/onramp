@@ -272,3 +272,7 @@ type_t* type_set_lvalue(type_t* type, bool lvalue) {
     }
     return type;
 }
+
+bool type_equal(const type_t* left, const type_t* right) {
+    return *left == *right;
+}

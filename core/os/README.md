@@ -32,7 +32,7 @@ The filesystem only supports writing one file at a time. When a file is opened f
 
 Files cannot be modified. To delete a file we simply write a flag to its header to mark it as a tombstone. Directories are not really supported; a full filename contains slashes to simulate directories. The filesystem otherwise ignores all directories, ignores `mkdir`, and does not implement any syscalls for reading directories.
 
-The trick here is that the in-memory filesystem format is mostly compatible with tarball archives. In order to seed the initial filesystem, the VM/bootloader just needs to pull the (uncompressed) Onramp tarball and any other needed tarballs off the boot media, copy them to an arbitrary address in memory and hand the address to the OS. This form the initial filesystem. This makes everything as simple and as auditable as possible.
+The trick here is that the in-memory filesystem format is mostly compatible with tarball archives. In order to seed the initial filesystem, the VM/bootloader just needs to pull the (uncompressed) Onramp tarball and any other needed tarballs off the boot media, copy them to an arbitrary address in memory and hand the address to the OS. This forms the initial filesystem. This makes everything as simple and as auditable as possible.
 
 
 

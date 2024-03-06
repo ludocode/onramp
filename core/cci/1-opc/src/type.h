@@ -97,6 +97,8 @@ int type_array_length(type_t* type);
 
 void type_set_array_length(type_t* type, int array_length);
 
+bool type_equal(const type_t* left, const type_t* right);
+
 
 
 /*

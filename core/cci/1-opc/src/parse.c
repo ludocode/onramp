@@ -8,6 +8,7 @@
 #include "common.h"
 #include "compile.h"
 #include "variable.h"
+#include "global.h"
 
 static void parse_block(void);
 static void parse_statement(void);
@@ -26,32 +27,15 @@ static char** strings;
 static size_t strings_count;
 #define STRINGS_MAX 128
 
-// functions
-// TODO make a hashtable
-static char** function_names;
-static type_t** function_return_types;
-static size_t functions_count;
 static int function_frame_size;
-#define FUNCTIONS_MAX 512
 
 void parse_init(void) {
     while_start_label = -1;
     while_end_label = -1;
     strings = malloc(sizeof(char*) * STRINGS_MAX);
-    function_names = malloc(sizeof(char*) * FUNCTIONS_MAX);
-    function_return_types = malloc(sizeof(type_t*) * FUNCTIONS_MAX);
 }
 
 void parse_destroy(void) {
-    size_t i = 0;
-    while (i < functions_count) {
-        free(*(function_names + i));
-        type_delete(*(function_return_types + i));
-        i = (i + 1);
-    }
-
-    free(function_return_types);
-    free(function_names);
     free(strings);
 }
 
@@ -250,19 +234,16 @@ static type_t* parse_function_call(const char* name) {
     //emit_newline();
 
     // find the function
-    size_t i = 0;
-    while (i < functions_count) {
-        if (0 == strcmp(name, *(function_names + i))) {
-            break;
-        }
-        i = (i + 1);
+    global_t* global = global_find(name);
+    if (global == NULL) {
+        fatal_2("Function not declared: ", name);
     }
-    if (i == functions_count) {
-        fatal("Function not declared");
+    if (!global_is_function(global)) {
+        fatal_2("Called symbol is not a function: ", name);
     }
 
     //printf("   done parsing function call %s\n", name);
-    return type_clone(*(function_return_types + i));
+    return type_clone(global_type(global));
 }
 
 static type_t* parse_postfix_expression(void) {
@@ -768,12 +749,8 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         arg_count = (arg_count + 1);
     }
 
-    if (functions_count == FUNCTIONS_MAX) {
-        fatal("Too many functions.");
-    }
-    *(function_names + functions_count) = name;
-    *(function_return_types + functions_count) = return_type;
-    functions_count = (functions_count + 1);
+    // TODO pass arg_types, arg_count to function
+    const global_t* global = global_declare_function(return_type, name, 0, NULL);
 
     //printf("   parsed function declaration %s\n",name);
     if (!lexer_accept(";")) {
@@ -783,9 +760,9 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         function_frame_size = 0;
         //printf("==%i\n",previous_variable_count);
         //dump_variables();
-        compile_function_open(name, arg_count);
+        compile_function_open(global_name(global), arg_count);
         parse_block();
-        compile_function_close(name, arg_count, function_frame_size);
+        compile_function_close(global_name(global), arg_count, function_frame_size);
 
         // output any strings that were used in the function
         parse_output_strings();
