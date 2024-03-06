@@ -25,6 +25,7 @@
 set -e
 mkdir -p build
 mkdir -p build/intermediate
+mkdir -p build/intermediate/cci-1-opc
 
 # TODO implement @file in cc. each build program can have a `ccargs` file which
 # contains arguments to the compiler.
@@ -81,7 +82,7 @@ onrampvm build/intermediate/cc/cc.oe \
 
 echo Linking cci/1-opc
 onrampvm build/intermediate/ld-1-omc/ld.oe \
-    build/intermediate/libc-0-oo/libc.oa \
+    build/intermediate/libc-1-omc/libc.oa \
     build/intermediate/libo-0-oo/libo.oa \
     build/intermediate/cci-1-opc/common.oo \
     build/intermediate/cci-1-opc/compile.oo \

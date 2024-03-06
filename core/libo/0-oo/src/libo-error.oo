@@ -147,11 +147,9 @@
 ; - The string "ERROR" is printed;
 ; - If there is a current filename, it is printed;
 ; - If there is also a non-zero line number, it is printed.
-;
-; TODO make this global, put it in headers, cci/1 needs to use it to implement fatal_2() etc.
 ; ==========================================================
 
-@fatal_prefix
+=fatal_prefix
 
 ; uncomment to get a stack trace instead of an error message
 ;FF FF FF FF

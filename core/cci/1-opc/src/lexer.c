@@ -50,30 +50,30 @@ static size_t lexer_token_capacity;
 FILE* lexer_file;
 
 const char* lexer_type_to_string(lexer_type_t type) {
-    switch (type) {
-        case lexer_type_alphanumeric: return "lexer_type_alphanumeric";
-        case lexer_type_number: return "lexer_type_number";
-        case lexer_type_character: return "lexer_type_character";
-        case lexer_type_string: return "lexer_type_string";
-        case lexer_type_punctuation: return "lexer_type_punctuation";
-        case lexer_type_end: return "lexer_type_end";
-        default: break;
-    }
+    if (type == lexer_type_alphanumeric) {return "lexer_type_alphanumeric";}
+    if (type == lexer_type_number) {return "lexer_type_number";}
+    if (type == lexer_type_character) {return "lexer_type_character";}
+    if (type == lexer_type_string) {return "lexer_type_string";}
+    if (type == lexer_type_punctuation) {return "lexer_type_punctuation";}
+    if (type == lexer_type_end) {return "lexer_type_end";}
     return "<unknown lexer type>";
 }
 
+// TODO move to libo
 // Returns true if the given character is valid for an alphanumeric token (i.e.
 // a keyword or an identifier.)
 static bool lexer_is_alphanumeric(int c, bool first) {
-    if (c == EOF)
+    if (c == EOF) {
         return false;
+    }
 
     // The first character of an alphanumeric cannot be a numerical digit.
-    if (first && isdigit(c))
+    if (!!first & !!isdigit(c)) {
         return false;
+    }
 
     // Note, we allow $ as an extension for compatibility with GNU C.
-    return isalnum(c) || c == '_' || c == '$';
+    return isalnum(c) | ((c == '_') | (c == '$'));
 }
 
 // Reads the next character, placing it in lexer_char and returning it.
@@ -86,28 +86,6 @@ static int lexer_read_char(void) {
 static bool lexer_is_end_of_line(int c) {
     return ((c == '\n') | (c == '\r')) | (c == -1);
 }
-
-#if 0
-// Appends the given character to the given string, which has the given current
-// capacity and length. The string will be reallocated as necessary.
-static void lexer_append(char** string, size_t* capacity, size_t length, char c) {
-    if (length == *capacity) {
-        // not enough room for the additional character; we need to reallocate
-        size_t new_capacity = *capacity * 2 + 8;
-        *string = realloc(*string, new_capacity);
-        if (*string == NULL || new_capacity < *capacity) {
-            fatal("Out of memory");
-        }
-        *capacity = new_capacity;
-    }
-
-    (*string)[length] = c;
-}
-
-static void lexer_token_append(size_t length, char c) {
-    lexer_append(&lexer_token, &lexer_token_capacity, length, c);
-}
-#endif
 
 // TODO don't take length here, we're making each individual token type track
 // its own size, should just have a global lexer_token_size, could also expose
@@ -128,7 +106,7 @@ static void lexer_token_append(size_t length, char c) {
 
         // Not enough room for the additional character; we need to reallocate.
         // Calculate new size
-        size_t new_capacity = lexer_token_capacity * 3 / 2;
+        size_t new_capacity = ((lexer_token_capacity * 3) / 2);
         if (new_capacity < lexer_token_capacity) {
             // overflow
             fatal("Out of memory");
@@ -139,13 +117,13 @@ static void lexer_token_append(size_t length, char c) {
 
         // Reallocate
         lexer_token = realloc(lexer_token, new_capacity);
-        if (lexer_token == NULL || new_capacity < lexer_token_capacity) {
+        if ((lexer_token == NULL) | (new_capacity < lexer_token_capacity)) {
             fatal("Out of memory");
         }
         lexer_token_capacity = new_capacity;
     }
 
-    lexer_token[length] = c;
+    *(lexer_token + length) = c;
 }
 
 void lexer_init(const char* filename) {
@@ -186,41 +164,31 @@ void lexer_destroy(void) {
 // In the opC stage we just don't allow unicode/numerical escape sequences.
 static char lexer_consume_escape_sequence(void) {
     int c = lexer_read_char();
-    switch (c) {
-        // These definitions look circular but they're not: we're
-        // relying on the definition of these escape sequences from
-        // the previous stage compiler.
-        case 'a':    return '\a';   // bell
-        case 'b':    return '\b';   // backspace
-        case 't':    return '\t';   // horizontal tab
-        case 'n':    return '\n';   // line feed
-        case 'v':    return '\v';   // vertical tab
-        case 'f':    return '\f';   // form feed
-        case 'r':    return '\r';   // carriage return
-        case 'e':    return 27;     // escape (extension, not standard C)
-        case '"':    return '"';    // double quote
-        case '\'':   return '\'';   // single quote
-        case '?':    return '?';    // question mark
-        case '\\':   return '\\';   // backslash
 
-        case '0':
-            // TODO parse octal, this is not supposed to be just null.
-            // IIRC it's supposed to be followed by exactly three octal
-            // digits but GCC allows less, which is why \0 with no
-            // additional digits is zero (I think?)
-        // fallthrough
-        case 'X': //fallthrough
-        case 'u': //fallthrough
-        case 'U': //fallthrough
-            fatal("Numeric/unicode escape sequences are not yet supported");
-            break;
+    // These definitions look circular but they're not: we're relying on the
+    // definition of these escape sequences from the previous stage compiler.
+    if (c == 'a')   {return '\a';}   // bell
+    if (c == 'b')   {return '\b';}   // backspace
+    if (c == 't')   {return '\t';}   // horizontal tab
+    if (c == 'n')   {return '\n';}   // line feed
+    if (c == 'v')   {return '\v';}   // vertical tab
+    if (c == 'f')   {return '\f';}   // form feed
+    if (c == 'r')   {return '\r';}   // carriage return
+    if (c == 'e')   {return 27;}     // escape (extension, not standard C)
+    if (c == '"')   {return '"';}    // double quote
+    if (c == '\'')  {return '\'';}   // single quote
+    if (c == '?')   {return '?';}    // question mark
+    if (c == '\\')  {return '\\';}   // backslash
 
-        default:
-            fatal("Unrecognized escape sequence");
-            break;
+    if (c == '0') {
+        // TODO parse octal, this is not supposed to be just null.
+        // IIRC it's supposed to be followed by exactly three octal
+        // digits but GCC allows less, which is why \0 with no
+        // additional digits is zero (I think?)
     }
 
-    assert(0);
+    // We don't bother to support X, u and U in opC.
+    fatal("Unrecognized escape sequence");
 }
 
 static void lexer_consume_string_literal(void) {
@@ -245,11 +213,13 @@ static void lexer_consume_string_literal(void) {
             c = lexer_consume_escape_sequence();
         }
 
-        lexer_token_append(size++, c);
+        lexer_token_append(size, c);
+        size = (size + 1);
     }
 
     // Append null-terminator
-    lexer_token_append(size++, 0);
+    lexer_token_append(size, 0);
+    size = (size + 1);
 }
 
 static void lexer_consume_char_literal(void) {
@@ -261,7 +231,6 @@ static void lexer_consume_char_literal(void) {
         fatal("Empty char literal is not allowed.");
     }
     if (lexer_is_end_of_line(c)) {
-        printf("%i\n",c);
         fatal("Unclosed character literal.");
     }
     if (c == '\\') {
@@ -287,10 +256,10 @@ static void lexer_consume_string_char_literal(void) {
     if (lexer_char == '"') {
         lexer_type = lexer_type_string;
         lexer_consume_string_literal();
-    } else {
-        lexer_type = lexer_type_character;
-        lexer_consume_char_literal();
+        return;
     }
+    lexer_type = lexer_type_character;
+    lexer_consume_char_literal();
 }
 
 static void lexer_consume_optional_horizontal_whitespace(void) {
@@ -306,23 +275,28 @@ static void lexer_consume_horizontal_whitespace(void) {
     lexer_consume_optional_horizontal_whitespace();
 }
 
-static int lexer_consume_end_of_line(void) {
+static void lexer_consume_end_of_line(void) {
     int c = lexer_char;
     if (c == '\n') {
-        ++lexer_line;
-        c = lexer_read_char();
-    } else if (c == '\r') {
-        ++lexer_line;
+        lexer_line = (lexer_line + 1);
+        lexer_read_char();
+        return;
+    }
+
+    if (c == '\r') {
+        lexer_line = (lexer_line + 1);
         c = lexer_read_char();
         if (c == '\n') {
-            c = lexer_read_char();
+            lexer_read_char();
         }
-    } else if (c == -1) {
-        // nothing
-    } else {
-        fatal("Expected end of line.");
+        return;
     }
-    return c;
+
+    if (c == -1) {
+        return;
+    }
+
+    fatal("Expected end of line.");
 }
 
 static void lexer_consume_whitespace(void) {
@@ -331,11 +305,12 @@ static void lexer_consume_whitespace(void) {
     char c = (char)lexer_char;
     while (isspace(c)) {
         if ((c == '\n') | (c == '\r')) {
-            c = lexer_consume_end_of_line();
+            lexer_consume_end_of_line();
             emit_line_increment_directive();
-        } else {
-            c = lexer_read_char();
+            c = (char)lexer_char;
+            continue;
         }
+        c = lexer_read_char();
     }
 }
 
@@ -430,27 +405,6 @@ static void lexer_consume_whitespace_and_directives(void) {
 }
 
 void lexer_consume(void) {
-    #if 0
-    extern void lexer_consume2();
-    lexer_consume2();
-    //printf("      new token is %s\n",lexer_token);
-}
-void lexer_consume2(void) {
-            //extern void lexer_consume_impl();lexer_consume_impl();printf("      lexer token: %s\n",lexer_token);}void lexer_consume_impl(void) {
-//if (lexer_token != NULL) {printf("      consuming %s\n",lexer_token);}
-#endif
-
-    // Whitespace
-    #if 0
-    if (isspace(c)) {
-        lexer_token[0] = ' ';
-        lexer_token[1] = 0;
-        do {
-            c = lexer_read_char();
-        } while (isspace(c));
-        return;
-    }
-    #endif
 
     // Skip whitespace and handle #line directives. This brings us to the start
     // of the next real token.
@@ -465,28 +419,17 @@ void lexer_consume2(void) {
 
     char c = (char)lexer_char;
 
-    // Symbol or prefixed string/character literal
-    // TODO probably drop all this crap in the first two stages
+    // Symbol
     if (lexer_is_alphanumeric(c, true)) {
         size_t len = 0;
-        do {
-            lexer_token_append(len++, c);
+        while (1) {
+            lexer_token_append(len, c);
+            len = (len + 1);
             c = lexer_read_char();
-
-            // Check for a prefixed string (e.g. u8"Hello", L"World")
-            if (c == '"' || c == '\'') {
-                // Make sure the prefix is supported
-                // TODO parse this into char_prefix_t
-                if (!((len == 1 && strchr("uUL", lexer_token[0])) ||
-                        (len == 2 && 0 == memcmp(lexer_token, "u8", 2)))) {
-                    fatal("Unexpected single/double quote (or unsupported string/character literal prefix)");
-                }
-
-                // Parse it
-                lexer_consume_string_char_literal();
-                return;
+            if (!lexer_is_alphanumeric(c, false)) {
+                break;
             }
-        } while (lexer_is_alphanumeric(c, false));
+        }
 
         lexer_token_append(len, 0);
         lexer_type = lexer_type_alphanumeric;
@@ -494,7 +437,7 @@ void lexer_consume2(void) {
     }
 
     // Unprefixed string/character literal
-    if (c == '"' || c == '\'') {
+    if ((c == '"') | (c == '\'')) {
         lexer_consume_string_char_literal();
         return;
     }
@@ -504,11 +447,15 @@ void lexer_consume2(void) {
         size_t len = 0;
 
         // TODO for now we just glob all alphanum characters plus the dot for
-        // floats. This might not need to be a TODO,
-        do {
-            lexer_token_append(len++, c);
+        // floats.
+        while (1) {
+            lexer_token_append(len, c);
+            len = (len + 1);
             c = lexer_read_char();
-        } while (isalnum(c) || c == '.');
+            if (!isalnum(c) & (c != '.')) {
+                break;
+            }
+        }
 
         lexer_token_append(len, 0);
         lexer_type = lexer_type_number;
@@ -519,19 +466,21 @@ void lexer_consume2(void) {
     if (NULL != strchr("+-*/%&|^!~<>=()[]{}.?:,;", c)) {
         size_t len = 1;
         lexer_token_append(0, c);
+        char c0 = c;
         c = lexer_read_char();
+        char c1 = c;
 
         // Two-character operators
-        if ((c == '=' && NULL != strchr("+-*/%&|^!<>=", lexer_token[0])) ||           // +=, &=, <=, etc.
-                (c == lexer_token[0] && NULL != strchr("+-&|<>", lexer_token[0])) ||  // ++, &&, <<, etc.
-                (c == '>' && lexer_token[0] == '-'))                                  // ->
-        {
+        bool is_assign = ((c1 == '=') & (NULL != strchr("+-*/%&|^!<>=", c0)));
+        bool is_double = ((c0 == c1) & (NULL != strchr("+-&|<>", c0)));
+        bool is_pointer = ((c0 == '-') & (c1 == '>'));
+        if ((is_assign | is_double) | is_pointer) {
             lexer_token_append(1, c);
             c = lexer_read_char();
             len = 2;
 
             // Three-character operations
-            if (c == '=' && (lexer_token[1] == '<' || lexer_token[1] == '>')) {   // <<=, >>=
+            if ((c == '=') & ((c1 == '<') | (c1 == '>'))) {   // <<=, >>=
                 lexer_token_append(2, c);
                 c = lexer_read_char();
                 len = 3;
@@ -543,43 +492,6 @@ void lexer_consume2(void) {
         return;
     }
 
-    #if 0
-    // Three character operators
-    if (lexer_char == lexer_token[0] && lexer_char == '<' || lexer_char == '>') {
-        lexer_token[1] = lexer_char;
-        lexer_read_char();
-        if (lexer_char == "=") {
-            // <<= or >>=
-            lexer_token[2] = lexer_char;
-            lexer_read_char();
-            lexer_token[3] = 0;
-        } else {
-            // << or >>
-            lexer_token[2] = 0;
-        }
-        return;
-    }
-
-    // Two character operators
-    if ((lexer_char == '=' && NULL != strchr("+-*/%&|^!<>=", lexer_token[0])) ||           // +=, &=, <=, etc.
-            (lexer_char == lexer_token[0] && NULL != strchr("+-&|", lexer_token[0])) ||    // ++, --, &&, etc.
-            (lexer_char == '>' && lexer_token[0] == '-'))                                  // ->
-    {
-        lexer_token[0] = lexer_char;
-        lexer_read_char();
-        lexer_token[1] = lexer_char;
-        lexer_read_char();
-        lexer_token[2] = 0;
-        return;
-    }
-
-    // Single character operators
-    if (NULL != strchr("+-*/%&|^!~<>=()[].?:,", lexer_token[0])) {
-        lexer_token[1] = 0;
-        return;
-    }
-    #endif
-
     // Fail
 //printf("      Unexpected character: %i\n", c);
     lexer_token_append(0, c);
@@ -588,9 +500,9 @@ void lexer_consume2(void) {
 }
 
 bool lexer_is(const char* token) {
-    if (lexer_type == lexer_type_string ||
-        lexer_type == lexer_type_character ||
-        lexer_type == lexer_type_end)
+    if (((lexer_type == lexer_type_string) |
+        (lexer_type == lexer_type_character)) |
+        (lexer_type == lexer_type_end))
     {
         return false;
     }
@@ -601,7 +513,8 @@ void lexer_expect(const char* token, const char* error_message) {
     if (!lexer_is(token)) {
         if (error_message) {
             fatal(error_message);
-        } else {
+        }
+        if (!error_message) {
             fatal_2("Expected ", token);
         }
     }

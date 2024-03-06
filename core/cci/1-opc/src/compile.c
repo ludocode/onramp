@@ -6,40 +6,10 @@
 #include "emit.h"
 #include "variable.h"
 
-#if 0
-// This tracks the maximum extent of the total number of variables throughout a
-// function. It lets us calculate its frame size.
-// TODO: remove this, track this in parse when a block closes, just call it
-// parse_function_size
-static int compile_function_max_variable_count;
-
-/**
- * The current scope depth. Global variables are at scope 0. A function's
- * arguments and top-level variables are at scope 1. Nested blocks are at
- * deeper scopes.
- */
-static int compile_scope;
-
-/**
- * The number of variables at each scope depth.
- *
- * This is used to pop variables when a scope ends.
- *
- * TODO get rid of this. block scope variable counts should be stored on the
- * stack. compile shouldn't have anything to do with this anyway, it should be
- * strictly codegen, parse should pop vars.
- */
-static int* compile_scope_variable_count;
-#endif
-
-#define COMPILE_SCOPE_MAX 16
-
 void compile_init(void) {
-    //compile_scope_variable_count = malloc(COMPILE_SCOPE_MAX * 4);
 }
 
 void compile_destroy(void) {
-    //free(compile_scope_variable_count);
 }
 
 void compile_set_enabled(bool enabled) {
@@ -55,11 +25,13 @@ void compile_global_variable(const type_t* type, const char* name) {
     emit_newline();
 
     int size = type_size(type);
-    for (int i = 0; i < size; ++i) {
-        if (i > 0 && ((i % 16) == 0)) { // TODO this isn't necessary in cci/0, only supports char and int
+    int i = 0;
+    while (i < size) {
+        if ((i > 0) & ((i & 15) == 0)) {
             emit_newline();
         }
         emit_quoted_byte(0x00);
+        i = (i + 1);
     }
     emit_newline();
     emit_global_divider();
@@ -81,12 +53,20 @@ void compile_function_open(const char* name, int arg_count) {
 
     // the first four arguments arrive in registers, the rest come on the
     // stack. we copy them to their new offsets.
-    for (int i = 0; i < arg_count; ++i) {
-        if (i > 4) {
+    int i = 0;
+    while (i < arg_count) {
+        if (i < 4) {
+            emit_term("stw");
+            emit_register(i);
+            emit_term("rfp");
+            emit_int(-(i + 1) * 4);
+            emit_newline();
+        }
+        if (i >= 4) {
             emit_term("ldw");
             emit_term("r9");
             emit_term("rfp");
-            emit_int((i - 4) * 4);
+            emit_int((i - 3) * 4);
             emit_newline();
 
             emit_term("stw");
@@ -94,13 +74,8 @@ void compile_function_open(const char* name, int arg_count) {
             emit_term("rfp");
             emit_int(-(i + 1) * 4);
             emit_newline();
-        } else {
-            emit_term("stw");
-            emit_register(i);
-            emit_term("rfp");
-            emit_int(-(i + 1) * 4);
-            emit_newline();
         }
+        i = (i + 1);
     }
 }
 
@@ -193,26 +168,6 @@ type_t* compile_character_literal(char c) {
     return type_new(TYPE_BASIC_INT, 0);
 }
 
-#if 0
-void compile_block_open(void) {
-    if (compile_scope == COMPILE_SCOPE_MAX) {
-        fatal("Maximum block depth exceeded.");
-    }
-    compile_scope_variable_count[compile_scope] = variable_count;
-    ++compile_scope;
-}
-
-void compile_block_close(void) {
-    // TODO remove this whole function, do this in parse
-    //printf("closing block, %i vars\n", variable_count);
-    if (variable_count > compile_function_max_variable_count) {
-        compile_function_max_variable_count = variable_count;
-    }
-    --compile_scope;
-    variable_pop(compile_scope_variable_count[compile_scope]);
-}
-#endif
-
 type_t* compile_variable(const char* name) {
 
     // find the variable
@@ -234,14 +189,17 @@ type_t* compile_variable(const char* name) {
         emit_term("rpp");
         emit_term("r0");
 
-    } else if (offset < 0x80) {
+    }
+
+    if (!(offset == 0) & !(offset >= 0x80)) {
         // the offset fits in a mix-type byte
         emit_term("add");
         emit_term("r0");
         emit_term("rfp");
         emit_int(offset);
+    }
 
-    } else {
+    if (offset >= 0x80) {
         // the offset needs to go in a temporary register
         emit_term("imw");
         emit_term("r0");
@@ -252,11 +210,12 @@ type_t* compile_variable(const char* name) {
         emit_term("rfp");
         emit_term("r0");
     }
+
     emit_newline();
 
     // return it as an lvalue
     type_t* ret = type_new_blank();
-    *ret = *type | TYPE_FLAG_LVALUE;
+    *ret = (*type | TYPE_FLAG_LVALUE);
     return ret;
 }
 
@@ -280,47 +239,17 @@ void compile_string_literal_definition(int label_index, const char* string) {
     emit_newline();
 }
 
-#if 0
-static void compile_load_or_store(const char* name, bool load) {
-
-    // find the variable
-    variable_t* variable = scope_find(name);
-    if (variable == 0) {
-        fatal_2("Undeclared variable", name);
-    }
-
-    // emit the correct load/store instruction
-    if (type_size(variable->type) == 1) {
-        emit_term(load ? "ldb" : "stb");
-    } else {
-        emit_term(load ? "ldw" : "stw");
-    }
-
-    // load it into r0
-    emit_term("r0");
-    emit_label('^', name);
-    emit_newline();
-
-}
-
-void compile_load(const char* name) {
-    compile_load_or_store(name, true);
-}
-
-void compile_store(const char* name) {
-    compile_load_or_store(name, false);
-}
-#endif
-
 /**
  * Emits code to dereference the value of the given type stored in the given
  * register.
  */
 void compile_dereference(type_t* type, int register_num) {
-    if (type_size(type) == 1) {
+    int size = type_size(type);
+    if (size == 1) {
         //printf("compiling ldb for %x\n",type);
         emit_term("ldb");
-    } else {
+    }
+    if (size == 4) {
         emit_term("ldw");
     }
     emit_register(register_num);
@@ -331,7 +260,7 @@ void compile_dereference(type_t* type, int register_num) {
 
 type_t* compile_dereference_if_lvalue(type_t* type, int register_num) {
     if (*type & TYPE_FLAG_LVALUE) {
-        *type &= ~TYPE_FLAG_LVALUE;
+        *type = (*type & ~TYPE_FLAG_LVALUE);
         compile_dereference(type, register_num);
     }
     return type;
@@ -346,7 +275,7 @@ type_t* compile_assign(type_t* left, type_t* right) {
 
     // If the right is an lvalue, dereference it.
     if (*right & TYPE_FLAG_LVALUE) {
-        *right &= ~TYPE_FLAG_LVALUE;
+        *right = (*right & ~TYPE_FLAG_LVALUE);
         compile_dereference(right, 0);
     }
 
@@ -359,7 +288,8 @@ type_t* compile_assign(type_t* left, type_t* right) {
     // assign stores the right value into the left.
     if (size == 1) {
         emit_term("stb");
-    } else {
+    }
+    if (size == 4) {
         emit_term("stw");
     }
     emit_term("r0");
@@ -435,10 +365,12 @@ type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
     }
 
     // Compute the result into r0
-    if (add)
+    if (add) {
         emit_term("add");
-    else
+    }
+    if (!add) {
         emit_term("sub");
+    }
     emit_term("r0");
     emit_term("r1");
     emit_term("r0");

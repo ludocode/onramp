@@ -33,27 +33,30 @@ void variable_add(char* name, type_t* type, bool global) {
     if (variable_count == VARIABLE_MAX) {
         fatal("Too many variables.");
     }
-    variable_names[variable_count] = name;
-    variable_types[variable_count] = type;
+    *(variable_names + variable_count) = name;
+    *(variable_types + variable_count) = type;
 
     if (global) {
-        variable_offsets[variable_count] = 0;
-        ++variable_global_count;
-    } else {
-        variable_offsets[variable_count] =
-            -((variable_count - variable_global_count) + 1) * 4;
+        *(variable_offsets + variable_count) = 0;
+        variable_global_count = (variable_global_count + 1);
+    }
+    if (!global) {
+        *(variable_offsets + variable_count) =
+            (-((variable_count - variable_global_count) + 1) * 4);
     }
 
     //printf("    adding variable %s with offset %i\n", name, variable_offsets[variable_count]);
-    ++variable_count;
+    variable_count = (variable_count + 1);
 }
 
 void variable_pop(int previous_variable_count) {
     //printf("popping variables to %i\n", variable_count);
-    for (int i = previous_variable_count; i < variable_count; ++i) {
+    int i = previous_variable_count;
+    while (i < variable_count) {
         //printf("    popping variable %s\n", variable_names[i]);
-        free(variable_names[i]);
-        type_delete(variable_types[i]);
+        free(*(variable_names + i));
+        type_delete(*(variable_types + i));
+        i = (i + 1);
     }
     variable_count = previous_variable_count;
 }
@@ -64,13 +67,13 @@ bool variable_find(const char* name, const type_t** type, int* offset) {
     int i = variable_count;
     while (i > 0) {
         i = (i - 1);
-        if (0 != strcmp(variable_names[i], name)) {
+        if (0 != strcmp(*(variable_names + i), name)) {
             continue;
         }
 
         // Found.
-        *type = variable_types[i];
-        *offset = variable_offsets[i];
+        *type = *(variable_types + i);
+        *offset = *(variable_offsets + i);
         return true;
     }
 
@@ -84,6 +87,7 @@ int variable_local_size(void) {
 }
 
 void dump_variables(void) {
+    /*
     printf("%i variables\n", variable_count);
     for (int i = 0; i < variable_count; ++i) {
         fputs("  ", stdout);
@@ -92,4 +96,5 @@ void dump_variables(void) {
         printf("%i", variable_offsets[i]);
         putchar('\n');
     }
+    */
 }

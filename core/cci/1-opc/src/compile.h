@@ -36,18 +36,6 @@ void compile_function_open(const char* name, int arg_count);
  */
 void compile_function_close(const char* name, int arg_count, int frame_size);
 
-#if 0
-/**
- * Compiles the start of a block, pushing a new scope.
- */
-void compile_block_open(void);
-
-/**
- * Compiles the end of a block, popping the top-most scope.
- */
-void compile_block_close(void);
-#endif
-
 /**
  * Compiles a binary operation.
  *

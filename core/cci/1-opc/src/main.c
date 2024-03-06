@@ -11,8 +11,10 @@
 #include "variable.h"
 
 static void usage(const char* name) {
-    printf("\nUsage: %s <input_file> -o <output_file>\n", name);
-    exit(EXIT_FAILURE);
+    fputs("\nUsage: ", stderr);
+    fputs(name, stderr);
+    fputs(" <input_file> -o <output_file>\n", stderr);
+    _Exit(1);
 }
 
 int main(int argc, const char** argv) {
@@ -23,41 +25,48 @@ int main(int argc, const char** argv) {
     // parse command-line options
     const char* input_filename = NULL;
     const char* output_filename = NULL;
-    for (int i = 1; i < argc; ++i) {
+    int i = 1;
+    while (i < argc) {
+
         // output
-        if (0 == strcmp("-o", argv[i])) {
+        if (0 == strcmp("-o", *(argv + i))) {
             if (output_filename != NULL) {
                 puts("ERROR: -o cannot be specified twice.");
-                usage(argv[0]);
+                usage(*argv);
             }
-            if (++i == argc) {
+            i = (i + 1);
+            if (i == argc) {
                 puts("ERROR: -o must be followed by a filename.");
-                usage(argv[0]);
+                usage(*argv);
             }
-            output_filename = argv[i];
+            output_filename = *(argv + i);
+            i = (i + 1);
+            continue;
+        }
 
-        // unrecognized argument
-        } else if (argv[i][0] == '-') {
-            printf("ERROR: Unsupported option: %s", argv[i]);
-            usage(argv[0]);
+        // unrecognized option
+        if (**(argv + i) == '-') {
+            fputs("ERROR: Unsupported option: ", stderr);
+            fputs(*(argv + i), stderr);
+            usage(*argv);
+        }
 
         // input
-        } else {
-            if (input_filename != NULL) {
-                puts("ERROR: only one input filename can be provided.");
-                usage(argv[0]);
-            }
-            input_filename = argv[i];
+        if (input_filename != NULL) {
+            puts("ERROR: only one input filename can be provided.");
+            usage(*argv);
         }
+        input_filename = *(argv + i);
+        i = (i + 1);
     }
 
     if (input_filename == NULL) {
         fputs("ERROR: Input filename not specified.", stderr);
-        usage(argv[0]);
+        usage(*argv);
     }
     if (output_filename == NULL) {
         fputs("ERROR: Output filename not specified.", stderr);
-        usage(argv[0]);
+        usage(*argv);
     }
 
     emit_init(output_filename);

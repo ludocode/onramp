@@ -36,6 +36,13 @@ extern int current_line;
 void set_current_filename(const char* filename);
 
 /**
+ * Prints the prefix for a fatal error message.
+ *
+ * This can be used for custom formatting of an error message.
+ */
+void fatal_prefix(void);
+
+/**
  * Prints the given formatted error message along with the current file and
  * line and exits the program.
  */

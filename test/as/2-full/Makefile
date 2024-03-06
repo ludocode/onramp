@@ -38,6 +38,7 @@ SRCS=\
 	$(LIBO)/src/libo-string.c \
 	$(LIBO)/src/libo-table.c \
 	$(LIBO)/src/libo-util.c \
+	$(LIBO)/src/libo-vector.c \
 	\
 	$(SRC)/src/common.c \
 	$(SRC)/src/emit.c \

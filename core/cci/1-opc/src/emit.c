@@ -2,6 +2,7 @@
 
 #include <ctype.h>
 #include <stdbool.h>
+#include <limits.h>
 #include <stdlib.h>
 
 #include "common.h"
@@ -24,30 +25,35 @@ static bool emit_enabled;
  */
 
 void emit_char(char c) {
-    if (!emit_enabled)
+    if (!emit_enabled) {
         return;
+    }
     fputc(c, output_file);
 }
 
 void emit_string(const char* c) {
-    if (!emit_enabled)
+    if (!emit_enabled) {
         return;
+    }
     fputs(c, output_file);
 }
 
+// TODO move to libo
 static char int_to_hex(int value) {
-    if (value <= 9)
+    if (value <= 9) {
         return '0' + value;
-    if (value <= 15)
-        return 'A' + value - 10;
+    }
+    if (value <= 15) {
+        return 'A' + (value - 10);
+    }
     fatal("Internal error: invalid hex value");
 }
 
-static void emit_hex_char(uint8_t nibble) {
+static void emit_hex_char(char nibble) {
     emit_char(int_to_hex(nibble));
 }
 
-static void emit_hex_byte(uint8_t byte) {
+static void emit_hex_byte(char byte) {
     emit_hex_char(byte >> 4);
     emit_hex_char(byte & 0xF);
 }
@@ -67,8 +73,9 @@ static void emit_hex_number(int number) {
 static bool is_string_char_valid_assembly(char c) {
 
     // these characters are invalid in a string in Onramp assembly
-    if (c == '\\' || c == '"')
+    if ((c == '\\') | (c == '"')) {
         return false;
+    }
 
     // otherwise it must be a printable character
     return isprint(c);
@@ -104,13 +111,41 @@ void emit_term(const char* keyword) {
 }
 
 void emit_register(int index) {
-    static const char* register_names[] = {
-        "r0", "r1", "r2", "r3",
-        "r4", "r5", "r6", "r7",
-        "r8", "r9", "ra", "rb",
-        "rsp", "rfp", "rpp", "rip",
-    };
-    emit_term(register_names[index]);
+    if (index < 10) {
+        emit_char('r');
+        emit_char('0' + index);
+        emit_char(' ');
+        return;
+    }
+
+    if (index < 12) {
+        emit_char('r');
+        emit_char('a' + (index - 10));
+        emit_char(' ');
+        return;
+    }
+
+    if (index == 12) {
+        emit_term("rsp");
+        return;
+    }
+
+    if (index == 13) {
+        emit_term("rfp");
+        return;
+    }
+
+    if (index == 14) {
+        emit_term("rpp");
+        return;
+    }
+
+    if (index == 15) {
+        emit_term("rip");
+        return;
+    }
+
+    fatal("Internal error: invalid register number.");
 }
 
 void emit_label(char type, const char* label_name) {
@@ -133,14 +168,14 @@ void emit_computed_label(char type, const char* prefix, int label) {
     emit_char(' ');
 }
 
-void emit_decimal(int32_t number) {
+static void emit_decimal(int number) {
 
     // special cases
     if (number == 0) {
         emit_char('0');
         return;
     }
-    if (number == INT32_MIN) {
+    if (number == INT_MIN) {
         emit_string("-2147483648");
         return;
     }
@@ -168,7 +203,7 @@ void emit_decimal(int32_t number) {
     emit_string(buf + i);
 }
 
-void emit_int(int32_t value) {
+void emit_int(int value) {
 
     // For small ints we emit in decimal because it's shorter than hex and
     // easier to read. (Negative ints will always be 10 hex characters so it's
@@ -190,7 +225,7 @@ void emit_int(int32_t value) {
     emit_char(' ');
 }
 
-void emit_quoted_byte(uint8_t byte) {
+void emit_quoted_byte(char byte) {
     emit_char('\'');
     emit_hex_byte(byte);
 }
@@ -198,7 +233,8 @@ void emit_quoted_byte(uint8_t byte) {
 void emit_string_literal(const char* str) {
     bool open = false;
 
-    for (char c = *str; c; ++str, c = *str) {
+    char c = *str;
+    while (c) {
         bool valid = is_string_char_valid_assembly(c);
         if (valid != open) {
             emit_char('"');
@@ -206,9 +242,13 @@ void emit_string_literal(const char* str) {
         }
         if (valid) {
             emit_char(c);
-        } else {
+        }
+        if (!valid) {
             emit_quoted_byte(c);
         }
+
+        str = (str + 1);
+        c = *str;
     }
 
     if (open) {
@@ -221,9 +261,9 @@ void emit_character_literal(char c) {
         emit_char('"');
         emit_char(c);
         emit_char('"');
-    } else {
-        emit_quoted_byte(c);
+        return;
     }
+    emit_quoted_byte(c);
 }
 
 void emit_init(const char* output_filename) {

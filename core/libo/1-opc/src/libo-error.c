@@ -31,6 +31,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "libo-util.h"
+
 const char error_out_of_memory[] = "Out of memory.";
 char* current_filename = NULL;
 int current_line = 0;
@@ -45,15 +47,23 @@ void set_current_filename(const char* filename) {
     }
 }
 
-static void print_error(const char* prefix, const char* format, va_list args) {
-    fputs(prefix, stderr);
+static void error_prefix(const char* type) {
+    fputs(type, stderr);
     if (current_filename != NULL) {
         fputs(" at ", stderr);
         fputs(current_filename, stderr);
         fputc(':', stderr);
-        fprintf(stderr, "%i", current_line);
+        fputd(current_line, stderr);
     }
     fputs(": ", stderr);
+}
+
+void fatal_prefix(void) {
+    error_prefix("ERROR");
+}
+
+static void print_error(const char* type, const char* format, va_list args) {
+    error_prefix(type);
     vfprintf(stderr, format, args);
     fputc('\n', stderr);
 }

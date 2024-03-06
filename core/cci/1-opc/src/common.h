@@ -27,6 +27,9 @@
 
 #include <stdbool.h>
 
+#include "libo-error.h"
+#include "libo-util.h"
+
 #include "type.h"
 
 #define JUMP_LABEL_PREFIX     "_Lx"
@@ -35,13 +38,17 @@
 
 
 
-// Functions for signaling a fatal error. We don't have variadic functions so
-// we use this workaround instead. Each message is printed to stderr, then a
-// newline is printed to stderr, then the compiler exits with status 1.
 
-// TODO this conflicts with libo fatal()
-_Noreturn
-void fatal(const char* message);
+// We don't have structs so we can't forward-declare them. We have to put
+// these typedefs here instead.
+
+typedef void record_t;
+//typedef void type_t; //TODO
+
+
+
+// Functions for signaling a fatal error. We don't have variadic functions so
+// we use this workaround instead. The messages are all concatenated.
 
 _Noreturn
 void fatal_2(const char* message_1, const char* message_2);
@@ -54,10 +61,12 @@ _Noreturn
 void fatal_4(const char* message_1, const char* message_2,
         const char* message_3, const char* message_4);
 
+// TODO we should put a real assert in libc/0
 #ifdef __GNUC__
     #undef NDEBUG
     #include <assert.h>
-#else
+#endif
+#ifndef __GNUC__
     void assert(bool x);
 #endif
 

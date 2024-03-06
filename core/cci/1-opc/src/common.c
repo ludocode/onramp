@@ -29,72 +29,9 @@
 
 #include "lexer.h"
 
-#if 0
-scope_t* current_scope;
-function_t* functions;
-
-void variable_destroy(variable_t* variable) {
-    free(variable->name);
-}
-
-void function_destroy(function_t* function) {
-    free(function->name);
-    free(function->args);
-}
-
-void scope_push(void) {
-    scope_t* scope = (scope_t*)malloc(sizeof(scope_t));
-    scope->container = current_scope;
-    scope->variables = NULL;
-    current_scope = scope;
-}
-
-void scope_pop(void) {
-    scope_t* scope = current_scope;
-    current_scope = scope->container;
-    for (variable_t* variable = scope->variables; variable != NULL;) {
-        variable_t* next = variable->next;
-        free(variable);
-        variable = next;
-    }
-    free(scope);
-}
-
-void scope_add(type_t type, char* name, bool local) {
-    variable_t* variable = (variable_t*)malloc(sizeof(variable_t));
-    variable->next = current_scope->variables;
-    variable->type = type;
-    variable->name = name;
-    if (local) {
-        if (variable->next == NULL)
-            variable->offset = -4;
-        else
-            variable->offset = variable->next->offset - 4;
-    } else {
-        variable->offset = 0;
-    }
-    current_scope->variables = variable;
-}
-
-variable_t* scope_find(const char* name) {
-    for (scope_t* scope = current_scope; scope; scope = scope->container) {
-        for (variable_t* variable = scope->variables; variable; variable = variable->next) {
-            if (0 == strcmp(name, variable->name)) {
-                return variable;
-            }
-        }
-    }
-    return 0;
-}
-#endif
-
 /*
  * Fatal error functions
  */
-
-void fatal(const char* message) {
-    fatal_4(message, "", "", "");
-}
 
 void fatal_2(const char* message_1, const char* message_2) {
     fatal_4(message_1, message_2, "", "");
@@ -114,8 +51,7 @@ void fatal_4(const char* message_1, const char* message_2,
         fputs(" at ", stderr);
         fputs(lexer_filename, stderr);
         fputs(":", stderr);
-        // TODO
-        fprintf(stderr, "%i", lexer_line);
+        fputd(lexer_line, stderr);
     }
     fputs(": ", stderr);
 

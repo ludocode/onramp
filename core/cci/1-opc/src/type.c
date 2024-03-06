@@ -6,13 +6,6 @@
 #include "common.h"
 
 
-
-
-// TODO new type class
-
-#if 1&&0
-
-
 /*
  * type_t looks something like this:
  *
@@ -34,6 +27,7 @@
 #define TYPE_OFFSET_IS_LVALUE 4
 #define TYPE_FIELD_COUNT 5
 
+/*
 static type_t* type_new(void) {
     type_t* type = calloc(TYPE_FIELD_COUNT, sizeof(void*));
     if (!type) {
@@ -41,6 +35,7 @@ static type_t* type_new(void) {
     }
     return type;
 }
+*/
 
 /*
 type_t* type_new_basic(basic_type_t base, size_t indirection_count, size_t array_length) {
@@ -51,6 +46,7 @@ type_t* type_new_record(record_t* record, size_t indirection_count, size_t array
 }
 */
 
+/*
 type_t* type_clone(type_t* other) {
     type_t* type = memdup(other, TYPE_FIELD_COUNT * sizeof(void*));
     if (!type) {
@@ -131,12 +127,15 @@ size_t type_size(type_t* type) {
     return size;
 }
 #endif
+*/
+
+
+
+
+// TODO above code is currently disabled, haven't fully migrated to new type yet
 
 
 // TODO new typedef table. should be one big table, but entries are name + tag, where tag is one of: nothing, union, struct, enum.
-
-
-
 
 
 
@@ -165,9 +164,11 @@ void typedef_init(void) {
 }
 
 void typedef_destroy(void) {
-    for (size_t i = 0; i < typedef_count; ++i) {
+    size_t i = 0;
+    while (i < typedef_count) {
         free(*(typedef_names + i));
         type_delete(*(typedef_types + i));
+        i = (i + 1);
     }
     free(typedef_names);
     free(typedef_types);
@@ -180,7 +181,7 @@ void typedef_add(char* name, type_t* type) {
     // TODO check for duplicates, allowed as long as the type matches
     *(typedef_names + typedef_count) = name;
     *(typedef_types + typedef_count) = type;
-    ++typedef_count;
+    typedef_count = (typedef_count + 1);
 }
 
 const type_t* typedef_find(const char* name) {
@@ -210,7 +211,7 @@ int type_size(const type_t* ptype) {
     type_t type = *ptype;
     if (type & TYPE_LVALUE_MASK) {
         // TODO ignore it, see parse_unary_expression(), going to fix this later
-        type &= ~TYPE_LVALUE_MASK;
+        type = (type & ~TYPE_LVALUE_MASK);
         //fatal("Internal error: cannot return the size of an lvalue.");
     }
 
@@ -226,7 +227,7 @@ int type_size(const type_t* ptype) {
     return 4;
 }
 
-int type_base(const type_t* type) {
+base_t type_base(const type_t* type) {
     return *type & TYPE_BASIC_MASK;
 }
 
@@ -234,7 +235,7 @@ void type_delete(type_t* type) {
     free(type);
 }
 
-void type_set_base(type_t* type, int base) {
+void type_set_base(type_t* type, base_t base) {
     *type = ((*type & ~TYPE_BASIC_MASK) | base);
 }
 
@@ -248,13 +249,13 @@ void type_set_indirections(type_t* type, int count) {
 }
 
 type_t* type_decrement_indirection(type_t* type) {
-    *type = ((*type & TYPE_INDIRECTION_MASK) - 1) | (*type & ~TYPE_INDIRECTION_MASK);
+    *type = (((*type & TYPE_INDIRECTION_MASK) - 1) | (*type & ~TYPE_INDIRECTION_MASK));
     return type;
 }
 
 type_t* type_increment_indirection(type_t* type) {
     // TODO range
-    *type = ((*type & TYPE_INDIRECTION_MASK) + 1) | (*type & ~TYPE_INDIRECTION_MASK);
+    *type = (((*type & TYPE_INDIRECTION_MASK) + 1) | (*type & ~TYPE_INDIRECTION_MASK));
     return type;
 }
 
@@ -264,10 +265,10 @@ bool type_is_lvalue(const type_t* type) {
 
 type_t* type_set_lvalue(type_t* type, bool lvalue) {
     if (lvalue) {
-        *type |= TYPE_LVALUE_MASK;
+        *type = (*type | TYPE_LVALUE_MASK);
     }
     if (!lvalue) {
-        *type &= ~TYPE_LVALUE_MASK;
+        *type = (*type & ~TYPE_LVALUE_MASK);
     }
     return type;
 }

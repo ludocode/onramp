@@ -28,18 +28,26 @@ CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 ROOT=../../..
 BUILD=$(ROOT)/build/test
 
-SRC=$(ROOT)/core/cci/1-opc/src
 OUT=$(BUILD)/cci-1-opc
+SRC=$(ROOT)/core/cci/1-opc/src
+LIBO=$(ROOT)/core/libo/1-opc
+CPPFLAGS += -I$(LIBO)/include
 
 SRCS=\
-	 $(SRC)/common.c \
-	 $(SRC)/compile.c \
-	 $(SRC)/emit.c \
-	 $(SRC)/lexer.c \
-	 $(SRC)/main.c \
-	 $(SRC)/parse.c \
-	 $(SRC)/type.c \
-	 $(SRC)/variable.c \
+	$(LIBO)/src/libo-error.c \
+	$(LIBO)/src/libo-string.c \
+	$(LIBO)/src/libo-table.c \
+	$(LIBO)/src/libo-util.c \
+	$(LIBO)/src/libo-vector.c \
+	\
+	$(SRC)/common.c \
+	$(SRC)/compile.c \
+	$(SRC)/emit.c \
+	$(SRC)/lexer.c \
+	$(SRC)/main.c \
+	$(SRC)/parse.c \
+	$(SRC)/type.c \
+	$(SRC)/variable.c \
 
 all: build test FORCE
 FORCE:

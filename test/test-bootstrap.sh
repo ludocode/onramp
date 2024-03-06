@@ -65,7 +65,9 @@ exit 0
 
 
 # Next build up to the full C compiler
-( core/cci/1-opc/build.sh && cd test/cci/1-opc && ../run.sh . onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
+( core/cci/1-opc/build.sh && cd test/cci/1-opc && \
+    ../run.sh . onrampvm ../../../build/intermediate/cci-1-opc/cci.oe && \
+    ../run.sh --other-stage ../0-omc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
 ( core/libc/2-opc/build.sh && true ) # TODO test libc
 ( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 ( core/cci/2-full/build.sh && cd test/cci/2-full && ../run.sh . onrampvm ../../../build/intermediate/cci-2-full/cci.oe )

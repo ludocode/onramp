@@ -4,55 +4,19 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#include "common.h"
+#include "base.h"
 
-#if 1&&0
+//type_t* type_new_basic(base_t base, size_t indirection_count, size_t array_count);
+
+//type_t* type_new_record(record_t* record, size_t indirection_count, size_t array_count);
 
 
 
 #define TYPE_ARRAY_NONE SIZE_MAX
 #define TYPE_ARRAY_INDETERMINATE (SIZE_MAX - 1)
 
-typedef void type_t;
-
-//type_t* type_new_basic(base_t base, size_t indirection_count, size_t array_count);
-
-//type_t* type_new_record(record_t* record, size_t indirection_count, size_t array_count);
-
-base_t type_base(type_t* type);
-
-record_t* type_record(type_t* type);
-
-void type_set_record(type_t* type, record_t* record);
-
-bool type_is_lvalue(type_t* type);
-
-type_t* type_set_lvalue(type_t* type, bool lvalue);
-
-/**
- * Returns the indirection count, i.e. the number of pointers.
- */
-int type_indirections(type_t* type);
-
-void type_set_indirections(type_t* type, int count);
-
-/**
- * Returns the array length, or TYPE_ARRAY_NONE if it is not an array, or
- * TYPE_ARRAY_INDETERMINATE if it is an array of indeterminate length.
- */
-int type_array_length(type_t* type);
-
-void type_set_array_length(type_t* type, int array_length);
-#endif
-
-
-
-
-
-
-
-
-
-
+// TODO replace with base
 #define TYPE_BASIC_VOID 0   // TODO why isn't this 0x10? could use 0 as invalid
 #define TYPE_BASIC_CHAR 0x20
 #define TYPE_BASIC_INT 0x40   // TODO this could be 0x30
@@ -96,9 +60,15 @@ int type_size(const type_t* type);
 /**
  * Returns the base type of the given type_t.
  */
-int type_base(const type_t* type);
+base_t type_base(const type_t* type);
 
-void type_set_base(type_t* type, int base);
+void type_set_base(type_t* type, base_t base);
+
+/*
+record_t* type_record(type_t* type);
+
+void type_set_record(type_t* type, record_t* record);
+*/
 
 /**
  * Returns the indirection count of the given type_t.
@@ -119,6 +89,13 @@ bool type_is_lvalue(const type_t* type);
 
 type_t* type_set_lvalue(type_t* type, bool lvalue);
 
+/**
+ * Returns the array length, or TYPE_ARRAY_NONE if it is not an array, or
+ * TYPE_ARRAY_INDETERMINATE if it is an array of indeterminate length.
+ */
+int type_array_length(type_t* type);
+
+void type_set_array_length(type_t* type, int array_length);
 
 
 

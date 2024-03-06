@@ -27,15 +27,15 @@
 
 #include <stdbool.h>
 
-// TODO these need to be #defines
-typedef enum lexer_type_t {
-    lexer_type_alphanumeric = 'a',
-    lexer_type_number = 'n',
-    lexer_type_character = 'c',
-    lexer_type_string = 's',
-    lexer_type_punctuation = 'p',
-    lexer_type_end = 'e',
-} lexer_type_t;
+typedef int lexer_type_t;
+
+// TODO convert to all caps
+#define lexer_type_alphanumeric 'a'
+#define lexer_type_number 'n'
+#define lexer_type_character 'c'
+#define lexer_type_string 's'
+#define lexer_type_punctuation 'p'
+#define lexer_type_end 'e'
 
 const char* lexer_type_to_string(lexer_type_t type);
 
