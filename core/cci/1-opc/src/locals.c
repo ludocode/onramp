@@ -29,24 +29,30 @@ void locals_destroy(void) {
 }
 
 void locals_add(char* name, type_t* type) {
-    //printf("%s\n",name);
     if (locals_count == LOCALS_MAX) {
         fatal("Too many local variables.");
     }
     *(locals_names + locals_count) = name;
     *(locals_types + locals_count) = type;
 
-    *(locals_offsets + locals_count) = (-(locals_count + 1) * 4);
+    // We don't pack vars on the stack; we just use at least a full word for
+    // each.
+    int size = type_size(type);
+    size = ((size + 3) & ~3);
 
-    //printf("    adding variable %s with offset %i\n", name, locals_offsets[locals_count]);
+    int offset = 0;
+    if (locals_count > 0) {
+        offset = *(locals_offsets + (locals_count - 1));
+    }
+    offset = (offset - size);
+    *(locals_offsets + locals_count) = offset;
+
     locals_count = (locals_count + 1);
 }
 
 void locals_pop(int previous_locals_count) {
-    //printf("popping variables to %i\n", locals_count);
     int i = previous_locals_count;
     while (i < locals_count) {
-        //printf("    popping variable %s\n", locals_names[i]);
         free(*(locals_names + i));
         type_delete(*(locals_types + i));
         i = (i + 1);
@@ -75,19 +81,26 @@ bool locals_find(const char* name, const type_t** type, int* offset) {
 }
 
 int locals_frame_size(void) {
-    //printf("%i %i\n", locals_count, locals_global_count);
-    return locals_count * 4;
+    if (locals_count == 0) {
+        return 0;
+    }
+
+    // The frame size is the offset of the last local rounded down to a
+    // multiple of the word size. (We don't bother rounding now because the
+    // size of all locals is already rounded up to the word size.)
+    return -(*(locals_offsets + (locals_count - 1)) /*& ~3*/);
 }
 
 void dump_variables(void) {
-    /*
-    printf("%i variables\n", locals_count);
-    for (int i = 0; i < locals_count; ++i) {
+    putd(locals_count);
+    puts(" variables");
+    int i = 0;
+    while (i < locals_count) {
         fputs("  ", stdout);
-        fputs(locals_names[i], stdout);
+        fputs(*(locals_names + i), stdout);
         fputs("  ", stdout);
-        printf("%i", locals_offsets[i]);
+        putd(*(locals_offsets + i));
         putchar('\n');
+        i = (i + 1);
     }
-    */
 }
