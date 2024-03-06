@@ -370,53 +370,68 @@ type_t* compile_assign(type_t* left, type_t* right) {
     return result;
 }
 
-// Returns the factor to use for the other term for arithmetic with this type.
-//
-// If this is a pointer to anything but char, this returns 4, because the other
-// term must be multiplied by 4. Otherwise it returns 1.
-static int compile_arithmetic_factor(const type_t* type) {
+/**
+ * Calculates the arithmetic factor of the given type and emits it for the given
+ * register.
+ *
+ * Pointers of word size (e.g. `int*`) have an arithmetic factor of four, which
+ * means the other operand in an addition or multiplication must be multiplied
+ * by four.
+ *
+ * For pointers this is essentially the sizeof() of the pointed-to type. We
+ * handle a few extra special cases here.
+ */
+static void compile_arithmetic_factor(const type_t* type, int reg, bool multiply) {
 
-    // A char* has a factor of 1.
-    if (*type == (TYPE_BASIC_CHAR|1))
-        return 1;
+    // We can't perform arithmetic on void or void*.
+    if (*type == TYPE_BASIC_VOID) {
+        fatal("Cannot perform arithmetic on value of `void` type.");
+    }
+    if (*type == (TYPE_BASIC_VOID|1)) {
+        fatal("Cannot perform arithmetic on value of `void*` type.");
+    }
 
-    // A non-pointer has a factor of 1.
-    if (type_indirections(type) == 0)
-        return 1;
+    // All other scalar types have arithmetic factor of 1.
+    if (type_indirections(type) == 0) {
+        return;
+    }
 
-    // TODO we should disallow arithmetic on void and void* (but not void**)
+    // char* has a factor of 1.
+    if (*type == (TYPE_BASIC_CHAR|1)) {
+        return;
+    }
 
     // Otherwise it's a pointer to something other than char (i.e. it could be
-    // int*, char**, void**, etc.) We need to multiply by 4.
-    return 4;
+    // int*, char**, void**, etc.) The arithmetic factor is 4 so we shift
+    // (signed) by 2. If we're multiplying, emit shl; if we're diving, emit
+    // shrs.
+    if (multiply) {
+        emit_term("shl");
+    }
+    if (!multiply) {
+        emit_term("shrs");
+    }
+    emit_register(reg);
+    emit_register(reg);
+    emit_term("2");
+    emit_newline();
 }
 
 type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
-    int left_indirection = type_indirections(left);
-    int right_indirection = type_indirections(right);
+    int left_indirections = type_indirections(left);
+    int right_indirections = type_indirections(right);
 
-    // Only one side is allowed to be a pointer.
-    if (left_indirection > 0 && right_indirection > 0) {
-        fatal("Cannot add or subtract two pointers");
-    }
+    // If both sides are pointers, the types must match. We adjust for the
+    // arithmetic factor afterwards.
+    bool both = ((left_indirections > 0) & (right_indirections > 0));
 
-    // If either side is a word pointer, multiply the other by four
-    // TODO use shl
-    int right_factor = compile_arithmetic_factor(left);
-    if (right_factor == 4) {
-        emit_term("mul");
-        emit_term("r0");
-        emit_term("r0");
-        emit_term("4");
-        emit_newline();
-    }
-    int left_factor = compile_arithmetic_factor(right);
-    if (left_factor == 4) {
-        emit_term("mul");
-        emit_term("r1");
-        emit_term("r1");
-        emit_term("4");
-        emit_newline();
+    // Otherwise, at most one side is a pointer. Emit the arithmetic factors
+    // now.
+    if (!both) {
+        // right is in register 0; multiply it by the arithmetic factor of left
+        compile_arithmetic_factor(left, 0, true);
+        // left is in register 1; multiply it by the arithmetic factor of right
+        compile_arithmetic_factor(right, 1, true);
     }
 
     // Compute the result into r0
@@ -429,19 +444,27 @@ type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
     emit_term("r0");
     emit_newline();
 
+    // If both sides were pointers, emit the arithmetic factor on the result.
+    if (both) {
+        compile_arithmetic_factor(left, 0, false);
+
+        // the return type is int.
+        type_delete(left);
+        type_delete(right);
+        return type_new(TYPE_BASIC_INT, 0);
+    }
+
     // Return whichever side is a pointer type.
-    //printf("addsub %02x %02x\n",left,right);
-    if (left_indirection > 0) {
-        //printf("returning left\n");
+    if (left_indirections) {
         type_delete(right);
         return left;
     }
-    if (right_indirection > 0) {
+    if (right_indirections) {
         type_delete(left);
         return right;
     }
 
-    // If neither is, promote to int.
+    // If neither is a pointer, promote to int.
     type_delete(left);
     type_delete(right);
     return type_new(TYPE_BASIC_INT, 0);
