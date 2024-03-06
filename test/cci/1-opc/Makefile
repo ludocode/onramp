@@ -45,10 +45,10 @@ SRCS=\
 	$(SRC)/emit.c \
 	$(SRC)/global.c \
 	$(SRC)/lexer.c \
+	$(SRC)/locals.c \
 	$(SRC)/main.c \
 	$(SRC)/parse.c \
 	$(SRC)/type.c \
-	$(SRC)/variable.c \
 
 all: build test FORCE
 FORCE:

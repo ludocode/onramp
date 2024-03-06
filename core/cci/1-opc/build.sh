@@ -57,6 +57,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/lexer.c \
     -o build/intermediate/cci-1-opc/lexer.oo
 
+echo Compiling cci/1-opc locals.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/1-opc/build-ccargs \
+    -c core/cci/1-opc/src/locals.c \
+    -o build/intermediate/cci-1-opc/locals.oo
+
 echo Compiling cci/1-opc main.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
@@ -75,12 +81,6 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/type.c \
     -o build/intermediate/cci-1-opc/type.oo
 
-echo Compiling cci/1-opc variable.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/cci/1-opc/build-ccargs \
-    -c core/cci/1-opc/src/variable.c \
-    -o build/intermediate/cci-1-opc/variable.oo
-
 echo Linking cci/1-opc
 onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/libc-1-omc/libc.oa \
@@ -90,8 +90,8 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/emit.oo \
     build/intermediate/cci-1-opc/global.oo \
     build/intermediate/cci-1-opc/lexer.oo \
+    build/intermediate/cci-1-opc/locals.oo \
     build/intermediate/cci-1-opc/main.oo \
     build/intermediate/cci-1-opc/parse.oo \
     build/intermediate/cci-1-opc/type.oo \
-    build/intermediate/cci-1-opc/variable.oo \
     -o build/intermediate/cci-1-opc/cci.oe

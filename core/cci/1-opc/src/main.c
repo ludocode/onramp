@@ -8,7 +8,7 @@
 #include "lexer.h"
 #include "parse.h"
 #include "type.h"
-#include "variable.h"
+#include "locals.h"
 #include "global.h"
 
 static void usage(const char* name) {
@@ -74,7 +74,7 @@ int main(int argc, const char** argv) {
     emit_init(output_filename);
     lexer_init(input_filename);
     typedef_init();
-    variable_init();
+    locals_init();
     compile_init();
     parse_init();
 
@@ -82,7 +82,7 @@ int main(int argc, const char** argv) {
 
     parse_destroy();
     compile_destroy();
-    variable_destroy();
+    locals_destroy();
     typedef_destroy();
     lexer_destroy();
     emit_destroy();

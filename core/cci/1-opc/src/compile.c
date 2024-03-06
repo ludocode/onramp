@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include "emit.h"
-#include "variable.h"
+#include "locals.h"
 #include "global.h"
 
 void compile_init(void) {
@@ -48,9 +48,9 @@ void compile_function_open(const char* name, int arg_count) {
     emit_newline();
 
     // we'll track the function's frame size as we go.
-    //printf("starting function, %i vars\n", variable_count - arg_count);
-    //compile_function_max_variable_count = variable_count - arg_count;
-    //printf("open varcount %i\n", compile_function_max_variable_count);
+    //printf("starting function, %i vars\n", locals_count - arg_count);
+    //compile_function_max_locals_count = locals_count - arg_count;
+    //printf("open varcount %i\n", compile_function_max_locals_count);
 
     // the first four arguments arrive in registers, the rest come on the
     // stack. we copy them to their new offsets.
@@ -81,7 +81,7 @@ void compile_function_open(const char* name, int arg_count) {
 }
 
 void compile_function_close(const char* name, int arg_count, int frame_size) {
-    //printf("close varcount %i\n", compile_function_max_variable_count);
+    //printf("close varcount %i\n", compile_function_max_locals_count);
 
     // add a return to the function in case it didn't return on its own
     // main() needs to return 0 if execution reaches the end of the function
@@ -103,8 +103,8 @@ void compile_function_close(const char* name, int arg_count, int frame_size) {
     emit_newline();
 
     // set up the stack frame (now that we know its size)
-    //variable_pop(variable_count - arg_count);
-    //printf("closing function, %i vars left, %i max, %i vars in function\n", variable_count, compile_function_max_variable_count, compile_function_max_variable_count - variable_count);
+    //locals_pop(locals_count - arg_count);
+    //printf("closing function, %i vars left, %i max, %i vars in function\n", locals_count, compile_function_max_locals_count, compile_function_max_locals_count - locals_count);
     if ((frame_size > 0) & (frame_size < 0x80)) {
         // the frame size fits in a mix-type byte
         emit_term("sub");
@@ -174,7 +174,7 @@ type_t* compile_load_variable(const char* name) {
     // locals shadow globals so we check locals first.
     const type_t* type;
     int offset;
-    bool local = variable_find(name, &type, &offset);
+    bool local = locals_find(name, &type, &offset);
     if (local) {
         if (offset > -0x80) {
             // the offset fits in a mix-type byte

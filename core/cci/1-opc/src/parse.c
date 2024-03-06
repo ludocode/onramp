@@ -7,7 +7,7 @@
 #include "emit.h"
 #include "common.h"
 #include "compile.h"
-#include "variable.h"
+#include "locals.h"
 #include "global.h"
 
 static void parse_block(void);
@@ -624,7 +624,7 @@ static void parse_statement(void) {
 static void parse_local_declaration(type_t* type) {
     char* name = parse_alphanumeric();
     //printf("defining new variable %s\n",name);
-    variable_add(name, type, false);
+    locals_add(name, type, false);
 
     if (lexer_accept(";")) {
         // No initializer.
@@ -669,7 +669,7 @@ static bool try_parse_block(void) {
     //emit_term("; block");
     //emit_newline();
 
-    int previous_variable_count = variable_count;
+    int previous_locals_count = locals_count;
 
     while (!lexer_accept("}")) {
         type_t* type = try_parse_type();
@@ -683,12 +683,12 @@ static bool try_parse_block(void) {
 
     // track the maximum extent of the function's stack frame
     int local_size;
-    local_size = variable_local_size();
+    local_size = locals_local_size();
     if (function_frame_size < local_size) {
         function_frame_size = local_size;
     }
 
-    variable_pop(previous_variable_count);
+    locals_pop(previous_locals_count);
 
     //emit_term("; end block");
     //emit_newline();
@@ -717,7 +717,7 @@ static void parse_output_strings(void) {
 // Parses a function declaration (and definition, if provided.)
 static void parse_function_declaration(type_t* return_type, char* name) {
     //scope_push();
-    int previous_variable_count = variable_count;
+    int previous_locals_count = locals_count;
     int arg_count = 0;
 
     while (!lexer_accept(")")) {
@@ -745,7 +745,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         }
 
         // add variable
-        variable_add(varname, type, false);
+        locals_add(varname, type, false);
         arg_count = (arg_count + 1);
     }
 
@@ -758,7 +758,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
 
         // compile the function
         function_frame_size = 0;
-        //printf("==%i\n",previous_variable_count);
+        //printf("==%i\n",previous_locals_count);
         //dump_variables();
         compile_function_open(global_name(global), arg_count);
         parse_block();
@@ -769,7 +769,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         emit_global_divider();
     }
 
-    variable_pop(previous_variable_count);
+    locals_pop(previous_locals_count);
 }
 
 static void parse_typedef(void) {
