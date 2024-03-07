@@ -70,7 +70,7 @@ static bool base_is_signed(base_t base) {
  * typedef struct {
  *     basic_type_t base;
  *     record_t* record;
- *     char indirection_count;
+ *     int pointers;
  *     int array_length;
  *     bool is_lvalue;
  * } type_t;
@@ -80,8 +80,8 @@ static bool base_is_signed(base_t base) {
 
 #define TYPE_OFFSET_BASE 0
 #define TYPE_OFFSET_RECORD 1
-#define TYPE_OFFSET_INDIRECTION_COUNT 2
-#define TYPE_OFFSET_ARRAY_SIZE 3
+#define TYPE_OFFSET_POINTERS 2
+#define TYPE_OFFSET_ARRAY_LENGTH 3
 #define TYPE_OFFSET_IS_LVALUE 4
 #define TYPE_FIELD_COUNT 5
 
@@ -138,19 +138,31 @@ type_t* type_set_lvalue(type_t* type, bool lvalue) {
 }
 
 int type_indirections(const type_t* type) {
-    return *(int*)((void**)type + TYPE_OFFSET_INDIRECTION_COUNT);
+    int pointers = type_pointers(type);
+    if (type_array_length(type) != TYPE_ARRAY_NONE) {
+        pointers = (pointers + 1);
+    }
+    return pointers;
 }
 
-void type_set_indirections(type_t* type, int count) {
-    *(int*)((void**)type + TYPE_OFFSET_INDIRECTION_COUNT) = count;
+int type_pointers(const type_t* type) {
+    return *(int*)((void**)type + TYPE_OFFSET_POINTERS);
 }
 
-size_t type_array_length(const type_t* type) {
-    return *(size_t*)((void**)type + TYPE_OFFSET_ARRAY_SIZE);
+void type_set_pointers(type_t* type, int count) {
+    *(int*)((void**)type + TYPE_OFFSET_POINTERS) = count;
 }
 
-void type_set_array_length(type_t* type, size_t array_length) {
-    *(size_t*)((void**)type + TYPE_OFFSET_ARRAY_SIZE) = array_length;
+bool type_is_array(const type_t* type) {
+    return type_array_length(type) != TYPE_ARRAY_NONE;
+}
+
+int type_array_length(const type_t* type) {
+    return *(int*)((void**)type + TYPE_OFFSET_ARRAY_LENGTH);
+}
+
+void type_set_array_length(type_t* type, int array_length) {
+    *(int*)((void**)type + TYPE_OFFSET_ARRAY_LENGTH) = array_length;
 }
 
 bool type_is_record(const type_t* type) {
@@ -158,17 +170,12 @@ bool type_is_record(const type_t* type) {
 }
 
 size_t type_size(const type_t* type) {
-    int pointers = type_indirections(type);
-    size_t array_length = type_array_length(type);
-    if (array_length != TYPE_ARRAY_NONE) {
-        pointers = (pointers - 1);
-    }
-
     size_t size;
 
     // TODO cci/0 forbids type_size() on lvalues, why? I don't remember
 
     // figure out the element size
+    int pointers = type_pointers(type);
     if (pointers > 0) {
         size = 4;
     }
@@ -184,6 +191,7 @@ size_t type_size(const type_t* type) {
     }
 
     // if it's an array, multiply by the length
+    int array_length = type_array_length(type);
     if (array_length == TYPE_ARRAY_NONE) {
         return size;
     }
@@ -195,17 +203,27 @@ size_t type_size(const type_t* type) {
 }
 
 type_t* type_decrement_indirection(type_t* type) {
-    int indirections = type_indirections(type);
-    if (indirections == 0) {
+    if (type_is_array(type)) {
+        type_set_array_length(type, TYPE_ARRAY_NONE);
+        return type;
+    }
+    int pointers = type_pointers(type);
+    if (pointers == 0) {
         fatal("Internal error: cannot decrement indirections of scalar type");
     }
-    type_set_indirections(type, indirections - 1);
+    type_set_pointers(type, pointers - 1);
     return type;
 }
 
 type_t* type_increment_indirection(type_t* type) {
-    int indirections = type_indirections(type);
-    type_set_indirections(type, indirections + 1);
+    if (type_is_array(type)) {
+        // TODO there are some cases where taking the address decays without
+        // incrementing indirection count. we need to differentiate between these
+        // cases. For now we assume we're taking the address of an array, which
+        // does *not* increment indirections.
+        type_set_array_length(type, TYPE_ARRAY_NONE);
+    }
+    type_set_pointers(type, type_pointers(type) + 1);
     return type;
 }
 
@@ -219,7 +237,7 @@ bool type_equal(const type_t* left, const type_t* right) {
     if (type_is_lvalue(left) != type_is_lvalue(right)) {
         return false;
     }
-    if (type_indirections(left) != type_indirections(right)) {
+    if (type_pointers(left) != type_pointers(right)) {
         return false;
     }
     if (type_array_length(left) != type_array_length(right)) {
@@ -289,9 +307,6 @@ bool type_is_base(const type_t* type, base_t base) {
     if (type_indirections(type) != 0) {
         return false;
     }
-    if (type_array_length(type) != TYPE_ARRAY_NONE) {
-        return false;
-    }
     if (type_is_lvalue(type)) {
         return false;
     }
@@ -310,11 +325,7 @@ void type_print(const type_t* type) {
     }
 
     // count pointers
-    int pointers = type_indirections(type);
-    size_t array_length = type_array_length(type);
-    if (array_length != TYPE_ARRAY_NONE) {
-        pointers = (pointers - 1);
-    }
+    int pointers = type_pointers(type);
 
     // print pointers
     int i = 0;
@@ -324,6 +335,7 @@ void type_print(const type_t* type) {
     }
 
     // print array_length
+    int array_length = type_array_length(type);
     if (array_length != TYPE_ARRAY_NONE) {
         putchar('[');
         if (array_length != TYPE_ARRAY_INDETERMINATE) {

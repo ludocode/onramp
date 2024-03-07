@@ -9,28 +9,49 @@
 /**
  * A base type.
  *
- * Note: `char`, `signed char` and `unsigned char` are technically supposed to
- * be three distinct types in C. `int` and `long` are also supposed to be
+ * `char`, `signed char` and `unsigned char` are technically supposed to be
+ * three distinct types in C. `int` and `long` are also supposed to be
  * distinct. This matters for `_Generic` among other things, but we don't
- * support that in opC so we don't bother differentating between these. In opC,
- * `char` and `signed char` are the same thing, and `long` is treated as `int`
- * after parsing.
+ * support that in opC so we don't bother differentating between these.
+ *
+ * In opC, `char` and `signed char` are the same thing, and we don't have a
+ * `long` type; `long` is treated as `int` after parsing.
  */
 typedef int base_t;
 
-#define BASE_RECORD 01
-#define BASE_VOID 02
-#define BASE_UNSIGNED_CHAR 03
-#define BASE_UNSIGNED_SHORT 04
-#define BASE_UNSIGNED_INT 05
-#define BASE_UNSIGNED_LONG_LONG 06
-#define BASE_SIGNED_CHAR 13
-#define BASE_SIGNED_SHORT 14
-#define BASE_SIGNED_INT 15
-#define BASE_SIGNED_LONG_LONG 16
+#define BASE_RECORD 1
+#define BASE_VOID 2
+#define BASE_UNSIGNED_CHAR 3
+#define BASE_UNSIGNED_SHORT 4
+#define BASE_UNSIGNED_INT 5
+#define BASE_UNSIGNED_LONG_LONG 6
+#define BASE_SIGNED_CHAR 7
+#define BASE_SIGNED_SHORT 8
+#define BASE_SIGNED_INT 9
+#define BASE_SIGNED_LONG_LONG 10
 
-#define TYPE_ARRAY_NONE SIZE_MAX
-#define TYPE_ARRAY_INDETERMINATE (SIZE_MAX - 1)
+/**
+ * Note: We treat an array of size zero as distinct from an array of
+ * indeterminate size from a parsing perspective. e.g. This is invalid:
+ *
+ *     char buffer[0] = "Hello";
+ *
+ * However, this is valid:
+ *
+ *     char buffer[] = "Hello";
+ *
+ * It is parsed as indeterminate size and is changed to the proper size after
+ * parsing, this way e.g. sizeof() works.
+ *
+ * However, we do allow, as an extension, a zero-size array as the last element
+ * of a struct. This is treated as an alias for a flexible array member, but we
+ * actually store it the other way around: the flexible array member is
+ * converted to a size zero array after parsing, that way we don't need to do
+ * anything special to make sizeof() work on a struct with a flexible array
+ * member.
+ */
+#define TYPE_ARRAY_NONE -1
+#define TYPE_ARRAY_INDETERMINATE -2
 
 /**
  * A type.
@@ -38,7 +59,7 @@ typedef int base_t;
  * A type in opC is described by:
  *
  * - a base primitive or record type
- * - an indirection count (number of pointers)
+ * - a pointer count
  * - an optional array size, which can be indeterminate
  * - an l-value flag (describing its state of compilation)
  */
@@ -84,13 +105,21 @@ void type_set_record(type_t* type, record_t* record);
 */
 
 /**
- * Returns the indirection count of the given type_t.
+ * Returns the indirection count of the given type, which includes pointers and
+ * arrays.
  *
- * This includes an indirection for the array size, if it's an array.
+ * For example `int**` has two indirections and `int**[5]` has three.
  */
 int type_indirections(const type_t* type);
 
-void type_set_indirections(type_t* type, int count);
+/**
+ * Returns the pointer count, not including arrays.
+ *
+ * For example `int**` and `int**[5]` both have two pointers.
+ */
+int type_pointers(const type_t* type);
+
+void type_set_pointers(type_t* type, int count);
 
 /**
  * Decrements the indirection count of the given type, keeping the rest the
@@ -104,13 +133,15 @@ bool type_is_lvalue(const type_t* type);
 
 type_t* type_set_lvalue(type_t* type, bool lvalue);
 
+bool type_is_array(const type_t* type);
+
 /**
  * Returns the array length, or TYPE_ARRAY_NONE if it is not an array, or
  * TYPE_ARRAY_INDETERMINATE if it is an array of indeterminate length.
  */
-size_t type_array_length(const type_t* type);
+int type_array_length(const type_t* type);
 
-void type_set_array_length(type_t* type, size_t array_length);
+void type_set_array_length(type_t* type, int array_length);
 
 bool type_equal(const type_t* left, const type_t* right);
 

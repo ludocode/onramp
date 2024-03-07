@@ -73,13 +73,13 @@ static type_t* try_parse_type(void) {
         return NULL;
     }
 
-    // Collect additional indirections, each of which may be prefixed by const
-    int indirections = type_indirections(type);
+    // Collect additional pointers, each of which may be prefixed by const
+    int pointers = type_pointers(type);
     while (lexer_accept("*")) {
         lexer_accept("const");
-        indirections = (indirections + 1);
+        pointers = (pointers + 1);
     }
-    type_set_indirections(type, indirections);
+    type_set_pointers(type, pointers);
 
     // Between the type and the name, we can have both const and restrict in
     // either order.
