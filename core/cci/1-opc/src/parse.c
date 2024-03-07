@@ -46,13 +46,13 @@ static type_t* try_parse_type_specifier(void) {
 
     // Check for primitive types
     if (lexer_accept("int")) {
-        return type_new(TYPE_BASIC_INT, 0);
+        return type_new_base(BASE_SIGNED_INT);
     }
     if (lexer_accept("char")) {
-        return type_new(TYPE_BASIC_CHAR, 0);
+        return type_new_base(BASE_SIGNED_CHAR);
     }
     if (lexer_accept("void")) {
-        return type_new(TYPE_BASIC_VOID, 0);
+        return type_new_base(BASE_VOID);
     }
 
     // Check for a typedef
@@ -151,7 +151,7 @@ static type_t* parse_primary_expression(void) {
         compile_string_literal_invocation(next_string + strings_count);
         *(strings + strings_count) = lexer_take();
         strings_count = (strings_count + 1);
-        return type_new(TYPE_BASIC_CHAR, 1);
+        return type_increment_indirection(type_new_base(BASE_SIGNED_CHAR));
     }
 
     //fatal("Expected primary expression (i.e. identifier, number, string or open parenthesis)");
@@ -321,14 +321,14 @@ static type_t* parse_unary_expression(void) {
         // If this is already an lvalue, we dereference it now. Otherwise we
         // make it an lvalue, and it will be dereferenced if and when it is
         // needed.
-        bool is_lvalue = (*type & TYPE_FLAG_LVALUE);
+        bool is_lvalue = type_is_lvalue(type);
         if (is_lvalue) {
             compile_dereference(type, 0);
             type = type_decrement_indirection(type);
         }
         if (!is_lvalue) {
             type = type_decrement_indirection(type);
-            *type = (*type | TYPE_FLAG_LVALUE);
+            type = type_set_lvalue(type, true);
         }
 
         return type;
@@ -336,7 +336,7 @@ static type_t* parse_unary_expression(void) {
 
     if (lexer_accept("&")) {
         type_t* type = parse_unary_expression();
-        if (!(*type & TYPE_FLAG_LVALUE)) {
+        if (!type_is_lvalue(type)) {
             fatal("Cannot take the address of an r-value");
         }
         // TODO shouldn't we increment reference??
@@ -728,9 +728,11 @@ static void parse_function_declaration(type_t* return_type, char* name) {
 
         // check for (void)
         // TODO can probably remove hack now that names are optional
-        if (((arg_count == 0) & (*type == TYPE_BASIC_VOID)) & lexer_accept(")")) {
-            type_delete(type);
-            break;
+        if ((arg_count == 0) & type_is_base(type, BASE_VOID)) {
+            if (lexer_accept(")")) {
+                type_delete(type);
+                break;
+            }
         }
 
         // parse optional name

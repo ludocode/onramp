@@ -1477,6 +1477,14 @@
     ; Non-pointer values have already been promoted from char to int. If
     ; neither side is a pointer, we return int.
 
+    ; TODO Addition and subtraction actually have fairly different rules.
+    ; Addition is symmetric and only one side is allowed to be a pointer.
+    ; Subtraction is not symmetric, both sides can be pointers but if the left
+    ; is an integer the right cannot be a pointer. This is not implemented
+    ; correctly but this code does work, it's just more lax than what we're
+    ; supposed to allow so it's fine for bootstrapping. See 6.5.6 in the C11
+    ; spec.
+
     ; setup our stack frame
     enter
     push r0

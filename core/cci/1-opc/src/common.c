@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "lexer.h"
 
@@ -71,3 +72,11 @@ void assert(bool x) {
     }
 }
 #endif
+
+void* memdup(const void* other, size_t size) {
+    void* p = malloc(size);
+    if (p) {
+        memcpy(p, other, size);
+    }
+    return p;
+}

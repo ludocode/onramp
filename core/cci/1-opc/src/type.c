@@ -4,7 +4,65 @@
 #include <string.h>
 
 #include "common.h"
+//#include "record.h"
 
+
+
+/*
+ * Base types
+ */
+
+static size_t base_size(base_t base) {
+    if (base == BASE_VOID) {
+        // For some reason sizeof(void) is 1.
+        return 1;
+    }
+    if (base == BASE_UNSIGNED_CHAR) {return 1;}
+    if (base == BASE_UNSIGNED_SHORT) {return 2;}
+    if (base == BASE_UNSIGNED_INT) {return 4;}
+    if (base == BASE_UNSIGNED_LONG_LONG) {return 8;}
+    if (base == BASE_SIGNED_CHAR) {return 1;}
+    if (base == BASE_SIGNED_SHORT) {return 2;}
+    if (base == BASE_SIGNED_INT) {return 4;}
+    if (base == BASE_SIGNED_LONG_LONG) {return 8;}
+
+    if (base == BASE_RECORD) {
+        // it's a record. should be calling record_size(), not base_size()
+        fatal("Internal error: cannot base_size(BASE_RECORD)");
+    }
+
+    fatal("Internal error: invalid base type");
+}
+
+static const char* base_to_string(base_t base) {
+    if (base == BASE_RECORD) {return "record";}
+    if (base == BASE_VOID) {return "void";}
+    if (base == BASE_UNSIGNED_CHAR) {return "unsigned char";}
+    if (base == BASE_UNSIGNED_SHORT) {return "unsigned short";}
+    if (base == BASE_UNSIGNED_INT) {return "unsigned int";}
+    if (base == BASE_UNSIGNED_LONG_LONG) {return "unsigned long long";}
+    if (base == BASE_SIGNED_CHAR) {return "signed char";}
+    if (base == BASE_SIGNED_SHORT) {return "signed short";}
+    if (base == BASE_SIGNED_INT) {return "signed int";}
+    if (base == BASE_SIGNED_LONG_LONG) {return "signed long long";}
+    fatal("Invalid base type");
+}
+
+/*
+static bool base_is_signed(base_t base) {
+    if (base == BASE_SIGNED_CHAR) {return true;}
+    if (base == BASE_SIGNED_SHORT) {return true;}
+    if (base == BASE_SIGNED_INT) {return true;}
+    if (base == BASE_SIGNED_LONG_LONG) {return true;}
+    return false;
+}
+*/
+
+
+
+/*
+ * Types
+ */
 
 /*
  * type_t looks something like this:
@@ -27,27 +85,26 @@
 #define TYPE_OFFSET_IS_LVALUE 4
 #define TYPE_FIELD_COUNT 5
 
-/*
+void type_delete(type_t* type) {
+    free(type);
+}
+
 static type_t* type_new(void) {
     type_t* type = calloc(TYPE_FIELD_COUNT, sizeof(void*));
     if (!type) {
         fatal("Out of memory.");
     }
+    type_set_array_length(type, TYPE_ARRAY_NONE);
     return type;
 }
-*/
 
-/*
-type_t* type_new_basic(basic_type_t base, size_t indirection_count, size_t array_length) {
-    type_t* type = type_new(indirection_count, array_length);
+type_t* type_new_base(base_t base) {
+    type_t* type = type_new();
+    type_set_base(type, base);
+    return type;
 }
 
-type_t* type_new_record(record_t* record, size_t indirection_count, size_t array_length) {
-}
-*/
-
-/*
-type_t* type_clone(type_t* other) {
+type_t* type_clone(const type_t* other) {
     type_t* type = memdup(other, TYPE_FIELD_COUNT * sizeof(void*));
     if (!type) {
         fatal("Out of memory.");
@@ -55,60 +112,71 @@ type_t* type_clone(type_t* other) {
     return type;
 }
 
-base_t type_base(type_t* type) {
-    return (base_t)*((void**)type + TYPE_OFFSET_BASE);
+base_t type_base(const type_t* type) {
+    return *(base_t*)((void**)type + TYPE_OFFSET_BASE);
 }
 
 void type_set_base(type_t* type, base_t base) {
-    *((void**)type + TYPE_OFFSET_BASE) = (void*)base;
+    *(base_t*)((void**)type + TYPE_OFFSET_BASE) = base;
 }
 
-record_t* type_record(type_t* type) {
-    return *((void**)type + TYPE_OFFSET_RECORD);
+record_t* type_record(const type_t* type) {
+    return *(record_t**)((void**)type + TYPE_OFFSET_RECORD);
 }
 
 void type_set_record(type_t* type, record_t* record) {
-    *((void**)type + TYPE_OFFSET_RECORD) = (void*)record;
+    *(record_t**)((void**)type + TYPE_OFFSET_RECORD) = record;
 }
 
-bool type_is_lvalue(type_t* type) {
-    return (bool)*((void**)type + TYPE_OFFSET_IS_LVALUE);
+bool type_is_lvalue(const type_t* type) {
+    return *(bool*)((void**)type + TYPE_OFFSET_IS_LVALUE);
 }
 
-void type_set_lvalue(type_t* type, bool lvalue) {
-    *((void**)type + TYPE_OFFSET_IS_LVALUE) = (void*)lvalue;
+type_t* type_set_lvalue(type_t* type, bool lvalue) {
+    *(bool*)((void**)type + TYPE_OFFSET_IS_LVALUE) = lvalue;
+    return type;
 }
 
 int type_indirections(const type_t* type) {
-    return (bool)*((void**)type + TYPE_OFFSET_INDIRECTION_COUNT);
+    return *(int*)((void**)type + TYPE_OFFSET_INDIRECTION_COUNT);
 }
 
 void type_set_indirections(type_t* type, int count) {
-    *((void**)type + TYPE_OFFSET_INDIRECTION_COUNT) = (void*)count;
+    *(int*)((void**)type + TYPE_OFFSET_INDIRECTION_COUNT) = count;
 }
 
-int type_array_length(type_t* type) {
-    return (int)*((void**)type + TYPE_OFFSET_ARRAY_SIZE);
+size_t type_array_length(const type_t* type) {
+    return *(size_t*)((void**)type + TYPE_OFFSET_ARRAY_SIZE);
 }
 
-void type_set_array_length(type_t* type, int array_length) {
-    *((void**)type + TYPE_OFFSET_ARRAY_SIZE) = (void*)array_length;
+void type_set_array_length(type_t* type, size_t array_length) {
+    *(size_t*)((void**)type + TYPE_OFFSET_ARRAY_SIZE) = array_length;
 }
 
-size_t type_size(type_t* type) {
-    size_t size:
+bool type_is_record(const type_t* type) {
+    return type_base(type) == BASE_RECORD;
+}
+
+size_t type_size(const type_t* type) {
+    int pointers = type_indirections(type);
+    size_t array_length = type_array_length(type);
+    if (array_length != TYPE_ARRAY_NONE) {
+        pointers = (pointers - 1);
+    }
+
+    size_t size;
 
     // TODO cci/0 forbids type_size() on lvalues, why? I don't remember
 
-    // figure out the base size
-    bool indirections = (type_indirections(type) > 0);
-    if (indirections) {
+    // figure out the element size
+    if (pointers > 0) {
         size = 4;
     }
-    if (!indirections) {
+    if (pointers == 0) {
         record_t* record = type_record(type);
         if (record) {
-            size = record_size(record);
+            fatal("record size not yet implemented");
+            //size = record_size(record);
         }
         if (!record) {
             size = base_size(type_base(type));
@@ -116,7 +184,6 @@ size_t type_size(type_t* type) {
     }
 
     // if it's an array, multiply by the length
-    size_t array_length = type_array_length(type);
     if (array_length == TYPE_ARRAY_NONE) {
         return size;
     }
@@ -126,25 +193,48 @@ size_t type_size(type_t* type) {
     size = (size * array_length); // TODO overflow check
     return size;
 }
-#endif
-*/
+
+type_t* type_decrement_indirection(type_t* type) {
+    int indirections = type_indirections(type);
+    if (indirections == 0) {
+        fatal("Internal error: cannot decrement indirections of scalar type");
+    }
+    type_set_indirections(type, indirections - 1);
+    return type;
+}
+
+type_t* type_increment_indirection(type_t* type) {
+    int indirections = type_indirections(type);
+    type_set_indirections(type, indirections + 1);
+    return type;
+}
+
+bool type_equal(const type_t* left, const type_t* right) {
+    if (type_base(left) != type_base(right)) {
+        return false;
+    }
+    if (type_record(left) != type_record(right)) {
+        return false;
+    }
+    if (type_is_lvalue(left) != type_is_lvalue(right)) {
+        return false;
+    }
+    if (type_indirections(left) != type_indirections(right)) {
+        return false;
+    }
+    if (type_array_length(left) != type_array_length(right)) {
+        return false;
+    }
+    return true;
+}
 
 
 
-
-// TODO above code is currently disabled, haven't fully migrated to new type yet
-
+/*
+ * Typedefs
+ */
 
 // TODO new typedef table. should be one big table, but entries are name + tag, where tag is one of: nothing, union, struct, enum.
-
-
-
-
-
-
-#define TYPE_LVALUE_MASK 0x80
-#define TYPE_BASIC_MASK 0x60
-#define TYPE_INDIRECTION_MASK 0x1F
 
 static char** typedef_names;
 static type_t** typedef_types;
@@ -153,10 +243,6 @@ static size_t typedef_count;
 // TODO huge number here to temporarily pass cci/0 tests, we're going to
 // change this to a hashtable soon
 #define TYPEDEF_MAX 512
-
-type_t* type_new_blank(void) {
-    return calloc(1, 1);
-}
 
 void typedef_init(void) {
     typedef_names = malloc(TYPEDEF_MAX * sizeof(char*));
@@ -195,84 +281,54 @@ const type_t* typedef_find(const char* name) {
     return NULL;
 }
 
-type_t* type_new(int basic_type, int indirection) {
-    type_t* type = type_new_blank();
-    *type = (basic_type | indirection);
-    return type;
+bool type_is_base(const type_t* type, base_t base) {
+    assert(base != BASE_RECORD);
+    if (type_base(type) != base) {
+        return false;
+    }
+    if (type_indirections(type) != 0) {
+        return false;
+    }
+    if (type_array_length(type) != TYPE_ARRAY_NONE) {
+        return false;
+    }
+    if (type_is_lvalue(type)) {
+        return false;
+    }
+    return true;
 }
 
-type_t* type_clone(const type_t* other) {
-    type_t* ret = type_new_blank();
-    *ret = *other;
-    return ret;
-}
+void type_print(const type_t* type) {
 
-int type_size(const type_t* ptype) {
-    type_t type = *ptype;
-    if (type & TYPE_LVALUE_MASK) {
-        // TODO ignore it, see parse_unary_expression(), going to fix this later
-        type = (type & ~TYPE_LVALUE_MASK);
-        //fatal("Internal error: cannot return the size of an lvalue.");
+    // print base
+    base_t base = type_base(type);
+    if (base == BASE_RECORD) {
+        fatal("TODO type_print() record");
+    }
+    if (base != BASE_RECORD) {
+        fputs(base_to_string(base), stdout);
     }
 
-    // If there is no indirection, we can compare the basic types directly.
-    if (type == TYPE_BASIC_VOID) {
-        return 1;
+    // count pointers
+    int pointers = type_indirections(type);
+    size_t array_length = type_array_length(type);
+    if (array_length != TYPE_ARRAY_NONE) {
+        pointers = (pointers - 1);
     }
-    if (type == TYPE_BASIC_CHAR) {
-        return 1;
+
+    // print pointers
+    int i = 0;
+    while (i < pointers) {
+        putchar('*');
+        i = (i + 1);
     }
 
-    // int is 4 and any indirection is 4 regardless of basic type.
-    return 4;
-}
-
-base_t type_base(const type_t* type) {
-    return *type & TYPE_BASIC_MASK;
-}
-
-void type_delete(type_t* type) {
-    free(type);
-}
-
-void type_set_base(type_t* type, base_t base) {
-    *type = ((*type & ~TYPE_BASIC_MASK) | base);
-}
-
-int type_indirections(const type_t* type) {
-    return *type & TYPE_INDIRECTION_MASK;
-}
-
-void type_set_indirections(type_t* type, int count) {
-    // TODO range
-    *type = ((*type & ~TYPE_INDIRECTION_MASK) | count);
-}
-
-type_t* type_decrement_indirection(type_t* type) {
-    *type = (((*type & TYPE_INDIRECTION_MASK) - 1) | (*type & ~TYPE_INDIRECTION_MASK));
-    return type;
-}
-
-type_t* type_increment_indirection(type_t* type) {
-    // TODO range
-    *type = (((*type & TYPE_INDIRECTION_MASK) + 1) | (*type & ~TYPE_INDIRECTION_MASK));
-    return type;
-}
-
-bool type_is_lvalue(const type_t* type) {
-    return !!(*type & TYPE_LVALUE_MASK);
-}
-
-type_t* type_set_lvalue(type_t* type, bool lvalue) {
-    if (lvalue) {
-        *type = (*type | TYPE_LVALUE_MASK);
+    // print array_length
+    if (array_length != TYPE_ARRAY_NONE) {
+        putchar('[');
+        if (array_length != TYPE_ARRAY_INDETERMINATE) {
+            putd(array_length);
+        }
+        putchar(']');
     }
-    if (!lvalue) {
-        *type = (*type & ~TYPE_LVALUE_MASK);
-    }
-    return type;
-}
-
-bool type_equal(const type_t* left, const type_t* right) {
-    return *left == *right;
 }

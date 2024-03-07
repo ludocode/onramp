@@ -142,7 +142,8 @@ type_t* compile_immediate(const char* number) {
     // type! e.g. if assigning to char, need to truncate (or do we?)
     emit_term(number);
     emit_newline();
-    return type_new(TYPE_BASIC_INT, 0);
+    // TODO need to parse suffix to return correct type
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_immediate_int(int x) {
@@ -152,7 +153,7 @@ type_t* compile_immediate_int(int x) {
     emit_term("r0");
     emit_int(x);
     emit_newline();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_sizeof(type_t* type) {
@@ -166,7 +167,8 @@ type_t* compile_character_literal(char c) {
     emit_term("r0");
     emit_character_literal(c);
     emit_newline();
-    return type_new(TYPE_BASIC_INT, 0);
+    // character literals are int, not char
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_load_variable(const char* name) {
@@ -260,8 +262,8 @@ void compile_dereference(type_t* type, int register_num) {
 }
 
 type_t* compile_dereference_if_lvalue(type_t* type, int register_num) {
-    if (*type & TYPE_FLAG_LVALUE) {
-        *type = (*type & ~TYPE_FLAG_LVALUE);
+    if (type_is_lvalue(type)) {
+        type_set_lvalue(type, false);
         compile_dereference(type, register_num);
     }
     return type;
@@ -270,23 +272,17 @@ type_t* compile_dereference_if_lvalue(type_t* type, int register_num) {
 type_t* compile_assign(type_t* left, type_t* right) {
 
     // We're storing into the left. It must be an lvalue.
-    if (!(*left & TYPE_FLAG_LVALUE)) {
+    if (!type_is_lvalue(left)) {
         fatal("Assignment location is not an lvalue.");
-    }
-
-    // If the right is an lvalue, dereference it.
-    if (*right & TYPE_FLAG_LVALUE) {
-        *right = (*right & ~TYPE_FLAG_LVALUE);
-        compile_dereference(right, 0);
     }
 
     left = type_set_lvalue(left, false);
     size_t size = type_size(left);
 
-    // cast the types (performing sign extension, etc.)
+    // cast right to left (performing sign extension, etc.)
     type_t* result = compile_cast(right, left, 0);
 
-    // assign stores the right value into the left.
+    // store it
     if (size == 1) {
         emit_term("stb");
     }
@@ -314,12 +310,9 @@ type_t* compile_assign(type_t* left, type_t* right) {
  */
 static void compile_arithmetic_factor(const type_t* type, int register_num, bool multiply) {
 
-    // We can't perform arithmetic on void or void*.
-    if (*type == TYPE_BASIC_VOID) {
+    // We can't perform arithmetic on void.
+    if (type_is_base(type, BASE_VOID)) {
         fatal("Cannot perform arithmetic on value of `void` type.");
-    }
-    if (*type == (TYPE_BASIC_VOID|1)) {
-        fatal("Cannot perform arithmetic on value of `void*` type.");
     }
 
     // All other scalar types have arithmetic factor of 1.
@@ -327,10 +320,20 @@ static void compile_arithmetic_factor(const type_t* type, int register_num, bool
         return;
     }
 
+    // Dereference the type
+    type_t* deref = type_decrement_indirection(type_clone(type));
+
+    // We can't perform arithmetic on void*.
+    if (type_is_base(deref, BASE_VOID)) {
+        fatal("Cannot perform arithmetic on value of `void*` type.");
+    }
+
     // char* has a factor of 1.
-    if (*type == (TYPE_BASIC_CHAR|1)) {
+    if (type_is_base(deref, BASE_SIGNED_CHAR)) {
+        type_delete(deref);
         return;
     }
+    type_delete(deref);
 
     // Otherwise it's a pointer to something other than char (i.e. it could be
     // int*, char**, void**, etc.) The arithmetic factor is 4 so we shift
@@ -384,7 +387,7 @@ type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
         // the return type is int.
         type_delete(left);
         type_delete(right);
-        return type_new(TYPE_BASIC_INT, 0);
+        return type_new_base(BASE_SIGNED_INT);
     }
 
     // Return whichever side is a pointer type.
@@ -400,7 +403,7 @@ type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
     // If neither is a pointer, promote to int.
     type_delete(left);
     type_delete(right);
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 // If the result of a comparison in r0 is 0, r0 is set to 1; otherwise it's set
@@ -456,40 +459,40 @@ type_t* compile_lt(void) {
     compile_compare_signed();
     compile_compare_term("-1");
     compile_cmp_to_true();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_gt(void) {
     compile_compare_signed();
     compile_compare_term("1");
     compile_cmp_to_true();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_ge(void) {
     compile_compare_signed();
     compile_compare_term("-1");
     compile_cmp_to_false();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_le(void) {
     compile_compare_signed();
     compile_compare_term("1");
     compile_cmp_to_false();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_eq(void) {
     compile_compare_unsigned();
     compile_cmp_to_true();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_ne(void) {
     compile_compare_unsigned();
     compile_cmp_to_false();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_boolean_not(void) {
@@ -500,7 +503,7 @@ type_t* compile_boolean_not(void) {
     emit_term("0");
     emit_newline();
     compile_cmp_to_true(); // TODO is this even necessary?
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_bitwise_not(void) {
@@ -508,7 +511,7 @@ type_t* compile_bitwise_not(void) {
     emit_term("r0");
     emit_term("r0");
     emit_newline();
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_basic_op(const char* op) {
@@ -518,7 +521,7 @@ type_t* compile_basic_op(const char* op) {
     emit_term("r0");
     emit_newline();
     // TODO ignore pointers, just return int for now
-    return type_new(TYPE_BASIC_INT, 0);
+    return type_new_base(BASE_SIGNED_INT);
 }
 
 // Compiles a binary operation.
@@ -537,11 +540,11 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     // For all remaining operations, the left type is also an r-value, and both
     // types should be promoted from char to int.
     left = compile_dereference_if_lvalue(left, 1);
-    if (*left == TYPE_BASIC_CHAR) {
-        left = compile_cast(left, type_new(TYPE_BASIC_INT, 0), 1);
+    if (type_is_base(left, BASE_SIGNED_CHAR)) {
+        left = compile_cast(left, type_new_base(BASE_SIGNED_INT), 1);
     }
-    if (*right == TYPE_BASIC_CHAR) {
-        right = compile_cast(right, type_new(TYPE_BASIC_INT, 0), 0);
+    if (type_is_base(right, BASE_SIGNED_CHAR)) {
+        right = compile_cast(right, type_new_base(BASE_SIGNED_INT), 0);
     }
 
     // add/sub
@@ -611,7 +614,7 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
 type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_num) {
 
     // if neither type is char, we do nothing.
-    if ((*current_type != TYPE_BASIC_CHAR) & (*desired_type != TYPE_BASIC_CHAR)) {
+    if (!type_is_base(current_type, BASE_SIGNED_CHAR) & !type_is_base(desired_type, BASE_SIGNED_CHAR)) {
         type_delete(current_type);
         return desired_type;
     }

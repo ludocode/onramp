@@ -72,6 +72,7 @@ void fatal_4(const char* message_1, const char* message_2,
 
 
 
+void* memdup(const void* other, size_t size);
 
 
 

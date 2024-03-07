@@ -40,7 +40,6 @@
  * destroyed when the scope is destroyed (which also destroys anything that
  * could reference them, preventing any dangling references.)
  */
-typedef void* record_t;
 
 record_t* record_new(const char* name);
 
