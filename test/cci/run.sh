@@ -3,11 +3,11 @@
 # This script tests the given cci compiler by running it against all .i and .c
 # files in all subfolders of this test folder.
 #
-#     Usage: run.sh <test folder> <run commands>
+#     Usage: run.sh <test_folder> <compiler_id> <run_commands...>
 #
 # e.g.
 #
-#     test/cci/run.sh test/cci/0-omc onrampvm build/intermediate/cci-0-omc/cci.oe
+#     test/cci/run.sh test/cci/0-omc omc onrampvm build/intermediate/cci-0-omc/cci.oe
 #
 # If a .c file exists, the preprocessor is run on it first with the libc/1
 # headers, then the compiler is run on the output. If a .i file exists, the
@@ -72,6 +72,8 @@ fi
 
 SOURCE_FOLDER="$1"
 shift
+COMPILER_ID="$1"
+shift
 COMMAND="$@"
 TEMP_I=/tmp/onramp-test.i
 TEMP_OS=/tmp/onramp-test.os
@@ -79,6 +81,21 @@ TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
 TOTAL_ERRORS=0
+
+# determine macros to use for this compiler
+if [ "$COMPILER_ID" = "omc" ]; then
+    MACROS="-D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn="
+elif [ "$COMPILER_ID" = "opc" ]; then
+    MACROS="-D__onramp_cci_opc__=1 -Drestrict= -D_Noreturn= -Dlong=int"
+elif [ "$COMPILER_ID" = "full" ]; then
+    MACROS="-D__onramp_cci_full__=1"
+else
+    echo "ERROR: Unknown compiler: $COMPILER_ID"
+fi
+MACROS="$MACROS -D__onramp__=1 -D__onramp_cci__=1"
+# TODO use cpp/2
+#MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_full__=1"
+MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1"
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -99,8 +116,7 @@ for TESTFILE in $FILES; do
 
     # preprocess
     if echo $TESTFILE | grep -q '\.c$'; then
-        $ROOT/build/test/cpp-1-omc/cpp \
-            -D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn= \
+        $ROOT/build/test/cpp-1-omc/cpp $MACROS \
             -I$ROOT/core/libc/0-oo/include -I$ROOT/core/libc/1-omc/include \
             -include __onramp/__predef.h \
             $BASENAME.c -o $TEMP_I
@@ -190,8 +206,7 @@ for TESTFILE in $FILES; do
         echo "Commands:"
         echo "    make build && \\"
         if echo $TESTFILE | grep -q '\.c$'; then
-            echo "    $ROOT/build/test/cpp-1-omc/cpp" \
-                "-D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn=" \
+            echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS" \
                 "-I$ROOT/core/libc/0-oo/include -I$ROOT/core/libc/1-omc/include" \
                 "-include __onramp/__predef.h" \
                 "$BASENAME.c -o $TEMP_I && \\"

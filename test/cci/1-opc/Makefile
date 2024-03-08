@@ -66,12 +66,12 @@ $(OUT)/cci: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test-0: build FORCE
-	../run.sh --other-stage ../0-omc $(OUT)/cci
+	../run.sh --other-stage ../0-omc opc $(OUT)/cci
 
 test-1: build FORCE
-	../run.sh . $(OUT)/cci
+	../run.sh . opc $(OUT)/cci
 
 test: test-1 test-0 FORCE
 
 generate: build FORCE $(VM)
-	../generate.sh . $(VM) $(OUT)/cci
+	../generate.sh . opc $(VM) $(OUT)/cci

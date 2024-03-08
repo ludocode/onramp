@@ -34,7 +34,7 @@
 #ifdef __onramp_cci_opc__
     // opC also doesn't support _Bool. We make it unsigned char, which is
     // closer but still not the same as a real _Bool.
-    typedef unsigned char _Bool;
+    typedef /*unsigned*/ char _Bool; // TODO unsigned not supported yet in cci/1
     #define bool _Bool
 #endif
 

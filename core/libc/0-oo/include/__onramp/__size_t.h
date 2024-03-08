@@ -36,7 +36,7 @@
     typedef int size_t;
 #endif
 #ifndef __onramp_cci_omc__
-    typedef unsigned int size_t;
+    typedef /*unsigned*/ int size_t; // TODO unsigned not supported yet in cci/1
 #endif
 
 #endif

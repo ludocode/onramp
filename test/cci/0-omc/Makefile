@@ -106,10 +106,10 @@ $(OUT)/cci.oe: $(OBJS) Makefile $(LD) $(LIBC) $(LIBO)
 	$(LD) -g $(LIBC) $(LIBO) $(OBJS) -o $@
 
 test: build FORCE $(VM)
-	../run.sh . $(VM) $(OUT)/cci.oe
+	../run.sh . omc $(VM) $(OUT)/cci.oe
 
 generate: build FORCE $(VM)
-	../generate.sh . $(VM) $(OUT)/cci.oe
+	../generate.sh . omc $(VM) $(OUT)/cci.oe
 
 debug: build FORCE
 	onrampvm $(OUT)/cci.oe /tmp/a.i -o /dev/stdout
