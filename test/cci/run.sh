@@ -96,6 +96,7 @@ MACROS="$MACROS -D__onramp__=1 -D__onramp_cci__=1"
 # TODO use cpp/2
 #MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_full__=1"
 MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1"
+MACROS="$MACROS -include __onramp/__predef.h"
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -118,7 +119,6 @@ for TESTFILE in $FILES; do
     if echo $TESTFILE | grep -q '\.c$'; then
         $ROOT/build/test/cpp-1-omc/cpp $MACROS \
             -I$ROOT/core/libc/0-oo/include -I$ROOT/core/libc/1-omc/include \
-            -include __onramp/__predef.h \
             $BASENAME.c -o $TEMP_I
         INPUT=$TEMP_I
     else
@@ -208,7 +208,6 @@ for TESTFILE in $FILES; do
         if echo $TESTFILE | grep -q '\.c$'; then
             echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS" \
                 "-I$ROOT/core/libc/0-oo/include -I$ROOT/core/libc/1-omc/include" \
-                "-include __onramp/__predef.h" \
                 "$BASENAME.c -o $TEMP_I && \\"
         fi
         echo "    $COMMAND $ARGS && \\"

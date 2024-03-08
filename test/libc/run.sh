@@ -48,6 +48,11 @@ TEMP_OE=$(mktemp /tmp/onramp.XXXXXX.oe)
 TEMP_STDOUT=$(mktemp /tmp/onramp.XXXXXX.stdout)
 ANY_ERROR=0
 
+MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1"
+# TODO use cci/2 and cpp/2 once they exist
+MACROS="$MACROS -D__onramp_cci_opc__=1 -D__onramp_cpp_opc__=1 -Dlong=int"
+MACROS="$MACROS -include __onramp/__predef.h"
+
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $LIBC"
 
@@ -59,7 +64,7 @@ for TESTFILE in $FILES; do
     echo "Testing $BASENAME"
 
     # preprocess
-    PREPROCESSOR_ARGS="$PREPROCESSOR_OPTIONS -D__onramp__=1 -D__onramp_cci_omc__=1 -include __onramp/__predef.h"
+    PREPROCESSOR_ARGS="$PREPROCESSOR_OPTIONS $MACROS"
     $ROOT/build/test/cpp-1-omc/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I
     if [ $? -ne 0 ]; then
         echo "ERROR: $BASENAME failed to preprocess."

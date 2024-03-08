@@ -2,7 +2,7 @@
 
 Onramp is designed to be tested in a POSIX development environment. The test suite depends on typical POSIX development tools:
 
-- a C compiler;
+- a native C compiler (not Onramp);
 - a `make` tool (GNU or BSD);
 - a POSIX shell and coreutils;
 - a `/tmp` directory;
@@ -12,27 +12,63 @@ There are two ways to test components: using the *best* available toolchain, and
 
 
 
-## Testing components using the best available toolchain
+## Pre-Testing Setup
 
-This is the typical way to test components.
+Consider doing a clean before testing:
+
+```sh
+scripts/posix/clean.sh
+```
+
+You'll need to have a VM and hex tool on your PATH. The simplest way to do that is:
+
+```sh
+scripts/posix/setup.sh
+. scripts/posix/env.sh
+```
+
+The file `test/local.mk.sample` can be copied to `test/local.mk` to set variables for all test Makefiles. By default it adds `-Werror` and Address Sanitizer.
+
+You could add to or override other things as well, for example `CC` to use a particular compiler.
+
+It is highly recommended to use `local.mk` to at least enable `-Werror`. If you get warnings with any compiler, please file a bug against Onramp.
+
+
+
+## Testing Everything
+
+If you just want to run all tests that can be run on your system, do the above setup, then run:
+
+```sh
+test/test-all.sh
+```
+
+
+
+## Testing components using the best available toolchain
 
 The test directory for each stage of each component contains within it a `Makefile`. This builds the component (and any dependencies) using the best available toolchain and runs its unit test suite.
 
 Tools written in C, or an Onramp subset of C, will be built with your system C compiler. This gives the best warnings and error detection, and allows us to use tools like Address Sanitizer to verify our components for correctness.
 
-Tools written in Onramp assembly, bytecode or hexadecimal will be built with the final stage of the corresponding Onramp tools. This again gives the best warnings and error detection. Later stage Onramp tools are much better at error detection and reporting than earlier stage tools.
+Tools written in Onramp assembly, bytecode or hexadecimal will be built with the final stage of the corresponding Onramp tools. This again gives the best warnings and error detection. Final stage Onramp tools are much better at error detection and reporting than earlier bootstrapping stages.
 
 
 
 ### Testing one component
 
-You can build an individual component simply by going into its test folder and typing `make`. Alternatively, you can do it from the top-level with the `-C` option. For example, try:
+You can build an individual component simply by going into its test folder and typing `make`. For example:
 
 ```sh
-make -C test/as/2-full
+cd test/as/2-full
+make
 ```
 
-This builds the full assembler with your C compiler and runs all tests. Note that any paths reported in the output are relative to the test folder, not the root.
+This builds the full assembler with your C compiler and runs all tests. This is how you would normally build and test a component while doing development on it. If you only want to build, type `make build`.
+
+When a test case fails, the script prints the commands used to build and run that test case. You can copy and paste those commands to rebuild and run only that test case.
+
+Type `make generate` to re-generate the output of all test cases. Use this if you change the output formatting of the tool, or if you change a libc header for example, which could invalidate the output of many tests due to minor changes (such as `#line` numbers being different.) This renders the test results moot! You need to double-check the diff carefully to make sure it has made only the changes you want to the output.
 
 
 
@@ -45,16 +81,6 @@ test/test-core.sh
 ```
 
 This just runs `make` on every stage of every core component.
-
-
-
-### Local Settings
-
-The file `test/local.mk.sample` can be copied to `test/local.mk` to set variables for all test Makefiles. By default it adds `-Werror` and Address Sanitizer.
-
-You could add to or override other things as well, for example `CC` to use a particular compiler.
-
-It is highly recommended to enable `-Werror`. If you get warnings with any compiler, please file a bug against Onramp.
 
 
 
