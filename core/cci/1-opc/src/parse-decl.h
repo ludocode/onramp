@@ -27,8 +27,8 @@ bool try_parse_declaration_specifiers(
  * Note that we don't include a function's argument list or a variable's
  * initialization list. They are parsed separately.
  */
-bool try_parse_declarator(const type_t* base_type,
-        type_t** out_type, char** out_name);
+bool try_parse_declarator(const type_t* base_type, type_t** out_type,
+        char** /*nullable*/ out_name);
 
 /**
  * Parses a declarator using the given base type as the declaration specifier
@@ -37,7 +37,7 @@ bool try_parse_declarator(const type_t* base_type,
  * Note that we don't include a function's argument list or a variable's
  * initialization list. They are parsed separately.
  */
-void parse_declarator(const type_t* base_type,
-        type_t** out_type, char** out_name);
+void parse_declarator(const type_t* base_type, type_t** out_type,
+        char** /*nullable*/ out_name);
 
 #endif

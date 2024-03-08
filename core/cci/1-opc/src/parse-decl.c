@@ -2,6 +2,43 @@
 
 #include "lexer.h"
 
+
+
+/*
+ * Declaration Specifiers
+ *
+ * A declaration specifier list is a bit "fun" to parse because the specifiers
+ * can come in any order. For example you can write:
+ *
+ *     long unsigned int typedef long x;
+ *
+ * That's a totally valid typedef that maps `x` to `unsigned long long`, and it
+ * can appear almost anywhere, even nested deep within a function. Struct,
+ * union, enum and typedef names can be mixed into the specifier list at any
+ * position as well.
+ *
+ * (GCC under `-Wextra` claims that not having storage class specifiers first
+ * is obsolescent. I can't actually find that in any of the specs, and even if
+ * it is, compilers still have to support them in any order for backwards
+ * compatibility.)
+ *
+ * Despite this, the compiler still has to ensure that no specifiers are
+ * repeated (except for `long`, which can be repeated at most once), and that
+ * the combination of specifiers is valid.
+ *
+ * I suppose we didn't really need to do all these checks in the opC compiler
+ * but I did anyway, at least for those keywords we don't ignore. I was more
+ * concerned with getting the implementation correct and I thought I might make
+ * mistakes if I tried to cut corners.
+ */
+
+/*
+ * Storage class specifiers
+ *
+ * At most one storage class specifier is allowed to appear in a declaration
+ * specifier list.
+ */
+
 static bool try_parse_storage_class_specifier(storage_t* out_storage,
         const char* keyword, storage_t value)
 {
@@ -16,12 +53,26 @@ static bool try_parse_storage_class_specifier(storage_t* out_storage,
 }
 
 static bool try_parse_storage_class_specifiers(storage_t* out_storage) {
+
+    // we care about these
     if (try_parse_storage_class_specifier(out_storage, "typedef", STORAGE_TYPEDEF)) {return true;}
     if (try_parse_storage_class_specifier(out_storage, "extern", STORAGE_EXTERN)) {return true;}
     if (try_parse_storage_class_specifier(out_storage, "static", STORAGE_STATIC)) {return true;}
+
+    // these are ignored
+    if (lexer_accept("auto")) {return true;}
+    if (lexer_accept("register")) {return true;}
+    if (lexer_accept("_Thread_local")) {return true;}
+    if (lexer_accept("constexpr")) {return true;}
+
     return false;
 }
 
+/*
+ * Type Qualifiers
+ *
+ * These are all ignored. We don't bother to check for duplicates.
+ */
 static bool try_parse_type_qualifiers(void) {
     if (lexer_accept("const")) {return true;}
     if (lexer_accept("restrict")) {return true;}
@@ -29,11 +80,20 @@ static bool try_parse_type_qualifiers(void) {
     return false;
 }
 
+/*
+ * Function Specifiers
+ *
+ * These are all ignored.
+ */
 static bool try_parse_function_specifiers(void) {
     if (lexer_accept("inline")) {return true;}
     if (lexer_accept("_Noreturn")) {return true;}
     return false;
 }
+
+/*
+ * Type Specifiers
+ */
 
 // type specifier keywords
 #define TYPE_SPECIFIER_VOID         (1 << 0)
@@ -64,6 +124,9 @@ static bool try_parse_type_specifiers(int* type_specifiers,
         const record_t** out_record,
         const type_t** out_typedef)
 {
+    // atomic is ignored.
+    if (lexer_accept("_Atomic")) {return true;}
+
     if (try_parse_type_specifier(type_specifiers, "void", TYPE_SPECIFIER_VOID)) {return true;}
     if (try_parse_type_specifier(type_specifiers, "char", TYPE_SPECIFIER_CHAR)) {return true;}
     if (try_parse_type_specifier(type_specifiers, "short", TYPE_SPECIFIER_SHORT)) {return true;}
@@ -169,6 +232,10 @@ base_t convert_type_specifier(int type_specifiers) {
     fatal("Unsupported combination of type specifiers.");
 }
 
+/*
+ * Declaration Specifier List
+ */
+
 /**
  * Tries to parse a declaration specifier list.
  */
@@ -247,35 +314,123 @@ bool try_parse_declaration_specifiers(
 
 }
 
+
+
 /*
-bool try_parse_declaration(type_t** out_type, char** out_name,
-        storage_t* out_storage)
-{
-    base_t base;
-    record_t* record;
-    storage_t* storage;
-    if (!try_parse_declaration_specifier(&base, &record, &storage)) {
+ * Declarator List
+ *
+ * A declarator list is the part that comes after the declaration specifiers.
+ * For example:
+ *
+ *     int long typedef *x, y[4], *(*z(void*))[8];
+ *
+ * In this case the list is `*` with name `x`, `[4]` with name `y`, and
+ * `*(*(void*))[8]` with name `z`.
+ *
+ * We don't parse function arguments as part of the declarator list in the opC
+ * compiler because we don't support function pointers. Function arguments are
+ * parsed separately.
+ */
+
+static bool try_parse_declarator_impl(type_t* type, char** out_name);
+
+static bool try_parse_pointer(type_t* type) {
+    if (!lexer_accept("*")) {
         return false;
     }
-
-    // A declaration starts with a declaration specifier list. Check if we have
-    // any. If we have none, it's not a declaration. (We don't support default
-    // int.)
-    const record_t* record;
-    const type_t* base_type;
-    int specifiers = parse_declaration_specifiers(&record, &base_type);
-    if (specifiers == 0) {
-        return false;
+    if (type_is_array(type)) {
+        // We don't support this in opC.
+        fatal("Pointers to arrays are not supported.");
     }
-
-
+    type_increment_pointers(type);
+    // We ignore type qualifiers.
+    while (try_parse_type_qualifiers()) {}
+    return true;
 }
-*/
 
-/*
+static bool try_parse_direct_declarator(type_t* type, char** out_name) {
+    bool found = false;
+
+    // Parens before another direct declarator are a parenthesized declarator.
+    if (lexer_accept("(")) {
+        if (!try_parse_declarator_impl(type, out_name)) {
+            fatal("Expected declarator after `(`");
+        }
+        lexer_expect(")", "Expected `)` after parenthesized declarator.");
+        found = true;
+    }
+
+    if (!found & (lexer_type == lexer_type_alphanumeric)) {
+        if (*out_name != NULL) {
+            fatal_2("Redundant identifier in declarator: ", lexer_token);
+        }
+        // We should check that this isn't a keyword. For now we don't
+        // bother. We should also check that this doesn't re-declare a name in
+        // the same scope. We don't properly support typedef scope (and we don't
+        // even really track variable scopes outside of the block parse
+        // functions) so we don't bother with this either.
+        *out_name = lexer_take();
+        found = true;
+    }
+
+    if (!found) {
+        fatal("Expected direct declarator (an identifier or parenthesized declarator).");
+    }
+
+    // Parens after another direct declarator are function arguments, but we
+    // don't check that here because we don't support function pointers or a
+    // real function type. The global declaration parser will expect to see '('
+    // to parse the arguments itself.
+
+    while (lexer_accept("[")) {
+        if (type_is_array(type)) {
+            fatal("Multi-dimensional arrays are not supported.");
+        }
+
+        if (lexer_accept("]")) {
+            type_set_array_length(type, TYPE_ARRAY_INDETERMINATE);
+        }
+
+        // We ignore type qualifiers.
+        while (try_parse_type_qualifiers()) {}
+
+        fatal("array size not yet implemented");
+        int length = 0;// TODO parse a constant expression
+        if (length < 0) {
+            fatal("Array size cannot be negative.");
+        }
+        type_set_array_length(type, length);
+    }
+
+    return true;
+}
+
+static bool try_parse_declarator_impl(type_t* type, char** out_name) {
+    bool pointer_found = false;
+
+    while (try_parse_pointer(type)) {
+        pointer_found = true;
+    }
+
+    if (!try_parse_direct_declarator(type, out_name)) {
+        if (pointer_found) {
+            fatal("Pointer declarator must be followed by a direct declarator.");
+        }
+        return false;
+    }
+    return true;
+}
+
 bool try_parse_declarator(const type_t* base_type,
         type_t** out_type, char** out_name)
 {
+    *out_type = type_clone(base_type);
+    *out_name = NULL;
+    if (!try_parse_declarator_impl(out_type, out_name)) {
+        type_delete(*out_type);
+        return false;
+    }
+    return true;
 }
 
 void parse_declarator(const type_t* base_type,
@@ -285,4 +440,3 @@ void parse_declarator(const type_t* base_type,
         fatal("Expected a declarator (i.e. a name, `*`, `[`, etc.)");
     }
 }
-*/

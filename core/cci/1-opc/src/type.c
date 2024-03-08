@@ -215,6 +215,11 @@ type_t* type_decrement_indirection(type_t* type) {
     return type;
 }
 
+type_t* type_increment_pointers(type_t* type) {
+    type_set_pointers(type, type_pointers(type) + 1);
+    return type;
+}
+
 type_t* type_increment_indirection(type_t* type) {
     if (type_is_array(type)) {
         // TODO there are some cases where taking the address decays without
@@ -223,8 +228,7 @@ type_t* type_increment_indirection(type_t* type) {
         // does *not* increment indirections.
         type_set_array_length(type, TYPE_ARRAY_NONE);
     }
-    type_set_pointers(type, type_pointers(type) + 1);
-    return type;
+    return type_increment_pointers(type);
 }
 
 bool type_equal(const type_t* left, const type_t* right) {

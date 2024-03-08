@@ -36,7 +36,7 @@ opC has all C99 signed and unsigned integer types, `void`, `struct`, `union`, `e
 
 These simplifications mean we do not have to store a real declarator list. The only items allowed in a declarator list before the final array size are pointers, so we can flatten the entire declarator list down to a pointer count and an array size.
 
-Types are represented by a very simple structure. A type, called `type_t`, is composed of:
+Types are therefore not represented as a recursive data structure (e.g. a linked list) as they are in other compilers (although types can recurse indirectly through structs and unions.) Types are instead represented by a very simple structure. A type, called `type_t`, is composed of:
 
 - a qualified base type;
 - an l-value flag;
@@ -44,7 +44,7 @@ Types are represented by a very simple structure. A type, called `type_t`, is co
 - an indirection (pointer) count; and
 - an optional array size.
 
-A qualified base type means either a basic type or a record type. A basic type is a fundamental type with an optional signedness qualifier: `int`, `signed char`, `unsigned short`, `void`, etc. (An enum is just an alias of `int`; see below.) A record is a struct or union type: it stores the names, types and offsets of the contained fields.
+A qualified base type means either a basic type or a record type. A basic type is a fundamental type with an optional signedness qualifier: `int`, `signed char`, `unsigned long long`, `void`, etc. A record is a struct or union type: it stores the names, types and offsets of the contained fields. (An enum is just an alias of `int`; see below.)
 
 These fields are wrapped in a type called `type_t` which is allocated and passed by pointer (see "emulated structs" below.) Expression parsing functions that generate a type (functions whose name starts with `parse` or `try_parse`) typically return ownership of one so the caller must free it or pass it along. Most other functions either return a type while retaining ownership of it (such as variable lookup) or modify a given type (such as `compile_dereference_if_lvalue()`.)
 
