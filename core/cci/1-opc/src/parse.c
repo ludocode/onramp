@@ -40,6 +40,10 @@ void parse_destroy(void) {
     free(strings);
 }
 
+
+
+// below to be deleted, replacing with parse-decl.c
+
 static type_t* try_parse_type_specifier(void) {
 
     // Ignore const, except that if we find it, this has to be a type
@@ -102,6 +106,11 @@ static type_t* parse_type(void) {
     return ret;
 }
 
+// above to be deleted, replacing with parse-decl.c
+
+
+
+
 static char* parse_alphanumeric(void) {
     if (lexer_type != lexer_type_alphanumeric) {
         fatal("Expected identifier");
@@ -114,15 +123,32 @@ static type_t* parse_primary_expression(void) {
     // parenthesis
     if (lexer_accept("(")) {
 
-        // if the token is a type name, we have a cast expression.
-        type_t* desired_type = try_parse_type();
-        if (desired_type) {
+        // Check for a cast expression.
+        // We should be parsing a specifier-qualifier list, not a
+        // declaration-specifier list. For now we will just make sure there are
+        // no storage class specifiers.
+        type_t* base_type;
+        storage_t storage;
+        if (try_parse_declaration_specifiers(&base_type, &storage)) {
+            if (storage != STORAGE_DEFAULT) {
+                fatal("Storage specifiers are not allowed in a cast expression.");
+            }
+
+            // It's a cast. The declarator is abstract and optional.
+            type_t* desired_type;
+            if (!try_parse_declarator(base_type, &desired_type, NULL)) {
+                desired_type = type_clone(base_type);
+            }
+            type_delete(base_type);
             lexer_expect(")", "Expected ) after type in cast");
+
+            // Parse the expression to be cast and cast it
             type_t* current_type = parse_unary_expression();
             current_type = compile_dereference_if_lvalue(current_type, 0);
             return compile_cast(current_type, desired_type, 0);
         }
 
+        // Otherwise we have a parenthesized expression.
         type_t* type = parse_expression();
         lexer_expect(")", "Expected ) after parenthesized expression");
         return type;
@@ -793,7 +819,9 @@ void parse_global(void) {
     while (1) {
         type_t* type;
         char* name;
-        parse_declarator(base_type, &type, &name);
+        if (!try_parse_declarator(base_type, &type, &name)) {
+            fatal("Expected a declarator for this global declaration.");
+        }
         if (name == NULL) {
             fatal("A name is required for a global declaration.");
         }

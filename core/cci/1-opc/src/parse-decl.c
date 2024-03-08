@@ -286,9 +286,6 @@ bool try_parse_declaration_specifiers(
     // see if we got a typedef
     if (typedef_type != NULL) {
         if (type_specifiers != 0) {
-            // This may be a redundant typedef.
-
-
             fatal("Redundant type name and type specifiers in declaration specifier list.");
         }
         *out_type = type_clone(typedef_type);
@@ -343,7 +340,7 @@ bool try_parse_declaration_specifiers(
  * parsed separately.
  */
 
-static bool try_parse_declarator_impl(type_t* type, char** out_name);
+static bool try_parse_declarator_impl(type_t* type, char** /*nullable*/ out_name);
 
 static bool try_parse_pointer(type_t* type) {
     if (!lexer_accept("*")) {
@@ -359,7 +356,7 @@ static bool try_parse_pointer(type_t* type) {
     return true;
 }
 
-static bool try_parse_direct_declarator(type_t* type, char** out_name) {
+static bool try_parse_direct_declarator(type_t* type, char** /*nullable*/ out_name) {
     bool found = false;
 
     // Parens before another direct declarator are a parenthesized declarator.
@@ -371,21 +368,28 @@ static bool try_parse_direct_declarator(type_t* type, char** out_name) {
         found = true;
     }
 
-    if (!found & (lexer_type == lexer_type_alphanumeric)) {
-        if (*out_name != NULL) {
-            fatal_2("Redundant identifier in declarator: ", lexer_token);
-        }
-        // We should check that this isn't a keyword. For now we don't
-        // bother. We should also check that this doesn't re-declare a name in
-        // the same scope. We don't properly support typedef scope (and we don't
-        // even really track variable scopes outside of the block parse
-        // functions) so we don't bother with this either.
-        *out_name = lexer_take();
-        found = true;
-    }
+    // If out_name is NULL, this declarator is abstract. In that case a name
+    // cannot be provided and the direct-declarator is optional.
+    if (out_name != NULL) {
 
-    if (!found) {
-        fatal("Expected direct declarator (an identifier or parenthesized declarator).");
+        // Check for a name
+        // is abstract.)
+        if ((!found & (lexer_type == lexer_type_alphanumeric)) & (out_name != NULL)) {
+            if (*out_name != NULL) {
+                fatal_2("Redundant identifier in declarator: ", lexer_token);
+            }
+            // We should check that this isn't a keyword. For now we don't
+            // bother. We should also check that this doesn't re-declare a name in
+            // the same scope. We don't properly support typedef scope (and we don't
+            // even really track variable scopes outside of the block parse
+            // functions) so we don't bother with this either.
+            *out_name = lexer_take();
+            found = true;
+        }
+
+        if (!found) {
+            fatal("Expected direct-declarator (an identifier or parenthesized declarator).");
+        }
     }
 
     // Parens after another direct declarator are function arguments, but we
@@ -411,12 +415,13 @@ static bool try_parse_direct_declarator(type_t* type, char** out_name) {
             fatal("Array size cannot be negative.");
         }
         type_set_array_length(type, length);
+        found = true;
     }
 
-    return true;
+    return found;
 }
 
-static bool try_parse_declarator_impl(type_t* type, char** out_name) {
+static bool try_parse_declarator_impl(type_t* type, char** /*nullable*/ out_name) {
     bool pointer_found = false;
 
     while (try_parse_pointer(type)) {
@@ -424,6 +429,10 @@ static bool try_parse_declarator_impl(type_t* type, char** out_name) {
     }
 
     if (!try_parse_direct_declarator(type, out_name)) {
+        if (out_name == NULL) {
+            // just pointers are allowed in an abstract declarator
+            return pointer_found;
+        }
         if (pointer_found) {
             fatal("Pointer declarator must be followed by a direct declarator.");
         }
@@ -432,11 +441,13 @@ static bool try_parse_declarator_impl(type_t* type, char** out_name) {
     return true;
 }
 
-bool try_parse_declarator(const type_t* base_type,
-        type_t** out_type, char** out_name)
+bool try_parse_declarator(const type_t* base_type, type_t** out_type,
+        char** /*nullable*/ out_name)
 {
     *out_type = type_clone(base_type);
-    *out_name = NULL;
+    if (out_name) {
+        *out_name = NULL;
+    }
     if (!try_parse_declarator_impl(*out_type, out_name)) {
         type_delete(*out_type);
         return false;
@@ -444,6 +455,7 @@ bool try_parse_declarator(const type_t* base_type,
     return true;
 }
 
+/*
 void parse_declarator(const type_t* base_type,
         type_t** out_type, char** out_name)
 {
@@ -451,3 +463,4 @@ void parse_declarator(const type_t* base_type,
         fatal("Expected a declarator (i.e. a name, `*`, `[`, etc.)");
     }
 }
+*/

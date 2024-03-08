@@ -26,6 +26,10 @@ bool try_parse_declaration_specifiers(
  *
  * Note that we don't include a function's argument list or a variable's
  * initialization list. They are parsed separately.
+ *
+ * If out_name is NULL, this parses an abstract declarator (a name is not
+ * allowed.) If out_name is not NULL and a name is not found, the string
+ * pointed to be out_name will be set to NULL.
  */
 bool try_parse_declarator(const type_t* base_type, type_t** out_type,
         char** /*nullable*/ out_name);
@@ -37,7 +41,9 @@ bool try_parse_declarator(const type_t* base_type, type_t** out_type,
  * Note that we don't include a function's argument list or a variable's
  * initialization list. They are parsed separately.
  */
+/*
 void parse_declarator(const type_t* base_type, type_t** out_type,
-        char** /*nullable*/ out_name);
+        char** out_name);
+        */
 
 #endif
