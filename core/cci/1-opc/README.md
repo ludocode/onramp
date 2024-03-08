@@ -117,9 +117,9 @@ This is all valid omC. Of course this has many limitations: it's very slow, it's
 
 Enum types are treated as equivalent to `int`, and enum values are treated as global variables of type `int`. In fact, the compiler does not even keep track of enum declarations. The name of an enum type is ignored entirely.
 
-Whenever the compiler encounters `enum`, it consumes and ignores the name that follows it. Then, if at global scope, it checks for `{`; if found, each enum value it contains is defined as a global integer variable. After that, the fact that it was an `enum` is discarded; it is simply returned as type `int`.
+Whenever the compiler encounters `enum`, it consumes and ignores the name that follows it. Then, if at global scope, it checks for `{`; if found, each enum value it contains is defined as a global integer variable. After that, the fact that it was an `enum` is discarded; it is treated as though it was the keyword `int`.
 
-This means enums can be forward declared, and can be used without ever being defined, and enum values can even be modified. For example:
+This means enums can be forward declared and can be used without ever being defined, and enum values are interchangeable and can even be modified. For example:
 
 ```
 enum foo; // invalid, forward declaration of enum
@@ -131,9 +131,9 @@ enum foo {  // invalid, duplicate enum
     foo_2 = 2;
 };
 
-enum while; // invalid, enum name is a keyword
+enum while x; // invalid, enum name is a keyword
 
-unsigned enum foo foo = 2; // invalid, unsigned value of enum type
+unsigned short enum foo foo = 2; // invalid, enum with integer type specifiers
 
 enum bar bar = foo_1; // invalid, undeclared enum
 

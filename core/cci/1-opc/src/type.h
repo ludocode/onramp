@@ -19,6 +19,7 @@
  */
 typedef int base_t;
 
+#define BASE_INVALID 0
 #define BASE_RECORD 1
 #define BASE_VOID 2
 #define BASE_UNSIGNED_CHAR 3
