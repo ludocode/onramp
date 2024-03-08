@@ -440,12 +440,12 @@
 #
 #line 34 "./programs/eight-queens.c"
 #
-#
 =queens 
 '00'00'00'00
 
 
 
+#
 #
 #
 #

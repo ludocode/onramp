@@ -21,8 +21,16 @@ bool compile_is_enabled(void) {
     return emit_is_enabled();
 }
 
-void compile_global_variable(const type_t* type, const char* name) {
-    emit_label('=', name);
+static char compile_storage_glyph(storage_t storage) {
+    assert(storage != STORAGE_TYPEDEF);
+    if (storage == STORAGE_STATIC) {
+        return '@';
+    }
+    return '=';
+}
+
+void compile_global_variable(const type_t* type, const char* name, storage_t storage) {
+    emit_label(compile_storage_glyph(storage), name);
     emit_newline();
 
     int size = type_size(type);
@@ -80,7 +88,7 @@ void compile_function_open(const char* name, int arg_count) {
     }
 }
 
-void compile_function_close(const char* name, int arg_count, int frame_size) {
+void compile_function_close(const char* name, int arg_count, int frame_size, storage_t storage) {
     //printf("close varcount %i\n", compile_function_max_locals_count);
 
     // add a return to the function in case it didn't return on its own
@@ -97,7 +105,7 @@ void compile_function_close(const char* name, int arg_count, int frame_size) {
 
     // emit the function prologue
     emit_newline();
-    emit_label('=', name); // TODO NO, if static use @
+    emit_label(compile_storage_glyph(storage), name);
     emit_newline();
     emit_term("enter");
     emit_newline();

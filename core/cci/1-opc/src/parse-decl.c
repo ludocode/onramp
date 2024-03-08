@@ -127,6 +127,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
     // atomic is ignored.
     if (lexer_accept("_Atomic")) {return true;}
 
+    // handle primitive specifiers
     if (try_parse_type_specifier(type_specifiers, "void", TYPE_SPECIFIER_VOID)) {return true;}
     if (try_parse_type_specifier(type_specifiers, "char", TYPE_SPECIFIER_CHAR)) {return true;}
     if (try_parse_type_specifier(type_specifiers, "short", TYPE_SPECIFIER_SHORT)) {return true;}
@@ -134,6 +135,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
     if (try_parse_type_specifier(type_specifiers, "signed", TYPE_SPECIFIER_SIGNED)) {return true;}
     if (try_parse_type_specifier(type_specifiers, "unsigned", TYPE_SPECIFIER_UNSIGNED)) {return true;}
 
+    // handle long
     if (lexer_accept("long")) {
         if (*type_specifiers & TYPE_SPECIFIER_LONG_LONG) {
             fatal("`long long long` is invalid.");
@@ -147,6 +149,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
         return true;
     }
 
+    // handle enum
     if (lexer_accept("enum")) {
         if (lexer_type != lexer_type_alphanumeric) {
             fatal("`enum` must be followed by a name.");
@@ -160,6 +163,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
         return true;
     }
 
+    // handle struct and union
     bool is_struct = lexer_is("struct");
     if (is_struct | lexer_is("union")) {
         lexer_consume();
@@ -171,13 +175,17 @@ static bool try_parse_type_specifiers(int* type_specifiers,
         return true;
     }
 
-    const type_t* found = typedef_find(lexer_token);
-    if (found) {
-        if (out_typedef != NULL) {
-            fatal_2("Redundant type specifier: ", lexer_token);
+    // search for typedef (only if we haven't found any other type specifiers yet)
+    if (*type_specifiers == 0) {
+        if (*out_record == NULL) {
+            if (*out_typedef == NULL) {
+                *out_typedef = typedef_find(lexer_token);
+                if (*out_typedef) {
+                    lexer_consume();
+                    return true;
+                }
+            }
         }
-        *out_typedef = found;
-        return true;
     }
 
     return false;
@@ -275,6 +283,18 @@ bool try_parse_declaration_specifiers(
         break;
     }
 
+    // see if we got a typedef
+    if (typedef_type != NULL) {
+        if (type_specifiers != 0) {
+            // This may be a redundant typedef.
+
+
+            fatal("Redundant type name and type specifiers in declaration specifier list.");
+        }
+        *out_type = type_clone(typedef_type);
+        return true;
+    }
+
     // see if we got a record
     if (record != NULL) {
         if (typedef_type != NULL) {
@@ -286,15 +306,6 @@ bool try_parse_declaration_specifiers(
         //*out_type = type_new_record(record);
         // TODO
         fatal("try_parse_declaration_specifiers() record not yet implemented");
-        return true;
-    }
-
-    // see if we got a typedef
-    if (typedef_type != NULL) {
-        if (type_specifiers != 0) {
-            fatal("Redundant type name and type specifiers in declaration specifier list.");
-        }
-        *out_type = type_clone(typedef_type);
         return true;
     }
 
@@ -426,7 +437,7 @@ bool try_parse_declarator(const type_t* base_type,
 {
     *out_type = type_clone(base_type);
     *out_name = NULL;
-    if (!try_parse_declarator_impl(out_type, out_name)) {
+    if (!try_parse_declarator_impl(*out_type, out_name)) {
         type_delete(*out_type);
         return false;
     }

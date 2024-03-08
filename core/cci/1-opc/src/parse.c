@@ -9,6 +9,7 @@
 #include "compile.h"
 #include "locals.h"
 #include "global.h"
+#include "parse-decl.h"
 
 static void parse_block(void);
 static void parse_statement(void);
@@ -715,7 +716,7 @@ static void parse_output_strings(void) {
 }
 
 // Parses a function declaration (and definition, if provided.)
-static void parse_function_declaration(type_t* return_type, char* name) {
+static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
     int arg_count = 0;
 
     while (!lexer_accept(")")) {
@@ -762,7 +763,7 @@ static void parse_function_declaration(type_t* return_type, char* name) {
         //dump_variables();
         compile_function_open(global_name(global), arg_count);
         parse_block();
-        compile_function_close(global_name(global), arg_count, function_frame_size);
+        compile_function_close(global_name(global), arg_count, function_frame_size, storage);
 
         // output any strings that were used in the function
         parse_output_strings();
@@ -772,54 +773,63 @@ static void parse_function_declaration(type_t* return_type, char* name) {
     locals_pop(0);
 }
 
+/*
 static void parse_typedef(void) {
     type_t* type = parse_type();
     char* name = parse_alphanumeric();
     typedef_add(name, type);
     lexer_expect(";", "Expected ; at end of typedef");
 }
+*/
 
 void parse_global(void) {
-//printf("   parse_global()\n");
+    storage_t storage;
+    type_t* base_type;
 
-    if (lexer_accept("typedef")) {
-        parse_typedef();
-        return;
+    if (!try_parse_declaration_specifiers(&base_type, &storage)) {
+        fatal("Expected a global declaration.");
     }
 
-    // TODO
-    lexer_accept("_Noreturn");
-
-    bool is_extern = false;
-    if (lexer_accept("extern")) {
-        is_extern = true;
-    }
-
-    bool is_static = false;
-    if (lexer_accept("static")) {
-        is_static = true;
-    }
-    (void)is_static; // TODO not yet used
-
-    type_t* type = parse_type();
-    char* name = parse_alphanumeric();
-
-    // see if this is a global variable declaration
-    if (lexer_accept(";")) {
-        global_declare_variable(type, name);
-        if (!is_extern) {
-            compile_global_variable(type, name);
+    while (1) {
+        type_t* type;
+        char* name;
+        parse_declarator(base_type, &type, &name);
+        if (name == NULL) {
+            fatal("A name is required for a global declaration.");
         }
-        return;
+
+        // Check for a typedef
+        if (storage == STORAGE_TYPEDEF) {
+            typedef_add(name, type);
+            // TODO multiple typedefs are supposed to be supported
+            lexer_expect(";", "Expected ; at end of typedef");
+            break;
+        }
+
+        // Check for a function
+        if (lexer_accept("(")) {
+            parse_function_declaration(type, name, storage);
+            break;
+        }
+
+        // Otherwise it's a global variable declaration
+        if (lexer_accept("=")) {
+            fatal("Global variable initializer is not yet implemented");
+        }
+        global_declare_variable(type, name);
+        if (storage != STORAGE_EXTERN) {
+            compile_global_variable(type, name, storage);
+        }
+
+        // TODO check for a comma for multiple declarators, only allowed if none are functions
+        if (lexer_accept(",")) {
+            fatal("`,` in declaration is not yet implemented");
+        }
+        lexer_expect(";", "Expected `;` at end of global variable declaration.");
+        break;
     }
 
-    // parse a function declaration or definition
-    if (lexer_accept("(")) {
-        parse_function_declaration(type, name);
-        return;
-    }
-
-    fatal("Expected ; or (");
+    type_delete(base_type);
 }
 
 void parse(void) {

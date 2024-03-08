@@ -2,6 +2,7 @@
 #define COMPILE_H_INCLUDED
 
 #include "common.h"
+#include "parse-decl.h"
 
 void compile_init(void);
 void compile_destroy(void);
@@ -23,7 +24,7 @@ bool compile_is_enabled(void);
 /**
  * Compiles a global variable with the given type and name.
  */
-void compile_global_variable(const type_t* type, const char* name);
+void compile_global_variable(const type_t* type, const char* name, storage_t storage);
 
 /**
  * Compiles the prologue of a function with the given name and number of
@@ -34,7 +35,7 @@ void compile_function_open(const char* name, int arg_count);
 /**
  * Compiles the epilogue of the current function with the given name.
  */
-void compile_function_close(const char* name, int arg_count, int frame_size);
+void compile_function_close(const char* name, int arg_count, int frame_size, storage_t storage);
 
 /**
  * Compiles a binary operation.

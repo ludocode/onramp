@@ -64,7 +64,11 @@ typedef int base_t;
  * - an optional array size, which can be indeterminate
  * - an l-value flag (describing its state of compilation)
  */
+#ifdef __onramp_omc__
 typedef void type_t;
+#else
+typedef struct {int unused;} type_t;
+#endif
 
 /**
  * Deletes a type.

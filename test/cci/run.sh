@@ -86,7 +86,7 @@ TOTAL_ERRORS=0
 if [ "$COMPILER_ID" = "omc" ]; then
     MACROS="-D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn="
 elif [ "$COMPILER_ID" = "opc" ]; then
-    MACROS="-D__onramp_cci_opc__=1 -Drestrict= -D_Noreturn= -Dlong=int"
+    MACROS="-D__onramp_cci_opc__=1 -Dlong=int"
 elif [ "$COMPILER_ID" = "full" ]; then
     MACROS="-D__onramp_cci_full__=1"
 else
