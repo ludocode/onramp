@@ -459,8 +459,10 @@ static bool is_identifier_char(int c, int first_char) {
     }
 
     // Identifiers cannot start with digits.
-    if ((!first_char) & isdigit(current_char)) {
-        return true;
+    if (!first_char) {
+        if (isdigit(current_char)) {
+            return true;
+        }
     }
 
     return false;
@@ -472,7 +474,7 @@ static bool is_identifier_char(int c, int first_char) {
 static void consume_identifier(void) {
     size_t i;
 
-    if (!is_identifier_char(current_char, 1)) {
+    if (!is_identifier_char(current_char, true)) {
         fatal("Expected identifier");
     }
 
@@ -480,7 +482,7 @@ static void consume_identifier(void) {
     i = 1;
     while (1) {
         next_char();
-        if (!is_identifier_char(current_char, 0)) {
+        if (!is_identifier_char(current_char, false)) {
             break;
         }
         *(current_string + i) = current_char;
@@ -984,7 +986,7 @@ static void expand_macro(void** macro) {
         }
 
         /* Collect and handle identifiers */
-        if (is_identifier_char(c, 1)) {
+        if (is_identifier_char(c, true)) {
             size_t j;
             j = 0;
             while (1) {
@@ -995,10 +997,10 @@ static void expand_macro(void** macro) {
                     /* This shouldn't be possible because we're expanding a
                      * string that was stored in current_string in the first
                      * place. We check anyway for safety. */
-                    fatal("Bug: expand is too long");
+                    fatal("Internal error: expand is too long");
                 }
                 c = *(expansion + i);
-                if ((!isalnum(c)) & ((c != '_') & (c != '$'))) {
+                if (!is_identifier_char(c, false)) {
                     break;
                 }
             }
@@ -1102,7 +1104,7 @@ static void preprocess(const char* new_filename, FILE* new_file) {
         }
 
         /* Expand identifiers */
-        if (is_identifier_char(current_char, 1)) {
+        if (is_identifier_char(current_char, true)) {
             consume_identifier();
             expand_identifier(current_string);
             continue;
