@@ -30,6 +30,10 @@
  * but I did anyway, at least for those keywords we don't ignore. I was more
  * concerned with getting the implementation correct and I thought I might make
  * mistakes if I tried to cut corners.
+ *
+ * In opC, we don't allow typedef or struct/union declarations outside of
+ * global scope. We take the `global` flag to some of the below functions to
+ * check this.
  */
 
 /*
@@ -373,7 +377,6 @@ static bool try_parse_direct_declarator(type_t* type, char** /*nullable*/ out_na
     if (out_name != NULL) {
 
         // Check for a name
-        // is abstract.)
         if ((!found & (lexer_type == lexer_type_alphanumeric)) & (out_name != NULL)) {
             if (*out_name != NULL) {
                 fatal_2("Redundant identifier in declarator: ", lexer_token);
@@ -388,7 +391,7 @@ static bool try_parse_direct_declarator(type_t* type, char** /*nullable*/ out_na
         }
 
         if (!found) {
-            fatal("Expected direct-declarator (an identifier or parenthesized declarator).");
+            return false;
         }
     }
 
@@ -464,3 +467,18 @@ void parse_declarator(const type_t* base_type,
     }
 }
 */
+
+bool try_parse_declaration(storage_t* out_storage, type_t** out_type,
+        char** /*nullable*/ out_name)
+{
+    type_t* base_type;
+    if (!try_parse_declaration_specifiers(&base_type, out_storage)) {
+        return false;
+    }
+    if (!try_parse_declarator(base_type, out_type, out_name)) {
+        *out_type = base_type;
+        return true;
+    }
+    type_delete(base_type);
+    return true;
+}

@@ -40,106 +40,18 @@ void parse_destroy(void) {
     free(strings);
 }
 
-
-
-// below to be deleted, replacing with parse-decl.c
-
-static type_t* try_parse_type_specifier(void) {
-
-    // Ignore const, except that if we find it, this has to be a type
-    bool has_const = lexer_accept("const");
-
-    // Check for primitive types
-    if (lexer_accept("int")) {
-        return type_new_base(BASE_SIGNED_INT);
-    }
-    if (lexer_accept("char")) {
-        return type_new_base(BASE_SIGNED_CHAR);
-    }
-    if (lexer_accept("void")) {
-        return type_new_base(BASE_VOID);
-    }
-
-    // Check for a typedef
-    const type_t* found = typedef_find(lexer_token);
-    if (!found) {
-        if (has_const) {
-            fatal("Expected type name");
-        }
-        return NULL;
-    }
-    lexer_consume();
-    return type_clone(found);
-}
-
-static type_t* try_parse_type(void) {
-    type_t* type = try_parse_type_specifier();
-    if (!type) {
-        return NULL;
-    }
-
-    // Collect additional pointers, each of which may be prefixed by const
-    int pointers = type_pointers(type);
-    while (lexer_accept("*")) {
-        lexer_accept("const");
-        pointers = (pointers + 1);
-    }
-    type_set_pointers(type, pointers);
-
-    // Between the type and the name, we can have both const and restrict in
-    // either order.
-    // (It seems silly to support all this in the most basic compiler but this
-    // is all to make even our intermediate header files as correct and
-    // forward-compatible as possible.)
-    lexer_accept("const");
-    lexer_accept("restrict");
-    lexer_accept("const");
-
-    return type;
-}
-
-static type_t* parse_type(void) {
-    type_t* ret = try_parse_type();
-    if (!ret) {
-        fatal("Expected type name");
-    }
-    return ret;
-}
-
-// above to be deleted, replacing with parse-decl.c
-
-
-
-
-static char* parse_alphanumeric(void) {
-    if (lexer_type != lexer_type_alphanumeric) {
-        fatal("Expected identifier");
-    }
-    return lexer_take();
-}
-
 static type_t* parse_primary_expression(void) {
 
     // parenthesis
     if (lexer_accept("(")) {
 
-        // Check for a cast expression.
-        // We should be parsing a specifier-qualifier list, not a
-        // declaration-specifier list. For now we will just make sure there are
-        // no storage class specifiers.
-        type_t* base_type;
+        // Check for a cast expression. (The type declaration must be abstract.)
+        type_t* desired_type;
         storage_t storage;
-        if (try_parse_declaration_specifiers(&base_type, &storage)) {
+        if (try_parse_declaration(&storage, &desired_type, NULL)) {
             if (storage != STORAGE_DEFAULT) {
                 fatal("Storage specifiers are not allowed in a cast expression.");
             }
-
-            // It's a cast. The declarator is abstract and optional.
-            type_t* desired_type;
-            if (!try_parse_declarator(base_type, &desired_type, NULL)) {
-                desired_type = type_clone(base_type);
-            }
-            type_delete(base_type);
             lexer_expect(")", "Expected ) after type in cast");
 
             // Parse the expression to be cast and cast it
@@ -296,22 +208,28 @@ static type_t* parse_postfix_expression(void) {
 }
 
 static type_t* parse_sizeof(void) {
+
+    // Check for sizeof(type). The type must be in parentheses. (The type
+    // declaration must be abstract.)
     bool paren = lexer_accept("(");
     if (paren) {
-        type_t* type = try_parse_type();
-        if (type) {
+        type_t* type;
+        storage_t storage;
+        if (try_parse_declaration(&storage, &type, NULL)) {
+            if (storage != STORAGE_DEFAULT) {
+                fatal("Storage specifiers are not allowed in the type of `sizeof`.");
+            }
             lexer_expect(")", "Expected `)` after `sizeof(type`");
             return compile_sizeof(type);
         }
     }
 
-    // Parse the expression with compilation disabled. We only want to do type
-    // resolution.
+    // Otherwise it's a (possibly parenthesized) expression. Parse it with
+    // compilation disabled; we only want to do type resolution.
     bool was_enabled = compile_is_enabled();
     compile_set_enabled(false);
     type_t* type = parse_expression();
     compile_set_enabled(was_enabled);
-
     if (paren) {
         lexer_expect(")", "Expected `)` after `sizeof(expression`");
     }
@@ -648,8 +566,12 @@ static void parse_statement(void) {
 }
 
 // Takes ownership of the given type
-static void parse_local_declaration(type_t* type) {
-    char* name = parse_alphanumeric();
+static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
+    if (name == NULL) {
+        // We ignore useless variable declarations.
+        type_delete(type);
+    }
+
     //printf("defining new variable %s\n",name);
     locals_add(name, type);
 
@@ -699,13 +621,21 @@ static bool try_parse_block(void) {
     int previous_locals_count = locals_count;
 
     while (!lexer_accept("}")) {
-        type_t* type = try_parse_type();
-        if (type) {
-            parse_local_declaration(type);
+
+        // Check for a declaration
+        type_t* type;
+        char* name;
+        storage_t storage;
+        if (try_parse_declaration(&storage, &type, &name)) {
+            if (storage != STORAGE_DEFAULT) {
+                fatal("Storage specifiers in functions are not supported in opC.");
+            }
+            parse_local_declaration(type, name);
+            continue;
         }
-        if (!type) {
-            parse_statement();
-        }
+
+        // Otherwise it's a statement
+        parse_statement();
     }
 
     // track the maximum extent of the function's stack frame
@@ -750,29 +680,35 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
             lexer_expect(",", "Expected , or ) after argument");
         }
 
-        // parse type
-        type_t* type = parse_type();
+        // parse parameter
+        type_t* arg_type;
+        char* arg_name;
+        storage_t storage;
+        if (!try_parse_declaration(&storage, &arg_type, &arg_name)) {
+            if (storage != STORAGE_DEFAULT) {
+                fatal("Storage specifiers are not allowed in function parameters.");
+            }
+            fatal("Expected a function parameter declaration");
+        }
 
-        // check for (void)
-        // TODO can probably remove hack now that names are optional
-        if ((arg_count == 0) & type_is_base(type, BASE_VOID)) {
+        // check for (void) parameter list
+        if (((arg_name == NULL) & (arg_count == 0)) & type_is_base(arg_type, BASE_VOID)) {
             if (lexer_accept(")")) {
-                type_delete(type);
+                type_delete(arg_type);
                 break;
             }
         }
 
-        // parse optional name
-        char* varname;
-        if (lexer_type != lexer_type_alphanumeric) {
-            varname = strdup("");
-        }
-        if (lexer_type == lexer_type_alphanumeric) {
-            varname = parse_alphanumeric();
+        // If we don't have a name, for now we give it an anonymous name. We'll
+        // still reserve stack space for it and move the argument into it. This
+        // is simpler than trying to optimize away stack storage for unnamed
+        // parameters.
+        if (arg_name == NULL) {
+            arg_name = strdup("");
         }
 
         // add variable
-        locals_add(varname, type);
+        locals_add(arg_name, arg_type);
         arg_count = (arg_count + 1);
     }
 
@@ -823,6 +759,8 @@ void parse_global(void) {
             fatal("Expected a declarator for this global declaration.");
         }
         if (name == NULL) {
+            // TODO technically a name is not required, GCC and Clang only warn
+            // about useless declarations.
             fatal("A name is required for a global declaration.");
         }
 
