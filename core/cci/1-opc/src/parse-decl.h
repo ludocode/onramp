@@ -15,10 +15,12 @@ typedef int storage_t;
 
 /**
  * Tries to parse a declaration specifier list.
+ *
+ * If storage is NULL, storage specifiers are not allowed.
  */
 bool try_parse_declaration_specifiers(
         type_t** out_type, 
-        storage_t* out_storage);
+        storage_t* /*nullable*/ out_storage);
 
 /**
  * Tries to parse a declarator using the given base type as the declaration
@@ -56,8 +58,13 @@ void parse_declarator(const type_t* base_type, type_t** out_type,
  * If out_name is NULL, this parses an abstract declarator (a name is not
  * allowed.) If out_name is not NULL and a name is not found, the string
  * pointed to be out_name will be set to NULL.
+ *
+ * If storage is NULL, storage specifiers are not allowed. TODO we can remove
+ * this parameter entirely soon, nothing else will use it
  */
-bool try_parse_declaration(storage_t* out_storage, type_t** out_type,
+bool try_parse_declaration(
+        storage_t* /*nullable*/ out_storage,
+        type_t** out_type,
         char** /*nullable*/ out_name);
 
 #endif

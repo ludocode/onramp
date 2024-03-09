@@ -248,14 +248,13 @@ base_t convert_type_specifier(int type_specifiers) {
  * Declaration Specifier List
  */
 
-/**
- * Tries to parse a declaration specifier list.
- */
 bool try_parse_declaration_specifiers(
         type_t** out_type, 
-        storage_t* out_storage)
+        storage_t* /*nullable*/ out_storage)
 {
-    *out_storage = STORAGE_DEFAULT;
+    if (out_storage) {
+        *out_storage = STORAGE_DEFAULT;
+    }
 
     // We ignore type qualifiers and function specifiers, except that we still
     // need to track whether we found one during parsing because if we did, a
@@ -276,10 +275,13 @@ bool try_parse_declaration_specifiers(
             continue;
         }
 
-        if (try_parse_storage_class_specifiers(out_storage)) {
-            optional = false;
-            continue;
+        if (out_storage) {
+            if (try_parse_storage_class_specifiers(out_storage)) {
+                optional = false;
+                continue;
+            }
         }
+
         if (try_parse_type_specifiers(&type_specifiers, &record, &typedef_type)) {
             optional = false;
             continue;
@@ -468,13 +470,16 @@ void parse_declarator(const type_t* base_type,
 }
 */
 
-bool try_parse_declaration(storage_t* out_storage, type_t** out_type,
+bool try_parse_declaration(
+        storage_t* /*nullable*/ out_storage,
+        type_t** out_type,
         char** /*nullable*/ out_name)
 {
     type_t* base_type;
     if (!try_parse_declaration_specifiers(&base_type, out_storage)) {
         return false;
     }
+
     if (!try_parse_declarator(base_type, out_type, out_name)) {
         *out_type = base_type;
         return true;

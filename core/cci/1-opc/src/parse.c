@@ -47,11 +47,7 @@ static type_t* parse_primary_expression(void) {
 
         // Check for a cast expression. (The type declaration must be abstract.)
         type_t* desired_type;
-        storage_t storage;
-        if (try_parse_declaration(&storage, &desired_type, NULL)) {
-            if (storage != STORAGE_DEFAULT) {
-                fatal("Storage specifiers are not allowed in a cast expression.");
-            }
+        if (try_parse_declaration(NULL, &desired_type, NULL)) {
             lexer_expect(")", "Expected ) after type in cast");
 
             // Parse the expression to be cast and cast it
@@ -214,11 +210,7 @@ static type_t* parse_sizeof(void) {
     bool paren = lexer_accept("(");
     if (paren) {
         type_t* type;
-        storage_t storage;
-        if (try_parse_declaration(&storage, &type, NULL)) {
-            if (storage != STORAGE_DEFAULT) {
-                fatal("Storage specifiers are not allowed in the type of `sizeof`.");
-            }
+        if (try_parse_declaration(NULL, &type, NULL)) {
             lexer_expect(")", "Expected `)` after `sizeof(type`");
             return compile_sizeof(type);
         }
@@ -226,6 +218,8 @@ static type_t* parse_sizeof(void) {
 
     // Otherwise it's a (possibly parenthesized) expression. Parse it with
     // compilation disabled; we only want to do type resolution.
+    // Note that the expression in sizeof isn't allowed to be a cast. We don't
+    // bother to check this at the moment.
     bool was_enabled = compile_is_enabled();
     compile_set_enabled(false);
     type_t* type = parse_expression();
@@ -623,13 +617,10 @@ static bool try_parse_block(void) {
     while (!lexer_accept("}")) {
 
         // Check for a declaration
+        // TODO we need to do this separately to handle commas, like parse_global()
         type_t* type;
         char* name;
-        storage_t storage;
-        if (try_parse_declaration(&storage, &type, &name)) {
-            if (storage != STORAGE_DEFAULT) {
-                fatal("Storage specifiers in functions are not supported in opC.");
-            }
+        if (try_parse_declaration(NULL, &type, &name)) {
             parse_local_declaration(type, name);
             continue;
         }
@@ -683,11 +674,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         // parse parameter
         type_t* arg_type;
         char* arg_name;
-        storage_t storage;
-        if (!try_parse_declaration(&storage, &arg_type, &arg_name)) {
-            if (storage != STORAGE_DEFAULT) {
-                fatal("Storage specifiers are not allowed in function parameters.");
-            }
+        if (!try_parse_declaration(NULL, &arg_type, &arg_name)) {
             fatal("Expected a function parameter declaration");
         }
 
