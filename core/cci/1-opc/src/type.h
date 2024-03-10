@@ -133,8 +133,6 @@ void type_set_pointers(type_t* type, int count);
  */
 type_t* type_decrement_indirection(type_t* type);
 
-type_t* type_increment_indirection(type_t* type);
-
 type_t* type_increment_pointers(type_t* type);
 
 bool type_is_lvalue(const type_t* type);

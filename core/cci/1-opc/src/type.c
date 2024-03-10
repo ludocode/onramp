@@ -220,17 +220,6 @@ type_t* type_increment_pointers(type_t* type) {
     return type;
 }
 
-type_t* type_increment_indirection(type_t* type) {
-    if (type_is_array(type)) {
-        // TODO there are some cases where taking the address decays without
-        // incrementing indirection count. we need to differentiate between these
-        // cases. For now we assume we're taking the address of an array, which
-        // does *not* increment indirections.
-        type_set_array_length(type, TYPE_ARRAY_NONE);
-    }
-    return type_increment_pointers(type);
-}
-
 bool type_equal(const type_t* left, const type_t* right) {
     if (type_base(left) != type_base(right)) {
         return false;

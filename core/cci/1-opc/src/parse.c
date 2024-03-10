@@ -86,7 +86,7 @@ static type_t* parse_primary_expression(void) {
         compile_string_literal_invocation(next_string + strings_count);
         *(strings + strings_count) = lexer_take();
         strings_count = (strings_count + 1);
-        return type_increment_indirection(type_new_base(BASE_SIGNED_CHAR));
+        return type_increment_pointers(type_new_base(BASE_SIGNED_CHAR));
     }
 
     //fatal("Expected primary expression (i.e. identifier, number, string or open parenthesis)");
@@ -290,18 +290,12 @@ static type_t* parse_unary_expression(void) {
             fatal("Cannot take the address of an r-value");
         }
         type_set_lvalue(type, false);
-        bool is_array = type_is_array(type);
-        if (is_array) {
-            // Taking the address of an array converts it to a pointer.
+        if (type_is_array(type)) {
+            // The `&` operator on an array just converts it to a pointer; the
+            // overall indirection count stays the same.
             type_set_array_length(type, TYPE_ARRAY_NONE);
-            type_increment_indirection(type);
         }
-        if (!is_array) {
-            // The register already contains the address of the value. We turn
-            // off the l-value flag, so it becomes a pointer.
-            // TODO shouldn't we increment reference??
-            //type_increment_indirection(type);
-        }
+        type_increment_pointers(type);
         return type;
     }
 
