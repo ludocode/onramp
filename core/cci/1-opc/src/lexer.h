@@ -40,16 +40,6 @@ typedef int lexer_type_t;
 const char* lexer_type_to_string(lexer_type_t type);
 
 /**
- * The current line.
- */
-extern int lexer_line;
-
-/**
- * The current filename.
- */
-extern char* lexer_filename;
-
-/**
  * The current token being processed.
  *
  * In the case of an alphanumeric token, a number, or punctuation

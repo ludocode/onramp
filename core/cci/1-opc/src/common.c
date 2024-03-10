@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include "libo-error.h"
 
 #include "lexer.h"
 
@@ -47,21 +48,12 @@ void fatal_3(const char* message_1, const char* message_2,
 void fatal_4(const char* message_1, const char* message_2,
         const char* message_3, const char* message_4)
 {
-    fputs("ERROR", stderr);
-    if (lexer_line != 0) {
-        fputs(" at ", stderr);
-        fputs(lexer_filename, stderr);
-        fputs(":", stderr);
-        fputd(lexer_line, stderr);
-    }
-    fputs(": ", stderr);
-
+    fatal_prefix();
     fputs(message_1, stderr);
     fputs(message_2, stderr);
     fputs(message_3, stderr);
     fputs(message_4, stderr);
     fputc('\n', stderr);
-*(int*)0=1;
     _Exit(1);
 }
 

@@ -326,9 +326,9 @@ void emit_line_directive(void) {
         emit_newline();
     }
     emit_string("#line ");
-    emit_decimal(lexer_line);
+    emit_decimal(current_line);
     emit_string(" \"");
-    emit_string(lexer_filename); // TODO check for special characters, escape them somehow
+    emit_string(current_filename); // TODO check for special characters, escape them somehow
     emit_string("\"\n");
 
     emit_enabled = was_enabled;

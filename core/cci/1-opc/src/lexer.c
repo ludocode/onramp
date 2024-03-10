@@ -33,8 +33,8 @@
 #include "common.h"
 #include "emit.h"
 
-char* lexer_filename;
-int lexer_line;
+#include "libo-error.h"
+
 char* lexer_token;
 lexer_type_t lexer_type;
 
@@ -132,8 +132,8 @@ void lexer_init(const char* filename) {
         fatal_2("Failed to open input file: ", filename);
     }
 
-    lexer_line = 1;
-    lexer_filename = strdup(filename);
+    current_line = 1;
+    current_filename = strdup(filename);
     emit_line_directive();
 
     lexer_read_char();
@@ -143,7 +143,7 @@ void lexer_init(const char* filename) {
 void lexer_destroy(void) {
     fclose(lexer_file);
     free(lexer_token);
-    free(lexer_filename);
+    free(current_filename);
 }
 
 // TODO it's not going to be straightforward to share this.
@@ -278,13 +278,13 @@ static void lexer_consume_horizontal_whitespace(void) {
 static void lexer_consume_end_of_line(void) {
     int c = lexer_char;
     if (c == '\n') {
-        lexer_line = (lexer_line + 1);
+        current_line = (current_line + 1);
         lexer_read_char();
         return;
     }
 
     if (c == '\r') {
-        lexer_line = (lexer_line + 1);
+        current_line = (current_line + 1);
         c = lexer_read_char();
         if (c == '\n') {
             lexer_read_char();
@@ -339,7 +339,7 @@ static void lexer_handle_line_directive(void) {
 
     // Line number is off by 1 because the end of the #line directive will
     // increment it.
-    lexer_line = (line - 1);
+    current_line = (line - 1);
 
     // Line number must be followed by space or end of line
     if (lexer_is_end_of_line(lexer_char)) {
@@ -357,8 +357,8 @@ static void lexer_handle_line_directive(void) {
         fatal("Filename in #line directive must be double-quoted.");
     }
     lexer_consume_string_literal();
-    free(lexer_filename);
-    lexer_filename = strdup(lexer_token);
+    free(current_filename);
+    current_filename = strdup(lexer_token);
 
     lexer_consume_optional_horizontal_whitespace();
     if (!lexer_is_end_of_line(lexer_char)) {
