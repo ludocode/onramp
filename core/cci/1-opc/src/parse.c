@@ -238,11 +238,10 @@ static type_t* parse_unary_expression(void) {
     }
 
     if (lexer_accept("-")) {
+        // TODO unary minus is not allowed on pointers. We don't bother to
+        // check this; we just return the same type.
         type_t* type = parse_unary_expression();
-        // TODO is unary - allowed on pointers? maybe we should check that
-        // there is no indirection
-        // negate r0
-        // TODO dereference??
+        compile_dereference_if_lvalue(type, 0);
         emit_term("sub");
         emit_term("r0");
         emit_term("0");

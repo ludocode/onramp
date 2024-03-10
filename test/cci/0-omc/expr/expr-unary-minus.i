@@ -1,7 +1,12 @@
 int main(void) {
-    return 0;
-}
+    if (-5 != (0 - 5)) {
+        return 1;
+    }
 
-int foo(void) {
-    return -123;
+    int x = -4;
+    if (-x != 4) {
+        return 1;
+    }
+
+    return 0;
 }
