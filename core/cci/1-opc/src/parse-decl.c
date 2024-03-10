@@ -1,6 +1,7 @@
 #include "parse-decl.h"
 
 #include "lexer.h"
+#include "parse-expr.h"
 
 
 
@@ -338,29 +339,15 @@ bool try_parse_declaration_specifiers(
  *
  *     int long typedef *x, y[4], *(*z(void*))[8];
  *
- * In this case the list is `*` with name `x`, `[4]` with name `y`, and
- * `*(*(void*))[8]` with name `z`.
+ * In this case there are three named declarator lists: `*` with name `x`,
+ * `[4]` with name `y`, and `*(*(void*))[8]` with name `z`.
  *
  * We don't parse function arguments as part of the declarator list in the opC
  * compiler because we don't support function pointers. Function arguments are
- * parsed separately.
+ * parsed separately in parse_function_declaration().
  */
 
 static bool try_parse_declarator_impl(type_t* type, char** /*nullable*/ out_name);
-
-static bool try_parse_pointer(type_t* type) {
-    if (!lexer_accept("*")) {
-        return false;
-    }
-    if (type_is_array(type)) {
-        // We don't support this in opC.
-        fatal("Pointers to arrays are not supported.");
-    }
-    type_increment_pointers(type);
-    // We ignore type qualifiers.
-    while (try_parse_type_qualifiers()) {}
-    return true;
-}
 
 static bool try_parse_direct_declarator(type_t* type, char** /*nullable*/ out_name) {
     bool found = false;
@@ -404,45 +391,85 @@ static bool try_parse_direct_declarator(type_t* type, char** /*nullable*/ out_na
 
     while (lexer_accept("[")) {
         if (type_is_array(type)) {
-            fatal("Multi-dimensional arrays are not supported.");
+            fatal("Multi-dimensional arrays are not supported in opC.");
+        }
+        if (type_pointers(type) > 0) {
+            fatal("Pointers to arrays are not supported in opC.");
         }
 
+        // Support arrays of indeterminate size
+        bool indeterminate = false;
         if (lexer_accept("]")) {
             type_set_array_length(type, TYPE_ARRAY_INDETERMINATE);
+            indeterminate = true;
         }
 
-        // We ignore type qualifiers.
-        while (try_parse_type_qualifiers()) {}
+        if (!indeterminate) {
 
-        fatal("array size not yet implemented");
-        int length = 0;// TODO parse a constant expression
-        if (length < 0) {
-            fatal("Array size cannot be negative.");
+            // We ignore type qualifiers.
+            //while (try_parse_type_qualifiers()) {}
+
+            // parse a constant expression for the array length
+            type_t* length_type;
+            int length;
+            if (!try_parse_constant_expression(&length_type, &length)) {
+                fatal("Expected array size.");
+            }
+            if (!lexer_accept("]")) {
+                fatal("Expected `]` after array size.");
+            }
+            if (length < 0) {
+                fatal("Array size cannot be negative.");
+            }
+
+            type_delete(length_type);
+            type_set_array_length(type, length);
         }
-        type_set_array_length(type, length);
+
         found = true;
     }
 
     return found;
 }
 
-static bool try_parse_declarator_impl(type_t* type, char** /*nullable*/ out_name) {
-    bool pointer_found = false;
+static bool try_parse_pointer(type_t* type) {
+    if (!lexer_accept("*")) {
+        return false;
+    }
+    // We ignore type qualifiers.
+    while (try_parse_type_qualifiers()) {}
+    return true;
+}
 
+static bool try_parse_declarator_impl(type_t* type, char** /*nullable*/ out_name) {
+    int pointers = 0;
+
+    // Collect pointers. We apply them *after* parsing the direct declarator
+    // because we parse types backwards and we want to detect unsupported
+    // features such as pointers to arrays.
     while (try_parse_pointer(type)) {
-        pointer_found = true;
+        pointers = (pointers + 1);
     }
 
     if (!try_parse_direct_declarator(type, out_name)) {
-        if (out_name == NULL) {
-            // just pointers are allowed in an abstract declarator
-            return pointer_found;
+        if (!pointers) {
+            // pointers only are allowed in an abstract declarator, not in a
+            // normal declarator (even if the name is optional)
+            // TODO I'm sure this is wrong, function arguments are not abstract
+            // and should be allowed to be pointers only
+            /*
+            if (out_name != NULL)) {
+                fatal("Pointer declarator must be followed by a direct declarator.");
+            }
+            */
         }
-        if (pointer_found) {
-            fatal("Pointer declarator must be followed by a direct declarator.");
-        }
-        return false;
     }
+
+    while (pointers > 0) {
+        pointers = (pointers - 1);
+        type_increment_pointers(type);
+    }
+
     return true;
 }
 

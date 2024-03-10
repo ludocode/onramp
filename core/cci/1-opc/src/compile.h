@@ -84,18 +84,23 @@ type_t* compile_load_variable(const char* name);
  * Emits code to dereference the value of the given type stored in the given
  * register.
  *
+ * In other words, this loads a value of the given type whose address is in the
+ * given register into the given register.
+ *
  * You must have already removed an indirection (by decrementing the pointer
  * count, clearing the array, or clearing the l-value flag) before calling
- * this.
+ * this. It is an error to call this on an l-value, on an array, or on a value
+ * larger than a register.
  */
 void compile_dereference(type_t* type, int register_num);
 
 /**
- * Dereferences the variable in the given register if it is an lvalue.
+ * Converts the l-value in the given register into an r-value.
  *
- * The type is returned without the l-value flag.
+ * The type is returned without the l-value flag and with any other necessary
+ * conversions (e.g. an array decays to a pointer).
  */
-type_t* compile_dereference_if_lvalue(type_t* type, int register_num);
+type_t* compile_lvalue_to_rvalue(type_t* type, int register_num);
 
 type_t* compile_boolean_not(void);
 

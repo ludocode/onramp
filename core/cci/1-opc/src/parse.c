@@ -52,7 +52,7 @@ static type_t* parse_primary_expression(void) {
 
             // Parse the expression to be cast and cast it
             type_t* current_type = parse_unary_expression();
-            current_type = compile_dereference_if_lvalue(current_type, 0);
+            current_type = compile_lvalue_to_rvalue(current_type, 0);
             return compile_cast(current_type, desired_type, 0);
         }
 
@@ -117,7 +117,7 @@ static type_t* parse_function_call(const char* name) {
         //printf("   current token is %s\n",lexer_token);
 
         // if the argument is an l-value, dereference it
-        type = compile_dereference_if_lvalue(type, 0);
+        type = compile_lvalue_to_rvalue(type, 0);
 
         // TODO type-check the argument, for now ignore it
         type_delete(type);
@@ -241,7 +241,7 @@ static type_t* parse_unary_expression(void) {
         // TODO unary minus is not allowed on pointers. We don't bother to
         // check this; we just return the same type.
         type_t* type = parse_unary_expression();
-        compile_dereference_if_lvalue(type, 0);
+        compile_lvalue_to_rvalue(type, 0);
         emit_term("sub");
         emit_term("r0");
         emit_term("0");
@@ -260,11 +260,23 @@ static type_t* parse_unary_expression(void) {
         // make it an lvalue, and it will be dereferenced if and when it is
         // needed.
         bool is_lvalue = type_is_lvalue(type);
+        bool is_array = type_is_array(type);
         if (is_lvalue) {
-            compile_dereference(type, 0);
-            type = type_decrement_indirection(type);
+            if (is_array) {
+                // The register already contains the address of the first
+                // element so we emit no code. We just remove the array, which
+                // removes an indirection.
+                type_set_array_length(type, TYPE_ARRAY_NONE);
+            }
+            if (!is_array) {
+                compile_dereference(type, 0);
+                type = type_decrement_indirection(type);
+            }
         }
         if (!is_lvalue) {
+            if (is_array) {
+                fatal("Internal error: cannot dereference r-value array");
+            }
             type = type_decrement_indirection(type);
             type = type_set_lvalue(type, true);
         }
@@ -277,22 +289,32 @@ static type_t* parse_unary_expression(void) {
         if (!type_is_lvalue(type)) {
             fatal("Cannot take the address of an r-value");
         }
-        // TODO shouldn't we increment reference??
-        //type_increment_indirection(type);
         type_set_lvalue(type, false);
+        bool is_array = type_is_array(type);
+        if (is_array) {
+            // Taking the address of an array converts it to a pointer.
+            type_set_array_length(type, TYPE_ARRAY_NONE);
+            type_increment_indirection(type);
+        }
+        if (!is_array) {
+            // The register already contains the address of the value. We turn
+            // off the l-value flag, so it becomes a pointer.
+            // TODO shouldn't we increment reference??
+            //type_increment_indirection(type);
+        }
         return type;
     }
 
     if (lexer_accept("!")) {
         type_t* type = parse_unary_expression();
-        compile_dereference_if_lvalue(type, 0);
+        compile_lvalue_to_rvalue(type, 0);
         type_delete(type);
         return compile_boolean_not();
     }
     
     if (lexer_accept("~")) {
         type_t* type = parse_unary_expression();
-        compile_dereference_if_lvalue(type, 0);
+        compile_lvalue_to_rvalue(type, 0);
         type_delete(type);
         return compile_bitwise_not();
     }
@@ -382,7 +404,7 @@ static void parse_condition(int false_label) {
     lexer_expect(")", NULL);
 
     // if the type is an lvalue we need to dereference it
-    compile_dereference_if_lvalue(type, 0);
+    compile_lvalue_to_rvalue(type, 0);
 
     // if the expression is false, jump to the given label
     emit_term("jz");
@@ -496,7 +518,7 @@ static void parse_return(void) {
 
     if (argument) {
         type_t* type = parse_expression();
-        compile_dereference_if_lvalue(type, 0);
+        compile_lvalue_to_rvalue(type, 0);
         // The expression result is in r0 which is our return value.
         // TODO for now assume it's correct, we should be casting it to the return type
         type_delete(type);

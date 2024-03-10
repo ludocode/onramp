@@ -36,8 +36,13 @@ void compile_global_variable(const type_t* type, const char* name, storage_t sto
     int size = type_size(type);
     int i = 0;
     while (i < size) {
-        if ((i > 0) & ((i & 15) == 0)) {
-            emit_newline();
+        if (i > 0) {
+            if ((i & 3) == 0) {
+                emit_char(' ');
+            }
+            if ((i & 15) == 0) {
+                emit_newline();
+            }
         }
         emit_quoted_byte(0x00);
         i = (i + 1);
@@ -255,13 +260,29 @@ void compile_string_literal_definition(int label_index, const char* string) {
  * register.
  */
 void compile_dereference(type_t* type, int register_num) {
+    if (type_is_array(type)) {
+        fatal("Internal error: Cannot dereference this array.");
+    }
+
     int size = type_size(type);
     if (size == 1) {
         //printf("compiling ldb for %x\n",type);
         emit_term("ldb");
     }
+    if (size == 2) {
+        // TODO need to implement three instructions (or, better yet, put lds
+        // in assembler)
+        fatal("Dereferencing short is not yet implemented");
+    }
     if (size == 4) {
         emit_term("ldw");
+    }
+    if (size != 1) {
+        if (size != 2) {
+            if (size != 4) {
+                fatal("Internal error: Cannot dereference type of unrecognized size");
+            }
+        }
     }
     emit_register(register_num);
     emit_term("0");
@@ -269,17 +290,33 @@ void compile_dereference(type_t* type, int register_num) {
     emit_newline();
 }
 
-type_t* compile_dereference_if_lvalue(type_t* type, int register_num) {
-    if (type_is_lvalue(type)) {
-        type_set_lvalue(type, false);
+type_t* compile_lvalue_to_rvalue(type_t* type, int register_num) {
+    if (!type_is_lvalue(type)) {
+        return type;
+    }
+    type_set_lvalue(type, false);
+
+    bool is_array = type_is_array(type);
+    if (is_array) {
+        // An array lvalue is the address of the first element. We want to
+        // decay this to an rvalue pointer to the first element. This is
+        // already what the register contains so we don't emit any code.
+        type_set_array_length(type, TYPE_ARRAY_NONE);
+        type_increment_pointers(type);
+    }
+    if (!is_array) {
         compile_dereference(type, register_num);
     }
+
     return type;
 }
 
 type_t* compile_assign(type_t* left, type_t* right) {
 
-    // We're storing into the left. It must be an lvalue.
+    // We're storing into the left. It must be an lvalue and not an array.
+    if (type_is_array(left)) {
+        fatal("Assignment location cannot be an array.");
+    }
     if (!type_is_lvalue(left)) {
         fatal("Assignment location is not an lvalue.");
     }
@@ -538,7 +575,7 @@ type_t* compile_basic_op(const char* op) {
 type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
 
     // The right-hand side is always an r-value.
-    right = compile_dereference_if_lvalue(right, 0);
+    right = compile_lvalue_to_rvalue(right, 0);
 
     // Handle assignment first because it has a lot of special behaviour.
     if (0 == strcmp(op, "=")) {
@@ -547,7 +584,7 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
 
     // For all remaining operations, the left type is also an r-value, and both
     // types should be promoted from char to int.
-    left = compile_dereference_if_lvalue(left, 1);
+    left = compile_lvalue_to_rvalue(left, 1);
     if (type_is_base(left, BASE_SIGNED_CHAR)) {
         left = compile_cast(left, type_new_base(BASE_SIGNED_INT), 1);
     }

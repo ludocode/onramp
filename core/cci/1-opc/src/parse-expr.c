@@ -2,6 +2,7 @@
 
 #include <string.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "common.h"
 #include "parse-decl.h"
@@ -13,7 +14,7 @@
  */
 static int binary_operator_precedence(void) {
     if (lexer_type != lexer_type_punctuation) {
-        return 0;
+        return -1;
     }
     const char* op = lexer_token;
     if (0 == strcmp(op, "||")) {return 1;}  // logical or
@@ -73,8 +74,19 @@ bool try_parse_constant_primary_expression(type_t** type, int* value) {
 
     // check for a number
     if (lexer_type == lexer_type_number) {
-        // TODO
-        fatal("TODO");
+        // TODO move this into an integer literal parsing function
+        *type = type_new_base(BASE_SIGNED_INT);
+        char* end;
+        errno = 0;
+        *value = strtol(lexer_token, &end, 0);
+        if (errno != 0) {
+            fatal("Error parsing number");
+        }
+        if (*end != 0) {
+            fatal("Unrecognized characters after number (number literal suffixes are not supported in opC)");
+        }
+        lexer_consume();
+        return true;
     }
 
     // check for a character literal
@@ -86,7 +98,7 @@ bool try_parse_constant_primary_expression(type_t** type, int* value) {
     }
 
     // check for a parenthesized expression
-    if (!lexer_accept("(")) {
+    if (lexer_accept("(")) {
         return parse_constant_parenthesized_expression(type, value);
     }
 
@@ -117,8 +129,7 @@ bool try_parse_constant_unary_expression(type_t** type, int* value) {
             fatal("TODO unary * in constant expression");
         }
         if (0 == strcmp(op, "+")) {
-            // TODO remove lvalue flag
-            fatal("TODO unary + in constant expression");
+            *type = type_set_lvalue(right_type, false);
         }
         if (0 == strcmp(op, "-")) {
             *type = type_set_lvalue(right_type, false);
@@ -135,6 +146,20 @@ bool try_parse_constant_unary_expression(type_t** type, int* value) {
         free(op);
         return true;
     }
+
+    if (lexer_accept("sizeof")) {
+        lexer_expect("(", "`sizeof` must be followed by `(` in a constant expression.");
+        type_t* sizeof_type;
+        if (!try_parse_declaration(NULL, &sizeof_type, NULL)) {
+            fatal("`sizeof(` must be followed by a type in a constant expression.");
+        }
+        lexer_expect(")", "`sizeof(type` must be followed by `)` in a constant expression.");
+        *type = type_new_base(BASE_SIGNED_INT); // TODO unsigned
+        *value = type_size(sizeof_type);
+        type_delete(sizeof_type);
+        return true;
+    }
+
     return try_parse_constant_postfix_expression(type, value);
 }
 
@@ -167,7 +192,11 @@ bool try_parse_constant_binary_expression(type_t** type, int* value, int min_pre
         return false;
     }
 
+    // In order to simplify our memory management here, we always jump back to
+    // the top of the loop and we free the previous op at the top.
+    char* op = NULL;
     while (1) {
+        free(op);
         int left_value = *value;
 
         // get a binary operator (of appropriate precedence)
@@ -175,7 +204,7 @@ bool try_parse_constant_binary_expression(type_t** type, int* value, int min_pre
         if (op_precedence < min_precedence) {
             break;
         }
-        char* op = lexer_take();
+        op = lexer_take();
 
         // get the right side
         type_t* right_type;
