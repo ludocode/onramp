@@ -6,7 +6,7 @@
 
 #include "common.h"
 #include "global.h"
-#include "parse-decl.h"
+#include "parse-stmt.h"
 #include "compile.h"
 #include "lexer.h"
 #include "emit.h"  // TODO remove all emit calls in this code

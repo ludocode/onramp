@@ -109,4 +109,6 @@ bool lexer_accept(const char* token);
  */
 bool lexer_is(const char* token);
 
+void lexer_dump_tokens(void);
+
 #endif

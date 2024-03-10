@@ -548,3 +548,14 @@ char* lexer_take(void) {
     lexer_consume();
     return ret;
 }
+
+void lexer_dump_tokens(void) {
+    while (lexer_type != lexer_type_end) {
+        fputs("    token ", stdout);
+        fputc(lexer_type, stdout);
+        fputc(' ', stdout);
+        fputs(lexer_token, stdout);
+        putchar('\n');
+        lexer_consume();
+    }
+}

@@ -6,7 +6,7 @@
 #include "compile.h"
 #include "emit.h"
 #include "lexer.h"
-#include "parse.h"
+#include "parse-stmt.h"
 #include "type.h"
 #include "locals.h"
 #include "global.h"
@@ -76,13 +76,15 @@ int main(int argc, const char** argv) {
     typedef_init();
     locals_init();
     compile_init();
-    parse_init();
+    parse_stmt_init();
     parse_decl_init();
 
-    parse();
+    while (lexer_type != lexer_type_end) {
+        parse_global();
+    }
 
     parse_decl_destroy();
-    parse_destroy();
+    parse_stmt_destroy();
     compile_destroy();
     locals_destroy();
     typedef_destroy();

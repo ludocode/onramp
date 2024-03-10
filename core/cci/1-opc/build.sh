@@ -69,12 +69,6 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/main.c \
     -o build/intermediate/cci-1-opc/main.oo
 
-echo Compiling cci/1-opc parse.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/cci/1-opc/build-ccargs \
-    -c core/cci/1-opc/src/parse.c \
-    -o build/intermediate/cci-1-opc/parse.oo
-
 echo Compiling cci/1-opc parse-decl.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
@@ -110,7 +104,6 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/lexer.oo \
     build/intermediate/cci-1-opc/locals.oo \
     build/intermediate/cci-1-opc/main.oo \
-    build/intermediate/cci-1-opc/parse.oo \
     build/intermediate/cci-1-opc/parse-decl.oo \
     build/intermediate/cci-1-opc/parse-expr.oo \
     build/intermediate/cci-1-opc/parse-stmt.oo \

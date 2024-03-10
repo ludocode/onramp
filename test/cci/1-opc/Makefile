@@ -47,7 +47,6 @@ SRCS=\
 	$(SRC)/lexer.c \
 	$(SRC)/locals.c \
 	$(SRC)/main.c \
-	$(SRC)/parse.c \
 	$(SRC)/parse-decl.c \
 	$(SRC)/parse-expr.c \
 	$(SRC)/parse-stmt.c \
