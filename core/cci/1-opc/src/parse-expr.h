@@ -10,4 +10,9 @@
  */
 bool try_parse_constant_expression(type_t** type, int* value);
 
+type_t* parse_expression(void);
+
+// TODO temporarily public for old initializer code
+type_t* parse_unary_expression(void);
+
 #endif

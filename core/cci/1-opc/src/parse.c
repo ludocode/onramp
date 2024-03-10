@@ -4,390 +4,30 @@
 #include <stdlib.h>
 
 #include "lexer.h"
-#include "emit.h"
+#include "emit.h"  // TODO remove all emit calls in this code
 #include "common.h"
 #include "compile.h"
 #include "locals.h"
 #include "global.h"
 #include "parse-decl.h"
+#include "parse-expr.h"
 
 static void parse_block(void);
 static void parse_statement(void);
-static type_t* parse_binary_expression(void);
-static type_t* parse_expression(void);
-static type_t* parse_unary_expression(void);
 
 // label generation
 static int next_label;
 static int while_start_label;
 static int while_end_label;
 
-// string generation
-static int next_string;
-static char** strings;
-static size_t strings_count;
-#define STRINGS_MAX 128
-
 static int function_frame_size;
 
 void parse_init(void) {
     while_start_label = -1;
     while_end_label = -1;
-    strings = malloc(sizeof(char*) * STRINGS_MAX);
 }
 
 void parse_destroy(void) {
-    free(strings);
-}
-
-static type_t* parse_primary_expression(void) {
-
-    // parenthesis
-    if (lexer_accept("(")) {
-
-        // Check for a cast expression. (The type declaration must be abstract.)
-        type_t* desired_type;
-        if (try_parse_declaration(NULL, &desired_type, NULL)) {
-            lexer_expect(")", "Expected ) after type in cast");
-
-            // Parse the expression to be cast and cast it
-            type_t* current_type = parse_unary_expression();
-            current_type = compile_lvalue_to_rvalue(current_type, 0);
-            return compile_cast(current_type, desired_type, 0);
-        }
-
-        // Otherwise we have a parenthesized expression.
-        type_t* type = parse_expression();
-        lexer_expect(")", "Expected ) after parenthesized expression");
-        return type;
-    }
-
-    // number
-    if (lexer_type == lexer_type_number) {
-        type_t* type = compile_immediate(lexer_token);
-        lexer_consume();
-        return type;
-    }
-
-    // character literal
-    if (lexer_type == lexer_type_character) {
-        // We don't support any escape characters yet so we can just send it
-        // through.
-        type_t* type = compile_character_literal(*lexer_token);
-        lexer_consume();
-        return type;
-    }
-
-    // string
-    if (lexer_type == lexer_type_string) {
-        if (strings_count == STRINGS_MAX) {
-            fatal("Too many strings in this function");
-        }
-        compile_string_literal_invocation(next_string + strings_count);
-        *(strings + strings_count) = lexer_take();
-        strings_count = (strings_count + 1);
-        return type_increment_pointers(type_new_base(BASE_SIGNED_CHAR));
-    }
-
-    //fatal("Expected primary expression (i.e. identifier, number, string or open parenthesis)");
-    fatal("Expected expression");
-}
-
-static type_t* parse_function_call(const char* name) {
-    //printf("   parsing function call %s\n", name);
-    int arg_count;
-    arg_count = 0;
-
-    //emit_term("; function call");
-    //emit_newline();
-
-    while (!lexer_accept(")")) {
-        if (arg_count > 0) {
-            lexer_expect(",", NULL);
-        }
-        arg_count = (arg_count + 1);
-
-        if (arg_count > 4) {
-            // TODO support more args in stage 1, not stage 0
-            fatal("TODO only four arguments are supported.");
-        }
-
-        //printf("   current token is %s\n",lexer_token);
-        type_t* type = parse_binary_expression();
-        //printf("   current token is %s\n",lexer_token);
-
-        // if the argument is an l-value, dereference it
-        type = compile_lvalue_to_rvalue(type, 0);
-
-        // TODO type-check the argument, for now ignore it
-        type_delete(type);
-
-        // TODO a simple optimization here (for stage 1, not stage 0) is, if
-        // there are at most 4 args, don't push the last arg, just move it to
-        // the correct register. (there's a lot of "push r0 pop r0" for
-        // single-arg functions)
-        // TODO if we want to make it even simpler, just skip the push/pop for
-        // single-argument functions.
-
-        // push the argument to the stack
-        emit_term("push");
-        emit_term("r0");
-        emit_newline();
-    }
-
-    // TODO another simple optimization is to not use pop, instead use ldw for
-    // each arg, then adjust the stack manually. this will be more important
-    // when we have more than 4 args and we can't actually pop the args beyond 4
-
-    // pop the arguments
-    if (arg_count > 3) {
-        emit_term("pop");
-        emit_term("r3");
-        emit_newline();
-    }
-    if (arg_count > 2) {
-        emit_term("pop");
-        emit_term("r2");
-        emit_newline();
-    }
-    if (arg_count > 1) {
-        emit_term("pop");
-        emit_term("r1");
-        emit_newline();
-    }
-    if (arg_count > 0) {
-        emit_term("pop");
-        emit_term("r0");
-        emit_newline();
-    }
-
-    // emit the call
-    emit_term("call");
-    emit_label('^', name);
-    emit_newline();
-    //emit_term("; end function call");
-    //emit_newline();
-
-    // find the function
-    global_t* global = global_find(name);
-    if (global == NULL) {
-        fatal_2("Function not declared: ", name);
-    }
-    if (!global_is_function(global)) {
-        fatal_2("Called symbol is not a function: ", name);
-    }
-
-    //printf("   done parsing function call %s\n", name);
-    return type_clone(global_type(global));
-}
-
-static type_t* parse_postfix_expression(void) {
-
-    // a non-alphanumeric is a primary expression
-    if (lexer_type != lexer_type_alphanumeric) {
-        return parse_primary_expression();
-    }
-
-    // an alphanumeric is either a variable or a function call
-    type_t* ret;
-    char* name = lexer_take();
-    bool paren = lexer_accept("(");
-    if (paren) {
-        ret = parse_function_call(name);
-    }
-    if (!paren) {
-        ret = compile_load_variable(name);
-    }
-
-    free(name);
-    return ret;
-}
-
-static type_t* parse_sizeof(void) {
-
-    // Check for sizeof(type). The type must be in parentheses. (The type
-    // declaration must be abstract.)
-    bool paren = lexer_accept("(");
-    if (paren) {
-        type_t* type;
-        if (try_parse_declaration(NULL, &type, NULL)) {
-            lexer_expect(")", "Expected `)` after `sizeof(type`");
-            return compile_sizeof(type);
-        }
-    }
-
-    // Otherwise it's a (possibly parenthesized) expression. Parse it with
-    // compilation disabled; we only want to do type resolution.
-    // Note that the expression in sizeof isn't allowed to be a cast. We don't
-    // bother to check this at the moment.
-    bool was_enabled = compile_is_enabled();
-    compile_set_enabled(false);
-    type_t* type = parse_expression();
-    compile_set_enabled(was_enabled);
-    if (paren) {
-        lexer_expect(")", "Expected `)` after `sizeof(expression`");
-    }
-
-    return compile_sizeof(type);
-}
-
-static type_t* parse_unary_expression(void) {
-    if (lexer_accept("+")) {
-        // TODO we should remove l-value and promote to int
-        return parse_unary_expression();
-    }
-
-    if (lexer_accept("-")) {
-        // TODO unary minus is not allowed on pointers. We don't bother to
-        // check this; we just return the same type.
-        type_t* type = parse_unary_expression();
-        compile_lvalue_to_rvalue(type, 0);
-        emit_term("sub");
-        emit_term("r0");
-        emit_term("0");
-        emit_term("r0");
-        emit_newline();
-        return type;
-    }
-
-    if (lexer_accept("*")) {
-        type_t* type = parse_unary_expression();
-        if (type_indirections(type) == 0) {
-            fatal("Type to dereference is not a pointer");
-        }
-
-        // If this is already an lvalue, we dereference it now. Otherwise we
-        // make it an lvalue, and it will be dereferenced if and when it is
-        // needed.
-        bool is_lvalue = type_is_lvalue(type);
-        bool is_array = type_is_array(type);
-        if (is_lvalue) {
-            if (is_array) {
-                // The register already contains the address of the first
-                // element so we emit no code. We just remove the array, which
-                // removes an indirection.
-                type_set_array_length(type, TYPE_ARRAY_NONE);
-            }
-            if (!is_array) {
-                compile_dereference(type, 0);
-                type = type_decrement_indirection(type);
-            }
-        }
-        if (!is_lvalue) {
-            if (is_array) {
-                fatal("Internal error: cannot dereference r-value array");
-            }
-            type = type_decrement_indirection(type);
-            type = type_set_lvalue(type, true);
-        }
-
-        return type;
-    }
-
-    if (lexer_accept("&")) {
-        type_t* type = parse_unary_expression();
-        if (!type_is_lvalue(type)) {
-            fatal("Cannot take the address of an r-value");
-        }
-        type_set_lvalue(type, false);
-        if (type_is_array(type)) {
-            // The `&` operator on an array just converts it to a pointer; the
-            // overall indirection count stays the same.
-            type_set_array_length(type, TYPE_ARRAY_NONE);
-        }
-        type_increment_pointers(type);
-        return type;
-    }
-
-    if (lexer_accept("!")) {
-        type_t* type = parse_unary_expression();
-        compile_lvalue_to_rvalue(type, 0);
-        type_delete(type);
-        return compile_boolean_not();
-    }
-    
-    if (lexer_accept("~")) {
-        type_t* type = parse_unary_expression();
-        compile_lvalue_to_rvalue(type, 0);
-        type_delete(type);
-        return compile_bitwise_not();
-    }
-    
-    if (lexer_accept("sizeof")) {
-        return parse_sizeof();
-    }
-
-    return parse_postfix_expression();
-}
-
-static bool parse_token_is_binary_op(void) {
-    if (0 == strcmp("=", lexer_token)) {return true;}
-    if (0 == strcmp("-", lexer_token)) {return true;}
-    if (0 == strcmp("+", lexer_token)) {return true;}
-    if (0 == strcmp("*", lexer_token)) {return true;}
-    if (0 == strcmp("/", lexer_token)) {return true;}
-    if (0 == strcmp("%", lexer_token)) {return true;}
-    if (0 == strcmp("&", lexer_token)) {return true;}
-    if (0 == strcmp("|", lexer_token)) {return true;}
-    if (0 == strcmp("^", lexer_token)) {return true;}
-    if (0 == strcmp("<<", lexer_token)) {return true;}
-    if (0 == strcmp(">>", lexer_token)) {return true;}
-    if (0 == strcmp("==", lexer_token)) {return true;}
-    if (0 == strcmp("!=", lexer_token)) {return true;}
-    if (0 == strcmp("<", lexer_token)) {return true;}
-    if (0 == strcmp(">", lexer_token)) {return true;}
-    if (0 == strcmp("<=", lexer_token)) {return true;}
-    if (0 == strcmp(">=", lexer_token)) {return true;}
-    return false;
-}
-
-static type_t* parse_binary_expression(void) {
-    type_t* left = parse_unary_expression();
-
-    // see if we have a binary operator
-    if (!parse_token_is_binary_op()) {
-        return left;
-    }
-    char* op = lexer_take();
-
-    // push the left side of the expression
-    emit_term("push");
-    emit_term("r0");
-    emit_newline();
-
-    // get the right side into r0
-    //printf("    parsing right side of binary expression\n");
-    type_t* right = parse_unary_expression();
-
-    // pop the left side into r1
-    emit_term("pop");
-    emit_term("r1");
-    emit_newline();
-
-    // compile it
-    //printf("    compiling binary expression\n");
-    type_t* ret = compile_binary_op(op, left, right);
-    free(op);
-
-    // nicer error messages when parens are missed
-    if (parse_token_is_binary_op()) {
-        fatal("Multiple binary operators are not allowed in an expression. Add parentheses.");
-    }
-
-    return ret;
-}
-
-static type_t* parse_expression(void) {
-    // "expression" is actually a comma operator expression. It's separate from
-    // a binary expression because it can't appear as the argument to a
-    // function. I'm not sure yet if I'm going to bother implementing it in the
-    // lower stages.
-    // TODO yes, implement it in opC, we want full expression syntax
-    type_t* type = parse_binary_expression();
-    if (lexer_accept(",")) {
-        fatal("Comma expression is not supported.");
-    }
-    return type;
 }
 
 static void parse_condition(int false_label) {
@@ -485,7 +125,7 @@ static void parse_while(void) {
 
 static void parse_break(void) {
     if (!lexer_accept(";")) {
-        fatal("Expected ; after break.");
+        fatal("Expected `;` after break.");
     }
     if (while_end_label == -1) {
         fatal("Cannot break outside of while loop.");
@@ -497,7 +137,7 @@ static void parse_break(void) {
 
 static void parse_continue(void) {
     if (!lexer_accept(";")) {
-        fatal("Expected ; after continue.");
+        fatal("Expected `;` after continue.");
     }
     if (while_end_label == -1) {
         fatal("Cannot continue outside of while loop.");
@@ -516,7 +156,7 @@ static void parse_return(void) {
         // The expression result is in r0 which is our return value.
         // TODO for now assume it's correct, we should be casting it to the return type
         type_delete(type);
-        lexer_expect(";", NULL);
+        lexer_expect(";", "Expected `;` at end of `return` statement");
     }
     if (!argument) {
         // Without an argument, we still need to return zero in case this is
@@ -571,7 +211,7 @@ static void parse_statement(void) {
 
     // parse an expression, discard the result
     type_delete(parse_expression());
-    lexer_expect(";", NULL);
+    lexer_expect(";", "Expected `;` at end of expression statement.");
 }
 
 // Takes ownership of the given type
@@ -591,7 +231,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
     type = type_clone(type);
 
     if (!lexer_accept("=")) {
-        fatal("Expected ; or = after local variable declaration.");
+        fatal("Expected `;` or `=` after local variable declaration.");
     }
 
     // The variable has an initializer. Parse it, then generate an assignment
@@ -607,6 +247,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
     type_delete(var_type);
 
     // get the assignment expression
+    // TODO need to rewrite initializer code to support arrays, structs
     type_t* expr_type = parse_unary_expression();
 
     // pop the destination
@@ -665,18 +306,6 @@ static void parse_block(void) {
     }
 }
 
-static void parse_output_strings(void) {
-    size_t i = 0;
-    while (i < strings_count) {
-        emit_newline();
-        compile_string_literal_definition(next_string, *(strings + i));
-        next_string = (next_string + 1);
-        free(*(strings + i));
-        i = (i + 1);
-    }
-    strings_count = 0;
-}
-
 // Parses a function declaration (and definition, if provided.)
 static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
     int arg_count = 0;
@@ -730,21 +359,12 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         compile_function_close(global_name(global), arg_count, function_frame_size, storage);
 
         // output any strings that were used in the function
-        parse_output_strings();
+        output_string_literals();
         emit_global_divider();
     }
 
     locals_pop(0);
 }
-
-/*
-static void parse_typedef(void) {
-    type_t* type = parse_type();
-    char* name = parse_alphanumeric();
-    typedef_add(name, type);
-    lexer_expect(";", "Expected ; at end of typedef");
-}
-*/
 
 void parse_global(void) {
     storage_t storage;
@@ -770,7 +390,7 @@ void parse_global(void) {
         if (storage == STORAGE_TYPEDEF) {
             typedef_add(name, type);
             // TODO multiple typedefs are supposed to be supported
-            lexer_expect(";", "Expected ; at end of typedef");
+            lexer_expect(";", "Expected `;` at end of typedef");
             break;
         }
 

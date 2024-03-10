@@ -1,7 +1,48 @@
 #include "parse-decl.h"
 
+#include <stdlib.h>
+
 #include "lexer.h"
 #include "parse-expr.h"
+#include "compile.h"
+#include "emit.h"  // TODO remove all emit calls in this code
+
+// string generation
+// TODO hide this, make a function to define a string literal
+static int next_string;
+static char** strings;
+static size_t strings_count;
+#define STRINGS_MAX 128
+
+void parse_decl_init(void) {
+    strings = malloc(sizeof(char*) * STRINGS_MAX);
+}
+
+void parse_decl_destroy(void) {
+    free(strings);
+}
+
+int store_string_literal(void) {
+    if (strings_count == STRINGS_MAX) {
+        fatal("Too many strings in this function");
+    }
+    int string_id = next_string + strings_count;
+    *(strings + strings_count) = lexer_take();
+    strings_count = (strings_count + 1);
+    return string_id;
+}
+
+void output_string_literals(void) {
+    size_t i = 0;
+    while (i < strings_count) {
+        emit_newline();
+        compile_string_literal_definition(next_string, *(strings + i));
+        next_string = (next_string + 1);
+        free(*(strings + i));
+        i = (i + 1);
+    }
+    strings_count = 0;
+}
 
 
 

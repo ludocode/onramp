@@ -77,9 +77,11 @@ int main(int argc, const char** argv) {
     locals_init();
     compile_init();
     parse_init();
+    parse_decl_init();
 
     parse();
 
+    parse_decl_destroy();
     parse_destroy();
     compile_destroy();
     locals_destroy();

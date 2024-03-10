@@ -3,6 +3,19 @@
 
 #include "common.h"
 
+void parse_decl_init(void);
+void parse_decl_destroy(void);
+
+/**
+ * Stores a string literal to be emitted as a global after the current function
+ * is done, returning its id.
+ *
+ * This consumes the current token, which must be a string literal.
+ */
+int store_string_literal(void);
+
+void output_string_literals(void); // TODO temporarily public until we move function declarations here
+
 /**
  * A storage class.
  */
