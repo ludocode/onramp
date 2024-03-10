@@ -92,10 +92,18 @@ $(TOOL_LD): FORCE
 	@(make -C ../../ld/2-full build)   # TODO ld/1 build
 
 $(OUT)/stdlib_malloc.oo: $(SRC)/stdlib_malloc.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/stdlib_malloc.c -o $@
+
 $(OUT)/stdlib_conv.oo: $(SRC)/stdlib_conv.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/stdlib_conv.c -o $@
+
 $(OUT)/string_omc.oo: $(SRC)/string_omc.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/string_omc.c -o $@
 
 $(OUT)/libc.oa: Makefile $(TOOLS) $(LIBC_0_OBJS) $(LIBC_1_OBJS)
