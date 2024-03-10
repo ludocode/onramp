@@ -449,18 +449,18 @@ static void consume_end_of_line(void) {
 }
 
 static bool is_identifier_char(int c, int first_char) {
-    if (isalpha(current_char) | (current_char == '_')) {
+    if (isalpha(c) | (c == '_')) {
         return true;
     }
 
     // We accept $ in identifiers as an extension.
-    if (current_char == '$') {
+    if (c == '$') {
         return true;
     }
 
     // Identifiers cannot start with digits.
     if (!first_char) {
-        if (isdigit(current_char)) {
+        if (isdigit(c)) {
             return true;
         }
     }
