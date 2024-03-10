@@ -31,10 +31,14 @@ mkdir -p build/intermediate/libc-1-omc
 # ld/1), we could make this file much shorter (or even get rid of this stage
 # libc entirely.)
 
+
+
 echo Preprocessing libc/1-omc stdlib_malloc.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
-    -D__onramp__=1 -D__onramp_cci_omc__=1 \
+    -D__onramp__=1 \
+    -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
     -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
+    -D__onramp_libc__=1 -D__onramp_libc_omc__=1 \
     -Drestrict= -D_Noreturn= \
     -Icore/libc/1-omc/include \
     -Icore/libc/0-oo/include \
@@ -50,10 +54,37 @@ echo Assembling libc/1-omc stdlib_malloc.c
 onrampvm build/intermediate/as-1-compound/as.oe \
     build/intermediate/libc-1-omc/stdlib_malloc.os -o build/intermediate/libc-1-omc/stdlib_malloc.oo
 
+
+
+echo Preprocessing libc/1-omc stdlib_conv.c
+onrampvm build/intermediate/cpp-1-omc/cpp.oe \
+    -D__onramp__=1 \
+    -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
+    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
+    -D__onramp_libc__=1 -D__onramp_libc_omc__=1 \
+    -Drestrict= -D_Noreturn= \
+    -Icore/libc/1-omc/include \
+    -Icore/libc/0-oo/include \
+    -Icore/libo/0-oo/include \
+    -include __onramp/__predef.h \
+    core/libc/1-omc/src/stdlib_conv.c -o build/intermediate/libc-1-omc/stdlib_conv.i
+
+echo Compiling libc/1-omc stdlib_conv.c
+onrampvm build/intermediate/cci-0-omc/cci.oe \
+    build/intermediate/libc-1-omc/stdlib_conv.i -o build/intermediate/libc-1-omc/stdlib_conv.os
+
+echo Assembling libc/1-omc stdlib_conv.c
+onrampvm build/intermediate/as-1-compound/as.oe \
+    build/intermediate/libc-1-omc/stdlib_conv.os -o build/intermediate/libc-1-omc/stdlib_conv.oo
+
+
+
 echo Preprocessing libc/1-omc string_omc.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
-    -D__onramp__=1 -D__onramp_cci_omc__=1 \
+    -D__onramp__=1 \
+    -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
     -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
+    -D__onramp_libc__=1 -D__onramp_libc_omc__=1 \
     -Drestrict= -D_Noreturn= \
     -Icore/libc/1-omc/include \
     -Icore/libc/0-oo/include \
@@ -69,6 +100,8 @@ echo Assembling libc/1-omc string_omc.c
 onrampvm build/intermediate/as-1-compound/as.oe \
     build/intermediate/libc-1-omc/string_omc.os -o build/intermediate/libc-1-omc/string_omc.oo
 
+
+
 # The stage 1 libc is an overlay over stage 0. We exclude a few files from
 # stage 0 and include all of the files from stage 1.
 echo Archiving libc/1-omc
@@ -76,9 +109,11 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-1-omc/libc.oa \
         core/libc/0-oo/src/start.oo \
         core/libc/0-oo/src/ctype.oo \
+        core/libc/0-oo/src/errno.oo \
         core/libc/0-oo/src/spawn.oo \
         core/libc/0-oo/src/stdio.oo \
         core/libc/0-oo/src/stdlib_util.oo \
         core/libc/0-oo/src/string.oo \
         build/intermediate/libc-1-omc/stdlib_malloc.oo \
+        build/intermediate/libc-1-omc/stdlib_conv.oo \
         build/intermediate/libc-1-omc/string_omc.oo

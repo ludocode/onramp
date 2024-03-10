@@ -32,6 +32,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-0-oo/libc.oa \
         core/libc/0-oo/src/start.oo \
         core/libc/0-oo/src/ctype.oo \
+        core/libc/0-oo/src/errno.oo \
         core/libc/0-oo/src/spawn.oo \
         core/libc/0-oo/src/stdio.oo \
         core/libc/0-oo/src/stdlib_malloc.oo \

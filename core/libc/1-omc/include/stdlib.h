@@ -22,23 +22,30 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_LIMITS_H_INCLUDED
-#define __ONRAMP_LIBC_LIMITS_H_INCLUDED
+#ifndef __ONRAMP_LIBC_STDLIB_H_INCLUDED
+#define __ONRAMP_LIBC_STDLIB_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#define CHAR_BIT 8
-#define CHAR_MAX SCHAR_MAX
-#define CHAR_MIN SCHAR_MIN
-#define SCHAR_MAX 127
-#define SCHAR_MIN (-127-1)
+#include <__onramp/__size_t.h>
+#include <__onramp/__null.h>
 
-#define INT_MAX 2147483647
-#define INT_MIN (-2147483647-1)
+#define EXIT_SUCCESS 0
+#define EXIT_FAILURE 1
 
-#define LONG_MAX INT_MAX
-#define LONG_MIN INT_MIN
+void* malloc(size_t size);
+void* calloc(size_t element_count, size_t element_size);
+void free(void* p);
+void* realloc(void* old_ptr, size_t new_size);
+
+void _Exit(int status);
+
+void* __malloc_largest_unused_region(size_t* out_size);
+
+long strtol(const char* restrict p, char** restrict end, int base);
+int atoi(const char* p);
+long atol(const char* p);
 
 #endif

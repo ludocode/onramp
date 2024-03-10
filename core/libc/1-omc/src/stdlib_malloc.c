@@ -24,6 +24,7 @@
 
 #include <stdlib.h>
 
+#include <errno.h>
 #include <limits.h>
 #include <string.h>
 
@@ -171,7 +172,7 @@ void* malloc(size_t usize) {
 
     // If none fit, we're out of memory.
     if (best == 0) {
-        //errno = ENOMEM; // TODO
+        errno = ENOMEM;
         return NULL;
     }
 

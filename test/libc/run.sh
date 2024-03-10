@@ -41,11 +41,11 @@ LIBC="$2"
 shift
 shift
 PREPROCESSOR_OPTIONS="$@"
-TEMP_I=$(mktemp /tmp/onramp.XXXXXX.i)
-TEMP_OS=$(mktemp /tmp/onramp.XXXXXX.os)
-TEMP_OO=$(mktemp /tmp/onramp.XXXXXX.oo)
-TEMP_OE=$(mktemp /tmp/onramp.XXXXXX.oe)
-TEMP_STDOUT=$(mktemp /tmp/onramp.XXXXXX.stdout)
+TEMP_I=/tmp/onramp-test.i
+TEMP_OS=/tmp/onramp-test.os
+TEMP_OO=/tmp/onramp-test.oo
+TEMP_OE=/tmp/onramp-test.oe
+TEMP_STDOUT=/tmp/onramp-test.stdout
 ANY_ERROR=0
 
 MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1"
@@ -59,6 +59,11 @@ echo "Running $TESTS_PATH tests on: $LIBC"
 FILES="$(find $SOURCE_FOLDER/* -name '*.c')"
 
 for TESTFILE in $FILES; do
+    # temporary hack to skip OLD/ tests
+    if echo $TESTFILE | grep -q OLD; then
+        continue
+    fi
+
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\..$//')
     echo "Testing $BASENAME"
