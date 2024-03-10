@@ -893,25 +893,36 @@ static void run_onramp(size_t argc, char** argv) {
 
 #ifndef __onramp__
 static void run_posix(size_t argc, char** argv) {
-    // Insert "onrampvm" at the front of the list.
-    char** new_argv = malloc(sizeof(char*) * (argc + 2));
-    *new_argv = "onrampvm";
-    memcpy(new_argv + 1, argv, sizeof(char*) * argc);
-    *(new_argv + (1 + argc)) = NULL;
+    char** new_argv = NULL;
+
+    // Check if the name of the executable has a .oe extension
+    size_t len = strlen(*argv);
+    if (len > 3 && 0 == strcmp(*argv + len - 3, ".oe")) {
+
+        // It does. Insert "onrampvm" at the front of the args.
+        char** new_argv = malloc(sizeof(char*) * (argc + 2));
+        *new_argv = "onrampvm";
+        memcpy(new_argv + 1, argv, sizeof(char*) * argc);
+        *(new_argv + (1 + argc)) = NULL;
+        argv = new_argv;
+    }
 
     // Run the subprocess
     pid_t pid;
-    if (0 != posix_spawnp(&pid, "onrampvm", NULL, NULL, new_argv, environ)) {
-        fatal_cleanup("Failed to spawn onrampvm");
+    if (0 != (new_argv ? posix_spawnp : posix_spawn)(&pid, *argv, NULL, NULL, argv, environ)) {
+        fatal_cleanup("Failed to spawn subprocess");
     }
     free(new_argv);
 
     // Wait until it's done
     int status;
     wait(&status);
-    if (status != 0) {
-        // TODO clean up
-        _Exit(status);
+    int exit_code = WIFEXITED(status) ? WEXITSTATUS(status) : 1;
+    if (exit_code) {
+        // Assume the subprocess printed some kind of error. We don't print
+        // anything; just exit.
+        delete_temp_files();
+        _Exit(exit_code);
     }
 }
 #endif
