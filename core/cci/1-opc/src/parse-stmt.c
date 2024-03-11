@@ -41,8 +41,8 @@ static void parse_statement(void);
 
 // label generation
 static int next_label;
-static int while_start_label;
-static int while_end_label;
+static int loop_start_label;
+static int loop_end_label;
 
 // string generation
 static int next_string;
@@ -55,8 +55,8 @@ static int function_frame_size;
 static bool inside_function;
 
 void parse_stmt_init(void) {
-    while_start_label = -1;
-    while_end_label = -1;
+    loop_start_label = -1;
+    loop_end_label = -1;
     strings = malloc(sizeof(char*) * STRINGS_MAX);
 }
 
@@ -101,9 +101,9 @@ void output_string_literals(void) {
 static void parse_condition(int false_label) {
 
     // collect the expression
-    lexer_expect("(", NULL);
+    lexer_expect("(", "Expected `(` to start condition of branch or loop");
     type_t* type = parse_expression();
-    lexer_expect(")", NULL);
+    lexer_expect(")", "Expected `)` to end condition of branch or loop");
 
     // if the type is an lvalue we need to dereference it
     compile_lvalue_to_rvalue(type, 0);
@@ -158,48 +158,85 @@ static void parse_if(void) {
 
 static void parse_while(void) {
 
-    // push labels of containing while block
-    int old_start_label = while_start_label;
-    int old_end_label = while_end_label;
-    while_start_label = next_label;
-    while_end_label = (next_label + 1);
+    // push labels of containing loop
+    int old_start_label = loop_start_label;
+    int old_end_label = loop_end_label;
+    loop_start_label = next_label;
+    loop_end_label = (next_label + 1);
     next_label = (next_label + 2);
 
     // emit the start label
-    emit_computed_label(':', JUMP_LABEL_PREFIX, while_start_label);
+    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_start_label);
     //emit_term("; while");
     emit_newline();
 
     // emit the condition check (jumps to the end if false)
-    parse_condition(while_end_label);
+    parse_condition(loop_end_label);
 
     // emit the contents of the while
     parse_statement(); // TODO same as if here, not sure if should forbid labels or how
 
     // jump back to the start
     emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, while_start_label);
+    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_start_label);
     emit_newline();
 
     // emit the end label
-    emit_computed_label(':', JUMP_LABEL_PREFIX, while_end_label);
+    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_end_label);
     //emit_term("; end while");
     emit_newline();
 
     // pop labels
-    while_start_label = old_start_label;
-    while_end_label = old_end_label;
+    loop_start_label = old_start_label;
+    loop_end_label = old_end_label;
+}
+
+static void parse_do(void) {
+
+    // push labels of containing loop
+    int old_start_label = loop_start_label;
+    int old_end_label = loop_end_label;
+    loop_start_label = next_label;
+    loop_end_label = (next_label + 1);
+    next_label = (next_label + 2);
+
+    // emit the start label
+    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_start_label);
+    //emit_term("; while");
+    emit_newline();
+
+    // emit the contents of the do loop
+    parse_statement();
+
+    // parse the end condition
+    lexer_expect("while", "Expected `while` after `do` statement.");
+    parse_condition(loop_end_label);
+    lexer_expect(";", "Expected `;` after `do`-`while` condition.");
+
+    // jump back to the start
+    emit_term("jmp");
+    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_start_label);
+    emit_newline();
+
+    // emit the end label
+    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_end_label);
+    //emit_term("; end while");
+    emit_newline();
+
+    // pop labels
+    loop_start_label = old_start_label;
+    loop_end_label = old_end_label;
 }
 
 static void parse_break(void) {
     if (!lexer_accept(";")) {
         fatal("Expected `;` after break.");
     }
-    if (while_end_label == -1) {
+    if (loop_end_label == -1) {
         fatal("Cannot break outside of while loop.");
     }
     emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, while_end_label);
+    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_end_label);
     emit_newline();
 }
 
@@ -207,11 +244,11 @@ static void parse_continue(void) {
     if (!lexer_accept(";")) {
         fatal("Expected `;` after continue.");
     }
-    if (while_end_label == -1) {
+    if (loop_end_label == -1) {
         fatal("Cannot continue outside of while loop.");
     }
     emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, while_start_label);
+    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_start_label);
     emit_newline();
 }
 
@@ -259,6 +296,11 @@ static void parse_statement(void) {
 
     if (lexer_accept("while")) {
         parse_while();
+        return;
+    }
+
+    if (lexer_accept("do")) {
+        parse_do();
         return;
     }
 
