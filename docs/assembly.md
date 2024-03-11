@@ -25,7 +25,7 @@ The first stage Onramp assembler recognizes only the following primitive instruc
 - Arithmetic: `add`, `sub`, `mul`, `div`
 - Logic: `and`, `or`, `xor`, `ror`
 - Memory: `ldw`, `stw`, `ldb`, `stb`
-- Control: `ims`, `cmp`, `jz`, `sys`
+- Control: `ims`, `cmpu`, `jz`, `sys`
 
 Each of these instructions takes three bytes of arguments and maps directly to an instruction in Onramp bytecode. The behaviour and required arguments of each is documented below.
 
@@ -179,18 +179,16 @@ Logic:
 |-----|--------|------------------------------|------------------------------------------------------|
 |  x  |`and`   | `<r:dest> <m:src1> <m:src2>` | Bitwise and                                          |
 |  x  |`or`    | `<r:dest> <m:src1> <m:src2>` | Bitwise or                                           |
-|  *  |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
+|x \* |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
 |     |`not`   | `<r:dest> <m:src>`           | Bitwise not (inverts all bits)                       |
-|  *  |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
-|  *  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right unsigned (high to low)   |
+| \*  |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
+| \*  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right unsigned (high to low)   |
 |     |`shrs`  | `<r:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right signed (high to low)  |
 |     |`rol`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate left (low to high)                    |
-|  *  |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
+|x \* |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
 |     |`mov`   | `<r:dest> <m:src>`           | Copies src to dest                                   |
 |     |`bool`  | `<r:dest> <m:src>`           | Sets dest to 1 if src is non-zero, 0 otherwise       |
 |     |`isz`   | `<r:dest> <m:src>`           | Sets dest to 0 if src is non-zero, 1 otherwise       |
-
-(Note: `xor` and `ror` are currently primitive instructions but they will be replaced with `shl` and `shru` at some point.)
 
 Memory:
 
@@ -210,17 +208,21 @@ Control:
 |-----|--------|-------------------------------|--------------------------------------------------------------|
 |  x  |`ims`   | `<r:reg> <b:high> <b:low>`    | Loads a 16-bit immediate, shifting contents up               |
 |     |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate into a register                     |
-|  x  |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest   |
+|x \* |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest   |
 |     |`cmps`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 signed, placing -1, 0 or 1 in dest     |
 |  x  |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                               |
 |     |`jnz`   | `<m:pred> <j:label>`          | Jumps if the predicate is not zero                           |
-|     |`jl`    | `<r:pred> <j:label>`          | Jumps if the predicate is -1                                 |
-|     |`jg`    | `<r:pred> <j:label>`          | Jumps if the predicate is 1                                  |
-|     |`jle`   | `<r:pred> <j:label>`          | Jumps if the predicate is not 1                              |
-|     |`jge`   | `<r:pred> <j:label>`          | Jumps if the predicate is not -1                             |
+|x \* |`je`    | \* `<m:pred> <j:label>`       | Jumps if the predicate is zero                               |
+|     |`jne`   | \* `<m:pred> <j:label>`       | Jumps if the predicate is not zero                           |
+|     |`jl`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is -1                                 |
+|     |`jg`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is 1                                  |
+|     |`jle`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not 1                              |
+|     |`jge`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not -1                             |
 |     |`jmp`   | `<j:label>` or `<c:function>` | Jumps unconditionally                                        |
 |     |`call`  | `<c:function>`                | Calls a function (pushing the return address to the stack)   |
 |     |`ret`   | none                          | Returns from a function call                                 |
 |     |`enter` | none                          | Creates a stack frame                                        |
 |     |`leave` | none                          | Destroys the current stack frame                             |
 |  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                       |
+
+\* WARNING: The above tables will change significantly. `xor` and `ror` are currently primitive instructions but they will be replaced with `shl` and `shru` at some point. The comparison conditional jump instructions (`je`, `jne`, `jl`, `jg`, `jle`, `jge`) are currently designed to take the result of a comparison (`cmpu`, `cmps`) as predicate; they will be changed to take two source arguments and compare them internally. `sys`, `cmpu` and `cmps` may be removed entirely.

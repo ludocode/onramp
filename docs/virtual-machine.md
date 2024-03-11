@@ -274,12 +274,12 @@ Arithmetic:
 
 Logic:
 
-| Opcode        | Name          | Arguments                       | Operation                                     |
-|---------------|---------------|---------------------------------|-----------------------------------------------|
-| `0x74` `and`  | Bitwise And   | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 & arg2`                          |
-| `0x75` `or`   | Bitwise Or    | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 \| arg2`                         |
-| `0x76` `xor`  | Bitwise Xor   | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 ^ arg2`                          |
-| `0x77` `ror`  | Rotate Right  | `<r:dest> <m:src> <m:bits>`     | `dest = src >>> bits \| src << (32 - bits)`   |
+| Opcode         | Name          | Arguments                       | Operation                                     |
+|----------------|---------------|---------------------------------|-----------------------------------------------|
+| `0x74` `and`   | Bitwise And   | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 & arg2`                          |
+| `0x75` `or`    | Bitwise Or    | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 \| arg2`                         |
+| `0x76` `xor` \*| Bitwise Xor   | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 ^ arg2`                          |
+| `0x77` `ror` \*| Rotate Right  | `<r:dest> <m:src> <m:bits>`     | `dest = src >>> bits \| src << (32 - bits)`   |
 
 Memory:
 
@@ -302,7 +302,7 @@ Control:
 
 All arithmetic and logic opcodes have the same format. They take a destination register and two mix-type arguments. They perform a mathematical operation on the arguments and place the result in the given register. All operations are unsigned.
 
-TODO: `xor` and `ror` will be replaced by `shl` and `shru` soon. This will require changing all the VMs and bytecode programs. Some other changes will probably be made as well, e.g. to the `sys` and `cmpu` instructions.
+\* WARNING: The above opcode table will change significantly. In particular: `xor` and `ror` will be replaced by `shl` and `shru`; `cmpu` will be removed; `sys` will probably be removed; and possibly other changes will be made as well. This will require changing all the VMs and bytecode programs. If you implement a VM now be aware that you will need to update it later.
 
 
 
