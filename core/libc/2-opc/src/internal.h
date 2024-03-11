@@ -25,16 +25,19 @@
 #ifndef INTERNAL_H_INCLUDED
 #define INTERNAL_H_INCLUDED
 
-// TODO rename to __fatal
-_Noreturn void __libc_error(const char* message);
-
 #include <assert.h>
 
-// TODO message
-#define libc_assert(expression, ...) \
-    ((expression) ? ((void)0) : \
-        __assert_fail(#expression, __FILE__, __LINE__, __func__))
+#ifdef __onramp_cpp_omc__
+    #define libc_assert assert
+#endif
+#ifndef __onramp_cpp_omc__
+    #define libc_assert(expression) \
+        ((expression) ? ((void)0) : \
+            __assert_fail(#expression, __FILE__, __LINE__, __func__))
+#endif
 
+// TODO get rid of these, we need to be able to compile libc/2 with cpp/1
+// because cpp/2 depends on libc/2
 #define MIN(a, b) ((a < b) ? a : b)
 #define MAX(a, b) ((a > b) ? a : b)
 #define CONST_CAST(T, expr) ((T)(expr))

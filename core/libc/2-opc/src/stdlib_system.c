@@ -60,7 +60,9 @@ void _start(void) {
 uint32_t* __process_info;
 int __argc;
 char** __argv;
+#ifdef __onramp__
 char** __environ; // TODO POSIX alias is just environ
+#endif
 
 _Noreturn void __end(uint32_t exit_code, uint32_t exit_address);
 

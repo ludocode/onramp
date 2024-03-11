@@ -28,6 +28,14 @@
 #include <stdio.h>
 #include <unistd.h>
 
+void __assert(int expression) {
+    if (!expression) {
+        fputs("Assertion failed.", stderr);
+        fflush(stderr);
+        abort();
+    }
+}
+
 void __assert_fail(const char* expression, const char* file,
         int line, const char* function)
 {

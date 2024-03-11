@@ -29,11 +29,13 @@
  * outside the include guard.
  */
 
-#undef assert
-#ifdef NDEBUG
-    #define assert(x) ((void)0)
-#else
-    #define assert(x) ((x) ? ((void)0) : __assert_fail(#x, __FILE__, __LINE__, __func__))
+#ifndef __onramp_cpp_omc__
+    #undef assert
+    #ifdef NDEBUG
+        #define assert(x) ((void)0)
+    #else
+        #define assert(x) ((x) ? ((void)0) : __assert_fail(#x, __FILE__, __LINE__, __func__))
+    #endif
 #endif
 
 
@@ -50,6 +52,13 @@
 #endif
 
 #include <stdlib.h>   // TODO is this required?
+
+#ifdef __onramp_cpp_omc__
+    // With the omC preprocessor, assert can't be a macro. It's a function and
+    // it's always called even under NDEBUG.
+    #define assert __assert
+    void __assert(int __expression);
+#endif
 
 void __assert_fail(const char* __expression, const char* __file,
         int __line, const char* __function);

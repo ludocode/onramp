@@ -57,9 +57,9 @@ unsigned long long int strtoull(const char* restrict nptr, char** restrict endpt
 #define RAND_MAX 65535
 int rand(void);
 void srand(unsigned int seed);
-#if 1 // TODO POSIX 199506L
+//#if 1 // TODO POSIX 199506L
 int rand_r(unsigned* seed);
-#endif
+//#endif
 
 _Noreturn void abort(void);
 int atexit(void (*func)(void));

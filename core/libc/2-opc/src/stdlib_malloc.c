@@ -490,8 +490,8 @@ int posix_memalign(void** out_ptr, size_t alignment, size_t size) {
     // aligned request, then return the rest back.
 
     int old_err = errno;
-    void* ptr = malloc();
-    if (!*ptr) {
+    void* ptr = malloc(size);
+    if (!ptr) {
         int err = errno;
         errno = old_err;
         return err;
