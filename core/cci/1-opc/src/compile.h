@@ -64,6 +64,31 @@ void compile_function_open(const char* name, int arg_count);
 void compile_function_close(const char* name, int arg_count, int frame_size, storage_t storage);
 
 /**
+ * Compiles a jump to a label with a generated name.
+ */
+void compile_jump(int label);
+
+/**
+ * Compiles a jump to a generated label if the value in r0 is zero.
+ */
+void compile_jump_if_zero(int label);
+
+/**
+ * Compiles a label definition with a generated name.
+ */
+void compile_label(int label);
+
+/**
+ * Emits "push" and the given register.
+ */
+void compile_push(int register_number);
+
+/**
+ * Emits "pop" and the given register.
+ */
+void compile_pop(int register_number);
+
+/**
  * Compiles a binary operation.
  *
  * The left of the operation is in r1 and the right is in r0.

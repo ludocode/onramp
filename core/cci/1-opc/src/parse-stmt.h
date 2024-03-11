@@ -30,6 +30,8 @@
 void parse_stmt_init(void);
 void parse_stmt_destroy(void);
 
+int parse_generate_label(void);
+
 /**
  * Stores a string literal to be emitted as a global after the current function
  * is done, returning its id.

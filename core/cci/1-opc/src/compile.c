@@ -713,3 +713,33 @@ type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_nu
     type_delete(current_type);
     return desired_type;
 }
+
+void compile_jump(int label) {
+    emit_term("jmp");
+    emit_computed_label('&', JUMP_LABEL_PREFIX, label);
+    emit_newline();
+}
+
+void compile_jump_if_zero(int label) {
+    emit_term("jz");
+    emit_term("r0");
+    emit_computed_label('&', JUMP_LABEL_PREFIX, label);
+    emit_newline();
+}
+
+void compile_label(int label) {
+    emit_computed_label(':', JUMP_LABEL_PREFIX, label);
+    emit_newline();
+}
+
+void compile_push(int register_number) {
+    emit_term("push");
+    emit_register(register_number);
+    emit_newline();
+}
+
+void compile_pop(int register_number) {
+    emit_term("pop");
+    emit_register(register_number);
+    emit_newline();
+}

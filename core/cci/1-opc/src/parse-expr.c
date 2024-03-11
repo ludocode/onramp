@@ -386,9 +386,6 @@ static type_t* parse_function_call(const char* name) {
     int arg_count;
     arg_count = 0;
 
-    //emit_term("; function call");
-    //emit_newline();
-
     while (!lexer_accept(")")) {
         if (arg_count > 0) {
             lexer_expect(",", NULL);
@@ -418,9 +415,7 @@ static type_t* parse_function_call(const char* name) {
         // single-argument functions.
 
         // push the argument to the stack
-        emit_term("push");
-        emit_term("r0");
-        emit_newline();
+        compile_push(0);
     }
 
     // TODO another simple optimization is to not use pop, instead use ldw for
@@ -429,32 +424,22 @@ static type_t* parse_function_call(const char* name) {
 
     // pop the arguments
     if (arg_count > 3) {
-        emit_term("pop");
-        emit_term("r3");
-        emit_newline();
+        compile_pop(3);
     }
     if (arg_count > 2) {
-        emit_term("pop");
-        emit_term("r2");
-        emit_newline();
+        compile_pop(2);
     }
     if (arg_count > 1) {
-        emit_term("pop");
-        emit_term("r1");
-        emit_newline();
+        compile_pop(1);
     }
     if (arg_count > 0) {
-        emit_term("pop");
-        emit_term("r0");
-        emit_newline();
+        compile_pop(0);
     }
 
     // emit the call
     emit_term("call");
     emit_label('^', name);
     emit_newline();
-    //emit_term("; end function call");
-    //emit_newline();
 
     // find the function
     global_t* global = global_find(name);
@@ -620,19 +605,11 @@ static type_t* parse_binary_expression(void) {
     }
     char* op = lexer_take();
 
-    // push the left side of the expression
-    emit_term("push");
-    emit_term("r0");
-    emit_newline();
-
-    // get the right side into r0
-    //printf("    parsing right side of binary expression\n");
+    // parse the right-hand side
+    // the right side will be in r0, the left will be in r1
+    compile_push(0);
     type_t* right = parse_unary_expression();
-
-    // pop the left side into r1
-    emit_term("pop");
-    emit_term("r1");
-    emit_newline();
+    compile_pop(1);
 
     // compile it
     //printf("    compiling binary expression\n");

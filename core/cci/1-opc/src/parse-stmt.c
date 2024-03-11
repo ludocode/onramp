@@ -40,7 +40,7 @@ static void parse_block(void);
 static void parse_statement(void);
 
 // label generation
-static int next_label;
+static int last_label;
 static int loop_start_label;
 static int loop_end_label;
 
@@ -57,11 +57,17 @@ static bool inside_function;
 void parse_stmt_init(void) {
     loop_start_label = -1;
     loop_end_label = -1;
+    last_label = -1;
     strings = malloc(sizeof(char*) * STRINGS_MAX);
 }
 
 void parse_stmt_destroy(void) {
     free(strings);
+}
+
+int parse_generate_label(void) {
+    last_label = (last_label + 1);
+    return last_label;
 }
 
 
@@ -109,10 +115,7 @@ static void parse_condition(int false_label) {
     compile_lvalue_to_rvalue(type, 0);
 
     // if the expression is false, jump to the given label
-    emit_term("jz");
-    emit_term("r0");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, false_label);
-    emit_newline();
+    compile_jump_if_zero(false_label);
 
     type_delete(type);
 }
@@ -122,8 +125,7 @@ static void parse_if(void) {
     // parse a condition. if true, skip the if block.
     //emit_term("; if");
     //emit_newline();
-    int skip_if_label = next_label;
-    next_label = (next_label + 1);
+    int skip_if_label = parse_generate_label();
     parse_condition(skip_if_label);
 
     parse_statement(); // TODO maybe not exactly right, not sure how labels work here
@@ -133,58 +135,35 @@ static void parse_if(void) {
     if (has_else) {
 
         // we're still in the if block, so skip the else block.
-        int skip_else_label = next_label;
-        next_label = (next_label + 1);
-        emit_term("jmp");
-        emit_computed_label('&', JUMP_LABEL_PREFIX, skip_else_label);
-        emit_newline();
+        int skip_else_label = parse_generate_label();
+        compile_jump(skip_else_label);
 
         // our else block starts here, which we do only if we skipped if
-        emit_computed_label(':', JUMP_LABEL_PREFIX, skip_if_label);
-        //emit_term("; else");
-        emit_newline();
+        compile_label(skip_if_label);
         parse_statement(); // TODO same here
-        emit_computed_label(':', JUMP_LABEL_PREFIX, skip_else_label);
+        compile_label(skip_else_label);
     }
 
     // if we don't have else, just emit the skip label.
     if (!has_else) {
-        emit_computed_label(':', JUMP_LABEL_PREFIX, skip_if_label);
+        compile_label(skip_if_label);
     }
-
-    //emit_term("; end if");
-    emit_newline();
 }
 
 static void parse_while(void) {
 
-    // push labels of containing loop
+    // push labels of containing loop (for break/continue)
     int old_start_label = loop_start_label;
     int old_end_label = loop_end_label;
-    loop_start_label = next_label;
-    loop_end_label = (next_label + 1);
-    next_label = (next_label + 2);
+    loop_start_label = parse_generate_label();
+    loop_end_label = parse_generate_label();
 
-    // emit the start label
-    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_start_label);
-    //emit_term("; while");
-    emit_newline();
-
-    // emit the condition check (jumps to the end if false)
+    // parse and compile the loop
+    compile_label(loop_start_label);
     parse_condition(loop_end_label);
-
-    // emit the contents of the while
     parse_statement(); // TODO same as if here, not sure if should forbid labels or how
-
-    // jump back to the start
-    emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_start_label);
-    emit_newline();
-
-    // emit the end label
-    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_end_label);
-    //emit_term("; end while");
-    emit_newline();
+    compile_jump(loop_start_label);
+    compile_label(loop_end_label);
 
     // pop labels
     loop_start_label = old_start_label;
@@ -196,32 +175,17 @@ static void parse_do(void) {
     // push labels of containing loop
     int old_start_label = loop_start_label;
     int old_end_label = loop_end_label;
-    loop_start_label = next_label;
-    loop_end_label = (next_label + 1);
-    next_label = (next_label + 2);
+    loop_start_label = parse_generate_label();
+    loop_end_label = parse_generate_label();
 
-    // emit the start label
-    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_start_label);
-    //emit_term("; while");
-    emit_newline();
-
-    // emit the contents of the do loop
+    // parse and compile the loop
+    compile_label(loop_start_label);
     parse_statement();
-
-    // parse the end condition
     lexer_expect("while", "Expected `while` after `do` statement.");
     parse_condition(loop_end_label);
     lexer_expect(";", "Expected `;` after `do`-`while` condition.");
-
-    // jump back to the start
-    emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_start_label);
-    emit_newline();
-
-    // emit the end label
-    emit_computed_label(':', JUMP_LABEL_PREFIX, loop_end_label);
-    //emit_term("; end while");
-    emit_newline();
+    compile_jump(loop_start_label);
+    compile_label(loop_end_label);
 
     // pop labels
     loop_start_label = old_start_label;
