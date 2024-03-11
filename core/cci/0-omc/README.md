@@ -20,8 +20,6 @@ Types are stored in the low seven bits of a `char`. This makes it possible to wo
 
 For example `0x10` is `void`, `0x21` is `char*`, `0x73` is an l-value of type `int***`, and so on.
 
-When an expression returns an l-value, the emitted code places the *address of* the value in `r0` instead of the value itself. It is effectively an additional indirection, except that this type can also be the target of an assignment expression. The function `compile_dereference_if_lvalue()` is used to convert an l-value into an r-value; you'll see this called wherever the real value is needed.
-
 
 
 ## Expression Evaluation
@@ -49,6 +47,8 @@ add r0 r1 r0   ; +
 The resulting code is essentially in reverse Polish notation.
 
 This is 23 bytecode instructions. It is of course extremely inefficient, but it is also extremely simple, and it works. A major advantage of spilling all variables and expressions to the stack is that function calls don't need to do anything special to preserve registers.
+
+When an expression returns an l-value, the emitted code places the *address of* the value in `r0` instead of the value itself. It is effectively an additional indirection, except that this type can also be the target of an assignment expression. The function `compile_dereference_if_lvalue()` is used to convert an l-value into an r-value; you'll see this called wherever the real value is needed.
 
 
 

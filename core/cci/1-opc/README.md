@@ -54,6 +54,28 @@ The record pointer points to an immutable type called `record_t`. This contains 
 
 
 
+## Expression Evaluation
+
+Expression parsing in cci/1 is similar to cci/0. All expression functions emit code on the fly. When an expression parsing function returns, code to compute that expression has already been emitted.
+
+The code they emit places the result of the expression either in `r0` or on the stack. If the result type of the expression is an address or an integer that fits in a register (e.g. `char`, `short`, `int`, all pointers, all l-values), it is placed in `r0`. Otherwise (e.g. `long long`, all `struct` and `union` types), it is at the top of the stack.
+
+When an expression returns an l-value, the emitted code places the *address of* the value in `r0` instead of the value itself. The function `compile_lvalue_to_rvalue()` converts an l-value into an r-value.
+
+
+
+## Function Calls
+
+The calling convention for function calls is described in the [Onramp bytecode spec](../../../docs/virtual-machine.md). Any values that are not addresses and not integers that fit in a word are passed indirectly.
+
+The function call parser first reserves stack space for the return value if it is passed indirectly; the address will be passed as the first argument. It then parses the arguments. Each argument is copied (in full) to the stack, and argument types and offsets are stored in a list. Then, the function parser puts the first four arguments, or addresses to them if passed indirectly, in registers `r0`-`r3`. Finally each remaining argument, or address to it if passed indirectly, is pushed to the stack right to left.
+
+This mechanism supports passing and returning structs and `long long` integers by-value.
+
+There is no special behaviour needed for variadic functions. They use the same calling convention as regular functions.
+
+
+
 ## Emulated Structs
 
 This implementation does not use structs because they are not supported by omC. Instead we do a "poor man's struct": we emulate them using accessor functions. For example, suppose we wanted to write:

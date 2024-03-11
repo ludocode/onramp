@@ -314,7 +314,7 @@ In the standard calling convention, the first four arguments to a function are p
 
 The return value is returned in register r0. The callee returns by restoring the stack and frame pointers and jumping to the return address. The caller is responsible for cleaning up stack arguments.
 
-Any arguments that are larger than a word are passed indirectly: the caller is responsible for providing storage for the value and passes the address of the storage instead of the value itself. If a function's return value is larger than a word, the function is implied to have an additional argument at the start of the argument list which contains the address of storage for the return value. (This additional argument is passed in r0 and must be in r0 when the function returns.)
+Any arguments that are not addresses or integer types and that are larger than a word are passed indirectly. The caller is responsible for providing storage for the value and passes the address of the storage instead of the value itself. If a function's return value is larger than a word, the function is implied to have an additional argument at the start of the argument list which contains the address of storage for the return value. (This additional argument is passed in r0 and must be in r0 when the function returns.)
 
 The first thing most functions do is to set up a stack frame: they push the frame pointer (rfp) onto the stack, then store the current stack pointer (rsp) as their own frame pointer. The frame pointers therefore form a linked list of stack frames on the stack. (This is done by the `enter` compound assembly instruction, and the corresponding `leave` instruction pops the stack frame. See the [assembly guide](assembly.md) guide for details.)
 
