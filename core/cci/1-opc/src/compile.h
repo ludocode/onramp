@@ -50,6 +50,8 @@ bool compile_is_enabled(void);
  */
 void compile_global_variable(const type_t* type, const char* name, storage_t storage);
 
+void compile_enum_value(const char* name, int value);
+
 /**
  * Compiles the prologue of a function with the given name and number of
  * arguments.

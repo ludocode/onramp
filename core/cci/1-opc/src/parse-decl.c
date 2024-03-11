@@ -28,6 +28,8 @@
 
 #include "lexer.h"
 #include "parse-expr.h"
+#include "parse-stmt.h"
+#include "global.h"
 #include "compile.h"
 #include "emit.h"  // TODO remove all emit calls in this code
 
@@ -66,9 +68,8 @@ void parse_decl_destroy(void) {
  * concerned with getting the implementation correct and I thought I might make
  * mistakes if I tried to cut corners.
  *
- * In opC, we don't allow typedef or struct/union declarations outside of
- * global scope. We take the `global` flag to some of the below functions to
- * check this.
+ * In opC, we don't allow typedef, struct, union, or enum declarations outside
+ * of global scope.
  */
 
 /*
@@ -159,6 +160,58 @@ static bool try_parse_type_specifier(int* type_specifiers,
     return false;
 }
 
+static void parse_enum(void) {
+
+    // `enum` must be followed by a name, but we ignore it.
+    if (lexer_type != lexer_type_alphanumeric) {
+        fatal("`enum` must be followed by a name.");
+    }
+    lexer_consume();
+
+    // check for `{`, if not we're done.
+    if (!lexer_accept("{")) {
+        return;
+    }
+
+    // we can only define enums globally
+    if (parse_is_inside_function()) {
+        fatal("Enums cannot be defined inside functions in opC.");
+    }
+
+    int value = 0;
+    while (1) {
+        // collect the name
+        if (lexer_type != lexer_type_alphanumeric) {
+            fatal("Expected an enum value");
+        }
+        char* name = lexer_take();
+
+        // collect the optional value
+        if (lexer_accept("=")) {
+            type_t* type;
+            if (!try_parse_constant_expression(&type, &value)) {
+                fatal_2("Expected a constant expression after `=` for enum value: ", name);
+            }
+            type_delete(type);
+        }
+
+        // output it
+        compile_enum_value(name, value);
+        global_declare_variable(type_new_base(BASE_SIGNED_INT), name);
+        value = (value + 1);
+
+        // see if we're done
+        if (!lexer_accept(",")) {
+            break;
+        }
+        if (lexer_is("}")) {
+            break;
+        }
+    }
+
+    lexer_expect("}", "Expected `,` or `}` after enum value");
+}
+
 static bool try_parse_type_specifiers(int* type_specifiers,
         const record_t** out_record,
         const type_t** out_typedef)
@@ -190,13 +243,10 @@ static bool try_parse_type_specifiers(int* type_specifiers,
 
     // handle enum
     if (lexer_accept("enum")) {
-        if (lexer_type != lexer_type_alphanumeric) {
-            fatal("`enum` must be followed by a name.");
-        }
-        // ignore the name, pretend it's int
-        lexer_consume();
+        parse_enum();
+        // all enums are just aliases of int.
         if (*type_specifiers & TYPE_SPECIFIER_INT) {
-            fatal("Redundant type specifier: int (or enum)");
+            fatal("Redundant enum specifier");
         }
         *type_specifiers = (*type_specifiers | TYPE_SPECIFIER_INT);
         return true;

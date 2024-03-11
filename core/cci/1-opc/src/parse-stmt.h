@@ -25,6 +25,8 @@
 #ifndef PARSE_STMT_H_INCLUDED
 #define PARSE_STMT_H_INCLUDED
 
+#include <stdbool.h>
+
 void parse_stmt_init(void);
 void parse_stmt_destroy(void);
 
@@ -40,5 +42,10 @@ int store_string_literal(void);
  * Parses a global variable or function, compiling it to the output.
  */
 void parse_global(void);
+
+/**
+ * Returns true if we are currently parsing a function definition.
+ */
+bool parse_is_inside_function(void);
 
 #endif

@@ -75,6 +75,14 @@ void compile_global_variable(const type_t* type, const char* name, storage_t sto
     emit_global_divider();
 }
 
+void compile_enum_value(const char* name, int value) {
+    emit_label('@', name);
+    emit_newline();
+    emit_int(value);
+    emit_newline();
+    emit_global_divider();
+}
+
 void compile_function_open(const char* name, int arg_count) {
     //printf("   compiling function open %s with %i args\n",name, arg_count);
 

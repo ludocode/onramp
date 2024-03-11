@@ -52,6 +52,7 @@ static size_t strings_count;
 
 // function generation
 static int function_frame_size;
+static bool inside_function;
 
 void parse_stmt_init(void) {
     while_start_label = -1;
@@ -375,6 +376,7 @@ static void parse_block(void) {
 
 // Parses a function declaration (and definition, if provided.)
 static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
+    inside_function = true;
     int arg_count = 0;
 
     while (!lexer_accept(")")) {
@@ -430,6 +432,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         emit_global_divider();
     }
 
+    inside_function = false;
     locals_pop(0);
 }
 
@@ -447,33 +450,37 @@ void parse_global(void) {
         if (!try_parse_declarator(base_type, &type, &name)) {
             fatal("Expected a declarator for this global declaration.");
         }
+
+        // A no-name declaration is not necessarily an error, for example it
+        // could be an enum.
         if (name == NULL) {
-            // TODO technically a name is not required, GCC and Clang only warn
-            // about useless declarations.
-            fatal("A name is required for a global declaration.");
+            type_delete(type);
         }
+        if (name != NULL) {
 
-        // Check for a typedef
-        if (storage == STORAGE_TYPEDEF) {
-            typedef_add(name, type);
-            // TODO multiple typedefs are supposed to be supported
-            lexer_expect(";", "Expected `;` at end of typedef");
-            break;
-        }
+            // Check for a typedef
+            if (storage == STORAGE_TYPEDEF) {
+                typedef_add(name, type);
+                // TODO multiple typedefs are supposed to be supported
+                lexer_expect(";", "Expected `;` at end of typedef");
+                break;
+            }
 
-        // Check for a function
-        if (lexer_accept("(")) {
-            parse_function_declaration(type, name, storage);
-            break;
-        }
+            // Check for a function
+            if (lexer_accept("(")) {
+                parse_function_declaration(type, name, storage);
+                break;
+            }
 
-        // Otherwise it's a global variable declaration
-        if (lexer_accept("=")) {
-            fatal("Global variable initializer is not yet implemented");
-        }
-        global_declare_variable(type, name);
-        if (storage != STORAGE_EXTERN) {
-            compile_global_variable(type, name, storage);
+            // Otherwise it's a global variable declaration
+            if (lexer_accept("=")) {
+                fatal("Global variable initializer is not yet implemented");
+            }
+            global_declare_variable(type, name);
+            if (storage != STORAGE_EXTERN) {
+                compile_global_variable(type, name, storage);
+            }
+
         }
 
         // TODO check for a comma for multiple declarators, only allowed if none are functions
@@ -485,4 +492,8 @@ void parse_global(void) {
     }
 
     type_delete(base_type);
+}
+
+bool parse_is_inside_function(void) {
+    return inside_function;
 }
