@@ -97,13 +97,14 @@ sh core/cci/1-opc/build.sh
         cp core/libc/0-oo/include/__onramp/__null.h build/output/include/__onramp/__null.h
         cp core/libc/0-oo/include/__onramp/__size_t.h build/output/include/__onramp/__size_t.h
         cp core/libc/0-oo/include/ctype.h build/output/include/ctype.h
+        cp core/libc/0-oo/include/errno.h build/output/include/errno.h
         cp core/libc/0-oo/include/limits.h build/output/include/limits.h
         cp core/libc/0-oo/include/spawn.h build/output/include/spawn.h
         cp core/libc/0-oo/include/stdbool.h build/output/include/stdbool.h
         cp core/libc/0-oo/include/stddef.h build/output/include/stddef.h
         cp core/libc/0-oo/include/stdint.h build/output/include/stdint.h
         cp core/libc/0-oo/include/stdio.h build/output/include/stdio.h
-        cp core/libc/0-oo/include/stdlib.h build/output/include/stdlib.h
+        cp core/libc/1-omc/include/stdlib.h build/output/include/stdlib.h
         cp core/libc/0-oo/include/string.h build/output/include/string.h
         cp core/libc/0-oo/include/unistd.h build/output/include/unistd.h
 

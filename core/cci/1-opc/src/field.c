@@ -1,3 +1,4 @@
+#ifdef DISABLED
 /*
  * The MIT License (MIT)
  *
@@ -96,3 +97,4 @@ size_t field_size(field_t* field) {
 size_t field_end(field_t* field) {
     return field_offset(field) + field_size(field);
 }
+#endif

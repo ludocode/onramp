@@ -10,23 +10,23 @@ This document describes the implementation. For a description of the language it
 
 ## Status
 
-Currently this only compiles omC. It is enough that it is self-hosting though (or, it will be once I fix some bugs.)
+All of omC is supported and some parts of opC are done. We need to fix or add:
 
-It needs to be extended to compile opC. We need to fix or add:
-
-- [ ] make self-hosting
-- [ ] new type system (see below)
-- [ ] globals hashtable
+- [x] make self-hosting
+- [x] new type system (see below)
+- [x] globals hashtable
 - [ ] `struct` and `union`
 - [ ] `unsigned`
 - [ ] `short`
 - [ ] `long long`
-- [ ] `enum`
+- [x] `enum`
 - [ ] arrays
-- [ ] `else`
+- [x] `else`
 - [ ] `for` (with variable declaration)
 - [ ] `switch` and `case`
 - [ ] `goto` and labels (maybe?)
+- [ ] full expression parser
+- [x] constant expression parser
 
 
 

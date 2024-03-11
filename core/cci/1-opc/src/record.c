@@ -1,3 +1,4 @@
+#ifdef DISABLED
 /*
  * The MIT License (MIT)
  *
@@ -92,3 +93,4 @@ size_t record_size(record_t* record) {
     field = ((field + 3) & (~3)); // round up to multiple of word size (4)
     return field;
 }
+#endif

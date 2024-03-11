@@ -476,10 +476,10 @@ void parse_global(void) {
             if (lexer_accept("=")) {
                 fatal("Global variable initializer is not yet implemented");
             }
-            global_declare_variable(type, name);
             if (storage != STORAGE_EXTERN) {
                 compile_global_variable(type, name, storage);
             }
+            global_declare_variable(type, name);
 
         }
 
