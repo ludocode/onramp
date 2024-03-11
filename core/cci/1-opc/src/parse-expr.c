@@ -69,8 +69,33 @@ static int binary_operator_precedence(void) {
     return -1;
 }
 
-static bool parse_token_is_binary_op(void) {
+/**
+ * Returns true if the current token is a binary operator.
+ */
+static bool is_binary_op(void) {
     return -1 != binary_operator_precedence();
+}
+
+/**
+ * Returns true if the current token is an assignment operator.
+ */
+static bool is_assign_op(void) {
+    if (lexer_type != lexer_type_punctuation) {
+        return false;
+    }
+    const char* op = lexer_token;
+    if (0 == strcmp(op, "=")) {return true;}
+    if (0 == strcmp(op, "+=")) {return true;}
+    if (0 == strcmp(op, "-=")) {return true;}
+    if (0 == strcmp(op, "*=")) {return true;}
+    if (0 == strcmp(op, "/=")) {return true;}
+    if (0 == strcmp(op, "%=")) {return true;}
+    if (0 == strcmp(op, "&=")) {return true;}
+    if (0 == strcmp(op, "|=")) {return true;}
+    if (0 == strcmp(op, "^=")) {return true;}
+    if (0 == strcmp(op, "<<=")) {return true;}
+    if (0 == strcmp(op, ">>=")) {return true;}
+    return false;
 }
 
 /**
@@ -597,11 +622,8 @@ static type_t* parse_binary_expression(void) {
     type_t* left = parse_unary_expression();
 
     // see if we have a binary operator
-    if (!parse_token_is_binary_op()) {
-        // TODO for now '=' is considered a binary operator.
-        if (0 != strcmp("=", lexer_token)) {
-            return left;
-        }
+    if (!is_binary_op()) {
+        return left;
     }
     char* op = lexer_take();
 
@@ -617,21 +639,77 @@ static type_t* parse_binary_expression(void) {
     free(op);
 
     // nicer error messages when parens are missed
-    if (parse_token_is_binary_op()) {
+    if (is_binary_op()) {
         fatal("Multiple binary operators are not allowed in an expression. Add parentheses.");
     }
 
     return ret;
 }
 
+type_t* parse_conditional_expression(void) {
+    type_t* predicate_type = parse_binary_expression();
+    if (!lexer_accept("?")) {
+        return predicate_type;
+    }
+
+    // we have a conditional expression.
+    int false_label = parse_generate_label();
+    int end_label = parse_generate_label();
+
+    // if the type is an lvalue we need to dereference it
+    compile_lvalue_to_rvalue(predicate_type, 0);
+    // TODO compile a cast to int, need to convert e.g. llong to int, fail on
+    // structs, etc.
+    type_delete(predicate_type);
+
+    // parse true branch
+    compile_jump_if_zero(false_label);
+    type_t* true_type = parse_expression();
+    compile_jump(end_label);
+    lexer_expect(":", "Expected `:` in conditional expression");
+
+    // parse false branch
+    compile_label(false_label);
+    type_t* false_type = parse_conditional_expression();
+    compile_label(end_label);
+
+    // TODO make sure types are compatible
+    type_delete(false_type);
+
+    // the return value cannot be assigned.
+    //compile_lvalue_to_rvalue(true_type, 0);
+    return true_type;
+}
+
+type_t* parse_assignment_expression(void) {
+    type_t* left = parse_conditional_expression();
+    if (!is_assign_op()) {
+        return left;
+    }
+    char* op = lexer_take();
+
+    // The left side of an assignment must be an l-value and can only be a
+    // unary expression. Luckily, nothing in between this and a unary
+    // expression can return an l-value so we can just parse a conditional
+    // expression and compile_assign() will check that it's an l-value.
+
+    // parse the right-hand side
+    // the right side will be in r0, the left will be in r1
+    compile_push(0);
+    type_t* right = parse_unary_expression();
+    compile_pop(1);
+
+    type_t* type = compile_assign(op, left, right);
+    free(op);
+    return type;
+}
+
+// "expression" is a comma operator expression.
 type_t* parse_expression(void) {
-    // "expression" is actually a comma operator expression. It's separate from
-    // a binary expression because it can't appear as the argument to a
-    // function.
-    // TODO implement this
-    type_t* type = parse_binary_expression();
-    if (lexer_accept(",")) {
-        fatal("Comma expression is not supported.");
+    type_t* type = parse_assignment_expression();
+    while (lexer_accept(",")) {
+        type_delete(type);
+        type = parse_assignment_expression();
     }
     return type;
 }

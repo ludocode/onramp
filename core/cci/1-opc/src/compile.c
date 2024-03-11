@@ -343,7 +343,7 @@ type_t* compile_lvalue_to_rvalue(type_t* type, int register_num) {
     return type;
 }
 
-type_t* compile_assign(type_t* left, type_t* right) {
+type_t* compile_assign(const char* op, type_t* left, type_t* right) {
 
     // We're storing into the left. It must be an lvalue and not an array.
     if (type_is_array(left)) {
@@ -352,6 +352,12 @@ type_t* compile_assign(type_t* left, type_t* right) {
     if (!type_is_lvalue(left)) {
         fatal("Assignment location is not an lvalue.");
     }
+
+    if (0 != strcmp(op, "=")) {
+        fatal_2("Compound assignment operator is not yet implemented: ", op);
+    }
+
+    right = compile_lvalue_to_rvalue(right, 0);
 
     left = type_set_lvalue(left, false);
     size_t size = type_size(left);
@@ -610,9 +616,12 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     right = compile_lvalue_to_rvalue(right, 0);
 
     // Handle assignment first because it has a lot of special behaviour.
+    // TODO this is being moved out to a separate assignment parser
+    /*
     if (0 == strcmp(op, "=")) {
         return compile_assign(left, right);
     }
+    */
 
     // For all remaining operations, the left type is also an r-value, and both
     // types should be promoted from char to int.

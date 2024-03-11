@@ -96,6 +96,13 @@ void compile_pop(int register_number);
 type_t* compile_binary_op(const char* op, type_t* left, type_t* right);
 
 /**
+ * Compiles an assign operation.
+ *
+ * The left of the operation (an lvalue) is in r1 and the right is in r0.
+ */
+type_t* compile_assign(const char* op, type_t* left, type_t* right);
+
+/**
  * Places the given number in r0.
  */
 type_t* compile_immediate(const char* number);

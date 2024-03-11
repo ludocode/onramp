@@ -331,7 +331,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
 
     // compile an assignment
     type_set_lvalue(type, true);
-    type_delete(compile_binary_op("=", type, expr_type));
+    type_delete(compile_assign("=", type, expr_type));
 }
 
 static bool try_parse_block(void) {
