@@ -124,7 +124,7 @@
 
     ; push "-o" to the stack for comparison
     ims ra '00 '00
-    ims ra "-o"
+    ims ra "-" "o"
     sub rsp rsp '04
     stw ra '00 rsp
 

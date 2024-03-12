@@ -29,7 +29,15 @@
 # - If a corresponding .stdout file exists, the program's output must match the
 # file's contents.
 #
-# TODO also link and run if .stdout file, see ld/0-global
+# Pass --other-stage as the first argument to run tests with a different stage
+# than the one for which the tests were intended. The assembly output will not
+# be compared and any tests with a .nonstd file will be skipped.
+
+OTHER_STAGE=0
+if [ "$1" == "--other-stage" ]; then
+    OTHER_STAGE=1
+    shift
+fi
 
 if [ "$1" == "" ]; then
     echo "Need folder to test."
@@ -65,6 +73,12 @@ echo "Running $TESTS_PATH tests on: $COMMAND"
 for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\.os$//')
+
+    if [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ]; then
+        echo "Skipping $BASENAME"
+        continue
+    fi
+
     echo "Testing $BASENAME"
 
     # collect or generate the args
@@ -81,12 +95,12 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
     RET=$?
     set -e
 
-    # check compile status and ojbect code
+    # check compile status and object code
     if [ -e $BASENAME.oo ]; then
         if [ $RET -ne 0 ]; then
             echo "ERROR: $BASENAME failed; expected success."
             THIS_ERROR=1
-        elif ! diff -q $BASENAME.oo $TEMP_OO > /dev/null; then
+        elif [ $OTHER_STAGE -eq 0 ] && ! diff -q $BASENAME.oo $TEMP_OO > /dev/null; then
             echo "ERROR: $BASENAME did not match expected $BASENAME.oo"
             THIS_ERROR=1
         fi
@@ -138,6 +152,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
 
     if [ $THIS_ERROR -eq 1 ]; then
         echo "Commands:"
+        echo "    make build && \\"
         echo "    $COMMAND $ARGS && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE >$TEMP_STDOUT"

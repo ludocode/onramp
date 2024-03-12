@@ -72,27 +72,15 @@ int hex_to_int(char c) {
 
 static bool try_parse_character(uint8_t* out);
 
-// Parses and emits a literal two-byte short (either a number or two quoted bytes.)
 bool try_parse_and_emit_short(void) {
-
-    // number
     int32_t offset;
     if (try_parse_number(&offset)) {
         if (offset < INT16_MIN || offset > INT16_MAX)
-            fatal("Number is out of range of relative jump: %s", offset);
+            fatal("Number is out of range of relative jump: %i", offset);
         emit_hex_byte((uint8_t)(offset & 0xFF));
         emit_hex_byte((uint8_t)((offset >> 8) & 0xFF));
         return true;
     }
-
-    // two quoted bytes
-    uint8_t byte;
-    if (try_parse_quoted_byte(&byte)) {
-        emit_hex_byte(byte);
-        emit_hex_byte(parse_quoted_byte());
-        return true;
-    }
-
     return false;
 }
 
@@ -381,7 +369,7 @@ bool try_parse_number(int32_t* out) {
 
     // apply sign, make sure it's in range
     if (negative) {
-        if (value > 0x8000000) {
+        if (value > 0x80000000) {
             fatal("Negative number is out of range.");
         }
         *out = -(int32_t)value;
@@ -417,6 +405,14 @@ bool try_parse_quoted_byte(uint8_t* out) {
 
     *out = ret;
     return true;
+}
+
+bool try_parse_character_or_quoted_byte(uint8_t* out) {
+    if (try_parse_quoted_byte(out))
+        return true;
+    if (try_parse_character(out))
+        return true;
+    return false;
 }
 
 uint8_t parse_quoted_byte(void) {

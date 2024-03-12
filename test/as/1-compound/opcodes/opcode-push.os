@@ -1,6 +1,6 @@
 =test
 push 0
-push 255
+push 0xFFFFFFFF
 push -1
 push -0x55
 push r0

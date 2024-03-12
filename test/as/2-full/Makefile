@@ -58,8 +58,16 @@ $(OUT)/as: $(SRCS) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-test: build FORCE
+test-0: build FORCE
+	../run.sh --other-stage ../0-basic $(OUT)/as
+
+test-1: build FORCE
+	../run.sh --other-stage ../1-compound $(OUT)/as
+
+test-2: build FORCE
 	../run.sh . $(OUT)/as
+
+test: test-2 test-1 test-0 FORCE
 
 generate: build FORCE $(VM)
 	../generate.sh . $(VM) $(OUT)/as

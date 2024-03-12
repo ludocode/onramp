@@ -8,7 +8,7 @@ imw rb ^bar
 imw r0 1234567890
 imw r1 -1234567890
 imw r2 0xabcdef98
-imw r3 -0x98765432
+imw r3 -0x76543210
 
 ; individual bytes
 imw r4 '12 '34 '56 '78

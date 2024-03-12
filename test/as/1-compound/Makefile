@@ -95,8 +95,13 @@ $(OUT)/as.oe: $(OBJS) Makefile $(LD) $(LIBC) $(LIBO)
 	@rm -f $@
 	$(LD) -g $(LIBC) $(LIBO) $(OBJS) -o $@
 
-test: build FORCE $(VM)
+test-0: build FORCE $(VM)
+	../run.sh --other-stage ../0-basic $(VM) $(OUT)/as.oe
+
+test-1: build FORCE $(VM)
 	../run.sh . $(VM) $(OUT)/as.oe
+
+test: test-1 test-0 FORCE
 
 generate: build FORCE $(VM)
 	../generate.sh . $(VM) $(OUT)/as.oe

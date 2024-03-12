@@ -6,7 +6,7 @@ add rsp 'AB rfp
 add ra 0 10
 add rb -2 -16
 add rb 0x12 0x34
-add rb 0x56 0xab
+add rb 0x5A 0x7F
 
 =main
     zero r0

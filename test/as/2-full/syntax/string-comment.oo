@@ -1,8 +1,0 @@
-#line 1 "./syntax/string-comment.os"
-=test 
-
-3B2074686973206973206E6F74206120636F6D6D656E74
-
-=main 
-70800000
-788F008C

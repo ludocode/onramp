@@ -52,6 +52,7 @@ bool try_parse_invocation_short(void); // high, low or relative
 bool try_parse_identifier(void);
 bool try_parse_number(int32_t* value);
 bool try_parse_quoted_byte(uint8_t* out);
+bool try_parse_character_or_quoted_byte(uint8_t* out);
 bool try_parse_and_emit_short(void);
 bool try_parse_and_emit_string(size_t* out_length);
 

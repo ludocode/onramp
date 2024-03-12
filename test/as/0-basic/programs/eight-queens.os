@@ -253,7 +253,7 @@ ldw r0 rpp r0
     ; push "Q. \n" to the stack
     sub rsp rsp '04
     ims ra '20 '0A
-    ims ra "Q."
+    ims ra "Q" "."
     stw ra rsp '00
 
     ; prepare syscall args

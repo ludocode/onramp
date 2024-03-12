@@ -72,8 +72,18 @@ static void parse_and_emit_jump_offset(void) {
         return;
     }
 
-    // number or two quoted bytes
+    // number
     if (try_parse_and_emit_short()) {
+        return;
+    }
+
+    // two quoted bytes
+    uint8_t a, b;
+    if (try_parse_quoted_byte(&a) &&
+            try_parse_quoted_byte(&b))
+    {
+        emit_hex_byte(a);
+        emit_hex_byte(b);
         return;
     }
 
@@ -619,42 +629,16 @@ static void opcode_ims(void) {
         return;
     }
 
-    // string up to two characters
-    // TODO this is way too complicated for little benefit, and it's also not
-    // supported by as/1 so it's useless. We should just restrict string
-    // arguments to single chars as as/1 does.
-    size_t length;
-    if (try_parse_and_emit_string(&length)) {
-        if (length > 2) {
-            fatal("Length of string argument to ims must be at most 2.");
-        }
-        if (length == 0) {
-            fatal("String argument to ims cannot be empty.");
-        }
-        if (length == 2) {
-            return;
-        }
-    }
-
-    // if we only got a one character string, we need another one character
-    // string or quoted byte
-
-    // one-character string
-    if (try_parse_and_emit_string(&length)) {
-        if (length != 1) {
-            fatal("Length of second string argument to ims must be 1.");
-        }
+    uint8_t a, b;
+    if (try_parse_character_or_quoted_byte(&a) &&
+            try_parse_character_or_quoted_byte(&b))
+    {
+        emit_hex_byte(a);
+        emit_hex_byte(b);
         return;
     }
 
-    // quote byte
-    uint8_t byte;
-    if (try_parse_quoted_byte(&byte)) {
-        emit_hex_byte(byte);
-        return;
-    }
-
-    fatal("Expected ims value: short invocation, number, two quoted bytes, or string up to two characters.");
+    fatal("Expected ims value: short invocation, number, or two quoted bytes or single-character strings.");
 }
 
 static void opcode_cmpu(void) {
@@ -722,33 +706,20 @@ static void opcode_imw(void) {
 
     // four quoted bytes (in little-endian)
     uint8_t a, b, c, d;
-    if (try_parse_quoted_byte(&a) && try_parse_quoted_byte(&b) &&
-            try_parse_quoted_byte(&c) && try_parse_quoted_byte(&d))
+    if (try_parse_character_or_quoted_byte(&a) &&
+            try_parse_character_or_quoted_byte(&b) &&
+            try_parse_character_or_quoted_byte(&c) &&
+            try_parse_character_or_quoted_byte(&d))
     {
         uint8_t bytes[] = {
-            CMPU, reg, c, d,  // ims reg c d
-            CMPU, reg, a, b,  // ims reg a b
+            IMS, reg, c, d,  // ims reg c d
+            IMS, reg, a, b,  // ims reg a b
         };
         emit_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
-    // string up to four characters
-    // TODO characters are supposed to be individually double-quoted
-    // (or disabled this entirely, has to match as/1)
-    size_t length;
-    if (try_parse_and_emit_string(&length)) {
-        if (length > 4) {
-            fatal("Length of string argument to imw must be at most 4.");
-        }
-        while (length < 4) {
-            emit_hex_byte(0x00);
-            ++length;
-        }
-        return;
-    }
-
-    fatal("Expected imw value: number, absolute or relative label, four quoted bytes, or string up to four characters.");
+    fatal("Expected imw value: number, absolute or relative label, or four quoted bytes or single-character strings.");
 }
 
 static void opcode_cmps(void) {
