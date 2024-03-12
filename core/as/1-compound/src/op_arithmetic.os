@@ -206,7 +206,10 @@
 ; ==========================================================
 
 =opcode_sxb
-    'FF ;TODO
+    add r0 '00 '18
+    ims ra <opcode_sx_helper
+    ims ra >opcode_sx_helper
+    add rip rpp ra    ; jump
 
 
 
@@ -217,7 +220,180 @@
 ; ==========================================================
 
 =opcode_sxs
-    'FF ;TODO
+    add r0 '00 '10
+    ims ra <opcode_sx_helper
+    ims ra >opcode_sx_helper
+    add rip rpp ra    ; jump
+
+
+
+; ==========================================================
+; void opcode_sx_helper(int high_bits)
+; ==========================================================
+; Implements the sxs and sxb opcodes.
+; ==========================================================
+
+=opcode_sx_helper
+
+    ; put bits in the template
+    ims ra <opcode_sx_template
+    ims ra >opcode_sx_template
+    add r2 rpp ra
+    stb r0 r2 '17
+    stb r0 r2 '23
+    sub r0 '20 r0
+    stb r0 r2 '0f
+    sub r0 r0 '01
+    stb r0 r2 '03
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_sx_template
+    ims ra >opcode_sx_template
+    add r2 rpp ra
+    stb r0 r2 '19
+    stb r0 r2 '29
+
+    ; single source argument is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put src in the template
+    ims ra <opcode_sx_template
+    ims ra >opcode_sx_template
+    add r2 rpp ra
+    stb r0 r2 '02
+    stb r0 r2 '1B
+    stb r0 r2 '2A
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '2C
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_sx_template
+
+    ; branch on the high bit
+    ror ra r1 '0F    ; ror ra <src> <low_bits-1>
+    and ra ra '01    ; and ra ra 1
+    jz ra &opcode_sx_template_positive
+
+    ; negative, set high bits
+    ror ra '01 '10   ; ror ra 1 <low_bits>
+    sub ra ra '01    ; sub ra ra 1
+    ror ra ra '10    ; ror ra ra <high_bits>
+    or r0 ra r1      ; or r0 ra r1
+    jz '00 &opcode_sx_template_end
+
+:opcode_sx_template_positive
+    ; positive, clear high bits
+    ror ra '01 '10   ; ror ra 1 <high_bits>
+    sub ra ra '01    ; sub ra ra 1
+    and r0 r1 ra     ; and <dest> <src> ra
+
+:opcode_sx_template_end
+
+
+
+; ==========================================================
+; void opcode_trb(void)
+; ==========================================================
+; Implements the trb opcode.
+; ==========================================================
+
+=opcode_trb
+    add r0 '00 '18
+    ims ra <opcode_tr_helper
+    ims ra >opcode_tr_helper
+    add rip rpp ra    ; jump
+
+
+
+
+; ==========================================================
+; void opcode_trs(void)
+; ==========================================================
+; Implements the trs opcode.
+; ==========================================================
+
+=opcode_trs
+    add r0 '00 '10
+    ims ra <opcode_tr_helper
+    ims ra >opcode_tr_helper
+    add rip rpp ra    ; jump
+
+
+
+; ==========================================================
+; void opcode_tr_helper(int high_bits)
+; ==========================================================
+; Implements the trs and trb opcodes.
+; ==========================================================
+
+=opcode_tr_helper
+
+    ; put bits in the template
+    ims ra <opcode_tr_template
+    ims ra >opcode_tr_template
+    add r2 rpp ra
+    stb r0 r2 '03
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_tr_template
+    ims ra >opcode_tr_template
+    add r2 rpp ra
+    stb r0 r2 '09
+
+    ; single source argument is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put src in the template
+    ims ra <opcode_tr_template
+    ims ra >opcode_tr_template
+    add r2 rpp ra
+    stb r0 r2 '0a
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '0C
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_tr_template
+    ror ra '01 '10   ; ror ra 1 16
+    sub ra ra '01    ; sub ra ra 1
+    and r0 r1 ra     ; and <dest> <src> ra
 
 
 

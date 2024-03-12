@@ -480,7 +480,52 @@
 ; ==========================================================
 
 =opcode_bool
-    'FF ;TODO
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_bool_template
+    ims ra >opcode_bool_template
+    add r2 rpp ra
+    stb r0 r2 '05
+    stb r0 r2 '0D
+
+    ; value is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put value in the template
+    ims ra <opcode_bool_template
+    ims ra >opcode_bool_template
+    add r2 rpp ra
+    stb r0 r2 '01
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '10
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_bool_template
+    jz r1 &opcode_bool_template_zero
+    add r0 '00 '01
+    jz '00 &opcode_bool_template_end
+:opcode_bool_template_zero
+    add r0 '00 '00
+:opcode_bool_template_end
 
 
 
@@ -491,4 +536,49 @@
 ; ==========================================================
 
 =opcode_isz
-    'FF ;TODO
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_isz_template
+    ims ra >opcode_isz_template
+    add r2 rpp ra
+    stb r0 r2 '05
+    stb r0 r2 '0D
+
+    ; value is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put value in the template
+    ims ra <opcode_isz_template
+    ims ra >opcode_isz_template
+    add r2 rpp ra
+    stb r0 r2 '01
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '10
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_isz_template
+    jz r1 &opcode_isz_template_zero
+    add r0 '00 '00
+    jz '00 &opcode_isz_template_end
+:opcode_isz_template_zero
+    add r0 '00 '01
+:opcode_isz_template_end

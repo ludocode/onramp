@@ -155,6 +155,144 @@
 
 
 ; ==========================================================
+; void opcode_lds(void)
+; ==========================================================
+; Implements the lds opcode.
+; ==========================================================
+
+=opcode_lds
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_lds_template
+    ims ra >opcode_lds_template
+    add r2 rpp ra
+    stb r0 r2 '11
+
+    ; base argument is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put base in the template
+    ims ra <opcode_lds_template
+    ims ra >opcode_lds_template
+    add r2 rpp ra
+    stb r0 r2 '02
+
+    ; offset argument is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put offset in the template
+    ims ra <opcode_lds_template
+    ims ra >opcode_lds_template
+    add r2 rpp ra
+    stb r0 r2 '03
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '14
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_lds_template
+    add rb r1 r2     ; add rb <base> <offset>
+    ldb ra rb '00    ; ldb ra rb 0
+    ldb rb rb '01    ; ldb rb rb 1
+    ror rb rb '18    ; ror rb rb 24
+    or r0 ra rb      ; or <dest> ra rb
+
+
+
+; ==========================================================
+; void opcode_sts(void)
+; ==========================================================
+; Implements the sts opcode.
+; ==========================================================
+
+=opcode_sts
+
+    ; value is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put value in the template
+    ims ra <opcode_sts_template
+    ims ra >opcode_sts_template
+    add r2 rpp ra
+    stb r0 r2 '05
+    stb r0 r2 '0A
+
+    ; base argument is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put base in the template
+    ims ra <opcode_sts_template
+    ims ra >opcode_sts_template
+    add r2 rpp ra
+    stb r0 r2 '02
+
+    ; offset argument is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put offset in the template
+    ims ra <opcode_sts_template
+    ims ra >opcode_sts_template
+    add r2 rpp ra
+    stb r0 r2 '03
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '10
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_sts_template
+    add rb r1 r2     ; add rb <base> <offset>
+    stb r0 rb '00    ; stb <dest> rb 0
+    ror ra r0 '08    ; ror ra <dest> 8
+    stb ra rb '01    ; stb ra rb 1
+
+
+
+; ==========================================================
 ; void opcode_push(void)
 ; ==========================================================
 ; Implements the push opcode.

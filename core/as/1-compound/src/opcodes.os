@@ -76,8 +76,11 @@
     ^opcode_str_zero ^opcode_zero
     ^opcode_str_inc ^opcode_inc
     ^opcode_str_dec ^opcode_dec
-    ^opcode_str_sxb ^opcode_sxb
     ^opcode_str_sxs ^opcode_sxs
+    ^opcode_str_sxb ^opcode_sxb
+    ^opcode_str_trs ^opcode_trs
+    ^opcode_str_trb ^opcode_trb
+
     ; logic
     ^opcode_str_and ^opcode_and
     ^opcode_str_or ^opcode_or
@@ -91,22 +94,26 @@
     ^opcode_str_mov ^opcode_mov
     ^opcode_str_bool ^opcode_bool
     ^opcode_str_isz ^opcode_isz
+
     ; memory
     ^opcode_str_ldw ^opcode_ldw
+    ^opcode_str_lds ^opcode_lds
     ^opcode_str_ldb ^opcode_ldb
     ^opcode_str_stw ^opcode_stw
+    ^opcode_str_sts ^opcode_sts
     ^opcode_str_stb ^opcode_stb
     ^opcode_str_push ^opcode_push
     ^opcode_str_pop ^opcode_pop
     ^opcode_str_popd ^opcode_popd
+
     ; control
     ^opcode_str_ims ^opcode_ims
     ^opcode_str_imw ^opcode_imw
     ^opcode_str_cmps ^opcode_cmps
     ^opcode_str_cmpu ^opcode_cmpu
     ^opcode_str_jz ^opcode_jz
-    ^opcode_str_je ^opcode_je
     ^opcode_str_jnz ^opcode_jnz
+    ^opcode_str_je ^opcode_je
     ^opcode_str_jne ^opcode_jne
     ^opcode_str_jl ^opcode_jl
     ^opcode_str_jg ^opcode_jg
@@ -131,8 +138,11 @@
 :opcode_str_zero "zero" '00
 :opcode_str_inc "inc" '00
 :opcode_str_dec "dec" '00
-:opcode_str_sxb "sxb" '00
 :opcode_str_sxs "sxs" '00
+:opcode_str_sxb "sxb" '00
+:opcode_str_trs "trs" '00
+:opcode_str_trb "trb" '00
+
 ; logic
 :opcode_str_and "and" '00
 :opcode_str_or "or" '00
@@ -146,16 +156,20 @@
 :opcode_str_shl "shl" '00
 :opcode_str_bool "bool" '00
 :opcode_str_isz "isz" '00
+
 ; memory
 :opcode_str_ldw "ldw" '00
-:opcode_str_stw "stw" '00
+:opcode_str_lds "lds" '00
 :opcode_str_ldb "ldb" '00
+:opcode_str_stw "stw" '00
+:opcode_str_sts "sts" '00
 :opcode_str_stb "stb" '00
 :opcode_str_push "push" '00
 :opcode_str_pop "pop" '00
 :opcode_str_pushn "pushn" '00
 :opcode_str_popn "popn" '00
 :opcode_str_popd "popd" '00
+
 ; control
 :opcode_str_ims "ims" '00
 :opcode_str_cmpu "cmpu" '00
