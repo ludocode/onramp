@@ -70,13 +70,6 @@ static int binary_operator_precedence(void) {
 }
 
 /**
- * Returns true if the current token is a binary operator.
- */
-static bool is_binary_op(void) {
-    return -1 != binary_operator_precedence();
-}
-
-/**
  * Returns true if the current token is an assignment operator.
  */
 static bool is_assign_op(void) {
@@ -618,36 +611,33 @@ type_t* parse_unary_expression(void) {
     return parse_postfix_expression();
 }
 
-static type_t* parse_binary_expression(void) {
+static type_t* parse_binary_expression(int min_precedence) {
     type_t* left = parse_unary_expression();
 
-    // see if we have a binary operator
-    if (!is_binary_op()) {
-        return left;
-    }
-    char* op = lexer_take();
+    while (1) {
+        // get a binary operator (of appropriate precedence)
+        int op_precedence = binary_operator_precedence();
+        if (op_precedence < min_precedence) {
+            break;
+        }
+        char* op = lexer_take();
 
-    // parse the right-hand side
-    // the right side will be in r0, the left will be in r1
-    compile_push(0);
-    type_t* right = parse_unary_expression();
-    compile_pop(1);
+        // parse the right-hand side
+        // the right side will be in r0, the left will be in r1
+        compile_push(0);
+        type_t* right = parse_unary_expression();
+        compile_pop(1);
 
-    // compile it
-    //printf("    compiling binary expression\n");
-    type_t* ret = compile_binary_op(op, left, right);
-    free(op);
-
-    // nicer error messages when parens are missed
-    if (is_binary_op()) {
-        fatal("Multiple binary operators are not allowed in an expression. Add parentheses.");
+        // compile it
+        left = compile_binary_op(op, left, right);
+        free(op);
     }
 
-    return ret;
+    return left;
 }
 
 type_t* parse_conditional_expression(void) {
-    type_t* predicate_type = parse_binary_expression();
+    type_t* predicate_type = parse_binary_expression(0);
     if (!lexer_accept("?")) {
         return predicate_type;
     }
