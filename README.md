@@ -43,9 +43,9 @@ Once you have a VM, Onramp bootstraps itself. Read the full bootstrapping path [
 
 ## Under Construction!
 
-Onramp is not yet complete. My immediate goal is to support enough of C to compile Doom for command-line.
+Onramp is not yet complete. It doesn't compile much besides itself at the moment. My immediate goal is to support enough of C to compile Doom for command-line.
 
-A near-term goal is to compile native compilers: TinyCC, cproc+QBE, chibicc+binutils, etc. This will require several additional features, in particular software-emulated floating point support.
+A near-term goal is to compile native compilers and tools: [TinyCC](https://en.wikipedia.org/wiki/Tiny_C_Compiler), [cproc](https://sr.ht/~mcf/cproc/)+[QBE](https://c9x.me/compile/), [chibicc](https://github.com/rui314/chibicc)/[Kefir](https://kefir.protopopov.lv/)+[binutils](https://www.gnu.org/software/binutils/), etc. This will require several additional features.
 
 A medium-term goal is to be able to boot a computer directly into a freestanding Onramp VM in order to bootstrap a modern OS kernel from source.
 

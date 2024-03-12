@@ -15,7 +15,6 @@ Starting from the ANSI C spec, we backport a few quality-of-life features from C
 - mixed declarations and code;
 - `for` loop variable declarations;
 - C++-style `//` comments;
-- `long long`;
 - trailing commas in enums;
 - flexible array members (struct hack);
 
@@ -28,12 +27,14 @@ However, we exclude a few ANSI C features and common extensions:
 - K&R-style function declarations;
 - function declarations without arguments;
 - labels and `goto`;
+- `long long` (C99);
 - and more.
 
 We also simplify a few others (in some cases violating proper C rules):
 
 - declarations of pointers to arrays are not supported. e.g. `int** x[3];` works but `int* (*x)[3];` does not.
 - `union` may be an alias of `struct` (union type punning doesn't necessarily work.)
+- passing structs and unions by value is not supported.
 - `_Bool` (C99) is an alias of `unsigned char` (true values are not necessarily coerced to 1.)
 - Bitfield size specifiers are ignored (and zero-width bitfield members are forbidden.)
 - `const`, `auto`, `register`, `volatile`, `inline`, `_Noreturn`, `restrict` and more are all ignored.

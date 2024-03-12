@@ -2,7 +2,7 @@
 
 This is the implementation of the Onramp second stage compiler. It is written in [Onramp Minimal C](../../../docs/minimal-c.md) and compiles [Onramp Practical C](../../../docs/practical-c.md).
 
-This adds `else`, `for`, `struct`, `enum`, `switch`, `long long`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
+This adds `else`, `for`, `struct`, `enum`, `switch`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
 
 This document describes the implementation. For a description of the language it compiles, see [Onramp Practical C](../../../docs/practical-c.md).
 
@@ -18,7 +18,6 @@ All of omC is supported and some parts of opC are done. We need to fix or add:
 - [ ] `struct` and `union`
 - [ ] `unsigned`
 - [ ] `short`
-- [ ] `long long`
 - [x] `enum`
 - [ ] arrays
 - [x] `else`
@@ -44,7 +43,7 @@ Types are therefore not represented as a recursive data structure (e.g. a linked
 - an indirection (pointer) count; and
 - an optional array size.
 
-A qualified base type means either a basic type or a record type. A basic type is a fundamental type with an optional signedness qualifier: `int`, `signed char`, `unsigned long long`, `void`, etc. A record is a struct or union type: it stores the names, types and offsets of the contained fields. (An enum is just an alias of `int`; see below.)
+A qualified base type means either a basic type or a record type. A basic type is a fundamental type with an optional signedness qualifier: `int`, `unsigned short`, `void`, etc. A record is a struct or union type: it stores the names, types and offsets of the contained fields. (An enum is just an alias of `int`; see below.)
 
 These fields are wrapped in a type called `type_t` which is allocated and passed by pointer (see "emulated structs" below.) Expression parsing functions that generate a type (functions whose name starts with `parse` or `try_parse`) typically return ownership of one so the caller must free it or pass it along. Most other functions either return a type while retaining ownership of it (such as variable lookup) or modify a given type (such as `compile_dereference_if_lvalue()`.)
 
@@ -58,21 +57,9 @@ The record pointer points to an immutable type called `record_t`. This contains 
 
 Expression parsing in cci/1 is similar to cci/0. All expression functions emit code on the fly. When an expression parsing function returns, code to compute that expression has already been emitted.
 
-The code they emit places the result of the expression either in `r0` or on the stack. If the result type of the expression is an address or an integer that fits in a register (e.g. `char`, `short`, `int`, all pointers, all l-values), it is placed in `r0`. Otherwise (e.g. `long long`, all `struct` and `union` types), it is at the top of the stack.
+The code they emit places the result of the expression in `r0`. This stage only supports word-size r-values in expressions. This means structs cannot be passed by value and `long long` is not supported.
 
 When an expression returns an l-value, the emitted code places the *address of* the value in `r0` instead of the value itself. The function `compile_lvalue_to_rvalue()` converts an l-value into an r-value.
-
-
-
-## Function Calls
-
-The calling convention for function calls is described in the [Onramp bytecode spec](../../../docs/virtual-machine.md). Any values that are not addresses and not integers that fit in a word are passed indirectly.
-
-The function call parser first reserves stack space for the return value if it is passed indirectly; the address will be passed as the first argument. It then parses the arguments. Each argument is copied (in full) to the stack, and argument types and offsets are stored in a list. Then, the function parser puts the first four arguments, or addresses to them if passed indirectly, in registers `r0`-`r3`. Finally each remaining argument, or address to it if passed indirectly, is pushed to the stack right to left.
-
-This mechanism supports passing and returning structs and `long long` integers by-value.
-
-There is no special behaviour needed for variadic functions. They use the same calling convention as regular functions.
 
 
 

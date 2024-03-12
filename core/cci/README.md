@@ -12,7 +12,7 @@ The compiler is implemented in three stages:
 
 - [`1-opc`](1-opc/) is written in omC and compiles [Onramp Practical C (omC)](../../docs/practical-c.md). This aims to support a large subset of modern C sufficient to comfortably implement the final stage. It is also a single-pass compiler with only trivial micro-optimizations where it is convenient.
 
-- [`2-full`](2-full/) aims to implement most of C2x, sufficient to compile any modern C software.
+- [`2-full`](2-full/) is written in opC and aims to implement most of the C2x language plus several GNU extensions. This adds function pointers, `long long`, floating point and more. It should be sufficient to compile any modern C software.
 
 
 
@@ -24,7 +24,7 @@ The input to `cci` is the output of the Onramp preprocessor `cpp`. The preproces
 - Comments are stripped. No stage of `cci` handles comments at all.
 - Line endings are normalized. There should be no carriage returns in the input.
 
-These restrictions greatly simplify our lexer. Unlike all other Onramp programs, `cci` is not designed to accept hand-written input files.
+These restrictions greatly simplify our lexer. Unlike most other Onramp programs, `cci` is not designed to accept hand-written input files.
 
 The only exception for preprocessor directives is `#line` and `#pragma` for debug info. These are handled specially by the lexer.
 
