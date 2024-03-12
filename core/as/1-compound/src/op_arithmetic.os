@@ -184,7 +184,65 @@
 ; ==========================================================
 
 =opcode_modu
-    'FF ;TODO
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_modu_template
+    ims ra >opcode_modu_template
+    add r2 rpp ra
+    stb r0 r2 '09
+
+    ; dividend is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dividend in the template
+    ims ra <opcode_modu_template
+    ims ra >opcode_modu_template
+    add r2 rpp ra
+    stb r0 r2 '02
+    stb r0 r2 '0A
+
+    ; divisor is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put divisor in the template
+    ims ra <opcode_modu_template
+    ims ra >opcode_modu_template
+    add r2 rpp ra
+    stb r0 r2 '03
+    stb r0 r2 '07
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '0C
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_modu_template
+    divu ra r1 r2     ; divu ra <dividend> <divisor>
+    mul rb ra r2      ; mul rb ra <divisor>
+    sub r0 r1 rb      ; sub <dest> <dividend> rb
 
 
 
@@ -195,7 +253,102 @@
 ; ==========================================================
 
 =opcode_mods
-    'FF ;TODO
+
+    ; destination is a register. call parse_register
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dest in the template
+    ims ra <opcode_mods_template
+    ims ra >opcode_mods_template
+    add r2 rpp ra
+    stb r0 r2 '39
+    stb r0 r2 '3E
+    stb r0 r2 '41
+    stb r0 r2 '51
+    stb r0 r2 '53
+
+    ; dividend is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put dividend in the template
+    ims ra <opcode_mods_template
+    ims ra >opcode_mods_template
+    add r2 rpp ra
+    stb r0 r2 '06
+    stb r0 r2 '17
+    stb r0 r2 '1E
+
+    ; divisor is mix-type
+    ims ra <parse_mix
+    ims ra >parse_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; put divisor in the template
+    ims ra <opcode_mods_template
+    ims ra >opcode_mods_template
+    add r2 rpp ra
+    stb r0 r2 '22
+    stb r0 r2 '2F
+    stb r0 r2 '36
+
+    ; output, tail-call emit_bytes_as_hex()
+    add r0 r2 '00
+    add r1 '00 '54
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_mods_template
+
+    ; make stack space
+    sub rsp rsp '04
+
+    ; store sign of src1 on the stack
+    ror ra r1 '1F
+    and ra ra '01
+    stw ra rsp '00
+
+    ; place absolute value of src1 in ra
+    jz ra '02 '00
+    sub ra '00 r1
+    jz '00 '01 '00
+    add ra r1 '00
+
+    ; place absolute value of src2 in rb
+    ror rb r2 '1F
+    and rb rb '01
+    jz rb '02 '00
+    sub rb '00 r2
+    jz '00 '01 '00
+    add rb r2 '00
+
+    ; do the unsigned modulus
+    ; (we can write to dest now since we're done reading srcs)
+    divu r0 ra rb
+    mul rb r0 rb
+    sub r0 ra rb
+
+    ; pop and flip sign of dest if src1 was negative
+    ldw ra rsp '00
+    add rsp rsp '04
+    jz ra '01 '00
+    sub r0 '00 r0
 
 
 
