@@ -38,6 +38,7 @@
 
 static void parse_block(void);
 static void parse_statement(void);
+static bool try_parse_local_declaration(void);
 
 // label generation
 static int last_label;
@@ -192,6 +193,65 @@ static void parse_do(void) {
     loop_end_label = old_end_label;
 }
 
+static void parse_for(void) {
+
+    // push labels of containing loop
+    int old_start_label = loop_start_label;
+    int old_end_label = loop_end_label;
+    loop_start_label = parse_generate_label();
+    loop_end_label = parse_generate_label();
+
+    // push locals count. we want to pop our variable definition when done.
+    int previous_locals_count = locals_count;
+
+    // parse the initialization clause
+    lexer_expect("(", "Expected `(` after `for`");
+    if (!lexer_accept(";")) {
+        if (!try_parse_local_declaration()) {
+            type_delete(parse_expression());
+        }
+        lexer_expect(";", "Expected `(` after initialization clause of `for`");
+    }
+
+    // parse the condition expression
+    compile_label(loop_start_label);
+    if (!lexer_accept(";")) {
+        type_t* type = parse_expression();
+        compile_lvalue_to_rvalue(type, 0);
+        compile_jump_if_zero(loop_end_label);
+        type_delete(type);
+        lexer_expect(";", "Expected `(` after condition clause of `for`");
+    }
+
+    // Parse the increment expression. This only happens at the end of the loop
+    // but we need to emit it now because we're compiling in a single pass, so
+    // we set up these circuitous jumps around it to run the increment at the
+    // appropriate time.
+    int loop_contents_label = parse_generate_label();
+    int loop_increment_label = parse_generate_label();
+    compile_jump(loop_contents_label);
+    compile_label(loop_increment_label);
+    if (!lexer_accept(")")) {
+        type_delete(parse_expression());
+        lexer_expect(")", "Expected `)` after increment clause of `for`");
+        compile_jump(loop_start_label);
+    }
+
+    // parse and compile the loop
+    compile_label(loop_contents_label);
+    parse_statement();
+    compile_jump(loop_increment_label);
+    compile_label(loop_end_label);
+
+    // pop locals
+    locals_pop(previous_locals_count);
+
+    // pop labels
+    loop_start_label = old_start_label;
+    loop_end_label = old_end_label;
+
+}
+
 static void parse_break(void) {
     if (!lexer_accept(";")) {
         fatal("Expected `;` after break.");
@@ -240,48 +300,26 @@ static void parse_return(void) {
     emit_newline();
 }
 
+static void parse_switch(void) {
+    // TODO
+    fatal("`switch` not yet implemented.");
+}
+
 static void parse_statement(void) {
     if (lexer_accept(";")) {
         // empty statement
         return;
     }
 
-    if (lexer_is("{")) {
-        //scope_push();
-        parse_block();
-        //scope_pop();
-        return;
-    }
-
-    if (lexer_accept("if")) {
-        parse_if();
-        return;
-    }
-
-    if (lexer_accept("while")) {
-        parse_while();
-        return;
-    }
-
-    if (lexer_accept("do")) {
-        parse_do();
-        return;
-    }
-
-    if (lexer_accept("break")) {
-        parse_break();
-        return;
-    }
-
-    if (lexer_accept("continue")) {
-        parse_continue();
-        return;
-    }
-
-    if (lexer_accept("return")) {
-        parse_return();
-        return;
-    }
+    if (lexer_is("{")) { parse_block(); return; }
+    if (lexer_accept("if")) { parse_if(); return; }
+    if (lexer_accept("while")) { parse_while(); return; }
+    if (lexer_accept("do")) { parse_do(); return; }
+    if (lexer_accept("for")) { parse_for(); return; }
+    if (lexer_accept("switch")) { parse_switch(); return; }
+    if (lexer_accept("break")) { parse_break(); return; }
+    if (lexer_accept("continue")) { parse_continue(); return; }
+    if (lexer_accept("return")) { parse_return(); return; }
 
     // parse an expression, discard the result
     type_delete(parse_expression());
@@ -334,6 +372,18 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
     type_delete(compile_assign("=", type, expr_type));
 }
 
+// Tries to parse a declaration of a local variable plus its initializer.
+static bool try_parse_local_declaration(void) {
+    // TODO we need to do this separately to handle commas, like parse_global()
+    type_t* type;
+    char* name;
+    if (try_parse_declaration(NULL, &type, &name)) {
+        parse_local_declaration(type, name);
+        return true;
+    }
+    return false;
+}
+
 static bool try_parse_block(void) {
     if (!lexer_accept("{")) {
         return false;
@@ -347,11 +397,7 @@ static bool try_parse_block(void) {
     while (!lexer_accept("}")) {
 
         // Check for a declaration
-        // TODO we need to do this separately to handle commas, like parse_global()
-        type_t* type;
-        char* name;
-        if (try_parse_declaration(NULL, &type, &name)) {
-            parse_local_declaration(type, name);
+        if (try_parse_local_declaration()) {
             continue;
         }
 
