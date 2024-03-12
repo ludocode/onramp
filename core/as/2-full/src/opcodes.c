@@ -251,53 +251,95 @@ static void opcode_divs(void) {
     // an unsigned division, then make the result negative if exactly one
     // of the arguments was negative.
 
-    // We don't have enough scratch registers for all the temporaries we want
-    // so we store some on the stack.
+    // If the destination register is not one of the sources, we can use it as
+    // an extra scratch register. Otherwise, we need to push some data to the
+    // stack.
 
-    uint8_t bytes[] = {
+    // TODO it's probably possible to do this optimization in all cases, we
+    // just need to decide which argument to read first.
 
-        // make stack space
-        SUB, RSP, RSP, 8,
+    if (dest != src1 && dest != src2) {
+        uint8_t bytes[] = {
 
-        // collect sign of src1 in ra, store it on the stack
-        ROR, RA, src1, 31,
-        AND, RA, RA, 1,
-        STW, RA, RSP, 0,
+            // collect sign of src1 in dest
+            ROR, dest, src1, 31,
+            AND, dest, dest, 1,
 
-        // place absolute value of src1 in ra
-        JZ, RA, 2, 0,
-        SUB, RA, 0, src1,
-        JZ, 0, 1, 0,
-        ADD, RA, src1, 0,
+            // place absolute value of src1 in ra
+            JZ, dest, 2, 0,
+            SUB, RA, 0, src1,
+            JZ, 0, 1, 0,
+            ADD, RA, src1, 0,
 
-        // collect sign of src2 in rb, store it on the stack
-        ROR, RB, src2, 31,
-        AND, RB, RB, 1,
-        STW, RB, RSP, 4,
+            // xor sign of src2 into dest
+            ROR, RB, src2, 31,
+            AND, RB, RB, 1,
+            ADD, dest, dest, RB,    // not using XOR because it's going to disappear soon
+            AND, dest, dest, 1,
 
-        // place absolute value of src2 in rb
-        JZ, RB, 2, 0,
-        SUB, RB, 0, src2,
-        JZ, 0, 1, 0,
-        ADD, RB, src2, 0,
+            // place absolute value of src2 in rb
+            JZ, RB, 2, 0,
+            SUB, RB, 0, src2,
+            JZ, 0, 1, 0,
+            ADD, RB, src2, 0,
 
-        // do the unsigned division
-        // (we can write to dest now since we're done reading srcs)
-        DIVU, dest, RA, RB,
+            // do the unsigned division
+            DIVU, RA, RA, RB,
 
-        // pop and xor signs
-        LDW, RA, RSP, 0,
-        LDW, RB, RSP, 4,
-        ADD, RSP, RSP, 8,
-        ADD, RA, RA, RB,
-        AND, RA, RA, 1,
+            // move to dest with appropriate sign
+            JZ, dest, 2, 0,
+            SUB, dest, 0, RA,
+            JZ, 0, 1, 0,
+            ADD, dest, 0, RA,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
 
-        // flip sign of dest if exactly one of src1 and src2 was negative
-        JZ, RA, 1, 0,
-        SUB, dest, 0, dest,
+    } else {
+        uint8_t bytes[] = {
 
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+            // make stack space
+            SUB, RSP, RSP, 8,
+
+            // collect sign of src1 in ra, store it on the stack
+            ROR, RA, src1, 31,
+            AND, RA, RA, 1,
+            STW, RA, RSP, 0,
+
+            // place absolute value of src1 in ra
+            JZ, RA, 2, 0,
+            SUB, RA, 0, src1,
+            JZ, 0, 1, 0,
+            ADD, RA, src1, 0,
+
+            // collect sign of src2 in rb, store it on the stack
+            ROR, RB, src2, 31,
+            AND, RB, RB, 1,
+            STW, RB, RSP, 4,
+
+            // place absolute value of src2 in rb
+            JZ, RB, 2, 0,
+            SUB, RB, 0, src2,
+            JZ, 0, 1, 0,
+            ADD, RB, src2, 0,
+
+            // do the unsigned division
+            // (we can write to dest now since we're done reading srcs)
+            DIVU, dest, RA, RB,
+
+            // pop and xor signs
+            LDW, RA, RSP, 0,
+            LDW, RB, RSP, 4,
+            ADD, RSP, RSP, 8,
+            ADD, RA, RA, RB,
+            AND, RA, RA, 1,
+
+            // flip sign of dest if exactly one of src1 and src2 was negative
+            JZ, RA, 1, 0,
+            SUB, dest, 0, dest,
+
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+    }
 }
 
 static void opcode_modu(void) {
@@ -580,12 +622,22 @@ static void opcode_shl(void) {
 static void opcode_bool(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
+
+    // In code emitted by our compilers, src and dest are often the same. We
+    // can optimize this a bit.
+
+    // TODO this could be replaced by just lt and sub, see isz
+
+    if (src != dest) {
+        uint8_t mov[] = {
+            ADD, dest, 0, src,
+        };
+        emit_hex_bytes(mov, sizeof(mov));
+    }
+
     uint8_t bytes[] = {
-        // TODO this could be replaced by lt and sub, see isz
-        JZ, src, 2, 0,
+        JZ, dest, 1, 0,
         ADD, dest, 0, 1,
-        JZ, 0, 1, 0,
-        ADD, dest, 0, 0,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -593,15 +645,29 @@ static void opcode_bool(void) {
 static void opcode_isz(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
-    uint8_t bytes[] = {
-        // TODO this could be replaced by a single lt instruction if we ever
-        // get around to replacing cmpu
-        JZ, src, 2, 0,
-        ADD, dest, 0, 0,
-        JZ, 0, 1, 0,
-        ADD, dest, 0, 1,
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+
+    // In code emitted by our compilers, src and dest are often the same. We
+    // can optimize this a bit.
+
+    // TODO this could be replaced by a single lt instruction if we ever get
+    // around to replacing cmpu
+
+    if (src == dest) {
+        uint8_t bytes[] = {
+            JZ, dest, 1, 0,
+            ADD, dest, 0, 1,
+            SUB, dest, 1, dest,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+    } else {
+        uint8_t bytes[] = {
+            JZ, src, 2, 0,
+            ADD, dest, 0, 0,
+            JZ, 0, 1, 0,
+            ADD, dest, 0, 1,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+    }
 }
 
 
@@ -630,27 +696,57 @@ static void opcode_lds(void) {
     uint8_t dest = parse_register_non_scratch();
     uint8_t base = parse_mix_non_scratch();
     uint8_t offset = parse_mix_non_scratch();
-    uint8_t bytes[] = {
-        ADD, RB, base, offset,
-        LDB, RA, RB, 0,
-        LDB, RB, RB, 1,
-        ROR, RB, RB, 24,
-        OR, dest, RA, RB,
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+
+    // If either base or offset is zero, we can save an instruction; otherwise
+    // we have to add them beforehand.
+
+    if (base == 0 || offset == 0) {
+        uint8_t src = (base != 0) ? base : offset;
+        uint8_t bytes[] = {
+            LDB, RA, src, 0,
+            LDB, RB, src, 1,
+            ROR, RB, RB, 24,
+            OR, dest, RA, RB,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+
+    } else {
+        uint8_t bytes[] = {
+            ADD, RB, base, offset,
+            LDB, RA, RB, 0,
+            LDB, RB, RB, 1,
+            ROR, RB, RB, 24,
+            OR, dest, RA, RB,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+    }
 }
 
 static void opcode_sts(void) {
     uint8_t value = parse_mix_non_scratch();
     uint8_t base = parse_mix_non_scratch();
     uint8_t offset = parse_mix_non_scratch();
-    uint8_t bytes[] = {
-        ADD, RB, base, offset,
-        STB, value, RB, 0,
-        ROR, RA, value, 8,
-        STB, RA, RB, 1,
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+
+    // If either base or offset is zero, we can save an instruction; otherwise
+    // we have to add them beforehand.
+
+    if (base == 0 || offset == 0) {
+        uint8_t src = (base != 0) ? base : offset;
+        uint8_t bytes[] = {
+            STB, value, src, 0,
+            ROR, RA, value, 8,
+            STB, RA, src, 1,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+    } else {
+        uint8_t bytes[] = {
+            ADD, RB, base, offset,
+            STB, value, RB, 0,
+            ROR, RA, value, 8,
+            STB, RA, RB, 1,
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+    }
 }
 
 static void opcode_push(void) {

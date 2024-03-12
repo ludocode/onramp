@@ -141,6 +141,8 @@ There are no commas separating arguments and whitespace is not significant (exce
 
 For most instructions (but not all), the destination register comes first, followed by the source values. For a few instructions (the stores and jumps), the source value comes first. This is done for simplicity and for symmetry with loads.
 
+Compound instructions can assemble to different numbers of primitive instructions depending on the arguments and on the stage of the assembler. You should not assume the number of primitive instructions into which a compound instruction will expand.
+
 
 
 #### Instruction Reference
