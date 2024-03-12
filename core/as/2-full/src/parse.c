@@ -53,6 +53,7 @@ label_type_t label_type;
  * Helpers
  */
 
+// TODO move to libo
 int hex_to_int(char c) {
     if (c >= '0' && c <= '9')
         return c - '0';
@@ -552,8 +553,7 @@ uint8_t parse_mix_non_scratch(void) {
 }
 
 static uint8_t syscall_number(const char* name) {
-    // TODO too lazy to do it with a hashtable. Doesn't really matter, how
-    // often is sys used anyway?
+    // we don't bother with a hashtable; sys is rarely used.
 
     // system
     if (0 == strcmp(name, "halt"))

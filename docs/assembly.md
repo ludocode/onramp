@@ -158,20 +158,22 @@ The "Pr." column indicates which instructions are primitive. Only primitive inst
 
 Arithmetic:
 
-| Pr. | Opcode | Arguments                    | Description                                          |
-|-----|--------|------------------------------|------------------------------------------------------|
-|  x  |`add`   | `<r:dest> <m:src1> <m:src2>` | Adds src1 and src2, unsigned overflow                |
-|  x  |`sub`   | `<r:dest> <m:src1> <m:src2>` | Subtracts src2 from src1, unsigned underflow         |
-|  x  |`mul`   | `<r:dest> <m:src1> <m:src2>` | Multiplication                                       |
-|  x  |`divu`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 unsigned                        |
-|     |`divs`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 signed                          |
-|     |`modu`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 unsigned             |
-|     |`mods`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 signed               |
-|     |`zero`  | `<r:dest>`                   | Sets the register to zero                            |
-|     |`inc`   | `<r:reg>`                    | Increments the register, unsigned overflow           |
-|     |`dec`   | `<r:reg>`                    | Decrements the register, unsigned underflow          |
-|     |`sxs`   | `<r:reg>`                    | Sign-extends the short (16 bits) in the register     |
-|     |`sxb`   | `<r:reg>`                    | Sign-extends the byte (8 bits) in the register       |
+| Pr. | Opcode | Arguments                    | Description                                                        |
+|-----|--------|------------------------------|--------------------------------------------------------------------|
+|  x  |`add`   | `<r:dest> <m:src1> <m:src2>` | Adds src1 and src2, unsigned overflow                              |
+|  x  |`sub`   | `<r:dest> <m:src1> <m:src2>` | Subtracts src2 from src1, unsigned underflow                       |
+|  x  |`mul`   | `<r:dest> <m:src1> <m:src2>` | Multiplication                                                     |
+|  x  |`divu`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 unsigned                                      |
+|     |`divs`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 signed                                        |
+|     |`modu`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 unsigned                           |
+|     |`mods`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 signed                             |
+|     |`zero`  | `<r:dest>`                   | Sets the register to zero                                          |
+|     |`inc`   | `<r:reg>`                    | Increments the register, unsigned overflow                         |
+|     |`dec`   | `<r:reg>`                    | Decrements the register, unsigned underflow                        |
+|     |`sxs`   | `<r:dest>` `<m:src>`         | Sign-extends the value to a short (copies bit 15 to upper 16 bits) |
+|     |`sxb`   | `<r:dest>` `<m:src>`         | Sign-extends the value to a byte (copies bit 7 to upper 24 bits)   |
+|     |`trs`   | `<r:dest>` `<m:src>`         | Truncates the value to a short (zeroes upper 16 bits)              |
+|     |`trb`   | `<r:dest>` `<m:src>`         | Truncates the value to a byte (zeroes upper 24 bits)               |
 
 Logic:
 
@@ -192,22 +194,24 @@ Logic:
 
 Memory:
 
-| Pr. | Opcode | Arguments                       | Description                                      |
-|-----|--------|---------------------------------|--------------------------------------------------|
-|  x  |`ldw`   | `<r:dest> <m:base> <m:offset>`  | Loads a word from memory (aligned)               |
-|  x  |`ldb`   | `<r:dest> <m:base> <m:offset>`  | Loads a byte from memory, zeroes upper 24 bits   |
-|  x  |`stw`   | `<m:value> <m:base> <m:offset>` | Stores a word in memory                          |
-|  x  |`stb`   | `<m:value> <m:base> <m:offset>` | Stores a byte in memory                          |
-|     |`push`  | `<m:value>`                     | Pushes a value to the stack                      |
-|     |`pop`   | `<r:reg>`                       | Pops the top stack value into the register       |
-|     |`popd`  | none                            | Pops the top stack value and discards it         |
+| Pr. | Opcode | Arguments                       | Description                                                      |
+|-----|--------|---------------------------------|------------------------------------------------------------------|
+|  x  |`ldw`   | `<r:dest> <m:base> <m:offset>`  | Loads a 4-byte word from memory (aligned)                        |
+|     |`lds`   | `<r:dest> <m:base> <m:offset>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
+|  x  |`ldb`   | `<r:dest> <m:base> <m:offset>`  | Loads a 1-byte byte from memory, zeroes upper 24 bits            |
+|  x  |`stw`   | `<m:value> <m:base> <m:offset>` | Stores a 4-byte word in memory (aligned)                         |
+|     |`sts`   | `<m:value> <m:base> <m:offset>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
+|  x  |`stb`   | `<m:value> <m:base> <m:offset>` | Stores a 1-byte byte in memory, ignores upper 24 bits            |
+|     |`push`  | `<m:value>`                     | Pushes a value to the stack                                      |
+|     |`pop`   | `<r:reg>`                       | Pops the top stack value into the register                       |
+|     |`popd`  | none                            | Pops the top stack value and discards it                         |
 
 Control:
 
 | Pr. | Opcode | Arguments                     | Description                                                  |
 |-----|--------|-------------------------------|--------------------------------------------------------------|
-|  x  |`ims`   | `<r:reg> <b:high> <b:low>`    | Loads a 16-bit immediate, shifting contents up               |
-|     |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate into a register                     |
+|  x  |`ims`   | `<r:reg> <b:high> <b:low>`    | Shifts register up 16 bits, then loads a 16-bit immediate    |
+|     |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate                                     |
 |x \* |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest   |
 |     |`cmps`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 signed, placing -1, 0 or 1 in dest     |
 |  x  |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                               |

@@ -204,12 +204,6 @@ static void opcode_jge_jle(uint8_t value) {
     parse_and_emit_jump_offset();
 }
 
-
-
-/*
- * Arithmetic
- */
-
 static void opcode_reg_mix_mix(uint8_t opcode) {
     uint8_t dest = parse_register();
     uint8_t src1 = parse_mix();
@@ -225,6 +219,12 @@ static void opcode_mix_mix_mix(uint8_t opcode) {
     uint8_t bytes[] = {opcode, dest, src1, src2};
     emit_hex_bytes(bytes, sizeof(bytes));
 }
+
+
+
+/*
+ * Arithmetic
+ */
 
 static void opcode_add(void) {
     opcode_reg_mix_mix(ADD);
@@ -391,11 +391,77 @@ static void opcode_dec(void) {
 }
 
 static void opcode_sxs(void) {
-    fatal("TODO");
+    uint8_t dest = parse_register_non_scratch();
+    uint8_t src = parse_mix();
+    uint8_t bytes[] = {
+
+        // branch on the high bit
+        ROR, RA, src, 15,
+        AND, RA, RA, 1,
+        JZ, RA, 5, 0,
+
+        // negative, set high bits
+        ROR, RA, 1, 16,
+        SUB, RA, RA, 1,
+        ROR, RA, RA, 16,
+        OR, dest, RA, src,
+        JZ, 0, 3, 0,
+
+        // positive, clear high bits
+        ROR, RA, 1, 16,
+        SUB, RA, RA, 1,
+        AND, dest, src, RA,
+
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_sxb(void) {
-    fatal("TODO");
+    uint8_t dest = parse_register_non_scratch();
+    uint8_t src = parse_mix();
+    uint8_t bytes[] = {
+
+        // branch on the high bit
+        ROR, RA, src, 7,
+        AND, RA, RA, 1,
+        JZ, RA, 5, 0,
+
+        // negative, set high bits
+        ROR, RA, 1, 8,
+        SUB, RA, RA, 1,
+        ROR, RA, RA, 24,
+        OR, dest, RA, src,
+        JZ, 0, 3, 0,
+
+        // positive, clear high bits
+        ROR, RA, 1, 24,
+        SUB, RA, RA, 1,
+        AND, dest, src, RA,
+
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
+static void opcode_trs(void) {
+    uint8_t dest = parse_register_non_scratch();
+    uint8_t src = parse_mix();
+    uint8_t bytes[] = {
+        ROR, RA, 1, 16,
+        SUB, RA, RA, 1,
+        AND, dest, src, RA,
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
+static void opcode_trb(void) {
+    uint8_t dest = parse_register_non_scratch();
+    uint8_t src = parse_mix();
+    uint8_t bytes[] = {
+        ROR, RA, 1, 24,
+        SUB, RA, RA, 1,
+        AND, dest, src, RA,
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -424,7 +490,7 @@ static void opcode_mov(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        ADD, dest, 0x00, src,  // add dest 0 src
+        ADD, dest, 0x00, src,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -446,8 +512,8 @@ static void opcode_rol(void) {
         // This is the most straightforward code. The 32 doesn't actually
         // matter, we could have subtracted from 0 or any multiple of 32,
         // because the ror instruction only cares about the bits mod 32.
-        SUB, RA, 0x20, bits,  // sub ra 32 bits
-        ROR, dest, src, RA,   // ror dest src ra
+        SUB, RA, 32, bits,
+        ROR, dest, src, RA,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -458,17 +524,17 @@ static void opcode_shrs(void) {
     uint8_t bits = parse_mix_non_scratch();
     uint8_t bytes[] = {
         // generate a mask
-        ROR, RB, 0x01, bits,
-        SUB, RB, RB, 0x01,
+        ROR, RB, 1, bits,
+        SUB, RB, RB, 1,
         // test the sign bit
-        ROR, RA, 0x01, 0x01,  // mov ra 0x80000000
+        ROR, RA, 1, 1,  // mov ra 0x80000000
         AND, RA, RA, src,
-        JZ, RA, 0x04, 0x00,  // jz ra +4
+        JZ, RA, 4, 0,
         // negative. shift and apply inverted mask
         ROR, RA, src, bits,
         SUB, RB, 0xFF, RB,  // not rb
         OR, dest, RA, RB,
-        JZ, 0x00, 0x02, 0x00,  // jz 0 +2
+        JZ, 0, 2, 0,
         // non-negative. shift and apply mask
         ROR, RA, src, bits,
         AND, dest, RA, RB,
@@ -482,12 +548,12 @@ static void opcode_shru(void) {
     uint8_t bits = parse_mix_non_scratch();
     uint8_t bytes[] = {
         // generate a mask
-        ROR, RB, 0x01, bits,  // ror rb 1 bits
-        SUB, RB, RB, 0x01,  // sub rb rb 1
+        ROR, RB, 1, bits,
+        SUB, RB, RB, 1,
         // do the shift
-        ROR, RA, src, bits,   // ror ra src bits
+        ROR, RA, src, bits,
         // apply the mask
-        AND, dest, RA, RB,  // and dest ra rb
+        AND, dest, RA, RB,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -498,25 +564,44 @@ static void opcode_shl(void) {
     uint8_t bits = parse_mix_non_scratch();
     uint8_t bytes[] = {
         // flip the bits (since we're shifting left, not right)
-        SUB, RA, 0x20, bits,  // sub ra 32 bits
+        SUB, RA, 32, bits,
         // generate a mask
-        ROR, RB, 0x01, RA,  // ror rb 1 ra
-        SUB, RB, RB, 0x01,  // sub rb rb 1
-        XOR, RB, RB, 0xFF,  // xor rb rb -1  // not rb
+        ROR, RB, 1, RA,
+        SUB, RB, RB, 1,
+        XOR, RB, RB, 0xFF,
         // do the shift
-        ROR, RA, src, RA,   // ror ra src ra
+        ROR, RA, src, RA,
         // apply the mask
-        AND, dest, RA, RB,  // and dest ra rb
+        AND, dest, RA, RB,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_bool(void) {
-    fatal("TODO");
+    uint8_t dest = parse_register();
+    uint8_t src = parse_mix();
+    uint8_t bytes[] = {
+        // TODO this could be replaced by lt and sub, see isz
+        JZ, src, 2, 0,
+        ADD, dest, 0, 1,
+        JZ, 0, 1, 0,
+        ADD, dest, 0, 0,
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_isz(void) {
-    fatal("TODO");
+    uint8_t dest = parse_register();
+    uint8_t src = parse_mix();
+    uint8_t bytes[] = {
+        // TODO this could be replaced by a single lt instruction if we ever
+        // get around to replacing cmpu
+        JZ, src, 2, 0,
+        ADD, dest, 0, 0,
+        JZ, 0, 1, 0,
+        ADD, dest, 0, 1,
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -541,11 +626,38 @@ static void opcode_stb(void) {
     opcode_mix_mix_mix(STB);
 }
 
+static void opcode_lds(void) {
+    uint8_t dest = parse_register_non_scratch();
+    uint8_t base = parse_mix_non_scratch();
+    uint8_t offset = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        ADD, RB, base, offset,
+        LDB, RA, RB, 0,
+        LDB, RB, RB, 1,
+        ROR, RB, RB, 24,
+        OR, dest, RA, RB,
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
+static void opcode_sts(void) {
+    uint8_t value = parse_mix_non_scratch();
+    uint8_t base = parse_mix_non_scratch();
+    uint8_t offset = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        ADD, RB, base, offset,
+        STB, value, RB, 0,
+        ROR, RA, value, 8,
+        STB, RA, RB, 1,
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
 static void opcode_push(void) {
     uint8_t value = parse_mix();
     uint8_t bytes[] = {
-        SUB, RSP, RSP, 0x04,   // sub rsp rsp 4
-        STW, value, RSP, 0x00,  // stw value rsp 0
+        SUB, RSP, RSP, 0x04,
+        STW, value, RSP, 0x00,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -553,56 +665,15 @@ static void opcode_push(void) {
 static void opcode_pop(void) {
     uint8_t reg = parse_register();
     uint8_t bytes[] = {
-        LDW, reg, RSP, 0x00,   // ldw reg rsp 0
-        ADD, RSP, RSP, 0x04,  // add rsp rsp 4
+        LDW, reg, RSP, 0x00,
+        ADD, RSP, RSP, 0x04,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
-// deprecated, not necessary, TODO remove these
-#if 0
-static void opcode_pushn(void) {
-    int32_t value;
-    if (!try_parse_number(&value) || value < 0 || value > 9) {
-        fatal("Expected pushn value to be a number in the range 0 to 9");
-    }
-
-    uint8_t push[] = {
-        SUB, RSP, RSP, (value + 1) * 4,   // sub rsp rsp size
-    };
-    emit_hex_bytes(push, sizeof(push));
-
-    for (int32_t i = 0; i <= value; ++i) {
-        uint8_t bytes[] = {
-            STW, R0 + i, RSP, (value - i) * 4,  // stw reg rsp pos
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-    }
-}
-
-static void opcode_popn(void) {
-    int32_t value;
-    if (!try_parse_number(&value) || value < 0 || value > 9) {
-        fatal("Expected popn value to be a number in the range 0 to 9");
-    }
-
-    for (int32_t i = value; i >= 0; --i) {
-        uint8_t bytes[] = {
-            LDW, R0 + i, RSP, (value - i) * 4,  // ldw reg rsp pos
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-    }
-
-    uint8_t pop[] = {
-        ADD, RSP, RSP, (value + 1) * 4,   // add rsp rsp size
-    };
-    emit_hex_bytes(pop, sizeof(pop));
-}
-#endif
-
 static void opcode_popd(void) {
     uint8_t bytes[] = {
-        ADD, RSP, RSP, 0x04,  // add rsp rsp 4
+        ADD, RSP, RSP, 0x04,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -616,8 +687,8 @@ static void opcode_popd(void) {
 static void opcode_ims(void) {
     uint8_t reg = parse_register();
 
-    emit_hex_byte(IMS);  // ims
-    emit_hex_byte(reg);   // reg
+    emit_hex_byte(IMS);
+    emit_hex_byte(reg);
 
     if (try_parse_invocation_short()) {
         emit_label(identifier, label_type, label_flags);
@@ -787,18 +858,18 @@ static void opcode_jle(void) {
 
 static void opcode_enter(void) {
     uint8_t bytes[] = {
-        SUB, RSP, RSP, 0x04,  // sub rsp rsp 4  // push rfp
-        STW, RFP, 0x00, RSP,  // stw rfp 0 rsp
-        ADD, RFP, RSP, 0x00,  // add rfp rsp 0  // mov rfp rsp
+        SUB, RSP, RSP, 0x04,  // push rfp
+        STW, RFP, 0x00, RSP,  // ^^^
+        ADD, RFP, RSP, 0x00,  // mov rfp rsp
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_leave(void) {
     uint8_t bytes[] = {
-        ADD, RSP, RFP, 0x00,  // add rsp rfp 0  // mov rsp rfp
-        LDW, RFP, 0x00, RSP,  // ldw rfp 0 rsp  // pop rfp
-        ADD, RSP, RSP, 0x04,  // add rsp rsp 4
+        ADD, RSP, RFP, 0x00,  // mov rsp rfp
+        LDW, RFP, 0x00, RSP,  // pop rfp
+        ADD, RSP, RSP, 0x04,  // ^^^
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -807,36 +878,37 @@ static void opcode_call(void) {
 
     // absolute
     if (try_parse_invocation_absolute()) {
-        emit_imw_absolute(RA);  // imw ra ^label
+        emit_imw_absolute(RA); // imw ra ^label
         uint8_t bytes[] = {
-            SUB, RSP, RSP, 0x04,  // sub rsp rsp 4   // push return address
-            ADD, RB, RIP, 0x08,  // add rb rip 8
-            STW, RB, 0x00, RSP,  // stw rb 0 rsp
-            ADD, RIP, RPP, RA,  // add rip rpp ra  // jump
-            ADD, RSP, RSP, 0x04,  // add rsp rsp 4   // pop return address
+            SUB, RSP, RSP, 4,  // push return address
+            ADD, RB, RIP, 8,   // ^^^
+            STW, RB, 0, RSP,   // ^^^
+            ADD, RIP, RPP, RA, // jump
+            ADD, RSP, RSP, 4,  // pop return address
         };
         emit_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
     // relative
+    // TODO is call relative even used? is it supported by as/1? if not get rid of it
     uint8_t bytes[] = {
-        SUB, RSP, RSP, 0x04,  // sub rsp rsp 4  // push return address
-        ADD, RB, RIP, 0x08,  // add rb rip 8
-        STW, RB, 0x00, RSP,  // stw rb 0 rsp
-        JZ, 0x00,              // jz 0 label     // jump
+        SUB, RSP, RSP, 0x04,  // push return address
+        ADD, RB, RIP, 0x08,   // ^^^
+        STW, RB, 0x00, RSP,   // ^^^
+        JZ, 0x00,             // jz 0 label     // jump
     };
     emit_hex_bytes(bytes, sizeof(bytes));
     parse_and_emit_jump_offset();
     uint8_t pop[] = {
-        ADD, RSP, RSP, 0x04,  // add rsp rsp 4   // pop return address
+        ADD, RSP, RSP, 0x04,
     };
     emit_hex_bytes(pop, sizeof(pop));
 }
 
 static void opcode_ret(void) {
     uint8_t bytes[] = {
-        LDW, RIP, 0x00, RSP,  // ldw rip 0 rsp
+        LDW, RIP, 0x00, RSP,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -865,8 +937,10 @@ static opcode_fn_t opcodes_list[] = {
     {"zero", opcode_zero},
     {"inc", opcode_inc},
     {"dec", opcode_dec},
-    {"sxb", opcode_sxb},
     {"sxs", opcode_sxs},
+    {"sxb", opcode_sxb},
+    {"trs", opcode_trs},
+    {"trb", opcode_trb},
 
     // logic
     {"and", opcode_and},
@@ -884,8 +958,10 @@ static opcode_fn_t opcodes_list[] = {
 
     // memory
     {"ldw", opcode_ldw},
+    {"lds", opcode_lds},
     {"ldb", opcode_ldb},
     {"stw", opcode_stw},
+    {"sts", opcode_sts},
     {"stb", opcode_stb},
     {"push", opcode_push},
     {"pop", opcode_pop},
@@ -897,8 +973,8 @@ static opcode_fn_t opcodes_list[] = {
     {"cmpu", opcode_cmpu},
     {"cmps", opcode_cmps},
     {"jz", opcode_jz},
-    {"je", opcode_je},
     {"jnz", opcode_jnz},
+    {"je", opcode_je},
     {"jne", opcode_jne},
     {"jl", opcode_jl},
     {"jg", opcode_jg},
@@ -915,7 +991,7 @@ static opcode_fn_t opcodes_list[] = {
 
 // We create a simple fixed-size hashtable that uses open addressing with
 // linear probing.
-#define OPCODES_TABLE_CAPACITY 128
+#define OPCODES_TABLE_CAPACITY 256
 static opcode_fn_t opcodes_table[OPCODES_TABLE_CAPACITY];
 
 void opcodes_init(void) {

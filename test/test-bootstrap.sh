@@ -52,7 +52,9 @@ make -C test/ld/2-full build
 # Next we build an assembler
 ( core/libo/0-oo/build.sh && true ) #TODO libo tests don't exist yet
 ( core/as/0-basic/build.sh && cd test/as/0-basic && ../run.sh . onrampvm ../../../build/intermediate/as-0-basic/as.oe )
-( core/as/1-compound/build.sh && cd test/as/1-compound && ../run.sh . onrampvm ../../../build/intermediate/as-1-compound/as.oe )
+( core/as/1-compound/build.sh && cd test/as/1-compound && \
+    ../run.sh . onrampvm ../../../build/intermediate/as-1-compound/as.oe && \
+    ../run.sh --other-stage ../0-basic onrampvm ../../../build/intermediate/as-1-compound/as.oe )
 
 # Next build our omC compiler
 ( core/cpp/0-strip/build.sh && cd test/cpp/0-strip && ../run.sh . onrampvm ../../../build/intermediate/cpp-0-strip/cpp.oe )
@@ -84,13 +86,19 @@ make -C test/ld/2-full build
 # Build the rest of the C toolchain
 core/libc/3-full/build.sh
 core/ld/2-full/build.sh
-core/as/2-full/build.sh
+( core/as/2-full/build.sh && cd test/as/2-full && \
+    ../run.sh . onrampvm ../../../build/intermediate/as-2-full/as.oe && \
+    ../run.sh --other-stage ../1-compound onrampvm ../../../build/intermediate/as-2-full/as.oe && \
+    ../run.sh --other-stage ../0-basic onrampvm ../../../build/intermediate/as-2-full/as.oe )
 
 # Rebuild our C toolchain with itself
 ( core/cc/rebuild.sh && cd test/cc && ../run.sh . onrampvm ../../../build/output/bin/cc.oe )
 ( core/libc/3-full/rebuild.sh && true ) # TODO test libc
 ( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
-( core/as/2-full/rebuild.sh && cd test/as/2-full && ../run.sh . onrampvm ../../../build/output/bin/as.oe )
+( core/as/2-full/rebuild.sh && cd test/as/2-full && \
+    ../run.sh . onrampvm ../../../build/output/bin/as.oe && \
+    ../run.sh --other-stage ../1-compound onrampvm ../../../build/output/bin/as.oe && \
+    ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe )
 ( core/cci/2-full/rebuild.sh && cd test/cci/2-full && ../run.sh . onrampvm ../../../build/output/bin/cci.oe )
 ( core/cpp/2-full/rebuild.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
 
