@@ -35,7 +35,7 @@
 #include "lexer.h"
 #include "emit.h"  // TODO remove all emit calls in this code
 
-static type_t* parse_binary_expression(void);
+static type_t* parse_assignment_expression(void);
 
 
 
@@ -423,7 +423,7 @@ static type_t* parse_function_call(const char* name) {
         }
 
         //printf("   current token is %s\n",lexer_token);
-        type_t* type = parse_binary_expression();
+        type_t* type = parse_assignment_expression();
         //printf("   current token is %s\n",lexer_token);
 
         // if the argument is an l-value, dereference it
@@ -681,7 +681,7 @@ type_t* parse_conditional_expression(void) {
     return true_type;
 }
 
-type_t* parse_assignment_expression(void) {
+static type_t* parse_assignment_expression(void) {
     type_t* left = parse_conditional_expression();
     if (!is_assign_op()) {
         return left;
