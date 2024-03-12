@@ -218,6 +218,7 @@
 =str_inc "inc" '00
 =str_dec "dec" '00
 =str_mov "mov" '00
+=str_sxb "sxb" '00
 
 =str_and "and" '00
 =str_or "or" '00
@@ -228,6 +229,8 @@
 =str_ror "ror" '00
 =str_rol "ror" '00
 =str_not "not" '00
+=str_bool "bool" '00
+=str_isz "isz" '00
 
 =str_ldw "ldw" '00
 =str_stw "stw" '00

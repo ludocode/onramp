@@ -141,10 +141,6 @@
     imw r1 ^output_file
     stw r0 rpp r1
 
-    ; prime the current char
-    ; TODO
-    ;call ^next_char
-
     ; done
     leave
     ret

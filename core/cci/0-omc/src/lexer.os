@@ -776,7 +776,8 @@
 ;
 ; When we test for punctuation, we append characters to the current token until
 ; we no longer match anything in this list. This gives us the longest matching
-; punctuation.
+; punctuation. (All leading substrings of valid punctuation are also themselves
+; valid punctuation.)
 ;
 ; We match all punctuation in C, even those that aren't in omC, in order to
 ; ensure we are forwards-compatible and to give better error messages for

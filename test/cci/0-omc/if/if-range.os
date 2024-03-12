@@ -14,9 +14,7 @@ pop r1
 ldw r1 0 r1 
 cmps r0 r1 r0 
 sub r0 r0 0xFFFFFFFF 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 push r0 
 imw r0 0xFFFFFFFC 
 add r0 rfp r0 
@@ -26,9 +24,7 @@ pop r1
 ldw r1 0 r1 
 cmps r0 r1 r0 
 sub r0 r0 0x1 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 pop r1 
 or r0 r1 r0 
 jz r0 &_Lx0 

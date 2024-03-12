@@ -55,9 +55,7 @@ ldw r0 0 r0
 ldw r1 0 r1 
 cmps r0 r1 r0 
 sub r0 r0 0xFFFFFFFF 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 jz r0 &_Lx1 
 imw r0 0xFFFFFFF0 
 add r0 rfp r0 
@@ -73,8 +71,7 @@ ldw r1 0 r1
 add r0 r1 r0 
 pop r1 
 ldb r0 0 r0 
-shl r0 r0 0x18 
-shrs r0 r0 0x18 
+sxb r0 r0 
 stw r0 0 r1 
 imw r0 0xFFFFFFEC 
 add r0 rfp r0 
@@ -99,9 +96,7 @@ pop r1
 ldw r0 0 r0 
 ldw r1 0 r1 
 sub r0 r1 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 push r0 
 imw r0 0xFFFFFFF0 
 add r0 rfp r0 
@@ -118,9 +113,7 @@ sub r0 r1 r0
 pop r1 
 ldw r1 0 r1 
 sub r0 r1 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 pop r1 
 or r0 r1 r0 
 push r0 
@@ -139,9 +132,7 @@ add r0 r1 r0
 pop r1 
 ldw r1 0 r1 
 sub r0 r1 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 pop r1 
 or r0 r1 r0 
 jz r0 &_Lx2 
@@ -187,9 +178,7 @@ imw r0 8
 pop r1 
 ldw r1 0 r1 
 sub r0 r1 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 jz r0 &_Lx3 
 call ^print_board 
 zero r0 
@@ -211,9 +200,7 @@ pop r1
 ldw r1 0 r1 
 cmps r0 r1 r0 
 sub r0 r0 0xFFFFFFFF 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 jz r0 &_Lx5 
 imw r0 0xFFFFFFFC 
 add r0 rfp r0 
@@ -241,8 +228,7 @@ imw r0 0xFFFFFFF8
 add r0 rfp r0 
 pop r1 
 ldw r0 0 r0 
-shl r0 r0 0x18 
-shrs r0 r0 0x18 
+sxb r0 r0 
 stb r0 0 r1 
 imw r0 0xFFFFFFFC 
 add r0 rfp r0 
@@ -297,9 +283,7 @@ pop r1
 ldw r1 0 r1 
 cmps r0 r1 r0 
 sub r0 r0 0xFFFFFFFF 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 jz r0 &_Lx8 
 imw r0 0xFFFFFFF8 
 add r0 rfp r0 
@@ -316,9 +300,7 @@ pop r1
 ldw r1 0 r1 
 cmps r0 r1 r0 
 sub r0 r0 0xFFFFFFFF 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 jz r0 &_LxA 
 imw r0 0xFFFFFFF4 
 add r0 rfp r0 
@@ -338,12 +320,9 @@ add r0 rfp r0
 pop r1 
 ldw r0 0 r0 
 ldb r1 0 r1 
-shl r1 r1 0x18 
-shrs r1 r1 0x18 
+sxb r1 r1 
 sub r0 r1 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 pop r1 
 stw r0 0 r1 
 imw r0 0xFFFFFFF4 
@@ -358,9 +337,7 @@ call ^putchar
 imw r0 0xFFFFFFF4 
 add r0 rfp r0 
 ldw r0 0 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
 jz r0 &_LxC 
 mov r0 "." 
 push r0 

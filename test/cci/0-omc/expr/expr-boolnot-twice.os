@@ -1,11 +1,7 @@
 @_F_main 
 imw r0 0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
-jz r0 0x1 
-mov r0 0x1 
-sub r0 0x1 r0 
+isz r0 r0 
+isz r0 r0 
 leave 
 ret 
 zero r0 

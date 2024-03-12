@@ -93,7 +93,6 @@
 
     ; the rest of this function emits instructions to move each argument into
     ; the stack frame.
-    ; TODO for now we only support four function arguments
 
 :compile_function_open_loop
 
@@ -211,22 +210,6 @@
     ; We use a temporary register in case it doesn't fit in a mix-type byte.
     ; Note that r0-r3 are used as function arguments.
 
-                    ;;; TODO temporarily use mix-type to match cci/1
-                    ;;; emit "sub rsp rsp <framesize>"
-                    ;;imw r0 ^str_sub
-                    ;;add r0 rpp r0
-                    ;;call ^emit_term
-                    ;;imw r0 ^str_rsp
-                    ;;add r0 rpp r0
-                    ;;call ^emit_term
-                    ;;imw r0 ^str_rsp
-                    ;;add r0 rpp r0
-                    ;;call ^emit_term
-                    ;;ldw r0 rfp -16
-                    ;;call ^emit_int
-                    ;;call ^emit_newline
-                    ;;jmp &compile_function_close_DISABLED
-
     ; emit "imw r9 <framesize>"
     imw r0 ^str_imw
     add r0 rpp r0
@@ -250,8 +233,6 @@
     mov r0 9
     call ^emit_register
     call ^emit_newline
-
-                    ;;:compile_function_close_DISABLED
 
     ; emit "jmp ^_F_name", a jump to the top of the function
     imw r0 ^str_jmp
@@ -523,28 +504,14 @@
 
 =compile_bool
 
-    ; TODO we should move bool and isz instructions in the compound assembler.
-    ; this would make the assembly easier to read and would eliminate the need
-    ; for relative jump by number, we could require labels for all jumps.
-
-    ; emit "jz r0 +1"
-    imw r0 ^str_jz
+    ; emit "bool r0 r0"
+    imw r0 ^str_bool
     add r0 rpp r0
     call ^emit_term
     zero r0
     call ^emit_register
-    mov r0 1
-    call ^emit_int
-    call ^emit_newline
-
-    ; emit "mov r0 1"
-    imw r0 ^str_mov
-    add r0 rpp r0
-    call ^emit_term
     zero r0
     call ^emit_register
-    mov r0 1
-    call ^emit_int
     call ^emit_newline
 
     ; return int
@@ -558,23 +525,18 @@
 ; ==========================================================
 ; Emits code to do a boolean inversion of the value in r0. (If the value is
 ; non-zero, it is replaced with zero; otherwise it is replaced with 1.)
+;
+; Returns the type int.
 ; ==========================================================
 
 =compile_boolean_not
 
-    ; TODO emit isz, see above, not yet implemented in assembler
-
-    ; make the value boolean, either 1 or 0
-    call ^compile_bool
-
-    ; flip it, emit "sub r0 1 r0"
-    imw r0 ^str_sub
+    ; emit "isz r0 r0"
+    imw r0 ^str_isz
     add r0 rpp r0
     call ^emit_term
     zero r0
     call ^emit_register
-    mov r0 1
-    call ^emit_int
     zero r0
     call ^emit_register
     call ^emit_newline
@@ -800,23 +762,6 @@
     ; (and we don't want to bother with different paths for small vs. large
     ; frame offset.)
 
-                    ;;; TODO temporarily use mix-type to match cci/1
-                    ;;; emit "add r0 rfp -<offset>"
-                    ;;imw r0 ^str_add
-                    ;;add r0 rpp r0
-                    ;;call ^emit_term
-                    ;;mov r0 0
-                    ;;call ^emit_register
-                    ;;imw r0 ^str_rfp
-                    ;;add r0 rpp r0
-                    ;;call ^emit_term
-                    ;;ldw r0 rfp -8
-                    ;;sub r0 0 r0
-                    ;;call ^emit_int
-                    ;;call ^emit_newline
-                    ;;ldw r0 rfp -4
-                    ;;jmp &compile_load_local_variable_DISABLED
-
     ; emit "imw r0 -<offset>"
     imw r0 ^str_imw
     add r0 rpp r0
@@ -840,8 +785,6 @@
     mov r0 0
     call ^emit_register
     call ^emit_newline
-
-                    ;;:compile_load_local_variable_DISABLED
 
     ; return the type with the l-value flag set
     ldw r0 rfp -4
@@ -1915,32 +1858,14 @@
 
 :compile_cast_sxb
 
-    ; TODO we're supposed to add sxb and sxs instructions in the assembly. for
-    ; now we do this lame thing of shift up and back down which is very slow.
-    ; we'll fix it later
-
-    ; emit "shl <reg> <reg> 24"
-    imw r0 ^str_shl
+    ; emit "sxb <reg> <reg>"
+    imw r0 ^str_sxb
     add r0 rpp r0
     call ^emit_term
     ldw r0 rfp -12
     call ^emit_register
     ldw r0 rfp -12
     call ^emit_register
-    mov r0 24
-    call ^emit_int
-    call ^emit_newline
-
-    ; emit "shrs <reg> <reg> 24"
-    imw r0 ^str_shrs
-    add r0 rpp r0
-    call ^emit_term
-    ldw r0 rfp -12
-    call ^emit_register
-    ldw r0 rfp -12
-    call ^emit_register
-    mov r0 24
-    call ^emit_int
     call ^emit_newline
 
 :compile_cast_done
