@@ -36,6 +36,7 @@
 #include "emit.h"  // TODO remove all emit calls in this code
 
 static type_t* parse_assignment_expression(void);
+static type_t* parse_identifier_expression(void);
 
 static char* stashed_identifier;
 
@@ -372,6 +373,11 @@ bool try_parse_constant_expression(type_t** type, int* value) {
 
 static type_t* parse_primary_expression(void) {
 
+    // an alphanumeric is the name of a variable or a function call
+    if ((stashed_identifier != NULL) | (lexer_type == lexer_type_alphanumeric)) {
+        return parse_identifier_expression();
+    }
+
     // parenthesis
     if (lexer_accept("(")) {
 
@@ -517,13 +523,52 @@ static type_t* parse_identifier_expression(void) {
 
 static type_t* parse_postfix_expression(void) {
 
-    // an alphanumeric is either a variable or a function call
-    if ((stashed_identifier != NULL) | (lexer_type == lexer_type_alphanumeric)) {
-        return parse_identifier_expression();
+    // A postfix expression starts with a primary expression. (This also
+    // handles function calls since we don't support function pointers.)
+    type_t* type = parse_primary_expression();
+
+    // Check for postfix operators
+    while (1) {
+
+        // array indexing
+        if (lexer_accept("[")) {
+            compile_push(0);
+            type_t* right = parse_expression();
+            lexer_expect("]", "Expected `]` after `[` expression.");
+            compile_pop(1);
+            type = compile_binary_op("+", type, right);
+            type = compile_operator_dereference(type);
+            continue;
+        }
+
+        // record value dereference
+        if (lexer_accept(".")) {
+            fatal(". not yet implemented.");
+            continue;
+        }
+
+        // record pointer dereference
+        if (lexer_accept("->")) {
+            fatal("-> not yet implemented.");
+            continue;
+        }
+
+        // post-increment
+        if (lexer_accept("++")) {
+            fatal("++ not yet implemented.");
+            continue;
+        }
+
+        // post-decrement
+        if (lexer_accept("--")) {
+            fatal("-- not yet implemented.");
+            continue;
+        }
+
+        break;
     }
 
-    // a non-alphanumeric is a primary expression
-    return parse_primary_expression();
+    return type;
 }
 
 static type_t* parse_sizeof(void) {
@@ -582,32 +627,7 @@ type_t* parse_unary_expression(void) {
         if (type_indirections(type) == 0) {
             fatal("Type to dereference is not a pointer");
         }
-
-        // If this is already an lvalue, we dereference it now. Otherwise we
-        // make it an lvalue, and it will be dereferenced if and when it is
-        // needed.
-        bool is_lvalue = type_is_lvalue(type);
-        bool is_array = type_is_array(type);
-        if (is_lvalue) {
-            if (is_array) {
-                // The register already contains the address of the first
-                // element so we emit no code. We just remove the array, which
-                // removes an indirection.
-                type_set_array_length(type, TYPE_ARRAY_NONE);
-            }
-            if (!is_array) {
-                compile_dereference(type, 0);
-                type = type_decrement_indirection(type);
-            }
-        }
-        if (!is_lvalue) {
-            if (is_array) {
-                fatal("Internal error: cannot dereference r-value array");
-            }
-            type = type_decrement_indirection(type);
-            type = type_set_lvalue(type, true);
-        }
-
+        type = compile_operator_dereference(type);
         return type;
     }
 

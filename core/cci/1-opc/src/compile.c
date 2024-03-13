@@ -797,3 +797,34 @@ void compile_pop(int register_number) {
 void compile_global_divider(void) {
     emit_global_divider();
 }
+
+type_t* compile_operator_dereference(type_t* type) {
+
+    // If this is already an lvalue, we dereference it now.
+    bool is_lvalue = type_is_lvalue(type);
+    bool is_array = type_is_array(type);
+    if (is_lvalue) {
+        if (is_array) {
+            // The register already contains the address of the first
+            // element so we emit no code. We just remove the array, which
+            // removes an indirection.
+            type_set_array_length(type, TYPE_ARRAY_NONE);
+        }
+        if (!is_array) {
+            compile_dereference(type, 0);
+            type = type_decrement_indirection(type);
+        }
+        return type;
+    }
+
+    // Otherwise we make it an lvalue. It will be dereferenced if and when it is
+    // needed.
+    if (is_array) {
+        fatal("Internal error: cannot dereference r-value array");
+    }
+    type = type_decrement_indirection(type);
+    type = type_set_lvalue(type, true);
+    return type;
+
+}
+

@@ -201,4 +201,9 @@ type_t* compile_bitwise_not(void);
  */
 type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_num);
 
+/**
+ * Compiles the unary * operator.
+ */
+type_t* compile_operator_dereference(type_t* type);
+
 #endif
