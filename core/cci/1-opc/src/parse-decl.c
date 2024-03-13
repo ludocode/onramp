@@ -31,7 +31,6 @@
 #include "parse-stmt.h"
 #include "global.h"
 #include "compile.h"
-#include "emit.h"  // TODO remove all emit calls in this code
 
 void parse_decl_init(void) {
 }

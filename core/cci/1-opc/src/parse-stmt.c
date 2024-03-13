@@ -29,7 +29,6 @@
 
 #include "common.h"
 #include "lexer.h"
-#include "emit.h"  // TODO remove all emit calls in this code
 #include "locals.h"
 #include "parse-decl.h"
 #include "global.h"
@@ -97,7 +96,6 @@ int store_string_literal(void) {
 void output_string_literals(void) {
     size_t i = 0;
     while (i < strings_count) {
-        emit_newline();
         compile_string_literal_definition(next_string, *(strings + i));
         next_string = (next_string + 1);
         free(*(strings + i));
@@ -131,8 +129,6 @@ static void parse_condition(int false_label) {
 static void parse_if(void) {
 
     // parse a condition. if true, skip the if block.
-    //emit_term("; if");
-    //emit_newline();
     int skip_if_label = parse_generate_label();
     parse_condition(skip_if_label);
 
@@ -291,16 +287,12 @@ static void parse_return(void) {
         lexer_expect(";", "Expected `;` at end of `return` statement");
     }
     if (!argument) {
-        // Without an argument, we still need to return zero in case this is
-        // main().
-        emit_term("zero");
-        emit_term("r0");
-        emit_newline();
+        // Without an argument, we still have to return zero if this is main().
+        if (0 == strcmp(function_name, "main")) {
+            compile_zero();
+        }
     }
-    emit_term("leave");
-    emit_newline();
-    emit_term("ret");
-    emit_newline();
+    compile_return();
 }
 
 static void parse_switch(void) {
@@ -483,9 +475,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
 
     // compile and push the variable
     type_t* var_type = compile_load_variable(name);
-    emit_term("push");
-    emit_term("r0");
-    emit_newline();
+    compile_push(0);
 
     // TODO for now ignoring var_type
     type_delete(var_type);
@@ -495,9 +485,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
     type_t* expr_type = parse_unary_expression();
 
     // pop the destination
-    emit_term("pop");
-    emit_term("r1");
-    emit_newline();
+    compile_pop(1);
 
     // compile an assignment
     type_set_lvalue(type, true);
@@ -521,9 +509,6 @@ static bool try_parse_block(void) {
         return false;
     }
 
-    //emit_term("; block");
-    //emit_newline();
-
     int previous_locals_count = locals_count;
 
     while (!lexer_accept("}")) {
@@ -545,9 +530,6 @@ static bool try_parse_block(void) {
     }
 
     locals_pop(previous_locals_count);
-
-    //emit_term("; end block");
-    //emit_newline();
 
     return true;
 }
@@ -614,7 +596,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
 
         // output any strings that were used in the function
         output_string_literals();
-        emit_global_divider();
+        compile_global_divider();
     }
 
     function_name = NULL;

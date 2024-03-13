@@ -641,7 +641,6 @@
   call ^print_board 
 #
 #
-  zero r0 
   leave 
   ret 
 #

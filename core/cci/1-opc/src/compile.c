@@ -83,6 +83,19 @@ void compile_enum_value(const char* name, int value) {
     emit_global_divider();
 }
 
+void compile_return(void) {
+    emit_term("leave");
+    emit_newline();
+    emit_term("ret");
+    emit_newline();
+}
+
+void compile_zero(void) {
+    emit_term("zero");
+    emit_term("r0");
+    emit_newline();
+}
+
 void compile_function_open(const char* name, int arg_count) {
     //printf("   compiling function open %s with %i args\n",name, arg_count);
 
@@ -285,6 +298,7 @@ void compile_string_literal_invocation(int label_index) {
 }
 
 void compile_string_literal_definition(int label_index, const char* string) {
+    emit_newline();
     emit_computed_label('@', STRING_LABEL_PREFIX, label_index);
     emit_newline();
     emit_string_literal(string);
@@ -778,4 +792,8 @@ void compile_pop(int register_number) {
     emit_term("pop");
     emit_register(register_number);
     emit_newline();
+}
+
+void compile_global_divider(void) {
+    emit_global_divider();
 }

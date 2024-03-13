@@ -99,6 +99,18 @@ void compile_push(int register_number);
 void compile_pop(int register_number);
 
 /**
+ * Emits "leave" and "ret", i.e. returns from the current function.
+ */
+void compile_return(void);
+
+/**
+ * Emits "zero r0".
+ */
+void compile_zero(void);
+
+void compile_global_divider(void);
+
+/**
  * Compiles a binary operation.
  *
  * The left of the operation is in r1 and the right is in r0.
