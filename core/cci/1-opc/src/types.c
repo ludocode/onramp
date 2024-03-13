@@ -22,19 +22,18 @@ static char** types_names;
 static int* types_tags; // typedef, struct or union
 static void** types_objects; // type_t* or record_t*
 static size_t types_buckets;
+static size_t types_count;
 
 static size_t types_anonymous_records_capacity;
 static size_t types_anonymous_records_count;
 static record_t** types_anonymous_records;
 
 void types_init(void) {
-    // TODO we could make this growable later. For now we don't bother.
-    types_buckets = 256;
+    types_buckets = 512;
     types_names = calloc(types_buckets, sizeof(char*));
     types_tags = malloc(types_buckets * sizeof(int));
     types_objects = malloc(types_buckets * sizeof(void*));
 
-    // We could also make this growable. We don't bother
     types_anonymous_records_capacity = 256;
     types_anonymous_records = malloc(types_anonymous_records_capacity * sizeof(record_t*));
 
@@ -72,6 +71,10 @@ void types_destroy(void) {
 }
 
 void types_add_anonymous_record(record_t* record) {
+    if (types_anonymous_records_count == types_anonymous_records_capacity) {
+        // TODO make the anonymous types list growable.
+        fatal("Too many anonymous structs or unions.");
+    }
     *(types_anonymous_records + types_anonymous_records_count) = record;
     types_anonymous_records_count = (types_anonymous_records_count + 1);
 }
@@ -111,6 +114,13 @@ type_t* types_add_typedef(char* name, type_t* type) {
     }
 
     // The typedef does not exist. Add it.
+
+    if (types_count == (types_buckets >> 1)) {
+        // TODO make the hashtable growable.
+        fatal("Too many typedefs, structs or unions.");
+    }
+    types_count = (types_count + 1);
+
     *(types_names + index) = name;
     *(types_tags + index) = TAG_TYPEDEF;
     *(types_objects + index) = type;
