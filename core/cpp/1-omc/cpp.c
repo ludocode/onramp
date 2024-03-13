@@ -849,6 +849,12 @@ static void handle_define(void) {
     char* name;
     name = strdup(current_string);
 
+    // If the name is followed by an open parenthesis, this is a function-like
+    // macro.
+    if (current_char == '(') {
+        fatal("Function-like macros are not supported by the omC preprocessor.");
+    }
+
     // If we have a newline without horizontal whitespace, there's no expansion
     // string.
     if (current_char == '\n') {
