@@ -34,6 +34,7 @@
 #include "global.h"
 #include "compile.h"
 #include "parse-expr.h"
+#include "types.h"
 
 static void parse_block(void);
 static void parse_statement(void);
@@ -628,8 +629,7 @@ void parse_global(void) {
 
             // Check for a typedef
             if (storage == STORAGE_TYPEDEF) {
-                typedef_add(name, type);
-                // TODO multiple typedefs are supposed to be supported
+                types_add_typedef(name, type);
                 lexer_expect(";", "Expected `;` at end of typedef");
                 break;
             }

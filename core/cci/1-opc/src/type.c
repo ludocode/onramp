@@ -263,59 +263,6 @@ bool type_equal(const type_t* left, const type_t* right) {
     return true;
 }
 
-
-
-/*
- * Typedefs
- */
-
-// TODO new typedef table. should be one big table, but entries are name + tag, where tag is one of: nothing, union, struct, enum.
-
-static char** typedef_names;
-static type_t** typedef_types;
-static size_t typedef_count;
-
-// TODO huge number here to temporarily pass cci/0 tests, we're going to
-// change this to a hashtable soon
-#define TYPEDEF_MAX 512
-
-void typedef_init(void) {
-    typedef_names = malloc(TYPEDEF_MAX * sizeof(char*));
-    typedef_types = malloc(TYPEDEF_MAX * sizeof(type_t*));
-}
-
-void typedef_destroy(void) {
-    size_t i = 0;
-    while (i < typedef_count) {
-        free(*(typedef_names + i));
-        type_delete(*(typedef_types + i));
-        i = (i + 1);
-    }
-    free(typedef_names);
-    free(typedef_types);
-}
-
-void typedef_add(char* name, type_t* type) {
-    if (typedef_count == TYPEDEF_MAX) {
-        fatal("Too many typedefs.");
-    }
-    // TODO check for duplicates, allowed as long as the type matches
-    *(typedef_names + typedef_count) = name;
-    *(typedef_types + typedef_count) = type;
-    typedef_count = (typedef_count + 1);
-}
-
-const type_t* typedef_find(const char* name) {
-    size_t i = 0;
-    while (i < typedef_count) {
-        if (0 == strcmp(name, *(typedef_names + i))) {
-            return *(typedef_types + i);
-        }
-        i = (i + 1);
-    }
-    return NULL;
-}
-
 bool type_is_base(const type_t* type, base_t base) {
     assert(base != BASE_RECORD);
     if (type_base(type) != base) {

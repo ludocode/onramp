@@ -105,6 +105,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/type.c \
     -o build/intermediate/cci-1-opc/type.oo
 
+echo Compiling cci/1-opc types.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/1-opc/build-ccargs \
+    -c core/cci/1-opc/src/types.c \
+    -o build/intermediate/cci-1-opc/types.oo
+
 echo Linking cci/1-opc
 onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/libc-1-omc/libc.oa \
@@ -122,4 +128,5 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/parse-stmt.oo \
     build/intermediate/cci-1-opc/record.oo \
     build/intermediate/cci-1-opc/type.oo \
+    build/intermediate/cci-1-opc/types.oo \
     -o build/intermediate/cci-1-opc/cci.oe

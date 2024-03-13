@@ -180,18 +180,4 @@ bool type_is_base(const type_t* type, base_t base);
 
 void type_print(const type_t* type);
 
-
-
-void typedef_init(void);
-void typedef_destroy(void);
-
-/**
- * Adds a new typedef.
- *
- * This takes ownership of the given name and type.
- */
-void typedef_add(char* name, type_t* type);
-
-const type_t* typedef_find(const char* name);
-
 #endif

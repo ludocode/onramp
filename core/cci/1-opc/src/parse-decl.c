@@ -31,6 +31,7 @@
 #include "parse-stmt.h"
 #include "global.h"
 #include "compile.h"
+#include "types.h"
 
 void parse_decl_init(void) {
 }
@@ -267,7 +268,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
     if (*type_specifiers == 0) {
         if (*out_record == NULL) {
             if (*out_typedef == NULL) {
-                *out_typedef = typedef_find(lexer_token);
+                *out_typedef = types_find_typedef(lexer_token);
                 if (*out_typedef) {
                     lexer_consume();
                     return true;

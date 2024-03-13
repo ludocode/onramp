@@ -33,7 +33,7 @@
 #include "parse-stmt.h"
 #include "parse-decl.h"
 #include "parse-expr.h"
-#include "type.h"
+#include "types.h"
 #include "locals.h"
 #include "global.h"
 
@@ -99,7 +99,7 @@ int main(int argc, const char** argv) {
     globals_init();
     emit_init(output_filename);
     lexer_init(input_filename);
-    typedef_init();
+    types_init();
     locals_init();
     compile_init();
     parse_stmt_init();
@@ -115,7 +115,7 @@ int main(int argc, const char** argv) {
     parse_stmt_destroy();
     compile_destroy();
     locals_destroy();
-    typedef_destroy();
+    types_destroy();
     lexer_destroy();
     emit_destroy();
     globals_destroy();

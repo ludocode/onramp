@@ -53,6 +53,7 @@ SRCS=\
 	$(SRC)/parse-stmt.c \
 	$(SRC)/record.c \
 	$(SRC)/type.c \
+	$(SRC)/types.c \
 
 all: build test FORCE
 FORCE:

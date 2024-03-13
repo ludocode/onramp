@@ -87,6 +87,10 @@ void globals_destroy(void) {
     }
 }
 
+/**
+ * Finds the bucket for a global with the given name, or the empty bucket where
+ * it should be inserted if it doesn't exist.
+ */
 static global_t** global_find_bucket(const char* name) {
     int hash = fnv1a_cstr(name);
     int mask = (globals_buckets - 1);
