@@ -46,6 +46,7 @@ bool emit_is_enabled(void);
 
 void emit_char(char c);
 void emit_string(const char* c);
+void emit_hex_number(int number);
 
 /**
  * Emits a term followed by a space.

@@ -82,7 +82,7 @@ static void emit_hex_byte(char byte) {
     emit_hex_char(byte & 0xF);
 }
 
-static void emit_hex_number(int number) {
+void emit_hex_number(int number) {
     // We don't have printf() so we have to convert to string manually.
     if (number & 0xF0000000) {emit_hex_char((number >> 28) & 0xF);}
     if (number & 0xFF000000) {emit_hex_char((number >> 24) & 0xF);}

@@ -31,6 +31,8 @@
 #include "emit.h"
 #include "lexer.h"
 #include "parse-stmt.h"
+#include "parse-decl.h"
+#include "parse-expr.h"
 #include "type.h"
 #include "locals.h"
 #include "global.h"
@@ -102,11 +104,13 @@ int main(int argc, const char** argv) {
     compile_init();
     parse_stmt_init();
     parse_decl_init();
+    parse_expr_init();
 
     while (lexer_type != lexer_type_end) {
         parse_global();
     }
 
+    parse_expr_destroy();
     parse_decl_destroy();
     parse_stmt_destroy();
     compile_destroy();

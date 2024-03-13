@@ -35,6 +35,7 @@
 #define JUMP_LABEL_PREFIX     "_Lx"
 #define STRING_LABEL_PREFIX   "_Sx"
 #define FUNCTION_LABEL_PREFIX "_F_"
+#define USER_LABEL_PREFIX     "_U_"
 
 
 

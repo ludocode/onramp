@@ -741,8 +741,30 @@ void compile_jump_if_zero(int label) {
     emit_newline();
 }
 
+static void compile_user_label_name(const char* function, const char* name) {
+    emit_string(USER_LABEL_PREFIX);
+    emit_hex_number(strlen(function));
+    emit_char('_');
+    emit_string(function);
+    emit_char('_');
+    emit_string(name);
+}
+
+void compile_goto(const char* function, const char* name) {
+    emit_term("jmp");
+    emit_char('&');
+    compile_user_label_name(function, name);
+    emit_newline();
+}
+
 void compile_label(int label) {
     emit_computed_label(':', JUMP_LABEL_PREFIX, label);
+    emit_newline();
+}
+
+void compile_user_label(const char* function, const char* name) {
+    emit_char(':');
+    compile_user_label_name(function, name);
     emit_newline();
 }
 

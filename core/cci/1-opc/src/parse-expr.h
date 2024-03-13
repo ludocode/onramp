@@ -29,6 +29,9 @@
 
 #include "type.h"
 
+void parse_expr_init(void);
+void parse_expr_destroy(void);
+
 /**
  * Tries to parse a constant expression.
  */
@@ -38,5 +41,15 @@ type_t* parse_expression(void);
 
 // TODO temporarily public for old initializer code
 type_t* parse_unary_expression(void);
+
+/**
+ * When tentatively parsing a label, if it turns out to not be a label, we've
+ * already consumed the identifier token. We stash it here so that the
+ * expression parser can find it.
+ *
+ * This is sort of an ugly workaround to not having real lookahead in our
+ * lexer.
+ */
+void parse_expr_stash_identifier(char* identifier);
 
 #endif

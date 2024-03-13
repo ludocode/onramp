@@ -37,6 +37,25 @@
 
 static type_t* parse_assignment_expression(void);
 
+static char* stashed_identifier;
+
+void parse_expr_init(void) {
+    // nothing
+}
+
+void parse_expr_destroy(void) {
+    if (stashed_identifier != NULL) {
+        fatal("Internal error: leaked expression identifier");
+    }
+}
+
+void parse_expr_stash_identifier(char* identifier) {
+    if (stashed_identifier != NULL) {
+        fatal("Internal error: leaked expression identifier");
+    }
+    stashed_identifier = identifier;
+}
+
 
 
 /**
@@ -395,7 +414,6 @@ static type_t* parse_primary_expression(void) {
         return type_increment_pointers(type_new_base(BASE_SIGNED_CHAR));
     }
 
-    //fatal("Expected primary expression (i.e. identifier, number, string or open parenthesis)");
     fatal("Expected expression");
 }
 
@@ -472,16 +490,20 @@ static type_t* parse_function_call(const char* name) {
     return type_clone(global_type(global));
 }
 
-static type_t* parse_postfix_expression(void) {
+static type_t* parse_identifier_expression(void) {
 
-    // a non-alphanumeric is a primary expression
-    if (lexer_type != lexer_type_alphanumeric) {
-        return parse_primary_expression();
+    // if we've stashed an identifier due to tentatively parsing a label, we
+    // use it here.
+    char* name;
+    if (stashed_identifier == NULL) {
+        name = lexer_take();
+    }
+    if (stashed_identifier != NULL) {
+        name = stashed_identifier;
+        stashed_identifier = NULL;
     }
 
-    // an alphanumeric is either a variable or a function call
     type_t* ret;
-    char* name = lexer_take();
     bool paren = lexer_accept("(");
     if (paren) {
         ret = parse_function_call(name);
@@ -489,9 +511,19 @@ static type_t* parse_postfix_expression(void) {
     if (!paren) {
         ret = compile_load_variable(name);
     }
-
     free(name);
     return ret;
+}
+
+static type_t* parse_postfix_expression(void) {
+
+    // an alphanumeric is either a variable or a function call
+    if ((stashed_identifier != NULL) | (lexer_type == lexer_type_alphanumeric)) {
+        return parse_identifier_expression();
+    }
+
+    // a non-alphanumeric is a primary expression
+    return parse_primary_expression();
 }
 
 static type_t* parse_sizeof(void) {
@@ -523,6 +555,10 @@ static type_t* parse_sizeof(void) {
 }
 
 type_t* parse_unary_expression(void) {
+    if (stashed_identifier) {
+        return parse_postfix_expression();
+    }
+
     if (lexer_accept("+")) {
         // TODO we should remove l-value and promote to int
         return parse_unary_expression();
@@ -694,12 +730,15 @@ static type_t* parse_assignment_expression(void) {
     return type;
 }
 
-// "expression" is a comma operator expression.
-type_t* parse_expression(void) {
+static type_t* parse_comma_expression(void) {
     type_t* type = parse_assignment_expression();
     while (lexer_accept(",")) {
         type_delete(type);
         type = parse_assignment_expression();
     }
     return type;
+}
+
+type_t* parse_expression(void) {
+    return parse_comma_expression();
 }

@@ -58,6 +58,7 @@ static size_t strings_count;
 // function generation
 static int function_frame_size;
 static bool inside_function;
+static const char* function_name;
 
 void parse_stmt_init(void) {
     last_label = -1;
@@ -399,23 +400,58 @@ static void parse_default(void) {
     lexer_expect(":", "Expected `:` after `default`.");
 }
 
+static void parse_goto(void) {
+    if (lexer_type != lexer_type_alphanumeric) {
+        fatal("Expected an identifier after `goto`");
+    }
+    compile_goto(function_name, lexer_token);
+    lexer_consume();
+    lexer_expect(";", "Expected `;` after `goto` label");
+}
+
 static void parse_statement(void) {
     if (lexer_accept(";")) {
         // empty statement
         return;
     }
+    if (lexer_is("{")) {
+        parse_block();
+        return;
+    }
 
-    if (lexer_is("{")) { parse_block(); return; }
-    if (lexer_accept("if")) { parse_if(); return; }
-    if (lexer_accept("while")) { parse_while(); return; }
-    if (lexer_accept("do")) { parse_do(); return; }
-    if (lexer_accept("for")) { parse_for(); return; }
-    if (lexer_accept("switch")) { parse_switch(); return; }
-    if (lexer_accept("case")) { parse_case(); return; }
-    if (lexer_accept("default")) { parse_default(); return; }
-    if (lexer_accept("break")) { parse_break(); return; }
-    if (lexer_accept("continue")) { parse_continue(); return; }
-    if (lexer_accept("return")) { parse_return(); return; }
+    if (lexer_type == lexer_type_alphanumeric) {
+
+        // check for keyword statements
+        if (lexer_accept("if")) { parse_if(); return; }
+        if (lexer_accept("while")) { parse_while(); return; }
+        if (lexer_accept("do")) { parse_do(); return; }
+        if (lexer_accept("for")) { parse_for(); return; }
+        if (lexer_accept("switch")) { parse_switch(); return; }
+        if (lexer_accept("case")) { parse_case(); return; }
+        if (lexer_accept("default")) { parse_default(); return; }
+        if (lexer_accept("break")) { parse_break(); return; }
+        if (lexer_accept("continue")) { parse_continue(); return; }
+        if (lexer_accept("return")) { parse_return(); return; }
+        if (lexer_accept("goto")) { parse_goto(); return; }
+
+        // check for a label
+        char* name = lexer_take();
+        if (lexer_accept(":")) {
+            compile_user_label(function_name, name);
+            free(name);
+
+            // We just return here, as though the label is its own statement.
+            // This is probably technically incorrect, at least in the earlier
+            // language standards; C23 is more lax in where it allows label
+            // definitions.
+            return;
+        }
+        
+        // It's not a keyword or label. It's an expression that begins with an
+        // identifier. Stash the identifier in the expression parser so that it
+        // will find it.
+        parse_expr_stash_identifier(name);
+    }
 
     // parse an expression, discard the result
     type_delete(parse_expression());
@@ -562,6 +598,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
 
     // TODO pass arg_types, arg_count to function
     const global_t* global = global_declare_function(return_type, name, 0, NULL);
+    function_name = global_name(global);
 
     //printf("   parsed function declaration %s\n",name);
     if (!lexer_accept(";")) {
@@ -580,6 +617,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         emit_global_divider();
     }
 
+    function_name = NULL;
     inside_function = false;
     locals_pop(0);
 }
