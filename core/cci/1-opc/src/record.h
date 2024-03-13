@@ -48,7 +48,7 @@ record_t* record_new(char* name);
 
 void record_delete(record_t* record);
 
-const char* record_name(record_t* record);
+const char* record_name(const record_t* record);
 
 /**
  * Returns the fields of this record.
@@ -56,7 +56,7 @@ const char* record_name(record_t* record);
  * If the record has not been defined yet (i.e. it has only been
  * forward-declared), this returns NULL.
  */
-field_t* record_fields(record_t* record);
+field_t* record_fields(const record_t* record);
 
 /**
  * Sets the fields of the given record.
@@ -68,6 +68,6 @@ void record_set_fields(record_t* record, field_t* fields);
 /**
  * Returns the size (as in sizeof) of this record.
  */
-size_t record_size(record_t* record);
+size_t record_size(const record_t* record);
 
 #endif

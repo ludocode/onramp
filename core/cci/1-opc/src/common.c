@@ -74,7 +74,7 @@ void* memdup(const void* other, size_t size) {
 }
 
 // TODO maybe put this in libo
-char* strdup_checked(char* str) {
+char* strdup_checked(const char* str) {
     char* ret = strdup(str);
     if (ret == NULL) {
         fatal("Out of memory.");

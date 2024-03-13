@@ -608,7 +608,6 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
 void parse_global(void) {
     storage_t storage;
     type_t* base_type;
-
     if (!try_parse_declaration_specifiers(&base_type, &storage)) {
         fatal("Expected a global declaration.");
     }
@@ -652,8 +651,8 @@ void parse_global(void) {
         }
 
         // TODO check for a comma for multiple declarators, only allowed if none are functions
-        if (lexer_accept(",")) {
-            fatal("`,` in declaration is not yet implemented");
+        if (lexer_is(",")) {
+            fatal("Multiple declarators with `,` are not yet implemented.");
         }
         lexer_expect(";", "Expected `;` at end of global variable declaration.");
         break;

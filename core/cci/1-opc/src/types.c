@@ -94,7 +94,8 @@ type_t* types_add_typedef(char* name, type_t* type) {
     return type;
 }
 
-static void types_add_record(char* name, int tag, record_t* record) {
+static void types_add_record(int tag, record_t* record) {
+    const char* name = record_name(record);
     int index = types_find_bucket(name, tag);
     if (*(types_names + index) != NULL) {
         // If this happens there's a bug; the parser should be checking for
@@ -103,20 +104,20 @@ static void types_add_record(char* name, int tag, record_t* record) {
     }
 
     // Add the record
-    *(types_names + index) = name;
+    *(types_names + index) = strdup_checked(name);
     *(types_tags + index) = tag;
     *(types_objects + index) = record;
 }
 
-void types_add_struct(char* name, record_t* record) {
-    types_add_record(name, TAG_STRUCT, record);
+void types_add_struct(record_t* record) {
+    types_add_record(TAG_STRUCT, record);
 }
 
-void types_add_union(char* name, record_t* record) {
-    types_add_record(name, TAG_UNION, record);
+void types_add_union(record_t* record) {
+    types_add_record(TAG_UNION, record);
 }
 
-const void* types_find_object(const char* name, int tag) {
+void* types_find_object(const char* name, int tag) {
     int index = types_find_bucket(name, tag);
     if (*(types_names + index) != NULL) {
         return *(types_objects + index);
@@ -128,11 +129,11 @@ const type_t* types_find_typedef(const char* name) {
     return types_find_object(name, TAG_TYPEDEF);
 }
 
-const record_t* types_find_struct(const char* name) {
+record_t* types_find_struct(const char* name) {
     return types_find_object(name, TAG_STRUCT);
 }
 
-const record_t* types_find_union(const char* name) {
+record_t* types_find_union(const char* name) {
     return types_find_object(name, TAG_UNION);
 }
 

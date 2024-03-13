@@ -21,9 +21,9 @@ All of omC is supported and some parts of opC are done. We need to fix or add:
 - [x] `enum`
 - [ ] arrays
 - [x] `else`
-- [ ] `for` (with variable declaration)
-- [ ] `switch` and `case`
-- [ ] `goto` and labels (maybe?)
+- [x] `for` (with variable declaration)
+- [x] `switch` and `case`
+- [x] `goto` and labels
 - [ ] full expression parser
 - [x] constant expression parser
 

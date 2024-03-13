@@ -50,7 +50,7 @@ record_t* record_new(char* name) {
         fatal("Out of memory.");
     }
     *(char**)((void**)record + RECORD_OFFSET_NAME) = name;
-    record_set_fields(record, NULL);
+    *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = NULL;
     return record;
 }
 
@@ -69,22 +69,22 @@ void record_delete(record_t* record) {
     free(record);
 }
 
-const char* record_name(record_t* record) {
+const char* record_name(const record_t* record) {
     return *(char**)((void**)record + RECORD_OFFSET_NAME);
 }
 
-field_t* record_fields(record_t* record) {
+field_t* record_fields(const record_t* record) {
     return*(field_t**)((void**)record + RECORD_OFFSET_FIELDS); 
 }
 
 void record_set_fields(record_t* record, field_t* fields) {
     if (record_fields(record) != NULL) {
-        fatal_2("Cannot change fields of record ", record_name(record));
+        fatal_2("Internal error: cannot change fields of record ", record_name(record));
     }
     *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = fields;
 }
 
-size_t record_size(record_t* record) {
+size_t record_size(const record_t* record) {
     size_t size = 4;
     field_t* field = record_fields(record);
     while (field) {

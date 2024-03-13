@@ -26,11 +26,13 @@
 
 #include <stdlib.h>
 
+#include "compile.h"
+#include "field.h"
+#include "global.h"
 #include "lexer.h"
 #include "parse-expr.h"
 #include "parse-stmt.h"
-#include "global.h"
-#include "compile.h"
+#include "record.h"
 #include "types.h"
 
 void parse_decl_init(void) {
@@ -212,6 +214,92 @@ static void parse_enum(void) {
     lexer_expect("}", "Expected `,` or `}` after enum value");
 }
 
+static record_t* parse_record(bool is_struct) {
+    if (lexer_type != lexer_type_alphanumeric) {
+        fatal("`struct` or `union` must be followed by a name.");
+    }
+
+    // See if this struct or union already exists
+    record_t* record;
+    if (is_struct) {
+        record = types_find_struct(lexer_token);
+    }
+    if (!is_struct) {
+        record = types_find_union(lexer_token);
+    }
+    if (record != NULL) {
+        lexer_consume();
+    }
+
+    // If not, create it
+    if (record == NULL) {
+        if (parse_is_inside_function()) {
+            fatal("Structs and unions cannot be declared inside functions in opC.");
+        }
+        record = record_new(lexer_take());
+        if (is_struct) {
+            types_add_struct(record);
+        }
+        if (!is_struct) {
+            types_add_union(record);
+        }
+    }
+
+    // Check for `{`. If not, we're done.
+    if (!lexer_accept("{")) {
+        return record;
+    }
+
+    // We're defining the fields of this record. Check for errors
+    if (parse_is_inside_function()) {
+        fatal("Structs and unions cannot be defined inside functions in opC.");
+    }
+    if (record_fields(record)) {
+        fatal("This struct or union is already defined.");
+    }
+
+    // Parse the fields
+    field_t* fields = NULL;
+    size_t offset = 0;
+    while (!lexer_accept("}")) {
+
+        // Parse the declaration specifiers
+        type_t* base_type;
+        if (!try_parse_declaration_specifiers(&base_type, NULL)) {
+            fatal("Expected a struct or union field declaration.");
+        }
+
+        // Parse the declarator list
+        type_t* type;
+        char* name;
+        if (!try_parse_declarator(base_type, &type, &name)) {
+            fatal("Expected a declarator for this struct or union field declaration.");
+        }
+
+        // TODO loop on commas for multiple declarators. For now we don't bother.
+        if (lexer_is(",")) {
+            fatal("Multiple declarators with `,` are not yet implemented.");
+        }
+        type_delete(base_type);
+        lexer_expect(";", "Expected `;` after struct or union field declaration.");
+
+        // Add the field to the linked list
+        fields = field_new(name, type, offset, fields);
+
+        // In a struct, each field comes after the previous. In a union, all
+        // fields have offset 0.
+        if (is_struct) {
+            offset = field_end(fields);
+        }
+    }
+    if (fields == NULL) {
+        fatal("Structs and unions must have at least one field.");
+    }
+
+    record_set_fields(record, fields);
+    return record;
+}
+
 static bool try_parse_type_specifiers(int* type_specifiers,
         const record_t** out_record,
         const type_t** out_typedef)
@@ -259,8 +347,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
         if (*out_record != NULL) {
             fatal("Redundant struct/union specifier");
         }
-        // TODO lexer_token is struct/union name, do lookup in typedef table
-        fatal("TODO try_parse_type_specifiers() record");
+        *out_record = parse_record(is_struct);
         return true;
     }
 
@@ -376,6 +463,9 @@ bool try_parse_declaration_specifiers(
 
     // see if we got a typedef
     if (typedef_type != NULL) {
+        if (record != NULL) {
+            fatal("Redundant type name and struct/union name in declaration specifier list.");
+        }
         if (type_specifiers != 0) {
             fatal("Redundant type name and type specifiers in declaration specifier list.");
         }
@@ -385,15 +475,10 @@ bool try_parse_declaration_specifiers(
 
     // see if we got a record
     if (record != NULL) {
-        if (typedef_type != NULL) {
-            fatal("Redundant type name and struct/union name in declaration specifier list.");
-        }
         if (type_specifiers != 0) {
-            fatal("Redundant struct/union name and type specifiers in declaration specifier list.");
+            fatal("Redundant struct/union and type specifiers in declaration specifier list.");
         }
-        //*out_type = type_new_record(record);
-        // TODO
-        fatal("try_parse_declaration_specifiers() record not yet implemented");
+        *out_type = type_new_record(record);
         return true;
     }
 

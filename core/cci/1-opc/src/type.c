@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include "common.h"
-//#include "record.h"
+#include "record.h"
 
 
 
@@ -93,7 +93,7 @@ static bool base_is_signed(base_t base) {
  *
  * typedef struct {
  *     basic_type_t base;
- *     record_t* record;
+ *     const record_t* record;
  *     int pointers;
  *     int array_length;
  *     bool is_lvalue;
@@ -128,6 +128,13 @@ type_t* type_new_base(base_t base) {
     return type;
 }
 
+type_t* type_new_record(const record_t* record) {
+    type_t* type = type_new();
+    type_set_base(type, BASE_RECORD);
+    type_set_record(type, record);
+    return type;
+}
+
 type_t* type_clone(const type_t* other) {
     type_t* type = memdup(other, TYPE_FIELD_COUNT * sizeof(void*));
     if (!type) {
@@ -144,12 +151,12 @@ void type_set_base(type_t* type, base_t base) {
     *(base_t*)((void**)type + TYPE_OFFSET_BASE) = base;
 }
 
-record_t* type_record(const type_t* type) {
-    return *(record_t**)((void**)type + TYPE_OFFSET_RECORD);
+const record_t* type_record(const type_t* type) {
+    return *(const record_t**)((void**)type + TYPE_OFFSET_RECORD);
 }
 
-void type_set_record(type_t* type, record_t* record) {
-    *(record_t**)((void**)type + TYPE_OFFSET_RECORD) = record;
+void type_set_record(type_t* type, const record_t* record) {
+    *(const record_t**)((void**)type + TYPE_OFFSET_RECORD) = record;
 }
 
 bool type_is_lvalue(const type_t* type) {
@@ -204,10 +211,9 @@ size_t type_size(const type_t* type) {
         size = 4;
     }
     if (pointers == 0) {
-        record_t* record = type_record(type);
+        const record_t* record = type_record(type);
         if (record) {
-            fatal("record size not yet implemented");
-            //size = record_size(record);
+            size = record_size(record);
         }
         if (!record) {
             size = base_size(type_base(type));

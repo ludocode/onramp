@@ -99,7 +99,7 @@ void type_delete(type_t* type);
  */
 type_t* type_new_base(base_t base);
 
-//type_t* type_new_record(record_t* record);
+type_t* type_new_record(const record_t* record);
 
 /**
  * Allocate a new copy of a type.
@@ -120,11 +120,9 @@ bool type_is_record(const type_t* type);
 
 void type_set_base(type_t* type, base_t base);
 
-/*
-record_t* type_record(type_t* type);
+const record_t* type_record(const type_t* type);
 
-void type_set_record(type_t* type, record_t* record);
-*/
+void type_set_record(type_t* type, const record_t* record);
 
 /**
  * Returns the indirection count of the given type, which includes pointers and
