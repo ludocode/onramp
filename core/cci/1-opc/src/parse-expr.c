@@ -789,7 +789,7 @@ static type_t* parse_assignment_expression(void) {
     // parse the right-hand side
     // the right side will be in r0, the left will be in r1
     compile_push(0);
-    type_t* right = parse_unary_expression();
+    type_t* right = parse_assignment_expression();
     compile_pop(1);
 
     type_t* type = compile_assign(op, left, right);
