@@ -139,6 +139,14 @@ void compile_string_literal_definition(int label_index, const char* string);
 type_t* compile_load_variable(const char* name);
 
 /**
+ * Emits code to load the word at the given offset relative to the frame
+ * pointer into the given register as an l-value.
+ *
+ * This is used for loading anonymous variables among other things.
+ */
+void compile_load_frame_offset(int offset, int register_num);
+
+/**
  * Emits code to dereference the value of the given type stored in the given
  * register.
  *

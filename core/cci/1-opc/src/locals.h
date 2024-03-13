@@ -43,7 +43,14 @@ void locals_destroy(void);
  * This takes ownership of the given name. It will be freed when locals_pop()
  * is called.
  */
-void locals_add(char* name, type_t* type);
+int locals_add(char* name, type_t* type);
+
+/**
+ * Adds a new anonymous variable of integer type, returning its offset.
+ *
+ * This is used in e.g. parse_switch().
+ */
+int loads_add_anonymous(void);
 
 /**
  * Destroys all variables beyond the given variable count.

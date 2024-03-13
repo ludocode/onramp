@@ -216,6 +216,28 @@ type_t* compile_character_literal(char c) {
     return type_new_base(BASE_SIGNED_INT);
 }
 
+void compile_load_frame_offset(int offset, int register_num) {
+    if (offset > -0x80) {
+        // the offset fits in a mix-type byte
+        emit_term("add");
+        emit_register(register_num);
+        emit_term("rfp");
+        emit_int(offset);
+    }
+    if (offset <= -0x80) {
+        // the offset needs an immediate load
+        emit_term("imw");
+        emit_register(register_num);
+        emit_int(offset);
+        emit_newline();
+        emit_term("add");
+        emit_register(register_num);
+        emit_term("rfp");
+        emit_register(register_num);
+    }
+    emit_newline();
+}
+
 type_t* compile_load_variable(const char* name) {
 
     // locals shadow globals so we check locals first.
@@ -223,24 +245,7 @@ type_t* compile_load_variable(const char* name) {
     int offset;
     bool local = locals_find(name, &type, &offset);
     if (local) {
-        if (offset > -0x80) {
-            // the offset fits in a mix-type byte
-            emit_term("add");
-            emit_term("r0");
-            emit_term("rfp");
-            emit_int(offset);
-        }
-        if (offset <= -0x80) {
-            // the offset needs an immediate load
-            emit_term("imw");
-            emit_term("r0");
-            emit_int(offset);
-            emit_newline();
-            emit_term("add");
-            emit_term("r0");
-            emit_term("rfp");
-            emit_term("r0");
-        }
+        compile_load_frame_offset(offset, 0);
     }
     if (!local) {
         global_t* global = global_find(name);
@@ -259,8 +264,8 @@ type_t* compile_load_variable(const char* name) {
         emit_term("r0");
         emit_term("rpp");
         emit_term("r0");
+        emit_newline();
     }
-    emit_newline();
 
     // return it as an lvalue
     type_t* ret = type_clone(type);

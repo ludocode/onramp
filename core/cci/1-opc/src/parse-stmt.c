@@ -40,10 +40,14 @@ static void parse_block(void);
 static void parse_statement(void);
 static bool try_parse_local_declaration(void);
 
-// label generation
+// statement state
 static int last_label;
-static int loop_start_label;
-static int loop_end_label;
+static int continue_label;
+static int break_label;
+static int case_label;
+static int default_label;
+static int switch_offset;
+static bool default_used;
 
 // string generation
 static int next_string;
@@ -56,9 +60,11 @@ static int function_frame_size;
 static bool inside_function;
 
 void parse_stmt_init(void) {
-    loop_start_label = -1;
-    loop_end_label = -1;
     last_label = -1;
+    continue_label = -1;
+    break_label = -1;
+    case_label = -1;
+    default_label = -1;
     strings = malloc(sizeof(char*) * STRINGS_MAX);
 }
 
@@ -154,52 +160,52 @@ static void parse_if(void) {
 static void parse_while(void) {
 
     // push labels of containing loop (for break/continue)
-    int old_start_label = loop_start_label;
-    int old_end_label = loop_end_label;
-    loop_start_label = parse_generate_label();
-    loop_end_label = parse_generate_label();
+    int old_start_label = continue_label;
+    int old_end_label = break_label;
+    continue_label = parse_generate_label();
+    break_label = parse_generate_label();
 
     // parse and compile the loop
-    compile_label(loop_start_label);
-    parse_condition(loop_end_label);
+    compile_label(continue_label);
+    parse_condition(break_label);
     parse_statement(); // TODO same as if here, not sure if should forbid labels or how
-    compile_jump(loop_start_label);
-    compile_label(loop_end_label);
+    compile_jump(continue_label);
+    compile_label(break_label);
 
     // pop labels
-    loop_start_label = old_start_label;
-    loop_end_label = old_end_label;
+    continue_label = old_start_label;
+    break_label = old_end_label;
 }
 
 static void parse_do(void) {
 
     // push labels of containing loop
-    int old_start_label = loop_start_label;
-    int old_end_label = loop_end_label;
-    loop_start_label = parse_generate_label();
-    loop_end_label = parse_generate_label();
+    int old_start_label = continue_label;
+    int old_end_label = break_label;
+    continue_label = parse_generate_label();
+    break_label = parse_generate_label();
 
     // parse and compile the loop
-    compile_label(loop_start_label);
+    compile_label(continue_label);
     parse_statement();
     lexer_expect("while", "Expected `while` after `do` statement.");
-    parse_condition(loop_end_label);
+    parse_condition(break_label);
     lexer_expect(";", "Expected `;` after `do`-`while` condition.");
-    compile_jump(loop_start_label);
-    compile_label(loop_end_label);
+    compile_jump(continue_label);
+    compile_label(break_label);
 
     // pop labels
-    loop_start_label = old_start_label;
-    loop_end_label = old_end_label;
+    continue_label = old_start_label;
+    break_label = old_end_label;
 }
 
 static void parse_for(void) {
 
     // push labels of containing loop
-    int old_start_label = loop_start_label;
-    int old_end_label = loop_end_label;
-    loop_start_label = parse_generate_label();
-    loop_end_label = parse_generate_label();
+    int old_start_label = continue_label;
+    int old_end_label = break_label;
+    continue_label = parse_generate_label();
+    break_label = parse_generate_label();
 
     // push locals count. we want to pop our variable definition when done.
     int previous_locals_count = locals_count;
@@ -214,11 +220,11 @@ static void parse_for(void) {
     }
 
     // parse the condition expression
-    compile_label(loop_start_label);
+    compile_label(continue_label);
     if (!lexer_accept(";")) {
         type_t* type = parse_expression();
         compile_lvalue_to_rvalue(type, 0);
-        compile_jump_if_zero(loop_end_label);
+        compile_jump_if_zero(break_label);
         type_delete(type);
         lexer_expect(";", "Expected `(` after condition clause of `for`");
     }
@@ -234,21 +240,21 @@ static void parse_for(void) {
     if (!lexer_accept(")")) {
         type_delete(parse_expression());
         lexer_expect(")", "Expected `)` after increment clause of `for`");
-        compile_jump(loop_start_label);
+        compile_jump(continue_label);
     }
 
     // parse and compile the loop
     compile_label(loop_contents_label);
     parse_statement();
     compile_jump(loop_increment_label);
-    compile_label(loop_end_label);
+    compile_label(break_label);
 
     // pop locals
     locals_pop(previous_locals_count);
 
     // pop labels
-    loop_start_label = old_start_label;
-    loop_end_label = old_end_label;
+    continue_label = old_start_label;
+    break_label = old_end_label;
 
 }
 
@@ -256,24 +262,20 @@ static void parse_break(void) {
     if (!lexer_accept(";")) {
         fatal("Expected `;` after break.");
     }
-    if (loop_end_label == -1) {
-        fatal("Cannot break outside of while loop.");
+    if (break_label == -1) {
+        fatal("Cannot `break` outside of loop or switch.");
     }
-    emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_end_label);
-    emit_newline();
+    compile_jump(break_label);
 }
 
 static void parse_continue(void) {
     if (!lexer_accept(";")) {
         fatal("Expected `;` after continue.");
     }
-    if (loop_end_label == -1) {
-        fatal("Cannot continue outside of while loop.");
+    if (continue_label == -1) {
+        fatal("Cannot `continue` outside of loop.");
     }
-    emit_term("jmp");
-    emit_computed_label('&', JUMP_LABEL_PREFIX, loop_start_label);
-    emit_newline();
+    compile_jump(continue_label);
 }
 
 static void parse_return(void) {
@@ -301,8 +303,100 @@ static void parse_return(void) {
 }
 
 static void parse_switch(void) {
-    // TODO
-    fatal("`switch` not yet implemented.");
+
+    // Push the outer info
+    int previous_switch_offset = switch_offset;
+    int previous_default_label = default_label;
+    bool previous_default_used = default_used;
+    bool previous_break_label = break_label;
+    default_label = -1;
+    default_used = -1;
+    break_label = parse_generate_label();
+
+    // Compile the expression into r0
+    lexer_expect("(", "Expected `(` after `switch`");
+    type_t* expr_type = parse_expression();
+    lexer_expect(")", "Expected `)` after expression of `switch`");
+
+    // We need to store the expression result so we can check it against each
+    // case statement. For this we use an anonymous variable.
+    switch_offset = locals_add(strdup_checked(""), type_new_base(BASE_SIGNED_INT));
+    compile_load_frame_offset(switch_offset, 1);
+    type_t* var = type_new_base(BASE_SIGNED_INT);
+    type_set_lvalue(var, true);
+    type_delete(compile_assign("=", var, expr_type));
+
+    // Emit a jump to the first `case` statement. The cases form a linked list;
+    // each one tests the expression and either runs the code or jumps to the
+    // next case statement.
+    case_label = parse_generate_label();
+    compile_jump(case_label);
+
+    // Parse and compile the contents of the switch
+    parse_statement();
+    compile_jump(break_label);
+
+    // If we found a default label and none of the cases matched, jump to it
+    // now. We're done.
+    compile_label(case_label);
+    if (default_label != -1) {
+        compile_jump(default_label);
+    }
+    compile_label(break_label);
+
+    // Pop outer info
+    break_label = previous_break_label;
+    default_used = previous_default_used;
+    default_label = previous_default_label;
+    switch_offset = previous_switch_offset;
+}
+
+static void parse_case(void) {
+    
+    // A case statement compares its constant expression to the stored
+    // expression of the switch. Since code passing through the switch needs to
+    // fallthrough case statements, we also emit a jump around it.
+    int run_label = parse_generate_label();
+    compile_jump(run_label);
+
+    // Case statements form a linked list.
+    compile_label(case_label);
+    case_label = parse_generate_label();
+
+    // Parse the constant expression of the case statement, put it in r0
+    type_t* case_type;
+    int value;
+    if (!try_parse_constant_expression(&case_type, &value)) {
+        fatal("Expected a constant expression after `case`.");
+    }
+    lexer_expect(":", "Expected `:` after `case` expression.");
+    type_delete(compile_immediate_int(value));
+
+    // Get the switch value in r1
+    compile_load_frame_offset(switch_offset, 1);
+    type_t* switch_type = type_new_base(BASE_SIGNED_INT);
+    type_set_lvalue(switch_type, true);
+    compile_lvalue_to_rvalue(switch_type, 1);
+
+    // Compare them
+    type_delete(compile_binary_op("!=", switch_type, case_type));
+    compile_jump_if_zero(run_label);
+
+    // If this case didn't match, we jump to the next one.
+    compile_jump(case_label);
+    compile_label(run_label);
+}
+
+static void parse_default(void) {
+    if (case_label == -1) {
+        fatal("Cannot use `default` outside of a switch.");
+    }
+    if (default_label != -1) {
+        fatal("`default` has already been used in this switch.");
+    }
+    default_label = parse_generate_label();
+    compile_label(default_label);
+    lexer_expect(":", "Expected `:` after `default`.");
 }
 
 static void parse_statement(void) {
@@ -317,6 +411,8 @@ static void parse_statement(void) {
     if (lexer_accept("do")) { parse_do(); return; }
     if (lexer_accept("for")) { parse_for(); return; }
     if (lexer_accept("switch")) { parse_switch(); return; }
+    if (lexer_accept("case")) { parse_case(); return; }
+    if (lexer_accept("default")) { parse_default(); return; }
     if (lexer_accept("break")) { parse_break(); return; }
     if (lexer_accept("continue")) { parse_continue(); return; }
     if (lexer_accept("return")) { parse_return(); return; }

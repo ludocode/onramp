@@ -52,7 +52,7 @@ void locals_destroy(void) {
     free(locals_types);
 }
 
-void locals_add(char* name, type_t* type) {
+int locals_add(char* name, type_t* type) {
     if (locals_count == LOCALS_MAX) {
         fatal("Too many local variables.");
     }
@@ -72,6 +72,13 @@ void locals_add(char* name, type_t* type) {
     *(locals_offsets + locals_count) = offset;
 
     locals_count = (locals_count + 1);
+    return offset;
+}
+
+int loads_add_anonymous(void) {
+    // An anonymous variable has an empty name. (locals_add() doesn't bother
+    // to check for duplicates.)
+    return locals_add(strdup_checked(""), type_new_base(BASE_SIGNED_INT));
 }
 
 void locals_pop(int previous_locals_count) {

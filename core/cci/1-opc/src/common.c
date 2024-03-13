@@ -72,3 +72,12 @@ void* memdup(const void* other, size_t size) {
     }
     return p;
 }
+
+// TODO maybe put this in libo
+char* strdup_checked(char* str) {
+    char* ret = strdup(str);
+    if (ret == NULL) {
+        fatal("Out of memory.");
+    }
+    return ret;
+}
