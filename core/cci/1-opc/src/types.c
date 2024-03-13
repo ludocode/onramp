@@ -23,6 +23,10 @@ static int* types_tags; // typedef, struct or union
 static void** types_objects; // type_t* or record_t*
 static size_t types_buckets;
 
+static size_t types_anonymous_records_capacity;
+static size_t types_anonymous_records_count;
+static record_t** types_anonymous_records;
+
 void types_init(void) {
     // TODO we could make this growable later. For now we don't bother.
     types_buckets = 256;
@@ -30,12 +34,19 @@ void types_init(void) {
     types_tags = malloc(types_buckets * sizeof(int));
     types_objects = malloc(types_buckets * sizeof(void*));
 
+    // We could also make this growable. We don't bother
+    types_anonymous_records_capacity = 256;
+    types_anonymous_records = malloc(types_anonymous_records_capacity * sizeof(record_t*));
+
     if (types_names == NULL) {fatal("Out of memory.");}
     if (types_tags == NULL) {fatal("Out of memory.");}
     if (types_objects == NULL) {fatal("Out of memory.");}
+    if (types_anonymous_records == NULL) {fatal("Out of memory.");}
 }
 
 void types_destroy(void) {
+
+    // free hashtable contents
     size_t i = 0;
     while (i < types_buckets) {
         char* name = *(types_names + i);
@@ -51,6 +62,18 @@ void types_destroy(void) {
         }
         i = (i + 1);
     }
+
+    // free anonymous records
+    i = 0;
+    while (i < types_anonymous_records_count) {
+        record_delete(*(types_anonymous_records + i));
+        i = (i + 1);
+    }
+}
+
+void types_add_anonymous_record(record_t* record) {
+    *(types_anonymous_records + types_anonymous_records_count) = record;
+    types_anonymous_records_count = (types_anonymous_records_count + 1);
 }
 
 /**

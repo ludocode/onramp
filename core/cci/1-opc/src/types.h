@@ -55,4 +55,13 @@ record_t* types_find_struct(const char* name);
 record_t* types_find_union(const char* name);
 const type_t* types_find_typedef(const char* name);
 
+/**
+ * Adds an anonymous record.
+ *
+ * All records live for the lifetype of the program. If they are not stored in
+ * the types table, they are stored in a list here so they can be cleaned up on
+ * exit (to ensure there are no memory leaks.)
+ */
+void types_add_anonymous_record(record_t* record);
+
 #endif

@@ -25,6 +25,7 @@
 #include "parse-decl.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "compile.h"
 #include "field.h"
@@ -215,38 +216,46 @@ static void parse_enum(void) {
 }
 
 static record_t* parse_record(bool is_struct) {
+    record_t* record = NULL;
+
+    // `struct` and `union` are allowed to be anonymous.
     if (lexer_type != lexer_type_alphanumeric) {
-        fatal("`struct` or `union` must be followed by a name.");
+        record = record_new(strdup_checked(""));
+        types_add_anonymous_record(record);
     }
 
-    // See if this struct or union already exists
-    record_t* record;
-    if (is_struct) {
-        record = types_find_struct(lexer_token);
-    }
-    if (!is_struct) {
-        record = types_find_union(lexer_token);
-    }
-    if (record != NULL) {
-        lexer_consume();
-    }
-
-    // If not, create it
-    if (record == NULL) {
-        if (parse_is_inside_function()) {
-            fatal("Structs and unions cannot be declared inside functions in opC.");
-        }
-        record = record_new(lexer_take());
+    // A named struct might already exist.
+    if (lexer_type == lexer_type_alphanumeric) {
         if (is_struct) {
-            types_add_struct(record);
+            record = types_find_struct(lexer_token);
         }
         if (!is_struct) {
-            types_add_union(record);
+            record = types_find_union(lexer_token);
+        }
+        if (record != NULL) {
+            lexer_consume();
+        }
+
+        // If not, create it
+        if (record == NULL) {
+            if (parse_is_inside_function()) {
+                fatal("Structs and unions cannot be declared inside functions in opC.");
+            }
+            record = record_new(lexer_take());
+            if (is_struct) {
+                types_add_struct(record);
+            }
+            if (!is_struct) {
+                types_add_union(record);
+            }
         }
     }
 
     // Check for `{`. If not, we're done.
     if (!lexer_accept("{")) {
+        if (0 == strcmp(record_name(record), "")) {
+            fatal("Expected `{` or a name after `struct` or `union`.");
+        }
         return record;
     }
 

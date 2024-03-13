@@ -43,6 +43,8 @@
  * Creates a new record.
  *
  * The record takes ownership of the given name.
+ *
+ * If the record is anonymous, the name is an empty (allocated) string.
  */
 record_t* record_new(char* name);
 
