@@ -34,15 +34,18 @@
  * typedef struct {
  *     char* name;
  *     field_t* fields;
+ *     size_t size;
  * } record_t;
  *
- * TODO we need an additional field to say whether it's a struct or union (or
- * do we? would that be something for the type table instead?)
+ * A record is created when it is first declared. Structs and unions can be
+ * forward-declared; the fields are added and the size is computed later when
+ * it is defined.
  */
 
 #define RECORD_OFFSET_NAME 0
 #define RECORD_OFFSET_FIELDS 1
-#define RECORD_FIELD_COUNT 2
+#define RECORD_OFFSET_SIZE 2
+#define RECORD_FIELD_COUNT 3
 
 record_t* record_new(char* name) {
     record_t* record = malloc(sizeof(void*) * RECORD_FIELD_COUNT);
@@ -51,6 +54,7 @@ record_t* record_new(char* name) {
     }
     *(char**)((void**)record + RECORD_OFFSET_NAME) = name;
     *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = NULL;
+    *(size_t*)((void**)record + RECORD_OFFSET_SIZE) = 0;
     return record;
 }
 
@@ -82,18 +86,24 @@ void record_set_fields(record_t* record, field_t* fields) {
         fatal_2("Internal error: cannot change fields of record ", record_name(record));
     }
     *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = fields;
-}
 
-size_t record_size(const record_t* record) {
+    // compute the size and cache it
     size_t size = 4;
-    field_t* field = record_fields(record);
-    while (field) {
-        size_t end = field_end(field);
+    while (fields) {
+        size_t end = field_end(fields);
         if (end > size) {
             size = end;
         }
-        field = field_next(field);
+        fields = field_next(fields);
     }
     size = ((size + 3) & (~3)); // round up to multiple of word size (4)
+    *(size_t*)((void**)record + RECORD_OFFSET_SIZE) = size;
+}
+
+size_t record_size(const record_t* record) {
+    size_t size = *(size_t*)((void**)record + RECORD_OFFSET_SIZE);
+    if (size == 0) {
+        fatal("Cannot `sizeof` an incomplete struct or union.");
+    }
     return size;
 }

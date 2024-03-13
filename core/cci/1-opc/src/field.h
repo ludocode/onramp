@@ -28,7 +28,7 @@
 #include "common.h"
 
 /**
- * A field is one variable in a struct.
+ * A field is one variable in a struct or union.
  *
  * Fields are stored in an intrusive singly-linked list and are owned by their
  * containing record.
