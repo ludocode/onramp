@@ -163,17 +163,18 @@ void compile_function_close(const char* name, int arg_count, int frame_size, sto
     // set up the stack frame (now that we know its size)
     //locals_pop(locals_count - arg_count);
     //printf("closing function, %i vars left, %i max, %i vars in function\n", locals_count, compile_function_max_locals_count, compile_function_max_locals_count - locals_count);
-    if ((frame_size > 0) & (frame_size < 0x80)) {
-        // the frame size fits in a mix-type byte
-        emit_term("sub");
-        emit_term("rsp");
-        emit_term("rsp");
-        emit_int(frame_size);
-        emit_newline();
+    if (frame_size > 0) {
+        if (frame_size < 0x80) {
+            // the frame size fits in a mix-type byte
+            emit_term("sub");
+            emit_term("rsp");
+            emit_term("rsp");
+            emit_int(frame_size);
+            emit_newline();
+        }
     }
     if (frame_size >= 0x80) {
         // the frame size needs to go in a temporary register
-        // TODO test this
         emit_term("imw");
         emit_term("r9");
         emit_int(frame_size);
@@ -828,3 +829,32 @@ type_t* compile_operator_dereference(type_t* type) {
 
 }
 
+void compile_offset(int offset) {
+    if (offset == 0) {
+        // nothing to do
+        return;
+    }
+
+    if (offset >= -112) {
+        if (offset <= 127) {
+            // the offset can be applied in a mix-type byte
+            emit_term("add");
+            emit_term("r0");
+            emit_term("r0");
+            emit_int(offset);
+            emit_newline();
+            return;
+        }
+    }
+
+    // the offset needs to go in a temporary register
+    emit_term("imw");
+    emit_term("r9");
+    emit_int(offset);
+    emit_newline();
+    emit_term("add");
+    emit_term("r0");
+    emit_term("r0");
+    emit_term("r9");
+    emit_newline();
+}

@@ -206,4 +206,9 @@ type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_nu
  */
 type_t* compile_operator_dereference(type_t* type);
 
+/**
+ * Compiles an offset to the value in r0 for struct/record access.
+ */
+void compile_offset(int offset);
+
 #endif

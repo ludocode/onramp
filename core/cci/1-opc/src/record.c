@@ -25,6 +25,7 @@
 #include "record.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "field.h"
 
@@ -106,4 +107,18 @@ size_t record_size(const record_t* record) {
         fatal("Cannot `sizeof` an incomplete struct or union.");
     }
     return size;
+}
+
+const field_t* record_find_field(const record_t* record, const char* name) {
+    if (record_fields(record) == NULL) {
+        fatal("Cannot access members of an incomplete struct or union.");
+    }
+    field_t* field = record_fields(record);
+    while (field) {
+        if (0 == strcmp(name, field_name(field))) {
+            return field;
+        }
+        field = field_next(field);
+    }
+    fatal_2("Struct or union has no such field: ", name);
 }

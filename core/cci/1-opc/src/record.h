@@ -72,4 +72,6 @@ void record_set_fields(record_t* record, field_t* fields);
  */
 size_t record_size(const record_t* record);
 
+const field_t* record_find_field(const record_t* record, const char* name);
+
 #endif

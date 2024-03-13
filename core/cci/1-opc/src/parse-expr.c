@@ -34,6 +34,8 @@
 #include "compile.h"
 #include "lexer.h"
 #include "emit.h"  // TODO remove all emit calls in this code
+#include "record.h"
+#include "field.h"
 
 static type_t* parse_assignment_expression(void);
 static type_t* parse_identifier_expression(void);
@@ -521,6 +523,24 @@ static type_t* parse_identifier_expression(void) {
     return ret;
 }
 
+static type_t* parse_record_value_access(type_t* type) {
+    if (lexer_type != lexer_type_alphanumeric) {
+        fatal("Expected a struct or union field name after `.`");
+    }
+    if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | !type_is_record(type)) {
+        fatal("`.` can only be used on a struct or union value.");
+    }
+
+    const field_t* field = record_find_field(type_record(type), lexer_token);
+    lexer_consume();
+    compile_offset(field_offset(field));
+
+    type_delete(type);
+    type = type_clone(field_type(field));
+    type_set_lvalue(type, true);
+    return type;
+}
+
 static type_t* parse_postfix_expression(void) {
 
     // A postfix expression starts with a primary expression. (This also
@@ -541,13 +561,13 @@ static type_t* parse_postfix_expression(void) {
             continue;
         }
 
-        // record value dereference
+        // record value access
         if (lexer_accept(".")) {
-            fatal(". not yet implemented.");
+            type = parse_record_value_access(type);
             continue;
         }
 
-        // record pointer dereference
+        // record pointer access
         if (lexer_accept("->")) {
             fatal("-> not yet implemented.");
             continue;
@@ -662,6 +682,14 @@ type_t* parse_unary_expression(void) {
     
     if (lexer_accept("sizeof")) {
         return parse_sizeof();
+    }
+
+    if (lexer_accept("++")) {
+        fatal("++ not yet implemented.");
+    }
+
+    if (lexer_accept("--")) {
+        fatal("-- not yet implemented.");
     }
 
     return parse_postfix_expression();

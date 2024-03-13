@@ -129,6 +129,8 @@ void type_set_record(type_t* type, const record_t* record);
  * arrays.
  *
  * For example `int**` has two indirections and `int**[5]` has three.
+ *
+ * This does not include the l-value flag.
  */
 int type_indirections(const type_t* type);
 
