@@ -31,6 +31,15 @@
 #include "common.h"
 
 /**
+ * A type in opC is described by:
+ *
+ * - a base primitive or record type
+ * - a pointer count
+ * - an optional array size, which can be indeterminate
+ * - an l-value flag (describing its state of compilation)
+ */
+
+/**
  * A base type.
  *
  * `char`, `signed char` and `unsigned char` are technically supposed to be
@@ -77,23 +86,6 @@ typedef int base_t;
  */
 #define TYPE_ARRAY_NONE -1
 #define TYPE_ARRAY_INDETERMINATE -2
-
-/**
- * A type.
- *
- * A type in opC is described by:
- *
- * - a base primitive or record type
- * - a pointer count
- * - an optional array size, which can be indeterminate
- * - an l-value flag (describing its state of compilation)
- */
-#ifdef __onramp__
-typedef void type_t;
-#endif
-#ifndef __onramp__
-typedef struct {int unused;} type_t;
-#endif
 
 /**
  * Deletes a type.

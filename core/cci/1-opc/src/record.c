@@ -1,4 +1,3 @@
-#ifdef DISABLED
 /*
  * The MIT License (MIT)
  *
@@ -25,6 +24,10 @@
 
 #include "record.h"
 
+#include <stdlib.h>
+
+#include "field.h"
+
 /*
  * record_t looks like this:
  *
@@ -37,18 +40,17 @@
  * do we? would that be something for the type table instead?)
  */
 
-record_t* record_new(const char* name) {
-    record_t* record = malloc(sizeof(void*) * 2);
+#define RECORD_OFFSET_NAME 0
+#define RECORD_OFFSET_FIELDS 1
+#define RECORD_FIELD_COUNT 2
+
+record_t* record_new(char* name) {
+    record_t* record = malloc(sizeof(void*) * RECORD_FIELD_COUNT);
     if (!record) {
         fatal("Out of memory.");
     }
-
-    *record = strdup(name);
-    if (!*record) {
-        fatal("Out of memory.");
-    }
-
-    *(record + 1) = NULL; // fields
+    *(char**)((void**)record + RECORD_OFFSET_NAME) = name;
+    record_set_fields(record, NULL);
     return record;
 }
 
@@ -63,21 +65,23 @@ static void record_destroy_fields(record_t* record) {
 
 void record_delete(record_t* record) {
     record_destroy_fields(record);
-    free(*record); // name
+    free((char*)record_name(record));
     free(record);
 }
 
 const char* record_name(record_t* record) {
-    return *record;
+    return *(char**)((void**)record + RECORD_OFFSET_NAME);
 }
 
 field_t* record_fields(record_t* record) {
-    return *(record + 1);
+    return*(field_t**)((void**)record + RECORD_OFFSET_FIELDS); 
 }
 
 void record_set_fields(record_t* record, field_t* fields) {
-    record_destroy_fields(record);
-    *(record + 1) = fields;
+    if (record_fields(record) != NULL) {
+        fatal_2("Cannot change fields of record ", record_name(record));
+    }
+    *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = fields;
 }
 
 size_t record_size(record_t* record) {
@@ -90,7 +94,6 @@ size_t record_size(record_t* record) {
         }
         field = field_next(field);
     }
-    field = ((field + 3) & (~3)); // round up to multiple of word size (4)
-    return field;
+    size = ((size + 3) & (~3)); // round up to multiple of word size (4)
+    return size;
 }
-#endif

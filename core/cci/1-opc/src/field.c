@@ -1,4 +1,3 @@
-#ifdef DISABLED
 /*
  * The MIT License (MIT)
  *
@@ -25,6 +24,10 @@
 
 #include "field.h"
 
+#include <stdlib.h>
+
+#include "type.h"
+
 /*
  * field_t looks like this:
  *
@@ -37,64 +40,50 @@
  *
  */
 
-field_t* field_new(const char* name, type_t* type, size_t offset, field_t* next) {
-    field_t* field = malloc(sizeof(void*) * 4);
+#define FIELD_OFFSET_NEXT 0
+#define FIELD_OFFSET_NAME 1
+#define FIELD_OFFSET_TYPE 2
+#define FIELD_OFFSET_OFFSET 3
+#define FIELD_FIELD_COUNT 4
+
+field_t* field_new(char* name, type_t* type, size_t offset, field_t* next) {
+    field_t* field = malloc(sizeof(void*) * FIELD_FIELD_COUNT);
     if (!field) {
         fatal("Out of memory.");
     }
-
-    *field = next;
-
-    if (!(*(field + 1) = strdup(name))) {
-        fatal("Out of memory.");
-    }
-
-    // TODO should we duplicate the type or not? should we just make it reference counted?
-    /*
-    if (!(*(field + 2) = type_dup(type))) {
-        fatal("Out of memory.");
-    }
-    */
-    *(field + 2) = type;
-
-    *(field + 3) = offset;
-
+    *(char**)((void**)field + FIELD_OFFSET_NAME) = name;
+    *(type_t**)((void**)field + FIELD_OFFSET_TYPE) = type;
+    *(size_t*)((void**)field + FIELD_OFFSET_OFFSET) = offset;
+    *(field_t**)((void**)field + FIELD_OFFSET_NEXT) = next;
     return field;
 }
 
 void field_delete(field_t* field) {
-    free(*(field + 1)); // name
-    type_delete(*(field + 2)); // type
+    free((char*)field_name(field));
+    type_delete((type_t*)field_type(field));
     free(field);
 }
 
-field_t* field_next(field_t* field) {
-    return *field;
+field_t* field_next(const field_t* field) {
+    return *(field_t**)((void**)field + FIELD_OFFSET_NEXT);
 }
 
-const char* field_name(field_t* field) {
-    return *(field + 1);
+const char* field_name(const field_t* field) {
+    return *(char**)((void**)field + FIELD_OFFSET_NAME);
 }
 
-type_t* field_type(field_t* field) {
-    return *(field + 2);
+type_t* field_type(const field_t* field) {
+    return *(type_t**)((void**)field + FIELD_OFFSET_TYPE);
 }
 
-size_t field_offset(field_t* field) {
-    return (size_t)*(field + 3);
+size_t field_offset(const field_t* field) {
+    return *(size_t*)((void**)field + FIELD_OFFSET_OFFSET);
 }
 
-/*
-void field_set_next(field_t* field, field_t* next) {
-    *field = next;
-}
-*/
-
-size_t field_size(field_t* field) {
+size_t field_size(const field_t* field) {
     return type_size(field_type(field));
 }
 
-size_t field_end(field_t* field) {
+size_t field_end(const field_t* field) {
     return field_offset(field) + field_size(field);
 }
-#endif

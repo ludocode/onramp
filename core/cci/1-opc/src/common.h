@@ -30,8 +30,6 @@
 #include "libo-error.h"
 #include "libo-util.h"
 
-#include "type.h"
-
 #define JUMP_LABEL_PREFIX     "_Lx"
 #define STRING_LABEL_PREFIX   "_Sx"
 #define FUNCTION_LABEL_PREFIX "_F_"
@@ -39,12 +37,23 @@
 
 
 
-
 // We don't have structs so we can't forward-declare them. We have to put
 // these typedefs here instead.
-
-typedef void record_t;
-//typedef void type_t; //TODO
+#ifdef __onramp_cci_omc__
+    typedef void field_t;
+    typedef void global_t;
+    typedef void record_t;
+    typedef void type_t;
+#endif
+#ifndef __onramp_cci_omc__
+    // When compiling with a better compiler than cci/0, we use empty structs
+    // to ensure that these pointers are not implicitly convertible with each
+    // other or anything else.
+    typedef struct {void* unused;} field_t;
+    typedef struct {void* unused;} global_t;
+    typedef struct {void* unused;} record_t;
+    typedef struct {void* unused;} type_t;
+#endif
 
 
 

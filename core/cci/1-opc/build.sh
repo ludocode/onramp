@@ -45,6 +45,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/emit.c \
     -o build/intermediate/cci-1-opc/emit.oo
 
+echo Compiling cci/1-opc field.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/1-opc/build-ccargs \
+    -c core/cci/1-opc/src/field.c \
+    -o build/intermediate/cci-1-opc/field.oo
+
 echo Compiling cci/1-opc global.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
@@ -87,6 +93,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/parse-stmt.c \
     -o build/intermediate/cci-1-opc/parse-stmt.oo
 
+echo Compiling cci/1-opc record.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/1-opc/build-ccargs \
+    -c core/cci/1-opc/src/record.c \
+    -o build/intermediate/cci-1-opc/record.oo
+
 echo Compiling cci/1-opc type.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
@@ -100,6 +112,7 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/common.oo \
     build/intermediate/cci-1-opc/compile.oo \
     build/intermediate/cci-1-opc/emit.oo \
+    build/intermediate/cci-1-opc/field.oo \
     build/intermediate/cci-1-opc/global.oo \
     build/intermediate/cci-1-opc/lexer.oo \
     build/intermediate/cci-1-opc/locals.oo \
@@ -107,5 +120,6 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/parse-decl.oo \
     build/intermediate/cci-1-opc/parse-expr.oo \
     build/intermediate/cci-1-opc/parse-stmt.oo \
+    build/intermediate/cci-1-opc/record.oo \
     build/intermediate/cci-1-opc/type.oo \
     -o build/intermediate/cci-1-opc/cci.oe

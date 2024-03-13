@@ -27,6 +27,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "type.h"
+
 /**
  * A global looks like this:
  *

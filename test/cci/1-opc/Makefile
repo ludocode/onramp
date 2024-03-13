@@ -43,6 +43,7 @@ SRCS=\
 	$(SRC)/common.c \
 	$(SRC)/compile.c \
 	$(SRC)/emit.c \
+	$(SRC)/field.c \
 	$(SRC)/global.c \
 	$(SRC)/lexer.c \
 	$(SRC)/locals.c \
@@ -50,6 +51,7 @@ SRCS=\
 	$(SRC)/parse-decl.c \
 	$(SRC)/parse-expr.c \
 	$(SRC)/parse-stmt.c \
+	$(SRC)/record.c \
 	$(SRC)/type.c \
 
 all: build test FORCE

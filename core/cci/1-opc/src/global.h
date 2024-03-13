@@ -30,8 +30,6 @@
 void globals_init(void);
 void globals_destroy(void);
 
-typedef void global_t;
-
 const char* global_name(const global_t* global);
 
 const type_t* global_type(const global_t* global);
