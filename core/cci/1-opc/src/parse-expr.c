@@ -523,14 +523,7 @@ static type_t* parse_identifier_expression(void) {
     return ret;
 }
 
-static type_t* parse_record_value_access(type_t* type) {
-    if (lexer_type != lexer_type_alphanumeric) {
-        fatal("Expected a struct or union field name after `.`");
-    }
-    if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | !type_is_record(type)) {
-        fatal("`.` can only be used on a struct or union value.");
-    }
-
+static type_t* parse_record_access(type_t* type) {
     const field_t* field = record_find_field(type_record(type), lexer_token);
     lexer_consume();
     compile_offset(field_offset(field));
@@ -539,6 +532,32 @@ static type_t* parse_record_value_access(type_t* type) {
     type = type_clone(field_type(field));
     type_set_lvalue(type, true);
     return type;
+}
+
+static type_t* parse_record_value_access(type_t* type) {
+    if (lexer_type != lexer_type_alphanumeric) {
+        fatal("Expected a struct or union field name after `.`");
+    }
+    if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | !type_is_record(type)) {
+        fatal("`.` can only be used on a struct or union pointer.");
+    }
+    return parse_record_access(type);
+}
+
+static type_t* parse_record_pointer_access(type_t* type) {
+    if (lexer_type != lexer_type_alphanumeric) {
+        fatal("Expected a struct or union field name after `.`");
+    }
+    // Note: We just check that indirections is 1, which means `->` works on an
+    // array of structs. Apparently this is normal as neither GCC and Clang
+    // complain when `->` is used this way, but strictly speaking, the spec
+    // says it's supposed to only be used on pointers.
+    if ((!type_is_lvalue(type) | (type_indirections(type) != 1)) | !type_is_record(type)) {
+        fatal("`.` can only be used on a struct or union pointer.");
+    }
+
+    type = compile_operator_dereference(type);
+    return parse_record_access(type);
 }
 
 static type_t* parse_postfix_expression(void) {
@@ -569,7 +588,7 @@ static type_t* parse_postfix_expression(void) {
 
         // record pointer access
         if (lexer_accept("->")) {
-            fatal("-> not yet implemented.");
+            type = parse_record_pointer_access(type);
             continue;
         }
 
