@@ -127,14 +127,14 @@
   jmp &_Lx3 
 :_Lx2 
   imw r0 1 
-#
   leave 
   ret 
+#
 :_Lx4 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_Lx5 
 :_Lx3 
   imw r0 19 
@@ -146,9 +146,9 @@
   jmp &_Lx6 
 :_Lx5 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_Lx7 
 :_Lx6 
   imw r0 8 
@@ -162,9 +162,9 @@
 #
   jmp &_Lx0 
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 #
@@ -188,9 +188,9 @@
   jmp &_LxC 
 :_LxB 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_LxD 
 :_LxC 
   imw r0 98 
@@ -202,9 +202,9 @@
   jmp &_LxE 
 :_LxD 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_LxF 
 :_LxE 
   imw r0 99 
@@ -216,9 +216,9 @@
   jmp &_Lx10 
 :_LxF 
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 #
@@ -246,9 +246,9 @@
   jmp &_Lx14 
 :_Lx13 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_Lx15 
 :_Lx14 
   imw r0 98 
@@ -318,16 +318,16 @@
   jz r0 &_Lx1A 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 :_Lx1A 
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

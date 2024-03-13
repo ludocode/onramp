@@ -184,9 +184,9 @@
 #
 :_Lx6 
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

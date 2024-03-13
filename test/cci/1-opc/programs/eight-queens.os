@@ -587,9 +587,9 @@
   jz r0 &_Lx2 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
 :_Lx2 
   add r0 rfp -12 
@@ -607,9 +607,9 @@
   jmp &_Lx0 
 :_Lx1 
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
   zero r0 
@@ -640,9 +640,9 @@
 #
   call ^print_board 
 #
-#
   leave 
   ret 
+#
 #
 #
 :_Lx3 

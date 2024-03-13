@@ -3,9 +3,9 @@
 @_F_foo 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
 #
   zero r0 
@@ -23,9 +23,9 @@
 @_F_main 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

@@ -108,9 +108,9 @@
 #
   jz r0 &_Lx0 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_Lx1 
 :_Lx0 
   imw r0 1 
@@ -126,9 +126,9 @@
   jmp &_Lx3 
 :_Lx2 
   imw r0 1 
-#
   leave 
   ret 
+#
 :_Lx3 
 :_Lx1 
   add r0 rfp -4 
@@ -141,10 +141,10 @@
 #
   jz r0 &_Lx4 
   imw r0 1 
-#
-#
   leave 
   ret 
+#
+#
 :_Lx4 
   add r0 rfp -4 
   push r0 
@@ -167,16 +167,16 @@
 #
   jz r0 &_Lx7 
   imw r0 1 
-#
   leave 
   ret 
+#
 #
   jmp &_Lx8 
 :_Lx7 
   imw r0 1 
-#
   leave 
   ret 
+#
 :_Lx8 
 :_Lx6 
   add r0 rfp -4 
@@ -189,10 +189,10 @@
 #
   jz r0 &_Lx9 
   imw r0 1 
-#
-#
   leave 
   ret 
+#
+#
 :_Lx9 
   add r0 rfp -4 
   push r0 
@@ -204,18 +204,18 @@
 #
   jz r0 &_LxA 
   imw r0 1 
-#
   leave 
   ret 
+#
   jmp &_LxB 
 :_LxA 
   imw r0 0 
 #
   jz r0 &_LxC 
   imw r0 1 
-#
   leave 
   ret 
+#
 #
   jmp &_LxD 
 :_LxC 
@@ -237,15 +237,15 @@
 #
   jz r0 &_LxE 
   imw r0 1 
-#
-#
   leave 
   ret 
+#
+#
 :_LxE 
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

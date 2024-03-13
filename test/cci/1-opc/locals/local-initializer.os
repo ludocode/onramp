@@ -125,9 +125,9 @@
   jz r0 &_Lx0 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 :_Lx0 
@@ -153,9 +153,9 @@
   jz r0 &_Lx1 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 :_Lx1 
@@ -187,9 +187,9 @@
   jz r0 &_Lx2 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx2 
   add r0 rfp -20 
@@ -203,9 +203,9 @@
   jz r0 &_Lx3 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx3 
   add r0 rfp -24 
@@ -226,9 +226,9 @@
   jz r0 &_Lx4 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 :_Lx4 
@@ -251,16 +251,16 @@
   jz r0 &_Lx5 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 #
 :_Lx5 
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

@@ -21,9 +21,9 @@
   stw r9 rfp -40 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
 #
   zero r0 
@@ -42,9 +42,9 @@
 @_F_main 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

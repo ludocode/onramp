@@ -4,9 +4,9 @@
   stw r0 rfp -4 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
 #
   zero r0 
@@ -25,9 +25,9 @@
 @_F_main 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

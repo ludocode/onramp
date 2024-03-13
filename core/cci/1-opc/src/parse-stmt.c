@@ -277,7 +277,7 @@ static void parse_continue(void) {
 }
 
 static void parse_return(void) {
-    int argument = !lexer_accept(";");
+    int argument = !lexer_is(";");
 
     if (argument) {
         type_t* type = parse_expression();
@@ -285,7 +285,6 @@ static void parse_return(void) {
         // The expression result is in r0 which is our return value.
         // TODO for now assume it's correct, we should be casting it to the return type
         type_delete(type);
-        lexer_expect(";", "Expected `;` at end of `return` statement");
     }
     if (!argument) {
         // Without an argument, we still have to return zero if this is main().
@@ -294,6 +293,7 @@ static void parse_return(void) {
         }
     }
     compile_return();
+    lexer_expect(";", "Expected `;` at end of `return` statement");
 }
 
 static void parse_switch(void) {

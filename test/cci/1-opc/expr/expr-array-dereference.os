@@ -329,15 +329,15 @@
   jz r0 &_Lx0 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx0 
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

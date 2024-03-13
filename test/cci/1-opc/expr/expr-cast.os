@@ -112,9 +112,9 @@
   jz r0 &_Lx0 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx0 
   imw r0 0x123 
@@ -130,9 +130,9 @@
   jz r0 &_Lx1 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx1 
   imw r0 0x123 
@@ -148,15 +148,15 @@
   jz r0 &_Lx2 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx2 
   imw r0 0 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 

@@ -32,9 +32,9 @@
   jz r0 &_Lx0 
 #
   imw r0 1 
-#
   leave 
   ret 
+#
 #
 :_Lx0 
   add r0 rfp -4 
@@ -61,15 +61,15 @@
   jz r0 &_Lx3 
 #
   imw r0 0 
-#
   leave 
   ret 
+#
 #
 :_Lx3 
   imw r0 1 
-#
   leave 
   ret 
+#
 #
   zero r0 
   leave 
