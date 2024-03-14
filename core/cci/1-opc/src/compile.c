@@ -726,17 +726,9 @@ type_t* compile_cast(type_t* current_type, type_t* desired_type, int register_nu
     }
 
     // casting to or from char does sign extension.
-    
-    // TODO use sxb in assembly, not implemented yet
-    emit_term("shl");
+    emit_term("sxb");
     emit_register(register_num);
     emit_register(register_num);
-    emit_term("24");
-    emit_newline();
-    emit_term("shrs");
-    emit_register(register_num);
-    emit_register(register_num);
-    emit_term("24");
     emit_newline();
 
     type_delete(current_type);

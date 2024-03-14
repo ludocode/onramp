@@ -249,8 +249,7 @@
   push r0 
   mov r0 "H"
   pop r1 
-  shl r0 r0 24 
-  shrs r0 r0 24 
+  sxb r0 r0 
   stb r0 0 r1 
 #
   add r0 rfp -8 
@@ -261,8 +260,7 @@
   push r0 
   mov r0 "e"
   pop r1 
-  shl r0 r0 24 
-  shrs r0 r0 24 
+  sxb r0 r0 
   stb r0 0 r1 
 #
   add r0 rfp -8 
@@ -273,8 +271,7 @@
   push r0 
   mov r0 "l"
   pop r1 
-  shl r0 r0 24 
-  shrs r0 r0 24 
+  sxb r0 r0 
   stb r0 0 r1 
 #
   add r0 rfp -8 
@@ -285,8 +282,7 @@
   push r0 
   mov r0 "l"
   pop r1 
-  shl r0 r0 24 
-  shrs r0 r0 24 
+  sxb r0 r0 
   stb r0 0 r1 
 #
   add r0 rfp -8 
@@ -297,8 +293,7 @@
   push r0 
   mov r0 "o"
   pop r1 
-  shl r0 r0 24 
-  shrs r0 r0 24 
+  sxb r0 r0 
   stb r0 0 r1 
 #
   add r0 rfp -8 
@@ -309,8 +304,7 @@
   push r0 
   imw r0 0 
   pop r1 
-  shl r0 r0 24 
-  shrs r0 r0 24 
+  sxb r0 r0 
   stb r0 0 r1 
 #
   imw r0 0 

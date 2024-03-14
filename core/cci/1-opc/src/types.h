@@ -27,7 +27,7 @@
 
 #include "common.h"
 
-/**
+/*
  * The types table contains the definitions of all structs, unions and
  * typedefs.
  *
@@ -58,7 +58,7 @@ const type_t* types_find_typedef(const char* name);
 /**
  * Adds an anonymous record.
  *
- * All records live for the lifetype of the program. If they are not stored in
+ * All records live for the lifetime of the program. If they are not stored in
  * the types table, they are stored in a list here so they can be cleaned up on
  * exit (to ensure there are no memory leaks.)
  */
