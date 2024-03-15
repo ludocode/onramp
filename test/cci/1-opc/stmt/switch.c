@@ -40,5 +40,10 @@ int main(void) {
         case 1:
             return 1;
 
+    // nested switch
+    switch (0)
+        switch (0)
+            default: return 1;
+
     return 0;
 }

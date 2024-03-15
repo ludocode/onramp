@@ -302,7 +302,8 @@ static void parse_switch(void) {
     int previous_switch_offset = switch_offset;
     int previous_default_label = default_label;
     bool previous_default_used = default_used;
-    bool previous_break_label = break_label;
+    int previous_break_label = break_label;
+    int previous_case_label = case_label;
     default_label = -1;
     default_used = -1;
     break_label = parse_generate_label();
@@ -339,6 +340,7 @@ static void parse_switch(void) {
     compile_label(break_label);
 
     // Pop outer info
+    case_label = previous_case_label;
     break_label = previous_break_label;
     default_used = previous_default_used;
     default_label = previous_default_label;
@@ -389,7 +391,7 @@ static void parse_case(bool declaration_allowed) {
     }
 }
 
-static void parse_default(void) {
+static void parse_default(bool declaration_allowed) {
     if (case_label == -1) {
         fatal("Cannot use `default` outside of a switch.");
     }
@@ -399,6 +401,12 @@ static void parse_default(void) {
     default_label = parse_generate_label();
     compile_label(default_label);
     lexer_expect(":", "Expected `:` after `default`.");
+
+    // As with labels and case statments, default can be followed by a
+    // statement.
+    if (!lexer_is("}")) {
+        parse_statement(declaration_allowed);
+    }
 }
 
 static void parse_goto(void) {
@@ -439,7 +447,7 @@ static void parse_statement(bool declaration_allowed) {
         if (lexer_accept("for")) { parse_for(); return; }
         if (lexer_accept("switch")) { parse_switch(); return; }
         if (lexer_accept("case")) { parse_case(declaration_allowed); return; }
-        if (lexer_accept("default")) { parse_default(); return; }
+        if (lexer_accept("default")) { parse_default(declaration_allowed); return; }
         if (lexer_accept("break")) { parse_break(); return; }
         if (lexer_accept("continue")) { parse_continue(); return; }
         if (lexer_accept("return")) { parse_return(); return; }

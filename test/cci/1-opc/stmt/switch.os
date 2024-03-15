@@ -387,9 +387,33 @@
   ret 
 #
 #
+#
   jmp &_Lx20 
 :_Lx23 
 :_Lx20 
+  imw r0 0 
+#
+  add r1 rfp -28 
+  stw r0 0 r1 
+  jmp &_Lx25 
+  imw r0 0 
+#
+  add r1 rfp -32 
+  stw r0 0 r1 
+  jmp &_Lx27 
+:_Lx28 
+  imw r0 1 
+  leave 
+  ret 
+#
+#
+  jmp &_Lx26 
+:_Lx27 
+  jmp &_Lx28 
+:_Lx26 
+  jmp &_Lx24 
+:_Lx25 
+:_Lx24 
   imw r0 0 
   leave 
   ret 
@@ -401,7 +425,7 @@
 
 =main 
   enter 
-  sub rsp rsp 24 
+  sub rsp rsp 32 
   jmp ^_F_main 
 
 
