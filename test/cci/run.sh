@@ -82,6 +82,10 @@ TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
 TOTAL_ERRORS=0
 
+# we want address sanitizer to return the same error code as the vm so we can
+# detect crashes on both
+export ASAN_OPTIONS=exitcode=125
+
 # determine macros to use for this compiler
 if [ "$COMPILER_ID" = "omc" ]; then
     MACROS="-D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn="
@@ -141,9 +145,12 @@ for TESTFILE in $FILES; do
     set -e
 
     # check compile status and assembly
-    if [ -e $BASENAME.os ]; then
+    if [ $RET -eq 125 ]; then
+        echo "ERROR: compiler crashed on $BASENAME; expected success or error message."
+        THIS_ERROR=1
+    elif [ -e $BASENAME.os ]; then
         if [ $RET -ne 0 ]; then
-            echo "ERROR: $BASENAME failed; expected success."
+            echo "ERROR: $BASENAME failed to compile; expected success."
             THIS_ERROR=1
         elif [ $OTHER_STAGE -eq 1 ]; then
             true # don't compare assembly
@@ -153,7 +160,7 @@ for TESTFILE in $FILES; do
         fi
     else
         if [ $RET -eq 0 ]; then
-            echo "ERROR: $BASENAME succeeded; expected error."
+            echo "ERROR: $BASENAME compilation succeeded; expected error."
             THIS_ERROR=1
         fi
     fi

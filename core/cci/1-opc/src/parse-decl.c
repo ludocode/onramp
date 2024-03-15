@@ -284,6 +284,9 @@ static record_t* parse_record(bool is_struct) {
         if (!try_parse_declarator(base_type, &type, &name)) {
             fatal("Expected a declarator for this struct or union field declaration.");
         }
+        if (name == NULL) {
+            fatal("This struct or union member must have a name.");
+        }
 
         // TODO loop on commas for multiple declarators. For now we don't bother.
         if (lexer_is(",")) {
