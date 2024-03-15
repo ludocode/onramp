@@ -39,8 +39,7 @@ bool try_parse_constant_expression(type_t** type, int* value);
 
 type_t* parse_expression(void);
 
-// TODO temporarily public for old initializer code
-type_t* parse_unary_expression(void);
+type_t* parse_assignment_expression(void);
 
 /**
  * When tentatively parsing a label, if it turns out to not be a label, we've

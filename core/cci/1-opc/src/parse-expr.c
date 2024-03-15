@@ -37,7 +37,7 @@
 #include "record.h"
 #include "field.h"
 
-static type_t* parse_assignment_expression(void);
+static type_t* parse_unary_expression(void);
 static type_t* parse_identifier_expression(void);
 static type_t* parse_post_inc_dec_operator(type_t* var_type, const char* binary_op);
 
@@ -90,7 +90,7 @@ static int binary_operator_precedence(void) {
     if (0 == strcmp(op, "-"))  {return 9;}  // ...
     if (0 == strcmp(op, "*"))  {return 10;} // multiplicative
     if (0 == strcmp(op, "/"))  {return 10;} // ...
-    if (0 == strcmp(op, "%"))  {return 10;} // ...              // TODO maybe remove
+    if (0 == strcmp(op, "%"))  {return 10;} // ...
     return -1;
 }
 
@@ -679,7 +679,7 @@ static type_t* parse_pre_inc_dec_operator(const char* binary_op) {
     return compile_assign(var_type, value_type);
 }
 
-type_t* parse_unary_expression(void) {
+static type_t* parse_unary_expression(void) {
     if (stashed_identifier) {
         return parse_postfix_expression();
     }
@@ -777,7 +777,7 @@ static type_t* parse_binary_expression(int min_precedence) {
         // parse the right-hand side
         // the right side will be in r0, the left will be in r1
         compile_push(0);
-        type_t* right = parse_unary_expression();
+        type_t* right = parse_binary_expression(op_precedence + 1);
         compile_pop(1);
 
         // compile it
@@ -886,7 +886,7 @@ type_t* parse_conditional_expression(void) {
     return true_type;
 }
 
-static type_t* parse_assignment_expression(void) {
+type_t* parse_assignment_expression(void) {
     type_t* left = parse_conditional_expression();
     if (!is_assign_op()) {
         return left;

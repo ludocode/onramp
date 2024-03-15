@@ -483,7 +483,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
 
     // get the assignment expression
     // TODO need to rewrite initializer code to support arrays, structs
-    type_t* expr_type = parse_unary_expression();
+    type_t* expr_type = parse_assignment_expression();
 
     // pop the destination
     compile_pop(1);
