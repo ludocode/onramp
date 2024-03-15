@@ -640,6 +640,21 @@ static type_t* parse_sizeof(void) {
     return compile_sizeof(type);
 }
 
+// Parses pre-increment and pre-decrement operators.
+type_t* parse_pre_inc_dec_operator(const char* binary_op) {
+    type_t* var_type = parse_unary_expression();
+    if (!type_is_lvalue(var_type)) {
+        fatal("Cannot pre-increment or pre-decrement an r-value.");
+    }
+
+    compile_push(0);
+    compile_mov(1, 0);
+    type_t* int_type = compile_immediate_int(1);
+    type_t* value_type = compile_binary_op(binary_op, type_clone(var_type), int_type);
+    compile_pop(1);
+    return compile_assign(var_type, value_type);
+}
+
 type_t* parse_unary_expression(void) {
     if (stashed_identifier) {
         return parse_postfix_expression();
@@ -714,11 +729,11 @@ type_t* parse_unary_expression(void) {
     }
 
     if (lexer_accept("++")) {
-        fatal("++ not yet implemented.");
+        return parse_pre_inc_dec_operator("+");
     }
 
     if (lexer_accept("--")) {
-        fatal("-- not yet implemented.");
+        return parse_pre_inc_dec_operator("-");
     }
 
     return parse_postfix_expression();

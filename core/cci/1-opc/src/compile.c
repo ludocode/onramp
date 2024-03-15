@@ -1044,3 +1044,10 @@ void compile_offset(int offset) {
     emit_term("r9");
     emit_newline();
 }
+
+void compile_mov(int dest, int src) {
+    emit_term("mov");
+    emit_register(dest);
+    emit_register(src);
+    emit_newline();
+}

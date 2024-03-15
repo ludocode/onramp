@@ -228,4 +228,6 @@ void compile_offset(int offset);
 
 type_t* compile_promote(type_t* type, int register_num);
 
+void compile_mov(int register_dest, int register_src);
+
 #endif
