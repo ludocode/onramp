@@ -375,7 +375,7 @@ type_t* compile_lvalue_to_rvalue(type_t* type, int register_num) {
     return type;
 }
 
-type_t* compile_assign(const char* op, type_t* left, type_t* right) {
+type_t* compile_assign(type_t* left, type_t* right) {
 
     // We're storing into the left. It must be an lvalue and not an array.
     if (type_is_array(left)) {
@@ -383,10 +383,6 @@ type_t* compile_assign(const char* op, type_t* left, type_t* right) {
     }
     if (!type_is_lvalue(left)) {
         fatal("Assignment location is not an lvalue.");
-    }
-
-    if (0 != strcmp(op, "=")) {
-        fatal_2("Compound assignment operator is not yet implemented: ", op);
     }
 
     right = compile_lvalue_to_rvalue(right, 0);
@@ -953,6 +949,14 @@ void compile_push(int register_number) {
 void compile_pop(int register_number) {
     emit_term("pop");
     emit_register(register_number);
+    emit_newline();
+}
+
+void compile_stack_load(int register_number) {
+    emit_term("ldw");
+    emit_register(register_number);
+    emit_term("rsp");
+    emit_term("0");
     emit_newline();
 }
 

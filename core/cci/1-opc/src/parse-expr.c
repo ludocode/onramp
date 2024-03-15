@@ -794,15 +794,22 @@ static type_t* parse_assignment_expression(void) {
     // expression can return an l-value so we can just parse a conditional
     // expression and compile_assign() will check that it's an l-value.
 
-    // parse the right-hand side
-    // the right side will be in r0, the left will be in r1
+    // Parse the right-hand side
     compile_push(0);
     type_t* right = parse_assignment_expression();
-    compile_pop(1);
 
-    type_t* type = compile_assign(op, left, right);
+    // If it's a compound assigment, calculate the result
+    if (0 != strcmp(op, "=")) {
+        type_t* temp = type_clone(left);
+        compile_stack_load(1);
+        *(op + (strlen(op) - 1)) = 0; // remove the `=`
+        right = compile_binary_op(op, temp, right);
+    }
     free(op);
-    return type;
+
+    // Do the assignment
+    compile_pop(1);
+    return compile_assign(left, right);
 }
 
 static type_t* parse_comma_expression(void) {

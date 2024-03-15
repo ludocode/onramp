@@ -318,7 +318,7 @@ static void parse_switch(void) {
     compile_load_frame_offset(switch_offset, 1);
     type_t* var = type_new_base(BASE_SIGNED_INT);
     type_set_lvalue(var, true);
-    type_delete(compile_assign("=", var, expr_type));
+    type_delete(compile_assign(var, expr_type));
 
     // Emit a jump to the first `case` statement. The cases form a linked list;
     // each one tests the expression and either runs the code or jumps to the
@@ -490,7 +490,7 @@ static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
 
     // compile an assignment
     type_set_lvalue(type, true);
-    type_delete(compile_assign("=", type, expr_type));
+    type_delete(compile_assign(type, expr_type));
 }
 
 // Tries to parse a declaration of a local variable plus its initializer.

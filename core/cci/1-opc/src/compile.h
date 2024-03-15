@@ -99,6 +99,11 @@ void compile_push(int register_number);
 void compile_pop(int register_number);
 
 /**
+ * Loads the top value of the stack into the given register.
+ */
+void compile_stack_load(int register_number);
+
+/**
  * Emits "leave" and "ret", i.e. returns from the current function.
  */
 void compile_return(void);
@@ -123,7 +128,7 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right);
  *
  * The left of the operation (an lvalue) is in r1 and the right is in r0.
  */
-type_t* compile_assign(const char* op, type_t* left, type_t* right);
+type_t* compile_assign(type_t* left, type_t* right);
 
 /**
  * Places the given number in r0.
