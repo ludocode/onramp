@@ -127,8 +127,6 @@
 #
 #
 #
-#
-#
 #line 1 "../../../core/libc/0-oo/include/stdio.h"
 #
 #
@@ -292,10 +290,10 @@
 #
 #
 #
-#line 33 "./programs/eight-queens.c"
+#line 31 "./programs/eight-queens.c"
 #
 #
-#line 1 "../../../core/libc/0-oo/include/stdlib.h"
+#line 1 "../../../core/libc/0-oo/include/stdbool.h"
 #
 #
 #
@@ -329,7 +327,6 @@
 #
 #
 #
-#line 1 "../../../core/libc/0-oo/include/__onramp/__size_t.h"
 #
 #
 #
@@ -341,107 +338,10 @@
 #
 #
 #
+#line 32 "./programs/eight-queens.c"
 #
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#line 33 "../../../core/libc/0-oo/include/stdlib.h"
-#
-#
-#line 1 "../../../core/libc/0-oo/include/__onramp/__null.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#line 34 "../../../core/libc/0-oo/include/stdlib.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#line 34 "./programs/eight-queens.c"
-#
-=queens 
-'00'00'00'00
+@queens 
+'00'00'00'00 '00'00'00'00
 
 
 
@@ -451,27 +351,14 @@
 #
 @_F_main 
 #
-  imw r0 ^queens 
-  add r0 rpp r0 
-  push r0 
-  imw r0 8 
-  push r0 
-  pop r0 
-  call ^malloc 
-  pop r1 
-  stw r0 0 r1 
-#
   imw r0 0 
   push r0 
   pop r0 
   call ^place_queen 
 #
-  imw r0 ^queens 
-  add r0 rpp r0 
-  ldw r0 0 r0 
-  push r0 
-  pop r0 
-  call ^free 
+#
+#
+#
 #
 #
 #
@@ -491,13 +378,11 @@
   stw r0 rfp -4 
   stw r1 rfp -8 
 #
-#
   add r0 rfp -12 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
 :_Lx0 
   add r0 rfp -12 
   push r0 
@@ -510,8 +395,18 @@
   and r0 r0 1 
   xor r0 r0 1 
   jz r0 &_Lx1 
-#
-#
+  jmp &_Lx2 
+:_Lx3 
+  add r0 rfp -12 
+  push r0 
+  mov r1 r0 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  jmp &_Lx0 
+:_Lx2 
 #
   add r0 rfp -16 
   push r0 
@@ -521,7 +416,6 @@
   add r0 rfp -12 
   pop r1 
   ldw r0 0 r0 
-  ldw r1 0 r1 
   add r0 r1 r0 
   pop r1 
   ldb r0 0 r0 
@@ -549,7 +443,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 
-  push r0 
+  jnz r0 &_Lx5 
   add r0 rfp -16 
   push r0 
   add r0 rfp -8 
@@ -564,9 +458,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 
-  pop r1 
-  or r0 r1 r0 
-  push r0 
+  jnz r0 &_Lx5 
   add r0 rfp -16 
   push r0 
   add r0 rfp -8 
@@ -581,33 +473,29 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 
-  pop r1 
-  or r0 r1 r0 
-  jz r0 &_Lx2 
+:_Lx5 
+  bool r0 r0 
 #
+  jz r0 &_Lx4 
   imw r0 0 
+  sxb r0 r0 
   leave 
   ret 
 #
+:_Lx4 
 #
-:_Lx2 
-  add r0 rfp -12 
-  push r0 
-  add r0 rfp -12 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-#
-#
-  jmp &_Lx0 
+  jmp &_Lx3 
 :_Lx1 
   imw r0 1 
+  sxb r0 r0 
   leave 
   ret 
+#
+#
+#
+#
+#
+#
 #
 #
 #
@@ -615,7 +503,7 @@
   leave 
   ret 
 
-=is_queen_valid 
+@is_queen_valid 
   enter 
   sub rsp rsp 20 
   jmp ^_F_is_queen_valid 
@@ -635,7 +523,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 
-  jz r0 &_Lx3 
+  jz r0 &_Lx6 
 #
   call ^print_board 
 #
@@ -643,16 +531,13 @@
   ret 
 #
 #
-#
-:_Lx3 
-#
+:_Lx6 
   add r0 rfp -8 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
-:_Lx4 
+:_Lx7 
   add r0 rfp -8 
   push r0 
   imw r0 8 
@@ -662,7 +547,19 @@
   cmpu r0 r0 -1 
   and r0 r0 1 
   xor r0 r0 1 
-  jz r0 &_Lx5 
+  jz r0 &_Lx8 
+  jmp &_Lx9 
+:_LxA 
+  add r0 rfp -8 
+  push r0 
+  mov r1 r0 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  jmp &_Lx7 
+:_Lx9 
 #
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -673,7 +570,7 @@
   pop r1 
   pop r0 
   call ^is_queen_valid 
-  jz r0 &_Lx6 
+  jz r0 &_LxB 
 #
   imw r0 ^queens 
   add r0 rpp r0 
@@ -681,13 +578,12 @@
   add r0 rfp -4 
   pop r1 
   ldw r0 0 r0 
-  ldw r1 0 r1 
   add r0 r1 r0 
   push r0 
   add r0 rfp -8 
-  pop r1 
   ldw r0 0 r0 
   sxb r0 r0 
+  pop r1 
   stb r0 0 r1 
 #
   add r0 rfp -4 
@@ -701,28 +597,20 @@
   call ^place_queen 
 #
 #
-:_Lx6 
-  add r0 rfp -8 
-  push r0 
-  add r0 rfp -8 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
+:_LxB 
+#
+  jmp &_LxA 
+:_Lx8 
 #
 #
-  jmp &_Lx4 
-:_Lx5 
+#
 #
 #
   zero r0 
   leave 
   ret 
 
-=place_queen 
+@place_queen 
   enter 
   sub rsp rsp 8 
   jmp ^_F_place_queen 
@@ -733,14 +621,12 @@
 
 @_F_print_board 
 #
-#
   add r0 rfp -4 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
-:_Lx7 
+:_LxC 
   add r0 rfp -4 
   push r0 
   imw r0 8 
@@ -750,16 +636,26 @@
   cmpu r0 r0 -1 
   and r0 r0 1 
   xor r0 r0 1 
-  jz r0 &_Lx8 
-#
+  jz r0 &_LxD 
+  jmp &_LxE 
+:_LxF 
+  add r0 rfp -4 
+  push r0 
+  mov r1 r0 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  jmp &_LxC 
+:_LxE 
 #
   add r0 rfp -8 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
-:_Lx9 
+:_Lx10 
   add r0 rfp -8 
   push r0 
   imw r0 8 
@@ -769,18 +665,26 @@
   cmpu r0 r0 -1 
   and r0 r0 1 
   xor r0 r0 1 
-  jz r0 &_LxA 
-#
-#
-  add r0 rfp -12 
+  jz r0 &_Lx11 
+  jmp &_Lx12 
+:_Lx13 
+  add r0 rfp -8 
   push r0 
+  mov r1 r0 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  jmp &_Lx10 
+:_Lx12 
+#
   imw r0 ^queens 
   add r0 rpp r0 
   push r0 
   add r0 rfp -8 
   pop r1 
   ldw r0 0 r0 
-  ldw r1 0 r1 
   add r0 r1 r0 
   push r0 
   add r0 rfp -4 
@@ -791,91 +695,52 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   xor r0 r0 1 
-  pop r1 
-  stw r0 0 r1 
-#
-  add r0 rfp -12 
-  ldw r0 0 r0 
-  jz r0 &_LxB 
-#
+  jz r0 &_Lx14 
   mov r0 "Q"
-  push r0 
-  pop r0 
-  call ^putchar 
-#
-#
-:_LxB 
-  add r0 rfp -12 
-  ldw r0 0 r0 
-  isz r0 r0 
-  jz r0 &_LxC 
-#
+  jmp &_Lx15 
+:_Lx14 
   mov r0 "."
+:_Lx15 
   push r0 
   pop r0 
   call ^putchar 
 #
-#
-:_LxC 
   mov r0 " "
   push r0 
   pop r0 
   call ^putchar 
 #
-  add r0 rfp -8 
-  push r0 
-  add r0 rfp -8 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
 #
-#
-  jmp &_Lx9 
-:_LxA 
+  jmp &_Lx13 
+:_Lx11 
   mov r0 '0A
   push r0 
   pop r0 
   call ^putchar 
 #
-  add r0 rfp -4 
-  push r0 
-  add r0 rfp -4 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
 #
-#
-  jmp &_Lx7 
-:_Lx8 
-  mov r0 '0A
+  jmp &_LxF 
+:_LxD 
+  imw r0 ^_Sx0 
+  add r0 rpp r0 
   push r0 
   pop r0 
-  call ^putchar 
-#
-  mov r0 '0A
-  push r0 
-  pop r0 
-  call ^putchar 
+  call ^puts 
 #
 #
   zero r0 
   leave 
   ret 
 
-=print_board 
+@print_board 
   enter 
-  sub rsp rsp 12 
+  sub rsp rsp 8 
   jmp ^_F_print_board 
 
 
+
+@_Sx0 
+'0A'00
 
 
 

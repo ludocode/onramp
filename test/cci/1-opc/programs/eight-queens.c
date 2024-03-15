@@ -25,77 +25,62 @@
 /*
  * Generates all solutions to the 8 queens problem, printing them to standard
  * output.
- *
- * TODO replace this with cci/2-full
  */
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdbool.h>
 
-char* queens;
-void place_queen(int x);
+static char queens[8];
+static void place_queen(int x);
 static void print_board(void);
 
 int main(void) {
-    queens = malloc(8);
     place_queen(0);
-    free(queens);
 }
 
-int is_queen_valid(int x, int y) {
-    int i;
-    i = 0;
-    while (i < x) {
-        int q;
-        int diff;
-        q = *(queens + i);
-        diff = (x - i);
-        if (((q == y) | (q == (y - diff))) | (q == (y + diff))) {
-            return 0;
-        }
-        i = (i + 1);
+/**
+ * Returns true if the queen in the given row and column would be valid given
+ * the queens in the preceding columns, or false otherwise
+ */
+static bool is_queen_valid(int x, int y) {
+    for (int i = 0; i < x; ++i) {
+        int q = queens[i];
+        int diff = x - i;
+        if (q == y || q == y - diff || q == y + diff)
+            return false;
     }
-    return 1;
+    return true;
 }
 
-void place_queen(int x) {
+/**
+ * Places a queen at all valid positions in the given column, recursing for each
+ * to place the next column.
+ *
+ * If the column number is 8, this instead prints the board.
+ */
+static void place_queen(int x) {
     if (x == 8) {
         print_board();
         return;
     }
-
-    int y;
-    y = 0;
-    while (y < 8) {
+    for (int y = 0; y < 8; ++y) {
         if (is_queen_valid(x, y)) {
-            *(queens + x) = y;
+            queens[x] = (char)y;
             place_queen(x + 1);
         }
-        y = (y + 1);
     }
 }
 
-void print_board(void) {
-    int y;
-    y = 0;
-    while (y < 8) {
-        int x;
-        x = 0;
-        while (x < 8) {
-            int match;
-            match = (*(queens + x) == y);
-            if (match) {
-                putchar('Q');
-            }
-            if (!match) {
-                putchar('.');
-            }
+/**
+ * Prints the board.
+ */
+static void print_board(void) {
+    for (int y = 0; y < 8; ++y) {
+        for (int x = 0; x < 8; ++x) {
+            putchar(queens[x] == y ? 'Q' : '.');
             putchar(' ');
-            x = (x + 1);
         }
         putchar('\n');
-        y = (y + 1);
     }
-    putchar('\n');
-    putchar('\n');
+    puts("\n");
 }

@@ -82,7 +82,7 @@ The final compiler driver can now produce Onramp binaries wrapped for native pla
 
 ## Language Progression
 
-The Onramp unit tests include a program to generate all solutions to the [eight queens puzzle](https://en.wikipedia.org/wiki/Eight_queens_puzzle). This program exists for each language stage implemented by Onramp. Since the program is functionally identical in each stage, it's useful for illustrating the progression of languages in Onramp.
+The Onramp unit tests include a program to generate all solutions to the [eight queens puzzle](https://en.wikipedia.org/wiki/Eight_queens_puzzle). This program exists for most language stages implemented by Onramp. Since the program is functionally identical in each stage, it's useful for illustrating the progression of languages in Onramp.
 
 - [Eight queens in hexadecimal bytecode](../test/vm/programs/eight-queens.oe.ohx). This is the lowest level: everything is done by hand. Note the fixed addresses and padding between symbols. Editing can be painful if you need to move a function or recalculate a relative jump.
 
@@ -94,11 +94,11 @@ The Onramp unit tests include a program to generate all solutions to the [eight 
 
 - [Eight queens in Onramp Minimal C](../test/cci/0-omc/programs/eight-queens.c). We now have real structured programming! No more labels and jumps. We also have named variables! No more dealing with registers or spilling. No stack manipulation at all. We have function prototypes, include files for the standard library, and more. There are some obvious limitations though: no initializers, no `for` loops, no `else`, no arrays, parentheses everywhere. The queens array must be manually allocated.
 
-- [Eight queens in Onramp Practical C](../test/cci/1-opc/programs/eight-queens.c). This is a more featureful subset of C with most of what we need for large-scale programs. It looks modern and idiomatic. We have full expression syntax with operator precedence. We have arrays, `for` loops with C99 declarations, `bool`, etc. We also have `struct`, `enum` and `switch` although this code doesn't use them. We're still missing some features like function pointers, floats, and multi-dimensional arrays.
+- [Eight queens in Onramp Practical C](../test/cci/1-opc/programs/eight-queens.c). This is a much more featureful subset of C with most of what we need for large-scale programs. It looks modern and idiomatic. We have full expression syntax with operator precedence. We have arrays, `for` loops with declarations, etc. We also have `struct`, `enum`, `switch`, `goto`, variadic functions and more, although this code doesn't use them. This is powerful enough to support most of a modern libc including features like `printf()`.
 
-- [Eight queens in full C plus extensions](../test/cci/2-full/programs/eight-queens.c). This is fully modern C.
+The final stage compiler adds function pointers, initializer lists, `long long`, floating-point math and more. None of these are used in the eight queens puzzle so we don't have an example for the final stage.
 
-If you want to try them, you can compile all of the above with `onrampcc`, except for the first which must be compiled with `onramphex`.
+If you want to try these, you can compile all of the above with `onrampcc`, except for the first which must be compiled with `onramphex`.
 
 
 

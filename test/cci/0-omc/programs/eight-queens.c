@@ -40,14 +40,15 @@ int main(void) {
     free(queens);
 }
 
+/**
+ * Returns true if the queen in the given row and column would be valid given
+ * the queens in the preceding columns, or false otherwise
+ */
 int is_queen_valid(int x, int y) {
-    int i;
-    i = 0;
+    int i = 0;
     while (i < x) {
-        int q;
-        int diff;
-        q = *(queens + i);
-        diff = (x - i);
+        int q = *(queens + i);
+        int diff = (x - i);
         if (((q == y) | (q == (y - diff))) | (q == (y + diff))) {
             return 0;
         }
@@ -56,14 +57,19 @@ int is_queen_valid(int x, int y) {
     return 1;
 }
 
+/**
+ * Places a queen at all valid positions in the given column, recursing for each
+ * to place the next column.
+ *
+ * If the column number is 8, this instead prints the board.
+ */
 void place_queen(int x) {
     if (x == 8) {
         print_board();
         return;
     }
 
-    int y;
-    y = 0;
+    int y = 0;
     while (y < 8) {
         if (is_queen_valid(x, y)) {
             *(queens + x) = y;
@@ -73,15 +79,15 @@ void place_queen(int x) {
     }
 }
 
+/**
+ * Prints the board.
+ */
 void print_board(void) {
-    int y;
-    y = 0;
+    int y = 0;
     while (y < 8) {
-        int x;
-        x = 0;
+        int x = 0;
         while (x < 8) {
-            int match;
-            match = (*(queens + x) == y);
+            int match = (*(queens + x) == y);
             if (match) {
                 putchar('Q');
             }
