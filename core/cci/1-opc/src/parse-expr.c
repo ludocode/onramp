@@ -39,6 +39,7 @@
 
 static type_t* parse_assignment_expression(void);
 static type_t* parse_identifier_expression(void);
+static type_t* parse_post_inc_dec_operator(type_t* var_type, const char* binary_op);
 
 static char* stashed_identifier;
 
@@ -596,13 +597,13 @@ static type_t* parse_postfix_expression(void) {
 
         // post-increment
         if (lexer_accept("++")) {
-            fatal("++ not yet implemented.");
+            type = parse_post_inc_dec_operator(type, "+");
             continue;
         }
 
         // post-decrement
         if (lexer_accept("--")) {
-            fatal("-- not yet implemented.");
+            type = parse_post_inc_dec_operator(type, "-");
             continue;
         }
 
@@ -640,8 +641,31 @@ static type_t* parse_sizeof(void) {
     return compile_sizeof(type);
 }
 
+// Parses post-increment and post-decrement operators.
+static type_t* parse_post_inc_dec_operator(type_t* var_type, const char* binary_op) {
+    if (!type_is_lvalue(var_type)) {
+        fatal("Cannot post-increment or post-decrement an r-value.");
+    }
+
+    // store the original value
+    compile_mov(1, 0);
+    type_t* ret = compile_lvalue_to_rvalue(type_clone(var_type), 0);
+    compile_push(0);
+
+    // do the increment
+    compile_push(1);
+    type_t* int_type = compile_immediate_int(1);
+    type_t* value_type = compile_binary_op(binary_op, type_clone(var_type), int_type);
+    compile_pop(1);
+    type_delete(compile_assign(var_type, value_type));
+
+    // return the original value
+    compile_pop(0);
+    return ret;
+}
+
 // Parses pre-increment and pre-decrement operators.
-type_t* parse_pre_inc_dec_operator(const char* binary_op) {
+static type_t* parse_pre_inc_dec_operator(const char* binary_op) {
     type_t* var_type = parse_unary_expression();
     if (!type_is_lvalue(var_type)) {
         fatal("Cannot pre-increment or pre-decrement an r-value.");
