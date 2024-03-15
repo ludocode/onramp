@@ -620,19 +620,22 @@ void compile_basic_op(const char* op) {
 type_t* compile_comparison(const char* op, type_t* left, type_t* right) {
 
     // The types of comparison operands must be compatible. Integers have
-    // already been promoted to the same type so we can check for an exact
-    // match.
-    if (!type_equal(left, right)) {
-        fatal_3("Types of `", op, "` comparison operator must be compatible.");
-    }
+    // already been promoted to the same type.
+    //
+    // Comparing pointers is a bit more complicated because there are special
+    // cases: for example a void* can be compared with any pointer, and any
+    // pointer can be compared with 0 to check for null.
+    //
+    // We don't have a great way to enforce these rules so instead we don't
+    // bother. We can implement better checks in the final stage.
 
     // Comparison operators return int. We can clean up the types now.
-    bool is_signed = type_is_signed(left);
+    bool is_signed = (type_is_signed(left) & type_is_signed(right));
     type_delete(left);
     type_delete(right);
     type_t* ret = type_new_base(BASE_SIGNED_INT);
 
-    // Unordered comparisons use unsigned.
+    // Unordered comparisons use unsigned even if the types are signed.
     if (0 == strcmp(op, "==")) {
         compile_compare_unsigned();
         compile_cmp_to_true();
