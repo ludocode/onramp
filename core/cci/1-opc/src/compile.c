@@ -927,6 +927,13 @@ void compile_jump_if_zero(int label) {
     emit_newline();
 }
 
+void compile_jump_if_not_zero(int label) {
+    emit_term("jnz");
+    emit_term("r0");
+    emit_computed_label('&', JUMP_LABEL_PREFIX, label);
+    emit_newline();
+}
+
 static void compile_user_label_name(const char* function, const char* name) {
     emit_string(USER_LABEL_PREFIX);
     emit_hex_number(strlen(function));

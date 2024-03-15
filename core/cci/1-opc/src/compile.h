@@ -74,6 +74,11 @@ void compile_jump(int label);
 void compile_jump_if_zero(int label);
 
 /**
+ * Compiles a jump to a generated label if the value in r0 is not zero.
+ */
+void compile_jump_if_not_zero(int label);
+
+/**
  * Compiles a jump to a user-defined label.
  */
 void compile_goto(const char* function, const char* name);

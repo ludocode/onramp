@@ -63,15 +63,17 @@ void parse_expr_stash_identifier(char* identifier) {
 
 /**
  * Returns the precedence of the current token, or -1 if it's not a binary
- * operator.
+ * precedence operator.
+ *
+ * Note that we don't include &&, ||, or any assignment operators. We don't
+ * consider these to be binary precedence operators because they have special
+ * handling.
  */
 static int binary_operator_precedence(void) {
     if (lexer_type != lexer_type_punctuation) {
         return -1;
     }
     const char* op = lexer_token;
-    if (0 == strcmp(op, "||")) {return 1;}  // logical or
-    if (0 == strcmp(op, "&&")) {return 2;}  // logical and
     if (0 == strcmp(op, "|"))  {return 3;}  // inclusive or
     if (0 == strcmp(op, "^"))  {return 4;}  // exclusive or
     if (0 == strcmp(op, "&"))  {return 5;}  // bitwise and
@@ -747,8 +749,64 @@ static type_t* parse_binary_expression(int min_precedence) {
     return left;
 }
 
+type_t* parse_logical_and_expression(void) {
+    type_t* left = parse_binary_expression(0);
+    if (!lexer_is("&&")) {
+        return left;
+    }
+
+    int skip_label = parse_generate_label();
+
+    while (lexer_accept("&&")) {
+        left = compile_promote(left, 0);
+        compile_jump_if_zero(skip_label);
+
+        type_t* right = compile_promote(parse_logical_and_expression(), 0);
+
+        if (!type_is_compatible(left, right)) {
+            fatal("Incompatible types in `||` operator.");
+        }
+
+        type_delete(left);
+        left = right;
+    }
+
+    compile_label(skip_label);
+    compile_boolean_cast();
+    type_delete(left);
+    return type_new_base(BASE_SIGNED_INT);
+}
+
+type_t* parse_logical_or_expression(void) {
+    type_t* left = parse_logical_and_expression();
+    if (!lexer_is("||")) {
+        return left;
+    }
+
+    int skip_label = parse_generate_label();
+
+    while (lexer_accept("||")) {
+        left = compile_promote(left, 0);
+        compile_jump_if_not_zero(skip_label);
+
+        type_t* right = compile_promote(parse_logical_and_expression(), 0);
+
+        if (!type_is_compatible(left, right)) {
+            fatal("Incompatible types in `||` operator.");
+        }
+
+        type_delete(left);
+        left = right;
+    }
+
+    compile_label(skip_label);
+    compile_boolean_cast();
+    type_delete(left);
+    return type_new_base(BASE_SIGNED_INT);
+}
+
 type_t* parse_conditional_expression(void) {
-    type_t* predicate_type = parse_binary_expression(0);
+    type_t* predicate_type = parse_logical_or_expression();
     if (!lexer_accept("?")) {
         return predicate_type;
     }
