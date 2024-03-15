@@ -75,12 +75,6 @@ int locals_add(char* name, type_t* type) {
     return offset;
 }
 
-int loads_add_anonymous(void) {
-    // An anonymous variable has an empty name. (locals_add() doesn't bother
-    // to check for duplicates.)
-    return locals_add(strdup_checked(""), type_new_base(BASE_SIGNED_INT));
-}
-
 void locals_pop(int previous_locals_count) {
     int i = previous_locals_count;
     while (i < locals_count) {

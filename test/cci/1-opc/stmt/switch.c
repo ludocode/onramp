@@ -28,5 +28,17 @@ int main(void) {
         return 1;
     }
 
+    // switch without braces, match
+    x = 1;
+    switch (0)
+        case 0:
+            x = 0;
+    if (x) {return 1;}
+
+    // switch without braces, no match
+    switch (0)
+        case 1:
+            return 1;
+
     return 0;
 }

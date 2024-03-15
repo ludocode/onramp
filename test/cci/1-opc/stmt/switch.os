@@ -323,7 +323,73 @@
 #
 #
 #
+#
 :_Lx1A 
+  add r0 rfp -4 
+  push r0 
+  imw r0 1 
+  pop r1 
+  stw r0 0 r1 
+#
+  imw r0 0 
+#
+  add r1 rfp -20 
+  stw r0 0 r1 
+  jmp &_Lx1C 
+  jmp &_Lx1D 
+:_Lx1C 
+#
+  imw r0 0 
+  add r1 rfp -20 
+  ldw r1 0 r1 
+  cmpu r0 r1 r0 
+  and r0 r0 1 
+  jz r0 &_Lx1D 
+  jmp &_Lx1E 
+:_Lx1D 
+  add r0 rfp -4 
+  push r0 
+  imw r0 0 
+  pop r1 
+  stw r0 0 r1 
+#
+  jmp &_Lx1B 
+:_Lx1E 
+:_Lx1B 
+  add r0 rfp -4 
+  ldw r0 0 r0 
+  jz r0 &_Lx1F 
+  imw r0 1 
+  leave 
+  ret 
+#
+#
+#
+:_Lx1F 
+  imw r0 0 
+#
+  add r1 rfp -24 
+  stw r0 0 r1 
+  jmp &_Lx21 
+  jmp &_Lx22 
+:_Lx21 
+#
+  imw r0 1 
+  add r1 rfp -24 
+  ldw r1 0 r1 
+  cmpu r0 r1 r0 
+  and r0 r0 1 
+  jz r0 &_Lx22 
+  jmp &_Lx23 
+:_Lx22 
+  imw r0 1 
+  leave 
+  ret 
+#
+#
+  jmp &_Lx20 
+:_Lx23 
+:_Lx20 
   imw r0 0 
   leave 
   ret 
@@ -335,7 +401,7 @@
 
 =main 
   enter 
-  sub rsp rsp 16 
+  sub rsp rsp 24 
   jmp ^_F_main 
 
 

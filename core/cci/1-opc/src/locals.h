@@ -46,13 +46,6 @@ void locals_destroy(void);
 int locals_add(char* name, type_t* type);
 
 /**
- * Adds a new anonymous variable of integer type, returning its offset.
- *
- * This is used in e.g. parse_switch().
- */
-int loads_add_anonymous(void);
-
-/**
  * Destroys all variables beyond the given variable count.
  */
 void locals_pop(int previous_locals_count);

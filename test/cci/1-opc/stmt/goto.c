@@ -18,5 +18,9 @@ foo:
         return 1;
     }
 
+    // unbraced if statement with label
+    if (0)
+        baz: return 1;
+
     return 0;
 }

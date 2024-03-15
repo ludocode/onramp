@@ -37,7 +37,7 @@
 #include "types.h"
 
 static void parse_block(void);
-static void parse_statement(void);
+static void parse_statement(bool declaration_allowed);
 static bool try_parse_local_declaration(void);
 
 // statement state
@@ -133,7 +133,7 @@ static void parse_if(void) {
     int skip_if_label = parse_generate_label();
     parse_condition(skip_if_label);
 
-    parse_statement(); // TODO maybe not exactly right, not sure how labels work here
+    parse_statement(false);
 
     // check for else
     bool has_else = lexer_accept("else");
@@ -145,7 +145,7 @@ static void parse_if(void) {
 
         // our else block starts here, which we do only if we skipped if
         compile_label(skip_if_label);
-        parse_statement(); // TODO same here
+        parse_statement(false);
         compile_label(skip_else_label);
     }
 
@@ -166,7 +166,7 @@ static void parse_while(void) {
     // parse and compile the loop
     compile_label(continue_label);
     parse_condition(break_label);
-    parse_statement(); // TODO same as if here, not sure if should forbid labels or how
+    parse_statement(false);
     compile_jump(continue_label);
     compile_label(break_label);
 
@@ -185,7 +185,7 @@ static void parse_do(void) {
 
     // parse and compile the loop
     compile_label(continue_label);
-    parse_statement();
+    parse_statement(false);
     lexer_expect("while", "Expected `while` after `do` statement.");
     parse_condition(break_label);
     lexer_expect(";", "Expected `;` after `do`-`while` condition.");
@@ -243,7 +243,7 @@ static void parse_for(void) {
 
     // parse and compile the loop
     compile_label(loop_contents_label);
-    parse_statement();
+    parse_statement(false);
     compile_jump(loop_increment_label);
     compile_label(break_label);
 
@@ -327,7 +327,7 @@ static void parse_switch(void) {
     compile_jump(case_label);
 
     // Parse and compile the contents of the switch
-    parse_statement();
+    parse_statement(false);
     compile_jump(break_label);
 
     // If we found a default label and none of the cases matched, jump to it
@@ -345,7 +345,7 @@ static void parse_switch(void) {
     switch_offset = previous_switch_offset;
 }
 
-static void parse_case(void) {
+static void parse_case(bool declaration_allowed) {
     
     // A case statement compares its constant expression to the stored
     // expression of the switch. Since code passing through the switch needs to
@@ -379,6 +379,14 @@ static void parse_case(void) {
     // If this case didn't match, we jump to the next one.
     compile_jump(case_label);
     compile_label(run_label);
+
+    // As with labels, a case can be followed by a statement and together they
+    // form one statement. This is important when a case is used in an unbraced
+    // switch or other statement. We also allow case at the end of blocks so
+    // as a hack we just check for a closing brace.
+    if (!lexer_is("}")) {
+        parse_statement(declaration_allowed);
+    }
 }
 
 static void parse_default(void) {
@@ -402,7 +410,17 @@ static void parse_goto(void) {
     lexer_expect(";", "Expected `;` after `goto` label");
 }
 
-static void parse_statement(void) {
+static void parse_statement(bool declaration_allowed) {
+
+    // Check for a declaration. A declaration is not really a statement but we
+    // support them at any point in a block, and we support them after a label
+    // or case as long as we're in a block.
+    if (declaration_allowed) {
+        if (try_parse_local_declaration()) {
+            return;
+        }
+    }
+
     if (lexer_accept(";")) {
         // empty statement
         return;
@@ -420,7 +438,7 @@ static void parse_statement(void) {
         if (lexer_accept("do")) { parse_do(); return; }
         if (lexer_accept("for")) { parse_for(); return; }
         if (lexer_accept("switch")) { parse_switch(); return; }
-        if (lexer_accept("case")) { parse_case(); return; }
+        if (lexer_accept("case")) { parse_case(declaration_allowed); return; }
         if (lexer_accept("default")) { parse_default(); return; }
         if (lexer_accept("break")) { parse_break(); return; }
         if (lexer_accept("continue")) { parse_continue(); return; }
@@ -433,10 +451,14 @@ static void parse_statement(void) {
             compile_user_label(function_name, name);
             free(name);
 
-            // We just return here, as though the label is its own statement.
-            // This is probably technically incorrect, at least in the earlier
-            // language standards; C23 is more lax in where it allows label
-            // definitions.
+            // A label can be followed by a statement, and together they form
+            // one statement. This is important when a label is used in an
+            // unbraced if, switch, etc. We also want labels to be allowed at
+            // the end of blocks so as a hack we just check for a closing
+            // brace.
+            if (!lexer_is("}")) {
+                parse_statement(declaration_allowed);
+            }
             return;
         }
         
@@ -513,14 +535,7 @@ static bool try_parse_block(void) {
     int previous_locals_count = locals_count;
 
     while (!lexer_accept("}")) {
-
-        // Check for a declaration
-        if (try_parse_local_declaration()) {
-            continue;
-        }
-
-        // Otherwise it's a statement
-        parse_statement();
+        parse_statement(true);
     }
 
     // track the maximum extent of the function's stack frame

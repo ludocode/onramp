@@ -154,7 +154,18 @@
 #
 #
 #
+#
 :_Lx2 
+  imw r0 0 
+#
+  jz r0 &_Lx3 
+:_U_4_main_baz
+  imw r0 1 
+  leave 
+  ret 
+#
+#
+:_Lx3 
   imw r0 0 
   leave 
   ret 
