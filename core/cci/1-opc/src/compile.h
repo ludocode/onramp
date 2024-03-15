@@ -32,18 +32,14 @@ void compile_init(void);
 void compile_destroy(void);
 
 /**
- * Toggles compilation on or off.
+ * Inhibits compilation.
  *
- * When off, nothing is emitted when compile functions are called, but type
- * manipulations are still performed. This is used to implement sizeof().
- *
- * Compilation is on by default. This is forwarded to emit_set_enabled(); this
- * is just here so that we have a clean separation between parse, compile and
- * emit.
+ * Nothing is emitted when this has been called, but type manipulations are
+ * still performed. This is used to implement sizeof().
  */
-void compile_set_enabled(bool enabled);
+void compile_inhibit_push(void);
 
-bool compile_is_enabled(void);
+void compile_inhibit_pop(void);
 
 /**
  * Compiles a global variable with the given type and name.

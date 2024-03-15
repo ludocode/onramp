@@ -15,5 +15,11 @@ int main(void) {
     if (sizeof(p + 1) != 4) {
         return 1;
     }
+
+    // sizeof without parens has high precedence
+    if (sizeof 1 - sizeof(int)) {
+        return 1;
+    }
+
     return 0;
 }

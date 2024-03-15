@@ -615,30 +615,29 @@ static type_t* parse_postfix_expression(void) {
 
 static type_t* parse_sizeof(void) {
 
-    // Check for sizeof(type). The type must be in parentheses. (The type
-    // declaration must be abstract.)
-    bool paren = lexer_accept("(");
-    if (paren) {
-        type_t* type;
-        if (try_parse_declaration(NULL, &type, NULL)) {
-            lexer_expect(")", "Expected `)` after `sizeof(type`");
-            return compile_sizeof(type);
-        }
+    // sizeof without parens has high precedence. We only consume a unary
+    // expression.
+    if (!lexer_accept("(")) {
+        compile_inhibit_push();
+        type_t* type = parse_unary_expression();
+        compile_inhibit_pop();
+        return compile_sizeof(type);
     }
 
-    // Otherwise it's a (possibly parenthesized) expression. Parse it with
-    // compilation disabled; we only want to do type resolution.
-    // Note that the expression in sizeof isn't allowed to be a cast. We don't
-    // bother to check this at the moment.
-    bool was_enabled = compile_is_enabled();
-    compile_set_enabled(false);
-    type_t* type = parse_expression();
-    compile_set_enabled(was_enabled);
-    if (paren) {
-        lexer_expect(")", "Expected `)` after `sizeof(expression`");
+    // Check for sizeof(type). The type declaration must be abstract.
+    type_t* type;
+    if (try_parse_declaration(NULL, &type, NULL)) {
+        lexer_expect(")", "Expected `)` after `sizeof(type`");
+        return compile_sizeof(type);
     }
 
+    // Otherwise it's a parenthesized expression.
+    compile_inhibit_push();
+    type = parse_expression();
+    compile_inhibit_pop();
+    lexer_expect(")", "Expected `)` after `sizeof(expression`");
     return compile_sizeof(type);
+
 }
 
 // Parses post-increment and post-decrement operators.

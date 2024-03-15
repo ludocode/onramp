@@ -31,18 +31,22 @@
 #include "locals.h"
 #include "global.h"
 
+static int compile_inhibit;
+
 void compile_init(void) {
 }
 
 void compile_destroy(void) {
 }
 
-void compile_set_enabled(bool enabled) {
-    emit_set_enabled(enabled);
+void compile_inhibit_push(void) {
+    compile_inhibit = (compile_inhibit + 1);
+    emit_set_enabled(false);
 }
 
-bool compile_is_enabled(void) {
-    return emit_is_enabled();
+void compile_inhibit_pop(void) {
+    compile_inhibit = (compile_inhibit - 1);
+    emit_set_enabled(compile_inhibit == 0);
 }
 
 static char compile_storage_glyph(storage_t storage) {
