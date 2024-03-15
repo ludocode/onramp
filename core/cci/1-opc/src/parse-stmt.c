@@ -238,8 +238,8 @@ static void parse_for(void) {
     if (!lexer_accept(")")) {
         type_delete(parse_expression());
         lexer_expect(")", "Expected `)` after increment clause of `for`");
-        compile_jump(continue_label);
     }
+    compile_jump(continue_label);
 
     // parse and compile the loop
     compile_label(loop_contents_label);

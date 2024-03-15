@@ -19,7 +19,7 @@ int main(void) {
     }
 
     // for loop with false condition
-    for (x = 1; false; x = 10) {
+    for (x = 1; 0; x = 10) {
         return 1;
     }
     if (x != 1) {
@@ -33,6 +33,13 @@ int main(void) {
         break;
     }
     if (x != 2) {
+        return 1;
+    }
+
+    // for loop with only condition
+    x = 5;
+    for (; x; ) --x;
+    if (x != 0) {
         return 1;
     }
 
