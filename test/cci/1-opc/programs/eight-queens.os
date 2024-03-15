@@ -807,9 +807,7 @@
 :_LxB 
   add r0 rfp -12 
   ldw r0 0 r0 
-  cmpu r0 r0 0 
-  and r0 r0 1 
-  xor r0 r0 1 
+  isz r0 r0 
   jz r0 &_LxC 
 #
   mov r0 "."

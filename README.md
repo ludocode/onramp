@@ -47,7 +47,7 @@ Onramp is not yet complete. It doesn't compile much besides itself at the moment
 
 A near-term goal is to compile native compilers and tools: [TinyCC](https://en.wikipedia.org/wiki/Tiny_C_Compiler), [cproc](https://sr.ht/~mcf/cproc/)+[QBE](https://c9x.me/compile/), [chibicc](https://github.com/rui314/chibicc)/[Kefir](https://kefir.protopopov.lv/)+[binutils](https://www.gnu.org/software/binutils/), etc. A medium-term goal is to be able to boot a computer directly into a freestanding Onramp VM in order to bootstrap a modern OS kernel from source.
 
-Onramp is an experiment in implementing C completely from scratch on a custom architecture, retaining all bootstrap stages in between. It is essentially three compilers, three libcs, three preprocessors/assemblers/linkers, a custom instruction set, several virtual machines, a debugger... It will take a long time to complete and there are many directions it can take in the future.
+Onramp is an experiment in implementing C completely from scratch on a custom architecture, retaining all bootstrap stages in between. It is essentially three compilers, three preprocessors/assemblers/linkers, a multi-stage libc, a custom instruction set, several virtual machines, a debugger... It will take a long time to complete and there are many directions it can take in the future.
 
 I welcome bug reports but I am not currently accepting contributions. Feel free to fork this and implement VMs but be aware that the bytecode format will change. (Also, I don't have good VM tests at the moment so you might have a lot of trouble debugging your VM.)
 

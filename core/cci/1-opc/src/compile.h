@@ -111,7 +111,8 @@ void compile_zero(void);
 void compile_global_divider(void);
 
 /**
- * Compiles a binary operation.
+ * Compiles a binary operation (that is not an assignment or short-circuiting
+ * and/or operator.)
  *
  * The left of the operation is in r1 and the right is in r0.
  */
@@ -190,7 +191,11 @@ void compile_dereference(type_t* type, int register_num);
  */
 type_t* compile_lvalue_to_rvalue(type_t* type, int register_num);
 
-type_t* compile_boolean_not(void);
+//! Emits `bool r0 r0`
+void compile_boolean_cast(void);
+
+//! Emits `isz r0 r0`
+void compile_boolean_not(void);
 
 type_t* compile_bitwise_not(void);
 

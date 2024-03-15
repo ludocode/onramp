@@ -686,12 +686,20 @@ type_t* parse_unary_expression(void) {
     }
 
     if (lexer_accept("!")) {
+        // We optimize `!!` here.
+        bool doubled = lexer_accept("!");
         type_t* type = parse_unary_expression();
         compile_lvalue_to_rvalue(type, 0);
         type_delete(type);
-        return compile_boolean_not();
+        if (doubled) {
+            compile_boolean_cast();
+        }
+        if (!doubled) {
+            compile_boolean_not();
+        }
+        return type_new_base(BASE_SIGNED_INT);
     }
-    
+
     if (lexer_accept("~")) {
         type_t* type = parse_unary_expression();
         compile_lvalue_to_rvalue(type, 0);

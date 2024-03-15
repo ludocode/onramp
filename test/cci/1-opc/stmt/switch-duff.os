@@ -336,7 +336,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -383,7 +382,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -430,7 +428,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -477,7 +474,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -524,7 +520,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -571,7 +566,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -618,7 +612,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 
@@ -665,7 +658,6 @@
   ldw r0 0 r0 
   pop r1 
   ldb r0 0 r0 
-  sxb r0 r0 
   stb r0 0 r1 
   imw r0 -136 
   add r0 rfp r0 

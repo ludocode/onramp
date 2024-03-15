@@ -296,9 +296,7 @@
   cmps r0 r1 r0 
   cmpu r0 r0 1 
   and r0 r0 1 
-  cmpu r0 r0 0 
-  and r0 r0 1 
-  xor r0 r0 1 
+  isz r0 r0 
   jz r0 &_Lx7 
 #
   imw r0 1 
@@ -324,9 +322,7 @@
   cmps r0 r1 r0 
   cmpu r0 r0 1 
   and r0 r0 1 
-  cmpu r0 r0 0 
-  and r0 r0 1 
-  xor r0 r0 1 
+  isz r0 r0 
   jz r0 &_Lx8 
 #
   imw r0 1 
@@ -342,9 +338,7 @@
   cmps r0 r1 r0 
   cmpu r0 r0 1 
   and r0 r0 1 
-  cmpu r0 r0 0 
-  and r0 r0 1 
-  xor r0 r0 1 
+  isz r0 r0 
   jz r0 &_Lx9 
 #
   imw r0 1 

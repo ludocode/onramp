@@ -144,7 +144,7 @@ static bool try_parse_function_specifiers(void) {
 #define TYPE_SPECIFIER_SHORT        (1 << 2)
 #define TYPE_SPECIFIER_INT          (1 << 3)
 #define TYPE_SPECIFIER_LONG         (1 << 4)
-#define TYPE_SPECIFIER_LONG_LONG    (1 << 5)
+//#define TYPE_SPECIFIER_LONG_LONG    (1 << 5)
 #define TYPE_SPECIFIER_SIGNED       (1 << 6)
 #define TYPE_SPECIFIER_UNSIGNED     (1 << 7)
 //#define TYPE_SPECIFIER_RECORD       (1 << 8)
@@ -326,6 +326,10 @@ static bool try_parse_type_specifiers(int* type_specifiers,
 
     // handle long
     if (lexer_accept("long")) {
+        if (*type_specifiers & TYPE_SPECIFIER_LONG) {
+            fatal("`long long` is not supported in opC.");
+        }
+        /*
         if (*type_specifiers & TYPE_SPECIFIER_LONG_LONG) {
             fatal("`long long long` is invalid.");
         }
@@ -334,6 +338,7 @@ static bool try_parse_type_specifiers(int* type_specifiers,
             *type_specifiers = (*type_specifiers | TYPE_SPECIFIER_LONG_LONG);
             return true;
         }
+        */
         *type_specifiers = (*type_specifiers | TYPE_SPECIFIER_LONG);
         return true;
     }
@@ -382,8 +387,8 @@ base_t convert_type_specifier(int type_specifiers) {
     if (type_specifiers & TYPE_SPECIFIER_INT) {
         if (((type_specifiers & TYPE_SPECIFIER_CHAR) |
             (type_specifiers & TYPE_SPECIFIER_SHORT)) |
-            ((type_specifiers & TYPE_SPECIFIER_LONG) |
-            (type_specifiers & TYPE_SPECIFIER_LONG_LONG)))
+            ((type_specifiers & TYPE_SPECIFIER_LONG) /*|
+            (type_specifiers & TYPE_SPECIFIER_LONG_LONG)*/))
         {
             type_specifiers = (type_specifiers & ~TYPE_SPECIFIER_INT);
         }
@@ -406,8 +411,8 @@ base_t convert_type_specifier(int type_specifiers) {
         {return BASE_UNSIGNED_SHORT;}
     if (type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT))
         {return BASE_UNSIGNED_INT;}
-    if (type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG))
-        {return BASE_UNSIGNED_LONG_LONG;}
+    //if (type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG))
+    //    {return BASE_UNSIGNED_LONG_LONG;}
 
     if ((type_specifiers == TYPE_SPECIFIER_CHAR) |
             (type_specifiers == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR)))
@@ -418,9 +423,9 @@ base_t convert_type_specifier(int type_specifiers) {
     if ((type_specifiers == TYPE_SPECIFIER_INT) |
             (type_specifiers == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT)))
         {return BASE_SIGNED_INT;}
-    if ((type_specifiers == TYPE_SPECIFIER_LONG_LONG) |
-            (type_specifiers == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG)))
-        {return BASE_SIGNED_LONG_LONG;}
+    //if ((type_specifiers == TYPE_SPECIFIER_LONG_LONG) |
+    //        (type_specifiers == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG)))
+    //    {return BASE_SIGNED_LONG_LONG;}
 
     fatal("Unsupported combination of type specifiers.");
 }
