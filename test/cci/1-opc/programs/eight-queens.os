@@ -383,7 +383,7 @@
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-:_Lx0 
+:_Lx2 
   add r0 rfp -12 
   push r0 
   add r0 rfp -4 
@@ -395,8 +395,8 @@
   and r0 r0 1 
   xor r0 r0 1 
   jz r0 &_Lx1 
-  jmp &_Lx2 
-:_Lx3 
+  jmp &_Lx3 
+:_Lx0 
   add r0 rfp -12 
   push r0 
   mov r1 r0 
@@ -405,8 +405,8 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  jmp &_Lx0 
-:_Lx2 
+  jmp &_Lx2 
+:_Lx3 
 #
   add r0 rfp -16 
   push r0 
@@ -484,7 +484,7 @@
 #
 :_Lx4 
 #
-  jmp &_Lx3 
+  jmp &_Lx0 
 :_Lx1 
   imw r0 1 
   sxb r0 r0 
@@ -537,7 +537,7 @@
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-:_Lx7 
+:_Lx9 
   add r0 rfp -8 
   push r0 
   imw r0 8 
@@ -548,8 +548,8 @@
   and r0 r0 1 
   xor r0 r0 1 
   jz r0 &_Lx8 
-  jmp &_Lx9 
-:_LxA 
+  jmp &_LxA 
+:_Lx7 
   add r0 rfp -8 
   push r0 
   mov r1 r0 
@@ -558,8 +558,8 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  jmp &_Lx7 
-:_Lx9 
+  jmp &_Lx9 
+:_LxA 
 #
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -599,7 +599,7 @@
 #
 :_LxB 
 #
-  jmp &_LxA 
+  jmp &_Lx7 
 :_Lx8 
 #
 #
@@ -626,7 +626,7 @@
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-:_LxC 
+:_LxE 
   add r0 rfp -4 
   push r0 
   imw r0 8 
@@ -637,8 +637,8 @@
   and r0 r0 1 
   xor r0 r0 1 
   jz r0 &_LxD 
-  jmp &_LxE 
-:_LxF 
+  jmp &_LxF 
+:_LxC 
   add r0 rfp -4 
   push r0 
   mov r1 r0 
@@ -647,15 +647,15 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  jmp &_LxC 
-:_LxE 
+  jmp &_LxE 
+:_LxF 
 #
   add r0 rfp -8 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-:_Lx10 
+:_Lx12 
   add r0 rfp -8 
   push r0 
   imw r0 8 
@@ -666,8 +666,8 @@
   and r0 r0 1 
   xor r0 r0 1 
   jz r0 &_Lx11 
-  jmp &_Lx12 
-:_Lx13 
+  jmp &_Lx13 
+:_Lx10 
   add r0 rfp -8 
   push r0 
   mov r1 r0 
@@ -676,8 +676,8 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  jmp &_Lx10 
-:_Lx12 
+  jmp &_Lx12 
+:_Lx13 
 #
   imw r0 ^queens 
   add r0 rpp r0 
@@ -711,7 +711,7 @@
   call ^putchar 
 #
 #
-  jmp &_Lx13 
+  jmp &_Lx10 
 :_Lx11 
   mov r0 '0A
   push r0 
@@ -719,7 +719,7 @@
   call ^putchar 
 #
 #
-  jmp &_LxF 
+  jmp &_LxC 
 :_LxD 
   imw r0 ^_Sx0 
   add r0 rpp r0 

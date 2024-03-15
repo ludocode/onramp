@@ -204,6 +204,8 @@ static void parse_for(void) {
     int old_end_label = break_label;
     continue_label = parse_generate_label();
     break_label = parse_generate_label();
+    int condition_label = parse_generate_label();
+    int contents_label = parse_generate_label();
 
     // push locals count. we want to pop our variable definition when done.
     int previous_locals_count = locals_count;
@@ -218,7 +220,7 @@ static void parse_for(void) {
     }
 
     // parse the condition expression
-    compile_label(continue_label);
+    compile_label(condition_label);
     if (!lexer_accept(";")) {
         type_t* type = parse_expression();
         compile_lvalue_to_rvalue(type, 0);
@@ -226,25 +228,23 @@ static void parse_for(void) {
         type_delete(type);
         lexer_expect(";", "Expected `(` after condition clause of `for`");
     }
+    compile_jump(contents_label);
 
     // Parse the increment expression. This only happens at the end of the loop
     // but we need to emit it now because we're compiling in a single pass, so
     // we set up these circuitous jumps around it to run the increment at the
     // appropriate time.
-    int loop_contents_label = parse_generate_label();
-    int loop_increment_label = parse_generate_label();
-    compile_jump(loop_contents_label);
-    compile_label(loop_increment_label);
+    compile_label(continue_label);
     if (!lexer_accept(")")) {
         type_delete(parse_expression());
         lexer_expect(")", "Expected `)` after increment clause of `for`");
     }
-    compile_jump(continue_label);
+    compile_jump(condition_label);
 
-    // parse and compile the loop
-    compile_label(loop_contents_label);
+    // parse and compile the loop contents
+    compile_label(contents_label);
     parse_statement(false);
-    compile_jump(loop_increment_label);
+    compile_jump(continue_label);
     compile_label(break_label);
 
     // pop locals

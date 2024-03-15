@@ -2,8 +2,8 @@ int main(void) {
     int x = 0;
 
     // for loop with declaration
-    for (int y = 0; y < 5; y = (y + 1)) {
-        x = (x + y);
+    for (int y = 0; y < 5; ++y) {
+        x += y;
     }
     if (x != 10) {
         return 1;
@@ -11,19 +11,19 @@ int main(void) {
 
     // for loop without declaration, comma operator in expression
     int y;
-    for (y = 5, y = 3; y > -2; y = (y - 1)) {
+    for (y = 5, y = 3; y > -2; y = y - 1) {
         x = (x - 1);
     }
     if (x != 5) {
-        return 1;
+        return 2;
     }
 
     // for loop with false condition
     for (x = 1; 0; x = 10) {
-        return 1;
+        return 3;
     }
     if (x != 1) {
-        return 1;
+        return 4;
     }
 
     // infinite for loop
@@ -33,15 +33,19 @@ int main(void) {
         break;
     }
     if (x != 2) {
-        return 1;
+        return 5;
     }
 
     // for loop with only condition
     x = 5;
     for (; x; ) --x;
     if (x != 0) {
-        return 1;
+        return 6;
     }
+
+    // continue should run the increment
+    for (x = 0; x < 5; ++x)
+        continue;
 
     return 0;
 }
