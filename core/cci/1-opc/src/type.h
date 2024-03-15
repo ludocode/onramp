@@ -184,4 +184,8 @@ bool type_is_unsigned(const type_t* type);
 
 bool type_is_integer(const type_t* type);
 
+bool type_is_compatible(const type_t* left, const type_t* right);
+
+bool type_is_void_pointer(const type_t* type);
+
 #endif

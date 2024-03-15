@@ -33,10 +33,9 @@ However, we exclude a few ANSI C features and common extensions:
 We also simplify a few others (in some cases violating proper C rules):
 
 - declarations of pointers to arrays are not supported. e.g. `int** x[3];` works but `int* (*x)[3];` does not.
-- `union` may be an alias of `struct` (union type punning doesn't necessarily work.)
 - passing structs and unions by value is not supported.
 - `_Bool` (C99) is an alias of `unsigned char` (true values are not necessarily coerced to 1.)
-- Bitfield size specifiers are ignored (and zero-width bitfield members are forbidden.)
+- Bitfield size specifiers are ignored
 - `const`, `auto`, `register`, `volatile`, `inline`, `_Noreturn`, `restrict` and more are all ignored.
 - All C11 attributes including `[[noreturn]]` and `[[deprecated]]` are ignored.
 - Alignment specifiers are ignored.

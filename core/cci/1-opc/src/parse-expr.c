@@ -538,7 +538,7 @@ static type_t* parse_record_value_access(type_t* type) {
     if (lexer_type != lexer_type_alphanumeric) {
         fatal("Expected a struct or union field name after `.`");
     }
-    if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | !type_is_record(type)) {
+    if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | (type_base(type) != BASE_RECORD)) {
         fatal("`.` can only be used on a struct or union pointer.");
     }
     return parse_record_access(type);
@@ -552,7 +552,7 @@ static type_t* parse_record_pointer_access(type_t* type) {
     // array of structs. Apparently this is normal as neither GCC and Clang
     // complain when `->` is used this way, but strictly speaking, the spec
     // says it's supposed to only be used on pointers.
-    if ((!type_is_lvalue(type) | (type_indirections(type) != 1)) | !type_is_record(type)) {
+    if ((!type_is_lvalue(type) | (type_indirections(type) != 1)) | (type_base(type) != BASE_RECORD)) {
         fatal("`.` can only be used on a struct or union pointer.");
     }
 
@@ -758,27 +758,34 @@ type_t* parse_conditional_expression(void) {
     int end_label = parse_generate_label();
 
     // if the type is an lvalue we need to dereference it
-    compile_lvalue_to_rvalue(predicate_type, 0);
-    // TODO compile a cast to int, need to convert e.g. llong to int, fail on
-    // structs, etc.
-    type_delete(predicate_type);
+    type_delete(compile_lvalue_to_rvalue(predicate_type, 0));
+    compile_jump_if_zero(false_label);
 
     // parse true branch
-    compile_jump_if_zero(false_label);
-    type_t* true_type = parse_expression();
+    type_t* true_type = compile_promote(parse_expression(), 0);
     compile_jump(end_label);
     lexer_expect(":", "Expected `:` in conditional expression");
 
     // parse false branch
     compile_label(false_label);
-    type_t* false_type = parse_conditional_expression();
+    type_t* false_type = compile_promote(parse_conditional_expression(), 0);
     compile_label(end_label);
 
-    // TODO make sure types are compatible
-    type_delete(false_type);
+    if (!type_is_compatible(true_type, false_type)) {
+        fatal("Incompatible types in branches of conditional expression.");
+    }
 
-    // the return value cannot be assigned.
-    //compile_lvalue_to_rvalue(true_type, 0);
+    // We should preserve pointer types and we should be signed if either side
+    // was signed. Otherwise we don't care because we already promoted both.
+    if (type_indirections(false_type) > 0) {
+        type_delete(true_type);
+        return false_type;
+    }
+    if (type_is_signed(false_type)) {
+        type_delete(true_type);
+        return false_type;
+    }
+    type_delete(false_type);
     return true_type;
 }
 

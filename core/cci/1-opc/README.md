@@ -8,27 +8,6 @@ This document describes the implementation. For a description of the language it
 
 
 
-## Status
-
-All of omC is supported and some parts of opC are done. We need to fix or add:
-
-- [x] make self-hosting
-- [x] new type system (see below)
-- [x] globals hashtable
-- [ ] `struct` and `union`
-- [ ] `unsigned`
-- [ ] `short`
-- [x] `enum`
-- [ ] arrays
-- [x] `else`
-- [x] `for` (with variable declaration)
-- [x] `switch` and `case`
-- [x] `goto` and labels
-- [ ] full expression parser
-- [x] constant expression parser
-
-
-
 ## Types
 
 opC has all C99 signed and unsigned integer types, `void`, `struct`, `union`, `enum`, pointers and arrays. However, it has no function pointers, no multi-dimensional arrays, and no pointers to arrays. Additionally, the `const` and `volatile` qualifiers are ignored.

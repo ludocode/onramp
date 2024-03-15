@@ -191,10 +191,6 @@ void type_set_array_length(type_t* type, int array_length) {
     *(int*)((void**)type + TYPE_OFFSET_ARRAY_LENGTH) = array_length;
 }
 
-bool type_is_record(const type_t* type) {
-    return type_base(type) == BASE_RECORD;
-}
-
 size_t type_size(const type_t* type) {
     size_t size;
 
@@ -359,4 +355,57 @@ bool type_is_integer(const type_t* type) {
     if (base == BASE_SIGNED_SHORT) {return true;}
     if (base == BASE_SIGNED_INT) {return true;}
     return false;
+}
+
+bool type_is_void_pointer(const type_t* type) {
+    if (type_is_array(type)) {
+        return false;
+    }
+    if (type_pointers(type) != 1) {
+        return false;
+    }
+    return type_base(type) == BASE_VOID;
+}
+
+bool type_is_compatible(const type_t* left, const type_t* right) {
+
+    // Matching types compare equal.
+    if (type_equal(left, right)) {
+        return true;
+    }
+
+    // Matching base types with the same indirection count compare equal. (We
+    // decay arrays to pointers in a comparison.)
+    if (type_indirections(left) == type_indirections(right)) {
+        if (type_base(left) == type_base(right)) {
+            if (type_base(left) == BASE_RECORD) {
+                if (type_record(left) != type_record(right)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+    }
+
+    // Check if both are pointers
+    if (type_indirections(left) > 0) {
+        if (type_indirections(right) > 0) {
+
+            // Void pointers can be compared to pointers of any other type.
+            if (type_is_void_pointer(left)) {
+                return true;
+            }
+            if (type_is_void_pointer(right)) {
+                return true;
+            }
+
+            // Otherwise pointers must exactly match.
+            return false;
+        }
+    }
+
+    // Otherwise at least one side is an integer. We need to allow pointers to
+    // be compared to a literal 0 and we don't have a great way of tracking
+    // this. For now we just allow all integers to be compared with anything.
+    return true;
 }

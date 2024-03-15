@@ -614,6 +614,9 @@ void compile_basic_op(const char* op) {
 }
 
 type_t* compile_comparison(const char* op, type_t* left, type_t* right) {
+    if (!type_is_compatible(left, right)) {
+        fatal("Cannot perform comparison between incompatible types.");
+    }
 
     // The types of comparison operands must be compatible. Integers have
     // already been promoted to the same type.
@@ -674,6 +677,17 @@ type_t* compile_comparison(const char* op, type_t* left, type_t* right) {
     }
 
     fatal("Internal error: Unhandled comparison operator");
+}
+
+type_t* compile_promote(type_t* type, int register_num) {
+    type = compile_lvalue_to_rvalue(type, 0);
+    if (type_indirections(type) > 0) {
+        return type;
+    }
+    if (type_is_signed(type)) {
+        return compile_cast(type, type_new_base(BASE_SIGNED_INT), register_num);
+    }
+    return compile_cast(type, type_new_base(BASE_UNSIGNED_INT), register_num);
 }
 
 // Compiles a binary operation.
