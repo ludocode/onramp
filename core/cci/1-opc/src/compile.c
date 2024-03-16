@@ -120,20 +120,20 @@ void compile_function_open(const global_t* global) {
             emit_term("stw");
             emit_register(i);
             emit_term("rfp");
-            emit_int(-(i + 1) * 4);
+            emit_int(-(i + 1) << 2);
             emit_newline();
         }
         if (i >= 4) {
             emit_term("ldw");
             emit_term("r9");
             emit_term("rfp");
-            emit_int((i - 3) * 4);
+            emit_int((i - 2) << 2);
             emit_newline();
 
             emit_term("stw");
             emit_term("r9");
             emit_term("rfp");
-            emit_int(-(i + 1) * 4);
+            emit_int(-(i + 1) << 2);
             emit_newline();
         }
         i = (i + 1);

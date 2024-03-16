@@ -575,6 +575,10 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         if (arg_count > 0) {
             lexer_expect(",", "Expected `,` or `)` after argument");
         }
+        if (arg_count == arg_capacity) {
+            // We could make this growable but there's no point.
+            fatal("This function has too many parameters.");
+        }
 
         // check for variadic arguments
         if (lexer_accept("...")) {
