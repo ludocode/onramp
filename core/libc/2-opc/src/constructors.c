@@ -22,14 +22,15 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
-
-#include "internal.h"
-
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
+/*
+ * libc/2 doesn't support global constructors and destructors. We stub these
+ * out so they can be implemented by the next stage.
  */
 
-ssize_t write(int fd, const void* buffer, size_t count) {
+void __call_constructors(void) {
+    // nothing
+}
+
+void __call_destructors(void) {
+    // nothing
 }

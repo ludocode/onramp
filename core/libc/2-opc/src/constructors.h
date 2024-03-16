@@ -22,14 +22,10 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
+#ifndef CONSTRUCTORS_H_INCLUDED
+#define CONSTRUCTORS_H_INCLUDED
 
-#include "internal.h"
+void __call_constructors(void);
+void __call_destructors(void);
 
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
- */
-
-ssize_t write(int fd, const void* buffer, size_t count) {
-}
+#endif

@@ -51,8 +51,6 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#include <stdlib.h>   // TODO is this required?
-
 #ifdef __onramp_cpp_omc__
     // With the omC preprocessor, assert can't be a macro. It's a function and
     // it's always called even under NDEBUG.

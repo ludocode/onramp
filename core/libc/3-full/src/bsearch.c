@@ -22,14 +22,28 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
+#include <stdlib.h>
 
-#include "internal.h"
+void* bsearch(const void* key, const void* vbase,
+                size_t element_count, size_t element_size,
+                int (*compare)(const void* key, const void* element))
+{
+    const char* base = (const char*)vbase;
+    size_t start = 0;
+    size_t end = element_count;
 
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
- */
+    while (start != end) {
+        size_t i = (start + end) >> 1;
+        const void* p = base + i * element_size;
+        int c = compare(key, p); // key must be the first argument, see C17 7.22.5$2
+//printf("-- %i,%i i %i v %i c %i\n", start, end, i, *(int*)p, c);
+        if (c == 0)
+            return (void*)p;
+        if (c < 0)
+            end = i;
+        else
+            start = i + 1;
+    }
 
-ssize_t write(int fd, const void* buffer, size_t count) {
+    return 0;
 }

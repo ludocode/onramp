@@ -24,13 +24,12 @@
 
 #include <stdlib.h>
 
+#include "internal.h"
+
 #include <ctype.h>
 #include <stdbool.h>
 #include <limits.h>
 #include <errno.h>
-
-// TODO declare in internal header
-_Noreturn void __fatal(const char* message);
 
 
 

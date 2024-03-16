@@ -22,8 +22,33 @@
  * SOFTWARE.
  */
 
-#include <errno.h>
+#include <stdlib.h>
 
-#include "internal.h"
+/*
+ * rand()
+ *
+ * An affine congruential PRNG (typically called linear in the literature,
+ * though this is a misnomer.)
+ */
 
-int errno;
+static unsigned rand_seed = 1;
+
+int rand(void) {
+    return rand_r(&rand_seed);
+}
+
+void srand(unsigned seed) {
+    rand_seed = seed;
+}
+
+int rand_r(unsigned* seed) {
+    // The first number in the m=2^32 category in Table 4 of the errata to
+    // "Tables of Linear Congruential Generators of Different Sizes and Good
+    // Lattice Structure" by Steele & Vigna
+    //     https://arxiv.org/abs/2001.05304
+    //     https://www.iro.umontreal.ca/~lecuyer/myftp/papers/latrules99Errata.pdf
+    const unsigned a = 2891336453u;
+    const unsigned c = 1u;
+    *seed = a * *seed + c; // mod 2^32 is implied
+    return *seed & RAND_MAX;
+}

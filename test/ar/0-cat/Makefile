@@ -29,12 +29,17 @@ OUT=$(BUILD)/ar-0-cat
 VM=$(BUILD)/vm-c-debugger/vm
 LD=$(BUILD)/ld-2-full/ld
 
+# TODO this should just depend on libc/3 which will depend on ar/1
+
 LIBC_FILES=\
 		$(ROOT)/core/libc/0-oo/src/start.oo \
+		\
 		$(ROOT)/core/libc/0-oo/src/ctype.oo \
+		$(ROOT)/core/libc/0-oo/src/errno.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
+		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		$(ROOT)/core/libc/0-oo/src/stdio.oo \
-		$(ROOT)/core/libc/0-oo/src/stdlib_malloc.oo \
-		$(ROOT)/core/libc/0-oo/src/stdlib_util.oo \
 		$(ROOT)/core/libc/0-oo/src/string.oo
 
 LIBO_FILES=\

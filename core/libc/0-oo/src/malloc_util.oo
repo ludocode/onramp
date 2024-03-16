@@ -22,7 +22,7 @@
 
 
 
-; This file contains additional stdlib functions that are not overridden by the
+; This file contains additional malloc functions that are not overridden by the
 ; next stage libc.
 
 

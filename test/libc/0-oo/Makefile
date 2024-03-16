@@ -33,11 +33,13 @@ AR=$(BUILD)/ar-0-cat/ar.oe
 
 LIBC_FILES=\
 		$(ROOT)/core/libc/0-oo/src/start.oo \
+		\
 		$(ROOT)/core/libc/0-oo/src/ctype.oo \
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
+		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		$(ROOT)/core/libc/0-oo/src/stdio.oo \
-		$(ROOT)/core/libc/0-oo/src/stdlib_malloc.oo \
-		$(ROOT)/core/libc/0-oo/src/stdlib_util.oo \
 		$(ROOT)/core/libc/0-oo/src/string.oo
 
 all: build test FORCE

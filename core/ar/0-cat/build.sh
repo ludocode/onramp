@@ -35,10 +35,11 @@ onrampvm build/intermediate/ld-0-global/ld.oe \
     core/libc/0-oo/src/start.oo \
     \
     core/libc/0-oo/src/ctype.oo \
+    core/libc/0-oo/src/errno.oo \
+    core/libc/0-oo/src/malloc.oo \
+    core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
     core/libc/0-oo/src/stdio.oo \
-    core/libc/0-oo/src/stdlib_malloc.oo \
-    core/libc/0-oo/src/stdlib_util.oo \
     core/libc/0-oo/src/string.oo \
     \
     core/libo/0-oo/src/libo-error.oo \

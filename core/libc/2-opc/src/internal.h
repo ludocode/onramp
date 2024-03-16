@@ -36,10 +36,4 @@
             __assert_fail(#expression, __FILE__, __LINE__, __func__))
 #endif
 
-// TODO get rid of these, we need to be able to compile libc/2 with cpp/1
-// because cpp/2 depends on libc/2
-#define MIN(a, b) ((a < b) ? a : b)
-#define MAX(a, b) ((a > b) ? a : b)
-#define CONST_CAST(T, expr) ((T)(expr))
-
 #endif

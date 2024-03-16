@@ -22,14 +22,11 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
+void __call_constructors(void) {
+    // TODO call  __attribute__((constructor)) functions
+    // TODO make sure to pass argc, argv, environ; same arguments as main()
+}
 
-#include "internal.h"
-
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
- */
-
-ssize_t write(int fd, const void* buffer, size_t count) {
+void __call_destructors(void) {
+    // TODO
 }

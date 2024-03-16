@@ -29,29 +29,25 @@ OUT=$(BUILD)/libc-1-omc
 TOOL_VM=$(BUILD)/vm-c-debugger/vm
 TOOL_AR=$(BUILD)/ar-0-cat/ar.oe    # TODO ar/1
 TOOL_CC=$(BUILD)/cc/cc
-TOOL_CPP=$(BUILD)/cpp-1-omc/cpp    # TODO cci/2
+TOOL_CPP=$(BUILD)/cpp-1-omc/cpp    # TODO cpp/2
 TOOL_CCI=$(BUILD)/cci-1-opc/cci    # TODO cci/2
-TOOL_AS=$(BUILD)/as-2-full/as      # TODO as/1
-TOOL_LD=$(BUILD)/ld-2-full/ld      # TODO ld/1
+TOOL_AS=$(BUILD)/as-2-full/as
+TOOL_LD=$(BUILD)/ld-2-full/ld
 TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
 
-LIBC_0_OBJS=\
+OBJS=\
 		$(ROOT)/core/libc/0-oo/src/start.oo \
+		\
 		$(ROOT)/core/libc/0-oo/src/ctype.oo \
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
+		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		$(ROOT)/core/libc/0-oo/src/stdio.oo \
-		$(ROOT)/core/libc/0-oo/src/stdlib_util.oo \
-		$(ROOT)/core/libc/0-oo/src/string.oo
-
-LIBC_1_SRCS=\
-		$(SRC)/stdlib_malloc.c \
-		$(SRC)/stdlib_conv.c \
-		$(SRC)/string_omc.c
-
-LIBC_1_OBJS=\
-		$(OUT)/stdlib_malloc.oo \
-		$(OUT)/stdlib_conv.oo \
-		$(OUT)/string_omc.oo
+		$(ROOT)/core/libc/0-oo/src/string.oo \
+		\
+		$(OUT)/malloc.oo \
+		$(OUT)/strrchr.oo \
+		$(OUT)/strtol.oo \
 
 # TODO remove -nostddef and macros once we have full cci, full cpp
 CCARGS=\
@@ -91,25 +87,27 @@ $(TOOL_AS): FORCE
 $(TOOL_LD): FORCE
 	@(make -C ../../ld/2-full build)   # TODO ld/1 build
 
-$(OUT)/stdlib_malloc.oo: $(SRC)/stdlib_malloc.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC)/stdlib_malloc.c -o $@
 
-$(OUT)/stdlib_conv.oo: $(SRC)/stdlib_conv.c Makefile
+$(OUT)/malloc.oo: $(SRC)/malloc.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC)/stdlib_conv.c -o $@
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/malloc.c -o $@
 
-$(OUT)/string_omc.oo: $(SRC)/string_omc.c Makefile
+$(OUT)/strrchr.oo: $(SRC)/strrchr.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC)/string_omc.c -o $@
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/strrchr.c -o $@
 
-$(OUT)/libc.oa: Makefile $(TOOLS) $(LIBC_0_OBJS) $(LIBC_1_OBJS)
+$(OUT)/strtol.oo: $(SRC)/strtol.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(TOOL_VM) $(TOOL_AR) rc $@ $(LIBC_0_OBJS) $(LIBC_1_OBJS)
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/strtol.c -o $@
+
+
+$(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
 
 test: build FORCE $(VM)
 	../run.sh . $(OUT)/libc.oa -I$(ROOT)/core/libc/1-omc/include -I$(ROOT)/core/libc/0-oo/include

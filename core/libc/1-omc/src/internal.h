@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2024 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,14 +22,9 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
+#ifndef INTERNAL_H_INCLUDED
+#define INTERNAL_H_INCLUDED
 
-#include "internal.h"
+_Noreturn void __fatal(const char* message);
 
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
- */
-
-ssize_t write(int fd, const void* buffer, size_t count) {
-}
+#endif

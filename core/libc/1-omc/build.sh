@@ -33,7 +33,7 @@ mkdir -p build/intermediate/libc-1-omc
 
 
 
-echo Preprocessing libc/1-omc stdlib_malloc.c
+echo Preprocessing libc/1-omc malloc.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
@@ -44,19 +44,19 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/0-oo/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
-    core/libc/1-omc/src/stdlib_malloc.c -o build/intermediate/libc-1-omc/stdlib_malloc.i
+    core/libc/1-omc/src/malloc.c -o build/intermediate/libc-1-omc/malloc.i
 
-echo Compiling libc/1-omc stdlib_malloc.c
+echo Compiling libc/1-omc malloc.c
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/stdlib_malloc.i -o build/intermediate/libc-1-omc/stdlib_malloc.os
+    build/intermediate/libc-1-omc/malloc.i -o build/intermediate/libc-1-omc/malloc.os
 
-echo Assembling libc/1-omc stdlib_malloc.c
+echo Assembling libc/1-omc malloc.c
 onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/libc-1-omc/stdlib_malloc.os -o build/intermediate/libc-1-omc/stdlib_malloc.oo
+    build/intermediate/libc-1-omc/malloc.os -o build/intermediate/libc-1-omc/malloc.oo
 
 
 
-echo Preprocessing libc/1-omc stdlib_conv.c
+echo Preprocessing libc/1-omc strtol.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
@@ -67,19 +67,19 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/0-oo/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
-    core/libc/1-omc/src/stdlib_conv.c -o build/intermediate/libc-1-omc/stdlib_conv.i
+    core/libc/1-omc/src/strtol.c -o build/intermediate/libc-1-omc/strtol.i
 
-echo Compiling libc/1-omc stdlib_conv.c
+echo Compiling libc/1-omc strtol.c
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/stdlib_conv.i -o build/intermediate/libc-1-omc/stdlib_conv.os
+    build/intermediate/libc-1-omc/strtol.i -o build/intermediate/libc-1-omc/strtol.os
 
-echo Assembling libc/1-omc stdlib_conv.c
+echo Assembling libc/1-omc strtol.c
 onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/libc-1-omc/stdlib_conv.os -o build/intermediate/libc-1-omc/stdlib_conv.oo
+    build/intermediate/libc-1-omc/strtol.os -o build/intermediate/libc-1-omc/strtol.oo
 
 
 
-echo Preprocessing libc/1-omc string_omc.c
+echo Preprocessing libc/1-omc strrchr.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
@@ -90,15 +90,15 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/0-oo/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
-    core/libc/1-omc/src/string_omc.c -o build/intermediate/libc-1-omc/string_omc.i
+    core/libc/1-omc/src/strrchr.c -o build/intermediate/libc-1-omc/strrchr.i
 
-echo Compiling libc/1-omc string_omc.c
+echo Compiling libc/1-omc strrchr.c
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/string_omc.i -o build/intermediate/libc-1-omc/string_omc.os
+    build/intermediate/libc-1-omc/strrchr.i -o build/intermediate/libc-1-omc/strrchr.os
 
-echo Assembling libc/1-omc string_omc.c
+echo Assembling libc/1-omc strrchr.c
 onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/libc-1-omc/string_omc.os -o build/intermediate/libc-1-omc/string_omc.oo
+    build/intermediate/libc-1-omc/strrchr.os -o build/intermediate/libc-1-omc/strrchr.oo
 
 
 
@@ -107,13 +107,16 @@ onrampvm build/intermediate/as-1-compound/as.oe \
 echo Archiving libc/1-omc
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-1-omc/libc.oa \
-        core/libc/0-oo/src/start.oo \
-        core/libc/0-oo/src/ctype.oo \
-        core/libc/0-oo/src/errno.oo \
-        core/libc/0-oo/src/spawn.oo \
-        core/libc/0-oo/src/stdio.oo \
-        core/libc/0-oo/src/stdlib_util.oo \
-        core/libc/0-oo/src/string.oo \
-        build/intermediate/libc-1-omc/stdlib_malloc.oo \
-        build/intermediate/libc-1-omc/stdlib_conv.oo \
-        build/intermediate/libc-1-omc/string_omc.oo
+    \
+    core/libc/0-oo/src/start.oo \
+    \
+    core/libc/0-oo/src/ctype.oo \
+    core/libc/0-oo/src/errno.oo \
+    core/libc/0-oo/src/malloc_util.oo \
+    core/libc/0-oo/src/spawn.oo \
+    core/libc/0-oo/src/stdio.oo \
+    core/libc/0-oo/src/string.oo \
+    \
+    build/intermediate/libc-1-omc/malloc.oo \
+    build/intermediate/libc-1-omc/strrchr.oo \
+    build/intermediate/libc-1-omc/strtol.oo

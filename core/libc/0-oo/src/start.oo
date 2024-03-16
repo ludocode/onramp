@@ -69,7 +69,7 @@
 
 
 ; ==========================================================
-; const void* __process_info_table;
+; const unsigned* __process_info_table;
 ; ==========================================================
 ; A pointer to the process info table given by the parent process (or VM.)
 ; ==========================================================

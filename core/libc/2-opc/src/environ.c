@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2024 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,14 +22,33 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
+#ifdef __onramp__
+char** __environ; // TODO POSIX alias is just environ
+#endif
 
-#include "internal.h"
+// TODO move this to libc/1, cc needs it
+char* getenv(const char* name) {
+    for (char** p = __environ; p; ++p) {
+        char* start = *p;
 
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
- */
+        // get the end of the key
+        char* end = strchr(start, '=');
+        if (end == NULL) {
+            continue;
+        }
 
-ssize_t write(int fd, const void* buffer, size_t count) {
+        // check if it matches
+        if (end - start != strlen(name)) {
+            continue;
+        }
+        if (0 != memcmp(start, name, end - start)) {
+            continue;
+        }
+
+        // found!
+        return end + 1;
+    }
+
+    // not found
+    return NULL;
 }

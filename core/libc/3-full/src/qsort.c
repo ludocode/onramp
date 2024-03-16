@@ -27,9 +27,6 @@
 #include "internal.h"
 
 #include <stdbool.h>
-#include <stdckdint.h>
-
-
 
 /*
  * qsort() and qsort_r()
@@ -138,65 +135,4 @@ void qsort_r(void* first, size_t count, size_t element_size,
     state.user_compare.with_context = user_compare;
     state.user_context = user_context;
     qsort_impl(&state, first, count);
-}
-
-
-
-/*
- * rand()
- *
- * An affine congruential PRNG (typically called linear in the literature,
- * though this is a misnomer.)
- */
-
-static unsigned rand_seed = 1;
-
-int rand(void) {
-    return rand_r(&rand_seed);
-}
-
-void srand(unsigned seed) {
-    rand_seed = seed;
-}
-
-int rand_r(unsigned* seed) {
-    // The first number in the m=2^32 category in Table 4 of the errata to
-    // "Tables of Linear Congruential Generators of Different Sizes and Good
-    // Lattice Structure" by Steele & Vigna
-    //     https://arxiv.org/abs/2001.05304
-    //     https://www.iro.umontreal.ca/~lecuyer/myftp/papers/latrules99Errata.pdf
-    const unsigned a = 2891336453u;
-    const unsigned c = 1u;
-    *seed = a * *seed + c; // mod 2^32 is implied
-    return *seed & RAND_MAX;
-}
-
-
-
-/*
- * Other utility functions
- */
-
-void* bsearch(const void* key, const void* vbase,
-                size_t element_count, size_t element_size,
-                int (*compare)(const void* key, const void* other))
-{
-    const char* base = (const char*)vbase;
-    size_t start = 0;
-    size_t end = element_count;
-
-    while (start != end) {
-        size_t i = (start + end) >> 1;
-        const void* p = base + i * element_size;
-        int c = compare(key, p); // key must be the first argument, see C17 7.22.5$2
-//printf("-- %i,%i i %i v %i c %i\n", start, end, i, *(int*)p, c);
-        if (c == 0)
-            return CONST_CAST(void*, p);
-        if (c < 0)
-            end = i;
-        else
-            start = i + 1;
-    }
-
-    return 0;
 }

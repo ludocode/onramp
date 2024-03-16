@@ -22,14 +22,22 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
-
-#include "internal.h"
+#ifndef __ONRAMP_LIBC_ONRAMP_PIT_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_PIT_H_INCLUDED
 
 /**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
+ * The process info table.
  */
+extern unsigned* __process_info_table;
 
-ssize_t write(int fd, const void* buffer, size_t count) {
-}
+#define __ONRAMP_PIT_VERSION 0
+#define __ONRAMP_PIT_BREAK 1
+#define __ONRAMP_PIT_EXIT 2
+#define __ONRAMP_PIT_INPUT 3
+#define __ONRAMP_PIT_OUTPUT 4
+#define __ONRAMP_PIT_ERROR 5
+#define __ONRAMP_PIT_ARGS 6
+#define __ONRAMP_PIT_ENVIRON 7
+#define __ONRAMP_PIT_WORKDIR 8
+
+#endif

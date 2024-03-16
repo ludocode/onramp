@@ -32,9 +32,9 @@
 ; ==========================================================
 ; Initializes the libc and calls main().
 ;
-; We forward control over to __start_c() which is implemented in C (in
-; stdlib_system.c). This is just here to be included first by the linker
-; to be the entry point of the program.
+; We forward control over to __start_c() which is implemented in C. This is
+; just here to be included first by the linker to be the entry point of the
+; program.
 ; ==========================================================
 
 =__start
