@@ -27,6 +27,10 @@
 
 #include <stdbool.h>
 
+#include "common.h"
+
+extern global_t* current_function;
+
 void parse_stmt_init(void);
 void parse_stmt_destroy(void);
 

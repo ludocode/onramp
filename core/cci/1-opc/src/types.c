@@ -41,6 +41,13 @@ void types_init(void) {
     if (types_tags == NULL) {fatal("Out of memory.");}
     if (types_objects == NULL) {fatal("Out of memory.");}
     if (types_anonymous_records == NULL) {fatal("Out of memory.");}
+
+    // We store __builtin_va_list as a typedef of int*. This means it's
+    // implicitly convertible with int*, can be copied by value, etc. That's
+    // fine; the final stage can have better checks against improper use.
+    type_t* list = type_new_base(BASE_SIGNED_INT);
+    list = type_increment_pointers(list);
+    types_add_typedef(strdup_checked("__builtin_va_list"), list);
 }
 
 void types_destroy(void) {

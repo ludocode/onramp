@@ -511,6 +511,117 @@ static type_t* parse_function_call(const char* name) {
     return type_clone(global_type(global));
 }
 
+static type_t* parse_va_list(void) {
+    type_t* type = parse_assignment_expression();
+    if (!type_is_base_pointer(type, BASE_SIGNED_INT)) {
+        fatal("Expected a va_list.");
+    }
+    return type;
+}
+
+static type_t* parse_builtin_va_arg(void) {
+    type_t* list = parse_va_list();
+    if (!type_is_lvalue(list)) {
+        fatal("Expected a va_list l-value.");
+    }
+
+    lexer_expect(",", "Expected a second argument to va_arg().");
+
+    type_t* desired_type;
+    if (!try_parse_declaration(NULL, &desired_type, NULL)) {
+        fatal("Expected a type as the second argument to va_arg().");
+    }
+
+    // decrement the list
+    compile_push(0);
+    compile_mov(1, 0);
+    type_t* int_type = compile_immediate_int(1);
+    type_t* value_type = compile_binary_op("+", type_clone(list), int_type);
+    compile_pop(1);
+    type_delete(compile_assign(type_clone(list), value_type));
+
+    // load the value at the list of the given type
+    list = type_decrement_indirection(list);
+    compile_dereference(list, 0);
+
+    lexer_expect(")", "Expected `)` after the second argument to va_arg().");
+    return compile_cast(list, desired_type, 0);
+}
+
+static type_t* parse_builtin_va_start(void) {
+    type_t* list = parse_va_list();
+    if (!type_is_lvalue(list)) {
+        fatal("Expected a va_list l-value.");
+    }
+
+    lexer_expect(",", "Expected a second argument to va_start().");
+
+    // For now we ignore the second argument without compiling it. We'd have to
+    // check that it's a local and that it matches the correct parameter. We
+    // don't currently track the name of the last parameter or which locals
+    // match which parameters and it's not worth doing just for this.
+    compile_inhibit_push();
+    type_delete(parse_expression());
+    compile_inhibit_pop();
+
+    // Store the address of one below the first variadic argument.
+    int offset = (global_function_param_count(current_function) - 4);
+    if (offset < 0) {
+        offset = 0;
+    }
+    offset = ((offset + 1) << 2);
+    compile_mov(1, 0);
+    compile_frame_offset(false, offset, 0);
+    type_delete(compile_assign(list, type_set_lvalue(type_clone(list), false)));
+
+    lexer_expect(")", "Expected `)` after the second argument to va_start().");
+    return type_new_base(BASE_VOID);
+}
+
+static type_t* parse_builtin_va_end(void) {
+    // This does nothing. We still evaluate the argument for side-effects.
+    type_delete(parse_va_list());
+    lexer_expect(")", "Expected `)` after the argument to va_end().");
+    return type_new_base(BASE_VOID);
+}
+
+static type_t* parse_builtin_va_copy(void) {
+    type_t* left = parse_va_list();
+    if (!type_is_lvalue(left)) {
+        fatal("Expected a va_list l-value.");
+    }
+
+    lexer_expect(",", "Expected a second argument to va_start().");
+
+    compile_push(0);
+    type_t* right = parse_va_list();
+    compile_pop(1);
+    type_delete(compile_assign(left, right));
+
+    lexer_expect(")", "Expected `)` after the second argument to va_copy().");
+    return type_new_base(BASE_VOID);
+}
+
+static bool try_parse_builtin(const char* name, type_t** out_type) {
+    if (0 == strcmp(name, "__builtin_va_arg")) {
+        *out_type = parse_builtin_va_arg();
+        return true;
+    }
+    if (0 == strcmp(name, "__builtin_va_start")) {
+        *out_type = parse_builtin_va_start();
+        return true;
+    }
+    if (0 == strcmp(name, "__builtin_va_end")) {
+        *out_type = parse_builtin_va_end();
+        return true;
+    }
+    if (0 == strcmp(name, "__builtin_va_copy")) {
+        *out_type = parse_builtin_va_copy();
+        return true;
+    }
+    return false;
+}
+
 static type_t* parse_identifier_expression(void) {
 
     // if we've stashed an identifier due to tentatively parsing a label, we
@@ -527,7 +638,9 @@ static type_t* parse_identifier_expression(void) {
     type_t* ret;
     bool paren = lexer_accept("(");
     if (paren) {
-        ret = parse_function_call(name);
+        if (!try_parse_builtin(name, &ret)) {
+            ret = parse_function_call(name);
+        }
     }
     if (!paren) {
         ret = compile_load_variable(name);

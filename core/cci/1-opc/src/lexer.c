@@ -474,16 +474,23 @@ void lexer_consume(void) {
         bool is_assign = ((c1 == '=') & (NULL != strchr("+-*/%&|^!<>=", c0)));
         bool is_double = ((c0 == c1) & (NULL != strchr("+-&|<>", c0)));
         bool is_pointer = ((c0 == '-') & (c1 == '>'));
-        if ((is_assign | is_double) | is_pointer) {
+        bool is_variadic = ((c0 == '.') & (c1 == '.'));
+        if ((is_assign | is_double) | (is_pointer | is_variadic)) {
             lexer_token_append(1, c);
             c = lexer_read_char();
             len = 2;
 
-            // Three-character operations
-            if ((c == '=') & ((c1 == '<') | (c1 == '>'))) {   // <<=, >>=
+            // Three-character operations (<<=, >>=, ...)
+            if (((c == '=') & ((c1 == '<') | (c1 == '>'))) | ((c == '.') & (c0 == '.'))) {
                 lexer_token_append(2, c);
                 c = lexer_read_char();
                 len = 3;
+            }
+
+            if (len == 2) {
+                if (c0 == '.') {
+                    fatal("`..` is not a valid token.");
+                }
             }
         }
 

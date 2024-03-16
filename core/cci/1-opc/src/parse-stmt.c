@@ -58,7 +58,7 @@ static size_t strings_count;
 // function generation
 static int function_frame_size;
 static bool inside_function;
-static const char* function_name;
+global_t* current_function;
 
 void parse_stmt_init(void) {
     last_label = -1;
@@ -288,7 +288,7 @@ static void parse_return(void) {
     }
     if (!argument) {
         // Without an argument, we still have to return zero if this is main().
-        if (0 == strcmp(function_name, "main")) {
+        if (0 == strcmp(global_name(current_function), "main")) {
             compile_zero();
         }
     }
@@ -411,7 +411,7 @@ static void parse_goto(void) {
     if (lexer_type != lexer_type_alphanumeric) {
         fatal("Expected an identifier after `goto`");
     }
-    compile_goto(function_name, lexer_token);
+    compile_goto(global_name(current_function), lexer_token);
     lexer_consume();
     lexer_expect(";", "Expected `;` after `goto` label");
 }
@@ -454,7 +454,7 @@ static void parse_statement(bool declaration_allowed) {
         // check for a label
         char* name = lexer_take();
         if (lexer_accept(":")) {
-            compile_user_label(function_name, name);
+            compile_user_label(global_name(current_function), name);
             free(name);
 
             // A label can be followed by a statement, and together they form
@@ -624,7 +624,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
 
     global_t* global = global_declare_function(return_type, name, arg_count, arg_types);
     free(arg_types);
-    function_name = global_name(global);
+    current_function = global;
     if (is_variadic) {
         global_set_variadic(global, true);
     }
@@ -642,7 +642,7 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         compile_global_divider();
     }
 
-    function_name = NULL;
+    current_function = NULL;
     inside_function = false;
     locals_pop(0);
 }

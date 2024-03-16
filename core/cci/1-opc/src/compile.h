@@ -164,7 +164,7 @@ type_t* compile_load_variable(const char* name);
 
 /**
  * Emits code to either load the word or place the address of the word at the
- * giveno ffset relative to the frame pointer into the given register.
+ * given offset relative to the frame pointer into the given register.
  *
  * This is used for loading anonymous variables among other things.
  */
