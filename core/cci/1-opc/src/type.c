@@ -274,7 +274,6 @@ bool type_is_base(const type_t* type, base_t base) {
     return true;
 }
 
-/*
 type_t* type_decay_array(type_t* type) {
     if (type_is_array(type)) {
         type_set_array_length(type, TYPE_ARRAY_NONE);
@@ -282,7 +281,6 @@ type_t* type_decay_array(type_t* type) {
     }
     return type;
 }
-*/
 
 void type_print(const type_t* type) {
 

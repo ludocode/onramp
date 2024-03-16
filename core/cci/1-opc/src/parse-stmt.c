@@ -565,6 +565,7 @@ static void parse_block(void) {
 }
 
 // Parses a function declaration (and definition, if provided.)
+// (This should probably move to parse-decl.c.)
 static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
     inside_function = true;
     int arg_count = 0;
@@ -580,6 +581,9 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         if (!try_parse_declaration(NULL, &arg_type, &arg_name)) {
             fatal("Expected a function parameter declaration");
         }
+
+        // array parameters are treated as pointers.
+        arg_type = type_decay_array(arg_type);
 
         // check for (void) parameter list
         if (((arg_name == NULL) & (arg_count == 0)) & type_is_base(arg_type, BASE_VOID)) {

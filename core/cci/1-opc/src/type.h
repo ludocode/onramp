@@ -166,7 +166,7 @@ void type_set_array_length(type_t* type, int array_length);
 /**
  * If the type has an array, it is converted to a pointer.
  */
-//type_t* type_decay_array(type_t* type);
+type_t* type_decay_array(type_t* type);
 
 bool type_equal(const type_t* left, const type_t* right);
 

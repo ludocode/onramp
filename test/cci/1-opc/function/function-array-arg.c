@@ -1,0 +1,20 @@
+int foo(int a, int x[5], int b) {
+    if (a != -5) {return 1;}
+    if (x[0] != 0) {return 1;}
+    if (x[1] != 1) {return 1;}
+    if (x[2] != 2) {return 1;}
+    if (x[3] != 3) {return 1;}
+    if (x[4] != 4) {return 1;}
+    if (b != -7) {return 1;}
+    return 0;
+}
+
+int main(void) {
+    int x[5];
+    x[0] = 0;
+    x[1] = 1;
+    x[2] = 2;
+    x[3] = 3;
+    x[4] = 4;
+    return foo(-5, x, -7);
+}
