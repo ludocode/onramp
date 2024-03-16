@@ -176,6 +176,12 @@ bool type_equal(const type_t* left, const type_t* right);
  */
 bool type_is_base(const type_t* type, base_t base);
 
+/**
+ * Returns true if a type is a single pointer to the given base with no array,
+ * record, etc.
+ */
+bool type_is_base_pointer(const type_t* type, base_t base);
+
 void type_print(const type_t* type);
 
 bool type_is_signed(const type_t* type);
@@ -185,7 +191,5 @@ bool type_is_unsigned(const type_t* type);
 bool type_is_integer(const type_t* type);
 
 bool type_is_compatible(const type_t* left, const type_t* right);
-
-bool type_is_void_pointer(const type_t* type);
 
 #endif

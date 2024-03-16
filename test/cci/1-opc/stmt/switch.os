@@ -119,8 +119,7 @@
   jmp &_Lx2 
 :_Lx1 
   imw r0 10 
-  add r1 rfp -8 
-  ldw r1 0 r1 
+  ldw r1 rfp -8 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx2 
@@ -138,8 +137,7 @@
   jmp &_Lx5 
 :_Lx3 
   imw r0 19 
-  add r1 rfp -8 
-  ldw r1 0 r1 
+  ldw r1 rfp -8 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx5 
@@ -152,8 +150,7 @@
   jmp &_Lx7 
 :_Lx6 
   imw r0 8 
-  add r1 rfp -8 
-  ldw r1 0 r1 
+  ldw r1 rfp -8 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx7 
@@ -180,8 +177,7 @@
   jmp &_LxB 
 :_LxA 
   imw r0 97 
-  add r1 rfp -12 
-  ldw r1 0 r1 
+  ldw r1 rfp -12 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxB 
@@ -194,8 +190,7 @@
   jmp &_LxD 
 :_LxC 
   imw r0 98 
-  add r1 rfp -12 
-  ldw r1 0 r1 
+  ldw r1 rfp -12 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxD 
@@ -208,8 +203,7 @@
   jmp &_LxF 
 :_LxE 
   imw r0 99 
-  add r1 rfp -12 
-  ldw r1 0 r1 
+  ldw r1 rfp -12 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxF 
@@ -238,8 +232,7 @@
   jmp &_Lx13 
 :_Lx12 
   imw r0 97 
-  add r1 rfp -16 
-  ldw r1 0 r1 
+  ldw r1 rfp -16 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx13 
@@ -252,8 +245,7 @@
   jmp &_Lx15 
 :_Lx14 
   imw r0 98 
-  add r1 rfp -16 
-  ldw r1 0 r1 
+  ldw r1 rfp -16 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx15 
@@ -273,8 +265,7 @@
   jmp &_Lx17 
 :_Lx16 
   imw r0 99 
-  add r1 rfp -16 
-  ldw r1 0 r1 
+  ldw r1 rfp -16 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx17 
@@ -340,8 +331,7 @@
 :_Lx1C 
 #
   imw r0 0 
-  add r1 rfp -20 
-  ldw r1 0 r1 
+  ldw r1 rfp -20 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx1D 
@@ -375,8 +365,7 @@
 :_Lx21 
 #
   imw r0 1 
-  add r1 rfp -24 
-  ldw r1 0 r1 
+  ldw r1 rfp -24 
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx22 

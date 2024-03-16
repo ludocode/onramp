@@ -353,8 +353,9 @@
 #
   imw r0 0 
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^place_queen 
+  add rsp rsp 4 
 #
 #
 #
@@ -526,6 +527,7 @@
   jz r0 &_Lx6 
 #
   call ^print_board 
+  add rsp rsp 0 
 #
   leave 
   ret 
@@ -567,9 +569,10 @@
   add r0 rfp -8 
   ldw r0 0 r0 
   push r0 
-  pop r1 
-  pop r0 
+  ldw r0 rsp 4 
+  ldw r1 rsp 0 
   call ^is_queen_valid 
+  add rsp rsp 8 
   jz r0 &_LxB 
 #
   imw r0 ^queens 
@@ -593,8 +596,9 @@
   ldw r1 0 r1 
   add r0 r1 r0 
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^place_queen 
+  add rsp rsp 4 
 #
 #
 :_LxB 
@@ -702,21 +706,24 @@
   mov r0 "."
 :_Lx15 
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^putchar 
+  add rsp rsp 4 
 #
   mov r0 " "
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^putchar 
+  add rsp rsp 4 
 #
 #
   jmp &_Lx10 
 :_Lx11 
   mov r0 '0A
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^putchar 
+  add rsp rsp 4 
 #
 #
   jmp &_LxC 
@@ -724,8 +731,9 @@
   imw r0 ^_Sx0 
   add r0 rpp r0 
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^puts 
+  add rsp rsp 4 
 #
 #
   zero r0 

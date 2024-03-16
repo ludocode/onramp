@@ -159,8 +159,9 @@
 :_Lx1 
   add r0 rfp -4 
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^foo 
+  add rsp rsp 4 
   add r0 rfp -4 
   push r0 
   imw r0 5 

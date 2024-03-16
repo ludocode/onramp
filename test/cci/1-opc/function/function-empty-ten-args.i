@@ -5,5 +5,5 @@ int foo(int a, int* b, int** c, int*** d, int**** e,
 }
 
 int main(void) {
-    return 0;
+    return foo(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }

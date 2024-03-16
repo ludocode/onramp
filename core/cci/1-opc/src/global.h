@@ -46,18 +46,18 @@ bool global_is_function(const global_t* global);
 bool global_function_is_variadic(const global_t* global);
 
 /**
- * Returns the number of (non-variadic) arguments of the given global.
+ * Returns the number of (non-variadic) parameters of the given global function.
  *
  * The given global must be a function.
  */
-int global_function_arg_count(const global_t* global);
+int global_function_param_count(const global_t* global);
 
 /**
- * Returns the number of (non-variadic) arguments of the given global.
+ * Returns the number of (non-variadic) parameters of the given global.
  *
  * The given global must be a function.
  */
-type_t* global_function_arg_type(const global_t* global, int index);
+type_t* global_function_param_type(const global_t* global, int index);
 
 /**
  * Creates a new global variable, adding it to the globals table.
@@ -73,11 +73,11 @@ const global_t* global_declare_variable(type_t* type, char* name);
  * exists, the given values will be destroyed immediately! Use the returned
  * global's name and other properties after calling this.
  *
- * We can only take four arguments in omC so the variadic flag is set
+ * We can only pass four arguments in omC so the variadic flag is set
  * separately in global_set_variadic().
  */
-const global_t* global_declare_function(type_t* return_type, char* name,
-        int arg_count, type_t** arg_types);
+global_t* global_declare_function(type_t* return_type, char* name,
+        int param_count, type_t** param_types);
 
 void global_set_variadic(global_t* global, bool variadic);
 

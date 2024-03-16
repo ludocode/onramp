@@ -310,7 +310,7 @@ All arithmetic and logic opcodes have the same format. They take a destination r
 
 Bytecode can use any mechanism for performing function calls, but there is a standard calling convention used by the Onramp C compiler and by most of the hand-written assembly and bytecode programs.
 
-In the standard calling convention, the first four arguments to a function are passed in registers r0-r4, and additional arguments are pushed on the stack right-to-left. The return address is pushed last onto the stack before jumping into the callee.
+In the standard calling convention, the first four non-variadic arguments to a function are passed in registers r0-r4, and additional arguments are pushed on the stack right-to-left. The return address is pushed last onto the stack before jumping into the callee.
 
 The return value is returned in register r0. The callee returns by restoring the stack and frame pointers and jumping to the return address. The caller is responsible for cleaning up stack arguments.
 

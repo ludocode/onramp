@@ -36,8 +36,8 @@
  *     char* name;
  *     type_t* type; // return type for functions
  *     bool variadic;
- *     int arg_count; // -1 for variables
- *     type_t* arg_types[];
+ *     int param_count; // -1 for variables
+ *     type_t* param_types[];
  * }
  *
  * As usual we're faking structs with wrapper functions and manual pointer
@@ -47,9 +47,9 @@
 #define GLOBAL_NAME_OFFSET 0
 #define GLOBAL_TYPE_OFFSET 1
 #define GLOBAL_VARIADIC_OFFSET 2
-#define GLOBAL_ARGS_COUNT_OFFSET 3
-#define GLOBAL_ARG_TYPES_OFFSET 4
-#define GLOBAL_FIELDS 4  // not including arg_types
+#define GLOBAL_PARAMS_COUNT_OFFSET 3
+#define GLOBAL_PARAM_TYPES_OFFSET 4
+#define GLOBAL_FIELDS 4  // not including param_types
 
 static global_t** globals;
 static size_t globals_count;
@@ -57,10 +57,10 @@ static size_t globals_buckets; // power of two
 
 static void global_delete(global_t* global) {
     if (global_is_function(global)) {
-        int arg_count = global_function_arg_count(global);
-        while (arg_count > 0) {
-            arg_count = (arg_count - 1);
-            type_delete(*(type_t**)((void**)global + (GLOBAL_ARG_TYPES_OFFSET + arg_count)));
+        int param_count = global_function_param_count(global);
+        while (param_count > 0) {
+            param_count = (param_count - 1);
+            type_delete(*(type_t**)((void**)global + (GLOBAL_PARAM_TYPES_OFFSET + param_count)));
         }
     }
 
@@ -130,14 +130,14 @@ static void global_check_match(global_t* left, global_t* right) {
         return;
     }
 
-    int arg_count = global_function_arg_count(left);
-    if (arg_count != global_function_arg_count(right)) {
+    int param_count = global_function_param_count(left);
+    if (param_count != global_function_param_count(right)) {
         fatal_2("Function re-declared with a different number of arguments:", global_name(left));
     }
 
     int i = 0;
-    while (i < arg_count) {
-        if (!type_equal(global_function_arg_type(left, i), global_function_arg_type(right, i))) {
+    while (i < param_count) {
+        if (!type_equal(global_function_param_type(left, i), global_function_param_type(right, i))) {
             fatal_2("Function re-declared with different argument types:", global_name(left));
         }
         i = (i + 1);
@@ -177,19 +177,19 @@ const global_t* global_declare_variable(type_t* type, char* name) {
     *(char**)((void**)global + GLOBAL_NAME_OFFSET) = name;
     *(type_t**)((void**)global + GLOBAL_TYPE_OFFSET) = type;
     *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET) = false; // should never be accessed
-    *(int*)((void**)global + GLOBAL_ARGS_COUNT_OFFSET) = -1;
+    *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET) = -1;
     return global_add(global);
 }
 
-const global_t* global_declare_function(type_t* return_type, char* name,
-        int arg_count, type_t** arg_types)
+global_t* global_declare_function(type_t* return_type, char* name,
+        int param_count, type_t** param_types)
 {
-    global_t* global = malloc(sizeof(void*) * (GLOBAL_FIELDS + arg_count));
+    global_t* global = malloc(sizeof(void*) * (GLOBAL_FIELDS + param_count));
     *(char**)((void**)global + GLOBAL_NAME_OFFSET) = name;
     *(type_t**)((void**)global + GLOBAL_TYPE_OFFSET) = return_type;
     *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET) = false;
-    *(int*)((void**)global + GLOBAL_ARGS_COUNT_OFFSET) = arg_count;
-    memcpy((void**)global + GLOBAL_ARG_TYPES_OFFSET, arg_types, sizeof(type_t*) * arg_count);
+    *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET) = param_count;
+    memcpy((void**)global + GLOBAL_PARAM_TYPES_OFFSET, param_types, sizeof(type_t*) * param_count);
     return global_add(global);
 }
 
@@ -207,13 +207,13 @@ const type_t* global_type(const global_t* global) {
 }
 
 bool global_is_variable(const global_t* global) {
-    int arg_count = *(int*)((void**)global + GLOBAL_ARGS_COUNT_OFFSET);
-    return arg_count == -1;
+    int param_count = *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET);
+    return param_count == -1;
 }
 
 bool global_is_function(const global_t* global) {
-    int arg_count = *(int*)((void**)global + GLOBAL_ARGS_COUNT_OFFSET);
-    return arg_count != -1;
+    int param_count = *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET);
+    return param_count != -1;
 }
 
 bool global_function_is_variadic(const global_t* global) {
@@ -221,12 +221,12 @@ bool global_function_is_variadic(const global_t* global) {
     return *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET);
 }
 
-int global_function_arg_count(const global_t* global) {
+int global_function_param_count(const global_t* global) {
     assert(global_is_function(global));
-    return *(int*)((void**)global + GLOBAL_ARGS_COUNT_OFFSET);
+    return *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET);
 }
 
-type_t* global_function_arg_type(const global_t* global, int index) {
-    assert(index < global_function_arg_count(global));
-    return *(type_t**)((void**)global + (GLOBAL_ARG_TYPES_OFFSET + index));
+type_t* global_function_param_type(const global_t* global, int index) {
+    assert(index < global_function_param_count(global));
+    return *(type_t**)((void**)global + (GLOBAL_PARAM_TYPES_OFFSET + index));
 }

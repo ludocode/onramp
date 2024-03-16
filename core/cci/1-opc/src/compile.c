@@ -100,24 +100,22 @@ void compile_zero(void) {
     emit_newline();
 }
 
-void compile_function_open(const char* name, int arg_count) {
-    //printf("   compiling function open %s with %i args\n",name, arg_count);
+void compile_function_open(const global_t* global) {
+    const char* name = global_name(global);
+    int param_count = global_function_param_count(global);
 
-    // we don't know the stack frame size yet so we'll emit the function
-    // prologue at the end and then jump back here. (technically we're
+    // We don't know the stack frame size yet so we'll emit the function
+    // prologue at the end and then jump back here. (Technically we're
     // compiling most of the function as a different symbol.)
     emit_prefixed_label('@', "_F_", name);
     emit_newline();
 
-    // we'll track the function's frame size as we go.
-    //printf("starting function, %i vars\n", locals_count - arg_count);
-    //compile_function_max_locals_count = locals_count - arg_count;
-    //printf("open varcount %i\n", compile_function_max_locals_count);
-
-    // the first four arguments arrive in registers, the rest come on the
-    // stack. we copy them to their new offsets.
+    // The first four arguments arrive in registers, the rest come on the
+    // stack. We copy them to their new offsets.
+    // Note that we don't touch the variadic arguments. The user has to access
+    // the with va_arg().
     int i = 0;
-    while (i < arg_count) {
+    while (i < param_count) {
         if (i < 4) {
             emit_term("stw");
             emit_register(i);
@@ -142,16 +140,18 @@ void compile_function_open(const char* name, int arg_count) {
     }
 }
 
-void compile_function_close(const char* name, int arg_count, int frame_size, storage_t storage) {
-    //printf("close varcount %i\n", compile_function_max_locals_count);
+void compile_function_close(const global_t* global, int frame_size, storage_t storage) {
+    const char* name = global_name(global);
 
     // add a return to the function in case it didn't return on its own
     // main() needs to return 0 if execution reaches the end of the function
-    // without a return statement (provided it's declared with a return type of
-    // int.) We do this for all functions to make the behaviour consistent.
-    emit_term("zero");
-    emit_term("r0");
-    emit_newline();
+    // without a return statement.
+    //TODO uncomment this
+    //if (0 == strcmp(name, "main")) {
+        emit_term("zero");
+        emit_term("r0");
+        emit_newline();
+    //}
     emit_term("leave");
     emit_newline();
     emit_term("ret");
@@ -234,25 +234,76 @@ type_t* compile_character_literal(char c) {
     return type_new_base(BASE_SIGNED_INT);
 }
 
-void compile_load_frame_offset(int offset, int register_num) {
-    if (offset > -0x80) {
-        // the offset fits in a mix-type byte
-        emit_term("add");
-        emit_register(register_num);
-        emit_term("rfp");
-        emit_int(offset);
+void compile_stack_shift(int offset) {
+    if (offset >= -0x70) {
+        if (offset < 0x80) {
+            // the offset fits in a mix-type byte
+            emit_term("add");
+            emit_term("rsp");
+            emit_term("rsp");
+            emit_int(offset);
+            emit_newline();
+            return;
+        }
     }
-    if (offset <= -0x80) {
-        // the offset needs an immediate load
-        emit_term("imw");
-        emit_register(register_num);
-        emit_int(offset);
-        emit_newline();
-        emit_term("add");
-        emit_register(register_num);
-        emit_term("rfp");
-        emit_register(register_num);
+
+    // the offset needs an immediate load
+    emit_term("imw");
+    emit_register(9);
+    emit_int(offset);
+    emit_newline();
+    emit_term("add");
+    emit_term("rsp");
+    emit_term("rsp");
+    emit_register(9);
+    emit_newline();
+}
+
+static void compile_load_offset(bool load, int offset, int register_num,
+        const char* ref)
+{
+    const char* op = "add";
+    if (load) {
+        op = "ldw";
     }
+
+    if (offset >= -0x70) {
+        if (offset < 0x80) {
+            // the offset fits in a mix-type byte
+            emit_term(op);
+            emit_register(register_num);
+            emit_term(ref);
+            emit_int(offset);
+            emit_newline();
+            return;
+        }
+    }
+
+    // the offset needs an immediate load
+    emit_term("imw");
+    emit_register(register_num);
+    emit_int(offset);
+    emit_newline();
+    emit_term(op);
+    emit_register(register_num);
+    emit_term(ref);
+    emit_register(register_num);
+    emit_newline();
+}
+
+void compile_frame_offset(bool load, int offset, int register_num) {
+    compile_load_offset(load, offset, register_num, "rfp");
+}
+
+void compile_stack_offset(bool load, int offset, int register_num) {
+    compile_load_offset(load, offset, register_num, "rsp");
+}
+
+void compile_load(int register_num) {
+    emit_term("ldw");
+    emit_register(register_num);
+    emit_register(register_num);
+    emit_term("0");
     emit_newline();
 }
 
@@ -263,7 +314,7 @@ type_t* compile_load_variable(const char* name) {
     int offset;
     bool local = locals_find(name, &type, &offset);
     if (local) {
-        compile_load_frame_offset(offset, 0);
+        compile_frame_offset(false, offset, 0);
     }
     if (!local) {
         global_t* global = global_find(name);

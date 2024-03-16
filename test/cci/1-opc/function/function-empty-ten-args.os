@@ -42,6 +42,43 @@
 @_F_main 
 #
   imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  imw r0 0 
+  push r0 
+  ldw r0 rsp 36 
+  ldw r1 rsp 32 
+  ldw r2 rsp 28 
+  ldw r3 rsp 24 
+  ldw r9 rsp 0 
+  push r9 
+  ldw r9 rsp 8 
+  push r9 
+  ldw r9 rsp 16 
+  push r9 
+  ldw r9 rsp 24 
+  push r9 
+  ldw r9 rsp 32 
+  push r9 
+  ldw r9 rsp 40 
+  push r9 
+  call ^foo 
+  add rsp rsp 64 
   leave 
   ret 
 #

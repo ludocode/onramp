@@ -310,13 +310,13 @@ static void parse_switch(void) {
 
     // Compile the expression into r0
     lexer_expect("(", "Expected `(` after `switch`");
-    type_t* expr_type = parse_expression();
+    type_t* expr_type = compile_promote(parse_expression(), 0);
     lexer_expect(")", "Expected `)` after expression of `switch`");
 
     // We need to store the expression result so we can check it against each
     // case statement. For this we use an anonymous variable.
     switch_offset = locals_add(strdup_checked(""), type_new_base(BASE_SIGNED_INT));
-    compile_load_frame_offset(switch_offset, 1);
+    compile_frame_offset(false, switch_offset, 1);
     type_t* var = type_new_base(BASE_SIGNED_INT);
     type_set_lvalue(var, true);
     type_delete(compile_assign(var, expr_type));
@@ -369,10 +369,8 @@ static void parse_case(bool declaration_allowed) {
     type_delete(compile_immediate_int(value));
 
     // Get the switch value in r1
-    compile_load_frame_offset(switch_offset, 1);
+    compile_frame_offset(true, switch_offset, 1);
     type_t* switch_type = type_new_base(BASE_SIGNED_INT);
-    type_set_lvalue(switch_type, true);
-    compile_lvalue_to_rvalue(switch_type, 1);
 
     // Compare them
     type_delete(compile_binary_op("!=", switch_type, case_type));
@@ -568,11 +566,24 @@ static void parse_block(void) {
 // (This should probably move to parse-decl.c.)
 static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
     inside_function = true;
+    bool is_variadic = false;
     int arg_count = 0;
+    int arg_capacity = 64;
+    type_t** arg_types = malloc(arg_capacity * sizeof(type_t*));
 
     while (!lexer_accept(")")) {
         if (arg_count > 0) {
-            lexer_expect(",", "Expected , or ) after argument");
+            lexer_expect(",", "Expected `,` or `)` after argument");
+        }
+
+        // check for variadic arguments
+        if (lexer_accept("...")) {
+            if (arg_count == 0) {
+                fatal("At least one non-variadic argument is required before `...`.");
+            }
+            lexer_expect(")", "Expected `)` after `...`");
+            is_variadic = true;
+            break;
         }
 
         // parse parameter
@@ -582,9 +593,6 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
             fatal("Expected a function parameter declaration");
         }
 
-        // array parameters are treated as pointers.
-        arg_type = type_decay_array(arg_type);
-
         // check for (void) parameter list
         if (((arg_name == NULL) & (arg_count == 0)) & type_is_base(arg_type, BASE_VOID)) {
             if (lexer_accept(")")) {
@@ -592,6 +600,9 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
                 break;
             }
         }
+
+        // array parameters are treated as pointers.
+        arg_type = type_decay_array(arg_type);
 
         // If we don't have a name, for now we give it an anonymous name. We'll
         // still reserve stack space for it and move the argument into it. This
@@ -602,25 +613,25 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         }
 
         // add variable
-        locals_add(arg_name, arg_type);
+        locals_add(arg_name, type_clone(arg_type));
+        *(arg_types + arg_count) = arg_type;
         arg_count = (arg_count + 1);
     }
 
-    // TODO pass arg_types, arg_count to function
-    const global_t* global = global_declare_function(return_type, name, 0, NULL);
+    global_t* global = global_declare_function(return_type, name, arg_count, arg_types);
+    free(arg_types);
     function_name = global_name(global);
+    if (is_variadic) {
+        global_set_variadic(global, true);
+    }
 
-    //printf("   parsed function declaration %s\n",name);
     if (!lexer_accept(";")) {
-        //printf("   parsing function body\n");
 
         // compile the function
         function_frame_size = 0;
-        //printf("==%i\n",previous_locals_count);
-        //dump_variables();
-        compile_function_open(global_name(global), arg_count);
+        compile_function_open(global);
         parse_block();
-        compile_function_close(global_name(global), arg_count, function_frame_size, storage);
+        compile_function_close(global, function_frame_size, storage);
 
         // output any strings that were used in the function
         output_string_literals();

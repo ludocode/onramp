@@ -314,9 +314,10 @@
   imw r0 ^_Sx0 
   add r0 rpp r0 
   push r0 
-  pop r1 
-  pop r0 
+  ldw r0 rsp 4 
+  ldw r1 rsp 0 
   call ^strcmp 
+  add rsp rsp 8 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 

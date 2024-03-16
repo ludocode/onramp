@@ -7,8 +7,9 @@
   imw r0 ^_Sx0 
   add r0 rpp r0 
   push r0 
-  pop r0 
+  ldw r0 rsp 0 
   call ^puts 
+  add rsp rsp 4 
 #
   imw r0 0 
   leave 

@@ -309,10 +309,11 @@
   imw r0 7 
   sub r0 0 r0 
   push r0 
-  pop r2 
-  pop r1 
-  pop r0 
+  ldw r0 rsp 8 
+  ldw r1 rsp 4 
+  ldw r2 rsp 0 
   call ^foo 
+  add rsp rsp 12 
   leave 
   ret 
 #

@@ -430,57 +430,73 @@ static type_t* parse_primary_expression(void) {
 
 static type_t* parse_function_call(const char* name) {
     //printf("   parsing function call %s\n", name);
-    int arg_count;
-    arg_count = 0;
 
+    // find the function
+    const global_t* global = global_find(name);
+    if (global == NULL) {
+        fatal_2("No such function: ", name);
+    }
+    if (!global_is_function(global)) {
+        fatal_2("Called global is not a function: ", name);
+    }
+    int param_count = global_function_param_count(global);
+    bool is_variadic = global_function_is_variadic(global);
+
+    // all our arguments will be pushed to the stack. we're going to track how
+    // many words we've pushed so we can find our argument list as we go.
+    int stack_count = 0;
+
+    // collect the arguments onto the stack
+    int index = 0;
     while (!lexer_accept(")")) {
-        if (arg_count > 0) {
+        if (index > 0) {
             lexer_expect(",", NULL);
         }
-        arg_count = (arg_count + 1);
 
-        if (arg_count > 4) {
-            // TODO support more args in stage 1, not stage 0
-            fatal("TODO only four arguments are supported.");
+        // get the argument
+        type_t* type = parse_assignment_expression();
+        type = compile_promote(type, 0);
+        compile_push(0);
+        stack_count = (stack_count + 1);
+
+        // check for errors
+        if (index < param_count) {
+            if (!type_is_compatible(type, global_function_param_type(global, index))) {
+                fatal("Incompatible argument in function call.");
+            }
+        }
+        if (index >= param_count) {
+            if (!is_variadic) {
+                fatal("Too many arguments in function call.");
+            }
         }
 
-        //printf("   current token is %s\n",lexer_token);
-        type_t* type = parse_assignment_expression();
-        //printf("   current token is %s\n",lexer_token);
-
-        // if the argument is an l-value, dereference it
-        type = compile_lvalue_to_rvalue(type, 0);
-
-        // TODO type-check the argument, for now ignore it
         type_delete(type);
+        index = (index + 1);
+    }
+    int arg_count = index;
 
-        // TODO a simple optimization here (for stage 1, not stage 0) is, if
-        // there are at most 4 args, don't push the last arg, just move it to
-        // the correct register. (there's a lot of "push r0 pop r0" for
-        // single-arg functions)
-        // TODO if we want to make it even simpler, just skip the push/pop for
-        // single-argument functions.
-
-        // push the argument to the stack
-        compile_push(0);
+    // place leading non-variadic arguments into registers
+    index = 0;
+    while (index < 4) {
+        if (index == param_count) {
+            break;
+        }
+        if (index == arg_count) {
+            break;
+        }
+        compile_stack_offset(true, ((stack_count - index) - 1) << 2, index);
+        index = (index + 1);
     }
 
-    // TODO another simple optimization is to not use pop, instead use ldw for
-    // each arg, then adjust the stack manually. this will be more important
-    // when we have more than 4 args and we can't actually pop the args beyond 4
-
-    // pop the arguments
-    if (arg_count > 3) {
-        compile_pop(3);
-    }
-    if (arg_count > 2) {
-        compile_pop(2);
-    }
-    if (arg_count > 1) {
-        compile_pop(1);
-    }
-    if (arg_count > 0) {
-        compile_pop(0);
+    // all remaining arguments are pushed to the stack in reverse order
+    int register_args = index;
+    index = arg_count;
+    while (index > register_args) {
+        index = (index - 1);
+        compile_stack_offset(true, ((stack_count - index) - 1) << 2, 9);
+        compile_push(9);
+        stack_count = (stack_count + 1);
     }
 
     // emit the call
@@ -488,14 +504,8 @@ static type_t* parse_function_call(const char* name) {
     emit_label('^', name);
     emit_newline();
 
-    // find the function
-    global_t* global = global_find(name);
-    if (global == NULL) {
-        fatal_2("Function not declared: ", name);
-    }
-    if (!global_is_function(global)) {
-        fatal_2("Called symbol is not a function: ", name);
-    }
+    // pop everything from the stack
+    compile_stack_shift(stack_count << 2);
 
     //printf("   done parsing function call %s\n", name);
     return type_clone(global_type(global));
@@ -904,7 +914,7 @@ type_t* parse_assignment_expression(void) {
     // If it's a compound assigment, calculate the result
     if (0 != strcmp(op, "=")) {
         type_t* temp = type_clone(left);
-        compile_stack_load(1);
+        compile_stack_offset(true, 0, 1);
         *(op + (strlen(op) - 1)) = 0; // remove the `=`
         right = compile_binary_op(op, temp, right);
     }

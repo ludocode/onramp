@@ -52,12 +52,12 @@ void compile_enum_value(const char* name, int value);
  * Compiles the prologue of a function with the given name and number of
  * arguments.
  */
-void compile_function_open(const char* name, int arg_count);
+void compile_function_open(const global_t* global);
 
 /**
  * Compiles the epilogue of the current function with the given name.
  */
-void compile_function_close(const char* name, int arg_count, int frame_size, storage_t storage);
+void compile_function_close(const global_t* global, int frame_size, storage_t storage);
 
 /**
  * Compiles a jump to a label with a generated name.
@@ -98,11 +98,6 @@ void compile_push(int register_number);
  * Emits "pop" and the given register.
  */
 void compile_pop(int register_number);
-
-/**
- * Loads the top value of the stack into the given register.
- */
-void compile_stack_load(int register_number);
 
 /**
  * Emits "leave" and "ret", i.e. returns from the current function.
@@ -162,18 +157,36 @@ void compile_string_literal_invocation(int label_index);
 void compile_string_literal_definition(int label_index, const char* string);
 
 /**
- * Emits code to load the variable with the given name as an l-value into r0,
- * returning its type.
+ * Emits code to get the address of the variable with the given name into r0,
+ * returning its type as an l-value.
  */
 type_t* compile_load_variable(const char* name);
 
 /**
- * Emits code to load the word at the given offset relative to the frame
- * pointer into the given register as an l-value.
+ * Emits code to either load the word or place the address of the word at the
+ * giveno ffset relative to the frame pointer into the given register.
  *
  * This is used for loading anonymous variables among other things.
  */
-void compile_load_frame_offset(int offset, int register_num);
+void compile_frame_offset(bool load, int offset, int register_num);
+
+/**
+ * Emits code to load the word at the given offset relative to the stack
+ * pointer into the given register.
+ *
+ * This is used for loading function arguments among other things.
+ */
+void compile_stack_offset(bool load, int offset, int register_num);
+
+/**
+ * Loads the value whose address is in the given register into the same register.
+ */
+void compile_load(int register_num);
+
+/**
+ * Emits code to shift the stack pointer by the given value.
+ */
+void compile_stack_shift(int offset);
 
 /**
  * Emits code to dereference the value of the given type stored in the given

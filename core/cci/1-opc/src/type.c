@@ -274,6 +274,20 @@ bool type_is_base(const type_t* type, base_t base) {
     return true;
 }
 
+bool type_is_base_pointer(const type_t* type, base_t base) {
+    assert(base != BASE_RECORD);
+    if (type_base(type) != base) {
+        return false;
+    }
+    if (type_is_array(type)) {
+        return false;
+    }
+    if (type_pointers(type) != 1) {
+        return false;
+    }
+    return true;
+}
+
 type_t* type_decay_array(type_t* type) {
     if (type_is_array(type)) {
         type_set_array_length(type, TYPE_ARRAY_NONE);
@@ -355,16 +369,6 @@ bool type_is_integer(const type_t* type) {
     return false;
 }
 
-bool type_is_void_pointer(const type_t* type) {
-    if (type_is_array(type)) {
-        return false;
-    }
-    if (type_pointers(type) != 1) {
-        return false;
-    }
-    return type_base(type) == BASE_VOID;
-}
-
 bool type_is_compatible(const type_t* left, const type_t* right) {
 
     // Matching types compare equal.
@@ -390,10 +394,10 @@ bool type_is_compatible(const type_t* left, const type_t* right) {
         if (type_indirections(right) > 0) {
 
             // Void pointers can be compared to pointers of any other type.
-            if (type_is_void_pointer(left)) {
+            if (type_is_base_pointer(left, BASE_VOID)) {
                 return true;
             }
-            if (type_is_void_pointer(right)) {
+            if (type_is_base_pointer(right, BASE_VOID)) {
                 return true;
             }
 
