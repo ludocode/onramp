@@ -11,8 +11,9 @@ ldw stw ldb stb
 ims cmpu jz sys
 ; syscalls
 halt time spawn
-open close read write seek tell truncate type
+fopen fclose fread fwrite fseek ftrunc
 stat rename symlink unlink chmod
+dopen dclose dread
 
 =main
     add r0 '00 '00      ; zero r0

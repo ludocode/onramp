@@ -893,7 +893,7 @@
     add rip rpp ra
 
 @opcode_sys_template
-    sys open '00 '00
+    sys fopen '00 '00
 
 
 

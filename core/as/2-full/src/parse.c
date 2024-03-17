@@ -556,46 +556,31 @@ static uint8_t syscall_number(const char* name) {
     // we don't bother with a hashtable; sys is rarely used.
 
     // system
-    if (0 == strcmp(name, "halt"))
-        return 0x00;
-    if (0 == strcmp(name, "time"))
-        return 0x01;
-    if (0 == strcmp(name, "spawn"))
-        return 0x02;
+    if (0 == strcmp(name, "halt")) return 0x00;
+    if (0 == strcmp(name, "time")) return 0x01;
+    if (0 == strcmp(name, "spawn")) return 0x02;
 
     // io handles
-    if (0 == strcmp(name, "open"))
-        return 0x10;
-    if (0 == strcmp(name, "close"))
-        return 0x11;
-    if (0 == strcmp(name, "read"))
-        return 0x12;
-    if (0 == strcmp(name, "write"))
-        return 0x13;
-    if (0 == strcmp(name, "seek"))
-        return 0x14;
-    if (0 == strcmp(name, "tell"))
-        return 0x15;
-    if (0 == strcmp(name, "truncate"))
-        return 0x16;
-    if (0 == strcmp(name, "type"))
-        return 0x17;
+    if (0 == strcmp(name, "fopen")) return 0x10;
+    if (0 == strcmp(name, "fclose")) return 0x11;
+    if (0 == strcmp(name, "fread")) return 0x12;
+    if (0 == strcmp(name, "fwrite")) return 0x13;
+    if (0 == strcmp(name, "fseek")) return 0x14;
+    if (0 == strcmp(name, "ftrunc")) return 0x15;
 
     // filesystem
-    if (0 == strcmp(name, "stat"))
-        return 0x20;
-    if (0 == strcmp(name, "rename"))
-        return 0x21;
-    if (0 == strcmp(name, "symlink"))
-        return 0x22;
-    if (0 == strcmp(name, "unlink"))
-        return 0x23;
-    if (0 == strcmp(name, "chmod"))
-        return 0x24;
-    if (0 == strcmp(name, "mkdir"))
-        return 0x25;
-    if (0 == strcmp(name, "rmdir"))
-        return 0x26;
+    if (0 == strcmp(name, "stat")) return 0x20;
+    if (0 == strcmp(name, "rename")) return 0x21;
+    if (0 == strcmp(name, "symlink")) return 0x22;
+    if (0 == strcmp(name, "unlink")) return 0x23;
+    if (0 == strcmp(name, "chmod")) return 0x24;
+    if (0 == strcmp(name, "mkdir")) return 0x25;
+    if (0 == strcmp(name, "rmdir")) return 0x26;
+
+    // directories
+    if (0 == strcmp(name, "dopen")) return 0x30;
+    if (0 == strcmp(name, "dclose")) return 0x31;
+    if (0 == strcmp(name, "dread")) return 0x32;
 
     fatal("Argument to sys instruction is not a syscall.");
 }

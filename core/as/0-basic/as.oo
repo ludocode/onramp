@@ -104,14 +104,12 @@
     74 69 6d 65               00   01    ; time
     73 70 61 77 6e            00   02    ; spawn
     ;  io handles
-    6f 70 65 6e               00   10    ; open
-    63 6c 6f 73 65            00   11    ; close
-    72 65 61 64               00   12    ; read
-    77 72 69 74 65            00   13    ; write
-    73 65 65 6b               00   14    ; seek
-    74 65 6c 6c               00   15    ; tell
-    74 72 75 6e 63 61 74 65   00   16    ; truncate
-    74 79 70 65               00   17    ; type
+    66 6f 70 65 6e            00   10    ; fopen
+    66 63 6c 6f 73 65         00   11    ; fclose
+    66 72 65 61 64            00   12    ; fread
+    66 77 72 69 74 65         00   13    ; fwrite
+    66 73 65 65 6b            00   14    ; fseek
+    66 74 72 75 6e 63         00   15    ; ftrunc
     ;  filesystem
     73 74 61 74               00   20    ; stat
     72 65 6e 61 6d 65         00   21    ; rename
@@ -120,6 +118,10 @@
     63 68 6d 6f 64            00   24    ; chmod
     6d 6b 64 69 72            00   25    ; mkdir
     72 6d 64 69 72            00   26    ; rmdir
+    ; directories
+    64 6f 70 65 6e            00   30    ; dopen
+    64 63 6c 6f 73 65         00   31    ; dclose
+    64 72 65 61 64            00   32    ; dread
 
     ; end of list
     00

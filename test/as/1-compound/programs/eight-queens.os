@@ -234,7 +234,7 @@ ldw r0 rpp r0
 
             ; print the character, syscall write(stdout, rsp+ra, 1)
             add r1 rsp r7    ; r1 = string address (rsp+ra)
-            sys write '00 '00
+            sys fwrite '00 '00
 
             ; increment x
             inc r3
@@ -243,7 +243,7 @@ ldw r0 rpp r0
 
             ; print a space for alignment
             add r1 rsp 2    ; r1 = string address (rsp+2)
-            sys write '00 '00
+            sys fwrite '00 '00
 
             ; next
             jmp &print_board_next_x
@@ -251,7 +251,7 @@ ldw r0 rpp r0
 
         ; print newline
         add r1 rsp 3    ; r1 = string address (rsp+3)
-        sys write '00 '00
+        sys fwrite '00 '00
 
         ; next y
         inc r4
@@ -260,8 +260,8 @@ ldw r0 rpp r0
 
     ; print two newlines
     add r1 rsp 3    ; r1 = string address (rsp+3)
-    sys write '00 '00
-    sys write '00 '00
+    sys fwrite '00 '00
+    sys fwrite '00 '00
 
     ; return
     popd

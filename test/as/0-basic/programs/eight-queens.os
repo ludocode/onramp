@@ -273,9 +273,9 @@ ldw r0 rpp r0
             cmpu ra ra r4
             and ra ra '01
 
-            ; print the character, syscall write(stdout, rsp+ra, 1)
+            ; print the character, syscall fwrite(stdout, rsp+ra, 1)
             add r1 rsp ra    ; r1 = string address (rsp+ra)
-            sys write '00 '00
+            sys fwrite '00 '00
 
             ; increment x
             add r3 r3 '01   ; inc r3
@@ -284,7 +284,7 @@ ldw r0 rpp r0
 
             ; print a space for alignment
             add r1 rsp '02    ; r1 = string address (rsp+2)
-            sys write '00 '00
+            sys fwrite '00 '00
 
             ; next
             jz '00 &print_board_next_x
@@ -292,7 +292,7 @@ ldw r0 rpp r0
 
         ; print newline
         add r1 rsp '03    ; r1 = string address (rsp+3)
-        sys write '00 '00
+        sys fwrite '00 '00
 
         ; next y
         add r4 r4 '01   ; inc r4
@@ -302,8 +302,8 @@ ldw r0 rpp r0
 
     ; print two newlines
     add r1 rsp '03    ; r1 = string address (rsp+3)
-    sys write '00 '00
-    sys write '00 '00
+    sys fwrite '00 '00
+    sys fwrite '00 '00
 
     ; return
     add rsp rsp '04

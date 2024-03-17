@@ -19,7 +19,7 @@ ldw r0 rpp r0
     ims r1 >hello_world
     add r1 rpp r1   ; set output buffer parameter ("Hello world!")
     add r2 '00 '0D  ; set output length parameter (13)
-    sys write '00 '00
+    sys fwrite '00 '00
 
     ; get the exit address
     add ra r9 '08

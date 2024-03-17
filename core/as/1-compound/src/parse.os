@@ -69,14 +69,12 @@
     "time"      '00 '01
     "spawn"     '00 '02
     ;  io handles
-    "open"      '00 '10
-    "close"     '00 '11
-    "read"      '00 '12
-    "write"     '00 '13
-    "seek"      '00 '14
-    "tell"      '00 '15
-    "truncate"  '00 '16
-    "type"      '00 '17
+    "fopen"      '00 '10
+    "fclose"     '00 '11
+    "fread"      '00 '12
+    "fwrite"     '00 '13
+    "fseek"      '00 '14
+    "ftrunc"     '00 '15
     ;  filesystem
     "stat"      '00 '20
     "rename"    '00 '21
@@ -85,6 +83,10 @@
     "chmod"     '00 '24
     "mkdir"     '00 '25
     "rmdir"     '00 '26
+    ;directories
+    "dopen"      '00 '30
+    "dclose"     '00 '31
+    "dread"      '00 '32
     '00
 
 
