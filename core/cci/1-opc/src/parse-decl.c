@@ -388,8 +388,7 @@ base_t convert_type_specifier(int type_specifiers) {
 
     // If we have another integer width, "int" is redundant.
     if (type_specifiers & TYPE_SPECIFIER_INT) {
-        if (((type_specifiers & TYPE_SPECIFIER_CHAR) |
-            (type_specifiers & TYPE_SPECIFIER_SHORT)) |
+        if ((type_specifiers & TYPE_SPECIFIER_SHORT) |
             ((type_specifiers & TYPE_SPECIFIER_LONG) /*|
             (type_specifiers & TYPE_SPECIFIER_LONG_LONG)*/))
         {
@@ -412,7 +411,8 @@ base_t convert_type_specifier(int type_specifiers) {
         {return BASE_UNSIGNED_CHAR;}
     if (type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT))
         {return BASE_UNSIGNED_SHORT;}
-    if (type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT))
+    if ((type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)) |
+            (type_specifiers == TYPE_SPECIFIER_UNSIGNED))
         {return BASE_UNSIGNED_INT;}
     //if (type_specifiers == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG))
     //    {return BASE_UNSIGNED_LONG_LONG;}
@@ -423,7 +423,8 @@ base_t convert_type_specifier(int type_specifiers) {
     if ((type_specifiers == TYPE_SPECIFIER_SHORT) |
             (type_specifiers == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT)))
         {return BASE_SIGNED_SHORT;}
-    if ((type_specifiers == TYPE_SPECIFIER_INT) |
+    if (((type_specifiers == TYPE_SPECIFIER_INT) |
+            (type_specifiers == TYPE_SPECIFIER_SIGNED)) |
             (type_specifiers == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT)))
         {return BASE_SIGNED_INT;}
     //if ((type_specifiers == TYPE_SPECIFIER_LONG_LONG) |
@@ -438,7 +439,7 @@ base_t convert_type_specifier(int type_specifiers) {
  */
 
 bool try_parse_declaration_specifiers(
-        type_t** out_type, 
+        type_t** out_type,
         storage_t* /*nullable*/ out_storage)
 {
     if (out_storage) {
