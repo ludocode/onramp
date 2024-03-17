@@ -30,27 +30,35 @@
 #endif
 
 #include <__onramp/__size_t.h>
+#include <__onramp/__null.h>
 
 /* TODO organize these like the standard */
 
-int bcmp(const void* a, const void* b, size_t count) __asm__("memcmp");
+#ifndef __onramp_cci_full__
+    #define bcmp memcmp
+    #define memcpy memmove
+    #define index strchr
+    #define rindex strrchr
+#endif
+#ifdef __onramp_cci_full__
+    int bcmp(const void* a, const void* b, size_t count) __asm__("memcmp");
+    void* memcpy(void* dest, const void* src, size_t count) __asm__("memmove");
+    char* rindex(const char* s, int c) __asm__("strrchr");
+    char* index(const char* s, int c) __asm__("strchr");
+#endif
+
 void bcopy(const void* src, void* dest, size_t count);
 void bzero(void* p, size_t count);
-
-char* index(const char* s, int c) __asm__("strchr");
 
 void* memccpy(void* restrict dest, const void* restrict src, int c, size_t n);
 void* memchr(const void* s, int c, size_t n);
 int memcmp(const void* a, const void* b, size_t count);
-void* memcpy(void* dest, const void* src, size_t count) __asm__("memmove");
 void* memmem(const void* haystack, size_t haystack_length,
         const void *needle, size_t needle_length);
 void* memmove(void* dest, const void* src, size_t count);
 void* mempcpy(void* restrict dest, const void* restrict src, size_t n);
 void* memrchr(const void* s, int c, size_t n);
 void* memset(void* dest, int c, size_t count);
-
-char* rindex(const char* s, int c) __asm__("strrchr");
 
 char* stpcpy(char* restrict dest, const char* restrict src);
 char* stpncpy(char* restrict dest, const char* restrict src, size_t n);

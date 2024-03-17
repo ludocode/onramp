@@ -29,11 +29,12 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#include <__onramp/__size_t.h>
+/*
+ * <malloc.h> is a non-standard header. It exists on Windows and Linux where it
+ * defines malloc() and various platform-specific extensions. For simplicity
+ * we'll just include <stdlib.h> where malloc() is actually supposed to be.
+ */
 
-// TODO check if posix specifies <malloc.h> and whether it should define malloc()
-#include <__onramp/__malloc.h>
-
-void* memalign(size_t __alignment, size_t __size);
+#include <stdlib.h>
 
 #endif

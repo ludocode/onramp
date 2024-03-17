@@ -29,29 +29,35 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#define BOOL_WIDTH 8
+
 #define CHAR_BIT 8
 #define CHAR_MAX SCHAR_MAX
 #define CHAR_MIN SCHAR_MIN
+#define CHAR_WIDTH CHAR_BIT
+
 #define SCHAR_MAX 127
 #define SCHAR_MIN (-127-1)
+#define SCHAR_WIDTH CHAR_BIT
 #define UCHAR_MAX 255U
+#define UCHAR_WIDTH CHAR_BIT
 
 #define SHRT_MAX 32767
 #define SHRT_MIN (-32767-1)
+#define SHRT_WIDTH 16
 #define USHRT_MAX 65535U
+#define USHRT_WIDTH 16
 
 #define INT_MAX 2147483647
 #define INT_MIN (-2147483647-1)
+#define INT_WIDTH 32
 #define UINT_MAX 4294967295U
+#define UINT_WIDTH 32
 
 #define LONG_MAX INT_MAX
 #define LONG_MIN INT_MIN
+#define LONG_WIDTH 32
 #define ULONG_MAX UINT_MAX
-
-#define LLONG_MAX LONG_MAX
-#define LLONG_MIN LONG_MIN
-#define ULLONG_MAX ULONG_MAX
-
-#define MB_LEN_MAX 1
+#define ULONG_WIDTH 32
 
 #endif

@@ -30,24 +30,30 @@
 #endif
 
 #include <__onramp/__size_t.h>
+#include <__onramp/__wchar_t.h>
 #include <__onramp/__null.h>
 
 #define EXIT_SUCCESS 0
 #define EXIT_FAILURE 1
 
-void* malloc(size_t size);
-void* calloc(size_t element_count, size_t element_size);
-void free(void* p);
-void* realloc(void* old_ptr, size_t new_size);
+int atoi(const char* nptr);
+long int atol(const char* nptr);
 
-void _Exit(int status);
-
-void* __malloc_largest_unused_region(size_t* out_size);
-
-long strtol(const char* restrict p, char** restrict end, int base);
-int atoi(const char* p);
-long atol(const char* p);
+long int strtol(const char* restrict nptr, char** restrict endptr, int base);
+unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);
 
 _Noreturn void abort(void);
+_Noreturn void _Exit(int status);
+char* getenv(const char* name);
+int system(const char* string);
+
+void* aligned_alloc(size_t __alignment, size_t __size);
+void* calloc(size_t __count, size_t __element_size);
+void free(void* __ptr);
+void* malloc(size_t __size);
+void* realloc(void* __ptr, size_t __size);
+int posix_memalign(void** __ptr, size_t __alignment, size_t __size);
+// TODO extensions
+size_t malloc_size(void* ptr);
 
 #endif

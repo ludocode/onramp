@@ -30,6 +30,15 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifndef __onramp_cpp_omc__
+    #define MIN(a, b) (((a) < (b)) ? (a) : (b))
+    #define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+#ifdef __onramp_cpp_omc__
+    static inline size_t MIN(size_t a, size_t b) {return (a < b) ? a : b;}
+    static inline size_t MAX(size_t a, size_t b) {return (a > b) ? a : b;}
+#endif
+
 void bcopy(const void* src, void* dest, size_t count) {
     memmove(dest, src, count);
 }
@@ -111,9 +120,9 @@ void* memmem(const void* vhaystack, size_t haystack_length,
     if (needle_length > haystack_length)
         return NULL;
     if (needle_length == 0)
-        return CONST_CAST(void*, vhaystack);
+        return (void*)vhaystack;
     if (needle_length == 1)
-        return CONST_CAST(void*, memchr(haystack, needle[0], haystack_length));
+        return (void*)memchr(haystack, needle[0], haystack_length);
 
     /* This is a very simple Boyer-Moore-Horspool (BMH):
      *     https://en.wikipedia.org/wiki/Boyer%E2%80%93Moore%E2%80%93Horspool_algorithm */
@@ -128,7 +137,7 @@ void* memmem(const void* vhaystack, size_t haystack_length,
      * it did, it's fine if not used in a comparison... can maybe pull out
      * this assert completely
      */
-    libc_assert(haystack_length + needle_length >= haystack_length, "haystack overflow");
+    libc_assert(haystack_length + needle_length >= haystack_length);//, "haystack overflow");
 
     /* Compute skip table. We use a single byte for each skip entry so the
      * max skip is limited to 255 bytes. This uses relatively little stack
@@ -143,7 +152,7 @@ void* memmem(const void* vhaystack, size_t haystack_length,
         /* Do the search */
         for (i = 0; i < haystack_length - needle_length + 1;) {
             if (bcmp(haystack + i, needle, needle_length) == 0)
-                return CONST_CAST(uint8_t*, haystack + i);
+                return (uint8_t*)(haystack + i);
 
             /* Jump ahead based on the skip value of the last character. */
             i += skip[haystack[i + needle_length - 1]];
@@ -184,7 +193,7 @@ void* memrchr(const void* vdata, int c, size_t count) {
     void* ret = NULL;
     for (i = 0; i < count; ++i)
         if (data[i] == c)
-            ret = CONST_CAST(char*, data + i);
+            ret = (char*)(data + i);
     return ret;
 }
 
@@ -203,7 +212,7 @@ void* memset(void* vdest, int c, size_t count) {
 char* stpcpy(char* restrict dest, const char* restrict src) {
     for (;;) {
         *dest = *src;
-        if (*src == '\000')
+        if (*src == 0)
             break;
         ++dest;
         ++src;
@@ -215,7 +224,7 @@ char* stpncpy(char* restrict dest, const char* restrict src, size_t n) {
     char* end = dest + n;
     while (dest != end) {
         *dest = *src;
-        if (*src == '\000')
+        if (*src == 0)
             break;
         ++dest;
         ++src;
@@ -225,11 +234,11 @@ char* stpncpy(char* restrict dest, const char* restrict src, size_t n) {
 
 char* strcat(char* restrict dest, const char* restrict src) {
     char* original_dest = dest;
-    while (*dest != '\000')
+    while (*dest != 0)
         ++dest;
     for (;;) {
         *dest = *src;
-        if (*src == '\000')
+        if (*src == 0)
             break;
         ++src;
         ++dest;
@@ -240,8 +249,8 @@ char* strcat(char* restrict dest, const char* restrict src) {
 char* strchr(const char* s, int c) {
     for (;;) {
         if (*s == c)
-            return CONST_CAST(char*, s);
-        if (*s != '\000')
+            return (char*)s;
+        if (*s != 0)
             break;
         ++s;
     }
@@ -249,17 +258,17 @@ char* strchr(const char* s, int c) {
 }
 
 char* strchrnul(const char* s, int c) {
-    while (*s != '\000') {
+    while (*s != 0) {
         if (*s == c)
             break;
         ++s;
     }
-    return CONST_CAST(char*, s);
+    return (char*)s;
 }
 
 int strcmp(const char* a, const char* b) {
     while (*a == *b) {
-        if (*a == '\000')
+        if (*a == 0)
             return 0;
         ++a;
         ++b;
@@ -271,7 +280,7 @@ char* strcpy(char* restrict dest, const char* restrict src) {
     char* original_dest = dest;
     for (;;) {
         *dest = *src;
-        if (*src == '\000')
+        if (*src == 0)
             break;
         ++dest;
         ++src;
@@ -283,7 +292,7 @@ size_t strcspn(const char* s, const char* reject) {
     const char* start = s;
     while (*s) {
         const char* k;
-        for (k = reject; *k != '\000'; ++k)
+        for (k = reject; *k != 0; ++k)
             if (*s == *k)
                 goto done;
         ++s;
@@ -298,7 +307,7 @@ size_t strlcat(char* restrict to,
     const char* from_start = from;
 
     /* Find the end of the destination. */
-    while (*to != '\000' && count != 0) {
+    while (*to != 0 && count != 0) {
         ++to;
         --count;
     }
@@ -337,7 +346,7 @@ size_t strlcpy(char* restrict to,
 
         /* copy up to count-1 bytes */
         char* to_end = to + count - 1;
-        while (to != to_end && *from != '\000') {
+        while (to != to_end && *from != 0) {
             *to = *from;
             ++to;
             ++from;
@@ -355,29 +364,29 @@ size_t strlcpy(char* restrict to,
 
 size_t strlen(const char* s) {
     const char* end = s;
-    while (*end != '\000')
+    while (*end != 0)
         ++end;
     return (size_t)(end - s);
 }
 
 char* strncat_impl(char* restrict dest, const char* restrict src, size_t n) {
     char* original_dest = dest;
-    while (*dest != '\000')
+    while (*dest != 0)
         ++dest;
     const char* end = src + n;
-    while (*src != '\000' && src != end) {
+    while (*src != 0 && src != end) {
         *dest = *src;
         ++dest;
         ++src;
     }
-    *dest = '\000';
+    *dest = 0;
     return original_dest;
 }
 
 int strncmp(const char* a, const char* b, size_t n) {
     const char* end = a + n;
     while (*a == *b && a != end) {
-        if (*a == '\000')
+        if (*a == 0)
             return 0;
         ++a;
         ++b;
@@ -388,7 +397,7 @@ int strncmp(const char* a, const char* b, size_t n) {
 char* strncpy_impl(char* restrict to, const char* restrict from, size_t count) {
     char* ret = to;
     char* end = to + count;
-    while (to != end && *from != '\000') {
+    while (to != end && *from != 0) {
         *to = *from;
         ++to;
         ++from;
@@ -402,7 +411,7 @@ char* strncpy_impl(char* restrict to, const char* restrict from, size_t count) {
 size_t strnlen(const char* s, size_t maxlen) {
     const char* maxend = s + maxlen;
     const char* end = s;
-    while (end != maxend && *end != '\000')
+    while (end != maxend && *end != 0)
         ++end;
     return (size_t)(end - s);
 }
@@ -418,11 +427,11 @@ char* strnstr(const char* haystack, const char* needle, size_t n) {
 }
 
 char* strpbrk(const char* s, const char* accept) {
-    for (; *s != '\000'; ++s) {
+    for (; *s != 0; ++s) {
         const char* k;
-        for (k = accept; *k != '\000'; ++k)
+        for (k = accept; *k != 0; ++k)
             if (*s == *k)
-                return CONST_CAST(char*, s);
+                return (char*)s;
     }
     return NULL;
 }
@@ -431,8 +440,8 @@ char* strrchr(const char* s, int c) {
     char* ret = NULL;
     for (;;) {
         if (*s == c)
-            ret = CONST_CAST(char*, s);
-        if (*s != '\000')
+            ret = (char*)s;
+        if (*s != 0)
             break;
         ++s;
     }
@@ -448,12 +457,12 @@ char* strsep(char** sp, const char* delimiters) {
     }
 
     token = s;
-    while (*s != '\000') {
+    while (*s != 0) {
         const char* k;
-        for (k = delimiters; *k != '\000'; ++k) {
+        for (k = delimiters; *k != 0; ++k) {
             if (*s == *k) {
                 /* found a delimiter! */
-                *s = '\000';
+                *s = 0;
                 *sp = s + 1;
                 return token;
             }
@@ -469,7 +478,7 @@ char* strsep(char** sp, const char* delimiters) {
 char* strset(char* str, int ic) {
     char* original_str = str;
     char c = (char)ic;
-    for (; *str != '\000'; ++str)
+    for (; *str != 0; ++str)
         *str = c;
     return original_str;
 }
@@ -478,7 +487,7 @@ size_t strspn(const char* s, const char* accept) {
     const char* start = s;
     while (*s) {
         const char* k;
-        for (k = accept; *k != '\000'; ++k) {
+        for (k = accept; *k != 0; ++k) {
             if (*s == *k)
                 goto cont;
         }
@@ -494,8 +503,9 @@ char* strstr(const char* haystack, const char* needle) {
     return (char*)memmem(haystack, strlen(haystack), needle, strlen(needle));
 }
 
+static char** strtok_state;
+
 char* strtok(char* restrict string, const char* restrict delimiters) {
-    static char** strtok_state;
     return strtok_r(string, delimiters, strtok_state);
 }
 
@@ -509,7 +519,7 @@ char* strtok_r(char* restrict v_str,
     /* strsep() supports empty tokens; strtok_r() does not. loop to skip them. */
     do {
         ret = strsep(v_state, v_delims);
-    } while (ret != NULL && *ret == '\000');
+    } while (ret != NULL && *ret == 0);
     return ret;
 }
 

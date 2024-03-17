@@ -70,6 +70,15 @@ char* getenv(const char* name);
 _Noreturn void quick_exit(int status);
 int system(const char* string);
 
+void* aligned_alloc(size_t __alignment, size_t __size);
+void* calloc(size_t __count, size_t __element_size);
+void free(void* __ptr);
+void* malloc(size_t __size);
+void* realloc(void* __ptr, size_t __size);
+int posix_memalign(void** __ptr, size_t __alignment, size_t __size);
+// TODO extensions
+size_t malloc_size(void* ptr);
+
 // Searching and sorting utilities
 void *bsearch(const void* __key, const void* __base,
         size_t __element_count, size_t __element_size,

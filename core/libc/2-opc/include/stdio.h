@@ -52,12 +52,12 @@ typedef unsigned int fpos_t;
 #define SEEK_END 2
 #define SEEK_SET 3
 
-extern FILE __stdin;
-extern FILE __stdout;
-extern FILE __stderr;
-#define stdin (&__stdin)
-#define stdout (&__stdout)
-#define stderr (&__stderr)
+extern FILE* __stdin;
+extern FILE* __stdout;
+extern FILE* __stderr;
+#define stdin (__stdin)
+#define stdout (__stdout)
+#define stderr (__stderr)
 
 // standard C
 
@@ -86,7 +86,7 @@ int vsnprintf(char* restrict buffer, size_t n, const char* restrict format, va_l
 int vsprintf(char* restrict buffer, const char* restrict format, va_list arg);
 int vsscanf(const char* restrict buffer, const char* restrict format, va_list arg);
 
-[[deprecated]] char* gets(char* s);
+//[[deprecated]] char* gets(char* s);
 int fgetc(FILE* stream);
 char* fgets(char* restrict s, int n, FILE* restrict stream);
 int fputc(int c, FILE* stream);

@@ -58,28 +58,36 @@ typedef struct directive_t {
     int conversion_argument_position;
 
     // True if we have argument positions ('$')
-    bool argument_positions : 1;
+// TODO temporarily disabling bitfields, not parsed by cci/1 yet
+    bool argument_positions ;//: 1;
 
     // These flags are true if '*' was given, in which case the value should be
     // taken from an argument (either the next one, or a specific argument if
     // argument_positions is true.)
-    bool field_width_as_argument : 1;
-    bool precision_as_argument : 1;
+    bool field_width_as_argument ;//: 1;
+    bool precision_as_argument ;//: 1;
 
     // Other flags
-    bool alternate          : 1; // #
-    bool zero_padded        : 1; // 0
-    bool left_adjusted      : 1; // -
-    bool plus_sign          : 1; // +
-    bool blank_plus_sign    : 1; // space
-    bool thousands_grouping : 1; // '  (Single UNIX)
-    bool locale_digits      : 1; // I  (glibc)
+    bool alternate          ;//: 1; // #
+    bool zero_padded        ;//: 1; // 0
+    bool left_adjusted      ;//: 1; // -
+    bool plus_sign          ;//: 1; // +
+    bool blank_plus_sign    ;//: 1; // space
+    bool thousands_grouping ;//: 1; // '  (Single UNIX)
+    bool locale_digits      ;//: 1; // I  (glibc)
 } directive_t;
 
 /**
  * Gets the char pointed to by pps, or a null byte if the end is reached.
  */
-#define DIRECTIVE_CHAR(s, end) (((s) == (end)) ? '\0' : *(s))
+#ifndef __onramp_cpp_omc__
+    #define DIRECTIVE_CHAR(s, end) (((s) == (end)) ? 0 : *(s))
+#endif
+#ifndef DIRECTIVE_CHAR
+    static inline char DIRECTIVE_CHAR(const char* s, const char* end) {
+        return (s == end) ? 0 : *s;
+    }
+#endif
 
 // TODO can probably sweep out the "end" parameter in all this and use
 // null-terminated format strings everywhere. Not really any point in keeping
@@ -105,7 +113,7 @@ static bool directive_parse_flags(directive_t* directive, const char** s, const 
     while (*s != end) {
         switch (**s) {
 
-            case '#':
+            //TODO case '#':
                 if (directive->alternate) {
                     //__libc_error("Duplicate format flag: #");
                     return false;
@@ -278,7 +286,7 @@ static bool directive_parse_conversion_specifier(directive_t* directive, const c
         case 'm':
             break;
 
-        case '\0':
+        case 0:
             //__libc_error("Format directive truncated");
             return false;
 
@@ -397,7 +405,7 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 /**
  * Converts an unsigned integer to a decimal string.
  */
-static size_t utod(uint64_t value, char* output) {
+static size_t utod(uintmax_t value, char* output) {
     if (value == 0) {
         *output = '0';
         return 1;
@@ -432,6 +440,8 @@ static size_t utod(uint64_t value, char* output) {
  * Returns -1 in case of a flush failure; otherwise returns the number of bytes
  * that would have been written had the string not been truncated.
  */
+// TODO disabling until fixed, don't have function pointers in osc
+#ifdef DISABLED
 static int print(
         const char* format,
         int (*output)(void* context, const char* bytes, size_t count),
@@ -745,3 +755,4 @@ int asprintf(char** restrict out_string, const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
+#endif

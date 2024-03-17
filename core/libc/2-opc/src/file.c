@@ -38,9 +38,17 @@ struct __file {
     //...
 };
 
-FILE __stdin = {.fd = 0};
-FILE __stdout = {.fd = 1};
-FILE __stderr = {.fd = 2};
+FILE* __stdin;
+FILE* __stdout;
+FILE* __stderr;
+
+void __stdio_init(void) {
+    /*
+    __stdin = fdopen(0, "r");
+    __stdout = fdopen(1, "w");
+    __stderr = fdopen(2, "w");
+    */
+}
 
 int remove(const char* filename) {
     // TODO

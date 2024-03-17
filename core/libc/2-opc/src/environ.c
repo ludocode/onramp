@@ -22,9 +22,9 @@
  * SOFTWARE.
  */
 
-#ifdef __onramp__
-char** __environ; // TODO POSIX alias is just environ
-#endif
+#include "string.h"
+
+char** __environ;
 
 // TODO move this to libc/1, cc needs it
 char* getenv(const char* name) {

@@ -35,6 +35,6 @@ typedef struct __jmp_buf {
 
 int setjmp(jmp_buf __buf);
 
-[[__noreturn__]] void longjmp(jmp_buf __buf, int __ret);
+_Noreturn void longjmp(jmp_buf __buf, int __ret);
 
 #endif

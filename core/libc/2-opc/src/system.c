@@ -25,33 +25,47 @@
 #include <stdlib.h>
 
 #include "internal.h"
+#include "constructors.h"
+
+#include <__onramp/__pit.h>
 
 int __argc;
 char** __argv;
+extern char** __environ;
 
-_Noreturn void __end(unsigned exit_code, uint32_t exit_address);
+// TODO clean these up
+_Noreturn void __end(unsigned exit_code, unsigned exit_address);
+extern void __malloc_init(void);
+extern void __stdio_init(void);
+extern void __stdio_destroy(void);
+static void exit_flush(void);
+extern void main(int argc, char** argv, char** environ);
 
-// TODO put these in an onramp header, we use them in cc.c
+unsigned* __process_info_table;
 
 #ifdef __onramp__
 _Noreturn
-void __start_c(unsigned* process_info, uint32_t stack_base) {
+void __start_c(unsigned* process_info, unsigned stack_base) {
 
     // store environment
-    __onramp_pit = process_info;
-    __argv = process_info[PIT_ARGS];
-    __environ = process_info[PIT_ENVIRON];
+    __process_info_table = process_info;
+    __argv = process_info[__ONRAMP_PIT_ARGS];
+    __environ = process_info[__ONRAMP_PIT_ENVIRON];
 
     // count command-line args
     for (__argc = 0; __argv[__argc]; ++__argc) {}
 
     // initialize the libc
-    __malloc_init(process_info[PIT_BREAK], stack_base);
+    __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __stdio_init();
 
     // run user code. exit() does not return.
-    __call_constructors();
-    exit(main(__argc, __argv, __environ));
+    // TODO get rid of the constructors and everything else in this code,
+    // simplier to move all this to libc/3 and keep the initialization process
+    // simple here
+    //__call_constructors();
+    exit_flush();
+    main(__argc, __argv, __environ);
 }
 #endif
 
@@ -66,7 +80,7 @@ _Noreturn void _Exit(int status) {
     __stdio_destroy();
 
     // we're done. end the process
-    __end(__exit_code, __process_info[PIT_EXIT]);
+    __end(status, __process_info_table[__ONRAMP_PIT_EXIT]);
 }
 
 int system(const char* string) {

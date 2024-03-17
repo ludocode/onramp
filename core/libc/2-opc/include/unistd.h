@@ -34,10 +34,12 @@
 #include <sys/types.h>
 
 char** __environ;
-char** environ __asm__("__environ");
+//char** environ __asm__("__environ");
 
-_Noreturn void _exit(int __status) __asm__("_Exit");
+//_Noreturn void _exit(int __status) __asm__("_Exit");
 
+int close(int __fd);
 ssize_t write(int __fd, const void* __buffer, size_t __count);
+ssize_t read(int __fd, void* __buffer, size_t __count);
 
 #endif

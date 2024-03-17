@@ -41,7 +41,8 @@ typedef unsigned int max_align_t;
 
 // TODO are we going to define __builtin_offsetof? probably don't need it
 //#define offsetof(structure, member) __builtin_offsetof(structure, member)
-#define offsetof(structure, member) \
-        ((size_t)((unsigned)((const char*)(&(structure*)((unsigned)(0u))->member))))
+// TODO either define the builtin in cci/1 or move this macro to libc/3
+/*#define offsetof(structure, member) \
+        ((size_t)((unsigned)((const char*)(&(structure*)((unsigned)(0u))->member))))*/
 
 #endif

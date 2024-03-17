@@ -22,23 +22,27 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_ONRAMP_MALLOC_H_INCLUDED
-#define __ONRAMP_LIBC_ONRAMP_MALLOC_H_INCLUDED
+#ifndef SYSCALLS_H_INCLUDED
+#define SYSCALLS_H_INCLUDED
 
-#ifndef __onramp_libc__
-    #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
-#endif
-
-#include <__onramp/__size_t.h>
-
-void* aligned_alloc(size_t __alignment, size_t __size);
-void* calloc(size_t __count, size_t __element_size);
-void free(void* __ptr);
-void* malloc(size_t __size);
-void* realloc(void* __ptr, size_t __size);
-int posix_memalign(void** __ptr, size_t __alignment, size_t __size);
-
-// TODO extensions
-size_t malloc_size(void* ptr);
+[[noreturn]] void __sys_halt(int exit_code);
+void __sys_time(struct timespec*);
+void __sys_spawn(TODO);
+int __sys_fopen(const char* path, bool writeable);
+void __sys_fclose(int handle);
+int __sys_fread(int handle, void* buffer, unsigned size);
+void __sys_fwrite(int handle, void* buffer, unsigned size);
+void __sys_fseek(int handle, unsigned position_low, unsigned position_high);
+void __sys_ftrunc(int handle, unsigned position_low, unsigned position_high);
+void __sys_stat(const char* path, struct stat* output);
+void __sys_rename(const char* from, const char* to);
+void __sys_symlink(const char* from, const char* to);
+void __sys_unlink(const char* path);
+void __sys_chmod(const char* path, int mode);
+void __sys_mkdir(const char* path);
+void __sys_rmdir(const char* path);
+int __sys_dopen(const char* path);
+void __sys_dclose(int handle);
+int __sys_dread(int handle, char buffer[256]);
 
 #endif
