@@ -25,9 +25,8 @@
 ; This is the first stage preprocessor. It is written in compound assembly. It
 ; simply treats preprocessor directives as comments and strips all comments.
 ;
-; TODO: This strips # even inside string and character literals. We should
-; probably make it not do that. This is only used to build cpp/1 so for now we
-; just avoid it there.
+; TODO we're linking against libo now so we should use its fatal() and
+; file/line mechanism to give better error messages.
 
 
 
@@ -52,6 +51,9 @@
 
 @error_unclosed_comment
     "ERROR: Unclosed C-style comment." '0A '00
+
+@error_unclosed_string
+    "ERROR: Unclosed string or character literal." '0A '00
 
 @input_file
     '00 '00 '00 '00
@@ -257,6 +259,10 @@
     cmpu r0 r0 -1
     je r0 &run_eof
 
+    ; check for a string
+    call ^try_parse_string
+    jnz r0 &run_loop
+
     ; check for a preprocessor directive
     call ^try_parse_preproc
     jnz r0 &run_loop
@@ -342,6 +348,90 @@
 :try_parse_preproc_not_found
     zero r0
     ret
+
+
+
+; ==========================================================
+; void try_parse_string(void);
+; ==========================================================
+; Checks for a string or character literal. If found, it is forwarded to the
+; output. This prevents `#` inside literals being treated as preprocs.
+;
+; vars:
+; - r0: current char
+; - rfp-4: starting quote
+; ==========================================================
+
+=try_parse_string
+    enter
+
+    ; check if current_char is ' or "
+    imw r0 ^current_char
+    ldw r0 rpp r0
+    sub r1 r0 "'"
+    jz r1 &try_parse_string_found
+    sub r1 r0 '22  ; '"'
+    jz r1 &try_parse_string_found
+    jmp &try_parse_string_not_found
+
+:try_parse_string_found
+
+    ; save the opening quote to match it later
+    sub rsp rsp 4
+    stw r0 rfp -4
+
+:try_parse_string_loop
+
+    ; emit and consume the current char
+    call ^emit_byte
+    call ^next_char
+    imw r0 ^current_char
+    ldw r0 rpp r0
+
+    ; check for end of file
+    sub r2 r0 -1
+    jz r2 &try_parse_string_eof
+
+    ; check for end of the string (matching quote)
+    ldw r1 rfp -4
+    sub r2 r0 r1
+    jz r2 &try_parse_string_done
+
+    ; check for a backslash
+    sub r1 r0 '5C   ; '\\'
+    jnz r1 &try_parse_string_loop
+
+    ; we have a backslash. send two characters to the output (one here and one
+    ; at the start of the loop.) we don't care if the escape sequence is longer
+    ; than two characters; those will get captured in the loop as well.
+    call ^emit_byte
+    call ^next_char
+    imw r0 ^current_char
+    ldw r0 rpp r0
+    jmp &try_parse_string_loop
+
+:try_parse_string_done
+
+    ; emit the closing quote
+    call ^emit_byte
+    call ^next_char
+
+    ; return true
+    mov r0 1
+    leave
+    ret
+
+:try_parse_string_not_found
+    ; return false
+    zero r0
+    leave
+    ret
+
+:try_parse_string_eof
+    ; error, unclosed string or character literal
+    imw r0 ^error_unclosed_string
+    add r0 r0 rpp
+    call ^__fatal
 
 
 

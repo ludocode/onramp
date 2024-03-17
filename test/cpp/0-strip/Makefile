@@ -66,3 +66,6 @@ $(OUT)/cpp.oe: $(OUT)/cpp.oo Makefile $(LD) $(LIBC)
 
 test: build FORCE $(VM)
 	../run.sh . $(VM) $(OUT)/cpp.oe
+
+generate: build FORCE
+	../generate.sh . $(VM) $(OUT)/cpp.oe
