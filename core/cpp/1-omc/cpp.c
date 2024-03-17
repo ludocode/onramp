@@ -872,10 +872,13 @@ static void handle_conditional(int predicate) {
     while (1) {
         if (current_char == '#') {
             next_char();
+
             consume_optional_horizontal_whitespace();
 
-            if (current_char == '\n') {
-                /* Empty directive is allowed. */
+            /* Any old nonsense is allowed in untaken conditional branches (and
+             * in particular we don't want to fail on `##` token pasting and
+             * other things.) If we don't have an identifier we skip. */
+            if (!is_identifier_char(current_char, true)) {
                 next_char();
                 continue;
             }
@@ -1228,7 +1231,7 @@ static void parse_command_line(int argc, const char** argv) {
                 expansion = "";
             }
 
-            macro_new(name, expansion);
+            macro_new(name, strdup(expansion));
             continue;
         }
 
