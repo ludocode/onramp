@@ -76,7 +76,9 @@
 
     /* <stddef.h> */
     typedef int size_t; /* note: size_t is signed int for now because omC doesn't support unsigned. */
-    typedef int intptr_t; // TODO we shouldn't need this, fix later
+
+    /* <stdint.h> */
+    typedef int intptr_t;
 
     /* <stdbool.h> */
     typedef int bool;
@@ -176,9 +178,7 @@ static void emit_char(char c) {
 }
 
 static void emit_line_directive(void) {
-    // TODO fix cpp/0 handling of quoted #
-    fputc(0x23, output_file); // #
-    fputs("line ", output_file);
+    fputs("#line ", output_file);
     write_number(output_file, current_line);
     emit_char(' ');
     emit_char('"');
@@ -539,10 +539,6 @@ static void consume_expansion(void) {
  * We insert new macros at the front of the linked list, that way if a macro is
  * redefined, we find the latest definition first. We don't bother to free()
  * replaced macros and #undef is not supported.
- *
- * TODO might need to add a flag for whether the expansion is a string or a
- * function. Function would be used to build e.g. __FILE__, __LINE__. If those
- * are the only things we need, we probably shouldn't bother.
  */
 
 int MACRO_NEXT;
@@ -558,10 +554,12 @@ static void macros_init(void) {
 }
 
 // The linked list of macros.
-// TODO use a typedef. I wrote this before cci/0 had typedef support
 static void** macros;
 
 static void macro_new(const char* name, const char* expansion) {
+    if ((name == 0) | (expansion == 0)) {
+        fatal("Out of memory.");
+    }
     //printf("define macro %s %s\n", name, expansion);
     void** macro = (void**)malloc(sizeof(void*) * 4);
     *(macro + MACRO_NEXT) = (void*)macros;
@@ -572,12 +570,8 @@ static void macro_new(const char* name, const char* expansion) {
 }
 
 static void macro_delete(void** macro) {
-    // TODO we're not actually consistent in whether we strdup() strings passed
-    // to macro_new(). It should take char*, not const char*, and should take
-    // ownership of the strings. We should call strdup_checked() whenever we
-    // pass it a constant string. In the meantime we just leak the strings.
-    //free(*(macro + MACRO_NAME));
-    //free(*(macro + MACRO_EXPANSION));
+    free(*(macro + MACRO_NAME));
+    free(*(macro + MACRO_EXPANSION));
     free(macro);
 }
 
@@ -682,13 +676,9 @@ static bool try_include(const char* prefix) {
         return false;
     }
 
-    // TODO fix cpp/0 handling of quoted #
-    fputc(0x23, output_file); // #
-    fputs("pragma onramp file push\n", output_file);
+    fputs("#pragma onramp file push\n", output_file);
     preprocess(path, file);
-    // TODO fix cpp/0 handling of quoted #
-    fputc(0x23, output_file); // #
-    fputs("pragma onramp file pop\n", output_file);
+    fputs("#pragma onramp file pop\n", output_file);
 
     // Emit a line directive for the parent file to get us back where we were.
     // (The parent file is NULL if we're processing `-include`.)
@@ -707,9 +697,6 @@ static int find_slash(const char* str) {
     if (str == 0) {
         return -1;
     }
-
-    // TODO use rindex/strrchr, need to implement it in libc/1 and get that
-    // compiling first.
 
     int slash_index;
     slash_index = -1;
@@ -794,8 +781,7 @@ static void search_include(char quote_style) {
  */
 
 static void handle_line(void) {
-    // TODO handle line, file, manual mode
-    fatal("line preproc not implemented");
+    fatal("#line preproc not implemented");
 }
 
 static void handle_include(void) {
@@ -884,7 +870,7 @@ static void handle_conditional(int predicate) {
     int false_depth;
     false_depth = 0;
     while (1) {
-        if (current_char == 0x23) {  // '#', see bug in cpp/0
+        if (current_char == '#') {
             next_char();
             consume_optional_horizontal_whitespace();
 
@@ -1066,7 +1052,7 @@ static void preprocess(const char* new_filename, FILE* new_file) {
 
         /* Handle preprocessor directives (note that we don't bother to check
          * that we are at the beginning of a line) */
-        if (current_char == 0x23) {  // #, see bug in cpp/0
+        if (current_char == '#') {
             next_char();
             consume_optional_horizontal_whitespace();
 
@@ -1102,9 +1088,7 @@ static void preprocess(const char* new_filename, FILE* new_file) {
                 continue;
             }
             if (0 == strcmp(current_string, "error")) {
-                // TODO cpp/0 '#' handling
-                //fatal("#error directive reached.");
-                fatal("error directive reached.");
+                fatal("#error directive reached.");
             }
             fatal("Unrecognized preprocessor directive.");
         }
@@ -1174,15 +1158,13 @@ static void initialize(void) {
 static void define_default_macros(void) {
     if (!opt_nostddef) {
         // Note that we don't define __onramp__. It is defined by the cc driver.
-        macro_new("__onramp_cpp__", "1");
-        macro_new("__onramp_cpp_omc__", "1");
+        macro_new(strdup("__onramp_cpp__"), strdup("1"));
+        macro_new(strdup("__onramp_cpp_omc__"), strdup("1"));
     }
 }
 
 static void deinitialize(void) {
 
-    // TODO this doesn't work yet, worry about leaks later
-    #if 0
     // free macros
     void** macro = macros;
     while (macro != 0) {
@@ -1190,7 +1172,6 @@ static void deinitialize(void) {
         macro_delete(macro);
         macro = next;
     }
-    #endif
 
     // free include paths
     void** entry = include_paths;
@@ -1352,8 +1333,7 @@ void dump_macros(void) {
     while (macro != 0) {
         char* name = (char*)*(macro + MACRO_NAME);
         char* expansion = (char*)*(macro + MACRO_EXPANSION);
-        putchar(0x23); // #
-        fputs("define ", stdout);
+        fputs("#define ", stdout);
         fputs(name, stdout);
         putchar(' ');
         puts(expansion);
