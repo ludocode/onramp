@@ -782,13 +782,18 @@ static uint32_t vm_unlink(vm_t* vm) {
 }
 
 static int vm_chmod(vm_t* vm) {
-    // TODO this should take a path, not a file descriptor
-    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t path_addr = vm->registers[0];
+    if (!vm_is_string_valid(vm, path_addr)) {
+        fputs("ERROR: Invalid path.\n", stderr);
+        exit(125);
+    }
+    const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
+
     mode_t mode = vm->registers[1];
     if (mode != 0644 && mode != 0755) {
         panic("Invalid chmod mode");
     }
-    fchmod(fileno(file), mode);
+    chmod(full_path, mode);
     return 0;
 }
 

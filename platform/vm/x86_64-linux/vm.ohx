@@ -403,7 +403,7 @@
     00 00  ; 0x0E rename (not yet implemented)
     00 00  ; 0x0F symlink (not yet implemented)
     00 00  ; 0x10 unlink (not yet implemented)
-    00 00  ; 0x11 chmod (not yet implemented)
+    A0 11  ; 0x11 chmod (0x11A0)
     00 00  ; 0x12 mkdir (not yet implemented)
     00 00  ; 0x13 rmdir (not yet implemented)
 
@@ -2407,3 +2407,59 @@
     90 90 90 90 90 90 90 90
     90 90
 @0x11A0
+
+
+
+; ==========================================================
+; void syscall_chmod(void)
+; ==========================================================
+; Opens a file handle for the given filename.
+;
+; params:
+;    - r0: path
+;    - r1: writeable
+; ==========================================================
+
+@0x11A0 syscall_chmod
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the filename, check it
+    BF 00 00 60 00    ; mov rdi, r0 (0x600000)
+    8B 3F             ; mov edi, [rdi]
+    57                ; push rdi
+    B8 10 08 40 00    ; mov eax, check_string (0x400810)
+    FF D0             ; call rax
+    5F                ; pop rdi
+
+    ; get the mode
+    ; TODO check that it's 0644 or 0755
+    BE 04 00 60 00   ; mov esi, r1 (0x600004)
+    8B 36            ; mov esi, [rsi]
+
+    ; call chmod() syscall
+    B8 5A 00 00 00   ; mov eax, 0x5A  ; syscall: chmod (90)
+    0F 05            ; syscall
+
+    ; TODO convert return value to Onramp error codes. Linux syscalls return
+    ; negative values on error so for now we just pass it through.
+
+    ; store the return value in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    67 89 07         ; mov [edi], eax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x1200

@@ -72,6 +72,6 @@ int remove(const char* filename);
 // posix
 int fileno(FILE* file);
 typedef int mode_t;
-int fchmod(int fileno, int mode); // TODO this belongs in sys/stat.h
+int chmod(const char* filename, int mode); // TODO this belongs in sys/stat.h
 
 #endif

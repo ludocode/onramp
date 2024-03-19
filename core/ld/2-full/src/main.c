@@ -32,6 +32,10 @@
 // TODO asprintf() is nonstandard (is it in C23?)
 #define _GNU_SOURCE
 
+#ifndef __onramp__  // TODO fix this
+#include <sys/stat.h>
+#endif
+
 #include "common.h"
 #include "symbol.h"
 #include "label.h"
@@ -113,6 +117,7 @@ static void open_output_files(void) {
     if (output_file == NULL) {
         fatal("Failed to open output file.");
     }
+    chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
 
     if (option_debug) {
         char* debug_filename = 0;

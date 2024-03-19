@@ -621,7 +621,7 @@ static void open_output(const char* output_filename) {
         fatal("Failed to open output file.");
     }
 
-    fchmod(fileno(output_file), 493); // 493 == 0755, cci/0 doesn't support octal
+    chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
 
     // TODO we should probably remove support for wrap headers once we can
     // build ld/2, no reason to support it in an earlier stage

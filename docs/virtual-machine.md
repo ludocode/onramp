@@ -586,6 +586,8 @@ Sets whether the file at the given path is executable in the host environment. O
 - 493 (0755) -- The file is executable
 - 420 (0644) -- The file is not executable
 
+This is just used for better integration of wrapped binaries into the host system. It can be ignored.
+
 
 ```c
 int mkdir(const char* path);

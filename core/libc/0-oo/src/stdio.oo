@@ -1051,10 +1051,10 @@
 
 
 ; ==========================================================
-; int fchmod(int fileno, int mode);
+; int chmod(const char* filename, int mode);
 ; ==========================================================
 
-=fchmod
+=chmod
     7F 11 00 00    ; sys chmod 0 0
     78 8F 00 8C    ; ldw rip 0 rsp     ; ret
 

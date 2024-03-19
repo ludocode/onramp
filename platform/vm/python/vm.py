@@ -249,15 +249,17 @@ def syscall(number):
     if number == 0x10:  # unlink
         try:
             os.remove(loadString(registers[0]))
+            setRegister(0, 0)
         except:
-            pass #TODO
+            setRegister(0, 0xFFFFFFFF)
         return
 
     if number == 0x11:  # chmod
         try:
-            os.chmod(loadString(registers[0], registers[1]))
+            os.chmod(loadString(registers[0]), registers[1])
+            setRegister(0, 0)
         except:
-            pass #TODO
+            setRegister(0, 0xFFFFFFFF)
         return
 
     raise Exception("Invalid or unimplemented syscall: " + str(number))
