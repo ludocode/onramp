@@ -391,9 +391,9 @@
     40 0F  ; 0x04 fclose (0xF40)
     D0 0E  ; 0x05 fread (0xED0)
     60 0E  ; 0x06 fwrite (0xE60)
-    00 00  ; 0x07 fseek (not yet implemented)
-    00 00  ; 0x08 ftell (not yet implemented)
-    00 00  ; 0x09 ftruncate (not yet implemented)
+    10 10  ; 0x07 fseek (0x1010)
+    A0 10  ; 0x08 ftell (0x10A0)
+    30 11  ; 0x09 ftrunc (0x1130)
 ; directories
     00 00  ; 0x0A dopen (not yet implemented)
     00 00  ; 0x0B dclose (not yet implemented)
@@ -413,7 +413,7 @@
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00 
+    00 00 00 00 00 00 00 00
 @0x500
 
 ; end of rodata
@@ -2143,10 +2143,11 @@
 ; ==========================================================
 ; void syscall_fopen(void)
 ; ==========================================================
-; Closes the given file handle.
+; Opens a file handle for the given filename.
 ;
 ; params:
-;    - r0: file handle
+;    - r0: path
+;    - r1: writeable
 ; ==========================================================
 
 @0xF90 syscall_fopen
@@ -2167,17 +2168,17 @@
     48 83 F8 00       ; cmp rax, 0
     74 0C             ; je syscall_fopen_readonly (+12)
 
-    ; writeable. flags O_CREAT, mode O_RDWR
-    BE 40 00 00 00      ;  mov esi, 64  (O_CREAT)
-    BA 02 00 00 00      ;  mov edx, 2   (O_RDWR)
-    EB 02               ; jmp syscall_fopen_syscall (+2)
+    ; writeable
+    BE 42 00 00 00      ;  mov esi, 66    ; flags = O_CREAT (64) | O_RDWR (2)
+    BA A4 01 00 00      ;  mov edx, 0644  ; mode = read/write owner, read group/others
+    EB 04               ; jmp syscall_fopen_syscall (+4)
 
-;:syscall_fopen_readonly
+;syscall_fopen_readonly:
     ; read-only. flags 0, mode O_RDONLY (0)   (i.e. zero both registers)
-    31 F6            ;  xor esi,esi
-    31 D2            ;  xor edx,edx
+    31 F6            ;  xor esi,esi    ; flags = O_RDONLY
+    31 D2            ;  xor edx,edx    ; mode = 0 (ignored)
 
-;:syscall_fopen_syscall
+;syscall_fopen_syscall:
     ; call open() syscall
     B8 02 00 00 00   ; mov eax, 0x2  ; syscall: open (2)
     5F               ; pop rdi       ; filename
@@ -2202,5 +2203,213 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90
-;@0xF90
+    90 90 90 90 90 90 90 90
+    90 90 90
+@0x1010
+
+
+
+; ==========================================================
+; void syscall_fseek(void)
+; ==========================================================
+; Seeks the given file handle.
+;
+; params:
+;    - r0: file handle
+;    - r1: base
+;    - r2: position low
+;    - r3: position high
+; ==========================================================
+
+@0x1010 syscall_fseek
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the file descriptor (and check it)
+    B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
+    FF D0             ; call rax
+    50                ; push rax
+
+    ; get the offset
+    B8 08 00 60 00    ; mov eax, r2 (0x600008)
+    8B 38             ; mov edi, [rax]
+    B8 0C 00 60 00    ; mov eax, r3 (0x60000C)
+    8B 30             ; mov esi, [rax]
+    48 C1 E6 20       ; shl rsi, 32
+    48 01 FE          ; add rsi, rdi
+
+    ; get the base (TODO check it, should be 0, 1 or 2)
+    BA 04 00 60 00   ; mov edx, r1 (0x600004)
+    8B 12            ; mov edx, [rdx]
+
+    ; call lseek() syscall
+    B8 08 00 00 00   ; mov eax, 0x8  ; syscall: lseek (8)
+    5F               ; pop rdi       ; file descriptor
+    0F 05            ; syscall
+
+    ; check for error
+    48 83 F8 00    ; cmp rax, 0
+    7C 0C          ; jl syscall_fseek_fail (+12)
+
+    ; no error. store return value of 0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    31 C0            ; xor eax, eax
+    67 89 07         ; mov [edi], eax
+    EB 0D            ; jmp syscall_fseek_done (+13)
+
+;syscall_fseek_fail:
+    ; error. store return value of -1 (generic error)
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    B8 FF FF FF FF   ; mov eax, -1
+    67 89 07         ; mov [edi], eax
+
+;syscall_fseek_done:
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90
+@0x10A0
+
+
+
+; ==========================================================
+; void syscall_ftell(void)
+; ==========================================================
+; Gets the position in the given file handle.
+;
+; params:
+;    - r0: file handle
+;    - r1: out_position
+; ==========================================================
+
+@0x10A0 syscall_ftell
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the file descriptor (and check it)
+    B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
+    FF D0             ; call rax
+    50                ; push rax
+
+    ; TODO call check_buffer on out_position, need room for 8 bytes
+
+    ; call lseek() with SEEK_CUR, offset 0
+    B8 08 00 00 00   ; mov eax, 0x8  ; syscall: lseek (8)
+    5F               ; pop rdi       ; file descriptor
+    31 F6            ; xor esi,esi   ; offset == 0
+    BA 01 00 00 00   ; mov edx,0x1   ; origin == SEEK_CUR
+    0F 05            ; syscall
+
+    ; check for error
+    48 83 F8 00    ; cmp rax, 0
+    7C 17          ; jl syscall_ftell_fail (+23)
+
+    ; no error. write return value to output address
+    BA 04 00 60 00   ; mov edx, r1 (0x600004)
+    67 8B 12         ; mov edx, [edx]
+    48 89 02         ; mov [rdx], rax
+    ; 89 02            ; mov [rdx], eax    ; store low
+    ; 83 C2 04         ; add edx, 4
+    ; 48 C1 E8 20      ; shr rax, 32
+    ; 89 02            ; mov [rdx], eax    ; store high
+
+    ; store return value of 0 in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    31 C0            ; xor eax, eax
+    67 89 07         ; mov [edi], eax
+    EB 0D            ; jmp syscall_ftell_done (+13)
+
+;syscall_ftell_fail:
+    ; error. store return value of -1 (generic error)
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    B8 FF FF FF FF   ; mov eax, -1
+    67 89 07         ; mov [edi], eax
+
+;syscall_ftell_done:
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90
+@0x1130
+
+
+
+; ==========================================================
+; void syscall_ftrunc(void)
+; ==========================================================
+; Sets the size of the given file handle.
+;
+; params:
+;    - r0: file handle
+;    - r1: position_low
+;    - r2: position_high
+; ==========================================================
+
+@0x1130 syscall_ftrunc
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the file descriptor (and check it)
+    B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
+    FF D0             ; call rax
+    50                ; push rax
+
+    ; get the length
+    B8 04 00 60 00    ; mov eax, r1 (0x600004)
+    8B 38             ; mov edi, [rax]
+    B8 08 00 60 00    ; mov eax, r2 (0x600008)
+    8B 30             ; mov esi, [rax]
+    48 C1 E6 20       ; shl rsi, 32
+    48 01 FE          ; add rsi, rdi
+
+    ; call ftruncate() syscall
+    B8 4D 00 00 00   ; mov eax, 0x4D  ; syscall: ftruncate (77)
+    5F               ; pop rdi        ; file descriptor
+    0F 05            ; syscall
+
+    ; TODO convert return value to Onramp error codes. Linux syscalls return
+    ; negative values on error so for now we just pass it through.
+
+    ; store the return value in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    67 89 07         ; mov [edi], eax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90
+@0x11A0

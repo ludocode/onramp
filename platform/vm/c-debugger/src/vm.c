@@ -714,9 +714,12 @@ static uint32_t vm_fseek(vm_t* vm) {
         fatal("Invalid base given to syscall fseek.");
     }
 
-    fseek(file, offset,
-            base == 0 ? SEEK_SET : base == 1 ? SEEK_CUR : SEEK_END);
-    return 0;
+    if (0 == fseek(file, offset,
+            base == 0 ? SEEK_SET : base == 1 ? SEEK_CUR : SEEK_END))
+        return 0;
+
+    // TODO error codes
+    return VM_ERR_GENERIC;
 }
 
 static uint32_t vm_ftell(vm_t* vm) {

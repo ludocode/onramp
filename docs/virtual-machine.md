@@ -524,6 +524,8 @@ Writes the current position in the given file to the given `position` address.
 
 The VM must write two words: the low 32 bits of the position followed by the high 32 bits of the position.
 
+The outputted value can be used in a call to `fseek()` with `base` 0 to return to this position in the file.
+
 If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write a second word to the output with value zero.
 
 

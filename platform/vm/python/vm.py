@@ -225,14 +225,25 @@ def syscall(number):
 
     if number == 0x07:  # fseek
         file = handles[registers[0]]
-        offset = registers[1] | registers[2] << 32
-        if offset == 2**64-1:
-            file.seek(0, 2)
-        else:
-            file.seek(offset, 0)
-        pos = file.tell()
-        setRegister(0, pos)
-        setRegister(1, pos >> 32)
+        base = registers[1]
+        offset = registers[2] | (registers[3] << 32)
+        if offset >= 2**63:
+            offset = offset - 2**64
+        file.seek(offset, base)
+        setRegister(0, 0)
+        return
+
+    if number == 0x08:  # ftell
+        position = handles[registers[0]].tell()
+        addr = registers[1]
+        storeWord(addr, position)
+        storeWord(addr + 4, position >> 32)
+        setRegister(0, 0)
+        return
+
+    if number == 0x09:  # ftrunc
+        handles[registers[0]].truncate(registers[1] | (registers[2] << 32))
+        setRegister(0, 0)
         return
 
     if number == 0x10:  # unlink
