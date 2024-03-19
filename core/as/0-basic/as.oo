@@ -104,24 +104,25 @@
     74 69 6d 65               00   01    ; time
     73 70 61 77 6e            00   02    ; spawn
     ;  io handles
-    66 6f 70 65 6e            00   10    ; fopen
-    66 63 6c 6f 73 65         00   11    ; fclose
-    66 72 65 61 64            00   12    ; fread
-    66 77 72 69 74 65         00   13    ; fwrite
-    66 73 65 65 6b            00   14    ; fseek
-    66 74 72 75 6e 63         00   15    ; ftrunc
-    ;  filesystem
-    73 74 61 74               00   20    ; stat
-    72 65 6e 61 6d 65         00   21    ; rename
-    73 79 6d 6c 69 6e 6b      00   22    ; symlink
-    75 6e 6c 69 6e 6b         00   23    ; unlink
-    63 68 6d 6f 64            00   24    ; chmod
-    6d 6b 64 69 72            00   25    ; mkdir
-    72 6d 64 69 72            00   26    ; rmdir
+    66 6f 70 65 6e            00   03    ; fopen
+    66 63 6c 6f 73 65         00   04    ; fclose
+    66 72 65 61 64            00   05    ; fread
+    66 77 72 69 74 65         00   06    ; fwrite
+    66 73 65 65 6b            00   07    ; fseek
+    66 74 65 6c 6c            00   08    ; ftell
+    66 74 72 75 6e 63         00   09    ; ftrunc
     ; directories
-    64 6f 70 65 6e            00   30    ; dopen
-    64 63 6c 6f 73 65         00   31    ; dclose
-    64 72 65 61 64            00   32    ; dread
+    64 6f 70 65 6e            00   0A    ; dopen
+    64 63 6c 6f 73 65         00   0B    ; dclose
+    64 72 65 61 64            00   0C    ; dread
+    ;  filesystem
+    73 74 61 74               00   0D    ; stat
+    72 65 6e 61 6d 65         00   0E    ; rename
+    73 79 6d 6c 69 6e 6b      00   0F    ; symlink
+    75 6e 6c 69 6e 6b         00   10    ; unlink
+    63 68 6d 6f 64            00   11    ; chmod
+    6d 6b 64 69 72            00   12    ; mkdir
+    72 6d 64 69 72            00   13    ; rmdir
 
     ; end of list
     00

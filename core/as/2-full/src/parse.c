@@ -560,27 +560,28 @@ static uint8_t syscall_number(const char* name) {
     if (0 == strcmp(name, "time")) return 0x01;
     if (0 == strcmp(name, "spawn")) return 0x02;
 
-    // io handles
-    if (0 == strcmp(name, "fopen")) return 0x10;
-    if (0 == strcmp(name, "fclose")) return 0x11;
-    if (0 == strcmp(name, "fread")) return 0x12;
-    if (0 == strcmp(name, "fwrite")) return 0x13;
-    if (0 == strcmp(name, "fseek")) return 0x14;
-    if (0 == strcmp(name, "ftrunc")) return 0x15;
-
-    // filesystem
-    if (0 == strcmp(name, "stat")) return 0x20;
-    if (0 == strcmp(name, "rename")) return 0x21;
-    if (0 == strcmp(name, "symlink")) return 0x22;
-    if (0 == strcmp(name, "unlink")) return 0x23;
-    if (0 == strcmp(name, "chmod")) return 0x24;
-    if (0 == strcmp(name, "mkdir")) return 0x25;
-    if (0 == strcmp(name, "rmdir")) return 0x26;
+    // files
+    if (0 == strcmp(name, "fopen")) return 0x03;
+    if (0 == strcmp(name, "fclose")) return 0x04;
+    if (0 == strcmp(name, "fread")) return 0x05;
+    if (0 == strcmp(name, "fwrite")) return 0x06;
+    if (0 == strcmp(name, "fseek")) return 0x07;
+    if (0 == strcmp(name, "ftell")) return 0x08;
+    if (0 == strcmp(name, "ftrunc")) return 0x09;
 
     // directories
-    if (0 == strcmp(name, "dopen")) return 0x30;
-    if (0 == strcmp(name, "dclose")) return 0x31;
-    if (0 == strcmp(name, "dread")) return 0x32;
+    if (0 == strcmp(name, "dopen")) return 0x0A;
+    if (0 == strcmp(name, "dclose")) return 0x0B;
+    if (0 == strcmp(name, "dread")) return 0x0C;
+
+    // filesystem
+    if (0 == strcmp(name, "stat")) return 0x0D;
+    if (0 == strcmp(name, "rename")) return 0x0E;
+    if (0 == strcmp(name, "symlink")) return 0x0F;
+    if (0 == strcmp(name, "unlink")) return 0x10;
+    if (0 == strcmp(name, "chmod")) return 0x11;
+    if (0 == strcmp(name, "mkdir")) return 0x12;
+    if (0 == strcmp(name, "rmdir")) return 0x13;
 
     fatal("Argument to sys instruction is not a syscall.");
 }

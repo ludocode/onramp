@@ -405,19 +405,19 @@ static void vm_sys(uint8_t syscall) {
     /*printf("%u %u\n",arg1,arg2);*/
 
     switch (syscall) {
-        case 0x0: /* halt */
+        case 0x00: /* halt */
             vm_halt();
             return;
-        case 0x10: /* open */
+        case 0x03: /* open */
             vm_open();
             return;
-        case 0x11: /* close */
+        case 0x04: /* close */
             vm_close();
             return;
-        case 0x12: /* read */
+        case 0x05: /* read */
             vm_read();
             return;
-        case 0x13: /* write */
+        case 0x06: /* write */
             vm_write();
             return;
         default:

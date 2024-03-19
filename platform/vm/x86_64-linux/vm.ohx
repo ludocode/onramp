@@ -383,35 +383,35 @@
 ; system
     20 0E  ; 0x00 halt (0xE20)
     00 00  ; 0x01 time (not yet implemented)
-    ; 0x02-0x0F unassigned
-                00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-; i/o handles
-    00 00  ; 0x10 open (not yet implemented)
-    00 00  ; 0x11 close (not yet implemented)
-    00 00  ; 0x12 read (not yet implemented)
-    60 0E  ; 0x13 write (0xE60)
-    00 00  ; 0x14 seek (not yet implemented)
-    00 00  ; 0x15 tell (not yet implemented)
-    00 00  ; 0x16 truncate (not yet implemented)
-    00 00  ; 0x17 type (not yet implemented)
-    ; 0x18-0x1F unassigned
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00  ; 0x02 spawn (not yet implemented)
+; files
+    00 00  ; 0x03 fopen (not yet implemented)
+    00 00  ; 0x04 fclose (not yet implemented)
+    00 00  ; 0x05 fread (not yet implemented)
+    60 0E  ; 0x06 fwrite (0xE60)
+    00 00  ; 0x07 fseek (not yet implemented)
+    00 00  ; 0x08 ftell (not yet implemented)
+    00 00  ; 0x09 ftruncate (not yet implemented)
+; directories
+    00 00  ; 0x0A dopen (not yet implemented)
+    00 00  ; 0x0B dclose (not yet implemented)
+    00 00  ; 0x0C dread (not yet implemented)
 ; filesystem
-    00 00  ; 0x20 stat (not yet implemented)
-    00 00  ; 0x21 rename (not yet implemented)
-    00 00  ; 0x22 symlink (not yet implemented)
-    00 00  ; 0x23 unlink (not yet implemented)
-    00 00  ; 0x24 chmod (not yet implemented)
-    00 00  ; 0x25 mkdir (not yet implemented)
-    00 00  ; 0x26 rmdir (not yet implemented)
-    ; 0x27-0x2F unassigned
-                                               00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-; freestanding
-    ; 0x30-0x3F unimplemented or unassigned
+    00 00  ; 0x0D stat (not yet implemented)
+    00 00  ; 0x0E rename (not yet implemented)
+    00 00  ; 0x0F symlink (not yet implemented)
+    00 00  ; 0x10 unlink (not yet implemented)
+    00 00  ; 0x11 chmod (not yet implemented)
+    00 00  ; 0x12 mkdir (not yet implemented)
+    00 00  ; 0x13 rmdir (not yet implemented)
+
+; padding
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00 
 @0x500
 
 ; end of rodata

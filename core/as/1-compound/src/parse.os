@@ -68,25 +68,26 @@
     "halt"      '00 '00
     "time"      '00 '01
     "spawn"     '00 '02
-    ;  io handles
-    "fopen"      '00 '10
-    "fclose"     '00 '11
-    "fread"      '00 '12
-    "fwrite"     '00 '13
-    "fseek"      '00 '14
-    "ftrunc"     '00 '15
-    ;  filesystem
-    "stat"      '00 '20
-    "rename"    '00 '21
-    "symlink"   '00 '22
-    "unlink"    '00 '23
-    "chmod"     '00 '24
-    "mkdir"     '00 '25
-    "rmdir"     '00 '26
+    ;  files
+    "fopen"      '00 '03
+    "fclose"     '00 '04
+    "fread"      '00 '05
+    "fwrite"     '00 '06
+    "fseek"      '00 '07
+    "ftell"      '00 '08
+    "ftrunc"     '00 '09
     ;directories
-    "dopen"      '00 '30
-    "dclose"     '00 '31
-    "dread"      '00 '32
+    "dopen"      '00 '0A
+    "dclose"     '00 '0B
+    "dread"      '00 '0C
+    ;  filesystem
+    "stat"      '00 '0D
+    "rename"    '00 '0E
+    "symlink"   '00 '0F
+    "unlink"    '00 '10
+    "chmod"     '00 '11
+    "mkdir"     '00 '12
+    "rmdir"     '00 '13
     '00
 
 

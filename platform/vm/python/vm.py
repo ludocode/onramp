@@ -50,7 +50,7 @@
 
 
 
-import sys, os, struct, traceback
+import sys, os, struct, traceback, time
 #import cProfile
 
 def eprint(*args, **kwargs):
@@ -174,7 +174,19 @@ def syscall(number):
     if number == 0x00:  # halt
         sys.exit(registers[0])
 
-    elif number == 0x10:  # open
+    if number == 0x01:  # time
+        addr = registers[0]
+        curtime = time.time()
+        storeWord(addr, int(curtime) & 0xFFFFFFFF)
+        storeWord(addr + 1, (int(curtime) >> 32) & 0xFFFFFFFF)
+        storeWord(addr, (curtime * 1000000000) % 1000000000)
+        registers[0] = 0
+        return
+
+    if number == 0x02:  # spawn
+        raise Exception("spawn syscall not yet implemented")
+
+    if number == 0x03:  # fopen
         for i in range(len(handles)):
             if handles[i] is None:
                 try:
@@ -185,12 +197,13 @@ def syscall(number):
                 return
         raise Exception("No free file handles")
 
-    elif number == 0x11:  # close
+    if number == 0x04:  # fclose
         # Shouldn't be able to close standard streams, we don't bother to check
         handles[registers[0]].close()
         handles[registers[0]] = None
+        return
 
-    elif number == 0x12:  # read
+    if number == 0x05:  # read
         file = handles[registers[0]]
         address = registers[1]
         count = registers[2]
@@ -202,13 +215,15 @@ def syscall(number):
             storeByte(address + i, b[0])
             i += 1
         registers[0] = i
+        return
 
-    elif number == 0x13:  # write
+    if number == 0x06:  # fwrite
         for i in range(registers[2]):
             handles[registers[0]].write(bytes([loadByte(registers[1] + i)]))
         registers[0] = registers[2]
+        return
 
-    elif number == 0x14:  # seek
+    if number == 0x07:  # fseek
         file = handles[registers[0]]
         offset = registers[1] | registers[2] << 32
         if offset == 2**64-1:
@@ -218,21 +233,23 @@ def syscall(number):
         pos = file.tell()
         setRegister(0, pos)
         setRegister(1, pos >> 32)
+        return
 
-    elif number == 0x23:  # unlink
+    if number == 0x10:  # unlink
         try:
             os.remove(loadString(registers[0]))
         except:
             pass #TODO
+        return
 
-    elif number == 0x24:  # chmod
+    if number == 0x11:  # chmod
         try:
             os.chmod(loadString(registers[0], registers[1]))
         except:
             pass #TODO
+        return
 
-    else:
-        raise Exception("Invalid syscall: " + str(number))
+    raise Exception("Invalid or unimplemented syscall: " + str(number))
 
 def step():
     opcode = loadByte(registers[RIP])

@@ -79,7 +79,7 @@
     7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
     77 8A 8A 1E                 ; ror ra ra 30   (convert words to bytes)
     70 8A 8A 8F                 ; add ra ra rip
-    79 8C 8A F8                 ; stw rsp ra -8
+    79 8C 8A F4                 ; stw rsp ra -12
 
     ; store the return address (after the jump)
     70 8A 8F 08    ; add ra rip 8
@@ -93,7 +93,7 @@
     7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
     77 8A 8A 1E                 ; ror ra ra 30   (convert words to bytes)
     70 8A 8A 8F                 ; add ra ra rip
-    78 8C 8A F8                 ; ldw rsp ra -8
+    78 8C 8A F4                 ; ldw rsp ra -12
 
     ; restore the old stack, frame and program pointers
     78 8E 8C 08    ; ldw rpp rsp 8
@@ -103,5 +103,12 @@
     ; done
     78 8F 00 8C    ; ldw rip 0 rsp     ; ret
 
+; TODO some safety padding around here because the numbers above don't look right
+    FF FF FF FF
+    FF FF FF FF
+    FF FF FF FF
 :__onramp_spawn_rsp
+    FF FF FF FF
+    FF FF FF FF
+    FF FF FF FF
     FF FF FF FF

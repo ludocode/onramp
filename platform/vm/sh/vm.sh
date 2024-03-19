@@ -996,13 +996,13 @@ syscall_write() {
 
 syscall() {
     case $1 in
-        00)
+        00)  # halt
             exit $(( $REGISTER_0 & 0xFF ))
             ;;
-        10) syscall_open ;;
-        11) syscall_close ;;
-        12) syscall_read ;;
-        13) syscall_write ;;
+        03) syscall_open ;;
+        04) syscall_close ;;
+        05) syscall_read ;;
+        06) syscall_write ;;
         *)
             fatal "Unhandled syscall: $1"
             ;;

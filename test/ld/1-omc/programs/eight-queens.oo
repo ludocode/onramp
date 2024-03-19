@@ -37,7 +37,7 @@
 ; [[noreturn]] void __start(uint32_t* process_info_table);
 ;==========================================
 
-=_start
+=__start
     ; format indicator "~Onr~amp~   "
     7E 4F 6E 72   ; jz 79 29294
     7E 61 6D 70   ; jz 97 28781
@@ -270,7 +270,7 @@
 
             ; print the character, syscall write(stdout, rsp+ra, 1)
             70 81 8C 8A   ; add r1 rsp ra    ; r1 = string address (rsp+ra)
-            7F 13 00 00   ; sys write 0 0
+            7F 06 00 00   ; sys write 0 0
 
             ; increment x
             70 83 83 01    ; add r3 r3 1   ; inc r3
@@ -279,7 +279,7 @@
 
             ; print a space for alignment
             70 81 8C 02   ; add r1 rsp 2    ; r1 = string address (rsp+2)
-            7F 13 00 00   ; sys write 0 0
+            7F 06 00 00   ; sys write 0 0
 
             ; next
             7E 00 &print_board_next_x    ; jz 0 &print_board_next_x
@@ -287,7 +287,7 @@
 
         ; print newline
         70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
-        7F 13 00 00   ; sys write 0 0
+        7F 06 00 00   ; sys write 0 0
 
         ; next y
         70 84 84 01    ; add r4 r4 1   ; inc r4
@@ -297,8 +297,8 @@
 
     ; print two newlines
     70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
-    7F 13 00 00   ; sys write 0 0
-    7F 13 00 00   ; sys write 0 0
+    7F 06 00 00   ; sys write 0 0
+    7F 06 00 00   ; sys write 0 0
 
     ; return
     70 8C 8C 04    ; add rsp rsp 4

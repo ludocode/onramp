@@ -230,6 +230,11 @@ static void start_file(const char* new_filename) {
 static void save_file_state(void) {
     // We store the state of all these things so we can restore them later.
     file_start_pos = ftell(input_file);
+/*
+fputs("ftell returned ",stderr);
+fputd(file_start_pos,stderr);
+fputs("\n",stderr);
+*/
     file_start_address = current_address;
     file_first_char = current_char;
 }
@@ -244,6 +249,14 @@ fputd(file_start_pos, stdout);
 fputc('\n', stdout);
 */
     fseek(input_file, file_start_pos, SEEK_SET);
+/*
+int t = ftell(input_file);
+fputs("fseek to ",stderr);
+fputd(file_start_pos,stderr);
+fputs(" ftell is now ",stderr);
+fputd(t,stderr);
+fputs("\n",stderr);
+*/
     current_line = 1;
     current_address = file_start_address;
     current_char = file_first_char;
@@ -251,9 +264,9 @@ fputc('\n', stdout);
 
 static void next_char(void) {
     //printf("last char %x\n",current_char);
-    //printf("reading char...\n");
+    //fputs("reading char...\n",stderr);
     if (1 != fread(&current_char, 1, 1, input_file)) {
-        //printf("EOF\n");
+        //fputs("EOF\n",stderr);
         if (!feof(input_file)) {
             fatal("Failed to read input file.");
         }

@@ -343,48 +343,50 @@ Note that you do not push a return address as you would with a function call. Sy
 
 TODO: The above will likely change soon; system calls will be more like function calls, requiring a return address and not preserving registers. The `sys` instruction might be removed as well, instead being replaced by a function call table passed in the process info table. This will require changes to a few bytecode programs and to the libc. These changes are necessary to simplify the Onramp OS.
 
-Here's a quick reference for the syscall table:
+
+### System Call Quick Reference
+
+This is a quick reference table. All system calls return a word that contains either an error code, a return value, or 0 indicating success without a value. If a return value is listed as "none" in the below table, the system call returns 0 on success.
 
 Misc:
 
 | Hex | Name     | Arguments            | Return Value             |  Description                    |
 |-----|----------|----------------------|--------------------------|---------------------------------|
 | 00  | halt     | exit code            | n/a (doesn't return)     | halts the VM                    |
-| 01  | time     | timespec             | error code               | gets the current time           |
-| 02  | spawn    | path, in, out, err   | error code               | runs a program outside the VM   |
+| 01  | time     | out\_time[3]         | none                     | gets the current time           |
+| 02  | spawn    | path, in, out, err   | none                     | runs a program outside the VM   |
 
-Input/Output:
+Files:
 
-| Hex | Name     | Arguments            | Return Value             |  Description                    |
-|-----|----------|----------------------|--------------------------|---------------------------------|
-| 10  | fopen    | path, writeable      | handle or error code     | opens a file                    |
-| 11  | fclose   | handle               | none                     | closes a file                   |
-| 12  | fread    | handle, buffer, size | number of bytes read     | reads from a file or stream     |
-| 13  | fwrite   | handle, buffer, size | number of bytes written  | writes to a file or stream      |
-| 14  | fseek    | handle, position     | current position         | seeks to a position in a file   |
-| 15  | ftrunc   | handle, position     | none                     | truncates a file                |
-
-Filesystem:
-
-| Hex | Name     | Arguments            | Return Value             |  Description                    |
-|-----|----------|----------------------|--------------------------|---------------------------------|
-| 20  | stat     | path, buffer         | error code               | gets file metadata              |
-| 21  | rename   | path, path           | error code               | renames a file                  |
-| 22  | symlink  | path, path           | error code               | creats a symlink                |
-| 23  | unlink   | path                 | error code               | deletes a file                  |
-| 24  | chmod    | path, mode           | error code               | changes permissions of a file   |
-| 25  | mkdir    | path                 | error code               | creates a directory             |
-| 26  | rmdir    | path                 | error code               | deletes an empty directory      |
+| Hex | Name     | Arguments                | Return Value             |  Description                    |
+|-----|----------|--------------------------|--------------------------|---------------------------------|
+| 03  | fopen    | path, writeable          | handle                   | opens a file                    |
+| 04  | fclose   | handle                   | none                     | closes a file                   |
+| 05  | fread    | handle, buffer, size     | number of bytes read     | reads from a file or stream     |
+| 06  | fwrite   | handle, buffer, size     | number of bytes written  | writes to a file or stream      |
+| 07  | fseek    | handle, base, pos (x2)   | none                     | seeks to a position in a file   |
+| 08  | ftell    | handle, out\_pos[2]      | current position         | gets the current position in a file   |
+| 09  | ftrunc   | handle, size (x2)        | none                     | truncates a file                |
 
 Directories:
 
 | Hex | Name     | Arguments            | Return Value             |  Description                          |
 |-----|----------|----------------------|--------------------------|---------------------------------------|
-| 30  | dopen    | path                 | handle or error code     | opens a directory                     |
-| 31  | dclose   | handle               | none                     | closes a directory                    |
-| 32  | dread    | handle, buffer       | error code               | reads one file entry from a directory |
+| 0A  | dopen    | path                 | handle or error code     | opens a directory                     |
+| 0B  | dclose   | handle               | none                     | closes a directory                    |
+| 0C  | dread    | handle, buffer       | error code               | reads one file entry from a directory |
 
-TODO: Expand documentation of these syscalls, perhaps in a separate document. Most VMs currently only implement a fraction of these syscalls.
+Filesystem:
+
+| Hex | Name     | Arguments            | Return Value            |  Description                    |
+|-----|----------|----------------------|-------------------------|---------------------------------|
+| 0D  | stat     | path, buffer         | none                    | gets file metadata              |
+| 0E  | rename   | path, path           | none                    | renames a file                  |
+| 0F  | symlink  | path, path           | none                    | creats a symlink                |
+| 10  | unlink   | path                 | none                    | deletes a file                  |
+| 11  | chmod    | path, mode           | none                    | changes permissions of a file   |
+| 12  | mkdir    | path                 | none                    | creates a directory             |
+| 13  | rmdir    | path                 | none                    | deletes an empty directory      |
 
 
 
@@ -407,6 +409,219 @@ The filesystem implemented by a VM resembles that of a POSIX system as described
 Input and output is done through "handles". A handle is a 32-bit integer that represents an open file, directory, or stream.
 
 (These are similar to file descriptors in POSIX. We call them handles because the libc needs to translate them to POSIX-style file descriptors to simulate POSIX APIs.)
+
+
+
+### Error Handling
+
+Most system calls return a 32-bit word. When a system call fails, it returns one of the following error codes:
+
+- `0xFFFFFFFF` -- Generic error
+- `0xFFFFFFFE` -- Path does not exist
+- `0xFFFFFFFD` -- Input/output error
+- `0xFFFFFFFC` -- Not supported (by VM or by host environment)
+
+All error codes have the high bit set. Values that can be returned from successful system calls (such as file and directory handles) do not have the high bit set. If a system call does not return a value, it returns 0 on success.
+
+If a system call is used incorrectly (e.g. an invalid argument value is passed), the behaviour is undefined. (An error-checking VM should detect this and halt.)
+
+
+
+### System Call Specifications
+
+A description of each system call with a C-style prototype follows.
+
+
+```c
+[[noreturn]] void halt(int exit_code);
+```
+
+Halts the VM, returning to a host environment (if any) with the given exit code.
+
+
+```c
+int time(unsigned time[3]);
+```
+
+Gets the current time.
+
+The current time consists of a 64-bit number of seconds plus a 32-bit number of nanoseconds since the UNIX epoch (the start of January 1st, 1970.) These are written as three words to the given address:
+
+- The low 32 bits of the number of seconds
+- The high 32 bits of the number of seconds
+- The number of nanoseconds (0 to 999,999,999)
+
+
+```c
+int spawn(TODO);
+```
+
+Spawns an external program in a hosted environment.
+
+
+```c
+int fopen(const char* path, bool writeable);
+```
+
+Opens the file at the given path, associating it with an integer file handle and returning it. The stream position is initially at the start of the stream.
+
+The `writeable` argument must be 0 or 1. If it is 1, the file will support writing (via `fwrite` and `ftrunc`), and will be created if it does not already exist. If a file open for writing already exists, the contents are left intact.
+
+Note that subsequent writes will overwrite data without truncating. To append to an existing file, the program must make a `fseek` call after opening it, and to destroy the existing contents first, the program must make a `ftrunc` call.
+
+If the file is a directory, the call fails. (`dopen` should be used to open directories.)
+
+On success, a file handle is returned, which must not have the high bit set. This handle is valid only for file syscalls (i.e. those that start with `f` and take a `file_handle`.)
+
+
+```c
+int fclose(int file_handle);
+```
+
+Closes the given file handle.
+
+This system call must return 0; an `fclose` call cannot fail. If the given file handle is invalid, the behaviour is undefined.
+
+
+```c
+int fread(int file_handle, void* buffer, int count);
+```
+
+Reads up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if reading fails.
+
+If bytes are available, the VM must read at least one byte, but may read less than the number of bytes requested. If the end of the file or stream is reached, 0 is returned.
+
+
+```c
+int fwrite(int file_handle, void* buffer, int count);
+```
+
+Writes up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if writing fails.
+
+If space is available to write bytes, the VM must write at least one byte, but may write less than the number of bytes requested. If the output stream is full, 0 is returned.
+
+
+```c
+int fseek(int file_handle, int base, unsigned offset_low, int offset_high);
+```
+
+Sets the current position in the file associated with the given handle to the given position.
+
+The position is calculated as the given offset added to the given base.
+
+- If `base` is 0, the offset is added to the start of the file.
+- If `base` is 1, the offset is added to the current position.
+- If `base` is 2, the offset is added to the end of the file (i.e. the start plus its size.)
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the `offset_high` parameter can be ignored. Otherwise, the file position must be stored as a 64-bit value.
+
+
+```c
+int ftell(int file_handle, unsigned* position);
+```
+
+Writes the current position in the given file to the given `position` address.
+
+The VM must write two words: the low 32 bits of the position followed by the high 32 bits of the position.
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write a second word to the output with value zero.
+
+
+```c
+int ftrunc(int file_handle, unsigned size_low, unsigned size_high);
+```
+
+Sets the size of the file to the given size.
+
+If the size is less than the current size of the file, the file is truncated: its size becomes that given and all data beyond that size is destroyed.
+
+If the size is greater than the current size, the VM may ignore it and return 0xFFFFFFFC (not supported), or it may append zero bytes to the file until the size becomes that given. (VMs may internally optimize this to use sparse files.)
+
+Returns zero if successful. In case of success, the file's size matches that given.
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must return an error if the `size_high` argument is not zero.
+
+
+```c
+int stat(const char* path, unsigned output[4]);
+```
+
+Outputs information about the given path. If a file, directory or symlink exists at the given path, the following words are written to the output address in order:
+
+- `type` -- 2 if the path is a symlink, 1 if the path is a directory, 0 if the path is a file
+- `mode` -- Either 493 (0755) if the file is executable, 420 (0644) if it is not, or 0 if it is not a file.
+- `size_low` -- The low 32 bits of the size of the file
+- `size_high` -- The high 32 bits of the size of the file
+
+
+```c
+int rename(const char* from, const char* to);
+```
+
+Moves and/or renames a file or directory.
+
+
+```c
+int symlink(const char* from, const char* to);
+```
+
+Creates a symlink if supported.
+
+
+```c
+int unlink(const char* path);
+```
+
+Deletes the file or symlink at the given path. If this is used on a directory, an error is returned; `rmdir` must be used for directories.
+
+
+```c
+int chmod(const char* path, int mode);
+```
+
+Sets whether the file at the given path is executable in the host environment. Only two values are supported for mode:
+
+- 493 (0755) -- The file is executable
+- 420 (0644) -- The file is not executable
+
+
+```c
+int mkdir(const char* path);
+```
+
+Creates an empty directory at the given path.
+
+
+```c
+int rmdir(const char* path);
+```
+
+Deletes an empty directory at the given path.
+
+
+```c
+int dopen(const char* path);
+```
+
+Opens a directory. Returns an I/O handle that is valid for directory syscalls only (i.e. `dread` and `dclose`.)
+
+
+```c
+int dclose(int directory_handle);
+```
+
+Closes the directory associated with the given handle.
+
+This system call must return 0; a `dclose` call cannot fail. If the given file handle is invalid, the behaviour is undefined.
+
+
+```c
+int dread(int directory_handle, char buffer[256]);
+```
+
+Reads the next file entry from the given directory into the given buffer as a null-terminated string.
+
+If there are no more entries, an empty string is placed in the buffer and 0 (success) is returned.
 
 
 

@@ -163,7 +163,7 @@
     78 80 8A 10   ; ldw r0 ra 16     ; r0 = stdout
     70 81 00 84   ; mov r1 r4        ; r1 = string address
     70 82 00 85   ; mov r2 r5        ; r2 = string length
-    7F 13 00 00   ; sys write 0 0
+    7F 06 00 00   ; sys write 0 0
 
     ; return
     70 8C 8D 00   ; add rsp rfp 0   ; reset stack pointer

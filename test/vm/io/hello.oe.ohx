@@ -14,7 +14,7 @@
     ; output("Hello world!")
     70 81 8E 40   ; add r1 rpp 0x40   ; set output buffer parameter ("Hello world!")
     70 82 0D 00   ; add r2 12 0       ; set output length parameter (12)
-    7F 13 00 00   ; sys write 0 0
+    7F 06 00 00   ; sys write 0 0
 
     ; get the exit address
     70 8A 89 08   ; add ra r9 8  (exit address)

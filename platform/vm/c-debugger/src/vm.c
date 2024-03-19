@@ -32,6 +32,9 @@
 #include "vmcommon.h"
 #include "debug.h"
 
+#include <time.h>
+#include <inttypes.h>
+
 // TODO put this in ghost
 #ifdef _WIN32
     extern char** _environ;
@@ -85,28 +88,26 @@ static void panic(const char* e) {
 #define VM_SYS 0x7F  /* interrupt */
 
 /* syscalls */
-#define VM_HALT 0x00
-#define VM_TIME 0x01
-#define VM_SPAWN 0x02
-#define VM_OPEN 0x10
-#define VM_CLOSE 0x11
-#define VM_READ 0x12
-#define VM_WRITE 0x13
-#define VM_SEEK 0x14
-//#define VM_TELL 0x15
-#define VM_TRUNCATE 0x16
-#define VM_TYPE 0x17
-#define VM_STAT 0x20
-#define VM_RENAME 0x21
-#define VM_SYMLINK 0x22
-#define VM_UNLINK 0x23
-#define VM_CHMOD 0x24
-#define VM_MKDIR 0x25
-#define VM_RMDIR 0x26
-#define VM_GET_SYSCALL_TABLE 0x30
-#define VM_GET_DRIVE_SIZE 0x31
-#define VM_WRITE_SECTOR 0x32
-#define VM_READ_SECTOR 0x33
+#define VM_HALT      0x00
+#define VM_TIME      0x01
+#define VM_SPAWN     0x02
+#define VM_FOPEN     0x03
+#define VM_FCLOSE    0x04
+#define VM_FREAD     0x05
+#define VM_FWRITE    0x06
+#define VM_FSEEK     0x07
+#define VM_FTELL     0x08
+#define VM_FTRUNC    0x09
+#define VM_DOPEN     0x0A
+#define VM_DCLOSE    0x0B
+#define VM_DREAD     0x0C
+#define VM_STAT      0x0D
+#define VM_RENAME    0x0E
+#define VM_SYMLINK   0x0F
+#define VM_UNLINK    0x10
+#define VM_CHMOD     0x11
+#define VM_MKDIR     0x12
+#define VM_RMDIR     0x13
 
 /* process info table */
 #define VM_VERSION 0
@@ -120,14 +121,26 @@ static void panic(const char* e) {
 #define VM_WORKDIR 32
 #define VM_PIT_SIZE 36
 
+// errors
+#define VM_ERR_GENERIC     0xFFFFFFFF
+#define VM_ERR_PATH        0xFFFFFFFE
+#define VM_ERR_IO          0xFFFFFFFD
+#define VM_ERR_UNSUPPORTED 0xFFFFFFFC
+
 /* register and memory value on start */
 #define VM_DEFAULT_MEMORY 0xDEADDEAD
 
 /* Files. We offset the file count in order to ensure programs are using them
- * correctly (and not just assuming 1 is stdout for example.) Our file handles
- * run from -17 to -2. */
+ * correctly (and not just assuming 1 is stdout for example.) */
 #define FILES_COUNT 16
-#define FILES_OFFSET ((uint32_t)(-1-FILES_COUNT))
+#define FILES_OFFSET (INT_MAX-FILES_COUNT-1)
+
+#define VM_STRACE 0
+#if VM_STRACE
+    #define strace(...) fprintf(stderr, __VA_ARGS__)
+#else
+    #define strace(...) ((void)0)
+#endif
 
 
 /*
@@ -505,7 +518,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm_store_u32(vm, vm->memory_base + VM_BREAK, addr);
 
     // push the halt syscall as the _start return address
-    // TODO shouldn't be necessary anymore, exit address is passed in r4
+    // TODO halt address is now in the PIT, but we may put it back on the stack later
     //end -= 4;
     //vm_store_u32(vm, end, vm->syscall_addr);
 
@@ -530,7 +543,6 @@ static void vm_destroy(vm_t* vm) {
 }
 
 static uint32_t vm_parse_mix(vm_t* vm, uint8_t b) {
-    // TODO for now we allow up to 0x7F in mix, we're going to change instruction prefix (to 9 I guess?)
     if (b <= 0x7Fu)
         return b;
     if (b >= 0x90u)
@@ -559,12 +571,33 @@ static FILE* vm_file(vm_t* vm, uint32_t handle) {
     return file;
 }
 
-static void vm_halt(vm_t* vm) {
+static uint32_t vm_halt(vm_t* vm) {
     // TODO pause debugger
+    strace("sys halt() %i\n", vm->registers[0]);
     exit(vm_parse_mix(vm, vm->registers[0]));
+    return VM_ERR_GENERIC;
 }
 
-static void vm_open(vm_t* vm) {
+static uint32_t vm_time(vm_t* vm) {
+    struct timespec time;
+    if (0 != clock_gettime(CLOCK_REALTIME, &time)) {
+        return VM_ERR_UNSUPPORTED;
+    }
+    strace("sys time() %" PRIi64 " s %u ns\n", (uint64_t)time.tv_sec, (unsigned)time.tv_nsec);
+
+    uint32_t addr = vm->registers[0];
+    vm_store_u32(vm, addr, (uint32_t)time.tv_sec);
+    vm_store_u32(vm, addr, (uint32_t)((uint64_t)time.tv_nsec >> 32));
+    vm_store_u32(vm, addr, time.tv_nsec);
+    return 0;
+}
+
+static uint32_t vm_spawn(vm_t* vm) {
+    strace("sys spawn()\n");
+    panic("TODO spawn syscall not yet implemented");
+}
+
+static uint32_t vm_fopen(vm_t* vm) {
     uint32_t path_addr = vm->registers[0];
     uint32_t mode = vm->registers[1];
 
@@ -580,135 +613,158 @@ static void vm_open(vm_t* vm) {
         panic("No free I/O handles");
     }
 
-    // assemble path
-    #if 0
-    if (mode != 0 && mode != 1)
-        panic("Invalid file mode");
-    char full_path[512];
-    size_t len = vm_ghost_strlcpy(full_path, vm->root_path, sizeof(full_path));
-    if (len >= sizeof(full_path))
-        panic("Path is too long");
-    full_path[len++] = '/';
-    for (;;) {
-        if (len == sizeof(full_path))
-            panic("Path is too long");
-        uint8_t b = vm_load_u8(vm, path_addr++);
-        full_path[len++] = b;
-        if (b == '\0')
-            break;
-    }
-    #endif
-
     if (!vm_is_string_valid(vm, path_addr)) {
         fputs("ERROR: Invalid path.\n", stderr);
         exit(125);
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
 
-    //printf("VM: Opening %s for %s\n", full_path, mode ? "writing" : "reading");
-
     // open it
-    vm->files[file_index] = fopen(full_path, mode ? "wb" : "rb");
+    vm->files[file_index] = fopen(full_path, mode ? "a+b" : "rb");
+    //printf("OPENING %s %zi\n",full_path,(size_t)vm->files[file_index]);
     if (vm->files[file_index] == vm_ghost_null) {
-        vm->registers[0] = 0xFFFFFFFFu;
-        return;
+        strace("sys fopen() path %s mode %i failed.\n", full_path, mode);
+        return VM_ERR_PATH;
+    }
+    strace("sys fopen() path %s mode %u returning handle 0x%x\n", full_path, mode, file_index + FILES_OFFSET);
+
+    // if writeable, seek to the beginning
+    if (mode) {
+        fseek(vm->files[file_index], 0, SEEK_SET);
     }
 
-    vm->registers[0] = file_index + FILES_OFFSET;
+    return file_index + FILES_OFFSET;
 }
 
-static void vm_close(vm_t* vm) {
+static uint32_t vm_fclose(vm_t* vm) {
     uint32_t handle = vm->registers[0];
     FILE* file = vm_file(vm, handle);
-    if (file == vm_ghost_null)
+    strace("sys fclose() handle 0x%x\n", handle);
+    if (file == vm_ghost_null) {
         panic("File is not open.");
-    if (file == stdin || file == stdout || file == stderr)
+    }
+    if (file == stdin || file == stdout || file == stderr) {
         panic("Cannot close standard streams.");
+    }
     fclose(file);
     vm->files[handle - FILES_OFFSET] = vm_ghost_null;
+    return 0;
 }
 
-static void vm_read(vm_t* vm) {
+static uint32_t vm_fread(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
+    strace("sys fread() handle 0x%x addr 0x%x count %u\n", vm->registers[0], addr, count);
 
-    //printf("READ count %u addr %u handle %d\n",count,addr,vm->registers[0]);
-    size_t total = 0;
-    while (count > 0) {
-        // TODO why do we bother with a buffer? we could read in place
-        char buf[128];
-        size_t step = fread(buf, 1, vm_ghost_min_u32(count, sizeof(buf)), file);
-        if (step == 0) {
-            if (feof(file))
-                break;
-            panic("Error reading file!");
-        }
-        for (size_t i = 0; i < step; ++i) {
-            vm_store_u8(vm, addr++, buf[i]);
-        }
-        count -= step;
-        total += step;
+    if (count == 0) {
+        // nothing to do, addr does not need to be valid
+        return 0;
     }
-
-    vm->registers[0] = total;
-}
-
-static void vm_write(vm_t* vm) {
-    FILE* file = vm_file(vm, vm->registers[0]);
-    uint32_t addr = vm->registers[1];
-    uint32_t count = vm->registers[2];
     if (!vm_is_buffer_valid(vm, addr, count)) {
-        fputs("ERROR: Invalid buffer given to syscall write.\n", stderr);
-        exit(125);
+        panic("ERROR: Invalid buffer given to syscall fread.");
     }
+
+    size_t ret = fread(vm->memory + (addr - vm->memory_base), 1, count, file);
+    if (ret == 0) {
+        if (feof(file))
+            return 0;
+        return VM_ERR_IO;
+    }
+    return (uint32_t)ret;
+}
+
+static uint32_t vm_fwrite(vm_t* vm) {
+    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t addr = vm->registers[1];
+    uint32_t count = vm->registers[2];
+    strace("sys fwrite() handle 0x%x addr 0x%x count %u\n", vm->registers[0], addr, count);
+
+    if (count == 0) {
+        // nothing to do, addr does not need to be valid
+        return 0;
+    }
+    if (!vm_is_buffer_valid(vm, addr, count)) {
+        panic("ERROR: Invalid buffer given to syscall fwrite.");
+    }
+
     uint8_t* buffer = vm->memory + (addr - vm->memory_base);
-
-    //printf("WRITE count %u addr %u handle %d\n",count,addr,vm->registers[0]);
-    while (count > 0) {
-        //fprintf(stderr, "  count %u\n",count);
-
-        //fwrite(buffer,1,count,stdout); //putchar('\n');
-        size_t step = fwrite(buffer, 1, count, file);
-        if (step == 0) {
-            panic("Error writing file!");
-        }
-        buffer += step;
-        count -= step;
+    size_t ret = fwrite(buffer, 1, count, file);
+    if (ret == 0) {
+        panic("Error writing file!");
     }
 
     // We need to flush to ensure this doesn't interfere with our debugger.
     // TODO only flush when debugger NOT running
     // TODO why not running? shouldn't we only flush when running?
-    if (file == stdout || file == stderr) {
+    /*if (file == stdout || file == stderr) {
         fflush(file);
-    }
+    }*/
+
+    return (uint32_t)ret;
 }
 
-static void vm_seek(vm_t* vm) {
+static uint32_t vm_fseek(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
-    uint64_t offset = vm->registers[1] | ((uint64_t)vm->registers[2] << 32);
+    uint32_t base = vm->registers[1];
+    int64_t offset = (int64_t)((uint64_t)vm->registers[2] | ((uint64_t)vm->registers[3] << 32));
+    strace("sys fseek() handle 0x%x base %u offset %" PRIi64 "\n", vm->registers[0], base, offset);
 
-    // Seeking out of bounds is not allowed in Onramp but it is allowed by
-    // Linux. We want to make sure programs don't use this. For debugging
-    // purposes we always seek to the end first to get the length of the file
-    // to ensure the requested seek offset is in bounds.
-    fseek(file, 0, SEEK_END);
-    long pos = ftell(file);
-
-    if (offset != UINT64_MAX) {
-        if (offset > (uint64_t)pos) {
-            panic("Seek out of bounds!");
-        }
-        fseek(file, (long)offset, SEEK_SET);
-        pos = ftell(file);
+    if (base > 2) {
+        fatal("Invalid base given to syscall fseek.");
     }
 
-    vm->registers[0] = (uint32_t)pos;
-    vm->registers[1] = (uint32_t)(pos >> 32);
+    fseek(file, offset,
+            base == 0 ? SEEK_SET : base == 1 ? SEEK_CUR : SEEK_END);
+    return 0;
 }
 
-static void vm_unlink(vm_t* vm) {
+static uint32_t vm_ftell(vm_t* vm) {
+    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t addr = vm->registers[1];
+    long pos = ftell(file);
+    strace("sys ftell() handle 0x%x position %" PRIu64 "\n", vm->registers[0], (uint64_t)pos);
+    vm_store_u32(vm, addr, (uint32_t)pos);
+    vm_store_u32(vm, addr + 4, (uint32_t)(pos >> 32));
+    return 0;
+}
+
+static uint32_t vm_ftrunc(vm_t* vm) {
+    FILE* file = vm_file(vm, vm->registers[0]);
+    fflush(file);
+    uint64_t length = (uint64_t)vm->registers[1] | ((uint64_t)vm->registers[2] << 32);
+    strace("sys ftrunc() handle 0x%x length %" PRIu64 "\n", vm->registers[0], (uint64_t)length);
+    if (0 == ftruncate(fileno(file), length))
+        return 0;
+    // TODO error codes
+    return VM_ERR_GENERIC;
+}
+
+static uint32_t vm_dopen(vm_t* vm) {
+    panic("TODO dopen syscall not yet implemented");
+}
+
+static uint32_t vm_dclose(vm_t* vm) {
+    panic("TODO dclose syscall not yet implemented");
+}
+
+static uint32_t vm_dread(vm_t* vm) {
+    panic("TODO dread syscall not yet implemented");
+}
+
+static uint32_t vm_stat(vm_t* vm) {
+    panic("TODO stat syscall not yet implemented");
+}
+
+static uint32_t vm_rename(vm_t* vm) {
+    panic("TODO rename syscall not yet implemented");
+}
+
+static uint32_t vm_symlink(vm_t* vm) {
+    panic("TODO symlink syscall not yet implemented");
+}
+
+static uint32_t vm_unlink(vm_t* vm) {
     uint32_t path_addr = vm->registers[0];
     if (!vm_is_string_valid(vm, path_addr)) {
         fputs("ERROR: Invalid path.\n", stderr);
@@ -716,16 +772,29 @@ static void vm_unlink(vm_t* vm) {
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
     //printf("VM: Opening %s for %s\n", full_path, mode ? "writing" : "reading");
-    vm->registers[0] = unlink(full_path);
+    if (0 == unlink(full_path))
+        return 0;
+    // TODO correct error codes
+    return VM_ERR_GENERIC;
 }
 
-static void vm_chmod(vm_t* vm) {
+static int vm_chmod(vm_t* vm) {
+    // TODO this should take a path, not a file descriptor
     FILE* file = vm_file(vm, vm->registers[0]);
     mode_t mode = vm->registers[1];
     if (mode != 0644 && mode != 0755) {
         panic("Invalid chmod mode");
     }
     fchmod(fileno(file), mode);
+    return 0;
+}
+
+static uint32_t vm_mkdir(vm_t* vm) {
+    panic("TODO mkdir syscall not yet implemented");
+}
+
+static uint32_t vm_rmdir(vm_t* vm) {
+    panic("TODO rmdir syscall not yet implemented");
 }
 
 vm_ghost_noinline
@@ -735,20 +804,39 @@ static void vm_sys(vm_t* vm, uint8_t syscall_number, uint8_t arg1, uint8_t arg2)
         panic("Extra arguments to syscall must be 0");
     }
 
+    int ret = 0;
     switch (syscall_number) {
-        case VM_HALT: vm_halt(vm); return;
-        case VM_OPEN: vm_open(vm); return;
-        case VM_CLOSE: vm_close(vm); return;
-        case VM_READ: vm_read(vm); return;
-        case VM_WRITE: vm_write(vm); return;
-        case VM_SEEK: vm_seek(vm); return;
-        case VM_UNLINK: vm_unlink(vm); return;
-        case VM_CHMOD: vm_chmod(vm); return;
+        // misc
+        case VM_HALT:      ret = vm_halt(vm); break;
+        case VM_TIME:      ret = vm_time(vm); break;
+        case VM_SPAWN:     ret = vm_spawn(vm); break;
+        // file
+        case VM_FOPEN:     ret = vm_fopen(vm); break;
+        case VM_FCLOSE:    ret = vm_fclose(vm); break;
+        case VM_FREAD:     ret = vm_fread(vm); break;
+        case VM_FWRITE:    ret = vm_fwrite(vm); /*break
+                            TODO syscall fwrite currently doesn't set r0, we need to clean up some code first */
+                            return;
+        case VM_FSEEK:     ret = vm_fseek(vm); break;
+        case VM_FTELL:     ret = vm_ftell(vm); break;
+        case VM_FTRUNC:    ret = vm_ftrunc(vm); break;
+        // directory
+        case VM_DOPEN:     ret = vm_dopen(vm); break;
+        case VM_DCLOSE:    ret = vm_dclose(vm); break;
+        case VM_DREAD:     ret = vm_dread(vm); break;
+        // filesystem
+        case VM_STAT:      ret = vm_stat(vm); break;
+        case VM_RENAME:    ret = vm_rename(vm); break;
+        case VM_SYMLINK:   ret = vm_symlink(vm); break;
+        case VM_UNLINK:    ret = vm_unlink(vm); break;
+        case VM_CHMOD:     ret = vm_chmod(vm); break;
+        case VM_MKDIR:     ret = vm_mkdir(vm); break;
+        case VM_RMDIR:     ret = vm_rmdir(vm); break;
         default:
-            break;
+            panic("Unrecognized syscall");
     }
 
-    panic("Unrecognized syscall");
+    vm->registers[0] = ret;
 }
 
 #if 0
@@ -990,17 +1078,23 @@ static const char* vm_register_to_string(uint8_t r) {
 
 static const char* vm_syscall_to_string(uint32_t syscall) {
     switch (syscall) {
+        // system
         case VM_HALT: return "halt";
         case VM_TIME: return "time";
         case VM_SPAWN: return "spawn";
-        case VM_OPEN: return "open";
-        case VM_CLOSE: return "close";
-        case VM_READ: return "read";
-        case VM_WRITE: return "write";
-        case VM_SEEK: return "seek";
-        //case VM_TELL: return "tell";
-        case VM_TRUNCATE: return "truncate";
-        case VM_TYPE: return "type";
+        // files
+        case VM_FOPEN: return "fopen";
+        case VM_FCLOSE: return "fclose";
+        case VM_FREAD: return "fread";
+        case VM_FWRITE: return "fwrite";
+        case VM_FSEEK: return "fseek";
+        case VM_FTELL: return "ftell";
+        case VM_FTRUNC: return "ftrunc";
+        // directories
+        case VM_DOPEN: return "dopen";
+        case VM_DCLOSE: return "dclose";
+        case VM_DREAD: return "dread";
+        // filesystem
         case VM_STAT: return "stat";
         case VM_RENAME: return "rename";
         case VM_SYMLINK: return "symlink";
@@ -1008,10 +1102,6 @@ static const char* vm_syscall_to_string(uint32_t syscall) {
         case VM_CHMOD: return "chmod";
         case VM_MKDIR: return "mkdir";
         case VM_RMDIR: return "rmdir";
-        case VM_GET_SYSCALL_TABLE: return "get_syscall_table";
-        case VM_GET_DRIVE_SIZE: return "get_drive_size";
-        case VM_WRITE_SECTOR: return "write_sector";
-        case VM_READ_SECTOR: return "read_sector";
         default: break;
     }
     return "?";

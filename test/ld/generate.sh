@@ -39,13 +39,15 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
     if [ $RET -eq 0 ]; then
         cp $TEMP_OE $BASENAME.oe
         echo -n "Generated $BASENAME.oe"
+        rm -f $BASENAME.stdout
         onrampvm $TEMP_OE > $TEMP_STDOUT 2>/dev/null
         if [ $? -eq 0 ] && [ -s $TEMP_STDOUT ]; then
             cp $TEMP_STDOUT $BASENAME.stdout
             echo -n ", $BASENAME.stdout"
         fi
     else
-        rm -f $EXPECTED
+        rm -f $BASENAME.oe
+        rm -f $BASENAME.stdout
         echo -n "Failed, deleting $BASENAME.oe *****"
     fi
 

@@ -247,7 +247,7 @@
 
     ; write to stderr
     78 80 88 14    ; ldw r0 r8 20   ; stderr
-    7F 13 00 00    ; sys write 0 0
+    7F 06 00 00    ; sys fwrite 0 0
 
     ; exit with status 1
     70 80 00 01    ; add r0 0 1
@@ -361,11 +361,11 @@
 
     ; syscall open
     70 81 00 00    ; add r1 0 0     ; read-only
-    7F 10 00 00    ; sys open 0 0
+    7F 03 00 00    ; sys fopen 0 0
 
-    ; return value must not be -1
-    7D 8A 80 FF    ; cmp ra r0 -1
-    7E 8A 01 00    ; jz ra &open_input_file_fail (+1)
+    ; high bit indicates error
+    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
+    74 8A 8A 01    ; and ra ra 1
     7E 00 06 00    ; jz 0 &open_input_file_ok (+6)
 
     ; failed to open input file. fatal
@@ -402,11 +402,11 @@
 
     ; syscall open
     70 81 00 01    ; add r1 0 1     ; writeable
-    7F 10 00 00    ; sys open 0 0
+    7F 03 00 00    ; sys fopen 0 0
 
     ; return value must not be -1
-    7D 8A 80 FF    ; cmp ra r0 -1
-    7E 8A 01 00    ; jz ra &open_output_file_fail (+1)
+    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
+    74 8A 8A 01    ; and ra ra 1
     7E 00 06 00    ; jz ra &open_output_file_ok (+6)
 
     ; failed to open output file. fatal
@@ -422,12 +422,15 @@
     ; store output handle in globals
     79 80 89 08    ; stw r0 r9 8
 
+    ; syscall ftrunc (to destroy contents in case it already existed)
+    70 81 00 00    ; add r1 0 0
+    70 82 00 00    ; add r2 0 0
+    7F 09 00 00    ; sys ftrunc 0 0
+
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
-    ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00
+    ; we're out of padding!
 @0x2C0
 
 
@@ -543,7 +546,7 @@
 
     ; if yes, tail-call open_files
     7E 80 05 00    ; jz r0 &parse_args_not_second (+5)
-    70 80 00 04    ; add r0 0 8    ; input file is first arg
+    70 80 00 04    ; add r0 0 4    ; input file is first arg
     70 81 00 0C    ; add r1 0 12   ; output file is third arg
     7C 8A 00 00    ; ims ra <open_files
     7C 8A 10 04    ; ims ra >open_files
@@ -630,7 +633,7 @@
     78 80 89 04     ; ldw r0 r9 4     ; input_io_handle
     70 81 89 0C     ; add r1 r9 12    ; &current_char
     70 82 00 01     ; add r2 0 1      ; 1
-    7F 12 00 00     ; sys read 0 0
+    7F 05 00 00     ; sys fread 0 0
 
     ; r0 contains the number of bytes read. if it's zero, assume it's the end
     ; of the file.
@@ -818,7 +821,7 @@
     78 80 89 08    ; ldw r0 r9 8      ; output handle
     70 81 00 8C    ; add r1 0 rsp     ; buffer
     70 82 00 01    ; add r2 0 1       ; count
-    7F 13 00 00    ; sys write 0 0
+    7F 06 00 00    ; sys fwrite 0 0
 
     ; increment byte count
     78 8A 89 10    ; ldw ra r9 16

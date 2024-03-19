@@ -49,3 +49,6 @@ $(OUT)/ld.oe: $(SRC)/ld.oe.ohx Makefile $(HEX)
 
 test: build FORCE $(VM)
 	../run.sh . $(VM) $(OUT)/ld.oe
+
+generate: build FORCE $(VM)
+	../generate.sh . $(VM) $(OUT)/ld.oe

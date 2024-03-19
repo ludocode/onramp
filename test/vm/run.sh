@@ -67,22 +67,22 @@ for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'); do
 
     # check for status or abort file
     if [ -e $BASENAME.status ] && [ -e $BASENAME.abort ]; then
-        echo "THIS_ERROR: $BASENAME cannot have both .status and .abort files."
+        echo "ERROR: $BASENAME cannot have both .status and .abort files."
         THIS_ERROR=1
     elif [ -e $BASENAME.status ]; then
         EXPECTED=$(cat $BASENAME.status)
         if [ $RET -ne $EXPECTED ]; then
-            echo "THIS_ERROR: $BASENAME exited with status $RET, expected status $EXPECTED"
+            echo "ERROR: $BASENAME exited with status $RET, expected status $EXPECTED"
             THIS_ERROR=1
         fi
     elif [ -e $BASENAME.abort ]; then
         if [ $RET -ne 125 ]; then
-            echo "THIS_ERROR: $BASENAME exited with status $RET, expected VM to abort with status 125"
+            echo "ERROR: $BASENAME exited with status $RET, expected VM to abort with status 125"
             THIS_ERROR=1
         fi
     else
         if [ $RET -ne 0 ]; then
-            echo "THIS_ERROR: $BASENAME failed; expected success."
+            echo "ERROR: $BASENAME failed; expected success."
             THIS_ERROR=1
         fi
     fi
@@ -90,7 +90,7 @@ for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'); do
     # check for stdout
     if [ -e $BASENAME.stdout ]; then
         if ! diff -q $BASENAME.stdout $TEMP_STDOUT > /dev/null; then
-            echo "THIS_ERROR: $BASENAME stdout did not match expected"
+            echo "ERROR: $BASENAME stdout did not match expected"
             THIS_ERROR=1
         fi
     fi
@@ -98,7 +98,7 @@ for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'); do
     # check for stderr
     if [ -e $BASENAME.stderr ]; then
         if ! diff -q $BASENAME.stderr $TEMP_STDERR > /dev/null; then
-            echo "THIS_ERROR: $BASENAME stderr did not match expected"
+            echo "ERROR: $BASENAME stderr did not match expected"
             THIS_ERROR=1
         fi
     fi

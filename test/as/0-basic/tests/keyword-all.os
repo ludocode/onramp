@@ -11,9 +11,9 @@ ldw stw ldb stb
 ims cmpu jz sys
 ; syscalls
 halt time spawn
-fopen fclose fread fwrite fseek ftrunc
-stat rename symlink unlink chmod
+fopen fclose fread fwrite fseek ftell ftrunc
 dopen dclose dread
+stat rename symlink unlink chmod mkdir rmdir
 
 =main
     add r0 '00 '00      ; zero r0

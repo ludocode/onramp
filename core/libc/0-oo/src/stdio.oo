@@ -52,7 +52,7 @@
 ; The array of file info. A FILE* is a pointer into this array.
 ;
 ; Each FILE consists of two words: the I/O handle to use and the current
-; position in the file.
+; position in the file. (TODO the second part is no longer used, clean this up)
 ;
 ; The first three files are assigned to stdin, stdout and stderr respectively
 ; on startup.
@@ -252,7 +252,7 @@
 ; ==========================================================
 ; Opens the file with the given name in the given mode.
 ;
-; The mode must be "r" or "w". No other modes are supported.
+; The mode must be "r", "w" or "a". No other modes are supported.
 ;
 ; vars:
 ; - filename: r0, rfp-4
@@ -317,19 +317,14 @@
 :__fopen_slot_found
     79 82 8D F4     ; stw r2 rfp -12
 
-    ; see if mode is "w" or "r". we don't support any other chars.
+    ; check the mode to decide whether to open writeable
     7A 8A 00 81            ; ldb ra 0 r1
     7D 8B 8A 72            ; cmp rb ra "r"
     7E 8B &__fopen_read    ; jz rb &__fopen_read
     7D 8B 8A 77            ; cmp rb ra "w"
     7E 8B &__fopen_write   ; jz rb &__fopen_write
-    ; TODO for now we also support "a", we don't really need this except for
-    ; temporary wrap support in ld/1, can be removed later. we open for writing
-    ; then seek to the end.
-    ; TODO nope, disabling this. we want to keep the behaviour of truncating
-    ; when opening for writing, not going to add the truncate syscall yet
-;;    7D 8B 8A 61            ; cmp rb ra "a"
-;;    7E 8B &__fopen_write   ; jz rb &__fopen_write
+    7D 8B 8A 61            ; cmp rb ra "a"
+    7E 8B &__fopen_write   ; jz rb &__fopen_write
     7E 00 &__fopen_invalid_mode   ; jz rb &__fopen_invalid_mode
 
 :__fopen_read
@@ -340,30 +335,51 @@
     70 81 00 01          ; add r1 0 1
 
 :__fopen_sys
-    7F 10 00 00          ; sys open 0 0
+    7F 03 00 00          ; sys fopen 0 0
 
-    ; if return value is -1, file open failed
-    7D 8A 80 FF                   ; cmp ra r0 -1
-    7E 8A &__fopen_syscall_failed ; jz ra &__fopen_syscall_failed
+    ; high bit indicates error
+    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
+    74 8A 8A 01    ; and ra ra 1
+    7E 8A &__fopen_syscall_ok     ; jz ra &__fopen_syscall_ok
+    7E 00 &__fopen_syscall_failed ; jz ra &__fopen_syscall_failed
+:__fopen_syscall_ok
 
     ; save metadata in the file slot
     79 80 82 00     ; stw r0 r2 0    ; i/o handle
-    79 00 82 04     ; stw 0 r2 4     ; position in file
+    ;79 00 82 04     ; stw 0 r2 4     ; position in file   ; TODO disabled, position to be removed
 
-;;    ; check again if mode is append
-;;    78 81 8D F8     ; ldw r1 rfp -8
-;;    7A 8A 00 81     ; ldb ra 0 r1
-;;    7D 8B 8A 61     ; cmp rb ra "a"
-;;    7E 8B 01 00     ; jz rb +1
-;;    7E 00 &__fopen_not_append   ; jz 0 &__fopen_not_append
-;;
-;;    ; mode is append. seek to the end, store the position
-;;    70 81 00 FF     ; add r1 0 -1     ; mov r1 -1
-;;    70 82 00 FF     ; add r2 0 -1     ; mov r2 -1
-;;    7F 14 00 00     ; sys seek 0 0
-;;    78 82 8D F4     ; ldw r2 rfp -12
-;;    79 80 82 04     ; stw 0 r2 4      ; position in file
-;;:__fopen_not_append
+
+    ; check if mode is append
+    78 81 8D F8     ; ldw r1 rfp -8
+    7A 8A 00 81     ; ldb ra 0 r1
+    7D 8B 8A 61     ; cmp rb ra "a"
+    7E 8B 01 00     ; jz rb +1
+    7E 00 &__fopen_not_append   ; jz 0 &__fopen_not_append
+
+    ; mode is append. seek to the end
+    70 81 00 FF     ; add r1 0 -1     ; mov r1 -1
+    70 82 00 FF     ; add r2 0 -1     ; mov r2 -1
+    7F 07 00 00     ; sys fseek 0 0
+    ;78 82 8D F4     ; ldw r2 rfp -12
+    ;79 80 82 04     ; stw 0 r2 4      ; position in file
+    7E 00 &__fopen_not_write
+:__fopen_not_append
+
+    ; check if mode is write
+    78 81 8D F8     ; ldw r1 rfp -8
+    7A 8A 00 81     ; ldb ra 0 r1
+    7D 8B 8A 77     ; cmp rb ra "w"
+    7E 8B 01 00     ; jz rb +1
+    7E 00 &__fopen_not_write   ; jz 0 &__fopen_not_write
+
+    ; mode is write. truncate the file
+    70 81 00 00     ; add r1 0 0     ; zero r1
+    70 82 00 00     ; add r2 0 0     ; zero r2
+    7F 09 00 00     ; sys ftrunc 0 0
+    ;78 82 8D F4     ; ldw r2 rfp -12
+    ;79 80 82 04     ; stw 0 r2 4      ; position in file
+:__fopen_not_write
+
 
     ; return value is the pointer to the file metadata
     78 80 8D F4     ; ldw r0 rfp -12
@@ -371,6 +387,7 @@
 
 :__fopen_syscall_failed
     ; failure. return NULL
+    ;TODO set errno
     70 80 00 00     ; add r0 0 0    ; zero r0
 
 :__fopen_syscall_return
@@ -441,7 +458,7 @@
 
     ; make the syscall
     70 80 00 81         ; add r0 0 r1      ; mov r0 r1
-    7F 11 00 00         ; sys close 0 0
+    7F 04 00 00         ; sys fclose 0 0
 
 :__fclose_done
 
@@ -539,6 +556,7 @@
 :__close_all_files_recursed
     ; Something went wrong closing files. It's not safe to exit a subprogram
     ; because we would leak open files. We have to halt the whole VM.
+    ;TODO probably should try to print an error
     70 80 00 01    ; add r0 0 1
     7F 00 00 00    ; sys halt 0 0
 
@@ -562,6 +580,15 @@
 ; ==========================================================
 
 =fread
+    ; If the element count is zero, don't do anything. We never want to make an
+    ; fread syscall with zero bytes.
+    7E 82 &__fread_count_zero      ; jz r2 &__fread_count_zero
+    7E 00 &__fread_count_not_zero  ; jz 0 &__fread_count_not_zero
+:__fread_count_zero
+    70 80 00 00                     ; add r0 0 0        ; mov r0 0
+    78 8F 00 8C                     ; ldw rip 0 rsp     ; ret
+:__fread_count_not_zero
+
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
@@ -598,7 +625,7 @@
 :__fread_loop
 
     ; make the syscall
-    7F 12 00 00        ; sys read 0 0
+    7F 05 00 00        ; sys fread 0 0
 
     ; if nothing was returned, we're done
     7D 8A 80 00          ; cmp ra r0 0
@@ -624,10 +651,11 @@
 :__fread_done
 
     ; increment the file position by the total
-    78 80 8D FC     ; ldw r0 rfp -4
-    78 81 80 04     ; ldw r1 r0 4
-    70 81 81 83     ; add r1 r1 r3
-    79 81 80 04     ; stw r1 r0 4
+    ; TODO get rid of all this
+    ;78 80 8D FC     ; ldw r0 rfp -4
+    ;78 81 80 04     ; ldw r1 r0 4
+    ;70 81 81 83     ; add r1 r1 r3
+    ;79 81 80 04     ; stw r1 r0 4
 
     ; put our total in r0 to return it
     70 80 00 83     ; add r0 0 r3       ; mov r0 r3
@@ -654,6 +682,15 @@
 ; ==========================================================
 
 =fwrite
+    ; If the element count is zero, don't do anything. We never want to make an
+    ; fwrite syscall with zero bytes.
+    7E 82 &__fwrite_count_zero      ; jz r2 &__fwrite_count_zero
+    7E 00 &__fwrite_count_not_zero  ; jz 0 &__fwrite_count_not_zero
+:__fwrite_count_zero
+    70 80 00 00                     ; add r0 0 0        ; mov r0 0
+    78 8F 00 8C                     ; ldw rip 0 rsp     ; ret
+:__fwrite_count_not_zero
+
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
@@ -690,7 +727,7 @@
 :__fwrite_loop
 
     ; make the syscall
-    7F 13 00 00         ; sys write 0 0
+    7F 06 00 00         ; sys fwrite 0 0
 
     ; if nothing was returned, we're done
     7E 80 &__fwrite_done  ; jz r0 &__fwrite_done
@@ -722,10 +759,11 @@
 :__fwrite_done
 
     ; increment the file position by the total
-    78 80 8D FC     ; ldw r0 rfp -4
-    78 81 80 04     ; ldw r1 r0 4
-    70 81 81 83     ; add r1 r1 r3
-    79 81 80 04     ; stw r1 r0 4
+    ; TODO get rid of this
+    ;78 80 8D FC     ; ldw r0 rfp -4
+    ;78 81 80 04     ; ldw r1 r0 4
+    ;70 81 81 83     ; add r1 r1 r3
+    ;79 81 80 04     ; stw r1 r0 4
 
     ; put our total in r0 to return it
     70 80 00 83     ; add r0 0 r3       ; mov r0 r3
@@ -741,38 +779,49 @@
 ; ==========================================================
 ; long ftell(FILE* file);
 ; ==========================================================
-; Returns the current position in the given file.
+; Writes the current position in the given file as a 64 bit number to the given
+; address.
 ; ==========================================================
 
 =ftell
-    78 80 80 04     ; ldw r0 r0 4
+    ; make space for the result
+    71 8C 8C 08     ; sub rsp rsp 8
+    70 81 00 8C     ; add r1 0 rsp     ; mov r1 rsp
+
+    ; syscall ftell
+    78 80 80 00     ; ldw r0 r0 0
+    7F 08 00 00     ; sys ftell 0 0
+
+    ; TODO error checking!
+    ; TODO check that the high 32 bits are zero (not that this is really
+    ; necessary since this libc is replaced before we get to the possibility of
+    ; large files)
+
+    ; return the low 32 bits
+    78 80 8C 00     ; ldw r0 rsp 0
+    70 8C 8C 08     ; add rsp rsp 8
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 
 
 ; ==========================================================
-; int fseek(FILE* stream, long offset, int base);
-; ==========================================================
-; TODO doc
-;
-; TODO support base, or at least check it, for now we're assuming it's SEEK_SET
+; int fseek(FILE* stream, int offset, int whence);
 ; ==========================================================
 
 =fseek
-    ; TODO check base, do the math properly
-    ; in the case of SEEK_END, need to do seek(-1),
-
-    ; store the offset
-    79 81 80 04     ; stw r1 r0 4
-
-    ; make the syscall
     78 80 80 00     ; ldw r0 r0 0
-    7F 14 00 00     ; sys seek 0 0
+
+    ; in the system call, base comes first and offset is 64 bits. we need to
+    ; move the arguments around.
+    70 8A 81 00     ; add ra r1 0   ; mov ra r1
+    70 81 82 00     ; add r1 r2 0   ; mov r1 r2
+    70 82 8A 00     ; add r2 ra 0   ; mov r2 ra
+    70 83 00 00     ; add r3 0 0    ; mov r3 0
+
+    7F 07 00 00     ; sys fseek 0 0
 
     ; TODO error checking!
-    ; TODO get the return value and store that
 
-    ; done
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 
@@ -1006,17 +1055,18 @@
 ; ==========================================================
 
 =fchmod
-    7F 24 00 00    ; sys chmod 0 0
+    7F 11 00 00    ; sys chmod 0 0
     78 8F 00 8C    ; ldw rip 0 rsp     ; ret
 
 
 
 ; ==========================================================
-; int remove(FILE* file);
+; int remove(const char* path);
 ; ==========================================================
 
 =remove
     ; TODO call unlink for directories, rmdir for files. in this stage we only
     ; support files.
-    7F 23 00 00    ; sys unlink 0 0
+    7F 10 00 00    ; sys unlink 0 0
+    ; TODO error check
     78 8F 00 8C    ; ldw rip 0 rsp     ; ret
