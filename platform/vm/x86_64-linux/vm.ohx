@@ -1337,7 +1337,6 @@
 ;
 ; - If the value is the name of a register, the content of the named register
 ;   is returned;
-; - If the value is the name of an opcode, the VM aborts;
 ; - If the value is in the range 0x00-0x7F, it is returned unchanged;
 ; - If the value is in the range 0x90-0xFF, it is sign-extended to 32 bits
 ;   (i.e. it is returned as a 32-bit negative number)
@@ -1351,14 +1350,6 @@
     ; take the top nibble
     89 F8            ; mov eax, edi
     25 F0 00 00 00   ; and eax, 0xF0
-
-    ; if it's an opcode, bail out
-    83 F8 70         ; cmp eax, 0x70
-    75 0C            ; jne parse_mix_not_opcode (+12)
-    BF 70 03 50 00   ; mov edi, "ERROR: Invalid mix-type..." (0x500370)
-    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-    FF D0            ; call rax
-;parse_mix_not_opcode:
 
     ; if it's a register, defer to parse_register
     3D 80 00 00 00   ; cmp eax, 0x80
@@ -1387,6 +1378,9 @@
     C3        ; ret
 
     90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
 @0xA80
 
 

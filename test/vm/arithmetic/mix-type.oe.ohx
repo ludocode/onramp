@@ -1,0 +1,27 @@
+@0x00 =_start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info vector in r9
+    70 89 80 00   ; add r9 r0 0
+
+    ; put -112 in r0 using positive mix-type bytes
+    71 80 00 7F   ; sub ra 0 127     ; test largest positive mix-type
+    70 80 80 0F   ; add ra r0 15
+
+    ; compare it to -128 using a negative mix-type byte
+    71 8A 80 90   ; sub ra r0 -112   ; test smallest negative mix-type
+    7E 8A 03 00   ; jz ra &mix_type_ok (+3)
+
+    ; compare failed, exit(-1)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 01   ; add r0 0 1
+    70 8F 8A 00   ; add rip ra 0
+;:mix_type_ok
+
+    ; exit(0)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
+    70 8F 8A 00   ; add rip ra 0      ; jump to exit address
