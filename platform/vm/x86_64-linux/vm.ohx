@@ -130,7 +130,9 @@
 ; 0x400DC0 opcode_sys
 ; 0x400E20 syscall_halt
 ; 0x400E30 parse_io_handle
-; 0x400E60 syscall_write
+; 0x400E60 syscall_fwrite
+; 0x400ED0 syscall_fread
+; 0x400F40 syscall_fclose
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -385,9 +387,9 @@
     00 00  ; 0x01 time (not yet implemented)
     00 00  ; 0x02 spawn (not yet implemented)
 ; files
-    00 00  ; 0x03 fopen (not yet implemented)
-    00 00  ; 0x04 fclose (not yet implemented)
-    00 00  ; 0x05 fread (not yet implemented)
+    90 0F  ; 0x03 fopen (0xF90)
+    40 0F  ; 0x04 fclose (0xF40)
+    D0 0E  ; 0x05 fread (0xED0)
     60 0E  ; 0x06 fwrite (0xE60)
     00 00  ; 0x07 fseek (not yet implemented)
     00 00  ; 0x08 ftell (not yet implemented)
@@ -955,7 +957,6 @@
 ; Checks that the given null-terminated string is valid in VM memory.
 ; ==========================================================
 
-; TODO this function is not used
 @0x810 check_string
     ; TODO
     C3 ; ret
@@ -1875,10 +1876,10 @@
 ;opcode_sys_in_range:
 
     ; get the syscall function address
-    B8 80 04 50 00    ; mov eax, syscall table (0x500480)
+    B8 80 04 50 00    ; mov eax, syscall_table (0x500480)
     C1 E6 01          ; shl esi, 1
     01 F0             ; add eax, esi
-    8B 00             ; mov eax, [rax]
+    0F BF 00          ; movsx eax, word [rax]
 
     ; if the syscall is zero, we don't support it
     83 F8 00         ; cmp eax, 0
@@ -1899,7 +1900,7 @@
 
     ; padding (nop)
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90
+    90 90 90 90 90 90
 @0xE20
 
 
@@ -1934,10 +1935,10 @@
 ; ==========================================================
 ; int parse_io_handle(void)
 ; ==========================================================
-; Returns the file descriptor for an I/O handle in a syscall.
+; Returns the file descriptor for a file or directory handle in a syscall.
 ;
-; All syscalls that accept an I/O handle take it as the first argument so we
-; pull the handle out of r0.
+; All syscalls that accept a file or directory handle take it as the first
+; argument so we pull the handle out of r0.
 ;
 ; If the handle is invalid, the VM aborts.
 ; ==========================================================
@@ -1973,19 +1974,17 @@
 
 
 ; ==========================================================
-; void syscall_write(void)
+; void syscall_fwrite(void)
 ; ==========================================================
-; Writes the given buffer to the given I/O handle.
-;
-; If writing fails, the VM aborts.
+; Writes the given buffer to the given file handle.
 ;
 ; params:
-;    - r0: io handle
+;    - r0: file handle
 ;    - r1: buffer
 ;    - r2: count
 ; ==========================================================
 
-@0xE60 syscall_write
+@0xE60 syscall_fwrite
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2012,7 +2011,12 @@
     5F               ; pop rdi       ; file descriptor
     0F 05            ; syscall
 
-    ; TODO check return value?
+    ; TODO convert return value to Onramp error codes. Linux syscalls return
+    ; negative values on error so for now we just pass it through.
+
+    ; store the return value in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    67 89 07         ; mov [edi], eax
 
     ; return
     48 89 EC     ; mov rsp, rbp
@@ -2021,5 +2025,182 @@
 
     ; padding (nop)
     90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
     90 90 90 90 90 90
-@0xEA0
+@0xED0
+
+
+
+; ==========================================================
+; void syscall_fread(void)
+; ==========================================================
+; Reads from the given file handle to the given buffer.
+;
+; If writing fails, the VM aborts.
+;
+; params:
+;    - r0: file handle
+;    - r1: buffer
+;    - r2: count
+; ==========================================================
+
+@0xED0 syscall_fread
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the file descriptor (and check it)
+    B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
+    FF D0             ; call rax
+    50                ; push rax
+
+    ; get the buffer (and check it)
+    B8 04 00 60 00    ; mov eax, r1 (0x600004)
+    8B 38             ; mov edi, [rax]
+    B8 08 00 60 00    ; mov eax, r2 (0x600008)
+    8B 30             ; mov esi, [rax]
+    57                ; push rdi
+    56                ; push rsi
+    B8 00 08 40 00    ; mov eax, check_buffer (0x400800)
+    FF D0             ; call rax
+
+    ; call read() syscall
+    B8 00 00 00 00   ; mov eax, 0x0  ; syscall: read (0)
+    5A               ; pop rdx       ; length
+    5E               ; pop rsi       ; buffer
+    5F               ; pop rdi       ; file descriptor
+    0F 05            ; syscall
+
+    ; TODO convert return value to Onramp error codes. Linux syscalls return
+    ; negative values on error so for now we just pass it through.
+
+    ; store the return value in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    67 89 07         ; mov [edi], eax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90
+@0xF40
+
+
+
+; ==========================================================
+; void syscall_fclose(void)
+; ==========================================================
+; Closes the given file handle.
+;
+; params:
+;    - r0: file handle
+; ==========================================================
+
+@0xF40 syscall_fclose
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the file descriptor (and check it)
+    B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
+    FF D0             ; call rax
+    50                ; push rax
+
+    ; call close() syscall
+    B8 03 00 00 00   ; mov eax, 0x3  ; syscall: close (3)
+    5F               ; pop rdi       ; file descriptor
+    0F 05            ; syscall
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0xF90
+
+
+
+; ==========================================================
+; void syscall_fopen(void)
+; ==========================================================
+; Closes the given file handle.
+;
+; params:
+;    - r0: file handle
+; ==========================================================
+
+@0xF90 syscall_fopen
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the filename, check it
+    BF 00 00 60 00    ; mov rdi, r0 (0x600000)
+    8B 3F             ; mov edi, [rdi]
+    57                ; push rdi
+    B8 10 08 40 00    ; mov eax, check_string (0x400810)
+    FF D0             ; call rax
+
+    ; check the writeable flag
+    B8 04 00 60 00    ; mov eax, r1 (0x600004)
+    8B 00             ; mov eax, [rax]
+    48 83 F8 00       ; cmp rax, 0
+    74 0C             ; je syscall_fopen_readonly (+12)
+
+    ; writeable. flags O_CREAT, mode O_RDWR
+    BE 40 00 00 00      ;  mov esi, 64  (O_CREAT)
+    BA 02 00 00 00      ;  mov edx, 2   (O_RDWR)
+    EB 02               ; jmp syscall_fopen_syscall (+2)
+
+;:syscall_fopen_readonly
+    ; read-only. flags 0, mode O_RDONLY (0)   (i.e. zero both registers)
+    31 F6            ;  xor esi,esi
+    31 D2            ;  xor edx,edx
+
+;:syscall_fopen_syscall
+    ; call open() syscall
+    B8 02 00 00 00   ; mov eax, 0x2  ; syscall: open (2)
+    5F               ; pop rdi       ; filename
+    0F 05            ; syscall
+
+    ; TODO convert return value to Onramp error codes. Linux syscalls return
+    ; negative values on error so for now we just pass it through.
+
+    ; store the return value in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    67 89 07         ; mov [edi], eax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+;@0xF90

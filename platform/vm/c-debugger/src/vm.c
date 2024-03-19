@@ -246,7 +246,7 @@ static bool vm_is_buffer_valid(vm_t* vm, uint32_t addr, uint32_t size) {
     }
     return (addr + size > addr) && \
         vm_is_addr_valid(vm, addr) && \
-        vm_is_addr_valid(vm, addr + size);
+        vm_is_addr_valid(vm, addr + size - 1);
 }
 
 static bool vm_is_string_valid(vm_t* vm, uint32_t addr) {

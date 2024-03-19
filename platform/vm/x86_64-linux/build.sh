@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # The MIT License (MIT)
 #
 # Copyright (c) 2023-2024 Fraser Heavy Software
@@ -20,41 +22,25 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 
--include ../../../test/local.mk
+# This script builds the x86_64-linux VM. It relies only on a POSIX shell and
+# coreutils.
 
-ROOT=../../..
-BUILD=$(ROOT)/build/test
 
-OUT=$(BUILD)/vm-c-debugger
-SRC=src
-LIBO=$(ROOT)/core/libo/1-opc
-CPPFLAGS += -I$(LIBO)/include
+set -e
+cd "$(dirname "$0")/../../.."
 
-SRCS=\
-	 $(LIBO)/src/libo-error.c \
-	 $(LIBO)/src/libo-string.c \
-	 $(LIBO)/src/libo-table.c \
-	 $(LIBO)/src/libo-util.c \
-	 $(LIBO)/src/libo-vector.c \
-	 \
-	 $(SRC)/vm.c \
-	 $(SRC)/vmcommon.c \
-	 $(SRC)/debug.c \
+# find a fast error-checking hex tool
+if [ -e build/test/hex-c89/hex ]; then
+    HEX=build/test/hex-c89/hex
+elif command -v python; then
+    HEX="python platform/hex/python/hex.py"
+else
+    HEX=platform/hex/sh/hex.sh
+fi
 
-all: build test FORCE
-FORCE:
-build: $(OUT)/vm FORCE
-
-clean: FORCE
-	rm -rf $(BUILD)/vm-c-debugger
-
-$(OUT)/vm: $(SRCS) Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
-
-test: build FORCE
-	( cd $(ROOT) && test/vm/run.sh build/test/vm-c-debugger/vm )
+# build
+mkdir -p build/test/vm-x86_64-linux
+echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
+$HEX platform/vm/x86_64-linux/vm.ohx -o build/test/vm-x86_64-linux/vm
+chmod +x build/test/vm-x86_64-linux/vm

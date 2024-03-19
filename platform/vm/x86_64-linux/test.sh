@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # The MIT License (MIT)
 #
 # Copyright (c) 2023-2024 Fraser Heavy Software
@@ -20,41 +22,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 
--include ../../../test/local.mk
+# This script tests the x86_64-linux VM.
 
-ROOT=../../..
-BUILD=$(ROOT)/build/test
 
-OUT=$(BUILD)/vm-c-debugger
-SRC=src
-LIBO=$(ROOT)/core/libo/1-opc
-CPPFLAGS += -I$(LIBO)/include
-
-SRCS=\
-	 $(LIBO)/src/libo-error.c \
-	 $(LIBO)/src/libo-string.c \
-	 $(LIBO)/src/libo-table.c \
-	 $(LIBO)/src/libo-util.c \
-	 $(LIBO)/src/libo-vector.c \
-	 \
-	 $(SRC)/vm.c \
-	 $(SRC)/vmcommon.c \
-	 $(SRC)/debug.c \
-
-all: build test FORCE
-FORCE:
-build: $(OUT)/vm FORCE
-
-clean: FORCE
-	rm -rf $(BUILD)/vm-c-debugger
-
-$(OUT)/vm: $(SRCS) Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
-
-test: build FORCE
-	( cd $(ROOT) && test/vm/run.sh build/test/vm-c-debugger/vm )
+set -e
+"$(dirname "$0")/build.sh"
+cd "$(dirname "$0")/../../.."
+test/vm/run.sh build/test/vm-x86_64-linux/vm

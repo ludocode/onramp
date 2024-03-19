@@ -1,0 +1,92 @@
+@0x00 =_start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info vector in r9
+    70 89 80 00   ; add r9 r0 0
+
+    ; jump to test
+    7C 8A 00 00   ; ims ra <test   ; imw ra ^test
+    7C 8A 50 00   ; ims ra >test
+    70 8F 8E 8A   ; add rip rpp ra
+
+    ; padding
+    00 00 00 00
+
+@0x20 =exit
+    78 8A 89 08   ; ldw ra r9 8    ; get exit address
+    70 8F 8A 00   ; add rip ra 0   ; jump to it
+    
+    ; padding
+    00 00 00 00 00 00 00 00
+
+@0x30 =hello_txt
+    ; "test/vm/testdata/hello.txt" '00
+    74 65 73 74 2f 76 6d 2f  74 65 73 74 64 61 74 61
+  ;  t  e  s  t  /  v  m  /   t  e  s  t  d  a  t  a  
+    2f 68 65 6c 6c 6f 2e 74  78 74 00 00 00 00 00 00
+  ;  /  h  e  l  l  o  .  t   x  t \0
+
+@0x50 =test
+    ; make space to read
+    71 8C 8C 10   ; sub rsp rsp 16
+
+    ; TODO we need to prepend the working directory here
+    ; syscall fopen(hello_txt, 0)
+    7C 80 00 00   ; ims ra <hello_txt   ; imw ra ^hello_txt
+    7C 80 30 00   ; ims ra >hello_txt
+    70 80 8E 80   ; add r0 rpp r0
+    70 81 00 00   ; add r1 0 0
+    7F 03 00 00   ; sys fopen
+
+    ; store handle on the stack
+    79 80 8C 00
+
+    ; check high bit for errors
+    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
+    74 8A 8A 01    ; and ra ra 1
+    7E 8A 04 00    ; jz ra &fopen_ok (+4)
+    70 80 01 00   ; add r0 1 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 20 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra
+;:fopen_ok
+
+    ; syscall fread(handle, rsp+4)
+    70 81 8C 04   ; add r1 rsp 4
+    70 82 00 0C   ; add r2 0 12
+    7F 05 00 00   ; sys fread
+
+    ; check that we got non-zero result and check high bit for errors
+    7E 80 03 00    ; jz r0 &fread_fail (+3)
+    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
+    74 8A 8A 01    ; and ra ra 1
+    7E 8A 04 00    ; jz ra &fread_ok (+4)
+;:fread_fail
+    70 80 01 00   ; add r0 1 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 20 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra
+;:fread_ok
+
+    ; TODO for now we just check that we got at least one char
+    7A 8A 8C 04    ; ldb ra rsp 4
+    71 8A 8A 48    ; sub ra ra "H"
+    7E 8A 04 00    ; jz ra &char_ok (+4)
+    70 80 01 00   ; add r0 1 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 20 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra
+;:char_ok
+
+    ; syscall fclose(handle)
+    78 80 8C 00   ; ldw r0 rsp 0   ; handle
+    7F 04 00 00   ; sys fclose
+
+    ; exit(0)
+    70 80 00 00   ; add r0 0 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 20 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra

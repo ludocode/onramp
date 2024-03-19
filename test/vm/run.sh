@@ -30,6 +30,11 @@ if [ "$1" == "" ]; then
     exit 1
 fi
 
+if [ "$(realpath $(dirname $0)/../..)" != "$(realpath $(pwd))" ]; then
+    echo "ERROR: This script must be run from the Onramp root."
+    exit 1
+fi
+
 COMMAND="$@"
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
