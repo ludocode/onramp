@@ -1560,7 +1560,7 @@
     90 90 90 90 90 90 90 90
     90
 
-@0xBA0 div
+@0xBA0 divu
     89 D0   ; mov eax,edx
     31 D2   ; xor edx,edx
     F7 F1   ; div ecx
@@ -1693,18 +1693,18 @@
     C3               ; ret
     90 90 90 90 90 90
 
-@0xCE0 cmp
+@0xCE0 cmpu
     31 C0   ; xor eax, eax
     39 CA   ; cmp edx, ecx
-    7C 04   ; jl cmp_less (+4)
-    7F 06   ; jg cmp_greater (+6)
-    EB 06   ; jmp cmp_done (+6)
-;cmp_less:
+    72 04   ; jb cmpu_less (+4)
+    77 06   ; ja cmpu_greater (+6)
+    EB 06   ; jmp cmpu_done (+6)
+;cmpu_less:
     FF C8   ; dec eax
-    EB 02   ; jmp cmp_done (+2)
-;cmp_greater:
+    EB 02   ; jmp cmpu_done (+2)
+;cmpu_greater:
     FF C0   ; inc eax
-;cmp_done:
+;cmpu_done:
     89 06   ; mov [rsi], eax
     C3      ; ret
     90 90 90 90 90 90 90 90
