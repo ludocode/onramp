@@ -1,3 +1,5 @@
+#!/bin/sh
+
 # The MIT License (MIT)
 #
 # Copyright (c) 2023-2024 Fraser Heavy Software
@@ -20,26 +22,32 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-ROOT=../../..
-BUILD=$(ROOT)/build/test
 
-SRC=.
-OUT=$(BUILD)/hex-c89
+# This script builds the C89 hex tool. You need a C compiler.
+#
+# Set CC to use a specific compiler.
+# Set CFLAGS to override the flags to use.
 
-CFLAGS=-g
-WARNINGS=-Wall -Wextra -Wpedantic -Werror
 
-all: build test FORCE
-FORCE:
-build: $(OUT)/hex FORCE
+set -e
+cd "$(dirname "$0")/../../.."
 
-clean: FORCE
-	rm -rf $(BUILD)/hex-c89
+# Find a compiler
+if [ "x$CC" = "x" ]; then
+    if ! command -v cc > /dev/null; then
+        echo "ERROR: A compiler is required."
+        exit 1
+    fi
+    CC=cc
+fi
 
-$(OUT)/hex: $(SRC)/hex.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) -std=c89 $(CFLAGS) $(WARNINGS) $(SRC)/hex.c -o $@
+# Choose compiler flags
+# (set CFLAGS to override the defaults)
+if [ "x$CFLAGS" = "x" ]; then
+    CFLAGS="-O2 -g -std=c89 -Wall -Wextra -Wpedantic"
+fi
 
-test: build FORCE
-	$(ROOT)/test/hex/run.sh $(OUT)/hex
+# Compile it
+mkdir -p build/test/hex-c89
+$CC $CFLAGS platform/hex/c89/hex.c -o build/test/hex-c89/hex
+echo "Compiled: build/test/hex-c89/hex"

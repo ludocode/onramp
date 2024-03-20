@@ -134,13 +134,18 @@ int main(int argc, const char** argv) {
         size_t input_pos = 0;
         size_t input_count = 0;
         int line = 1;
-        int address_assertion_length;
+        int address_assertion_length = 0;
         char first_hex_char = 0;
         BOOL in_comment = FALSE;
         BOOL in_address_assertion = FALSE;
         BOOL was_carriage_return = FALSE;
         BOOL was_backslash = FALSE;
         BOOL end_of_file = FALSE;
+
+        /* TODO this loop is a bit messy. I probably should have put the read
+         * character stuff in a separate function so that each parse element
+         * can pull as many characters as it wants instead of having to set
+         * state and loop back. I'll fix it eventually. */
 
         while (TRUE) {
             int b = 0;

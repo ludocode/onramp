@@ -44,7 +44,7 @@ fi
 # Choose compiler flags
 # (set CFLAGS to override the defaults)
 if [ "x$CFLAGS" = "x" ]; then
-    CFLAGS="-O2 -g -std=c89 -Wall -Wextra -Wpedantic -Werror"
+    CFLAGS="-O2 -g -std=c89 -Wall -Wextra -Wpedantic"
 fi
 
 # Compile it

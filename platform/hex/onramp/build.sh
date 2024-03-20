@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# The MIT License (MIT)
+#
 # Copyright (c) 2023-2024 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,26 +23,14 @@
 # SOFTWARE.
 
 
-# This is an implementation of the Onramp hex program that wraps xxd to perform
-# the actual hex conversion. xxd is originally part of Vim, although there are
-# other implementations, e.g. in BusyBox/toybox.
-#
-# Note that xxd ignores invalid characters and allows whitespace between
-# characters in a hex byte. Better implementations of the Onramp hex tool
-# diagnose such errors.
-#
-# Consider using the pure POSIX shell implementation in sh/ instead. The pure
-# POSIX shell hex tool has no external dependencies, performs address
-# assertions, detects invalid hex bytes, and gives error messages with line
-# numbers.
+# This script builds the Onramp bytecode hex tool.
 
 
-if [ "$1" = "-o" ]; then
-    output="$2"
-    input="$3"
-else
-    input="$1"
-    output="$3"
-fi
+set -e
+cd "$(dirname "$0")/../../.."
 
-sed 's/[;@#].*//' < "$input" | xxd -r -p > "$output"
+# Since this is a POSIX shell script, we assume we can use the POSIX shell hex
+# tool to hex it.
+mkdir -p build/test/hex-onramp
+platform/hex/sh/hex.sh platform/hex/onramp/hex.oe.ohx -o build/test/hex-onramp/hex.oe
+echo "Hexed: build/test/hex-onramp/hex.oe"

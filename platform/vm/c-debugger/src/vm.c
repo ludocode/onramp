@@ -317,7 +317,7 @@ static void usage(const char* command) {
 static size_t vm_store_string(vm_t* vm, size_t addr, const char* str) {
     size_t size = strlen(str) + 1;
     if (!vm_is_buffer_valid(vm, addr, size)) {
-        fputs("ERROR: Out of memory loading string array.\n", stderr);
+        fputs("ERROR: Out of memory storing string.\n", stderr);
         exit(125);
     }
     memcpy(vm->memory + (addr - vm->memory_base), str, size);
@@ -341,6 +341,10 @@ static size_t vm_store_string_array(vm_t* vm, size_t addr, const char** strings)
     // setup array
     size_t array = addr;
     addr += (count + 1) * 4;
+    if (!vm_is_buffer_valid(vm, array, addr - array)) {
+        fputs("ERROR: Out of memory storing string.\n", stderr);
+        exit(125);
+    }
 
     // load strings
     for (; *strings; ++strings) {

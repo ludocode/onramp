@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# The MIT License (MIT)
+#
 # Copyright (c) 2023-2024 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,26 +23,24 @@
 # SOFTWARE.
 
 
-# This is an implementation of the Onramp hex program that wraps xxd to perform
-# the actual hex conversion. xxd is originally part of Vim, although there are
-# other implementations, e.g. in BusyBox/toybox.
-#
-# Note that xxd ignores invalid characters and allows whitespace between
-# characters in a hex byte. Better implementations of the Onramp hex tool
-# diagnose such errors.
-#
-# Consider using the pure POSIX shell implementation in sh/ instead. The pure
-# POSIX shell hex tool has no external dependencies, performs address
-# assertions, detects invalid hex bytes, and gives error messages with line
-# numbers.
+# This script builds the x86_64-linux hex tool. It relies only on a POSIX shell
+# and coreutils.
 
 
-if [ "$1" = "-o" ]; then
-    output="$2"
-    input="$3"
+set -e
+cd "$(dirname "$0")/../../.."
+
+# find a fast error-checking hex tool
+if [ -e build/test/hex-c89/hex ]; then
+    HEX=build/test/hex-c89/hex
+elif command -v python; then
+    HEX="python platform/hex/python/hex.py"
 else
-    input="$1"
-    output="$3"
+    HEX=platform/hex/sh/hex.sh
 fi
 
-sed 's/[;@#].*//' < "$input" | xxd -r -p > "$output"
+# build
+mkdir -p build/test/hex-x86_64-linux
+echo "Hexing x86_64-linux hex.ohx  (with: \`$HEX\`)"
+$HEX platform/hex/x86_64-linux/hex.ohx -o build/test/hex-x86_64-linux/hex
+chmod +x build/test/hex-x86_64-linux/hex

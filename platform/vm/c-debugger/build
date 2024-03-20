@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# The MIT License (MIT)
+#
 # Copyright (c) 2023-2024 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -21,26 +23,34 @@
 # SOFTWARE.
 
 
-# This is an implementation of the Onramp hex program that wraps xxd to perform
-# the actual hex conversion. xxd is originally part of Vim, although there are
-# other implementations, e.g. in BusyBox/toybox.
+# This script builds the debugger VM. You need a C compiler.
 #
-# Note that xxd ignores invalid characters and allows whitespace between
-# characters in a hex byte. Better implementations of the Onramp hex tool
-# diagnose such errors.
+# Set CC to use a specific compiler.
+# Set CFLAGS to override the flags to use.
 #
-# Consider using the pure POSIX shell implementation in sh/ instead. The pure
-# POSIX shell hex tool has no external dependencies, performs address
-# assertions, detects invalid hex bytes, and gives error messages with line
-# numbers.
+# You can also use the Makefile to work on the VM. This script is used by the
+# setup scripts so that the VM can be built without a make tool.
 
 
-if [ "$1" = "-o" ]; then
-    output="$2"
-    input="$3"
-else
-    input="$1"
-    output="$3"
+set -e
+cd "$(dirname "$0")/../../.."
+
+# Find a compiler
+if [ "x$CC" = "x" ]; then
+    if ! command -v cc > /dev/null; then
+        echo "ERROR: A compiler is required."
+        exit 1
+    fi
+    CC=cc
 fi
 
-sed 's/[;@#].*//' < "$input" | xxd -r -p > "$output"
+# Choose compiler flags
+# (set CFLAGS to override the defaults)
+if [ "x$CFLAGS" = "x" ]; then
+    CFLAGS="-O2 -g -Wall -Wextra -Wpedantic"
+fi
+
+# Compile it
+mkdir -p build/test/vm-c-debugger
+$CC $CFLAGS platform/vm/c-debugger/vm.c -o build/test/vm-c-debugger/vm
+echo "Compiled: build/test/vm-c-debugger/vm"

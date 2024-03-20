@@ -33,10 +33,6 @@
 set -e
 cd "$(dirname "$0")/.."
 
-# Setup for a POSIX environment
-#scripts/posix/setup.sh
-. scripts/posix/env.sh
-
 
 
 ################
@@ -44,12 +40,10 @@ cd "$(dirname "$0")/.."
 ################
 
 # c89
-( cd platform/hex/c89 && make )
+platform/hex/c89/test.sh
 
-# onramp
-mkdir -p build/test/hex-onramp
-build/test/hex-c89/hex platform/hex/onramp/hex.oe.ohx -o build/test/hex-onramp/hex.oe
-test/hex/run.sh onrampvm build/test/hex-onramp/hex.oe
+# NOTE: We test the onramp/ hex tool at the end because it depends on several
+# other tools here.
 
 # python
 test/hex/run.sh platform/hex/python/hex.py
@@ -66,10 +60,9 @@ test/hex/run.sh --lax platform/hex/sh-alt/hexsemi.sh
 test/hex/run.sh --lax platform/hex/sh-alt/hexsplit.sh
 
 # x86_64-linux
-mkdir -p build/test/hex-x86_64-linux
-build/test/hex-c89/hex platform/hex/x86_64-linux/hex.ohx -o build/test/hex-x86_64-linux/hex
-chmod +x build/test/hex-x86_64-linux/hex
-test/hex/run.sh --lax build/test/hex-x86_64-linux/hex
+if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
+    platform/hex/x86_64-linux/test.sh
+fi
 
 # xxd
 test/hex/run.sh --lax platform/hex/xxd/hex.sh
@@ -81,23 +74,28 @@ test/hex/run.sh --lax platform/hex/xxd/hex.sh
 ################
 
 # c-debugger
-( cd platform/vm/c-debugger && make )
-
-# c89
-mkdir -p build/test/vm-c89
-# TODO disabled for now, buggy, needs cleanup
-#cc -Wall -Wextra -Werror -Wpedantic -std=c89 platform/vm/c89/vm.c -o build/test/vm-c89/vm
-#test/vm/run.sh build/test/vm-c89/vm
+make -C platform/vm/c-debugger
 
 # x86_64-linux
-mkdir -p build/test/vm-x86_64-linux
-build/test/hex-c89/hex platform/vm/x86_64-linux/vm.ohx -o build/test/vm-x86_64-linux/vm
-chmod +x build/test/vm-x86_64-linux/vm
-test/vm/run.sh build/test/vm-x86_64-linux/vm
+if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
+    platform/vm/x86_64-linux/test.sh
+fi
 
 # python
-test/vm/run.sh platform/vm/python/vm.py
+platform/vm/python/test.sh
+
+# c89
+platform/vm/c89/test.sh
 
 # sh
 # TODO disabled for now, it's too slow
 #test/vm/run.sh platform/vm/sh/vm.sh
+
+
+
+################
+# misc
+################
+
+# onramp bytecode hex tool
+platform/hex/onramp/test.sh
