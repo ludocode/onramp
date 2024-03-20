@@ -1499,7 +1499,7 @@
     ; if the right type is a pointer, return it
     ldw r0 rfp -12
     and r1 r0 0x0F
-    jz r2 &compile_add_sub_right_not_pointer
+    jz r1 &compile_add_sub_right_not_pointer
     leave
     ret
 :compile_add_sub_right_not_pointer
