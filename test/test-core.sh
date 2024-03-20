@@ -70,7 +70,7 @@ make -C test/ld/2-full
 make -C test/as/2-full
 
 # extra tools
-make -C platform/hex/c89
+platform/hex/c89/test.sh
 #make -C test/ar/1-unix
 
 echo "All tests pass."

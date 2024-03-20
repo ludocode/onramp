@@ -41,7 +41,7 @@ TEMP_STDOUT=/tmp/onramp-test.stdout
 TEMP_STDERR=/tmp/onramp-test.stderr
 ANY_ERROR=0
 
-( cd $(dirname $0)/../../platform/hex/c89 && make build ) || exit $?
+( $(dirname $0)/../../platform/hex/c89/build.sh ) || exit $?
 HEX=$(dirname $0)/../../build/test/hex-c89/hex
 
 echo "Running vm tests on: $COMMAND"
