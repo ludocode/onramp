@@ -31,7 +31,12 @@
  * required checks and many optional checks and implements all system calls.
  *
  * If you're trying to port Onramp to an old system that only has a C89
- * compiler, this is probably the best place to start.
+ * compiler, this is probably the best place to start. There's a good chance
+ * you'll need to modify this; in particular, there is currently no
+ * implementation of the ftrunc syscall in standard C.
+ *
+ * TODO there's some Windows portability stuff here but it's incomplete. We
+ * still need to translate paths from Windows-style to UNIX style.
  */
 
 
@@ -40,11 +45,27 @@
  * Portability
  */
 
+#ifdef __unix__
+    /* We currently rely on ftruncate() on POSIX systems. */
+    #define _POSIX_C_SOURCE 199309L
+    #include <unistd.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
+    extern char** environ;
+#endif
+
+#ifdef _WIN32
+    #include <io.h>
+    #include <direct.h>
+    extern char** _environ;
+#endif
+
 #include <limits.h>
 #include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+
 
 /* Onramp requires an 8-bit char and a 32-bit int or long. */
 #ifdef __STDC_VERSION__
@@ -63,6 +84,10 @@
 #endif
 #undef VM_HAVE_C99_TYPES
 
+#ifndef UINT32_MAX
+    #define UINT32_MAX 0xFFFFFFFFu
+#endif
+
 
 
 /*
@@ -75,7 +100,7 @@
 
 static uint8_t vm_memory[VM_MEMORY_SIZE];
 static FILE* vm_files[VM_MAX_FILES];
-//static uint32_t vm_directories[VM_MAX_DIRECTORIES];
+/*static uint32_t vm_directories[VM_MAX_DIRECTORIES];*/
 static uint32_t vm_registers[16];
 
 /* array indices of named registers */
@@ -83,6 +108,14 @@ static uint32_t vm_registers[16];
 #define VM_RFP 0xD  /* frame pointer */
 #define VM_RPP 0xE  /* program pointer */
 #define VM_RIP 0xF  /* instruction pointer */
+
+/* errors */
+#define VM_ERR_GENERIC     0xFFFFFFFF
+#define VM_ERR_PATH        0xFFFFFFFE
+#define VM_ERR_IO          0xFFFFFFFD
+#define VM_ERR_UNSUPPORTED 0xFFFFFFFC
+
+static uint8_t vm_load_u8(uint32_t addr);
 
 
 
@@ -121,6 +154,12 @@ static void usage(const char* command) {
     exit(125);
 }
 
+
+
+/*
+ * Memory Checks
+ */
+
 #define vm_check(expr, msg) (!(expr) ? vm_panic(msg) : (void)0)
 
 #define vm_check_aligned(addr) \
@@ -138,6 +177,16 @@ static void usage(const char* command) {
 #define vm_check_directory(dd) \
     vm_check((uint32_t)(dd) < VM_MAX_FILES && vm_directories[(dd)] != NULL, \
             "Invalid directory descriptor")
+
+static void vm_check_string(uint32_t addr) {
+    while (vm_load_u8(addr++) != '\0') {}
+}
+
+static void vm_check_buffer(uint32_t addr, uint32_t size) {
+    vm_check(size > 0, "Invalid size of zero for syscall buffer");
+    vm_check_valid(addr);
+    vm_check_valid(addr + size - 1);
+}
 
 
 
@@ -175,6 +224,40 @@ static void vm_store_u8(uint32_t addr, uint8_t value) {
     vm_memory[addr] = value;
 }
 
+static size_t vm_store_string(uint32_t addr, const char* str) {
+    uint32_t size = (uint32_t)strlen(str) + 1;
+    vm_check_buffer(addr, size);
+    memcpy(vm_memory + addr, str, size);
+    return addr + (uint32_t)size;
+}
+
+static uint32_t vm_store_string_array(uint32_t addr, char** strings) {
+    uint32_t count;
+    uint32_t array;
+
+    /* count strings */
+    count = 0;
+    for (; strings[count] != NULL; ++count) {}
+
+    /* make space for array */
+    array = addr;
+    addr += (count + 1) * 4;
+    vm_check_buffer(array, addr - array);
+
+    /* load strings */
+    for (; *strings; ++strings) {
+        vm_store_u32(array, addr);
+        array += 4;
+        addr = vm_store_string(addr, *strings);
+    }
+    vm_store_u32(array, 0);
+
+    /* align address */
+    addr = (addr + 0x3u) & ~0x3u;
+    return addr;
+
+}
+
 
 
 /*
@@ -201,16 +284,6 @@ static uint8_t vm_parse_register(uint8_t b) {
 static FILE* vm_file(uint32_t handle) {
     vm_check_file(handle);
     return vm_files[handle];
-}
-
-static void vm_check_string(uint32_t addr) {
-    while (vm_load_u8(addr++) != '\0') {}
-}
-
-static void vm_check_buffer(uint32_t addr, uint32_t size) {
-    vm_check(size > 0, "Invalid size of zero for syscall buffer");
-    vm_check_valid(addr);
-    vm_check_valid(addr + size - 1);
 }
 
 
@@ -250,7 +323,7 @@ static uint32_t vm_load_program(uint32_t start, const char* filename) {
             vm_load_u32(start + 4) != 0x706D617E ||
             vm_load_u32(start + 8) != 0x2020207E)
     {
-        //printf("%x\n", vm_load_u32(start));
+        /*printf("%x\n", vm_load_u32(start));*/
         fprintf(stderr, "WARNING: Program does not start with \"~Onr~amp~   \" format indicator.\n");
     }
 
@@ -267,10 +340,13 @@ static uint32_t vm_load_program(uint32_t start, const char* filename) {
     return addr;
 }
 
-static void vm_init(int argc, const char* argv[]) {
+static void vm_init(int argc, char** argv) {
     const char* filename = NULL;
     int i;
     uint32_t address, process_info_address, halt_address;
+    char** env;
+    char* cwd;
+    char cwd_buffer[256];
 
     for (i = 1; i < argc; ++i) {
         /* TODO parse args */
@@ -299,24 +375,56 @@ static void vm_init(int argc, const char* argv[]) {
     address += 4;
 
     /* configure process info table */
+    vm_store_u32(process_info_address + 0, 0); /* version */
     vm_store_u32(process_info_address + 8, halt_address);
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
     vm_store_u32(process_info_address + 20, 2); /* stderr */
 
-    /* TODO copy command-line args into memory */
-    vm_store_u32(process_info_address + 24, 0); /* args */
-    vm_store_u32(process_info_address + 28, 0); /* environ */
+    /* args */
+    vm_store_u32(process_info_address + 24, address);
+    address = vm_store_string_array(address, argv + 1); /* skip vm name */
 
-    /* TODO copy workdir into memory */
+    /* environment variables */
+    #ifdef __unix__
+        env = environ;
+    #elif defined(_WIN32);
+        env = _environ;
+    #else
+        env = 0;
+    #endif
+    if (env) {
+        vm_store_u32(process_info_address + 28, address);
+        address = vm_store_string_array(address, environ);
+    } else {
+        vm_store_u32(process_info_address + 28, 0);
+    }
+
+    /* working directory */
+    #ifdef __unix__
+        cwd = getcwd(cwd_buffer, sizeof(cwd_buffer));
+    #elif defined(_WIN32);
+        cwd = _getcwd(cwd_buffer, sizeof(cwd_buffer));
+    #else
+        cwd = 0;
+    #endif
+    if (cwd) {
+        vm_store_u32(process_info_address + 32, address);
+        address = vm_store_string(address, cwd);
+        address = (address + 0x3u) & ~0x3u; /* align address */
+    } else {
+        vm_store_u32(process_info_address + 32, 0);
+    }
 
     /* files */
     vm_files[0] = stdin;
     vm_files[1] = stdout;
     vm_files[2] = stderr;
 
-    uint32_t break_address = vm_load_program(address, filename);
-    vm_store_u32(process_info_address + 4, break_address);
+    {
+        uint32_t break_address = vm_load_program(address, filename);
+        vm_store_u32(process_info_address + 4, break_address);
+    }
 }
 
 
@@ -329,7 +437,7 @@ static void vm_halt(void) {
     exit(vm_parse_mix(vm_registers[0]));
 }
 
-static void vm_open(void) {
+static void vm_fopen(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
 
@@ -352,24 +460,30 @@ static void vm_open(void) {
     vm_check(handle != UINT32_MAX, "No free file descriptors");
 
     /* open it */
-    vm_files[handle] = fopen(path, mode ? "wb" : "rb");
+    vm_files[handle] = fopen(path, mode ? "a+b" : "rb");
     if (vm_files[handle] == NULL) {
-        /* TODO right now there's no way to tell whether a file exists. */
-        vm_panic("File does not exist.");
+        vm_registers[0] = VM_ERR_PATH;
+        return;
+    }
+
+    /* if writeable, seek to the beginning */
+    if (mode) {
+        fseek(vm_files[handle], 0, SEEK_SET);
     }
 
     vm_registers[0] = handle;
 }
 
-static void vm_close(void) {
+static void vm_fclose(void) {
     uint32_t handle = vm_registers[0];
     vm_check_file(handle);
     vm_check(handle > 2, "Cannot close standard streams.");
     fclose(vm_files[handle]);
     vm_files[handle] = NULL;
+    vm_registers[0] = 0;
 }
 
-static void vm_read(void) {
+static void vm_fread(void) {
     FILE* file = vm_file(vm_registers[0]);
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
@@ -378,27 +492,124 @@ static void vm_read(void) {
     vm_check_buffer(addr, count);
     ret = fread(vm_memory + addr, 1, count, file);
     if (ret == 0 && !feof(file)) {
-        vm_panic("Error reading file!");
+        vm_registers[0] = VM_ERR_IO;
+        return;
     }
 
     vm_registers[0] = (uint32_t)ret;
 }
 
-static void vm_write(void) {
+static void vm_fwrite(void) {
     FILE* file = vm_file(vm_registers[0]);
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
+    uint32_t start = addr;
     size_t ret;
 
     vm_check_buffer(addr, count);
     while (count > 0) {
         ret = fwrite(vm_memory + addr, 1, count, file);
         if (ret == 0) {
-            vm_panic("Error writing file!");
+            vm_registers[0] = VM_ERR_IO;
+            return;
         }
         addr += ret;
         count -= ret;
     }
+
+    vm_registers[0] = addr - start;
+}
+
+static void vm_fseek(void) {
+    FILE* file = vm_file(vm_registers[0]);
+    uint32_t base = vm_registers[1];
+
+    /*
+     * We don't know how long `long` is. If it's only 32 bits we won't have
+     * enough space for the high bits. We try anyway; we just won't support
+     * files larger than 2 GB otherwise.
+     *
+     * In case it's only 32 bits, we have to shift twice since a shift by the
+     * word size is undefined behaviour.
+     *
+     * There are platform-specific extensions for 64-bit seek. POSIX 2001 has
+     * fseeko() and ftello() for example. These are not in C89, and they
+     * require `long long` which is not in C89 either.
+     */
+
+    long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
+    int ret = fseek(file, offset, base);
+    vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
+}
+
+static void vm_ftell(void) {
+    FILE* file = vm_file(vm_registers[0]);
+
+    /* As above we shift twice in case we're only 32 bits. We convert to
+     * unsigned first to get an unsigned shift. */
+    long pos = ftell(file);
+    if (pos == -1) {
+        vm_registers[0] = VM_ERR_GENERIC;
+        return;
+    }
+
+    {
+        unsigned long upos = (unsigned long)pos;
+        uint32_t addr = vm_registers[1];
+        vm_store_u32(addr, (uint32_t)upos);
+        vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
+    }
+
+    vm_registers[0] = 0;
+}
+
+static void vm_ftrunc(void) {
+    FILE* file = vm_file(vm_registers[0]);
+    uint32_t size_low = vm_registers[1];
+    uint32_t size_high = vm_registers[2];
+
+    /*
+     * There is no standard C way to truncate an open file. For now we use
+     * platform-specific functions.
+     */
+
+    #ifdef _WIN32
+        /* On Windows we have _chsize(). There is also _chsize_s() which is
+         * 64-bit but our fseek()/ftell() functions aren't currently using
+         * corresponding 64-bit functions so right now there's no point. */
+        unsigned long upos = (unsigned long)size_low |
+                (((unsigned long)size_high << 16) << 16);
+        int ret = _chsize(fileno(file), upos);
+    #endif
+
+    #ifdef __unix__
+        /* On UNIX systems we call ftruncate(). */
+        off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
+        int ret = ftruncate(fileno(file), upos);
+    #endif
+
+    #if !defined(_WIN32) && !defined(__unix__)
+        /* TODO make this work with only standard C. If size is zero, freopen()
+         * the file in "wb" mode; otherwise rename the file to a temporary and
+         * copy the desired bytes. The Onramp bootstrap process only ever calls
+         * this with size zero. */
+        #error "ftrunc is not implemented on this platform."
+    #endif
+
+    vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
+}
+
+static void vm_chmod(void) {
+    /* There is nothing like chmod() in standard C. It's only relevant for
+     * better integration into UNIX systems. */
+    #ifdef __unix__
+    uint32_t path_addr = vm_registers[0];
+    uint32_t mode = vm_registers[1];
+    const char* path;
+    vm_check_string(path_addr);
+    path = (const char*)vm_memory + path_addr;
+    vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
+    #endif
 }
 
 static void vm_sys(uint8_t syscall) {
@@ -408,17 +619,29 @@ static void vm_sys(uint8_t syscall) {
         case 0x00: /* halt */
             vm_halt();
             return;
-        case 0x03: /* open */
-            vm_open();
+        case 0x03: /* fopen */
+            vm_fopen();
             return;
-        case 0x04: /* close */
-            vm_close();
+        case 0x04: /* fclose */
+            vm_fclose();
             return;
-        case 0x05: /* read */
-            vm_read();
+        case 0x05: /* fread */
+            vm_fread();
             return;
-        case 0x06: /* write */
-            vm_write();
+        case 0x06: /* fwrite */
+            vm_fwrite();
+            return;
+        case 0x07: /* fseek */
+            vm_fseek();
+            return;
+        case 0x08: /* ftell */
+            vm_ftell();
+            return;
+        case 0x09: /* ftrunc */
+            vm_ftrunc();
+            return;
+        case 0x11: /* chmod */
+            vm_chmod();
             return;
         default:
             break;
@@ -510,7 +733,7 @@ next:
     vm_panic("Invalid instruction");
 }
 
-int main(int argc, const char** argv) {
+int main(int argc, char** argv) {
     if (CHAR_BIT != 8) {
         fputs("ERROR: CHAR_BIT is not 8. An 8-bit char is required.\n", stderr);
         exit(1);
