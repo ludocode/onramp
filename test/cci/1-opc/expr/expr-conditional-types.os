@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./expr/expr-conditional-types.i"
 @_F_main 
   add r0 rfp -4 
   push r0 

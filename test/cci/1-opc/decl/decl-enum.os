@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./decl/decl-enum.i"
 @alice 
 0 
 @bob 

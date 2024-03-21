@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./expr/expr-assign-expr.i"
 =x 
 '00'00'00'00
 @_F_main 

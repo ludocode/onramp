@@ -1,9 +1,3 @@
-#line manual
-#line 1 "/tmp/onramp-test.i"
-#line 1 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#line 1 "../../../core/libc/0-oo/include/__onramp/__bool.h"
-#line 34 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#line 1 "./expr/expr-pre-inc-dec.c"
 @_F_main 
   add r0 rfp -4 
   push r0 

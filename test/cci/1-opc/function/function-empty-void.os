@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./function/function-empty-void.i"
 @_F_foo 
   imw r0 0 
   leave 

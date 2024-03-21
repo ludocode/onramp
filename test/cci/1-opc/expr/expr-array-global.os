@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./expr/expr-array-global.i"
 =xa 
 '00'00'00'00
 =xb 

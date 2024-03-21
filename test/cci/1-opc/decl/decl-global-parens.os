@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./decl/decl-global-parens.i"
 =x 
 '00'00'00'00
 =y 

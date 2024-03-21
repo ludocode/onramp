@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./expr/expr-sizeof-basic-type.i"
 @_F_main 
   imw r0 4 
   push r0 

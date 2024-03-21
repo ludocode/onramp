@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./function/function-empty-two-args.i"
 @_F_foo 
   stw r0 rfp -4 
   stw r1 rfp -8 

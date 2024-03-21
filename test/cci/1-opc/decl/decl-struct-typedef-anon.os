@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./decl/decl-struct-typedef-anon.i"
 @_F_main 
   imw r0 12 
   push r0 

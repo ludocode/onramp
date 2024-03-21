@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./global/global-define-char.i"
 =foo 
 '00
 @_F_main 

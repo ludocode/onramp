@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./function/function-empty-arg.i"
 @_F_foo 
   stw r0 rfp -4 
   imw r0 0 

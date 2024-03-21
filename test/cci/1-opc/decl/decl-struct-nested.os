@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./decl/decl-struct-nested.i"
 @_F_main 
   imw r0 16 
   push r0 

@@ -1,17 +1,3 @@
-#line manual
-#line 1 "/tmp/onramp-test.i"
-#line 1 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#line 1 "../../../core/libc/0-oo/include/__onramp/__bool.h"
-#line 34 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#line 1 "./programs/eight-queens.c"
-#line 1 "../../../core/libc/0-oo/include/stdio.h"
-#line 1 "../../../core/libc/0-oo/include/__onramp/__size_t.h"
-#line 33 "../../../core/libc/0-oo/include/stdio.h"
-#line 1 "../../../core/libc/0-oo/include/__onramp/__null.h"
-#line 34 "../../../core/libc/0-oo/include/stdio.h"
-#line 31 "./programs/eight-queens.c"
-#line 1 "../../../core/libc/0-oo/include/stdbool.h"
-#line 32 "./programs/eight-queens.c"
 @queens 
 '00'00'00'00 '00'00'00'00
 @_F_main 

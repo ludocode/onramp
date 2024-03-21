@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./decl/decl-enum-trailing-comma.i"
 @bar 
 10 
 @_F_main 

@@ -106,7 +106,9 @@ MACROS="$MACROS -include __onramp/__predef.h"
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
 
-#FILES="$SOURCE_FOLDER/programs/eight-queens.c"
+# Note: We support .i files only because we have test cases that test error
+# handling on things that the preprocessor would otherwise break on (such as
+# unclosed string and character literals.) Almost all tests are .c files.
 FILES="$(find $SOURCE_FOLDER/* -name '*.c') $(find $SOURCE_FOLDER/* -name '*.i')"
 
 for TESTFILE in $FILES; do
@@ -160,7 +162,7 @@ for TESTFILE in $FILES; do
             # from failing due to insignificant changes to the headers
             # (otherwise every time we change a libc header file all test cases
             # would have to be regenerated)
-            sed '/^#* *$/d' $TEMP_OS > $TEMP_OS_CLEAN
+            sed -e '/^ *$/d' -e '/^#/d' $TEMP_OS > $TEMP_OS_CLEAN
             if ! diff -q $BASENAME.os $TEMP_OS_CLEAN > /dev/null; then
                 echo "ERROR: $BASENAME did not match expected $BASENAME.os"
                 THIS_ERROR=1

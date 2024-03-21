@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./stdout/stdout-fputc.i"
 @_F_main 
   imw r0 0x61 
   push r0 

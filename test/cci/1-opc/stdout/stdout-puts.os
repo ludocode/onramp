@@ -1,5 +1,3 @@
-#line manual
-#line 1 "./stdout/stdout-puts.i"
 @_F_main 
   imw r0 ^_Sx0 
   add r0 rpp r0 

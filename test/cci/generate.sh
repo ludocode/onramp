@@ -95,7 +95,7 @@ for TESTFILE in $FILES; do
 
     # handle assembly
     if [ $RET -eq 0 ]; then
-        sed '/^#* *$/d' $TEMP_OS > $BASENAME.os
+        sed -e '/^ *$/d' -e '/^#/d' $TEMP_OS > $BASENAME.os
         echo "Generated $BASENAME.os"
     else
         rm -f $BASENAME.os
