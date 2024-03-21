@@ -1,3 +1,3 @@
-# 1 "extensions/arg-directive-define-unused.c"
+# 1 "./extensions/arg-directive-define-unused.c"
 
 B

@@ -1,10 +1,10 @@
-# 1 "linemarker/linemarker-lf.c"
+# 1 "./linemarker/linemarker-lf.c"
 hello
 
 hello
-# 6 "linemarker/linemarker-lf.c"
+# 6 "./linemarker/linemarker-lf.c"
 hello
-# 11 "linemarker/linemarker-lf.c"
+# 11 "./linemarker/linemarker-lf.c"
 hello
-# 16 "linemarker/linemarker-lf.c"
+# 16 "./linemarker/linemarker-lf.c"
 hello

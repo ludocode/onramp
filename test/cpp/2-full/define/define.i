@@ -1,4 +1,4 @@
-# 1 "define/define.c"
+# 1 "./define/define.c"
 
 1
 

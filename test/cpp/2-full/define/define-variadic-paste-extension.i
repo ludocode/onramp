@@ -1,4 +1,4 @@
-# 1 "define/define-variadic-paste-extension.c"
+# 1 "./define/define-variadic-paste-extension.c"
 
 before,after
 before,1,after

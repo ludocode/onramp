@@ -1,4 +1,4 @@
-# 1 "define/define-variadic-stringify.c"
+# 1 "./define/define-variadic-stringify.c"
 
 before "" after
 before "1" after

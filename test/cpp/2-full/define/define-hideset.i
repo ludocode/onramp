@@ -1,6 +1,6 @@
-# 1 "define/define-hideset.c"
+# 1 "./define/define-hideset.c"
 
 FOO
-# 5 "define/define-hideset.c"
+# 5 "./define/define-hideset.c"
 BAR
 BAZ

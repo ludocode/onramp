@@ -1,4 +1,4 @@
-# 1 "define/define-variadic-ignored.c"
+# 1 "./define/define-variadic-ignored.c"
 
 foo
 foo

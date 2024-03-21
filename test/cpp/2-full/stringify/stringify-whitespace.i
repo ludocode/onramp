@@ -1,4 +1,4 @@
-# 1 "stringify/stringify-whitespace.c"
+# 1 "./stringify/stringify-whitespace.c"
 
 "a"
 

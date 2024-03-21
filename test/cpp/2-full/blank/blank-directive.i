@@ -1,1 +1,1 @@
-# 1 "blank/blank-directive.c"
+# 1 "./blank/blank-directive.c"

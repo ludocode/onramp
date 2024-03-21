@@ -1,5 +1,5 @@
-# 1 "ifdef/ifdef-builtins.c"
+# 1 "./ifdef/ifdef-builtins.c"
 
 FILE
-# 6 "ifdef/ifdef-builtins.c"
+# 6 "./ifdef/ifdef-builtins.c"
 LINE

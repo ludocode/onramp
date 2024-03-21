@@ -1,4 +1,4 @@
-# 1 "arguments/argument-twice.c"
+# 1 "./arguments/argument-twice.c"
 
 
 1 1

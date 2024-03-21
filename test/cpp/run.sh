@@ -17,12 +17,20 @@
 #
 # TODO we should have a special exit code so that we can differentiate between
 # the preprocessor crashing as opposed to printing an error and exiting.
+# TODO this is now done with cci, we make asan exit with code 125 which is the
+# same code for a vm crash so we can detect crashes in both, need to do the
+# same here
 
 if [ "$1" == "" ]; then
     echo "Need command to test."
     exit 1
 fi
 
+# TODO the source folder needs to be the current folder to make paths in #line
+# match, but we can't really switch to it because the command is in multiple
+# parts and some may have relative paths. We should just not bother taking a
+# source folder, instead the source folder should always just be '.', i.e. the
+# working directory where the script is called
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"

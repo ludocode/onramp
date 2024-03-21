@@ -1,4 +1,4 @@
-# 1 "if/if-defined-parens-true.c"
+# 1 "./if/if-defined-parens-true.c"
 
 
 a

@@ -1,4 +1,4 @@
-# 1 "if/if-defined-noparens-true.c"
+# 1 "./if/if-defined-noparens-true.c"
 
 
 a

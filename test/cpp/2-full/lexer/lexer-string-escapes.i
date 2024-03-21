@@ -1,2 +1,2 @@
-# 1 "lexer/lexer-string-escapes.c"
+# 1 "./lexer/lexer-string-escapes.c"
 "\"\\\n"

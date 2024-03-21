@@ -1,2 +1,2 @@
-# 1 "lexer/lexer-string.c"
+# 1 "./lexer/lexer-string.c"
 "hello"

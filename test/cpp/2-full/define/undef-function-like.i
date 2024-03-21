@@ -1,4 +1,4 @@
-# 1 "define/undef-function-like.c"
+# 1 "./define/undef-function-like.c"
 
 2
 

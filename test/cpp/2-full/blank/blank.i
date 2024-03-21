@@ -1,1 +1,1 @@
-# 1 "blank/blank.c"
+# 1 "./blank/blank.c"

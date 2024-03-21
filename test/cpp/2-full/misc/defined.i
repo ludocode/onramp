@@ -1,4 +1,4 @@
-# 1 "misc/defined.c"
+# 1 "./misc/defined.c"
 
 defined()
 defined(BAR)

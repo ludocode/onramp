@@ -1,4 +1,4 @@
-# 1 "arguments/empty-args.c"
+# 1 "./arguments/empty-args.c"
 
 FOO
 

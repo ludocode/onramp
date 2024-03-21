@@ -1,4 +1,4 @@
-# 1 "define/define-variadic-expand.c"
+# 1 "./define/define-variadic-expand.c"
 
 before after
 before 1 after

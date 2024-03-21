@@ -1,4 +1,4 @@
-# 1 "stringify/stringify-string.c"
+# 1 "./stringify/stringify-string.c"
 
 "\"Hello world!\""
 "\"\\\"\\\\\\n\\'\""

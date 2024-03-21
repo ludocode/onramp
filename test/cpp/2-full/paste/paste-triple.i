@@ -1,3 +1,3 @@
-# 1 "paste/paste-triple.c"
+# 1 "./paste/paste-triple.c"
 
 123

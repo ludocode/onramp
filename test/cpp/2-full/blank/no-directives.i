@@ -1,2 +1,2 @@
-# 1 "blank/no-directives.c"
+# 1 "./blank/no-directives.c"
 hello

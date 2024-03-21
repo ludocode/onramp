@@ -1,1 +1,1 @@
-# 1 "define/define-function-no-args.c"
+# 1 "./define/define-function-no-args.c"

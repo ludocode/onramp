@@ -1,4 +1,4 @@
-# 1 "if/if-macro.c"
+# 1 "./if/if-macro.c"
 
 
 foo

@@ -1,3 +1,3 @@
-# 1 "define/undef-not-defined.c"
+# 1 "./define/undef-not-defined.c"
 
 FOO

@@ -1,4 +1,4 @@
-# 1 "ifdef/elifndef-simple.c"
+# 1 "./ifdef/elifndef-simple.c"
 
 
 foo

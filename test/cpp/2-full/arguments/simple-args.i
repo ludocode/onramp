@@ -1,3 +1,3 @@
-# 1 "arguments/simple-args.c"
+# 1 "./arguments/simple-args.c"
 
 1
