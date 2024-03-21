@@ -1,3 +1,7 @@
+// The MIT License (MIT)
+// Copyright (c) 2023-2024 Fraser Heavy Software
+// This test case is part of the Onramp compiler project.
+
 int foo(int a1, int a2, int a3, int a4, int a5,
         int a6, int a7, int a8, int a9, int a10)
 {
