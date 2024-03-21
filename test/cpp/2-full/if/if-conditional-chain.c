@@ -1,3 +1,7 @@
+// The MIT License (MIT)
+// Copyright (c) 2023-2024 Fraser Heavy Software
+// This test case is part of the Onramp compiler project.
+
 #if 0 ? 0 : 0 ? 0 : 1
 // MSVC fails this, both traditional and new. It's not clear to
 // me why it fails because it should be 0 regardless of associativity.

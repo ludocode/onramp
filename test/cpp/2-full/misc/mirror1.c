@@ -1,3 +1,7 @@
+// The MIT License (MIT)
+// Copyright (c) 2023-2024 Fraser Heavy Software
+// This test case is part of the Onramp compiler project.
+
 // TODO replaced by 
 
 #define GHOST_CONCAT(x, y) GHOST_CONCAT_IMPL(x, y)

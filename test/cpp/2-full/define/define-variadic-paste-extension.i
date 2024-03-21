@@ -1,5 +1,5 @@
 # 1 "./define/define-variadic-paste-extension.c"
-
+# 6 "./define/define-variadic-paste-extension.c"
 before,after
 before,1,after
 before,1,2,after

@@ -1,3 +1,7 @@
+// The MIT License (MIT)
+// Copyright (c) 2023-2024 Fraser Heavy Software
+// This test case is part of the Onramp compiler project.
+
 // GCC outputs the pragmas in declared order.
 // Clang gives an error about #pragma in macro arguments and refuses to output anything.
 // MSVC emits nonsense (the #pragma lines are on the same line as the 'a' and, with the traditional preprocessor, the 'b')

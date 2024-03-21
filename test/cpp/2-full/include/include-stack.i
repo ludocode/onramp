@@ -1,4 +1,5 @@
 # 1 "./include/include-stack.c"
+# 5 "./include/include-stack.c"
 0
 # 1 "./include/include-stack-a.h" 1
 a
@@ -14,5 +15,5 @@ c
 b
 # 3 "./include/include-stack-a.h" 2
 a
-# 3 "./include/include-stack.c" 2
+# 7 "./include/include-stack.c" 2
 0

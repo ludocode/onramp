@@ -1,4 +1,5 @@
 # 1 "./define/undef-line.c"
-1
+# 5 "./define/undef-line.c"
+5
 
 __LINE__

@@ -1,10 +1,11 @@
 # 1 "./linemarker/linemarker-cr.c"
+# 5 "./linemarker/linemarker-cr.c"
 hello
 
 hello
-# 6 "./linemarker/linemarker-cr.c"
+# 10 "./linemarker/linemarker-cr.c"
 hello
-# 11 "./linemarker/linemarker-cr.c"
+# 15 "./linemarker/linemarker-cr.c"
 hello
-# 16 "./linemarker/linemarker-cr.c"
+# 20 "./linemarker/linemarker-cr.c"
 hello
