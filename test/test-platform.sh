@@ -39,11 +39,8 @@ cd "$(dirname "$0")/.."
 # hex
 ################
 
-# c89
-platform/hex/c89/test.sh
-
-# NOTE: We test the onramp/ hex tool at the end because it depends on several
-# other tools here.
+# NOTE: We don't test c89/ or onramp/ here. They're tested as part of
+# test-core.sh .
 
 # python
 test/hex/run.sh platform/hex/python/hex.py
@@ -90,12 +87,3 @@ platform/vm/c89/test.sh
 # sh
 # TODO disabled for now, it's too slow
 #test/vm/run.sh platform/vm/sh/vm.sh
-
-
-
-################
-# misc
-################
-
-# onramp bytecode hex tool
-platform/hex/onramp/test.sh

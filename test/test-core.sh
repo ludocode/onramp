@@ -25,8 +25,8 @@
 # This script compiles each core component with the best available toolchain
 # and runs its test suite.
 #
-# This does not include anything in platform/ except for platform/hex/c89 which
-# is built with Onramp as part of the core bootstrap.
+# This does not test anything in platform/ (although the test scripts for the
+# core hex stages are in platform/.)
 
 set -e
 cd "$(dirname "$0")/.."
@@ -34,6 +34,9 @@ cd "$(dirname "$0")/.."
 # Setup for a POSIX environment
 #scripts/posix/setup.sh
 . scripts/posix/env.sh
+
+# initial hex tool
+platform/hex/onramp/test.sh
 
 # linker
 make -C test/ld/0-global

@@ -78,7 +78,7 @@ sh core/cci/1-opc/build.sh
         cp build/intermediate/as-1-compound/as.oe build/output/bin/as.oe
         cp build/intermediate/ld-1-omc/ld.oe build/output/bin/ld.oe
         cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
-        cp build/intermediate/hex-onramp/hex.oe build/output/bin/hex.oe
+        cp build/intermediate/hex-0-onramp/hex.oe build/output/bin/hex.oe
             #cp build/intermediate/cc/cc.oe.od build/output/bin/cc.oe.od
             #cp build/intermediate/cpp-1-omc/cpp.oe.od build/output/bin/cpp.oe.od
             #cp build/intermediate/cci-0-omc/cci.oe.od build/output/bin/cci.oe.od
@@ -126,7 +126,7 @@ sh core/cci/1-opc/build.sh
 ## sh core/cpp/2-full/rebuild.sh
 ##
 ## # Build the last few tools we need
-## sh platform/hex/c89/build.sh
+## sh core/hex/1-c89/build.sh
 ## sh core/ar/1-unix/build.sh
 
 echo Done.

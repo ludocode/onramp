@@ -1,6 +1,6 @@
 # Coding without labels
 
-Programs like the x86\_64-linux [hex tool](../platform/hex/x86_64-linux) and [VM](../platform/vm/x86_64-linux) are hand-written directly in hexadecimal machine code. Programs like [ld/0](../core/ld/0-global) and [hex/onramp](../platform/hex/onramp) are written in hexadecimal Onramp bytecode. When coding in machine code or bytecode, we don't have any way to resolve labels. This document describes some of the techniques used to work around this in writing these programs.
+Programs like the x86\_64-linux [hex tool](../platform/hex/x86_64-linux) and [VM](../platform/vm/x86_64-linux) are hand-written directly in hexadecimal machine code. Programs like [ld/0-global](../core/ld/0-global), [hex/0-onramp](../core/hex/0-onramp) and [sh](../core/sh/) are written in hexadecimal Onramp bytecode. When coding in machine code or bytecode, we don't have any way to resolve labels. This document describes some of the techniques used to work around this in writing these programs.
 
 
 

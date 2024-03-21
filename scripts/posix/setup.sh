@@ -154,8 +154,8 @@ fi
 # We need the hex tool inside the VM to get started. This needs to be converted
 # from the outside.
 echo "Hexing hex/onramp"
-mkdir -p build/intermediate/hex-onramp
-$HEX platform/hex/onramp/hex.oe.ohx -o build/intermediate/hex-onramp/hex.oe
+mkdir -p build/intermediate/hex-0-onramp
+$HEX core/hex/0-onramp/hex.oe.ohx -o build/intermediate/hex-0-onramp/hex.oe
 
 # We also need the Onramp shell in order to run our build script inside the VM.
 echo "Hexing sh"

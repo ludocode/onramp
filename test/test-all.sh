@@ -24,6 +24,14 @@
 
 set -e
 cd "$(dirname "$0")"
-./test-core.sh
-./test-bootstrap.sh
+
+# We run platform-specific tests first to make sure there are no VM bugs before
+# we test stuff that depends on a VM.
 ./test-platform.sh
+
+# We test core components with the best available toolchains before testing as
+# bootstrapped since they are more likely to find the real source of bugs.
+./test-core.sh
+
+# Finally we test everything as bootstrapped.
+./test-bootstrap.sh

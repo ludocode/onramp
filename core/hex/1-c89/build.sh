@@ -23,31 +23,35 @@
 # SOFTWARE.
 
 
-# This script builds the C89 hex tool. You need a C compiler.
+# This script builds the final stage Onramp hex tool as part of the Onramp
+# bootstrap process. This is an Onramp shell script.
 #
-# Set CC to use a specific compiler.
-# Set CFLAGS to override the flags to use.
+# To build the Onramp hex tool for specific platforms, see the build scripts in:
+#
+#     platform/hex/c89/
 
 
 set -e
-cd "$(dirname "$0")/../../.."
+mkdir -p build
+mkdir -p build/intermediate
+mkdir -p build/intermediate/hex-1-c89
 
-# Find a compiler
-if [ "x$CC" = "x" ]; then
-    if ! command -v cc > /dev/null; then
-        echo "ERROR: A compiler is required."
-        exit 1
-    fi
-    CC=cc
-fi
-
-# Choose compiler flags
-# (set CFLAGS to override the defaults)
-if [ "x$CFLAGS" = "x" ]; then
-    CFLAGS="-O2 -g -std=c89 -Wall -Wextra -Wpedantic"
-fi
-
-# Compile it
-mkdir -p build/test/hex-c89
-$CC $CFLAGS core/hex/1-c89/hex.c -o build/test/hex-c89/hex
-echo "Compiled: build/test/hex-c89/hex"
+# TODO the final stage tools aren't done yet so for now we build with earlier
+# stages. This should eventually be built after the final stages have been
+# rebuilt.
+echo Compiling hex/1-c89
+onrampvm build/intermediate/cc/cc.oe \
+    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
+    -with-cci=build/intermediate/cci-1-opc/cci.oe \
+    -with-as=build/intermediate/as-1-compound/as.oe \
+    -with-ld=build/intermediate/ld-1-omc/ld.oe \
+    -nostddef \
+    -nostdinc \
+    -D__onramp__=1 \
+    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
+    -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
+    -Icore/libc/1-omc/include \
+    -Icore/libc/0-oo/include \
+    -include __onramp/__predef.h \
+    core/hex/1-c89/src/hex.c \
+    -o build/intermediate/hex-1-c89/hex.oe

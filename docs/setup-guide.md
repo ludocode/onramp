@@ -71,7 +71,7 @@ The hosted setup process assumes you can provide Onramp with a filesystem. You'l
 
 Once that is done, you need to use your hex tool to convert two Onramp programs: the Onramp hex tool and the Onramp shell. The output files must be stored in the following paths (relative to the root of the Onramp source):
 
-- [`platform/hex/onramp/hex.oe.ohx`](../platform/hex/onramp/hex.oe.ohx) --> `build/intermediate/hex-onramp/hex.oe`
+- [`core/hex/0-onramp/hex.oe.ohx`](../core/hex/0-onramp/hex.oe.ohx) --> `build/intermediate/hex-0-onramp/hex.oe`
 - [`core/sh/sh.oe.ohx`](../core/sh/sh.oe.ohx) --> `build/intermediate/sh/sh.oe`
 
 After that, run the Onramp shell in your VM, giving it the core build script ([`core/build.sh`](../core/build.sh)) as its only argument. Like this:

@@ -2,7 +2,21 @@
 
 `sh` is the Onramp shell. It's used for running scripts or (in theory) running programs interactively on the Onramp VM.
 
-This document describes the implementation. For a specification of the shell language, see [Onramp shell](../../docs/shell.md).
+This document describes the implementation of the shell. For a specification of the shell language, see [Onramp shell](../../docs/shell.md).
+
+
+## Setup
+
+This tool must be built in a platform-specific way. Relative to the root of the Onramp source tree, the output must be placed in:
+
+```
+build/intermediate/sh/sh.oe
+```
+
+See the [Setup Guide](../../../docs/setup-guide.md) for more information.
+
+
+## Implementation
 
 The Onramp shell has only one stage. There is no need for any other features to bootstrap the full C compiler. Once we have our C compiler we can replace the Onramp shell with a real POSIX shell.
 

@@ -12,11 +12,11 @@ jobs:
       - name: Build
         run: scripts/posix/build.sh
 
+      - name: Test platform-specific
+        run: test/test-platform.sh
+
       - name: Test core
         run: test/test-core.sh
 
       - name: Test core as bootstrapped
         run: test/test-bootstrap.sh
-
-      - name: Test platform-specific
-        run: test/test-platform.sh

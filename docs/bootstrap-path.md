@@ -13,7 +13,7 @@ First we need a hex tool and virtual machine. These steps are platform-specific.
 
 We also need a few tools to run the bootstrap scripts. These tools are platform-independent but they need to be bootstrapped in a platform-specific manner.
 
-- [hex/onramp](../platform/hex/onramp), replacing the native tool, with improved error checking and the ability to run inside the VM.
+- [hex/0-onramp](../core/hex/0-onramp), replacing the native tool, with improved error checking and the ability to run inside the VM.
 - [sh](../core/sh), the [Onramp shell](shell.md), to run the bootstrap shell script inside the VM.
 
 The rest of the process happens inside the VM, scripted automatically by the Onramp shell. It is platform-independent. See [core/build.sh](../core/build.sh) for the actual script.
@@ -73,7 +73,7 @@ With our modern compiler, we rebuild everything to take advantage of the (few) o
 
 We also build a few ancillary tools:
 
-- [hex/c](../platform/hex/c), replacing our handwritten bytecode
+- [hex/1-c89](../core/hex/1-c89), replacing our handwritten bytecode
 - [ar/1-unix](../core/as/1-unix), the full-featured archive tool
 
 The final compiler driver can now produce Onramp binaries wrapped for native platforms (UNIX and Windows.) You now have a standalone compiler for your system! It can be used as an ordinary C compiler in the compilation process for a native toolchain.
@@ -96,7 +96,7 @@ The Onramp unit tests include a program to generate all solutions to the [eight 
 
 - [Eight queens in Onramp Practical C](../test/cci/1-opc/programs/eight-queens.c). This is a much more featureful subset of C with most of what we need for large-scale programs. It looks modern and idiomatic. We have full expression syntax with operator precedence. We have arrays, `for` loops with declarations, etc. We also have `struct`, `enum`, `switch`, `goto`, variadic functions and more, although this code doesn't use them. This is powerful enough to support most of a modern libc including features like `printf()`.
 
-The final stage compiler adds function pointers, initializer lists, `long long`, floating-point math and more. None of these are used in the eight queens puzzle so we don't have an example for the final stage.
+The final stage compiler adds function pointers, initializer lists, `long long`, floating-point math, preprocessor expressions, function-like macros and more. None of these are used in the eight queens puzzle so we don't have an example for the final stage.
 
 If you want to try these, you can compile all of the above with `onrampcc`, except for the first which must be compiled with `onramphex`.
 
@@ -129,7 +129,7 @@ We have an Onramp VM! We can now write portable programs in [Onramp bytecode](vi
 
 We don't have a linker yet so we have to write each tool in a single file of commented hexadecimal. We'll lean on our strategies for [coding without labels](coding-without-labels.md).
 
-#### [hex/onramp](../platform/hex/onramp/)
+#### [hex/0-onramp](../core/hex/0-onramp/)
 
 We build the Onramp implementation of the hex tool. This one is platform-independent and we can use it inside the VM. It also performs all error checking (including address assertions) in case the platform-specific hex tool did not.
 
@@ -270,7 +270,7 @@ Thankfully, since we have full C support now, we can write everything in modern 
 
 #### [libc/3-full](../core/libc/3-full/)
 
-The full libc. This mainly adds floating point math.
+The full libc. This adds floating point and 64-bit math, anything that needs function pointers (like `atexit()` and `qsort()`), and more.
 
 
 ### Rebuilding Everything
