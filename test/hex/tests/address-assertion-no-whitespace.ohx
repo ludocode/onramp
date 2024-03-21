@@ -1,1 +1,5 @@
+; The MIT License (MIT)
+; Copyright (c) 2023-2024 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
 @0x0g <-- error, address assertion must be followed by whitespace or end-of-file
