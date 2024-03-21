@@ -1,10 +1,6 @@
 #line manual
 #line 1 "./stdout/stdout-fputc.i"
-#
-#
-#
 @_F_main 
-#
   imw r0 0x61 
   push r0 
   imw r0 ^stdout 
@@ -15,22 +11,12 @@
   ldw r1 rsp 0 
   call ^fputc 
   add rsp rsp 8 
-#
   imw r0 0 
   leave 
   ret 
-#
-#
   zero r0 
   leave 
   ret 
-
 =main 
   enter 
   jmp ^_F_main 
-
-
-
-
-
-

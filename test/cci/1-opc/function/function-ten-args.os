@@ -1,7 +1,5 @@
 #line manual
 #line 1 "./function/function-ten-args.i"
-#
-#
 @_F_foo 
   stw r0 rfp -4 
   stw r1 rfp -8 
@@ -19,7 +17,6 @@
   stw r9 rfp -36 
   ldw r9 rfp 28 
   stw r9 rfp -40 
-#
   add r0 rfp -4 
   push r0 
   imw r0 1 
@@ -31,7 +28,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx0 
   add r0 rfp -8 
   push r0 
@@ -44,7 +40,6 @@
   imw r0 2 
   leave 
   ret 
-#
 :_Lx1 
   add r0 rfp -12 
   push r0 
@@ -57,7 +52,6 @@
   imw r0 3 
   leave 
   ret 
-#
 :_Lx2 
   add r0 rfp -16 
   push r0 
@@ -70,7 +64,6 @@
   imw r0 4 
   leave 
   ret 
-#
 :_Lx3 
   add r0 rfp -20 
   push r0 
@@ -83,7 +76,6 @@
   imw r0 5 
   leave 
   ret 
-#
 :_Lx4 
   add r0 rfp -24 
   push r0 
@@ -96,7 +88,6 @@
   imw r0 6 
   leave 
   ret 
-#
 :_Lx5 
   add r0 rfp -28 
   push r0 
@@ -109,7 +100,6 @@
   imw r0 7 
   leave 
   ret 
-#
 :_Lx6 
   add r0 rfp -32 
   push r0 
@@ -122,7 +112,6 @@
   imw r0 8 
   leave 
   ret 
-#
 :_Lx7 
   add r0 rfp -36 
   push r0 
@@ -135,7 +124,6 @@
   imw r0 9 
   leave 
   ret 
-#
 :_Lx8 
   add r0 rfp -40 
   push r0 
@@ -148,29 +136,18 @@
   imw r0 10 
   leave 
   ret 
-#
 :_Lx9 
   imw r0 0 
   leave 
   ret 
-#
-#
-#
   zero r0 
   leave 
   ret 
-
 =foo 
   enter 
   sub rsp rsp 40 
   jmp ^_F_foo 
-
-
-
-
-
 @_F_main 
-#
   imw r0 1 
   push r0 
   imw r0 2 
@@ -211,18 +188,9 @@
   add rsp rsp 64 
   leave 
   ret 
-#
-#
   zero r0 
   leave 
   ret 
-
 =main 
   enter 
   jmp ^_F_main 
-
-
-
-
-
-

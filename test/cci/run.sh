@@ -77,6 +77,7 @@ shift
 COMMAND="$@"
 TEMP_I=/tmp/onramp-test.i
 TEMP_OS=/tmp/onramp-test.os
+TEMP_OS_CLEAN=/tmp/onramp-test-clean.os
 TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
@@ -154,9 +155,16 @@ for TESTFILE in $FILES; do
             THIS_ERROR=1
         elif [ $OTHER_STAGE -eq 1 ]; then
             true # don't compare assembly
-        elif ! diff -q $BASENAME.os $TEMP_OS > /dev/null; then
-            echo "ERROR: $BASENAME did not match expected $BASENAME.os"
-            THIS_ERROR=1
+        else
+            # we clean out blank lines and debug info to prevent test cases
+            # from failing due to insignificant changes to the headers
+            # (otherwise every time we change a libc header file all test cases
+            # would have to be regenerated)
+            sed '/^#* *$/d' $TEMP_OS > $TEMP_OS_CLEAN
+            if ! diff -q $BASENAME.os $TEMP_OS_CLEAN > /dev/null; then
+                echo "ERROR: $BASENAME did not match expected $BASENAME.os"
+                THIS_ERROR=1
+            fi
         fi
     else
         if [ $RET -eq 0 ]; then
@@ -218,12 +226,10 @@ for TESTFILE in $FILES; do
                 "$BASENAME.c -o $TEMP_I && \\"
         fi
         echo "    $COMMAND $ARGS && \\"
+        echo "    sed '/^#* *$/d' $TEMP_OS > $TEMP_OS_CLEAN && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE && \\"
-        echo "    onrampvm $TEMP_OE >$TEMP_STDOUT"
-        if [ -e $BASENAME.stdout ]; then
-            echo "    diff -q $BASENAME.stdout $TEMP_STDOUT"
-        fi
+        echo "    onrampvm $TEMP_OE"
         TOTAL_ERRORS=$(( $TOTAL_ERRORS + 1 ))
     fi
 

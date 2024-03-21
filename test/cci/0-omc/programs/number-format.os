@@ -1,13 +1,7 @@
 =write_number_buffer 
 0 
-
-
-
 =write_number_buffer_capacity 
 0 
-
-
-
 @_F_write_number 
 stw r0 rfp 0xFFFFFFFC 
 stw r1 rfp 0xFFFFFFF8 
@@ -185,18 +179,13 @@ call ^fwrite
 zero r0 
 leave 
 ret 
-
 @write_number 
 enter 
 imw r9 0x14 
 sub rsp rsp r9 
 jmp ^_F_write_number 
-
 @_Sx0
 "0"'00 
-
-
-
 @_F_main 
 imw r0 ^write_number_buffer_capacity 
 add r0 rpp r0 
@@ -231,12 +220,8 @@ call ^putchar
 zero r0 
 leave 
 ret 
-
 =main 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_main 
-
-
-

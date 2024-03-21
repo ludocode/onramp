@@ -27,15 +27,11 @@ ret
 zero r0 
 leave 
 ret 
-
 =mod 
 enter 
 imw r9 0x8 
 sub rsp rsp r9 
 jmp ^_F_mod 
-
-
-
 @_F_main 
 imw r0 7 
 push r0 
@@ -94,12 +90,8 @@ ret
 zero r0 
 leave 
 ret 
-
 =main 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_main 
-
-
-

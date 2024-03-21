@@ -1,106 +1,13 @@
 #line manual
 #line 1 "/tmp/onramp-test.i"
-#
 #line 1 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 1 "../../../core/libc/0-oo/include/__onramp/__bool.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 34 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 1 "./function/function-array-arg.c"
 @_F_foo 
   stw r0 rfp -4 
   stw r1 rfp -8 
   stw r2 rfp -12 
-#
   add r0 rfp -4 
   push r0 
   imw r0 5 
@@ -113,7 +20,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx0 
   add r0 rfp -8 
   push r0 
@@ -132,7 +38,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1 
   add r0 rfp -8 
   push r0 
@@ -151,7 +56,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx2 
   add r0 rfp -8 
   push r0 
@@ -170,7 +74,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx3 
   add r0 rfp -8 
   push r0 
@@ -189,7 +92,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx4 
   add r0 rfp -8 
   push r0 
@@ -208,7 +110,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx5 
   add r0 rfp -12 
   push r0 
@@ -222,30 +123,18 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx6 
   imw r0 0 
   leave 
   ret 
-#
-#
-#
   zero r0 
   leave 
   ret 
-
 =foo 
   enter 
   sub rsp rsp 12 
   jmp ^_F_foo 
-
-
-
-
-
 @_F_main 
-#
-#
   add r0 rfp -20 
   push r0 
   imw r0 0 
@@ -256,7 +145,6 @@
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
   add r0 rfp -20 
   push r0 
   imw r0 1 
@@ -267,7 +155,6 @@
   imw r0 1 
   pop r1 
   stw r0 0 r1 
-#
   add r0 rfp -20 
   push r0 
   imw r0 2 
@@ -278,7 +165,6 @@
   imw r0 2 
   pop r1 
   stw r0 0 r1 
-#
   add r0 rfp -20 
   push r0 
   imw r0 3 
@@ -289,7 +175,6 @@
   imw r0 3 
   pop r1 
   stw r0 0 r1 
-#
   add r0 rfp -20 
   push r0 
   imw r0 4 
@@ -300,7 +185,6 @@
   imw r0 4 
   pop r1 
   stw r0 0 r1 
-#
   imw r0 5 
   sub r0 0 r0 
   push r0 
@@ -316,19 +200,10 @@
   add rsp rsp 12 
   leave 
   ret 
-#
-#
   zero r0 
   leave 
   ret 
-
 =main 
   enter 
   sub rsp rsp 20 
   jmp ^_F_main 
-
-
-
-
-
-

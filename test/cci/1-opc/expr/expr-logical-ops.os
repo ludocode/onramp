@@ -1,111 +1,15 @@
 #line manual
 #line 1 "/tmp/onramp-test.i"
-#
 #line 1 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 1 "../../../core/libc/0-oo/include/__onramp/__bool.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 34 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 1 "./expr/expr-logical-ops.c"
 @_F_main 
-#
   add r0 rfp -4 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
-#
-#
   imw r0 0 
   jz r0 &_Lx1 
   imw r0 0 
@@ -115,7 +19,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx0 
   imw r0 0 
   jz r0 &_Lx3 
@@ -126,7 +29,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx2 
   imw r0 1 
   jz r0 &_Lx5 
@@ -137,7 +39,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx4 
   imw r0 1 
   jz r0 &_Lx7 
@@ -149,9 +50,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
-#
 :_Lx6 
   imw r0 0 
   jnz r0 &_Lx9 
@@ -162,7 +60,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx8 
   imw r0 0 
   jnz r0 &_LxB 
@@ -174,7 +71,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxA 
   imw r0 1 
   jnz r0 &_LxD 
@@ -186,7 +82,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxC 
   imw r0 1 
   jnz r0 &_LxF 
@@ -198,9 +93,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
-#
 :_LxE 
   imw r0 0 
   jz r0 &_Lx11 
@@ -215,7 +107,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx10 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -223,7 +114,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx12 
   imw r0 1 
   jz r0 &_Lx14 
@@ -239,7 +129,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx13 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -248,16 +137,12 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx15 
   add r0 rfp -4 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
-#
-#
   imw r0 1 
   jnz r0 &_Lx17 
   add r0 rfp -4 
@@ -272,7 +157,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx16 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -280,7 +164,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx18 
   imw r0 0 
   jnz r0 &_Lx1A 
@@ -296,7 +179,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx19 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -305,16 +187,12 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1B 
   add r0 rfp -4 
   push r0 
   imw r0 0 
   pop r1 
   stw r0 0 r1 
-#
-#
-#
   imw r0 1 
   jz r0 &_Lx1D 
   imw r0 0 
@@ -332,7 +210,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1C 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -340,7 +217,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1F 
   imw r0 0 
   jz r0 &_Lx21 
@@ -363,7 +239,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx20 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -371,9 +246,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
-#
 :_Lx23 
   imw r0 0 
   jnz r0 &_Lx25 
@@ -391,7 +263,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx24 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -399,7 +270,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx26 
   imw r0 1 
   jnz r0 &_Lx28 
@@ -421,7 +291,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx27 
   add r0 rfp -4 
   ldw r0 0 r0 
@@ -429,25 +298,14 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_Lx29 
   imw r0 0 
   leave 
   ret 
-#
-#
   zero r0 
   leave 
   ret 
-
 =main 
   enter 
   sub rsp rsp 4 
   jmp ^_F_main 
-
-
-
-
-
-

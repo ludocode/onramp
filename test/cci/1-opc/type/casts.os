@@ -1,103 +1,10 @@
 #line manual
 #line 1 "/tmp/onramp-test.i"
-#
 #line 1 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 1 "../../../core/libc/0-oo/include/__onramp/__bool.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 34 "../../../core/libc/0-oo/include/__onramp/__predef.h"
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
-#
 #line 1 "./type/casts.c"
 @_F_main 
-#
   add r0 rfp -4 
   push r0 
   imw r0 3 
@@ -105,7 +12,6 @@
   pop r1 
   sxb r0 r0 
   stb r0 0 r1 
-#
   add r0 rfp -8 
   push r0 
   imw r0 0x333 
@@ -113,37 +19,29 @@
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
-#
   add r0 rfp -12 
   push r0 
   imw r0 0x33333 
   sub r0 0 r0 
   pop r1 
   stw r0 0 r1 
-#
   add r0 rfp -16 
   push r0 
   imw r0 3 
   pop r1 
   trb r0 r0 
   stb r0 0 r1 
-#
   add r0 rfp -20 
   push r0 
   imw r0 0x333 
   pop r1 
   trs r0 r0 
   sts r0 0 r1 
-#
   add r0 rfp -24 
   push r0 
   imw r0 0x33333 
   pop r1 
   stw r0 0 r1 
-#
-#
-#
-#
   add r0 rfp -12 
   ldw r0 0 r0 
   sxb r0 r0 
@@ -158,7 +56,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx0 
   add r0 rfp -24 
   ldw r0 0 r0 
@@ -173,7 +70,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1 
   add r0 rfp -8 
   lds r0 0 r0 
@@ -189,7 +85,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx2 
   add r0 rfp -20 
   lds r0 0 r0 
@@ -204,7 +99,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx3 
   add r0 rfp -4 
   ldb r0 0 r0 
@@ -219,7 +113,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx4 
   add r0 rfp -16 
   ldb r0 0 r0 
@@ -234,8 +127,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_Lx5 
   add r0 rfp -12 
   ldw r0 0 r0 
@@ -249,7 +140,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx6 
   add r0 rfp -24 
   ldw r0 0 r0 
@@ -263,7 +153,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx7 
   add r0 rfp -8 
   lds r0 0 r0 
@@ -277,7 +166,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx8 
   add r0 rfp -20 
   lds r0 0 r0 
@@ -291,7 +179,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx9 
   add r0 rfp -4 
   ldb r0 0 r0 
@@ -305,7 +192,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxA 
   add r0 rfp -16 
   ldb r0 0 r0 
@@ -318,8 +204,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_LxB 
   add r0 rfp -12 
   ldw r0 0 r0 
@@ -335,7 +219,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxC 
   add r0 rfp -24 
   ldw r0 0 r0 
@@ -350,7 +233,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxD 
   add r0 rfp -8 
   lds r0 0 r0 
@@ -365,7 +247,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxE 
   add r0 rfp -20 
   lds r0 0 r0 
@@ -380,7 +261,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_LxF 
   add r0 rfp -4 
   ldb r0 0 r0 
@@ -396,7 +276,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx10 
   add r0 rfp -16 
   ldb r0 0 r0 
@@ -410,8 +289,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_Lx11 
   add r0 rfp -12 
   ldw r0 0 r0 
@@ -425,7 +302,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx12 
   add r0 rfp -24 
   ldw r0 0 r0 
@@ -439,7 +315,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx13 
   add r0 rfp -8 
   lds r0 0 r0 
@@ -453,7 +328,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx14 
   add r0 rfp -20 
   lds r0 0 r0 
@@ -466,7 +340,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx15 
   add r0 rfp -4 
   ldb r0 0 r0 
@@ -481,7 +354,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx16 
   add r0 rfp -16 
   ldb r0 0 r0 
@@ -494,8 +366,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_Lx17 
   add r0 rfp -12 
   ldw r0 0 r0 
@@ -509,7 +379,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx18 
   add r0 rfp -24 
   ldw r0 0 r0 
@@ -522,7 +391,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx19 
   add r0 rfp -8 
   lds r0 0 r0 
@@ -537,7 +405,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1A 
   add r0 rfp -20 
   lds r0 0 r0 
@@ -550,7 +417,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1B 
   add r0 rfp -4 
   ldb r0 0 r0 
@@ -565,7 +431,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1C 
   add r0 rfp -16 
   ldb r0 0 r0 
@@ -578,8 +443,6 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_Lx1D 
   add r0 rfp -12 
   ldw r0 0 r0 
@@ -592,7 +455,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1E 
   add r0 rfp -24 
   ldw r0 0 r0 
@@ -605,7 +467,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx1F 
   add r0 rfp -8 
   lds r0 0 r0 
@@ -619,7 +480,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx20 
   add r0 rfp -20 
   lds r0 0 r0 
@@ -632,7 +492,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx21 
   add r0 rfp -4 
   ldb r0 0 r0 
@@ -646,7 +505,6 @@
   imw r0 1 
   leave 
   ret 
-#
 :_Lx22 
   add r0 rfp -16 
   ldb r0 0 r0 
@@ -659,25 +517,14 @@
   imw r0 1 
   leave 
   ret 
-#
-#
 :_Lx23 
   imw r0 0 
   leave 
   ret 
-#
-#
   zero r0 
   leave 
   ret 
-
 =main 
   enter 
   sub rsp rsp 24 
   jmp ^_F_main 
-
-
-
-
-
-

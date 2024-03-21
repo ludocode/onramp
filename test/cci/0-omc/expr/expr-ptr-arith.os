@@ -115,15 +115,10 @@ ret
 zero r0 
 leave 
 ret 
-
 =main 
 enter 
 imw r9 0xC 
 sub rsp rsp r9 
 jmp ^_F_main 
-
 @_Sx0
 "Hello world!"'00 
-
-
-

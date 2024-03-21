@@ -1,8 +1,5 @@
 =queens 
 0 
-
-
-
 @_F_main 
 imw r0 ^queens 
 add r0 rpp r0 
@@ -26,15 +23,11 @@ call ^free
 zero r0 
 leave 
 ret 
-
 =main 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_main 
-
-
-
 @_F_is_queen_valid 
 stw r0 rfp 0xFFFFFFFC 
 stw r1 rfp 0xFFFFFFF8 
@@ -160,15 +153,11 @@ ret
 zero r0 
 leave 
 ret 
-
 =is_queen_valid 
 enter 
 imw r9 0x14 
 sub rsp rsp r9 
 jmp ^_F_is_queen_valid 
-
-
-
 @_F_place_queen 
 stw r0 rfp 0xFFFFFFFC 
 imw r0 0xFFFFFFFC 
@@ -258,15 +247,11 @@ jmp &_Lx4
 zero r0 
 leave 
 ret 
-
 =place_queen 
 enter 
 imw r9 0x8 
 sub rsp rsp r9 
 jmp ^_F_place_queen 
-
-
-
 @_F_print_board 
 imw r0 0xFFFFFFFC 
 add r0 rfp r0 
@@ -391,12 +376,8 @@ call ^putchar
 zero r0 
 leave 
 ret 
-
 =print_board 
 enter 
 imw r9 0xC 
 sub rsp rsp r9 
 jmp ^_F_print_board 
-
-
-

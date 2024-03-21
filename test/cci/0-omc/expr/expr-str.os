@@ -6,18 +6,13 @@ ret
 zero r0 
 leave 
 ret 
-
 =foo 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_foo 
-
 @_Sx0
 "foo"'00 
-
-
-
 @_F_bar 
 imw r0 ^_Sx1
 add r0 rpp r0 
@@ -30,21 +25,15 @@ ret
 zero r0 
 leave 
 ret 
-
 =bar 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_bar 
-
 @_Sx1
 '22"b"'5C"ar"'09'0A'00 
-
 @_Sx2
 '0A'09'0B'00 
-
-
-
 @_F_baz 
 imw r0 ^_Sx3
 add r0 rpp r0 
@@ -53,18 +42,13 @@ ret
 zero r0 
 leave 
 ret 
-
 =baz 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_baz 
-
 @_Sx3
 "baz"'00 
-
-
-
 @_F_main 
 imw r0 0 
 push r0 
@@ -266,18 +250,12 @@ ret
 zero r0 
 leave 
 ret 
-
 =main 
 enter 
 imw r9 0x4 
 sub rsp rsp r9 
 jmp ^_F_main 
-
 @_Sx4
 "foo"'00 
-
 @_Sx5
 "baz"'00 
-
-
-

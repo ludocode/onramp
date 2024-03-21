@@ -1,13 +1,7 @@
 =word 
 0 
-
-
-
 =words 
 0 
-
-
-
 @_F_main 
 imw r0 ^words 
 add r0 rpp r0 
@@ -45,15 +39,10 @@ call ^puts
 zero r0 
 leave 
 ret 
-
 =main 
 enter 
 imw r9 0x0 
 sub rsp rsp r9 
 jmp ^_F_main 
-
 @_Sx0
 "Hello"'00 
-
-
-
