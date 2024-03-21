@@ -1,3 +1,7 @@
+; The MIT License (MIT)
+; Copyright (c) 2023-2024 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
 =test
 ; TODO this is currently disabled because this doesn't link, and I don't really
 ; want to add code to run.sh to handle tests that assemble but don't link just

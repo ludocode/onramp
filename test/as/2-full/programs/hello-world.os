@@ -1,3 +1,7 @@
+; The MIT License (MIT)
+; Copyright (c) 2023-2024 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
 ; TODO this was written before we were linking against libc, hack to workaround it
 ;=_start
 ;    ; format indicator
