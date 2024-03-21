@@ -149,8 +149,10 @@ static void vm_panic(const char* msg) {
 static void usage(const char* command) {
     fprintf(stderr, "Usage: %s [vm options] <program> [program options]\n", command);
     fputs("\n", stderr);
+    /* TODO no options are currently supported.
     fprintf(stderr, "VM options:\n");
-    fprintf(stderr, "    -e NAME=VAR       define environment variable (no vars are passed by default)\n");
+    fprintf(stderr, "    -e NAME=VAR       define environment variable\n"); // TODO probably don't need this since we now forward env vars from the environment
+    */
     exit(125);
 }
 
@@ -316,6 +318,15 @@ static uint32_t vm_load_program(uint32_t start, const char* filename) {
     /* Make sure there's still at least some room for heap and stack */
     if (VM_MEMORY_SIZE - addr < 32 * 1024) {
         vm_panic("Program is too big.");
+    }
+
+    /* Check for a #! or REM prefix */
+    if ((vm_load_u8(start) == '#' && vm_load_u8(start + 1) == '!') ||
+            (vm_load_u8(start) == 'R' &&
+             vm_load_u8(start + 1) == 'E' &&
+             vm_load_u8(start + 2) == 'M'))
+    {
+        start += 128;
     }
 
     /* Check the format indicator */
