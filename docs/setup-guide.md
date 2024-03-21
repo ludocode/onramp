@@ -1,6 +1,6 @@
 # Onramp Setup Guide
 
-This guide explains how to build Onramp.
+This guide explains how to build and configure Onramp.
 
 The Onramp bootstrap process is platform-independent, but it requires a platform-specific Onramp VM and hex tool to be configured first.
 
@@ -8,9 +8,11 @@ Scripts exists for automatically building Onramp on certain hosted platforms. If
 
 
 
-## Unix-like systems
+## POSIX setup
 
-Onramp includes setup scripts for POSIX systems in `scripts/posix/`. Build Onramp like this:
+### Building for POSIX
+
+Onramp includes build scripts for POSIX systems in `scripts/posix/`. Build Onramp like this:
 
 ```sh
 scripts/posix/build.sh
@@ -20,7 +22,37 @@ If there is a native machine code VM for your platform (e.g. `linux-x86_64/`), t
 
 (If you don't trust your kernel, you'll need to bootstrap Onramp in freestanding. See the Freestanding section below.)
 
-Otherwise, the script will attempt to compile a VM or use an interpreted one. If it cannot find a VM that works on your system, the script will fail. Obviously if it uses a C compiler to build a VM, it didn't really bootstrap a C compiler from scratch. This may be fine if you're just trying to get Onramp working on an older system that just has an ANSI C compiler, but if you want to eliminate compilers from your trusted seeds, you'll need a real machine code VM.
+If there isn't a machine code VM for your platform, the script will attempt to compile a VM or use an interpreted one. If it cannot find a VM that works on your system, the script will fail.
+
+Obviously if it uses a C compiler to build a VM, it didn't really bootstrap a C compiler from scratch. This may be fine if you're just trying to get Onramp working on an older system that just has an ANSI C compiler. If you want to eliminate compilers from your trusted seeds, you'll need a real machine code VM.
+
+The build script supports command-line options to choose a specific hex tool and VM and to otherwise change its behaviour. The options are:
+
+- `--hex [name]` -- Use the hex tool with the given name
+- `--vm [name]` -- Use the VM with the given name
+- `--dev` -- Use preferred tools for developing Onramp
+- `--boot` -- Use only tools for a true bootstrap, fail otherwise
+- `--skip-core` -- Skip the core bootstrap; just do the POSIX setup
+
+For example, to use the default auto-detected tools:
+
+```sh
+scripts/posix/setup.sh
+```
+
+To use the fastest VM and hex tool (requiring an existing C compiler):
+
+```sh
+scripts/posix/setup.sh --hex c89 --vm c89
+```
+
+For developing Onramp (requiring a C compiler and make tool):
+
+```sh
+scripts/posix/setup.sh --dev
+```
+
+### Installing for POSIX
 
 Once Onramp is bootstrapped, you can install it into `~/.local` like this:
 
@@ -36,7 +68,7 @@ If you don't want to install it, you can instead use it in-place by sourcing `en
 . scripts/posix/env.sh
 ```
 
-This adds the build location (`build/posix/bin/`) to your PATH.
+This adds the build location (`build/posix/bin/`) to your PATH. You'll need this location on your PATH to run any of the compiled programs because they depend on `onrampvm`.
 
 
 
@@ -65,7 +97,7 @@ To setup Onramp manually in an arbitrary (hosted) environment, you need to creat
 - a [hex tool](../platform/hex/) that can convert [Onramp hexadecimal](hexadecimal.md) to raw bytes; and
 - a [virtual machine](../platform/vm/) that implements the [Onramp VM](virtual-machine.md) spec.
 
-These tools can be written in whatever programming language you have available on your alien computer. Use the example programs in `platform/` (in particular the Python implementations) as a reference, and use the tests in `test/hex/` and `test/vm/` to verify that your implementation is correct. (You'll need to write your own scripts for your computer if you want to run them in an automated fashion.)
+These tools can be written in whatever programming language you have available on your alien computer. Use the example programs in `platform/` (in particular the Python implementations) as a reference, and use the tests in `test/hex/` and `test/vm/` to verify that your implementation is correct. (You'll need to write your own scripts for your alien computer if you want to run them in an automated fashion.)
 
 The hosted setup process assumes you can provide Onramp with a filesystem. You'll need to implement the filesystem syscalls, either bridging whatever filesystem you have or implementing an Onramp-style filesystem on top of your alien storage device.
 
