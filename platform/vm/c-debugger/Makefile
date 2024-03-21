@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 .SUFFIXES:
-CFLAGS := -g
+CFLAGS := -g -O2
 CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 
 -include ../../../test/local.mk

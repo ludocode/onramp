@@ -28,11 +28,10 @@
 # an appropriate hex tool and virtual machine for your system and use them to
 # perform the bootstrap process.
 #
-# This script supports several command-line options. They are documented in the
-# setup guide.
+# This script supports several command-line options. Pass --help to see them.
+# They are also documented in the setup guide.
 #
 # See docs/setup-guide.md for more on how to use this script.
-#
 # See docs/bootstrap-path.md to follow how Onramp is actually built.
 
 
@@ -69,7 +68,11 @@ HEX_RESULT="Hello world!"
 
 setup_hex_c89() {
     echo "Checking c89/ hex tool"
-    if platform/hex/c89/build.sh 2>&1 >/dev/null; then
+    # Try a build with the default CFLAGS first. If that fails, try a build
+    # with no CFLAGS in case the compiler doesn't support the defaults.
+    echo "Checking c89/ VM"
+    if ( platform/hex/c89/build.sh 2>&1 >/dev/null ) ||
+            ( CFLAGS= platform/hex/c89/build.sh 2>&1 >/dev/null ); then
         if [ "$(build/test/hex-c89/hex $HEX_TEST_ARGS 2>/dev/null)" = "$HEX_RESULT" ]; then
             echo "Using c89/ hex tool"
             HEX=build/test/hex-c89/hex
@@ -168,7 +171,21 @@ autodetect_hex() {
         echo "ERROR: No hex tool was found for this platform."
         exit 1
     fi
+}
 
+autodetect_min_hex() {
+    # We support only the POSIX shell hex tools under --min. Any other tool
+    # would require an additional dependency.
+    if [ "x$HEX" = "x" ]; then
+        setup_hex_sh
+    fi
+    if [ "x$HEX" = "x" ]; then
+        setup_hex_sh_alt
+    fi
+    if [ "x$HEX" = "x" ]; then
+        echo "ERROR: No dependency-free hex tool was found for this platform."
+        exit 1
+    fi
 }
 
 choose_hex() {
@@ -251,28 +268,39 @@ setup_vm_c_debugger() {
     fi
 }
 
-setup_vm_machine_code() {
-    NAME="$(uname -m)-$(uname -s|tr [A-Z] [a-z])"
-    if [ -d platform/vm/$NAME ]; then
-        echo "Checking $NAME/ VM"
-        mkdir -p build/intermediate/vm-$NAME
-        rm -f build/intermediate/vm-$NAME/vm
-        if $HEX platform/vm/$NAME/vm.ohx -o build/intermediate/vm-$NAME/vm 2>&1 >/dev/null; then
-            chmod +x build/intermediate/vm-$NAME/vm
-            if [ "$(build/intermediate/vm-$NAME/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
-                echo "Using $NAME/ VM"
-                cp build/intermediate/vm-$NAME/vm build/posix/share/onramp/platform/vm-$NAME
-                (cd build/posix/bin; ln -s ../share/onramp/platform/vm-$NAME onrampvm)
-            fi
+setup_vm_binary() {
+    echo "Checking $1/ VM"
+    mkdir -p build/intermediate/vm-$1
+    rm -f build/intermediate/vm-$1/vm
+    if $HEX platform/vm/$1/vm.ohx -o build/intermediate/vm-$1/vm 2>&1 >/dev/null; then
+        chmod +x build/intermediate/vm-$1/vm
+        if [ "$(build/intermediate/vm-$1/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
+            echo "Using $1/ VM"
+            cp build/intermediate/vm-$1/vm build/posix/share/onramp/platform/vm-$1
+            (cd build/posix/bin; ln -s ../share/onramp/platform/vm-$1 onrampvm)
         fi
     fi
 }
 
+setup_vm_detect_machine_code() {
+
+    # Note: We try to use the Linux VMs on FreeBSD since they provide optional
+    # Linux syscall compatibility. The tests will determine whether it's
+    # enabled.
+    if [ "$(uname -s)" = "Linux" ] || [ "$(uname -s)" = "FreeBSD" ]; then
+        if [ "$(uname -m)" = "x86_64" ]; then
+            setup_vm_binary x86_64-linux
+        fi
+    fi
+
+    # No other POSIX operating systems are currently implemented.
+}
+
 setup_vm_python() {
-    # TODO print warning that we're using the python vm and it's very slow,
-    # will take tens of minutes to complete bootstrap process
     echo "Checking python/ VM"
     if [ "$(platform/vm/python/vm.py $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
+        echo "WARNING: The Python VM is very slow. It may take tens of minutes to"
+        echo "         complete the bootstrap process."
         echo "Using python/ VM"
         cp platform/vm/python/vm.py build/posix/share/onramp/platform/vm.py
         (cd build/posix/bin; ln -s ../share/onramp/platform/vm.py onrampvm)
@@ -280,10 +308,11 @@ setup_vm_python() {
 }
 
 setup_vm_sh() {
-    # TODO print warning that it will take months to complete the bootstrap,
-    # and also it's incomplete
     echo "Checking sh/ VM"
     if [ "$(platform/vm/sh/vm.sh $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
+        echo "WARNING: The POSIX shell VM is incomplete and glacially slow. It will"
+        echo "         take months to complete the bootstrap process and will probably"
+        echo "         fail due to missing features. Do not use this."
         echo "Using sh/ VM"
         cp platform/vm/sh/vm.sh build/posix/share/onramp/platform/vm.sh
         (cd build/posix/bin; ln -s ../share/onramp/platform/vm.sh onrampvm)
@@ -294,10 +323,10 @@ autodetect_vm() {
 
     # We prefer to use a native machine code VM to provide a genuine bootstrap
     # with minimal dependencies. When bootstrapping with a machine code VM and
-    # a POSIX shell hex tool, the only dependencies are the kernel and
-    # coreutils.
+    # a POSIX shell hex tool, the only non-firmware trust seeds are the kernel
+    # and coreutils.
     if ! [ -e $VM_PATH ]; then
-        setup_vm_machine_code
+        setup_vm_detect_machine_code
     fi
 
     # Otherwise we try to use a VM written in C. They are the fastest VMs and
@@ -333,6 +362,18 @@ autodetect_vm() {
     fi
 }
 
+autodetect_min_vm() {
+    # We support only machine code VMs under --min. Any other VMs would require
+    # an additional dependency.
+    if ! [ -e $VM_PATH ]; then
+        setup_vm_detect_machine_code
+    fi
+    if ! [ -e $VM_PATH ]; then
+        echo "ERROR: No dependency-free VM was found for this platform."
+        exit 1
+    fi
+}
+
 choose_vm() {
     if [ "$1" = "c-debugger" ]; then
         setup_vm_c_debugger
@@ -343,7 +384,7 @@ choose_vm() {
     elif [ "$1" = "sh" ]; then
         setup_vm_sh
     elif [ "$1" = "x86_64-linux" ]; then
-        setup_vm_x86_64_linux
+        setup_vm_binary x86_64-linux
     else
         echo "ERROR: No POSIX setup process exists for requested VM: $1"
         exit 1
@@ -358,11 +399,30 @@ choose_vm() {
 
 
 #######################################################
-# Main build
+# Argument Parsing
 #######################################################
+
+usage() {
+    echo "Usage:"
+    echo
+    echo "    $0 [options]"
+    echo
+    echo "Options:"
+    echo
+    echo "    --hex <name>     Use the hex tool with the given name"
+    echo "    --vm <name>      Use the VM with the given name"
+    echo "    --dev            Use preferred tools for developing Onramp"
+    echo "    --min            Use only tools with no additional dependencies (i.e. a shell"
+    echo "                         hex tool and machine code VM), fail otherwise"
+    echo "    --skip-core      Skip the core bootstrap; just do the POSIX setup"
+    echo
+    echo "Look in platform/hex/ and platform/vm/ for the names of tools. Only those tools"
+    echo "that support POSIX platforms can be built by this script."
+}
 
 # parse arguments
 DEV=0
+MIN=0
 SKIP_CORE=0
 HEX_CHOICE=
 VM_CHOICE=
@@ -370,6 +430,10 @@ while [ "x$1" != "x" ]; do
 
     if [ "$1" = "--dev" ]; then
         DEV=1
+        shift
+
+    elif [ "$1" = "--min" ]; then
+        MIN=1
         shift
 
     elif [ "$1" = "--vm" ]; then
@@ -390,20 +454,35 @@ while [ "x$1" != "x" ]; do
         HEX_CHOICE=$1
         shift
 
-    elif [ "$1" = "--boot" ]; then
-        #TODO
-        echo "ERROR: --boot is not yet implemented."
-        exit 1
-
     elif [ "$1" = "--skip-core" ]; then
         SKIP_CORE=1
         shift
+
+    elif [ "$1" = "--help" ] || [ "$1" = "-h" ] || [ "$1" = "-?" ]; then
+        usage
+        exit 0
 
     else
         echo "ERROR: Unrecognized option: $1"
         exit 1
     fi
 done
+
+if [ $DEV -eq 1 ] && [ $MIN -eq 1 ]; then
+    echo "ERROR: --dev cannot be combined with --min."
+    exit 1
+fi
+
+if [ $MIN -eq 1 ]; then
+    if [ "x$HEX_CHOICE" != "x" ]; then
+        echo "ERROR: --min cannot be combined with --hex."
+        exit 1
+    fi
+    if [ "x$VM_CHOICE" != "x" ]; then
+        echo "ERROR: --min cannot be combined with --vm."
+        exit 1
+    fi
+fi
 
 if [ $DEV -eq 1 ]; then
     if [ "x$HEX_CHOICE" != "x" ]; then
@@ -414,12 +493,17 @@ if [ $DEV -eq 1 ]; then
         echo "ERROR: --dev cannot be combined with --vm."
         exit 1
     fi
-
     # For development we use our best error-handling tools. These require a C
     # compiler and make tool but so do all the tests.
     HEX_CHOICE=c89
     VM_CHOICE=c-debugger
 fi
+
+
+
+#######################################################
+# Main build
+#######################################################
 
 echo "Cleaning build/"
 rm -rf build
@@ -435,6 +519,8 @@ mkdir -p \
 # Setup the hex tool
 if [ "x$HEX_CHOICE" != "x" ]; then
     choose_hex $HEX_CHOICE
+elif [ $MIN -eq 1 ]; then
+    autodetect_min_hex
 else
     autodetect_hex
 fi
@@ -443,6 +529,8 @@ fi
 init_vm
 if [ "x$VM_CHOICE" != "x" ]; then
     choose_vm $VM_CHOICE
+elif [ $MIN -eq 1 ]; then
+    autodetect_min_vm
 else
     autodetect_vm
 fi
@@ -480,5 +568,9 @@ cp platform/cc/posix/onramphex build/posix/bin
 cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
 
 echo
-echo "POSIX build complete."
+if [ $SKIP_CORE -eq 0 ]; then
+    echo "POSIX build complete."
+else
+    echo "POSIX setup complete."
+fi
 echo

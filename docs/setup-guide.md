@@ -18,7 +18,7 @@ Onramp includes build scripts for POSIX systems in `scripts/posix/`. Build Onram
 scripts/posix/build.sh
 ```
 
-If there is a native machine code VM for your platform (e.g. `linux-x86_64/`), the scripts will use it. This is a true bootstrap process that depends on nothing but your kernel and coreutils. (On Linux it doesn't even need a libc, so you could in theory bootstrap Onramp with nothing but a statically linked BusyBox.)
+If there is a native machine code VM for your platform (e.g. `linux-x86_64/`), the scripts will use it. This is a true bootstrap process in which the only non-firmware trust seeds are your kernel and coreutils. (On Linux it doesn't even need a libc, so you could in theory bootstrap Onramp with nothing but a statically linked BusyBox.)
 
 (If you don't trust your kernel, you'll need to bootstrap Onramp in freestanding. See the Freestanding section below.)
 
@@ -26,27 +26,21 @@ If there isn't a machine code VM for your platform, the script will attempt to c
 
 Obviously if it uses a C compiler to build a VM, it didn't really bootstrap a C compiler from scratch. This may be fine if you're just trying to get Onramp working on an older system that just has an ANSI C compiler. If you want to eliminate compilers from your trusted seeds, you'll need a real machine code VM.
 
-The build script supports command-line options to choose a specific hex tool and VM and to otherwise change its behaviour. The options are:
+The build script supports the following command-line options to choose a specific hex tool and VM and to otherwise change its behaviour. (Pass no options to use the default auto-detection.)
 
 - `--hex [name]` -- Use the hex tool with the given name
 - `--vm [name]` -- Use the VM with the given name
 - `--dev` -- Use preferred tools for developing Onramp
-- `--boot` -- Use only tools for a true bootstrap, fail otherwise
+- `--min` -- Use only tools with no additional dependencies (i.e. a machine code VM), fail otherwise
 - `--skip-core` -- Skip the core bootstrap; just do the POSIX setup
 
-For example, to use the default auto-detected tools:
-
-```sh
-scripts/posix/setup.sh
-```
-
-To use the fastest VM and hex tool (requiring an existing C compiler):
+For example, to use the fastest VM and hex tool (requiring a native C compiler):
 
 ```sh
 scripts/posix/setup.sh --hex c89 --vm c89
 ```
 
-For developing Onramp (requiring a C compiler and make tool):
+For developing Onramp (requiring a native C compiler and make tool):
 
 ```sh
 scripts/posix/setup.sh --dev

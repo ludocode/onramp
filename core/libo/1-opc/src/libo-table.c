@@ -44,7 +44,7 @@ void table_destroy(table_t* table) {
 }
 
 table_t* table_new(void) {
-    table_t* table = (table_t*) malloc(sizeof(table));
+    table_t* table = (table_t*) malloc(sizeof(table_t));
     if (table == NULL) {
         fatal("Out of memory.");
     }
