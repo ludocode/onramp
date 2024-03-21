@@ -82,7 +82,7 @@ for TESTFILE in $FILES; do
     # collect or generate the args
     if [ -e $BASENAME.args ]; then
         # eval echo to expand shell macros
-        ARGS="$(eval echo $(cat $BASENAME.args))"
+        ARGS=$(eval echo -- "\"$(cat $BASENAME.args)\"")
     else
         ARGS="$INPUT -o $OUTPUT"
     fi
