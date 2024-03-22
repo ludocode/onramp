@@ -142,7 +142,7 @@ for TESTFILE in $FILES; do
     # print commands
     if [ $THIS_ERROR -eq 1 ]; then
         echo "Commands:"
-        # TODO for now we're passing __onramp_cci_omc__, need to remove this
+        echo "    make build && \\"
         echo "    $ROOT/build/test/cpp-1-omc/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
         echo "    $ROOT/build/test/cci-1-opc/cci $TEMP_I -o $TEMP_OS && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"

@@ -112,8 +112,7 @@ static bool directive_try_parse_number(const char** s, const char* end, int* out
 static bool directive_parse_flags(directive_t* directive, const char** s, const char* end) {
     while (*s != end) {
         switch (**s) {
-
-            //TODO case '#':
+            case '#':
                 if (directive->alternate) {
                     //__libc_error("Duplicate format flag: #");
                     return false;
@@ -405,6 +404,7 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 /**
  * Converts an unsigned integer to a decimal string.
  */
+/*
 static size_t utod(uintmax_t value, char* output) {
     if (value == 0) {
         *output = '0';
@@ -424,6 +424,7 @@ static size_t utod(uintmax_t value, char* output) {
     }
     return length;
 }
+*/
 
 /**
  * Main print function.

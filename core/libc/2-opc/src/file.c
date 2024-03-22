@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
+#include <stdbool.h>
 
 // FILE
 struct __file {
@@ -49,6 +50,9 @@ void __stdio_init(void) {
     __stdout = fdopen(1, "w");
     __stderr = fdopen(2, "w");
     */
+}
+
+void __stdio_destroy(void) {
 }
 
 int remove(const char* filename) {

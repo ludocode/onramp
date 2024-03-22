@@ -41,12 +41,6 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/assert.c \
     -o build/intermediate/libc-2-opc/assert.oo
 
-echo Compiling libc/2-opc constructors.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/constructors.c \
-    -o build/intermediate/libc-2-opc/constructors.oo
-
 echo Compiling libc/2-opc ctype.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -83,13 +77,19 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/math64.c \
     -o build/intermediate/libc-2-opc/math64.oo
 
+echo Assembling libc/2-opc setjmp.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/setjmp.os \
+    -o build/intermediate/libc-2-opc/setjmp.oo
+
 echo Compiling libc/2-opc string.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/string.c \
     -o build/intermediate/libc-2-opc/string.oo
 
-echo Compiling libc/2-opc syscalls.os
+echo Assembling libc/2-opc syscalls.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/syscalls.os \
@@ -107,15 +107,22 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     \
     build/intermediate/libc-2-opc/start.oo \
     \
+    core/libc/0-oo/src/errno.oo \
+    core/libc/0-oo/src/malloc_util.oo \
+    core/libc/0-oo/src/spawn.oo \
+    \
+    build/intermediate/libc-1-omc/malloc.oo \
+    build/intermediate/libc-1-omc/strtol.oo \
+    \
+    build/intermediate/libc-2-opc/setjmp.oo \
+    build/intermediate/libc-2-opc/syscalls.oo \
+    \
     build/intermediate/libc-2-opc/assert.oo \
-    build/intermediate/libc-2-opc/constructors.oo \
     build/intermediate/libc-2-opc/ctype.oo \
     build/intermediate/libc-2-opc/environ.oo \
     build/intermediate/libc-2-opc/file.oo \
     build/intermediate/libc-2-opc/format.oo \
     build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/math64.oo \
-    build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/string.oo \
-    build/intermediate/libc-2-opc/syscalls.oo \
     build/intermediate/libc-2-opc/system.oo \

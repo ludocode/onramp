@@ -20,6 +20,11 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+CFLAGS := -g
+CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+
+-include ../../local.mk
+
 ROOT=../../..
 BUILD=$(ROOT)/build/test
 
@@ -39,13 +44,17 @@ TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL
 OBJS=\
 		$(OUT)/start.oo \
 		\
+		$(ROOT)/core/libc/0-oo/src/errno.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
 		$(OUT)/malloc.oo \
 		$(OUT)/strtol.oo \
 		\
+		$(OUT)/setjmp.oo \
+		$(OUT)/syscalls.oo \
+		\
 		$(OUT)/assert.oo \
-		$(OUT)/constructors.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/file.oo \
@@ -53,9 +62,9 @@ OBJS=\
 		$(OUT)/io.oo \
 		$(OUT)/math64.oo \
 		$(OUT)/string.oo \
-		$(OUT)/syscalls.oo \
 		$(OUT)/system.oo \
 
+# Arguments for Onramp compiler
 # TODO remove -nostddef and macros once we have full cci, full cpp
 CCARGS=\
 	    -v \
@@ -72,12 +81,27 @@ CCARGS=\
 		-I../../../core/libc/0-oo/include \
 		-include __onramp/__predef.h
 
+# Arguments for external compiler
+CPPFLAGS += \
+		-nostdinc -nostdlib \
+		-I../../../core/libc/2-opc/include \
+		-I../../../core/libc/1-omc/include \
+		-I../../../core/libc/0-oo/include \
+		-include __onramp/__predef.h
+# TODO disabling a few warnings for now
+CPPFLAGS := \
+		-Wno-builtin-declaration-mismatch \
+		-Wno-unused-function \
+		-Wno-pointer-to-int-cast \
+		-Wno-int-to-pointer-cast \
+		$(CPPFLAGS)
+
 all: build test FORCE
 FORCE:
 build: $(OUT)/libc.oa FORCE
 
 clean: FORCE
-	rm -rf $(BUILD)/libc-0-oo
+	rm -rf $(BUILD)/libc-2-opc
 
 # tools
 $(TOOL_VM): FORCE
@@ -101,71 +125,88 @@ $(OUT)/start.oo: $(SRC2)/start.os Makefile
 	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/start.os -o $@
 
-
-$(OUT)/malloc.oo: $(SRC1)/malloc.c Makefile
+$(OUT)/setjmp.oo: $(SRC2)/setjmp.os Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC1)/malloc.c -o $@
-
-$(OUT)/strtol.oo: $(SRC1)/strtol.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC1)/strtol.c -o $@
-
-
-$(OUT)/assert.oo: $(SRC2)/assert.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/assert.c -o $@
-
-$(OUT)/constructors.oo: $(SRC2)/constructors.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/constructors.c -o $@
-
-$(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/ctype.c -o $@
-
-$(OUT)/environ.oo: $(SRC2)/environ.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/environ.c -o $@
-
-$(OUT)/file.oo: $(SRC2)/file.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/file.c -o $@
-
-$(OUT)/format.oo: $(SRC2)/format.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/format.c -o $@
-
-$(OUT)/io.oo: $(SRC2)/io.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/io.c -o $@
-
-$(OUT)/math64.oo: $(SRC2)/math64.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math64.c -o $@
-
-$(OUT)/string.oo: $(SRC2)/string.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/string.c -o $@
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/setjmp.os -o $@
 
 $(OUT)/syscalls.oo: $(SRC2)/syscalls.os Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/syscalls.os -o $@
 
+
+# Each C file is compiled with the external C compiler first because it has
+# much better error checking than our Onramp compiler. We can't actually link
+# the resulting objects (at least, not unless we want to implement all of our
+# syscalls for Linux.)
+
+
+$(OUT)/malloc.oo: $(SRC1)/malloc.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC1)/malloc.c -o $(OUT)/malloc.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC1)/malloc.c -o $@
+
+$(OUT)/strtol.oo: $(SRC1)/strtol.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC1)/strtol.c -o $(OUT)/strtol.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC1)/strtol.c -o $@
+
+
+$(OUT)/assert.oo: $(SRC2)/assert.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/assert.c -o $(OUT)/assert.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/assert.c -o $@
+
+$(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/ctype.c -o $(OUT)/ctype.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/ctype.c -o $@
+
+$(OUT)/environ.oo: $(SRC2)/environ.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/environ.c -o $(OUT)/environ.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/environ.c -o $@
+
+$(OUT)/file.oo: $(SRC2)/file.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/file.c -o $(OUT)/file.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/file.c -o $@
+
+$(OUT)/format.oo: $(SRC2)/format.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/format.c -o $(OUT)/format.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/format.c -o $@
+
+$(OUT)/io.oo: $(SRC2)/io.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/io.c -o $(OUT)/io.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/io.c -o $@
+
+$(OUT)/math64.oo: $(SRC2)/math64.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math64.c -o $(OUT)/math64.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math64.c -o $@
+
+$(OUT)/string.oo: $(SRC2)/string.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/string.c -o $(OUT)/string.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/string.c -o $@
+
 $(OUT)/system.oo: $(SRC2)/system.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/system.c -o $(OUT)/system.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/system.c -o $@
 
 

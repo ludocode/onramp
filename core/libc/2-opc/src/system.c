@@ -25,9 +25,9 @@
 #include <stdlib.h>
 
 #include "internal.h"
-#include "constructors.h"
 
 #include <__onramp/__pit.h>
+#include <stdio.h>
 
 int __argc;
 char** __argv;
@@ -59,13 +59,8 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __stdio_init();
 
-    // run user code. exit() does not return.
-    // TODO get rid of the constructors and everything else in this code,
-    // simplier to move all this to libc/3 and keep the initialization process
-    // simple here
-    //__call_constructors();
-    exit_flush();
-    main(__argc, __argv, __environ);
+    // run user code. _Exit() does not return.
+    _Exit(main(__argc, __argv, __environ));
 }
 #endif
 
@@ -81,6 +76,11 @@ _Noreturn void _Exit(int status) {
 
     // we're done. end the process
     __end(status, __process_info_table[__ONRAMP_PIT_EXIT]);
+}
+
+_Noreturn void __fatal(const char* string) {
+    fputs(string, stderr);
+    _Exit(1);
 }
 
 int system(const char* string) {

@@ -100,11 +100,11 @@
 
 
 ; ==========================================================
-; void __sys_fseek(int handle, unsigned out_position[3]);
+; void __sys_ftell(int handle, unsigned out_position[2]);
 ; ==========================================================
 
-=__sys_fseek
-    sys fseek '00 '00
+=__sys_ftell
+    sys ftell '00 '00
 
 
 

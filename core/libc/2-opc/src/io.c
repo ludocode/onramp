@@ -55,7 +55,7 @@ typedef struct posixfile_t {
 
 static posixfile_t* posixfiles[32];
 
-#define POSIXFILES_CAPACITY (sizeof(posixfiles)/sizeof(*posixfiles))
+#define POSIXFILES_CAPACITY (int)(sizeof(posixfiles)/sizeof(*posixfiles))
 
 static posixfile_t* posixfile_new(int fd, int handle, int flags, const char* path) {
     posixfile_t* posixfile = calloc(1, sizeof(posixfile_t));
@@ -94,7 +94,7 @@ void __io_init(void) {
 }
 
 void __io_destroy(void) {
-    for (size_t fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
+    for (int fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
         if (posixfiles[fd] != NULL) {
             close(fd);
         }
@@ -153,6 +153,13 @@ int open(const char* path, int flags, ...) {
         return -1;
     }
 
+    // The behaviour of O_TRUNC with O_RDONLY or with a directory is
+    // unspecified. We consider it an error.
+    if ((flags & O_TRUNC) && ((flags & O_RDONLY) || is_dir)) {
+        errno = EINVAL; // invalid flags
+        return -1;
+    }
+
     // Find a free file descriptor
     size_t fd;
     for (fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
@@ -188,11 +195,18 @@ int open(const char* path, int flags, ...) {
         if (0 != chmod(path, mode)) {
             (void)__sys_fclose(handle);
             errno = EACCES; // failed to change file mode
+            return -1;
         }
-        return -1;
     }
 
-    // TODO O_TRUNC
+    // Truncate
+    if (flags & O_TRUNC) {
+        if (0 != __sys_ftrunc(handle, 0, 0)) {
+            (void)__sys_fclose(handle);
+            errno = EIO; // failed to truncate
+            return -1;
+        }
+    }
 
     // Create the wrapper
     posixfile_t* posixfile = posixfile_new(0, handle, flags, path);
@@ -223,6 +237,7 @@ int close(int fd) {
 
     posixfile_delete(posixfile);
     posixfiles[fd] = NULL;
+    return 0;
 }
 
 ssize_t read(int fd, void* buffer, size_t count) {

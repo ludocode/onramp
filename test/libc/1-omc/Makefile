@@ -69,7 +69,7 @@ FORCE:
 build: $(OUT)/libc.oa FORCE
 
 clean: FORCE
-	rm -rf $(BUILD)/libc-0-oo
+	rm -rf $(BUILD)/libc-1-omc
 
 # tools
 $(TOOL_VM): FORCE

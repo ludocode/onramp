@@ -22,7 +22,13 @@
  * SOFTWARE.
  */
 
+        // TODO currently using this workaround since we don't have #undef in cpp/1
+        #define __ONRAMP_STRING_IMPL
 #include <string.h>
+        int bcmp(const void* a, const void* b, size_t count);
+        void* memcpy(void* dest, const void* src, size_t count);
+        char* rindex(const char* s, int c);
+        char* index(const char* s, int c);
 
 #include "internal.h"
 
@@ -523,6 +529,7 @@ char* strtok_r(char* restrict v_str,
     return ret;
 }
 
+/* TODO currently included in libc/0 malloc_util
 void* __memdup(const void* src, size_t size) {
     if (src == NULL)
         return NULL;
@@ -531,4 +538,29 @@ void* __memdup(const void* src, size_t size) {
         return NULL;
     memmove(dest, src, size);
     return dest;
+}
+*/
+
+
+
+/*
+ * These functions are aliased in the headers but we still need to provide
+ * definitions in case assembly code references them. They'll be
+ * garbage-collected by ld/2 if unused.
+ */
+
+int bcmp(const void* a, const void* b, size_t count) {
+    return memcmp(a, b, count);
+}
+
+void* memcpy(void* dest, const void* src, size_t count) {
+    return memmove(dest, src, count);
+}
+
+char* rindex(const char* s, int c) {
+    return strrchr(s, c);
+}
+
+char* index(const char* s, int c) {
+    return strchr(s, c);
 }

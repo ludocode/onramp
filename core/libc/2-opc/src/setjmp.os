@@ -75,7 +75,7 @@
     ; place the given return value in r0.
     ; if it's zero, we are supposed to coerce it to 1.
     mov r0 r1
-    jnz r0 __longjmp_ret
+    jnz r0 &__longjmp_ret
     mov r0 1
 :__longjmp_ret
 

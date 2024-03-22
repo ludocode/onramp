@@ -41,8 +41,12 @@ void __assert_fail(const char* expression, const char* file,
         int line, const char* function)
 {
     /* The exact string suggested by the C99 spec */
+    /*
     fprintf(stderr, "Assertion failed: %s, function %s, file %s, line %i.\n",
             expression, function, file, line);
+            */
+// TODO re-enable the above once fprintf() is working
+fputs("Assertion failed.", stderr);
     fflush(stderr);
     abort();
 }

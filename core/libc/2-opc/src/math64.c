@@ -42,7 +42,7 @@
     static void __fatal(const char* message) {
         fputs(message, stderr);
         fputc('\n', stderr);
-        exit(1);
+        _Exit(1);
     }
 #endif
 
