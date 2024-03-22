@@ -622,12 +622,13 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
         arg_count = (arg_count + 1);
     }
 
-    global_t* global = global_declare_function(return_type, name, arg_count, arg_types);
+    global_t* global = global_new_function(return_type, name, arg_count, arg_types);
     free(arg_types);
-    current_function = global;
     if (is_variadic) {
         global_set_variadic(global, true);
     }
+    global = global_add(global);
+    current_function = global;
 
     if (!lexer_accept(";")) {
 
@@ -688,7 +689,7 @@ void parse_global(void) {
             if (storage != STORAGE_EXTERN) {
                 compile_global_variable(type, name, storage);
             }
-            global_declare_variable(type, name);
+            global_add(global_new_variable(type, name));
 
         }
 

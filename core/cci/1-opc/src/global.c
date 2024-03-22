@@ -121,7 +121,7 @@ static void global_check_match(global_t* left, global_t* right) {
 
     if (!type_equal(global_type(left), global_type(right))) {
         if (global_is_variable(left)) {
-            fatal_2("Global variable re-declared with a different type:", global_name(left));
+            fatal_2("Global variable re-declared with a different type: ", global_name(left));
         }
         fatal_2("Function re-declared with a different return type: ", global_name(left));
     }
@@ -132,23 +132,23 @@ static void global_check_match(global_t* left, global_t* right) {
 
     int param_count = global_function_param_count(left);
     if (param_count != global_function_param_count(right)) {
-        fatal_2("Function re-declared with a different number of arguments:", global_name(left));
+        fatal_2("Function re-declared with a different number of arguments: ", global_name(left));
     }
 
     int i = 0;
     while (i < param_count) {
         if (!type_equal(global_function_param_type(left, i), global_function_param_type(right, i))) {
-            fatal_2("Function re-declared with different argument types:", global_name(left));
+            fatal_2("Function re-declared with different argument types: ", global_name(left));
         }
         i = (i + 1);
     }
 
     if (global_function_is_variadic(left) != global_function_is_variadic(right)) {
-        fatal_2("Function re-declared with a different variadic argument:", global_name(left));
+        fatal_2("Function re-declared with a different variadic argument: ", global_name(left));
     }
 }
 
-static global_t* global_add(global_t* global) {
+global_t* global_add(global_t* global) {
     global_t** bucket = global_find_bucket(global_name(global));
 
     // check for duplicates
@@ -172,16 +172,16 @@ static global_t* global_add(global_t* global) {
     return global;
 }
 
-const global_t* global_declare_variable(type_t* type, char* name) {
+global_t* global_new_variable(type_t* type, char* name) {
     global_t* global = malloc(sizeof(void*) * GLOBAL_FIELDS);
     *(char**)((void**)global + GLOBAL_NAME_OFFSET) = name;
     *(type_t**)((void**)global + GLOBAL_TYPE_OFFSET) = type;
     *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET) = false; // should never be accessed
     *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET) = -1;
-    return global_add(global);
+    return global;
 }
 
-global_t* global_declare_function(type_t* return_type, char* name,
+global_t* global_new_function(type_t* return_type, char* name,
         int param_count, type_t** param_types)
 {
     global_t* global = malloc(sizeof(void*) * (GLOBAL_FIELDS + param_count));
@@ -190,7 +190,7 @@ global_t* global_declare_function(type_t* return_type, char* name,
     *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET) = false;
     *(int*)((void**)global + GLOBAL_PARAMS_COUNT_OFFSET) = param_count;
     memcpy((void**)global + GLOBAL_PARAM_TYPES_OFFSET, param_types, sizeof(type_t*) * param_count);
-    return global_add(global);
+    return global;
 }
 
 void global_set_variadic(global_t* global, bool variadic) {

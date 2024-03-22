@@ -200,7 +200,7 @@ static void parse_enum(void) {
 
         // output it
         compile_enum_value(name, value);
-        global_declare_variable(type_new_base(BASE_SIGNED_INT), name);
+        global_add(global_new_variable(type_new_base(BASE_SIGNED_INT), name));
         value = (value + 1);
 
         // see if we're done

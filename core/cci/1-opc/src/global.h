@@ -60,14 +60,16 @@ int global_function_param_count(const global_t* global);
 type_t* global_function_param_type(const global_t* global, int index);
 
 /**
- * Creates a new global variable, adding it to the globals table.
+ * Creates a new global variable.
  *
  * This takes ownership of the given type and name.
+ *
+ * You must add the global with global_add() after configuring it.
  */
-const global_t* global_declare_variable(type_t* type, char* name);
+global_t* global_new_variable(type_t* type, char* name);
 
 /**
- * Creates a new global function, adding it to the globals table.
+ * Creates a new global function.
  *
  * This takes ownership of the given type and name. If the global already
  * exists, the given values will be destroyed immediately! Use the returned
@@ -75,9 +77,20 @@ const global_t* global_declare_variable(type_t* type, char* name);
  *
  * We can only pass four arguments in omC so the variadic flag is set
  * separately in global_set_variadic().
+ *
+ * You must add the global with global_add() after configuring it.
  */
-global_t* global_declare_function(type_t* return_type, char* name,
+global_t* global_new_function(type_t* return_type, char* name,
         int param_count, type_t** param_types);
+
+/**
+ * Adds the given global, or deletes the given global and returns the original
+ * if a matching global with this name was already declared.
+ *
+ * If a global with this name but a different type already exists, it's a fatal
+ * error.
+ */
+global_t* global_add(global_t* global);
 
 void global_set_variadic(global_t* global, bool variadic);
 
