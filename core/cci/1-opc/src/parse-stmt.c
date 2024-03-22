@@ -36,9 +36,7 @@
 #include "parse-expr.h"
 #include "types.h"
 
-static void parse_block(void);
 static void parse_statement(bool declaration_allowed);
-static bool try_parse_local_declaration(void);
 
 // statement state
 static int last_label;
@@ -54,11 +52,6 @@ static int next_string;
 static char** strings;
 static size_t strings_count;
 #define STRINGS_MAX 128
-
-// function generation
-static int function_frame_size;
-static bool inside_function;
-global_t* current_function;
 
 void parse_stmt_init(void) {
     last_label = -1;
@@ -479,60 +472,6 @@ static void parse_statement(bool declaration_allowed) {
     lexer_expect(";", "Expected `;` at end of expression statement.");
 }
 
-// Takes ownership of the given type
-static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
-    if (name == NULL) {
-        // We ignore useless variable declarations.
-        type_delete(type);
-    }
-
-    //printf("defining new variable %s\n",name);
-    locals_add(name, type);
-
-    if (lexer_accept(";")) {
-        // No initializer.
-        return;
-    }
-    type = type_clone(type);
-
-    if (!lexer_accept("=")) {
-        fatal("Expected `;` or `=` after local variable declaration.");
-    }
-
-    // The variable has an initializer. Parse it, then generate an assignment
-    // operation.
-
-    // compile and push the variable
-    type_t* var_type = compile_load_variable(name);
-    compile_push(0);
-
-    // TODO for now ignoring var_type
-    type_delete(var_type);
-
-    // get the assignment expression
-    // TODO need to rewrite initializer code to support arrays, structs
-    type_t* expr_type = parse_assignment_expression();
-
-    // pop the destination
-    compile_pop(1);
-
-    // compile an assignment
-    type_set_lvalue(type, true);
-    type_delete(compile_assign(type, expr_type));
-}
-
-// Tries to parse a declaration of a local variable plus its initializer.
-static bool try_parse_local_declaration(void) {
-    // TODO we need to do this separately to handle commas, like parse_global()
-    type_t* type;
-    char* name;
-    if (try_parse_declaration(NULL, &type, &name)) {
-        parse_local_declaration(type, name);
-        return true;
-    }
-    return false;
-}
-
 static bool try_parse_block(void) {
     if (!lexer_accept("{")) {
         return false;
@@ -556,154 +495,8 @@ static bool try_parse_block(void) {
     return true;
 }
 
-static void parse_block(void) {
+void parse_block(void) {
     if (!try_parse_block()) {
         fatal("Expected {");
     }
-}
-
-// Parses a function declaration (and definition, if provided.)
-// (This should probably move to parse-decl.c.)
-static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
-    inside_function = true;
-    bool is_variadic = false;
-    int arg_count = 0;
-    int arg_capacity = 64;
-    type_t** arg_types = malloc(arg_capacity * sizeof(type_t*));
-
-    while (!lexer_accept(")")) {
-        if (arg_count > 0) {
-            lexer_expect(",", "Expected `,` or `)` after argument");
-        }
-        if (arg_count == arg_capacity) {
-            // We could make this growable but there's no point.
-            fatal("This function has too many parameters.");
-        }
-
-        // check for variadic arguments
-        if (lexer_accept("...")) {
-            if (arg_count == 0) {
-                fatal("At least one non-variadic argument is required before `...`.");
-            }
-            lexer_expect(")", "Expected `)` after `...`");
-            is_variadic = true;
-            break;
-        }
-
-        // parse parameter
-        type_t* arg_type;
-        char* arg_name;
-        if (!try_parse_declaration(NULL, &arg_type, &arg_name)) {
-            fatal("Expected a function parameter declaration");
-        }
-
-        // check for (void) parameter list
-        if (((arg_name == NULL) & (arg_count == 0)) & type_is_base(arg_type, BASE_VOID)) {
-            if (lexer_accept(")")) {
-                type_delete(arg_type);
-                break;
-            }
-        }
-
-        // array parameters are treated as pointers.
-        arg_type = type_decay_array(arg_type);
-
-        // If we don't have a name, for now we give it an anonymous name. We'll
-        // still reserve stack space for it and move the argument into it. This
-        // is simpler than trying to optimize away stack storage for unnamed
-        // parameters.
-        if (arg_name == NULL) {
-            arg_name = strdup("");
-        }
-
-        // add variable
-        locals_add(arg_name, type_clone(arg_type));
-        *(arg_types + arg_count) = arg_type;
-        arg_count = (arg_count + 1);
-    }
-
-    global_t* global = global_new_function(return_type, name, arg_count, arg_types);
-    free(arg_types);
-    if (is_variadic) {
-        global_set_variadic(global, true);
-    }
-    global = global_add(global);
-    current_function = global;
-
-    if (!lexer_accept(";")) {
-
-        // compile the function
-        function_frame_size = 0;
-        compile_function_open(global);
-        parse_block();
-        compile_function_close(global, function_frame_size, storage);
-
-        // output any strings that were used in the function
-        output_string_literals();
-        compile_global_divider();
-    }
-
-    current_function = NULL;
-    inside_function = false;
-    locals_pop(0);
-}
-
-void parse_global(void) {
-    storage_t storage;
-    type_t* base_type;
-    if (!try_parse_declaration_specifiers(&base_type, &storage)) {
-        fatal("Expected a global declaration.");
-    }
-
-    while (1) {
-        type_t* type;
-        char* name;
-        if (!try_parse_declarator(base_type, &type, &name)) {
-            fatal("Expected a declarator for this global declaration.");
-        }
-
-        // A no-name declaration is not necessarily an error, for example it
-        // could be an enum.
-        if (name == NULL) {
-            type_delete(type);
-        }
-        if (name != NULL) {
-
-            // Check for a typedef
-            if (storage == STORAGE_TYPEDEF) {
-                types_add_typedef(name, type);
-                lexer_expect(";", "Expected `;` at end of typedef");
-                break;
-            }
-
-            // Check for a function
-            if (lexer_accept("(")) {
-                parse_function_declaration(type, name, storage);
-                break;
-            }
-
-            // Otherwise it's a global variable declaration
-            if (lexer_accept("=")) {
-                fatal("Global variable initializer is not yet implemented");
-            }
-            if (storage != STORAGE_EXTERN) {
-                compile_global_variable(type, name, storage);
-            }
-            global_add(global_new_variable(type, name));
-
-        }
-
-        // TODO check for a comma for multiple declarators, only allowed if none are functions
-        if (lexer_is(",")) {
-            fatal("Multiple declarators with `,` are not yet implemented.");
-        }
-        lexer_expect(";", "Expected `;` at end of global variable declaration.");
-        break;
-    }
-
-    type_delete(base_type);
-}
-
-bool parse_is_inside_function(void) {
-    return inside_function;
 }

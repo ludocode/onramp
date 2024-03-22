@@ -30,6 +30,10 @@
 void parse_decl_init(void);
 void parse_decl_destroy(void);
 
+extern int function_frame_size;
+extern bool inside_function;
+extern global_t* current_function;
+
 /**
  * A storage class.
  */
@@ -93,5 +97,16 @@ bool try_parse_declaration(
         storage_t* /*nullable*/ out_storage,
         type_t** out_type,
         char** /*nullable*/ out_name);
+
+/**
+ * Tries to parse a declaration of a local variable plus its initializer,
+ * adding the local and compiling the initializer as needed.
+ */
+bool try_parse_local_declaration(void);
+
+/**
+ * Parses a global variable or function, compiling it to the output.
+ */
+void parse_global(void);
 
 #endif

@@ -45,13 +45,14 @@ int parse_generate_label(void);
 int store_string_literal(void);
 
 /**
- * Parses a global variable or function, compiling it to the output.
+ * Parses a block (also referred to as a "compound statement" in the C spec.)
  */
-void parse_global(void);
+void parse_block(void);
 
 /**
- * Returns true if we are currently parsing a function definition.
+ * Compiles all string literals that were collected during the parsing of the
+ * current function.
  */
-bool parse_is_inside_function(void);
+void output_string_literals(void);
 
 #endif
