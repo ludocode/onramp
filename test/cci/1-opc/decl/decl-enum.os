@@ -127,7 +127,7 @@
   imw r0 ^ida 
   add r0 rpp r0 
   push r0 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   pop r1 
   ldw r1 0 r1 
   cmpu r0 r1 r0 

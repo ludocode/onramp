@@ -9,7 +9,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x1234 
+  imw r0 4660 
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
@@ -21,7 +21,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x5678 
+  imw r0 22136 
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
@@ -33,7 +33,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x147A 
+  imw r0 5242 
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
@@ -45,7 +45,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x258B 
+  imw r0 9611 
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
@@ -57,7 +57,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x1234 
+  imw r0 4660 
   pop r1 
   lds r1 0 r1 
   sxs r1 r1 
@@ -76,7 +76,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x5678 
+  imw r0 22136 
   pop r1 
   lds r1 0 r1 
   sxs r1 r1 
@@ -95,7 +95,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x147A 
+  imw r0 5242 
   pop r1 
   lds r1 0 r1 
   sxs r1 r1 
@@ -114,7 +114,7 @@
   shl r0 r0 1 
   add r0 r1 r0 
   push r0 
-  imw r0 0x258B 
+  imw r0 9611 
   pop r1 
   lds r1 0 r1 
   sxs r1 r1 

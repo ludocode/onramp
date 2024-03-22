@@ -8,14 +8,14 @@
   stb r0 0 r1 
   add r0 rfp -8 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   sub r0 0 r0 
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
   add r0 rfp -12 
   push r0 
-  imw r0 0x33333 
+  imw r0 209715 
   sub r0 0 r0 
   pop r1 
   stw r0 0 r1 
@@ -27,20 +27,20 @@
   stb r0 0 r1 
   add r0 rfp -20 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   pop r1 
   trs r0 r0 
   sts r0 0 r1 
   add r0 rfp -24 
   push r0 
-  imw r0 0x33333 
+  imw r0 209715 
   pop r1 
   stw r0 0 r1 
   add r0 rfp -12 
   ldw r0 0 r0 
   sxb r0 r0 
   push r0 
-  imw r0 0x33 
+  imw r0 51 
   sub r0 0 r0 
   pop r1 
   sxb r1 r1 
@@ -55,7 +55,7 @@
   ldw r0 0 r0 
   sxb r0 r0 
   push r0 
-  imw r0 0x33 
+  imw r0 51 
   pop r1 
   sxb r1 r1 
   cmpu r0 r1 r0 
@@ -69,7 +69,7 @@
   lds r0 0 r0 
   sxb r0 r0 
   push r0 
-  imw r0 0x33 
+  imw r0 51 
   sub r0 0 r0 
   pop r1 
   sxb r1 r1 
@@ -84,7 +84,7 @@
   lds r0 0 r0 
   sxb r0 r0 
   push r0 
-  imw r0 0x33 
+  imw r0 51 
   pop r1 
   sxb r1 r1 
   cmpu r0 r1 r0 
@@ -126,7 +126,7 @@
   ldw r0 0 r0 
   trb r0 r0 
   push r0 
-  imw r0 0xCD 
+  imw r0 205 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -139,7 +139,7 @@
   ldw r0 0 r0 
   trb r0 r0 
   push r0 
-  imw r0 0x33 
+  imw r0 51 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -152,7 +152,7 @@
   lds r0 0 r0 
   trb r0 r0 
   push r0 
-  imw r0 0xCD 
+  imw r0 205 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -165,7 +165,7 @@
   lds r0 0 r0 
   trb r0 r0 
   push r0 
-  imw r0 0x33 
+  imw r0 51 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -178,7 +178,7 @@
   ldb r0 0 r0 
   trb r0 r0 
   push r0 
-  imw r0 0xFD 
+  imw r0 253 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -203,7 +203,7 @@
   ldw r0 0 r0 
   sxs r0 r0 
   push r0 
-  imw r0 0x3333 
+  imw r0 13107 
   sub r0 0 r0 
   pop r1 
   sxs r1 r1 
@@ -218,7 +218,7 @@
   ldw r0 0 r0 
   sxs r0 r0 
   push r0 
-  imw r0 0x3333 
+  imw r0 13107 
   pop r1 
   sxs r1 r1 
   cmpu r0 r1 r0 
@@ -231,7 +231,7 @@
   add r0 rfp -8 
   lds r0 0 r0 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   sub r0 0 r0 
   pop r1 
   sxs r1 r1 
@@ -246,7 +246,7 @@
   lds r0 0 r0 
   sxs r0 r0 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   pop r1 
   sxs r1 r1 
   cmpu r0 r1 r0 
@@ -288,7 +288,7 @@
   ldw r0 0 r0 
   trs r0 r0 
   push r0 
-  imw r0 0xCCCD 
+  imw r0 52429 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -301,7 +301,7 @@
   ldw r0 0 r0 
   trs r0 r0 
   push r0 
-  imw r0 0x3333 
+  imw r0 13107 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -314,7 +314,7 @@
   lds r0 0 r0 
   trs r0 r0 
   push r0 
-  imw r0 0xFCCD 
+  imw r0 64717 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -326,7 +326,7 @@
   add r0 rfp -20 
   lds r0 0 r0 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -340,7 +340,7 @@
   sxb r0 r0 
   trs r0 r0 
   push r0 
-  imw r0 0xFFFD 
+  imw r0 65533 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -364,7 +364,7 @@
   add r0 rfp -12 
   ldw r0 0 r0 
   push r0 
-  imw r0 0x33333 
+  imw r0 209715 
   sub r0 0 r0 
   pop r1 
   cmpu r0 r1 r0 
@@ -377,7 +377,7 @@
   add r0 rfp -24 
   ldw r0 0 r0 
   push r0 
-  imw r0 0x33333 
+  imw r0 209715 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -390,7 +390,7 @@
   lds r0 0 r0 
   sxs r0 r0 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   sub r0 0 r0 
   pop r1 
   cmpu r0 r1 r0 
@@ -403,7 +403,7 @@
   add r0 rfp -20 
   lds r0 0 r0 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -441,7 +441,7 @@
   add r0 rfp -12 
   ldw r0 0 r0 
   push r0 
-  imw r0 0xFFFCCCCD 
+  imw r0 -209715 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -453,7 +453,7 @@
   add r0 rfp -24 
   ldw r0 0 r0 
   push r0 
-  imw r0 0x33333 
+  imw r0 209715 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -466,7 +466,7 @@
   lds r0 0 r0 
   sxs r0 r0 
   push r0 
-  imw r0 0xFFFFFCCD 
+  imw r0 -819 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -478,7 +478,7 @@
   add r0 rfp -20 
   lds r0 0 r0 
   push r0 
-  imw r0 0x333 
+  imw r0 819 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -491,7 +491,7 @@
   ldb r0 0 r0 
   sxb r0 r0 
   push r0 
-  imw r0 0xFFFFFFFD 
+  imw r0 -3 
   pop r1 
   cmpu r0 r1 r0 
   and r0 r0 1 

@@ -1,5 +1,5 @@
 @_F_main 
-  imw r0 0x61 
+  imw r0 97 
   push r0 
   imw r0 ^stdout 
   add r0 rpp r0 

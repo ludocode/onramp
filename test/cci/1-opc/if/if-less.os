@@ -55,7 +55,7 @@
   leave 
   ret 
 :_Lx3 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   sub r0 0 r0 
   push r0 
   imw r0 1 
@@ -66,7 +66,7 @@
   pop r1 
   add r0 r1 r0 
   push r0 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   sub r0 0 r0 
   push r0 
   imw r0 1 
@@ -82,9 +82,9 @@
   leave 
   ret 
 :_Lx4 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   push r0 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   push r0 
   imw r0 1 
   pop r1 
@@ -99,9 +99,9 @@
   leave 
   ret 
 :_Lx5 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   push r0 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   sub r0 0 r0 
   push r0 
   imw r0 1 
@@ -130,14 +130,14 @@
   leave 
   ret 
 :_Lx7 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   sub r0 0 r0 
   push r0 
   imw r0 1 
   pop r1 
   sub r0 r1 r0 
   push r0 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   sub r0 0 r0 
   push r0 
   imw r0 1 
@@ -153,9 +153,9 @@
   leave 
   ret 
 :_Lx8 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   push r0 
-  imw r0 2147483647 
+  imw r0 0x7FFFFFFF 
   pop r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 

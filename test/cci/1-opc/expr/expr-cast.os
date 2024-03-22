@@ -1,8 +1,8 @@
 @_F_main 
-  imw r0 0x123 
+  imw r0 291 
   sxb r0 r0 
   push r0 
-  imw r0 0x23 
+  imw r0 35 
   pop r1 
   sxb r1 r1 
   cmpu r0 r1 r0 
@@ -12,10 +12,10 @@
   leave 
   ret 
 :_Lx0 
-  imw r0 0x123 
+  imw r0 291 
   sxb r0 r0 
   push r0 
-  imw r0 0x23 
+  imw r0 35 
   pop r1 
   sxb r1 r1 
   cmpu r0 r1 r0 
@@ -25,10 +25,10 @@
   leave 
   ret 
 :_Lx1 
-  imw r0 0x123 
+  imw r0 291 
   sxb r0 r0 
   push r0 
-  imw r0 0x23 
+  imw r0 35 
   pop r1 
   sxb r1 r1 
   cmpu r0 r1 r0 

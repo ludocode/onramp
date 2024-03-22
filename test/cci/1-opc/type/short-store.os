@@ -1,13 +1,13 @@
 @_F_main 
   add r0 rfp -4 
   push r0 
-  imw r0 0xfff2345 
+  imw r0 0xFFF2345 
   pop r1 
   sxs r0 r0 
   sts r0 0 r1 
   add r0 rfp -4 
   push r0 
-  imw r0 0x2345 
+  imw r0 9029 
   pop r1 
   lds r1 0 r1 
   sxs r1 r1 
