@@ -359,7 +359,7 @@ static void parse_case(bool declaration_allowed) {
         fatal("Expected a constant expression after `case`.");
     }
     lexer_expect(":", "Expected `:` after `case` expression.");
-    type_delete(compile_immediate_int(value));
+    compile_immediate(value);
 
     // Get the switch value in r1
     compile_frame_offset(true, switch_offset, 1);

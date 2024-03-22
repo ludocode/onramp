@@ -197,74 +197,23 @@ void compile_function_close(const global_t* global, int frame_size, storage_t st
     emit_global_divider();
 }
 
-type_t* compile_immediate(const char* number) {
-
-    // strtol() handles decimal, hexadecimal and octal.
-    errno = 0;
-    char* end;
-    int x = strtol(number, &end, 0);
-    if (errno != 0) {
-        fatal("Malformed number literal.");
-    }
+void compile_immediate(int x) {
     emit_term("imw");
     emit_term("r0");
     emit_int(x);
     emit_newline();
-
-    // parse out the suffix
-    bool suffix_unsigned = false;
-    bool suffix_long = false;
-    while (*end) {
-
-        // parse long
-        if ((*end == 'l') | (*end == 'L')) {
-            if (suffix_long) {
-                fatal("Integer literal suffix for `long long` is not supported.");
-            }
-            suffix_long = true;
-            end = (end + 1);
-            continue;
-        }
-
-        // parse unsigned
-        if ((*end == 'u') | (*end == 'U')) {
-            if (suffix_unsigned) {
-                fatal("Redundant `u` suffix on integer literal.");
-            }
-            suffix_unsigned = true;
-            end = (end + 1);
-            continue;
-        }
-
-        // unrecognized. try to give slightly better error mesagge
-        if (((*end == '.') | ((*end == 'e') | (*end == 'E'))) |
-                ((*end == 'p') | (*end == 'P')))
-        {
-            fatal("Floating point literals are not supported.");
-        }
-        fatal("Malformed number literal suffix.");
-    }
-
-    // we only care about signed/unsigned.
-    if (suffix_unsigned) {
-        return type_new_base(BASE_UNSIGNED_INT);
-    }
-    return type_new_base(BASE_SIGNED_INT);
 }
 
-type_t* compile_immediate_int(int x) {
-    emit_term("imw");
-    emit_term("r0");
-    emit_int(x);
-    emit_newline();
+type_t* compile_immediate_signed_int(int x) {
+    compile_immediate(x);
     return type_new_base(BASE_SIGNED_INT);
 }
 
 type_t* compile_sizeof(type_t* type) {
     size_t size = type_size(type);
     type_delete(type);
-    // TODO should the type of sizeof be unsigned?
-    return compile_immediate_int(size);
+    compile_immediate(size);
+    return type_new_base(BASE_UNSIGNED_INT);
 }
 
 type_t* compile_character_literal(char c) {

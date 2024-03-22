@@ -133,6 +133,121 @@ static bool is_unary_operator(void) {
     return false;
 }
 
+/**
+ * Parses a number.
+ *
+ * omC doesn't support unsigned so unsigned numbers will be wrapped to the
+ * range of a signed int. We don't currently bother to check that the range is
+ * valid.
+ *
+ * This implementation is based mostly on strtol() with some simplications and
+ * the addition of suffix parsing.
+ */
+static void parse_number(const char* p, type_t** out_type, int* out_value) {
+    int base = 0;
+
+    // detecting leading 0x/0X for hex
+    if (*p == '0') {
+        char x = *(p + 1);
+        if ((x == 'x') | (x == 'X')) {
+            base = 16;
+            p = (p + 2);
+        }
+    }
+
+    // detect leading binary 0b/0B for binary
+    if (base == 0) {
+        if (*p == '0') {
+            char b = *(p + 1);
+            if ((b == 'b') | (b == 'B')) {
+                base = 2;
+                p = (p + 2);
+            }
+        }
+    }
+
+    // detect leading 0 for octal
+    if (base == 0) {
+        if (*p == '0') {
+            base = 8;
+        }
+    }
+
+    // otherwise assume decimal
+    if (base == 0) {
+        base = 10;
+    }
+
+    // accumulate digits
+    long value = 0;
+    while (1) {
+        // TODO hex_to_int in libo
+        long digit = 99;
+        if ((*p >= '0') & (*p <= '9')) {
+            digit = (*p - '0');
+        }
+        if ((*p >= 'a') & (*p <= 'f')) {
+            digit = ((*p - 'a') + 10);
+        }
+        if ((*p >= 'A') & (*p <= 'F')) {
+            digit = ((*p - 'A') + 10);
+        }
+        if (digit >= base) {
+            break;
+        }
+
+        // Although omC doesn't support unsigned, this still works for unsigned
+        // numbers because of two's complement. We just can't (easily) check
+        // for overflow so we don't bother.
+        value = ((value * base) + digit);
+
+        p = (p + 1);
+    }
+
+    // parse out the suffix
+    bool suffix_unsigned = false;
+    bool suffix_long = false;
+    while (*p) {
+
+        // parse long
+        if ((*p == 'l') | (*p == 'L')) {
+            if (suffix_long) {
+                fatal("Integer literal suffix for `long long` is not supported.");
+            }
+            suffix_long = true;
+            p = (p + 1);
+            continue;
+        }
+
+        // parse unsigned
+        if ((*p == 'u') | (*p == 'U')) {
+            if (suffix_unsigned) {
+                fatal("Redundant `u` suffix on integer literal.");
+            }
+            suffix_unsigned = true;
+            p = (p + 1);
+            continue;
+        }
+
+        // unrecognized. try to give slightly better error mesagge
+        if (((*p == '.') | ((*p == 'e') | (*p == 'E'))) |
+                ((*p == 'p') | (*p == 'P')))
+        {
+            fatal("Floating point literals are not supported.");
+        }
+        fatal("Malformed number literal.");
+    }
+
+    // we only care about signed/unsigned.
+    if (suffix_unsigned) {
+        *out_type = type_new_base(BASE_UNSIGNED_INT);
+    }
+    if (!suffix_unsigned) {
+        *out_type = type_new_base(BASE_SIGNED_INT);
+    }
+    *out_value = value;
+}
+
 
 
 /*
@@ -152,17 +267,7 @@ bool try_parse_constant_primary_expression(type_t** type, int* value) {
 
     // check for a number
     if (lexer_type == lexer_type_number) {
-        // TODO move this into an integer literal parsing function
-        *type = type_new_base(BASE_SIGNED_INT);
-        char* end;
-        errno = 0;
-        *value = strtol(lexer_token, &end, 0);
-        if (errno != 0) {
-            fatal("Error parsing number");
-        }
-        if (*end != 0) {
-            fatal("Unrecognized characters after number (number literal suffixes are not supported in opC)");
-        }
+        parse_number(lexer_token, type, value);
         lexer_consume();
         return true;
     }
@@ -405,7 +510,10 @@ static type_t* parse_primary_expression(void) {
 
     // number
     if (lexer_type == lexer_type_number) {
-        type_t* type = compile_immediate(lexer_token);
+        int value;
+        type_t* type;
+        parse_number(lexer_token, &type, &value);
+        compile_immediate(value);
         lexer_consume();
         return type;
     }
@@ -535,7 +643,7 @@ static type_t* parse_builtin_va_arg(void) {
     // decrement the list
     compile_push(0);
     compile_mov(1, 0);
-    type_t* int_type = compile_immediate_int(1);
+    type_t* int_type = compile_immediate_signed_int(1);
     type_t* value_type = compile_binary_op("+", type_clone(list), int_type);
     compile_pop(1);
     type_delete(compile_assign(type_clone(list), value_type));
@@ -776,7 +884,7 @@ static type_t* parse_post_inc_dec_operator(type_t* var_type, const char* binary_
 
     // do the increment
     compile_push(1);
-    type_t* int_type = compile_immediate_int(1);
+    type_t* int_type = compile_immediate_signed_int(1);
     type_t* value_type = compile_binary_op(binary_op, type_clone(var_type), int_type);
     compile_pop(1);
     type_delete(compile_assign(var_type, value_type));
@@ -795,7 +903,7 @@ static type_t* parse_pre_inc_dec_operator(const char* binary_op) {
 
     compile_push(0);
     compile_mov(1, 0);
-    type_t* int_type = compile_immediate_int(1);
+    type_t* int_type = compile_immediate_signed_int(1);
     type_t* value_type = compile_binary_op(binary_op, type_clone(var_type), int_type);
     compile_pop(1);
     return compile_assign(var_type, value_type);

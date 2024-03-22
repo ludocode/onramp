@@ -129,12 +129,12 @@ type_t* compile_assign(type_t* left, type_t* right);
 /**
  * Places the given number in r0.
  */
-type_t* compile_immediate(const char* number);
+void compile_immediate(int x);
 
 /**
- * Places the given number in r0.
+ * Places the given number in r0, returning signed int.
  */
-type_t* compile_immediate_int(int x);
+type_t* compile_immediate_signed_int(int x);
 
 /**
  * Places the size of the given type in r0, returning unsigned int.
