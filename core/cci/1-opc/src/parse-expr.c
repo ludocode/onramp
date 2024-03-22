@@ -411,6 +411,12 @@ bool try_parse_constant_binary_expression(type_t** type, int* value, int min_pre
             *value = (!!left_value & !!right_value);
             continue;
         }
+        // TODO if both types are unsigned int this should be an unsigned
+        // operation, not a signed one. Many of these (comparisons, right
+        // shift, divide and modulus) will give incorrect values in some cases
+        // for very large unsigned numbers. We don't actually have unsigned
+        // operations in omC so we'd probably have to make wrapper functions in
+        // assembly.
         if (0 == strcmp(op, "^"))  {*value = (left_value ^  right_value); continue;}
         if (0 == strcmp(op, "==")) {*value = (left_value == right_value); continue;}
         if (0 == strcmp(op, "!=")) {*value = (left_value != right_value); continue;}
@@ -422,7 +428,7 @@ bool try_parse_constant_binary_expression(type_t** type, int* value, int min_pre
         if (0 == strcmp(op, "-"))  {*value = (left_value -  right_value); continue;}
         if (0 == strcmp(op, "*"))  {*value = (left_value *  right_value); continue;}
         if (0 == strcmp(op, "/"))  {*value = (left_value /  right_value); continue;}
-        //if (0 == strcmp(op, "%"))  {*value = (left_value %  right_value); continue;} // TODO maybe remove
+        if (0 == strcmp(op, "%"))  {*value = (left_value %  right_value); continue;}
         if (0 == strcmp(op, "<<")) {*value = (left_value << right_value); continue;}
         if (0 == strcmp(op, ">>")) {*value = (left_value >> right_value); continue;}
         fatal_2("Internal error: invalid binary operator: ", op);
