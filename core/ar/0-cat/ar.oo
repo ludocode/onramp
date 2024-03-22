@@ -367,8 +367,8 @@
 :add_input_ok
     ; pop "r"
     70 8C 8C 04     ; add rsp rsp 4      ; popd
-    ; preserve the input_file on the stack (replacing filename)
-    79 80 00 8C    ; stw r0 0 rsp
+    ; save the input_file (replacing filename)
+    79 80 8D FC    ; stw r0 rfp -4
 
 
     ; loop copying data from input to output
@@ -420,6 +420,17 @@
     7E 00 &add_loop
 
 :add_done
+
+    ; close the input file, call fclose
+    78 80 8D FC       ; ldw r0 rfp -4    ; input_file
+    7C 8A <fclose      ; ims ra <fclose
+    7C 8A >fclose      ; ims ra >fclose
+    71 8C 8C 04        ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08        ; add rb rip 8      ; ...
+    79 8B 00 8C        ; stw rb 0 rsp      ; ...
+    70 8F 8E 8A        ; add rip rpp ra    ; jump
+    70 8C 8C 04        ; add rsp rsp 4     ; pop return address
+    79 80 8D F8        ; stw r0 rfp -8
 
 
     ; always write an extra newline (in case the file ends in a comment without
