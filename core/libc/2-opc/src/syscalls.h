@@ -25,24 +25,25 @@
 #ifndef SYSCALLS_H_INCLUDED
 #define SYSCALLS_H_INCLUDED
 
-[[noreturn]] void __sys_halt(int exit_code);
-void __sys_time(struct timespec*);
-void __sys_spawn(TODO);
+_Noreturn void __sys_halt(int exit_code);
+int __sys_time(unsigned out_buffer[3]);
+int __sys_spawn(void /*TODO*/);
 int __sys_fopen(const char* path, bool writeable);
-void __sys_fclose(int handle);
-int __sys_fread(int handle, void* buffer, unsigned size);
-void __sys_fwrite(int handle, void* buffer, unsigned size);
-void __sys_fseek(int handle, unsigned position_low, unsigned position_high);
-void __sys_ftrunc(int handle, unsigned position_low, unsigned position_high);
-void __sys_stat(const char* path, struct stat* output);
-void __sys_rename(const char* from, const char* to);
-void __sys_symlink(const char* from, const char* to);
-void __sys_unlink(const char* path);
-void __sys_chmod(const char* path, int mode);
-void __sys_mkdir(const char* path);
-void __sys_rmdir(const char* path);
+int __sys_fclose(int handle);
+int __sys_fread(int handle, void* out_buffer, unsigned size);
+int __sys_fwrite(int handle, const void* buffer, unsigned size);
+int __sys_fseek(int handle, unsigned position_low, unsigned position_high);
+int __sys_ftell(int handle, unsigned out_position[2]);
+int __sys_ftrunc(int handle, unsigned position_low, unsigned position_high);
+int __sys_stat(const char* path, unsigned out_stat[4]);
+int __sys_rename(const char* from, const char* to);
+int __sys_symlink(const char* from, const char* to);
+int __sys_unlink(const char* path);
+int __sys_chmod(const char* path, int mode);
+int __sys_mkdir(const char* path);
+int __sys_rmdir(const char* path);
 int __sys_dopen(const char* path);
-void __sys_dclose(int handle);
-int __sys_dread(int handle, char buffer[256]);
+int __sys_dclose(int handle);
+int __sys_dread(int handle, char out_buffer[256]);
 
 #endif

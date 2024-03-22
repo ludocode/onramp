@@ -71,6 +71,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/format.c \
     -o build/intermediate/libc-2-opc/format.oo
 
+echo Compiling libc/2-opc io.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/io.c \
+    -o build/intermediate/libc-2-opc/io.oo
+
 echo Compiling libc/2-opc math64.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -95,15 +101,9 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/system.c \
     -o build/intermediate/libc-2-opc/system.oo
 
-echo Compiling libc/2-opc unistd.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/unistd.c \
-    -o build/intermediate/libc-2-opc/unistd.oo
-
 echo Archiving libc/2-opc
 onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libc-1-omc/libc.oa \
+    rc build/intermediate/libc-2-opc/libc.oa \
     \
     build/intermediate/libc-2-opc/start.oo \
     \
@@ -113,8 +113,9 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/environ.oo \
     build/intermediate/libc-2-opc/file.oo \
     build/intermediate/libc-2-opc/format.oo \
+    build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/math64.oo \
+    build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/string.oo \
     build/intermediate/libc-2-opc/syscalls.oo \
     build/intermediate/libc-2-opc/system.oo \
-    build/intermediate/libc-2-opc/unistd.oo \

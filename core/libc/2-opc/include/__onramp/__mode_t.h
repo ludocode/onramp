@@ -22,14 +22,9 @@
  * SOFTWARE.
  */
 
-#include <unistd.h>
+#ifndef __ONRAMP_LIBC_ONRAMP_MODE_T_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_MODE_T_H_INCLUDED
 
-#include "internal.h"
+typedef int mode_t;
 
-/**
- * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
- * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
- */
-
-ssize_t write(int fd, const void* buffer, size_t count) {
-}
+#endif

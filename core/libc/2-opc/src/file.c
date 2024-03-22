@@ -35,6 +35,7 @@
 struct __file {
     int fd;
     char buffer[128];
+    bool orientation; // wide-oriented or byte-oriented
     //...
 };
 

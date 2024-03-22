@@ -50,11 +50,11 @@ OBJS=\
 		$(OUT)/environ.oo \
 		$(OUT)/file.oo \
 		$(OUT)/format.oo \
+		$(OUT)/io.oo \
 		$(OUT)/math64.oo \
 		$(OUT)/string.oo \
 		$(OUT)/syscalls.oo \
 		$(OUT)/system.oo \
-		$(OUT)/unistd.oo \
 
 # TODO remove -nostddef and macros once we have full cci, full cpp
 CCARGS=\
@@ -143,6 +143,11 @@ $(OUT)/format.oo: $(SRC2)/format.c Makefile
 	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/format.c -o $@
 
+$(OUT)/io.oo: $(SRC2)/io.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/io.c -o $@
+
 $(OUT)/math64.oo: $(SRC2)/math64.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
@@ -162,11 +167,6 @@ $(OUT)/system.oo: $(SRC2)/system.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/system.c -o $@
-
-$(OUT)/unistd.oo: $(SRC2)/unistd.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/unistd.c -o $@
 
 
 $(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)

@@ -22,26 +22,27 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_ERRNO_H_INCLUDED
-#define __ONRAMP_LIBC_ERRNO_H_INCLUDED
+#ifndef __ONRAMP_LIBC_SYS_STAT_H_INCLUDED
+#define __ONRAMP_LIBC_SYS_STAT_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#define EDOM 1
-#define EILSEQ 2
-#define ERANGE 3
-#define EINVAL 4
-#define ENOMEM 5
-#define EINTR 6
-#define EISDIR 7
-#define ENOTDIR 8
-#define ENFILE 9
-#define EACCES 10
-#define EBADF 11
-#define EIO 12
+#define S_IRWXU 0700
+#define S_IRUSR 0400
+#define S_IWUSR 0200
+#define S_IXUSR 0100
+#define S_IRWXG 0070
+#define S_IRGRP 0040
+#define S_IWGRP 0020
+#define S_IXGRP 0010
+#define S_IRWXO 0007
+#define S_IROTH 0004
+#define S_IWOTH 0002
+#define S_IXOTH 0001
 
-extern int errno;
+int chmod(const char* path, mode_t mode);
+int fchmod(int fd, mode_t mode);
 
 #endif

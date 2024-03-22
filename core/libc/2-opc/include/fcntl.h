@@ -29,9 +29,29 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-// TODO probably need a macro wrapper that makes the third argument optional
-int open(const char *pathname, int flags, mode_t mode);
+#include <__onramp/__mode_t.h>
 
-int creat(const char *pathname, mode_t mode);
+// one of these is required
+#define O_RDONLY     0x1
+#define O_WRONLY     0x2
+#define O_RDWR       0x4
+
+// optional flags
+#define O_APPEND     0x8
+#define O_CREAT      0x10
+#define O_DIRECTORY  0x20
+#define O_TRUNC      0x40
+
+// ignored flags
+#define O_ASYNC      0
+#define O_DSYNC      0
+#define O_SYNC       0
+#define O_CLOEXEC    0
+#define O_DIRECT     0
+#define O_NOATIME    0
+#define O_NONBLOCK   0
+
+int open(const char* __path, int __flags, ...);
+int creat(const char* __path, mode_t __mode);
 
 #endif
