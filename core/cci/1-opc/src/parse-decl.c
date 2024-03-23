@@ -301,6 +301,15 @@ static record_t* parse_record(bool is_struct) {
         type_delete(base_type);
         lexer_expect(";", "Expected `;` after struct or union field declaration.");
 
+        // Align the field offset
+        size_t size = type_size(type);
+        if (size == 2) {
+            offset = ((offset + 1) & ~1);
+        }
+        if (size > 2) {
+            offset = ((offset + 3) & ~3);
+        }
+
         // Add the field to the linked list
         fields = field_new(name, type, offset, fields);
 
