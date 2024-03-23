@@ -480,7 +480,9 @@ static void compile_arithmetic_factor(const type_t* type, int register_num, bool
     }
 
     // char* has a factor of 1.
-    if (type_is_base(deref, BASE_SIGNED_CHAR)) {
+    if (type_is_base(deref, BASE_SIGNED_CHAR) |
+            type_is_base(deref, BASE_UNSIGNED_CHAR))
+    {
         type_delete(deref);
         return;
     }
