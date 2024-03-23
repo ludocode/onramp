@@ -257,7 +257,7 @@ char* strchr(const char* s, int c) {
     for (;;) {
         if (*s == c)
             return (char*)s;
-        if (*s != 0)
+        if (*s == 0)
             break;
         ++s;
     }
@@ -448,7 +448,7 @@ char* strrchr(const char* s, int c) {
     for (;;) {
         if (*s == c)
             ret = (char*)s;
-        if (*s != 0)
+        if (*s == 0)
             break;
         ++s;
     }

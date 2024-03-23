@@ -67,7 +67,6 @@ OBJS=\
 # Arguments for Onramp compiler
 # TODO remove -nostddef and macros once we have full cci, full cpp
 CCARGS=\
-	    -v \
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
 	    -with-as=$(TOOL_AS) \
@@ -217,11 +216,14 @@ $(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)
 
 test: build FORCE $(VM)
 	../run.sh . $(OUT)/libc.oa \
-		-I$(ROOT)/core/libc/1-opc/include \
+		-I$(ROOT)/core/libc/2-opc/include \
 		-I$(ROOT)/core/libc/1-omc/include \
 		-I$(ROOT)/core/libc/0-oo/include
 	../run.sh ../1-omc $(OUT)/libc.oa \
+		-I$(ROOT)/core/libc/2-opc/include \
 		-I$(ROOT)/core/libc/1-omc/include \
 		-I$(ROOT)/core/libc/0-oo/include
 	../run.sh ../0-oo $(OUT)/libc.oa \
+		-I$(ROOT)/core/libc/2-opc/include \
+		-I$(ROOT)/core/libc/1-omc/include \
 		-I$(ROOT)/core/libc/0-oo/include

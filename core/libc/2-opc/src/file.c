@@ -425,15 +425,15 @@ size_t fread(void* restrict ptr, size_t size, size_t nmemb, FILE* restrict file)
     return -1;
 }
 
-//                        #include <__onramp/__pit.h>
-//                        #include "syscalls.h"
+                        #include <__onramp/__pit.h>
+                        #include "syscalls.h"
 size_t fwrite(const void* restrict ptr, size_t size, size_t nmemb, FILE* restrict file) {
     // TODO check for overflow
     size_t total = size * nmemb;
     size_t remaining = total;
 
-//__sys_fwrite(__process_info_table[__ONRAMP_PIT_OUTPUT], ptr, total);
-//return total;
+__sys_fwrite(__process_info_table[__ONRAMP_PIT_OUTPUT], ptr, total);
+return total;
 
     while (remaining > 0) {
 

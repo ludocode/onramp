@@ -27,12 +27,16 @@
 #
 # This does not test anything in platform/ (although the test scripts for the
 # core hex stages are in platform/.)
+#
+# The POSIX build script (scripts/posix/build.sh) must already have been run
+# (but only the setup is required, not the actual build.)
 
 set -e
 cd "$(dirname "$0")/.."
 
-# Setup for a POSIX environment
-#scripts/posix/setup.sh
+if ! [ -e build/posix/bin/onrampvm ]; then
+    echo "Run scripts/posix/build.sh before running this."
+fi
 . scripts/posix/env.sh
 
 # initial hex tool
@@ -62,8 +66,8 @@ make -C test/libc/1-omc
 make -C test/cci/1-opc
 
 # full compiler
+make -C test/libc/2-opc
 # TODO some tools not done yet
-#make -C test/libc/2-opc
 #make -C test/cpp/2-full
 #make -C test/cci/2-full
 

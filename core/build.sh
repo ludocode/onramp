@@ -64,10 +64,30 @@ sh core/cc/build.sh
 
 # Next build up to the full C compiler
 sh core/cci/1-opc/build.sh
+sh core/libc/2-opc/build.sh
+## sh core/cpp/2-full/build.sh
+## sh core/cci/2-full/build.sh
+##
+## # Build the rest of the C toolchain
+## sh core/libc/3-full/build.sh
+## sh core/ld/2-full/build.sh
+## sh core/as/2-full/build.sh
+##
+## # Rebuild our C toolchain with itself
+## sh core/cc/rebuild.sh
+## sh core/libc/3-full/rebuild.sh
+## sh core/ld/2-full/rebuild.sh
+## sh core/as/2-full/rebuild.sh
+## sh core/cci/2-full/rebuild.sh
+## sh core/cpp/2-full/rebuild.sh
+##
+## # Build the last few tools we need
+## sh core/hex/1-c89/build.sh
+## sh core/ar/1-unix/build.sh
 
-        # TODO the rest of the bootstrap process is not implemented yet. For
-        # now we stop here and package everything manually to produce a
-        # workable compiler.
+        # TODO the final stages of the above bootstrap process are not
+        # implemented yet. For now we package what we have manually to produce
+        # a workable compiler.
 
         # bin/
         mkdir -p build/output
@@ -88,6 +108,7 @@ sh core/cci/1-opc/build.sh
         # lib/
         mkdir -p build/output/lib
         cp build/intermediate/libc-1-omc/libc.oa build/output/lib/libc.oa
+        #cp build/intermediate/libc-2-opc/libc.oa build/output/lib/libc.oa
 
         # include/
         mkdir -p build/output/include
@@ -107,26 +128,5 @@ sh core/cci/1-opc/build.sh
         cp core/libc/1-omc/include/stdlib.h build/output/include/stdlib.h
         cp core/libc/0-oo/include/string.h build/output/include/string.h
         cp core/libc/0-oo/include/unistd.h build/output/include/unistd.h
-
-## sh core/libc/2-opc/build.sh
-## sh core/cpp/2-full/build.sh
-## sh core/cci/2-full/build.sh
-##
-## # Build the rest of the C toolchain
-## sh core/libc/3-full/build.sh
-## sh core/ld/2-full/build.sh
-## sh core/as/2-full/build.sh
-##
-## # Rebuild our C toolchain with itself
-## sh core/cc/rebuild.sh
-## sh core/libc/3-full/rebuild.sh
-## sh core/ld/2-full/rebuild.sh
-## sh core/as/2-full/rebuild.sh
-## sh core/cci/2-full/rebuild.sh
-## sh core/cpp/2-full/rebuild.sh
-##
-## # Build the last few tools we need
-## sh core/hex/1-c89/build.sh
-## sh core/ar/1-unix/build.sh
 
 echo Done.
