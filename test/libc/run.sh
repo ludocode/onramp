@@ -50,7 +50,7 @@ ANY_ERROR=0
 
 MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1"
 # TODO use cci/2 and cpp/2 once they exist
-MACROS="$MACROS -D__onramp_cci_opc__=1 -D__onramp_cpp_opc__=1 -Dlong=int"
+MACROS="$MACROS -D__onramp_cci_opc__=1 -D__onramp_cpp_opc__=1"
 MACROS="$MACROS -include __onramp/__predef.h"
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
