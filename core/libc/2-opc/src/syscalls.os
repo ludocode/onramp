@@ -33,6 +33,7 @@
 
 =__sys_halt
     sys halt '00 '00
+    ret
 
 
 
@@ -42,6 +43,7 @@
 
 =__sys_time
     sys time '00 '00
+    ret
 
 
 
@@ -51,6 +53,7 @@
 
 =__sys_spawn
     sys spawn '00 '00
+    ret
 
 
 
@@ -60,6 +63,7 @@
 
 =__sys_fopen
     sys fopen '00 '00
+    ret
 
 
 
@@ -69,6 +73,7 @@
 
 =__sys_fclose
     sys fclose '00 '00
+    ret
 
 
 
@@ -78,6 +83,7 @@
 
 =__sys_fread
     sys fread '00 '00
+    ret
 
 
 
@@ -87,6 +93,7 @@
 
 =__sys_fwrite
     sys fwrite '00 '00
+    ret
 
 
 
@@ -96,6 +103,7 @@
 
 =__sys_fseek
     sys fseek '00 '00
+    ret
 
 
 
@@ -105,6 +113,7 @@
 
 =__sys_ftell
     sys ftell '00 '00
+    ret
 
 
 
@@ -114,6 +123,7 @@
 
 =__sys_ftrunc
     sys ftrunc '00 '00
+    ret
 
 
 
@@ -123,6 +133,7 @@
 
 =__sys_stat
     sys stat '00 '00
+    ret
 
 
 
@@ -132,6 +143,7 @@
 
 =__sys_rename
     sys rename '00 '00
+    ret
 
 
 
@@ -141,6 +153,7 @@
 
 =__sys_symlink
     sys symlink '00 '00
+    ret
 
 
 
@@ -150,6 +163,7 @@
 
 =__sys_unlink
     sys unlink '00 '00
+    ret
 
 
 
@@ -159,6 +173,7 @@
 
 =__sys_chmod
     sys chmod '00 '00
+    ret
 
 
 
@@ -168,6 +183,7 @@
 
 =__sys_mkdir
     sys mkdir '00 '00
+    ret
 
 
 
@@ -177,6 +193,7 @@
 
 =__sys_rmdir
     sys rmdir '00 '00
+    ret
 
 
 
@@ -186,6 +203,7 @@
 
 =__sys_dopen
     sys dopen '00 '00
+    ret
 
 
 
@@ -195,6 +213,7 @@
 
 =__sys_dclose
     sys dclose '00 '00
+    ret
 
 
 
@@ -204,3 +223,4 @@
 
 =__sys_dread
     sys dread '00 '00
+    ret

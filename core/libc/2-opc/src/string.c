@@ -23,6 +23,7 @@
  */
 
         // TODO currently using this workaround since we don't have #undef in cpp/1
+        // TODO add #undef in cpp/1 to simplify this
         #define __ONRAMP_STRING_IMPL
 #include <string.h>
         int bcmp(const void* a, const void* b, size_t count);

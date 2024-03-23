@@ -36,4 +36,6 @@
             __assert_fail(#expression, __FILE__, __LINE__, __func__))
 #endif
 
+_Noreturn void __fatal(const char* message);
+
 #endif

@@ -715,7 +715,7 @@ static uint32_t vm_fseek(vm_t* vm) {
     strace("sys fseek() handle 0x%x base %u offset %" PRIi64 "\n", vm->registers[0], base, offset);
 
     if (base > 2) {
-        fatal("Invalid base given to syscall fseek.");
+        panic("Invalid base given to syscall fseek.");
     }
 
     if (0 == fseek(file, offset,

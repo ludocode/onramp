@@ -41,7 +41,7 @@ typedef unsigned int fpos_t;
 #define _IOLBF 2
 #define _IONBF 3
 
-#define BUFSIZ 128
+#define BUFSIZ 512
 #define EOF (-1)
 #define FOPEN_MAX 13 // TODO
 #define FILENAME_MAX 256
@@ -52,12 +52,20 @@ typedef unsigned int fpos_t;
 #define SEEK_END 2
 #define SEEK_SET 3
 
-extern FILE* __stdin;
-extern FILE* __stdout;
-extern FILE* __stderr;
-#define stdin (__stdin)
-#define stdout (__stdout)
-#define stderr (__stderr)
+// These are supposed to be macros. They also need to be real variables to be
+// accessible from assembly and backwards-compatible with previous stages, but
+// we can't define recursive macros with the omC preprocessor. We therefore
+// use this workaround to define them.
+extern FILE* stdin;
+extern FILE* stdout;
+extern FILE* stderr;
+#ifndef __ONRAMP_LIBC_2_FILE_IMPL
+    #ifndef __onramp_cpp_omc__
+        #define stdin ((FILE*)stdin)
+        #define stdout ((FILE*)stdout)
+        #define stderr ((FILE*)stderr)
+    #endif
+#endif
 
 // standard C
 
@@ -110,6 +118,9 @@ void clearerr(FILE* stream);
 int feof(FILE* stream);
 int ferror(FILE* stream);
 void perror(const char* s);
+
+// posix
+FILE* fdopen(int fd, const char* mode);
 
 // gnu extensions
 #ifdef _GNU_SOURCE
