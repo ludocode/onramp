@@ -36,8 +36,10 @@ extern char** __environ;
 // TODO clean these up
 _Noreturn void __end(unsigned exit_code, unsigned exit_address);
 extern void __malloc_init(void);
-extern void __stdio_init(void);
-extern void __stdio_destroy(void);
+extern void __file_init(void);
+extern void __file_destroy(void);
+extern void __io_init(void);
+extern void __io_destroy(void);
 static void exit_flush(void);
 extern void main(int argc, char** argv, char** environ);
 
@@ -57,7 +59,8 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
 
     // initialize the libc
     __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
-    __stdio_init();
+    __io_init();
+    __file_init();
 
     // run user code. _Exit() does not return.
     _Exit(main(__argc, __argv, __environ));
@@ -72,7 +75,8 @@ _Noreturn void _Exit(int status) {
 
     // clean up libc. we need to flush and close open files; our parent process
     // can't do it for us.
-    __stdio_destroy();
+    __file_destroy();
+    __io_destroy();
 
     // we're done. end the process
     __end(status, __process_info_table[__ONRAMP_PIT_EXIT]);

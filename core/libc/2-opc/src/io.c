@@ -35,6 +35,8 @@
 
 #include "internal.h"
 #include "syscalls.h"
+            #include <__onramp/__pit.h>
+            char* itoa_d(int value, char* buffer);
 
 /**
  * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
@@ -96,12 +98,12 @@ void __io_init(void) {
 void __io_destroy(void) {
     for (int fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
         if (posixfiles[fd] != NULL) {
-            close(fd);
+            // We're deleting all files because we eventually want to build a
+            // leak checker into the libc. On a quick exit we only need to
+            // close the file descriptors.
+            posixfile_delete(posixfiles[fd]);
         }
     }
-    posixfile_delete(posixfiles[2]);
-    posixfile_delete(posixfiles[1]);
-    posixfile_delete(posixfiles[0]);
 }
 
 int open(const char* path, int flags, ...) {
@@ -280,6 +282,8 @@ ssize_t write(int fd, const void* buffer, size_t count) {
     }
 
     int result = __sys_fwrite(posixfile->handle, buffer, count);
+// TODO syscall fwrite doesn't set r0 yet, need to fix some code, see c-debugger
+result = count;
     if (result < 0) {
         // TODO parse out the result code
         errno = EIO; // io error

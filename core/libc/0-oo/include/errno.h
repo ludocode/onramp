@@ -41,6 +41,8 @@
 #define EACCES 10
 #define EBADF 11
 #define EIO 12
+#define ESPIPE 13
+#define EOVERFLOW 14
 
 extern int errno;
 

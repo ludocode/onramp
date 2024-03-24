@@ -25,6 +25,8 @@
 #ifndef SYSCALLS_H_INCLUDED
 #define SYSCALLS_H_INCLUDED
 
+#include <stdbool.h>
+
 _Noreturn void __sys_halt(int exit_code);
 int __sys_time(unsigned out_buffer[3]);
 int __sys_spawn(void /*TODO*/);
@@ -32,7 +34,7 @@ int __sys_fopen(const char* path, bool writeable);
 int __sys_fclose(int handle);
 int __sys_fread(int handle, void* out_buffer, unsigned size);
 int __sys_fwrite(int handle, const void* buffer, unsigned size);
-int __sys_fseek(int handle, unsigned position_low, unsigned position_high);
+int __sys_fseek(int handle, unsigned base, unsigned offset_low, unsigned offset_high);
 int __sys_ftell(int handle, unsigned out_position[2]);
 int __sys_ftrunc(int handle, unsigned position_low, unsigned position_high);
 int __sys_stat(const char* path, unsigned out_stat[4]);

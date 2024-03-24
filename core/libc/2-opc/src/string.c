@@ -178,7 +178,7 @@ void* memmove(void* vdest, const void* vsrc, size_t count) {
         unsigned char* end = dest + count;
         while (dest != end)
             *dest++ = *src++;
-    } else {
+    } else if (dest > src) {
         // TODO vectorize
         unsigned char* end = dest;
         dest += count;
