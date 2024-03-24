@@ -302,11 +302,11 @@ static record_t* parse_record(bool is_struct) {
         lexer_expect(";", "Expected `;` after struct or union field declaration.");
 
         // Align the field offset
-        size_t size = type_size(type);
-        if (size == 2) {
+        size_t align = type_alignment(type);
+        if (align == 2) {
             offset = ((offset + 1) & ~1);
         }
-        if (size > 2) {
+        if (align == 4) {
             offset = ((offset + 3) & ~3);
         }
 
@@ -316,14 +316,18 @@ static record_t* parse_record(bool is_struct) {
         // In a struct, each field comes after the previous. In a union, all
         // fields have offset 0.
         if (is_struct) {
-            offset = field_end(fields);
+            // Flexible array members haven't been fixed up yet so we skip
+            // them. Fields get checked in record_set_fields().
+            if (type_array_length(type) != TYPE_ARRAY_INDETERMINATE) {
+                offset = field_end(fields);
+            }
         }
     }
     if (fields == NULL) {
         fatal("Structs and unions must have at least one field.");
     }
 
-    record_set_fields(record, fields);
+    record_set_fields(record, fields, is_struct);
     return record;
 }
 

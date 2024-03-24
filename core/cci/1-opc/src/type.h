@@ -110,6 +110,11 @@ type_t* type_clone(const type_t* other);
 size_t type_size(const type_t* type);
 
 /**
+ * Returns the alignment requirement of the type.
+ */
+size_t type_alignment(const type_t* type);
+
+/**
  * Returns the base type of the given type_t.
  */
 base_t type_base(const type_t* type);

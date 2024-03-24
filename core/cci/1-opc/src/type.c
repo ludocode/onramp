@@ -191,25 +191,22 @@ void type_set_array_length(type_t* type, int array_length) {
     *(int*)((void**)type + TYPE_OFFSET_ARRAY_LENGTH) = array_length;
 }
 
-size_t type_size(const type_t* type) {
-    size_t size;
-
-    // TODO cci/0 forbids type_size() on lvalues, why? I don't remember
-
-    // figure out the element size
+static size_t type_element_size(const type_t* type) {
     int pointers = type_pointers(type);
     if (pointers > 0) {
-        size = 4;
+        return 4;
     }
-    if (pointers == 0) {
-        const record_t* record = type_record(type);
-        if (record) {
-            size = record_size(record);
-        }
-        if (!record) {
-            size = base_size(type_base(type));
-        }
+    const record_t* record = type_record(type);
+    if (record) {
+        return record_size(record);
     }
+    return base_size(type_base(type));
+}
+
+size_t type_size(const type_t* type) {
+    size_t size = type_element_size(type);
+
+    // TODO cci/0 forbids type_size() on lvalues, why? I don't remember
 
     // if it's an array, multiply by the length
     int array_length = type_array_length(type);
@@ -220,6 +217,18 @@ size_t type_size(const type_t* type) {
         fatal("Cannot sizeof() an array of indeterminate length.");
     }
     size = (size * array_length); // TODO overflow check
+
+    return size;
+}
+
+size_t type_alignment(const type_t* type) {
+    size_t size = type_element_size(type);
+    if (size > 4) {
+        // TODO this isn't really correct, for records we need the largest
+        // alignment among its fields. Doesn't matter right now, currently all
+        // records are padded to a multiple of words.
+        return 4;
+    }
     return size;
 }
 

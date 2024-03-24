@@ -65,7 +65,7 @@ field_t* record_fields(const record_t* record);
  *
  * The record takes ownership and frees the fields when done.
  */
-void record_set_fields(record_t* record, field_t* fields);
+void record_set_fields(record_t* record, field_t* fields, bool is_struct);
 
 /**
  * Returns the size (as in sizeof) of this record.

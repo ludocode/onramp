@@ -28,6 +28,7 @@
 #include <string.h>
 
 #include "field.h"
+#include "type.h"
 
 /*
  * record_t looks like this:
@@ -79,25 +80,64 @@ const char* record_name(const record_t* record) {
 }
 
 field_t* record_fields(const record_t* record) {
-    return*(field_t**)((void**)record + RECORD_OFFSET_FIELDS); 
+    return*(field_t**)((void**)record + RECORD_OFFSET_FIELDS);
 }
 
-void record_set_fields(record_t* record, field_t* fields) {
+void record_set_fields(record_t* record, field_t* fields, bool is_struct) {
     if (record_fields(record) != NULL) {
         fatal_2("Internal error: cannot change fields of record ", record_name(record));
     }
     *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = fields;
 
-    // compute the size and cache it
+    bool last = true;
     size_t size = 4;
     while (fields) {
+
+        // Check for arrays. Only the last member in a struct is allowed to be
+        // an array of size zero/indeterminate (but note that our fields are in
+        // reverse order.) As an extension we allow any member of a union to be
+        // flexible.
+        type_t* type = field_type(fields);
+        if (type_is_array(type)) {
+            int length = type_array_length(type);
+            bool allow_zero = (last | !is_struct);
+            if (!allow_zero) {
+                if ((length == 0) | (length == TYPE_ARRAY_INDETERMINATE)) {
+                    fatal("Only the last member in a struct is allowed to be an array of zero/indeterminate length.");
+                }
+            }
+            if (allow_zero) {
+                if (length == TYPE_ARRAY_INDETERMINATE) {
+                    // Change indeterminate to zero so that sizeof() works.
+                    type_set_array_length(type, 0);
+                }
+            }
+        }
+
+        // Find the largest end offset; that's the (unpadded) size of our
+        // struct. (It's not necessarily the last field because this could be a
+        // union.)
         size_t end = field_end(fields);
         if (end > size) {
             size = end;
         }
+
+        last = false;
         fields = field_next(fields);
     }
-    size = ((size + 3) & (~3)); // round up to multiple of word size (4)
+
+    // round up to multiple of word size (4)
+    // Note: We should actually round to a multiple of the largest required
+    // alignment of our fields. For example a struct with three shorts could be
+    // 6 bytes, not 8. We are allowed to have extra padding though so this
+    // isn't a violation of the spec, it's just a waste of space. This won't
+    // matter for bootstrapping.
+    // TODO would be easy to fix though, just need to track largest element
+    // size in the above loop, just don't want to risk breaking anything right
+    // now. do it later. need to fix type_alignment() at the same time.
+    size = ((size + 3) & (~3));
+
+    // cache it
     *(size_t*)((void**)record + RECORD_OFFSET_SIZE) = size;
 }
 
