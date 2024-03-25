@@ -423,6 +423,36 @@ static size_t utod(uintmax_t value, char* output) {
     return length;
 }
 
+
+/**
+ * Converts an unsigned integer to a hexdecimal string.
+ */
+static size_t utoh(uintmax_t value, char* output, bool uppercase) {
+    if (value == 0) {
+        *output = '0';
+        return 1;
+    }
+
+    char reverse[64];
+    char* p = reverse;
+    while (value > 0) {
+        int digit = value & 0xF;
+        if (digit >= 10) {
+            *p = (uppercase ? 'A' : 'a') + digit - 10;
+        } else {
+            *p = '0' + digit;
+        }
+        ++p;
+        value >>= 4;
+    }
+
+    size_t length = p - reverse;
+    for (size_t i = 0; i < length; ++i) {
+        output[i] = reverse[length - i - 1];
+    }
+    return length;
+}
+
 /**
  * Output state for the print function.
  *
@@ -579,6 +609,25 @@ static void print(const char* format, output_t* output, va_list args) {
                     value = va_arg(args, unsigned);
                 }
                 size_t length = utod(value, number_buffer);
+                print_output(output, number_buffer, length);
+                break;
+            }
+
+            case 'x': // fallthrough
+            case 'X': {
+                uintmax_t value;
+                if (directive.length_modifier == length_modifier_ll) {
+                    #ifdef __onramp_cci_full__
+                        value = va_arg(args, unsigned long long);
+                    #endif
+                    #ifndef __onramp_cci_full__
+                        output->error = true;
+                        return;
+                    #endif
+                } else {
+                    value = va_arg(args, unsigned);
+                }
+                size_t length = utoh(value, number_buffer, directive.conversion == 'X');
                 print_output(output, number_buffer, length);
                 break;
             }
