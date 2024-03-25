@@ -40,14 +40,16 @@
  *
  * This gives us a reasonable distribution even for sequential hashes.
  */
+// TODO the unsigned cast here is temporary, cci/1 is incorrectly converting
+// the left side to signed
 #ifndef __onramp_cpp_omc__
     #ifndef DEBUG
-        #define knuth_hash_32(value, bits) (((value) * 2654435761u) >> (32 - (bits)))
+        #define knuth_hash_32(value, bits) (((value) * 2654435761u) >> (unsigned)(32 - (bits)))
     #endif
 #endif
 #ifndef knuth_hash_32
     static inline uint32_t knuth_hash_32(uint32_t value, int bits) {
-        return (value * 2654435761u) >> (32 - bits);
+        return (value * 2654435761u) >> (unsigned)(32 - bits);
     }
 #endif
 
