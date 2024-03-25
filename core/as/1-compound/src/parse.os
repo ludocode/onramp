@@ -214,11 +214,6 @@
     cmpu ra r0 ";"
     jz ra &try_parse_comment_loop
 
-    ; TODO for now we also treat debug info as comments. The final stage linker
-    ; supports debug info so we don't really need to implement this.
-    cmpu ra r0 "#"
-    jz ra &try_parse_comment_loop
-
     ; not a comment, return false
     add r0 '00 '00
     ldw rip '00 rsp        ; ret
@@ -258,10 +253,79 @@
 
 
 
+; ==========================================================
+; void try_parse_debug(void);
+; ==========================================================
+; Attempts to consume a debug info line.
+;
+; We don't actually parse it. We just forward it to the output.
+;
+; Returns true if consumed, false otherwise.
+; ==========================================================
+
+=try_parse_debug
+
+    ; get the current char
+    ims ra <current_char
+    ims ra >current_char
+    ldw r0 rpp ra
+
+    ; check if it's the start of a debug info line
+    cmpu ra r0 "#"
+    jz ra &try_parse_debug_loop
+
+    ; not a debug line, return false
+    add r0 '00 '00
+    ldw rip '00 rsp        ; ret
+
+:try_parse_debug_loop
+
+    ; output the current char, call emit_byte()
+    ims ra <emit_byte
+    ims ra >emit_byte
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; consume the current char, call next_char()
+    ims ra <next_char
+    ims ra >next_char
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; get the current char
+    ims ra <current_char
+    ims ra >current_char
+    ldw r0 rpp ra
+
+    ; check if it's the end of a line or the end of the file
+    cmpu ra r0 '0A  ; (line feed)
+    jz ra &try_parse_debug_done
+    cmpu ra r0 '0D  ; (carriage return)
+    jz ra &try_parse_debug_done
+    cmpu ra r0 'FF  ; (end-of-file)
+    jz ra &try_parse_debug_done
+
+    ; keep looping
+    jz '00 &try_parse_debug_loop  ; jz 0 &try_parse_debug_loop
+
+:try_parse_debug_done
+
+    ;return true
+    add r0 '00 '01
+    ldw rip '00 rsp        ; ret
+
+
+
 ;===========================================================
 ; void consume_whitespace_and_comments(void);
 ;===========================================================
-; Consumes all whitespace and comments.
+; Consumes all whitespace, comments and debug info.
 ;===========================================================
 
 =consume_whitespace_and_comments
@@ -296,6 +360,21 @@
     jz '00 &consume_whitespace_and_comments
 
 :consume_whitespace_and_comments_not_comment
+
+    ; call try_parse_debug()
+    ims ra <try_parse_debug
+    ims ra >try_parse_debug
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; if it returned true, start over
+    jz r0 &consume_whitespace_and_comments_not_debug
+    jz '00 &consume_whitespace_and_comments
+
+:consume_whitespace_and_comments_not_debug
 
     ; return
     ldw rip '00 rsp        ; ret
