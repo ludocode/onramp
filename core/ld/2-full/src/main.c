@@ -45,6 +45,7 @@ static size_t input_filenames_count;
 static size_t input_filenames_capacity;
 
 static const char* output_filename;
+static const char* wrap_header;
 
 static void parse_args(const char** argv) {
     input_filenames_count = 0;
@@ -59,32 +60,42 @@ static void parse_args(const char** argv) {
 
     while (*argv != NULL) {
 
-        // check for optimization
+        // optimization
         if (0 == strcmp(*argv, "-O")) {
             option_optimize = true;
             ++argv;
             continue;
         }
 
-        // check for debug info
+        // debug info
         if (0 == strcmp(*argv, "-g")) {
             option_debug = true;
             ++argv;
             continue;
         }
 
-        // check for output file
+        // wrap header
+        if (0 == strcmp(*argv, "-wrap-header")) {
+            if (*++argv == 0) {
+                fatal("-wrap-header must be followed by an output file.");
+            }
+            if (wrap_header != NULL) {
+                fatal("Only one -wrap-header can be specified.");
+            }
+            wrap_header = *argv++;
+            continue;
+        }
+
+        // output file
         if (0 == strcmp(*argv, "-o")) {
-            argv = (argv + 1);
-            if (*argv == 0) {
+            if (*++argv == 0) {
                 fatal("-o must be followed by an output file.");
             }
             if (output_file != NULL) {
                 fatal("Only one -o output file can be specified.");
             }
             //printf("found %s as output\n",*argv);
-            output_filename = *argv;
-            ++argv;
+            output_filename = *argv++;
             continue;
         }
 
@@ -115,7 +126,26 @@ static void open_output_files(void) {
     if (output_file == NULL) {
         fatal("Failed to open output file.");
     }
-    chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
+
+    chmod(output_filename, 0755);
+
+    if (wrap_header != NULL) {
+        FILE* header = fopen(wrap_header, "r");
+        if (header == NULL) {
+            fatal("Failed to open wrap header file.");
+        }
+
+        size_t buffer_size = 128;
+        char* buffer = calloc(1, buffer_size);
+        if (buffer == NULL) {
+            fatal("Out of memory.");
+        }
+        // TODO check for errors, loop, etc.
+        fread(buffer, 1, buffer_size, header);
+        fclose(header);
+        fwrite(buffer, 1, buffer_size, output_file);
+        free(buffer);
+    }
 
     if (option_debug) {
         char* debug_filename = 0;

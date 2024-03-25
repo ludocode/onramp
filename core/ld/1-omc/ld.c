@@ -623,8 +623,8 @@ static void open_output(const char* output_filename) {
 
     chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
 
-    // TODO we should probably remove support for wrap headers once we can
-    // build ld/2, no reason to support it in an earlier stage
+    // TODO this can be removed now that we bootstrap ld/2, no reason to
+    // support this in an earlier stage
     if (wrap_header != NULL) {
         FILE* header = fopen(wrap_header, "r");
         if (header == NULL) {
@@ -656,7 +656,7 @@ static void perform_pass(const char** argv) {
             }
             if (wrap_header == NULL) {
                 if (output_file != NULL) {
-                    fatal("--append-output must come before -o.");
+                    fatal("-wrap-header must come before -o.");
                 }
                 wrap_header = *argv;
             }
