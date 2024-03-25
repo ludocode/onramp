@@ -72,7 +72,7 @@ static void global_delete(global_t* global) {
 
 void globals_init(void) {
     // TODO start with a smaller table once growable
-    globals_buckets = 512;
+    globals_buckets = 4096;
     globals = calloc(globals_buckets, sizeof(global_t*));
 }
 

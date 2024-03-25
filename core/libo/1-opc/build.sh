@@ -27,49 +27,46 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/libo-1-opc
 
-echo Compiling libo-error.c
+echo Assembling libo/1-opc libo-data.os
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/libo/1-opc/build-ccargs \
+    -c core/libo/1-opc/src/libo-data.os \
+    -o build/intermediate/libo-1-opc/libo-data.oo
+
+echo Compiling libo/1-opc libo-error.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-error.c \
     -o build/intermediate/libo-1-opc/libo-error.oo
 
-echo Compiling libo-string.c
+echo Compiling libo/1-opc libo-string.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-string.c \
     -o build/intermediate/libo-1-opc/libo-string.oo
 
-echo Compiling libo-table.c
+echo Compiling libo/1-opc libo-table.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-table.c \
     -o build/intermediate/libo-1-opc/libo-table.oo
 
-echo Compiling libo-util.c
+echo Compiling libo/1-opc libo-util.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-util.c \
     -o build/intermediate/libo-1-opc/libo-util.oo
 
-echo Compiling libo-vector.c
+echo Compiling libo/1-opc libo-vector.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-vector.c \
     -o build/intermediate/libo-1-opc/libo-vector.oo
 
-echo Archiving libo
+echo Archiving libo/1-opc libo
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libo-1-opc/libo.oa \
+        build/intermediate/libo-1-opc/libo-data.oo \
         build/intermediate/libo-1-opc/libo-error.oo \
         build/intermediate/libo-1-opc/libo-string.oo \
         build/intermediate/libo-1-opc/libo-table.oo \

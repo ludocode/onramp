@@ -164,7 +164,7 @@ void string_print(string_t* string, FILE* file);
     #endif
 #endif
 #ifndef string_hash
-    static inline const char* string_hash(string_t* str) {
+    static inline uint32_t string_hash(string_t* str) {
         return str->entry.hash;
     }
 #endif

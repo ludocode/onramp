@@ -218,7 +218,7 @@
          id="tspan16"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Compiler</tspan></text>
     <rect
-       style="fill:#00e1e1;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       style="fill:#00ff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
        id="rect16"
        width="45.964336"
        height="9.9881124"
@@ -345,7 +345,7 @@
          id="tspan25"
          style="font-size:4.93889px;text-align:center;text-anchor:middle">libc/1-omc</tspan></text>
     <rect
-       style="fill:#ff7f00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       style="fill:#ffff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
        id="rect25"
        width="45.964336"
        height="9.9881124"
@@ -597,7 +597,7 @@
            style="font-size:4.23333px;text-align:start;text-anchor:start">Not started</tspan></text>
     </g>
     <rect
-       style="fill:#ffff00;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
+       style="fill:#00e1e1;fill-opacity:1;stroke:#000000;stroke-width:0.535664;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;paint-order:markers fill stroke"
        id="rect50"
        width="45.964336"
        height="9.9881124"
@@ -711,7 +711,7 @@
        style="font-size:21.3333px;line-height:1.25;font-family:sans-serif;word-spacing:0px;white-space:pre;shape-inside:url(#rect59);display:inline"><tspan
          x="-232.40234"
          y="208.31884"
-         id="tspan1">core/</tspan></text>
+         id="tspan5">core/</tspan></text>
     <text
        xml:space="preserve"
        style="font-size:5.64444px;line-height:1.25;font-family:sans-serif;word-spacing:0px;stroke-width:0.264583"
@@ -734,7 +734,7 @@
        id="path61"
        sodipodi:nodetypes="ccc" />
     <rect
-       style="fill:#ffff00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       style="fill:#00e1e1;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
        id="rect3"
        width="45.964336"
        height="9.9881124"
@@ -776,7 +776,7 @@
          id="tspan8"
          style="font-style:normal;font-variant:normal;font-weight:bold;font-stretch:normal;font-size:6.35px;font-family:sans-serif;-inkscape-font-specification:'sans-serif Bold';text-align:center;text-anchor:middle">Debugger</tspan></text>
     <rect
-       style="fill:#ffff00;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
+       style="fill:#00e1e1;fill-opacity:1;stroke:#060000;stroke-width:0.536;stroke-linecap:square;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:markers fill stroke"
        id="rect9"
        width="45.964336"
        height="9.9881124"

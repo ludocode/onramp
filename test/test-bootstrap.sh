@@ -89,6 +89,7 @@ make -C test/ld/2-full build
             -I../../../core/libc/2-opc/include \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include )
+( core/ld/2-full/build.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/intermediate/ld-2-full/ld.oe )
 
                 #
                 #
@@ -105,7 +106,6 @@ make -C test/ld/2-full build
 
 # Build the rest of the C toolchain
 core/libc/3-full/build.sh
-core/ld/2-full/build.sh
 ( core/as/2-full/build.sh && cd test/as/2-full && \
     ../run.sh . onrampvm ../../../build/intermediate/as-2-full/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/intermediate/as-2-full/as.oe && \
