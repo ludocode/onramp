@@ -33,9 +33,14 @@
 
 #include "libo-util.h"
 
+#ifndef __onramp__
+// On Onramp this is defined in libo-data.os because our opC compiler doesn't
+// support global initializers.
 const char error_out_of_memory[] = "Out of memory.";
-char* current_filename = NULL;
-int current_line = 0;
+#endif
+
+char* current_filename;
+int current_line;
 
 void set_current_filename(const char* filename) {
     free(current_filename);
@@ -79,7 +84,7 @@ void fatal(const char* format, ...) {
 _Noreturn
 void vfatal(const char* format, va_list args) {
     print_error("ERROR", format, args);
-    exit(1);
+    _Exit(1);
 }
 
 void warning(const char* format, ...) {

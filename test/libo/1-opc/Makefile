@@ -20,37 +20,153 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+.SUFFIXES:
 CFLAGS := -g
 CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 
 -include ../../local.mk
 
-ROOT=../..
+ROOT=../../..
 BUILD=$(ROOT)/build/test
 
-SRC=$(ROOT)/core/libo/src
-OUT=$(BUILD)/libo
+OUT=$(BUILD)/libo-1-opc
+SRC=$(ROOT)/core/libo/1-opc/src
+
+TOOL_VM=$(BUILD)/vm-c-debugger/vm
+TOOL_AR=$(BUILD)/ar-0-cat/ar.oe    # TODO ar/1
+TOOL_CC=$(BUILD)/cc/cc
+TOOL_CPP=$(BUILD)/cpp-1-omc/cpp    # TODO cpp/2
+TOOL_CCI=$(BUILD)/cci-1-opc/cci    # TODO cci/2
+TOOL_AS=$(BUILD)/as-2-full/as
+TOOL_LD=$(BUILD)/ld-2-full/ld
+TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
+
+OBJS=\
+		$(OUT)/libo-error.oo \
+		$(OUT)/libo-string.oo \
+		$(OUT)/libo-table.oo \
+		$(OUT)/libo-util.oo \
+		$(OUT)/libo-vector.oo \
 
 SRCS=\
 		$(SRC)/libo-error.c \
 		$(SRC)/libo-string.c \
 		$(SRC)/libo-table.c \
 		$(SRC)/libo-util.c \
-		main.c
+		$(SRC)/libo-vector.c \
+
+# Arguments for Onramp compiler
+# TODO remove -nostddef and macros once we have full cci, full cpp
+CCARGS=\
+	    -with-cpp=$(TOOL_CPP) \
+	    -with-cci=$(TOOL_CCI) \
+	    -with-as=$(TOOL_AS) \
+	    -with-ld=$(TOOL_LD) \
+		-nostddef \
+		-D__onramp__=1 \
+		-D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
+		-D__onramp_cci__=1 -D__onramp_cci_opc__=1 \
+		-I../../../core/libo/1-opc/include \
+		-I../../../core/libc/2-opc/include \
+		-I../../../core/libc/1-omc/include \
+		-I../../../core/libc/0-oo/include \
+		-include __onramp/__predef.h
+
+# Arguments for external compiler
+CPPFLAGS += \
+		-nostdinc -nostdlib \
+		-I../../../core/libo/1-opc/include \
+		-I../../../core/libc/2-opc/include \
+		-I../../../core/libc/1-omc/include \
+		-I../../../core/libc/0-oo/include \
+		-include __onramp/__predef.h
+# TODO disabling a few warnings for now
+CPPFLAGS := \
+		-Wno-builtin-declaration-mismatch \
+		-Wno-unused-function \
+		-Wno-pointer-to-int-cast \
+		-Wno-int-to-pointer-cast \
+		$(CPPFLAGS)
 
 all: build test FORCE
 FORCE:
-build: $(OUT)/libo_test FORCE
+build: $(OUT)/libo.oa FORCE
 
 clean: FORCE
 	rm -rf $(OUT)
 
-# TODO for now we just combine all test files into one executable. Later we
-# will have each test compiled separately so we can have failing tests.
-$(OUT)/libo_test: $(SRCS) Makefile
+# tools
+$(TOOL_VM): FORCE
+	@(make -C $(ROOT)/platform/vm/c-debugger build)
+$(TOOL_AR): FORCE
+	@(make -C ../../ar/0-cat build)    # TODO ar/1
+$(TOOL_CC): FORCE
+	@(make -C ../../cc build)
+$(TOOL_CCI): FORCE
+	@(make -C ../../cci/1-opc build)   # TODO cci/2 build
+$(TOOL_CPP): FORCE
+	@(make -C ../../cpp/1-omc build)   # TODO cpp/2 build
+$(TOOL_AS): FORCE
+	@(make -C ../../as/2-full build)
+$(TOOL_LD): FORCE
+	@(make -C ../../ld/2-full build)
+
+
+$(OUT)/libo-data.oo: $(SRC)/libo-data.os Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-data.os -o $@
+
+
+# Each C file is compiled with the external C compiler first because it has
+# much better error checking than our Onramp compiler. We can't actually link
+# the resulting objects (at least, not unless we want to implement all of our
+# syscalls for Linux.)
+
+$(OUT)/libo-error.oo: $(SRC)/libo-error.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-error.c -o $(OUT)/libo-error.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-error.c -o $@
+
+$(OUT)/libo-string.oo: $(SRC)/libo-string.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-string.c -o $(OUT)/libo-string.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-string.c -o $@
+
+$(OUT)/libo-table.oo: $(SRC)/libo-table.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-table.c -o $(OUT)/libo-table.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-table.c -o $@
+
+$(OUT)/libo-util.oo: $(SRC)/libo-util.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-util.c -o $(OUT)/libo-util.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-util.c -o $@
+
+$(OUT)/libo-vector.oo: $(SRC)/libo-vector.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-vector.c -o $(OUT)/libo-vector.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-vector.c -o $@
+
+
+$(OUT)/libo.oa: Makefile $(TOOLS) $(OBJS)
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
 
 test: build FORCE
-	$(OUT)/libo_test
+	../run.sh . $(OUT)/libo.oa \
+		-I../../../core/libo/1-opc/include \
+		-I../../../core/libc/2-opc/include \
+		-I../../../core/libc/1-omc/include \
+		-I../../../core/libc/0-oo/include
+	../run.sh ../0-oo $(OUT)/libo.oa \
+		-I../../../core/libo/1-opc/include \
+		-I../../../core/libc/2-opc/include \
+		-I../../../core/libc/1-omc/include \
+		-I../../../core/libc/0-oo/include

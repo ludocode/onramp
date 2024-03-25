@@ -20,6 +20,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+.SUFFIXES:
 CFLAGS := -g
 CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 
@@ -100,7 +101,7 @@ FORCE:
 build: $(OUT)/libc.oa FORCE
 
 clean: FORCE
-	rm -rf $(BUILD)/libc-2-opc
+	rm -rf $(OUT)
 
 # tools
 $(TOOL_VM): FORCE

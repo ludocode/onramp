@@ -97,7 +97,7 @@ static void table_resize(table_t* table, int new_bits) {
             table_entry_t* next = entry->next;
 
             // get bucket
-            size_t j = KNUTH_HASH(entry->hash, new_bits);
+            size_t j = knuth_hash_32(entry->hash, new_bits);
             table_entry_t** bucket = new_buckets + j;
 
             // insert entry at head of bucket
@@ -133,7 +133,7 @@ void table_put(table_t* table, table_entry_t* entry, uint32_t hash) {
     if (table->bits == 0) {
         bucket = &table->entries.single_bucket;
     } else {
-        bucket = &table->entries.buckets[KNUTH_HASH(hash, table->bits)];
+        bucket = &table->entries.buckets[knuth_hash_32(hash, table->bits)];
     }
 
     // insert at front of list
@@ -167,7 +167,7 @@ table_entry_t* table_bucket(table_t* table, uint32_t hash) {
     if (table->bits == 0) {
         return table->entries.single_bucket;
     }
-    return table->entries.buckets[KNUTH_HASH(hash, table->bits)];
+    return table->entries.buckets[knuth_hash_32(hash, table->bits)];
 }
 
 void table_remove(table_t* table, table_entry_t* entry) {

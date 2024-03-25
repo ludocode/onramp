@@ -27,6 +27,7 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "libo-table.h"
 
@@ -37,9 +38,6 @@
  * Allocated strings in the final stage Onramp tools are de-duplicated by this
  * string container. This minimizes memory usage and makes for fast string
  * comparisons and table lookups.
- *
- * Strings can be compared for equality just by comparing pointers with the ==
- * operator. We still use string_equal() for clarity.
  */
 typedef struct string_t {
     uint32_t refcount;
@@ -102,7 +100,8 @@ void string_deref(string_t* string);
 /**
  * Returns true if the two given strings are equal.
  *
- * The strings are interned so we just compare pointers with operator ==.
+ * The strings are interned so we just compare pointers with operator ==. We
+ * still use this wrapper for clarity.
  */
 #ifndef __onramp_cpp_omc__
     #ifndef DEBUG
@@ -119,7 +118,16 @@ void string_deref(string_t* string);
  * Returns true if the contents of the given string match the given
  * null-terminated C string.
  */
-bool string_equal_cstr(string_t* string, const char* cstr);
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define string_equal_cstr(string, cstr) (0 == strcmp((string)->bytes, (cstr)))
+    #endif
+#endif
+#ifndef string_equal_cstr
+    static inline bool string_equal_cstr(string_t* string, const char* cstr) {
+        return 0 == strcmp(string->bytes, cstr);
+    }
+#endif
 
 /**
  * Returns true if the contents of the given string match the given bytes.

@@ -29,10 +29,27 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#define containerof(pointer, structure, member) \
-        ((structure*)((char*)(pointer) - offsetof(structure, member)))
+#ifndef __onramp_cpp_omc__
+    #define containerof(pointer, structure, member) \
+            ((structure*)((char*)(pointer) - offsetof(structure, member)))
+#endif
 
-#define KNUTH_HASH(value, bits) (((value) * 2654435761u) >> (32 - (bits)))
+/**
+ * Calculates the Knuth multiplicative hash of the given 32-bit unsigned value
+ * with the result reduced to the given number of bits.
+ *
+ * This gives us a reasonable distribution even for sequential hashes.
+ */
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define knuth_hash_32(value, bits) (((value) * 2654435761u) >> (32 - (bits)))
+    #endif
+#endif
+#ifndef knuth_hash_32
+    static inline uint32_t knuth_hash_32(uint32_t value, int bits) {
+        return (value * 2654435761u) >> (32 - bits);
+    }
+#endif
 
 /**
  * Calculates the FNV-1a hash of the given null-terminated string.
@@ -44,8 +61,19 @@ uint32_t fnv1a_cstr(const char* s);
  */
 uint32_t fnv1a_bytes(const char* p, size_t count);
 
+/**
+ * Converts a number to decimal.
+ */
 char* itoa_d(int value, char* buffer);
+
+/**
+ * Writes a number in decimal to the given file.
+ */
 void fputd(int number, FILE* file);
+
+/**
+ * Writes a number in decimal to standard output.
+ */
 void putd(int number);
 
 #endif

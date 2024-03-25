@@ -32,6 +32,15 @@
 
 static table_t string_table;
 
+#ifndef __onramp_cpp_omc__
+    #define string_from_entry(entry) (containerof(entry, string_t, entry))
+#endif
+#ifndef string_from_entry
+    static string_t* string_from_entry(table_entry_t* entry) {
+        return (string_t*)((char*)entry - (unsigned)&((string_t*)0)->entry);
+    }
+#endif
+
 void strings_init(void) {
     table_init(&string_table);
 }
@@ -50,7 +59,7 @@ string_t* string_intern_bytes(const char* bytes, size_t length) {
     table_entry_t* entry = table_bucket(&string_table, hash);
     while (entry) {
         if (hash == table_entry_hash(entry)) {
-            string_t* candidate = containerof(entry, string_t, entry);
+            string_t* candidate = string_from_entry(entry);
             if (string_equal_bytes(candidate, bytes, length)) {
                 // existing string found
                 return string_ref(candidate);
@@ -97,10 +106,6 @@ bool string_equal_bytes(string_t* string, const char* bytes, size_t length) {
         return false;
     }
     return 0 == memcmp(string->bytes, bytes, length);
-}
-
-bool string_equal_cstr(string_t* string, const char* cstr) {
-    return 0 == strcmp(string->bytes, cstr);
 }
 
 void string_print(string_t* string, FILE* file) {
