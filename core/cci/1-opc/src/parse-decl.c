@@ -290,6 +290,29 @@ static record_t* parse_record(bool is_struct) {
         if (!try_parse_declarator(base_type, &type, &name)) {
             fatal("Expected a declarator for this struct or union field declaration.");
         }
+
+        // check for a bitfield declaration
+        bool bitfield = lexer_accept(":");
+        if (bitfield) {
+
+            // parse and ignore the bitfield width
+            type_t* width_type;
+            int width;
+            if (!try_parse_constant_expression(&width_type, &width)) {
+                fatal("Expected bitfield width after `:`.");
+            }
+            type_delete(width_type);
+
+            if (name == NULL) {
+                // An unnamed bitfield is meant to declare padding. We ignore
+                // it.
+                type_delete(type);
+                type_delete(base_type);
+                lexer_expect(";", "Expected `;` after unnamed bitfield declaration.");
+                continue;
+            }
+        }
+
         if (name == NULL) {
             fatal("This struct or union member must have a name.");
         }
