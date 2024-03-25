@@ -35,7 +35,7 @@
 
 struct __file;
 typedef struct __file FILE;
-typedef unsigned int fpos_t;
+typedef long fpos_t;
 
 #define _IOFBF 1
 #define _IOLBF 2
@@ -48,9 +48,9 @@ typedef unsigned int fpos_t;
 #define L_tmpnam 256 // TODO
 #define TMP_MAX 1000 // TODO
 
-#define SEEK_CUR 1
-#define SEEK_END 2
-#define SEEK_SET 3
+#define SEEK_CUR 0
+#define SEEK_END 1
+#define SEEK_SET 2
 
 // These are supposed to be macros. They also need to be real variables to be
 // accessible from assembly and backwards-compatible with previous stages, but
@@ -108,7 +108,7 @@ int ungetc(int c, FILE* file);
 
 size_t fread(void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
 size_t fwrite(const void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
-int fgetpos(FILE* restrict file, fpos_t*  restrict pos);
+int fgetpos(FILE* restrict file, fpos_t* restrict pos);
 int fseek(FILE* file, long offset, int whence);
 int fsetpos(FILE* file, const fpos_t* pos);
 long ftell(FILE* file);

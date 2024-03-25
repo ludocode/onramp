@@ -35,8 +35,6 @@
 
 #include "internal.h"
 #include "syscalls.h"
-            #include <__onramp/__pit.h>
-            char* itoa_d(int value, char* buffer);
 
 /**
  * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
@@ -104,6 +102,14 @@ void __io_destroy(void) {
             posixfile_delete(posixfiles[fd]);
         }
     }
+}
+
+int __fd_handle(int fd) {
+    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+        errno = EBADF; // no such file descriptor
+        return -1;
+    }
+    return posixfiles[fd]->handle;
 }
 
 int open(const char* path, int flags, ...) {

@@ -38,4 +38,6 @@
 
 _Noreturn void __fatal(const char* message);
 
+int __fd_handle(int fd);
+
 #endif

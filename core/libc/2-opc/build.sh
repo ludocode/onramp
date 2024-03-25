@@ -28,7 +28,7 @@ mkdir -p build/intermediate
 mkdir -p build/intermediate/libc-2-opc
 
 
-echo Compiling libc/2-opc start.os
+echo Assembling libc/2-opc start.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/start.os \
@@ -77,7 +77,7 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/math64.c \
     -o build/intermediate/libc-2-opc/math64.oo
 
-echo Assembling libc/2-opc setjmp.c
+echo Assembling libc/2-opc setjmp.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/setjmp.os \

@@ -29,6 +29,8 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__mode_t.h>
+
 #define S_IRWXU 0700
 #define S_IRUSR 0400
 #define S_IWUSR 0200
