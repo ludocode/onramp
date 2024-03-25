@@ -489,9 +489,9 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
 
     if (output->buffer) {
         char* buffer = output->buffer;
-        size_t left = output->buffer_end - output->buffer;
-        if (left > count) {
-            count = left;
+        size_t free_space = output->buffer_end - output->buffer;
+        if (free_space < count) {
+            count = free_space;
             output->buffer = NULL;
         } else {
             output->buffer += count;
@@ -680,7 +680,7 @@ int vasprintf(char** restrict out_string, const char* restrict format, va_list a
      * we already know the size. */
     size_t size = 1 + (size_t)ret;
     if (size <= sizeof(buffer)) {
-        libc_assert(buffer[size - 1] == 0);
+        libc_assert(buffer[ret] == 0);
         *out_string = (char*)__memdup(buffer, size);
         if (*out_string == NULL)
             return -1;

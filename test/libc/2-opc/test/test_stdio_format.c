@@ -2,7 +2,11 @@
 // Copyright (c) 2023-2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
+#define _GNU_SOURCE
 #include <stdio.h>
+
+#include <stdlib.h>
+#include <string.h>
 
 
 /*
@@ -231,6 +235,12 @@ static void test_stdio_format_printf() {
     printf("%u\n", 10);
     printf("%i\n", 10);
     printf("%i\n", -10);
+
+    // another bug at one point
+    char* f;
+    if (0 > asprintf(&f, "%s.od", "foo")) {_Exit(1);}
+    if (0 != strcmp(f, "foo.od")) {_Exit(1);}
+    free(f);
 }
 
 
