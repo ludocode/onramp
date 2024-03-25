@@ -19,6 +19,12 @@ int main(void) {
         return 1;
     }
 
+    // cast l-value to r-value
+    if (((struct foo*)pfoo)->x != 2) {
+    }
+    if (((struct foo*)pfoo)->y != 3) {
+    }
+
     if (*(int*)&foo != 2) {
         return 1;
     }

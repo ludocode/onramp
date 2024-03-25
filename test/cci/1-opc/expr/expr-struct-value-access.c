@@ -2,7 +2,7 @@
 // Copyright (c) 2023-2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-struct {
+struct foo {
     int x;
     int y;
 } foo;
@@ -16,6 +16,12 @@ int main(void) {
     }
     if ((*(&foo)).y != 3) {
         return 1;
+    }
+
+    // cast l-value to r-value
+    if ((*(struct foo*)&foo).x != 2) {
+    }
+    if ((*(struct foo*)&foo).y != 3) {
     }
 
     if (*(int*)&foo != 2) {

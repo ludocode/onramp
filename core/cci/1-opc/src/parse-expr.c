@@ -779,7 +779,7 @@ static type_t* parse_record_value_access(type_t* type) {
         fatal("Expected a struct or union field name after `.`");
     }
     if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | (type_base(type) != BASE_RECORD)) {
-        fatal("`.` can only be used on a struct or union pointer.");
+        fatal("`.` can only be used on a struct or union value.");
     }
     return parse_record_access(type);
 }
@@ -792,8 +792,8 @@ static type_t* parse_record_pointer_access(type_t* type) {
     // array of structs. Apparently this is normal as neither GCC and Clang
     // complain when `->` is used this way, but strictly speaking, the spec
     // says it's supposed to only be used on pointers.
-    if ((!type_is_lvalue(type) | (type_indirections(type) != 1)) | (type_base(type) != BASE_RECORD)) {
-        fatal("`.` can only be used on a struct or union pointer.");
+    if ((type_indirections(type) != 1) | (type_base(type) != BASE_RECORD)) {
+        fatal("`->` can only be used on a struct or union pointer.");
     }
 
     type = compile_operator_dereference(type);
