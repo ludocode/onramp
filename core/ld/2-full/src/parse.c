@@ -40,14 +40,16 @@ static void start_file(const char* new_filename) {
 
 static void save_file_state(void) {
     // We store the state of all these things so we can restore them later.
-    fgetpos(input_file, &file_start_pos);
+    if (0 != fgetpos(input_file, &file_start_pos))
+        fatal("Failed to seek input file.");
     file_start_address = current_address;
     file_first_char = current_char;
 }
 
 /** Restarts a file for another parsing pass. */
 static void restore_file_state(void) {
-    fsetpos(input_file, &file_start_pos);
+    if (0 != fsetpos(input_file, &file_start_pos))
+        fatal("Failed to seek input file.");
     current_line = 1;
     current_address = file_start_address;
     current_char = file_first_char;
@@ -126,7 +128,7 @@ static bool try_parse_comment() {
     // comment found. consume it
     while (1) {
         next_char();
-        if ((current_char == '\r') | (current_char == '\n')) {
+        if (is_end_of_line(current_char)) {
             break;
         }
     }
@@ -432,7 +434,7 @@ static bool try_parse_archive(void) {
     next_char();
     // TODO use arrays
     buffer_length = 0;
-    while ((current_char != '\n') & (current_char != '\r')) {
+    while (!is_end_of_line(current_char)) {
         *(buffer + buffer_length) = current_char;
         buffer_length = (buffer_length + 1);
         if (buffer_length == BUFFER_SIZE) {

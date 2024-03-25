@@ -29,70 +29,48 @@ mkdir -p build/intermediate/ld-2-full
 
 echo Compiling ld/2-full common.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/ld/2-full/build-ccargs \
     -c core/ld/2-full/src/common.c \
     -o build/intermediate/ld-2-full/common.oo
 
 echo Compiling ld/2-full emit.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/ld/2-full/build-ccargs \
     -c core/ld/2-full/src/emit.c \
     -o build/intermediate/ld-2-full/emit.oo
 
 echo Compiling ld/2-full label.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/ld/2-full/build-ccargs \
     -c core/ld/2-full/src/label.c \
     -o build/intermediate/ld-2-full/label.oo
 
 echo Compiling ld/2-full main.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/ld/2-full/build-ccargs \
     -c core/ld/2-full/src/main.c \
     -o build/intermediate/ld-2-full/main.oo
 
 echo Compiling ld/2-full parse.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/ld/2-full/build-ccargs \
     -c core/ld/2-full/src/parse.c \
     -o build/intermediate/ld-2-full/parse.oo
 
-echo Compiling ld/2-full rstring.c
-onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
-    -c core/ld/2-full/src/rstring.c \
-    -o build/intermediate/ld-2-full/rstring.oo
-
 echo Compiling ld/2-full symbol.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/ld/2-full/build-ccargs \
     -c core/ld/2-full/src/symbol.c \
     -o build/intermediate/ld-2-full/symbol.oo
 
 echo Linking ld/2-full
-# TODO should we be linking against libc/1 or libc/2?
 onrampvm build/intermediate/ld-1-omc/ld.oe \
-    build/intermediate/libc-1-oo/libc.oa \
-    build/intermediate/libo-1-oo/libo.oa \
+    build/intermediate/libc-2-opc/libc.oa \
+    build/intermediate/libo-1-opc/libo.oa \
     build/intermediate/ld-2-full/common.oo \
     build/intermediate/ld-2-full/emit.oo \
     build/intermediate/ld-2-full/label.oo \
     build/intermediate/ld-2-full/main.oo \
     build/intermediate/ld-2-full/parse.oo \
-    build/intermediate/ld-2-full/rstring.oo \
     build/intermediate/ld-2-full/symbol.oo \
     -o build/intermediate/ld-2-full/ld.oe

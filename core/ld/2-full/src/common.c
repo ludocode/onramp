@@ -44,8 +44,8 @@ size_t buffer_length;
 
 struct symbol_t* current_symbol;
 
-bool option_optimize = false;
-bool option_debug = false;
+bool option_optimize;
+bool option_debug;
 
 // TODO this should be in libo
 int hex_to_int(char c) {

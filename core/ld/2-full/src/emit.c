@@ -26,7 +26,7 @@
 
 char* emit_filename;
 char* emit_current_symbol;
-int emit_line = 1;
+int emit_line;
 static int bytes_emitted;
 
 void emit_byte_count(void) {
@@ -40,7 +40,7 @@ void emit_byte_count(void) {
 }
 
 void emit_init(void) {
-    // nothing
+    emit_line = 1;
 }
 
 void emit_destroy(void) {

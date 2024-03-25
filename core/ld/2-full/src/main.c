@@ -32,9 +32,7 @@
 // TODO asprintf() is nonstandard (is it in C23?)
 #define _GNU_SOURCE
 
-#ifndef __onramp__  // TODO fix this
 #include <sys/stat.h>
-#endif
 
 #include "common.h"
 #include "symbol.h"
