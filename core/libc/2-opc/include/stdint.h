@@ -82,12 +82,14 @@ typedef int32_t int_fast32_t;
 
 typedef int32_t intptr_t;
 typedef uint32_t uintptr_t;
-typedef int32_t intmax_t;
-typedef uint32_t uintmax_t;
-
 #define INTPTR_MIN INT32_MIN
 #define INTPTR_MAX INT32_MAX
 #define UINTPTR_MAX UINT32_MAX
+
+// In this stage we don't have `long long` so intmax_t is 32 bits. Once cci/2
+// is bootstrapped, libc/3 defines this as 64 bits.
+typedef int32_t intmax_t;
+typedef uint32_t uintmax_t;
 #define INTMAX_MIN INT32_MIN
 #define INTMAX_MAX INT32_MAX
 #define UINTMAX_MAX UINT32_MAX
@@ -111,8 +113,13 @@ typedef uint32_t uintmax_t;
     #define UINT16_C(x) x ## U
     #define UINT32_C(x) x ## U
     #define UINT64_C(x) x ## ULL
-    #define INTMAX_C INT64_C
-    #define UINTMAX_C UINT64_C
+    #ifdef __onramp_cci_opc__
+        #define INTMAX_C INT32_C
+        #define UINTMAX_C UINT32_C
+    #else
+        #define INTMAX_C INT64_C
+        #define UINTMAX_C UINT64_C
+    #endif
 #endif
 
 #endif

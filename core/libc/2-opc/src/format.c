@@ -58,23 +58,22 @@ typedef struct directive_t {
     int conversion_argument_position;
 
     // True if we have argument positions ('$')
-// TODO temporarily disabling bitfields, not parsed by cci/1 yet
-    bool argument_positions ;//: 1;
+    bool argument_positions : 1;
 
     // These flags are true if '*' was given, in which case the value should be
     // taken from an argument (either the next one, or a specific argument if
     // argument_positions is true.)
-    bool field_width_as_argument ;//: 1;
-    bool precision_as_argument ;//: 1;
+    bool field_width_as_argument : 1;
+    bool precision_as_argument : 1;
 
     // Other flags
-    bool alternate          ;//: 1; // #
-    bool zero_padded        ;//: 1; // 0
-    bool left_adjusted      ;//: 1; // -
-    bool plus_sign          ;//: 1; // +
-    bool blank_plus_sign    ;//: 1; // space
-    bool thousands_grouping ;//: 1; // '  (Single UNIX)
-    bool locale_digits      ;//: 1; // I  (glibc)
+    bool alternate          : 1; // #
+    bool zero_padded        : 1; // 0
+    bool left_adjusted      : 1; // -
+    bool plus_sign          : 1; // +
+    bool blank_plus_sign    : 1; // space
+    bool thousands_grouping : 1; // '  (Single UNIX)
+    bool locale_digits      : 1; // I  (glibc)
 } directive_t;
 
 /**
@@ -404,7 +403,6 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 /**
  * Converts an unsigned integer to a decimal string.
  */
-/*
 static size_t utod(uintmax_t value, char* output) {
     if (value == 0) {
         *output = '0';
@@ -424,46 +422,71 @@ static size_t utod(uintmax_t value, char* output) {
     }
     return length;
 }
-*/
+
+/**
+ * Output state for the print function.
+ *
+ * Output can be directed to a FILE or to a buffer. This also tracks the total
+ * number of bytes output and whether any errors occurred.
+ */
+typedef struct {
+    char* buffer;
+    char* buffer_end;
+    FILE* file;
+    size_t total;
+    bool error;
+} output_t;
+
+static void output_init_file(output_t* output, FILE* file) {
+    memset(output, 0, sizeof(*output));
+    output->file = file;
+}
+
+static void output_init_buffer(output_t* output, char* buffer, size_t buffer_size) {
+    memset(output, 0, sizeof(*output));
+    output->buffer = buffer;
+    output->buffer_end = buffer + buffer_size;
+}
+
+static void print_output(output_t* output, const char* bytes, size_t count) {
+    output->total += count;
+
+    if (output->file) {
+        if (count != fwrite(bytes, 1, count, output->file)) {
+            output->error = true;
+        }
+    }
+
+    if (output->buffer) {
+        char* buffer = output->buffer;
+        size_t left = output->buffer_end - output->buffer;
+        if (left > count) {
+            count = left;
+            output->buffer = NULL;
+        } else {
+            output->buffer += count;
+        }
+        memcpy(buffer, bytes, count);
+    }
+}
 
 /**
  * Main print function.
- *
- * The function formats into a buffer.
- *
- * If the buffer becomes full, the optional flush function can flush it. The
- * flush function must provide a new buffer to continue writing. If the flush
- * function returns -1, formatting is aborted and this function returns -1.
- *
- * If the buffer and flush function are both null, it doesn't output anything
- * but still calculates the length of the resulting string.
- *
- * Returns -1 in case of a flush failure; otherwise returns the number of bytes
- * that would have been written had the string not been truncated.
  */
-// TODO disabling until fixed, don't have function pointers in osc
-#ifdef DISABLED
-static int print(
-        const char* format,
-        int (*output)(void* context, const char* bytes, size_t count),
-        void* context,
-        va_list args)
-{
+static void print(const char* format, output_t* output, va_list args) {
     const char* p = format;
-    size_t total = 0;
 
     // buffer large enough to format any number, floating point or otherwise
-    char buffer[128];
+    char number_buffer[128];
 
-    while (*p != '\0') {
+    while (*p != 0) {
 
         // Scan forward until we find a format directive and output the content.
         if (*p != '%') {
             const char* start = p;
-            while (*p != '%' && *p != '\0')
+            while (*p != '%' && *p != 0)
                 ++p;
-            output(context, start, p - start);
-            total += p - start;
+            print_output(output, start, p - start);
             continue;
         }
 
@@ -475,76 +498,88 @@ static int print(
         // (yet).
         if (directive.argument_positions) {
             libc_assert(false);
-            return -1;
+            output->error = true;
+            return;
         }
 
         switch (directive.conversion) {
             case '%':
-                output(context, "%", 1);
-                total += 1;
+                print_output(output, "%", 1);
                 break;
 
             case 'd': // fallthrough
             case 'i': {
                 // get argument
-                int64_t value;
-                if (directive.length_modifier == length_modifier_ll)
-                    value = va_arg(args, long long);
-                else
+                intmax_t value;
+                if (directive.length_modifier == length_modifier_ll) {
+                    #ifdef __onramp_cci_full__
+                        value = va_arg(args, long long);
+                    #endif
+                    #ifndef __onramp_cci_full__
+                        output->error = true;
+                        return;
+                    #endif
+                } else {
                     value = va_arg(args, int);
+                }
 
                 // convert negative to positive
-                uint64_t uvalue;
+                uintmax_t uvalue;
                 if (value >= 0)
-                    uvalue = (uint64_t)value;
-                else if (value == INT64_MIN)
-                    uvalue = (uint64_t)INT64_MAX + 1u;
+                    uvalue = (uintmax_t)value;
+                else if (value == INTMAX_MIN)
+                    uvalue = (uintmax_t)INTMAX_MAX + 1u;
                 else
-                    uvalue = -(uint64_t)value;
+                    uvalue = -(uintmax_t)value;
 
                 // format it
-                size_t length = utod(uvalue, buffer);
+                size_t length = utod(uvalue, number_buffer);
                 if (value < 0)
-                    output(context, "-", 1);
-                output(context, buffer, length);
-                total += length;
+                    print_output(output, "-", 1);
+                print_output(output, number_buffer, length);
                 break;
             }
 
             case 's': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
-                    libc_assert(false);
-                    return -1;
+                    //libc_assert(false);
+                    output->error = true;
+                    return;
                 }
                 const char* str = va_arg(args, const char*);
                 size_t length = strlen(str);
-                output(context, str, length);
-                total += length;
+                print_output(output, str, length);
                 break;
             }
 
             case 'c': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
-                    libc_assert(false);
-                    return -1;
+                    //libc_assert(false);
+                    output->error = true;
+                    return;
                 }
                 char c = (char)va_arg(args, int);
-                output(context, &c, 1);
-                total += 1;
+                print_output(output, &c, 1);
                 break;
             }
 
             case 'u': {
-                uint64_t value;
-                if (directive.length_modifier == length_modifier_ll)
-                    value = va_arg(args, unsigned long long);
-                else
+                uintmax_t value;
+                if (directive.length_modifier == length_modifier_ll) {
+                    #ifdef __onramp_cci_full__
+                        value = va_arg(args, unsigned long long);
+                    #endif
+                    #ifndef __onramp_cci_full__
+                        output->error = true;
+                        return;
+                    #endif
+                } else {
                     value = va_arg(args, unsigned);
-                size_t length = utod(value, buffer);
-                output(context, buffer, length);
-                total += length;
+                }
+                size_t length = utod(value, number_buffer);
+                print_output(output, number_buffer, length);
                 break;
             }
 
@@ -553,59 +588,30 @@ static int print(
                 break;
         }
     }
-
-    // Append the null-terminator
-    output(context, "", 1);
-    ++total;
-
-    // TODO overflow check?
-    return (int)total;
 }
 
-/*
- * vsnprintf()
- */
-
-typedef struct vsnprintf_context_t {
-    char* s;
-    size_t n;
-} vsnprintf_context_t;
-
-static int vsnprintf_output(void* vcontext, const char* bytes, size_t count) {
-    vsnprintf_context_t* context = (vsnprintf_context_t*)vcontext;
-    if (count > context->n)
-        count = context->n;
-    memcpy(context->s, bytes, count);
-    context->s += count;
-    context->n -= count;
-    return 0;
+int vsnprintf(char* restrict buffer, size_t buffer_size, const char* restrict format, va_list args) {
+    output_t output;
+    output_init_buffer(&output, buffer, buffer_size);
+    print(format, &output, args);
+    if (output.total < buffer_size) {
+        buffer[output.total] = 0; // null-terminate
+    }
+    if (output.error) {
+        return -1;
+    }
+    return output.total;
 }
 
-int vsnprintf(char* restrict s, size_t n, const char* restrict format, va_list args) {
-    vsnprintf_context_t context = {s, n};
-    return print(format, vsnprintf_output, &context, args);
+int vfprintf(FILE* restrict file, const char* restrict format, va_list args) {
+    output_t output;
+    output_init_file(&output, file);
+    print(format, &output, args);
+    if (output.error) {
+        return -1;
+    }
+    return output.total;
 }
-
-/*
- * vfprintf()
- */
-
-static int vfprintf_output(void* context, const char* bytes, size_t count) {
-    // TODO return value, proper error handling, etc.
-    FILE* stream = (FILE*)context;
-    return fwrite(bytes, 1, count, stream);
-}
-
-int vfprintf(FILE* restrict stream, const char* restrict format, va_list args) {
-    return print(format, vfprintf_output, stream, args);
-}
-
-/*
- * vasprintf()
- *
- * We try to print into a small stack-allocated buffer. If it fits, we strdup()
- * it. If not, we've got the size so we allocate it and re-print.
- */
 
 int vasprintf(char** restrict out_string, const char* restrict format, va_list args) {
 
@@ -625,8 +631,8 @@ int vasprintf(char** restrict out_string, const char* restrict format, va_list a
      * we already know the size. */
     size_t size = 1 + (size_t)ret;
     if (size <= sizeof(buffer)) {
-        libc_assert(buffer[size - 1] == '\0');
-        *out_string = (char*)memdup(buffer, size);
+        libc_assert(buffer[size - 1] == 0);
+        *out_string = (char*)__memdup(buffer, size);
         if (*out_string == NULL)
             return -1;
         return ret;
@@ -640,14 +646,13 @@ int vasprintf(char** restrict out_string, const char* restrict format, va_list a
     if (ret == -1) {
         /* This shouldn't be possible; it worked the first time. We
          * check anyway to be sure. */
-        free(*out_string);
-        *out_string = NULL;
-        return ret;
+        __fatal("Internal error: second format of vasprintf() failed.");
     }
-    libc_assert((*out_string)[size - 1] == '\0');
+    libc_assert((*out_string)[size - 1] == 0);
     return ret;
 }
 
+#ifdef DISABLED
 /**
  * Main scan function.
  *
@@ -676,6 +681,7 @@ int vsscanf(const char* restrict s, const char* restrict format, va_list args) {
     // TODO
     return -1;
 }
+#endif
 
 /*
  * The rest of these functions just wrap the implementations above.
@@ -689,6 +695,7 @@ int fprintf(FILE* restrict stream, const char* restrict format, ...) {
     return ret;
 }
 
+#ifdef DISABLED
 int fscanf(FILE* restrict stream, const char* restrict format, ...) {
     va_list args;
     va_start(args, format);
@@ -696,6 +703,7 @@ int fscanf(FILE* restrict stream, const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
+#endif
 
 int printf(const char* restrict format, ...) {
     va_list args;
@@ -705,6 +713,7 @@ int printf(const char* restrict format, ...) {
     return ret;
 }
 
+#ifdef DISABLED
 int scanf(const char* restrict format, ...) {
     va_list args;
     va_start(args, format);
@@ -712,6 +721,7 @@ int scanf(const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
+#endif
 
 int snprintf(char* restrict buffer, size_t buffer_size, const char* restrict format, ...) {
     va_list args;
@@ -729,6 +739,7 @@ int sprintf(char* restrict buffer, const char* restrict format, ...) {
     return ret;
 }
 
+#ifdef DISABLED
 int sscanf(const char* restrict s, const char* restrict format, ...) {
     va_list args;
     va_start(args, format);
@@ -736,14 +747,17 @@ int sscanf(const char* restrict s, const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
+#endif
 
 int vprintf(const char* restrict format, va_list args) {
     return vfprintf(stdout, format, args);
 }
 
+#ifdef DISABLED
 int vscanf(const char* restrict format, va_list args) {
     return vfscanf(stdin, format, args);
 }
+#endif
 
 int vsprintf(char* restrict s, const char* restrict format, va_list args) {
     return vsnprintf(s, SIZE_MAX, format, args);
@@ -756,4 +770,3 @@ int asprintf(char** restrict out_string, const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
-#endif

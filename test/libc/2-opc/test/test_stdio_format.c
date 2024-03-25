@@ -2,19 +2,14 @@
 // Copyright (c) 2023-2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-// TODO
-int main(void){}
-#ifdef DISABLED
-#include "stdio_format.c"
-
-#include "test.h"
-
+#include <stdio.h>
 
 
 /*
  * directive parsing
  */
 
+#ifdef DISABLED
 static void test_directive_equal(directive_t* actual, directive_t* expected) {
     test_assert(0 == memcmp(actual, expected, sizeof(*actual)));
 }
@@ -221,6 +216,7 @@ static void test_stdio_format_directive_parse_number_max(void) {
     test_directive_parse_match(buf, &expected);
 #endif
 }
+#endif
 
 
 
@@ -238,8 +234,9 @@ static void test_stdio_format_printf() {
 }
 
 
-void test_stdio_format() {
+int main(void) {
 
+#ifdef DISABLED
     // directive parsing
     test_stdio_format_directive_parse_s();
     test_stdio_format_directive_parse_LS();
@@ -262,10 +259,8 @@ void test_stdio_format() {
     test_stdio_format_directive_parse_field_width_and_precision();
     test_stdio_format_directive_parse_all_argument_positions();
     test_stdio_format_directive_parse_number_max();
+#endif
 
     // format printing
     test_stdio_format_printf();
-
-    puts("stdio format tests pass");
 }
-#endif
