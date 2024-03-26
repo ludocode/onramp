@@ -728,7 +728,7 @@ type_t* compile_comparison(const char* op, type_t* left, type_t* right) {
 }
 
 type_t* compile_promote(type_t* type, int register_num) {
-    type = compile_lvalue_to_rvalue(type, 0);
+    type = compile_lvalue_to_rvalue(type, register_num);
     if (type_indirections(type) > 0) {
         return type;
     }
@@ -753,10 +753,29 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     fputc('\n', stdout);
     */
 
-    // All binary operations operate on and produce r-values. (This will
-    // trigger a fatal error if one of our types is a struct.)
-    right = compile_lvalue_to_rvalue(right, 0);
-    left = compile_lvalue_to_rvalue(left, 1);
+    // We start by promoting both types to register width. This also converts
+    // l-values to r-values and catches errors like trying to do arithmetic on
+    // structs.
+    right = compile_promote(right, 0);
+    left = compile_promote(left, 1);
+
+    // Handle shift operators
+    if (0 == strcmp(op, "<<")) {
+        type_delete(right);
+        compile_basic_op("shl");
+        return left;
+    }
+    if (0 == strcmp(op, ">>")) {
+        type_delete(right);
+        if (type_is_signed(left)) {
+            compile_basic_op("shrs");
+            return left;
+        }
+        compile_basic_op("shru");
+        return left;
+    }
+
+    // All other binary operators convert both sides to a common type.
 
     // Determine a type for integer promotions. If both types are unsigned, we
     // promote both to unsigned int; otherwise we promote integer types to
@@ -850,18 +869,6 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
     }
     if (0 == strcmp(op, "^")) {
         compile_basic_op("xor");
-        return ret;
-    }
-    if (0 == strcmp(op, "<<")) {
-        compile_basic_op("shl");
-        return ret;
-    }
-    if (0 == strcmp(op, ">>")) {
-        if (promoted_base == BASE_SIGNED_INT) {
-            compile_basic_op("shrs");
-            return ret;
-        }
-        compile_basic_op("shru");
         return ret;
     }
 
