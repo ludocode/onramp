@@ -73,9 +73,17 @@ void record_set_fields(record_t* record, field_t* fields, bool is_struct);
 size_t record_size(const record_t* record);
 
 /**
- * Finds the field with the given name, raising a fatal error if the record is
- * incomplete or the field does not exist.
+ * Finds the field and offset with the given name, returning NULL if the field
+ * does not exist.
+ *
+ * NOTE: The returned offset is not necessarily the same as the offset stored
+ * in the field because the field may be nested in an anonymous struct or
+ * union. The returned offset is the offset from the start of *this* record,
+ * whereas field_offset() returns the offset relative to its direct parent.
+ *
+ * If the record is incomplete, a fatal error is raised.
  */
-const field_t* record_find_field(const record_t* record, const char* name);
+const field_t* record_find_field(const record_t* record, const char* name,
+        size_t* out_offset);
 
 #endif

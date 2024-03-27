@@ -764,9 +764,13 @@ static type_t* parse_identifier_expression(void) {
 }
 
 static type_t* parse_record_access(type_t* type) {
-    const field_t* field = record_find_field(type_record(type), lexer_token);
+    size_t offset;
+    const field_t* field = record_find_field(type_record(type), lexer_token, &offset);
+    if (field == NULL) {
+        fatal_2("Struct or union has no such field: ", lexer_token);
+    }
     lexer_consume();
-    compile_offset(field_offset(field));
+    compile_offset(offset);
 
     type_delete(type);
     type = type_clone(field_type(field));

@@ -313,6 +313,13 @@ static record_t* parse_record(bool is_struct) {
             }
         }
 
+        // We support C11 anonymous struct and union members. All other members
+        // must be named.
+        if (name == NULL) {
+            if (type_is_record(type)) {
+                name = strdup_checked("");
+            }
+        }
         if (name == NULL) {
             fatal("This struct or union member must have a name.");
         }

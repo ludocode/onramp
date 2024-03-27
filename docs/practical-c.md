@@ -8,15 +8,16 @@ It's designed to be simple enough that we can implement it in [Onramp Minimal C 
 
 ## Details
 
-opC is a strict subset of C99. It is somewhat limited compared to ANSI C but the syntax is more like C99 in practice.
+opC is a strict subset of C11. It is somewhat limited compared to ANSI C but the syntax is more like C11 in practice.
 
-Starting from the ANSI C spec, we backport a few quality-of-life features from C99:
+Starting from the ANSI C spec, we backport a few quality-of-life features from C11:
 
 - mixed declarations and code;
 - `for` loop variable declarations;
 - C++-style `//` comments;
 - trailing commas in enums;
 - flexible array members (struct hack);
+- anonymous struct and union members;
 
 However, we exclude a few ANSI C features and common extensions:
 

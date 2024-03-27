@@ -420,3 +420,10 @@ bool type_is_compatible(const type_t* left, const type_t* right) {
     // this. For now we just allow all integers to be compared with anything.
     return true;
 }
+
+bool type_is_record(const type_t* type) {
+    if (type_indirections(type) != 0) {
+        return false;
+    }
+    return type_base(type) == BASE_RECORD;
+}

@@ -149,16 +149,29 @@ size_t record_size(const record_t* record) {
     return size;
 }
 
-const field_t* record_find_field(const record_t* record, const char* name) {
+const field_t* record_find_field(const record_t* record, const char* name,
+        size_t* out_offset)
+{
     if (record_fields(record) == NULL) {
         fatal("Cannot access members of an incomplete struct or union.");
     }
     field_t* field = record_fields(record);
     while (field) {
-        if (0 == strcmp(name, field_name(field))) {
+        const char* other = field_name(field);
+        if (0 == *other) {
+            // Anonymous members must be structs or unions.
+            size_t offset;
+            const field_t* nested = record_find_field(type_record(field_type(field)), name, &offset);
+            if (nested) {
+                *out_offset = (offset + field_offset(field));
+                return nested;
+            }
+        }
+        if (0 == strcmp(name, other)) {
+            *out_offset = field_offset(field);
             return field;
         }
         field = field_next(field);
     }
-    fatal_2("Struct or union has no such field: ", name);
+    return NULL;
 }
