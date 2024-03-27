@@ -136,7 +136,9 @@ void lexer_init(const char* filename) {
     current_filename = strdup(filename);
     emit_line_directive();
 
-    lexer_read_char();
+    // Prime the current char with a newline so the first line can be a #line
+    // directive or #pragma.
+    lexer_char = '\n';
     lexer_consume();
 }
 
@@ -299,12 +301,17 @@ static void lexer_consume_end_of_line(void) {
     fatal("Expected end of line.");
 }
 
-static void lexer_consume_whitespace(void) {
+// Consumes whitespace, returning true if a newline was found.
+static bool lexer_consume_whitespace(void) {
+
     // (Note that we don't handle comments or escaped newlines. Those need to
     // be filtered out by the preprocessor.)
+
+    bool found_newline = false;
     char c = (char)lexer_char;
     while (isspace(c)) {
         if ((c == '\n') | (c == '\r')) {
+            found_newline = true;
             lexer_consume_end_of_line();
             emit_line_increment_directive();
             c = (char)lexer_char;
@@ -312,6 +319,8 @@ static void lexer_consume_whitespace(void) {
         }
         c = lexer_read_char();
     }
+
+    return found_newline;
 }
 
 static void lexer_consume_until_newline(void) {
@@ -372,6 +381,7 @@ static void lexer_handle_line_directive(void) {
 static void lexer_parse_directive(void) {
 
     // skip the '#'
+    assert(lexer_char == '#');
     lexer_read_char();
     lexer_consume_optional_horizontal_whitespace();
 
@@ -396,9 +406,12 @@ static void lexer_parse_directive(void) {
 
 static void lexer_consume_whitespace_and_directives(void) {
     while (1) {
-        lexer_consume_whitespace();
+        bool found_newline = lexer_consume_whitespace();
         if (lexer_char != '#') {
             break;
+        }
+        if (!found_newline) {
+            fatal("A `#` preprocessor directive can only appear at the start of a line.");
         }
         lexer_parse_directive();
     }
