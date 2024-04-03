@@ -50,7 +50,7 @@
   push r0 
   imw r0 8 
   pop r1 
-  divs r0 r1 r0 
+  divu r0 r1 r0 
   pop r1 
   stw r0 0 r1 
   imw r0 -144 

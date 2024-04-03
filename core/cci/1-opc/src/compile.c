@@ -563,10 +563,10 @@ type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
         return right;
     }
 
-    // If neither is a pointer, promote to int.
-    type_delete(left);
+    // If neither is a pointer, they've already been converted to the same type
+    // so return either one.
     type_delete(right);
-    return type_new_base(BASE_SIGNED_INT);
+    return left;
 }
 
 // If the result of a cmps/cmpu in r0 is 0, r0 is set to 1; otherwise it's set
@@ -728,14 +728,26 @@ type_t* compile_comparison(const char* op, type_t* left, type_t* right) {
 }
 
 type_t* compile_promote(type_t* type, int register_num) {
+
+    // An integer promotion cannot be an l-value.
     type = compile_lvalue_to_rvalue(type, register_num);
+
+    // Pointers don't get promoted.
     if (type_indirections(type) > 0) {
         return type;
     }
-    if (type_is_signed(type)) {
-        return compile_cast(type, type_new_base(BASE_SIGNED_INT), register_num);
+
+    // If we're already width int, there's nothing to promote. (We don't
+    // support any larger types.)
+    if (type_is_base(type, BASE_SIGNED_INT)) {
+        return type;
     }
-    return compile_cast(type, type_new_base(BASE_UNSIGNED_INT), register_num);
+    if (type_is_base(type, BASE_UNSIGNED_INT)) {
+        return type;
+    }
+
+    // Otherwise we always promote to int.
+    return compile_cast(type, type_new_base(BASE_SIGNED_INT), register_num);
 }
 
 // Compiles a binary operation.
@@ -775,28 +787,20 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
         return left;
     }
 
-    // All other binary operators convert both sides to a common type.
-
-    // Determine a type for integer promotions. If both types are unsigned, we
-    // promote both to unsigned int; otherwise we promote integer types to
-    // signed int.
-    base_t promoted_base = BASE_SIGNED_INT;
+    // All other binary operators convert both sides to a common type. If one
+    // type is signed int and the other is unsigned int, we convert signed to
+    // unsigned. Otherwise we do nothing. (We leave pointers intact; they'll be
+    // handled specially by the operators that handle them.)
     if (type_is_unsigned(left)) {
-        if (type_is_unsigned(right)) {
-            promoted_base = BASE_UNSIGNED_INT;
+        if (type_is_signed(right)) {
+            right = compile_cast(right, type_new_base(BASE_UNSIGNED_INT), 0);
         }
     }
-    type_t* promoted_type = type_new_base(promoted_base);
-
-    // Cast any integer types to the promoted type. We leave pointers intact;
-    // they'll be handled specially by the operators that handle them.
-    if (type_is_integer(left)) {
-        left = compile_cast(left, type_clone(promoted_type), 1);
+    if (type_is_unsigned(right)) {
+        if (type_is_signed(left)) {
+            left = compile_cast(left, type_new_base(BASE_UNSIGNED_INT), 1);
+        }
     }
-    if (type_is_integer(right)) {
-        right = compile_cast(right, type_clone(promoted_type), 0);
-    }
-    type_delete(promoted_type);
 
     // add/sub
     if (0 == strcmp(op, "+")) {
@@ -842,7 +846,7 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
         return ret;
     }
     if (0 == strcmp(op, "/")) {
-        if (promoted_base == BASE_SIGNED_INT) {
+        if (type_is_signed(left)) {
             compile_basic_op("divs");
             return ret;
         }
@@ -850,7 +854,7 @@ type_t* compile_binary_op(const char* op, type_t* left, type_t* right) {
         return ret;
     }
     if (0 == strcmp(op, "%")) {
-        if (promoted_base == BASE_SIGNED_INT) {
+        if (type_is_signed(left)) {
             compile_basic_op("mods");
             return ret;
         }
