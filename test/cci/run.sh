@@ -38,6 +38,9 @@
 # than the one for which the tests were intended. The assembly output will not
 # be compared and any tests with a .nonstd file will be skipped.
 
+set -e
+ROOT=$(dirname $0)/../..
+
 OTHER_STAGE=0
 if [ "$1" == "--other-stage" ]; then
     OTHER_STAGE=1
@@ -53,18 +56,6 @@ if [ "$2" == "" ]; then
     exit 1
 fi
 
-if ! command -v onrampvm > /dev/null; then
-    echo "ERROR: onrampvm is required on PATH."
-    exit 1
-fi
-
-# build some dependencies
-set -e
-ROOT=$(dirname $0)/../..
-make -C $ROOT/test/cpp/1-omc/ build  # TODO cpp/2
-make -C $ROOT/test/as/2-full/ build
-make -C $ROOT/test/ld/2-full/ build
-make -C $ROOT/test/libc/0-oo/ build  # TODO libc/1 not libc/0
 if ! command -v onrampvm > /dev/null; then
     echo "ERROR: onrampvm is required on PATH."
     exit 1
@@ -87,21 +78,37 @@ TOTAL_ERRORS=0
 # detect crashes on both
 export ASAN_OPTIONS=exitcode=125
 
-# determine macros to use for this compiler
+# determine macros and libc to use for this compiler
 if [ "$COMPILER_ID" = "omc" ]; then
+    LIBC=1-omc
     MACROS="-D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn="
 elif [ "$COMPILER_ID" = "opc" ]; then
+    LIBC=2-opc
     MACROS="-D__onramp_cci_opc__=1"
+    MACROS="$MACROS -I$ROOT/core/libc/2-opc/include"
 elif [ "$COMPILER_ID" = "full" ]; then
+    LIBC=2-opc  # TODO 3-full
     MACROS="-D__onramp_cci_full__=1"
+    MACROS="$MACROS -I$ROOT/core/libc/2-opc/include"   # TODO also 3-full
 else
     echo "ERROR: Unknown compiler: $COMPILER_ID"
 fi
+MACROS="$MACROS -I$ROOT/core/libc/1-omc/include -I$ROOT/core/libc/0-oo/include"
 MACROS="$MACROS -D__onramp__=1 -D__onramp_cci__=1"
 # TODO use cpp/2
 #MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_full__=1"
 MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1"
 MACROS="$MACROS -include __onramp/__predef.h"
+
+# build dependencies
+make -C $ROOT/test/cpp/1-omc/ build  # TODO cpp/2
+make -C $ROOT/test/as/2-full/ build
+make -C $ROOT/test/ld/2-full/ build
+make -C $ROOT/test/libc/$LIBC/ build  # TODO libc/1 not libc/0
+if ! command -v onrampvm > /dev/null; then
+    echo "ERROR: onrampvm is required on PATH."
+    exit 1
+fi
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -124,9 +131,7 @@ for TESTFILE in $FILES; do
 
     # preprocess
     if echo $TESTFILE | grep -q '\.c$'; then
-        $ROOT/build/test/cpp-1-omc/cpp $MACROS \
-            -I$ROOT/core/libc/0-oo/include -I$ROOT/core/libc/1-omc/include \
-            $BASENAME.c -o $TEMP_I
+        $ROOT/build/test/cpp-1-omc/cpp $MACROS $BASENAME.c -o $TEMP_I
         INPUT=$TEMP_I
     else
         INPUT=$BASENAME.i
@@ -183,7 +188,7 @@ for TESTFILE in $FILES; do
             THIS_ERROR=1
         fi
         if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld \
-                -g $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
+                -g $ROOT/build/test/libc-$LIBC/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
             # TODO libc/1 not libc/0 ^^^^^
             echo "ERROR: $BASENAME failed to link."
             THIS_ERROR=1
@@ -223,14 +228,12 @@ for TESTFILE in $FILES; do
         echo "Commands:"
         echo "    make build && \\"
         if echo $TESTFILE | grep -q '\.c$'; then
-            echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS" \
-                "-I$ROOT/core/libc/0-oo/include -I$ROOT/core/libc/1-omc/include" \
-                "$BASENAME.c -o $TEMP_I && \\"
+            echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS $BASENAME.c -o $TEMP_I && \\"
         fi
         echo "    $COMMAND $ARGS && \\"
         echo "    sed '/^#* *$/d' $TEMP_OS > $TEMP_OS_CLEAN && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
-        echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE && \\"
+        echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-$LIBC/libc.oa $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE"
         TOTAL_ERRORS=$(( $TOTAL_ERRORS + 1 ))
     fi

@@ -1,4 +1,4 @@
-@_F_open 
+@_F_test_open 
   stw r0 rfp -4 
   stw r1 rfp -8 
   imw r0 0 
@@ -7,10 +7,10 @@
   zero r0 
   leave 
   ret 
-=open 
+=test_open 
   enter 
   sub rsp rsp 8 
-  jmp ^_F_open 
+  jmp ^_F_test_open 
 @_F_main 
   imw r0 0 
   leave 
