@@ -104,7 +104,7 @@ MACROS="$MACROS -include __onramp/__predef.h"
 make -C $ROOT/test/cpp/1-omc/ build  # TODO cpp/2
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
-make -C $ROOT/test/libc/$LIBC/ build  # TODO libc/1 not libc/0
+make -C $ROOT/test/libc/$LIBC/ build
 if ! command -v onrampvm > /dev/null; then
     echo "ERROR: onrampvm is required on PATH."
     exit 1
