@@ -22,47 +22,23 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# This script installs Onramp into ~/.local.
+# This script symlinks your development build of Onramp into ~/.local.
+#
+# This is really only useful for developing Onramp. It's meant so you can
+# easily use your development build elsewhere without having to re-install it
+# or source the environment.
 
 set -e
 cd "$(dirname "$0")/../.."
 
-check_path() {
-    if ! [ -e $1 ]; then
-        echo "ERROR: $1 is missing. Did you build Onramp?"
-        exit 1
-    fi
-}
-
-# Check that a bunch of files exist to make sure the bootstrap process worked
-check_path build/posix/bin/onrampvm
-check_path build/posix/bin/onrampcc
-check_path build/posix/bin/onrampar
-check_path build/posix/bin/onramphex
-check_path build/posix/share/onramp
-check_path build/output/bin/cc.oe
-check_path build/output/bin/cci.oe
-check_path build/output/bin/ar.oe
-check_path build/output/bin/hex.oe
-check_path build/output/include/stdlib.h
-check_path build/output/lib/libc.oa
-
-# Copy share/
 rm -rf $HOME/.local/share/onramp
-mkdir -p $HOME/.local/share/onramp
-cp -Lr build/posix/share/onramp/* $HOME/.local/share/onramp
-echo "Installed ~/.local/share/onramp/"
+ln -sf "$(pwd)/build/posix/share/onramp" $HOME/.local/share/onramp
+echo "Linked ~/.local/share/onramp/ -> build/posix/share/onramp/"
 
-# Copy bin/
-mkdir -p $HOME/.local/bin
-rm -f $HOME/.local/bin/onramphex
-rm -f $HOME/.local/bin/onrampvm
-rm -f $HOME/.local/bin/onrampcc
-rm -f $HOME/.local/bin/onrampar
-cp build/posix/bin/onramphex $HOME/.local/bin/onramphex  ; echo "Installed ~/.local/bin/onramphex"
-cp build/posix/bin/onrampvm  $HOME/.local/bin/onrampvm   ; echo "Installed ~/.local/bin/onrampvm"
-cp build/posix/bin/onrampcc  $HOME/.local/bin/onrampcc   ; echo "Installed ~/.local/bin/onrampcc"
-cp build/posix/bin/onrampar  $HOME/.local/bin/onrampar   ; echo "Installed ~/.local/bin/onrampar"
+ln -sf "$(pwd)/build/posix/bin/onramphex" $HOME/.local/bin/onramphex  ; echo "Linked ~/.local/bin/onramphex -> build/posix/bin/onramphex"
+ln -sf "$(pwd)/build/posix/bin/onrampvm"  $HOME/.local/bin/onrampvm   ; echo "Linked ~/.local/bin/onrampvm -> build/posix/bin/onrampvm"
+ln -sf "$(pwd)/build/posix/bin/onrampcc"  $HOME/.local/bin/onrampcc   ; echo "Linked ~/.local/bin/onrampcc -> build/posix/bin/onrampcc"
+ln -sf "$(pwd)/build/posix/bin/onrampar"  $HOME/.local/bin/onrampar   ; echo "Linked ~/.local/bin/onrampar -> build/posix/bin/onrampar"
 
 echo
 echo "Done!"
