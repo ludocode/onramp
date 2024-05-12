@@ -47,13 +47,13 @@ void fatal_prefix(void);
  * line and exits the program.
  */
 _Noreturn
-void fatal(const char* message, ...);
+void fatal(const char* format, ...);
 
 _Noreturn
-void vfatal(const char* message, va_list args);
+void vfatal(const char* format, va_list args);
 
-void warning(const char* message, ...);
+void warning(const char* format, ...);
 
-void vwarning(const char* message, va_list args);
+void vwarning(const char* format, va_list args);
 
 #endif

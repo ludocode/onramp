@@ -37,7 +37,9 @@ typedef struct vector_t {
     size_t capacity;
 } vector_t;
 
-void vector_init_blank(vector_t* vector);
+void vector_init(vector_t* vector);
+
+void vector_destroy(vector_t* vector);
 
 #ifndef __onramp_cpp_omc__
     #ifndef DEBUG

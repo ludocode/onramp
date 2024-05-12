@@ -29,10 +29,14 @@
 
 #include "libo-error.h"
 
-void vector_init_blank(vector_t* vector) {
+void vector_init(vector_t* vector) {
     vector->elements = NULL;
     vector->count = 0;
     vector->capacity = 0;
+}
+
+void vector_destroy(vector_t* vector) {
+    free(vector->elements);
 }
 
 // Ensures there is space for one more value.

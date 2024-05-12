@@ -84,6 +84,12 @@ void fatal(const char* format, ...) {
 _Noreturn
 void vfatal(const char* format, va_list args) {
     print_error("ERROR", format, args);
+
+    // Under ASAN, give us a stack trace
+    #ifdef __SANITIZE_ADDRESS__
+    *(int*)0=1;
+    #endif
+
     _Exit(1);
 }
 
