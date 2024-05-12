@@ -47,7 +47,7 @@ static size_t lexer_token_capacity;
 
 #define LEXER_MINIMUM_CAPACITY 32
 
-FILE* lexer_file;
+static FILE* lexer_file;
 
 const char* lexer_type_to_string(lexer_type_t type) {
     if (type == lexer_type_alphanumeric) {return "lexer_type_alphanumeric";}
@@ -101,6 +101,7 @@ static bool lexer_is_end_of_line(int c) {
 // and also will make it possible for the first stage libc malloc to be a stack
 // allocator. (the way it is now we always allocate a new buffer on any take so
 // it's never possible for a stack allocator to free memory.)
+// TODO replace this with something more like lexer_buffer_append() from cci/2
 static void lexer_token_append(size_t length, char c) {
     if (length == lexer_token_capacity) {
 
@@ -117,7 +118,7 @@ static void lexer_token_append(size_t length, char c) {
 
         // Reallocate
         lexer_token = realloc(lexer_token, new_capacity);
-        if ((lexer_token == NULL) | (new_capacity < lexer_token_capacity)) {
+        if (lexer_token == NULL) {
             fatal("Out of memory");
         }
         lexer_token_capacity = new_capacity;
@@ -148,22 +149,6 @@ void lexer_destroy(void) {
     free(current_filename);
 }
 
-// TODO it's not going to be straightforward to share this.
-//
-// For a string literal we'll just convert it to UTF-8 (maybe?) This might not
-// work because, say in a 16-bit wide string, you should be allowed to define
-// arbitrary 16-bit values (like unpaired surrogates) which don't convert
-// properly to UTF-8 and back. That means our lexer will need to support
-// different string widths instead of keeping/converting everything in UTF-8
-// and letting the compiler convert it back.
-//
-// For a char literal, if we want to support multichar as an extension, it will
-// depend on the width of this. For example you should be able to do \u twice
-// to declare a surrogate pair (I guess? not sure why you'd want to but it
-// probably works with GCC.)
-//
-// Maybe in the full compiler we'll need different string vars for each width.
-// In the opC stage we just don't allow unicode/numerical escape sequences.
 static char lexer_consume_escape_sequence(void) {
     int c = lexer_read_char();
 
@@ -187,9 +172,13 @@ static char lexer_consume_escape_sequence(void) {
         // IIRC it's supposed to be followed by exactly three octal
         // digits but GCC allows less, which is why \0 with no
         // additional digits is zero (I think?)
+        fatal("Octal escape sequences are not yet supported in opC.");
     }
 
     // We don't bother to support X, u and U in opC.
+    if (((c == 'x') | (c == 'X')) | ((c == 'u') | (c == 'U'))) {
+        fatal("Hexadecimal or unicode escape sequences are not supported in opC.");
+    }
     fatal("Unrecognized escape sequence");
 }
 
@@ -432,7 +421,7 @@ void lexer_consume(void) {
 
     char c = (char)lexer_char;
 
-    // Symbol
+    // Alphanumeric (keyword, identifier name or type name)
     if (lexer_is_alphanumeric(c, true)) {
         size_t len = 0;
         while (1) {
@@ -542,7 +531,6 @@ void lexer_expect(const char* token, const char* error_message) {
 }
 
 bool lexer_accept(const char* token) {
-    //printf("      try %s %s\n",token,lexer_token);
     if (!lexer_is(token)) {
         return false;
     }
@@ -555,7 +543,6 @@ char* lexer_take(void) {
         // This should not be possible.
         fatal("Internal error, no token??");
     }
-    //printf("      taking %s\n",lexer_token);
 
     // Truncate it to size
     char* ret = realloc(lexer_token, strlen(lexer_token) + 1);

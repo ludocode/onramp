@@ -34,7 +34,7 @@
 
 
 
-FILE* output_file;
+static FILE* output_file;
 
 static bool first_term;
 

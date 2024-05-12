@@ -341,7 +341,7 @@ static void parse_switch(void) {
 }
 
 static void parse_case(bool declaration_allowed) {
-    
+
     // A case statement compares its constant expression to the stored
     // expression of the switch. Since code passing through the switch needs to
     // fallthrough case statements, we also emit a jump around it.

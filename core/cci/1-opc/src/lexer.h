@@ -68,7 +68,7 @@ void lexer_init(const char* filename);
 void lexer_destroy(void);
 
 /**
- * Consumes the current token, replacing current_token with the next one from
+ * Consumes the current token, replacing lexer_token with the next one from
  * the file.
  *
  * If you want to keep the token, call lexer_take() instead.

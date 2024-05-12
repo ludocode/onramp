@@ -58,12 +58,12 @@ int main(int argc, const char** argv) {
         // output
         if (0 == strcmp("-o", *(argv + i))) {
             if (output_filename != NULL) {
-                puts("ERROR: -o cannot be specified twice.");
+                fputs("ERROR: -o cannot be specified twice.", stderr);
                 usage(*argv);
             }
             i = (i + 1);
             if (i == argc) {
-                puts("ERROR: -o must be followed by a filename.");
+                fputs("ERROR: -o must be followed by a filename.", stderr);
                 usage(*argv);
             }
             output_filename = *(argv + i);
@@ -80,7 +80,7 @@ int main(int argc, const char** argv) {
 
         // input
         if (input_filename != NULL) {
-            puts("ERROR: only one input filename can be provided.");
+            fputs("ERROR: Only one input filename can be provided.", stderr);
             usage(*argv);
         }
         input_filename = *(argv + i);

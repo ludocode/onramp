@@ -381,16 +381,6 @@ static bool try_parse_type_specifiers(int* type_specifiers,
         if (*type_specifiers & TYPE_SPECIFIER_LONG) {
             fatal("`long long` is not supported in opC.");
         }
-        /*
-        if (*type_specifiers & TYPE_SPECIFIER_LONG_LONG) {
-            fatal("`long long long` is invalid.");
-        }
-        if (*type_specifiers & TYPE_SPECIFIER_LONG) {
-            *type_specifiers = (*type_specifiers & ~TYPE_SPECIFIER_LONG);
-            *type_specifiers = (*type_specifiers | TYPE_SPECIFIER_LONG_LONG);
-            return true;
-        }
-        */
         *type_specifiers = (*type_specifiers | TYPE_SPECIFIER_LONG);
         return true;
     }
@@ -602,7 +592,7 @@ static bool try_parse_direct_declarator(type_t* type, char** /*nullable*/ out_na
     if (out_name != NULL) {
 
         // Check for a name
-        if ((!found & (lexer_type == lexer_type_alphanumeric)) & (out_name != NULL)) {
+        if (!found & (lexer_type == lexer_type_alphanumeric)) {
             if (*out_name != NULL) {
                 fatal_2("Redundant identifier in declarator: ", lexer_token);
             }
