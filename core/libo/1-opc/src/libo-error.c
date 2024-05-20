@@ -85,9 +85,11 @@ _Noreturn
 void vfatal(const char* format, va_list args) {
     print_error("ERROR", format, args);
 
-    // Under ASAN, give us a stack trace
+    // Under ASAN, give us a stack trace (need ASAN_OPTIONS="handle_abort=1")
     #ifdef __SANITIZE_ADDRESS__
-    *(int*)0=1;
+    fflush(stdout);
+    fflush(stderr);
+    //abort();
     #endif
 
     _Exit(1);

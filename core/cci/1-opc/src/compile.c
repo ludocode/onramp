@@ -572,13 +572,12 @@ type_t* compile_add_sub(bool add, type_t* left, type_t* right) {
 // If the result of a cmps/cmpu in r0 is 0, r0 is set to 1; otherwise it's set
 // to 0.
 static void compile_cmp_to_true(void) {
-    // TODO use isz once we get rid of xor
-    emit_term("and");
+    emit_term("add");
     emit_term("r0");
     emit_term("r0");
     emit_term("1");
     emit_newline();
-    emit_term("xor");
+    emit_term("and");
     emit_term("r0");
     emit_term("r0");
     emit_term("1");

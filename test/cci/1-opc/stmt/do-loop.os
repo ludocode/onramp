@@ -37,8 +37,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx1 
   jmp &_Lx0 
 :_Lx1 

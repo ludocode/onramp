@@ -17,8 +17,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx1 
   jmp &_Lx3 
 :_Lx0 
@@ -74,8 +74,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx6 
   jmp &_Lx8 
 :_Lx5 
@@ -227,8 +227,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx1A 
   jmp &_Lx1C 
 :_Lx19 

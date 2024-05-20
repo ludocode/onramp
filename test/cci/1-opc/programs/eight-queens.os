@@ -29,8 +29,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx1 
   jmp &_Lx3 
 :_Lx0 
@@ -75,8 +75,8 @@
   ldw r0 0 r0 
   ldw r1 0 r1 
   cmpu r0 r1 r0 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jnz r0 &_Lx5 
   add r0 rfp -16 
   push r0 
@@ -90,8 +90,8 @@
   pop r1 
   ldw r1 0 r1 
   cmpu r0 r1 r0 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jnz r0 &_Lx5 
   add r0 rfp -16 
   push r0 
@@ -105,8 +105,8 @@
   pop r1 
   ldw r1 0 r1 
   cmpu r0 r1 r0 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
 :_Lx5 
   bool r0 r0 
   jz r0 &_Lx4 
@@ -136,8 +136,8 @@
   pop r1 
   ldw r1 0 r1 
   cmpu r0 r1 r0 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx6 
   call ^print_board 
   add rsp rsp 0 
@@ -157,8 +157,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx8 
   jmp &_LxA 
 :_Lx7 
@@ -230,8 +230,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_LxD 
   jmp &_LxF 
 :_LxC 
@@ -258,8 +258,8 @@
   ldw r1 0 r1 
   cmps r0 r1 r0 
   cmpu r0 r0 -1 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx11 
   jmp &_Lx13 
 :_Lx10 
@@ -287,8 +287,8 @@
   ldb r1 0 r1 
   sxb r1 r1 
   cmpu r0 r1 r0 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx14 
   mov r0 "Q"
   jmp &_Lx15 

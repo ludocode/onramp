@@ -76,7 +76,7 @@ TOTAL_ERRORS=0
 
 # we want address sanitizer to return the same error code as the vm so we can
 # detect crashes on both
-export ASAN_OPTIONS=exitcode=125
+export ASAN_OPTIONS="$ASAN_OPTIONS:exitcode=125"
 
 # determine macros and libc to use for this compiler
 if [ "$COMPILER_ID" = "omc" ]; then

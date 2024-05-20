@@ -51,7 +51,7 @@ static void vector_grow_if_necessary(vector_t* vector) {
         new_capacity = 4;
     }
     if (vector->capacity != 0) {
-        new_capacity *= 2;
+        new_capacity = vector->capacity * 2;
         if (new_capacity <= vector->capacity) {
             fatal("Out of address space.");
         }

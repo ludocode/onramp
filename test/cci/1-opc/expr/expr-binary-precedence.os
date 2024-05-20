@@ -8,8 +8,8 @@
   add r0 r1 r0 
   pop r1 
   cmpu r0 r1 r0 
+  add r0 r0 1 
   and r0 r0 1 
-  xor r0 r0 1 
   jz r0 &_Lx0 
   imw r0 1 
   leave 

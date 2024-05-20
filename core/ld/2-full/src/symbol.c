@@ -34,7 +34,7 @@
 
 symbol_t* symbol_new(string_t* name) {
     //printf("new symbol %s\n",name->bytes);
-    symbol_t* symbol = calloc(sizeof(symbol_t), 1);
+    symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->name = name;
     return symbol;
 }
