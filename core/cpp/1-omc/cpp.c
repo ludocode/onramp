@@ -287,7 +287,7 @@ static void next_char(void) {
             current_char = ' ';
             next_scan_char = read_char();
             while (1) {
-                if (current_char == 0) {
+                if (next_scan_char == 0) {
                     fatal("Unterminated comment");
                 }
                 if (next_scan_char == '*') {
