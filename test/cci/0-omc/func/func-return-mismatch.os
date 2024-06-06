@@ -11,6 +11,19 @@ enter
 imw r9 0x4 
 sub rsp rsp r9 
 jmp ^_F_foo 
+@_F_baz 
+stw r0 rfp 0xFFFFFFFC 
+imw r0 1 
+leave 
+ret 
+zero r0 
+leave 
+ret 
+=baz 
+enter 
+imw r9 0x4 
+sub rsp rsp r9 
+jmp ^_F_baz 
 @_F_bar 
 zero r0 
 leave 
@@ -26,13 +39,22 @@ jmp ^_F_bar
 @_F_main 
 stw r0 rfp 0xFFFFFFFC 
 stw r1 rfp 0xFFFFFFF8 
-zero r0 
+imw r0 0 
 leave 
 ret 
 zero r0 
 leave 
 ret 
-zero r0 
+imw r0 0xFFFFFFF4 
+add r0 rfp r0 
+push r0 
+imw r0 2 
+pop r1 
+sxb r0 r0 
+stb r0 0 r1 
+imw r0 0xFFFFFFF4 
+add r0 rfp r0 
+ldb r0 0 r0 
 leave 
 ret 
 zero r0 
@@ -40,6 +62,6 @@ leave
 ret 
 =main 
 enter 
-imw r9 0x8 
+imw r9 0xC 
 sub rsp rsp r9 
 jmp ^_F_main 
