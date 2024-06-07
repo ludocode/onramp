@@ -308,19 +308,21 @@ All arithmetic and logic opcodes have the same format. They take a destination r
 
 ## Function Call Convention
 
-Bytecode can use any mechanism for performing function calls, but there is a standard calling convention used by the Onramp C compiler and by most of the hand-written assembly and bytecode programs.
+Bytecode can use any mechanism for performing function calls, but there is a standard calling convention used by the Onramp C compiler and by most of the hand-written assembly and bytecode programs. This section describes the standard calling convention.
 
-In the standard calling convention, the first four non-variadic arguments to a function are passed in registers r0-r4, and additional arguments are pushed on the stack right-to-left. The return address is pushed last onto the stack before jumping into the callee.
+Arguments that are larger than a register (32 bits) are always passed on the stack (never in multiple registers.) The first four register-sized or smaller arguments are passed in registers r0-r3 (even if they appear after larger arguments.) All other arguments are pushed on the stack right-to-left (with their size rounded up to the nearest word.)
 
-The return value is returned in register r0. The callee returns by restoring the stack and frame pointers and jumping to the return address. The caller is responsible for cleaning up stack arguments.
+If a function's return type is larger than a register, the caller must provide storage for the return value, and its address is pushed on the stack after all arguments (it is never passed in a register.) Finally, the return address is pushed last onto the stack before jumping into the callee.
 
-Any arguments that are not addresses or integer types and that are larger than a word are passed indirectly. The caller is responsible for providing storage for the value and passes the address of the storage instead of the value itself. If a function's return value is larger than a word, the function is implied to have an additional argument at the start of the argument list which contains the address of storage for the return value. (This additional argument is passed in r0 and must be in r0 when the function returns.)
+The first thing most functions do is to set up a stack frame: they push the previous frame pointer (rfp) onto the stack, then store the current stack pointer (rsp) as their own frame pointer. The frame pointers therefore form a linked list of stack frames. The area above each frame pointer contains the stack-passed arguments and the area below it contains local variables. (Stack frame setup is done with the `enter` and `leave` assembly instructions; see the [assembly specification](assembly.md) for details.)
 
-The first thing most functions do is to set up a stack frame: they push the frame pointer (rfp) onto the stack, then store the current stack pointer (rsp) as their own frame pointer. The frame pointers therefore form a linked list of stack frames on the stack. (This is done by the `enter` compound assembly instruction, and the corresponding `leave` instruction pops the stack frame. See the [assembly guide](assembly.md) guide for details.)
+Registers r0-r9 (and ra-rb) are available for use within the function; the callee does not need to preserve them. Only rsp, rfp and rpp must be restored to their original values when the function returns, and the caller is responsible for popping the arguments from the stack. (A change to rpp is rare: it is only used when a program spawns another program inside the VM.)
 
-Registers r0-r9 (and ra-rb) are available for use within the function; the callee does not need to preserve them. Only rsp, rfp and rpp must be restored to their original values when the function returns. (A change to rpp is rare: it is only used when a program spawns another program inside the VM.)
+If the return type fits in a register, the return value is passed in register r0; otherwise, the return value is stored at the return address that was pushed to the stack by the caller.
 
-Handwritten bytecode programs that violate this convention describe the differences in their code comments. One example is that [ld/0](../core/ld/0-global) and [sh](../core/sh)) consider `r9` to be a globally preserved register that points to global data tables.
+This calling convention is designed to be simple at all stages of Onramp while still maintaining reasonable efficiency. Register-passing is by far the easiest mechanism for handwritten assembly, and the first stage C compiler only supports up to four arguments of at most register size, so these always pass all arguments in registers. The second stage C compiler adds structs but it cannot pass them by value, so it only needs to pass arguments 5 and later on the stack. The final stage C compiler supports passing and returning structs and 64-bit numbers as described above.
+
+Handwritten bytecode programs that violate this convention describe the differences in their code comments. For example [ld/0](../core/ld/0-global) and [sh](../core/sh) consider `r9` to be a globally preserved register that points to global data tables.
 
 
 
