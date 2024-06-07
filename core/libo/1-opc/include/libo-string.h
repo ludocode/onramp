@@ -109,7 +109,7 @@ void string_deref(string_t* string);
     #endif
 #endif
 #ifndef string_equal
-    static inline bool string_equal(string_t* left, string_t* right) {
+    static inline bool string_equal(const string_t* left, const string_t* right) {
         return left == right;
     }
 #endif
@@ -124,7 +124,7 @@ void string_deref(string_t* string);
     #endif
 #endif
 #ifndef string_equal_cstr
-    static inline bool string_equal_cstr(string_t* string, const char* cstr) {
+    static inline bool string_equal_cstr(const string_t* string, const char* cstr) {
         return 0 == strcmp(string->bytes, cstr);
     }
 #endif
@@ -132,12 +132,12 @@ void string_deref(string_t* string);
 /**
  * Returns true if the contents of the given string match the given bytes.
  */
-bool string_equal_bytes(string_t* string, const char* bytes, size_t length);
+bool string_equal_bytes(const string_t* string, const char* bytes, size_t length);
 
 /**
  * Prints the given string to the given file.
  */
-void string_print(string_t* string, FILE* file);
+void string_print(const string_t* string, FILE* file);
 
 /**
  * Returns the given string as a null-terminated C string.
@@ -150,7 +150,7 @@ void string_print(string_t* string, FILE* file);
     #endif
 #endif
 #ifndef string_cstr
-    static inline const char* string_cstr(string_t* str) {
+    static inline const char* string_cstr(const string_t* str) {
         return str->bytes;
     }
 #endif
@@ -164,8 +164,22 @@ void string_print(string_t* string, FILE* file);
     #endif
 #endif
 #ifndef string_hash
-    static inline uint32_t string_hash(string_t* str) {
+    static inline uint32_t string_hash(const string_t* str) {
         return str->entry.hash;
+    }
+#endif
+
+/**
+ * Returns the length of the given string.
+ */
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define string_length(str) ((str)->length)
+    #endif
+#endif
+#ifndef string_length
+    static inline size_t string_length(const string_t* str) {
+        return str->length;
     }
 #endif
 

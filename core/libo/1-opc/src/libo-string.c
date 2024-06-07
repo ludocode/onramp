@@ -105,13 +105,13 @@ void string_deref(string_t* string) {
     free(string);
 }
 
-bool string_equal_bytes(string_t* string, const char* bytes, size_t length) {
+bool string_equal_bytes(const string_t* string, const char* bytes, size_t length) {
     if (length != string->length) {
         return false;
     }
     return 0 == memcmp(string->bytes, bytes, length);
 }
 
-void string_print(string_t* string, FILE* file) {
+void string_print(const string_t* string, FILE* file) {
     fwrite(string->bytes, 1, string->length, file);
 }
