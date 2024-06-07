@@ -296,7 +296,7 @@ Control:
 |---------------|---------------|---------------------------------|----------------------------------------------------------|
 | `0x7C` `ims`  | Immediate     | `<r:dest> <i:low> <i:high>`     | `dest = (dest << 16) \| (high << 8) \| low`              |
 | `0x7D` `cmpu` | Compare       | `<r:dest> <m:arg1> <m:arg2>`    | `dest = (-1 or 0 or 1) for arg1 (< or = or >) arg2`      |
-| `0x7E` `jz`   | Jump If Zero  | `<m:pred> <i:low> <i:high>`     | `if !pred: rip = rip + signext((high << 8) \| low)`      |
+| `0x7E` `jz`   | Jump If Zero  | `<m:pred> <i:low> <i:high>`     | `if !pred: rip = rip + 4 * signext((high << 8) \| low)`  |
 | `0x7F` `sys`  | System Call   | `<i:syscall> 00 00`             | system call                                              |
 
 

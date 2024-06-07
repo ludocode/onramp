@@ -68,7 +68,7 @@ void types_init(void) {
 
     // We store __builtin_va_list as a typedef of int*. This means it's
     // implicitly convertible with int*, can be copied by value, etc. That's
-    // fine; the final stage can have better checks against improper use.
+    // fine; we don't need to diagnose improper use.
     type_t* list = type_new_base(BASE_SIGNED_INT);
     list = type_increment_pointers(list);
     types_add_typedef(strdup_checked("__builtin_va_list"), list);

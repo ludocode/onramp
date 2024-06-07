@@ -35,7 +35,7 @@ Most compilers are self-hosting: they are written in the language they compile. 
 
 Onramp is instead self-bootstrapping: it can compile itself from scratch. Onramp is written in stages and broken up into small discrete tools. Each stage of each tool can be compiled by the stages before it. All stages are plain text, human-readable and heavily documented to make the entire process auditable. The full bootstrap path is pure source code with no binaries whatsoever.
 
-All you need to compile and use Onramp are the initial stages, the [hex tool](platform/hex/) and [virtual machine](platform/vm/). These can easily be implemented by anyone in anything. Onramp includes implementations in handwritten [machine code](platform/vm/x86_64-linux/) as well as in high-level languages like [Python](platform/vm/python/) and [C](platform/vm/c/).
+All you need to compile and use Onramp are the initial stages: the [hex tool](platform/hex/) and [virtual machine](platform/vm/). These can easily be implemented by anyone in anything. Onramp includes implementations in handwritten [machine code](platform/vm/x86_64-linux/) as well as in high-level languages like [Python](platform/vm/python/) and [C](platform/vm/c/).
 
 Once you have a VM, Onramp bootstraps itself. Read the full bootstrapping path [here](docs/bootstrap-path.md). Onramp follows in the footsteps of the [bcompiler](https://web.archive.org/web/20160502230021fw_/http://homepage.ntlworld.com/edmund.grimley-evans/bcompiler.html) and [stage-0](https://bootstrapping.miraheze.org/wiki/Stage0) bootstrapping projects; see the [inspiration](docs/inspiration.md) page for more.
 

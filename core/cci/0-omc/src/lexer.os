@@ -776,12 +776,12 @@
 ;
 ; When we test for punctuation, we append characters to the current token until
 ; we no longer match anything in this list. This gives us the longest matching
-; punctuation. (All leading substrings of valid punctuation are also themselves
-; valid punctuation.)
+; punctuation. (All leading substrings of valid punctuation are themselves
+; valid punctuation, except for `...` which we ignore.)
 ;
-; We match all punctuation in C, even those that aren't in omC, in order to
-; ensure we are forwards-compatible and to give better error messages for
-; unsupported syntax.
+; We match all punctuation in C (except `...` and digraphs), even those that
+; aren't in omC, in order to ensure we are forwards-compatible and to give
+; better error messages for unsupported syntax.
 ;
 ; This list is quite long so punctuation is tested last for performance.
 ; TODO we should probably convert this to a hashtable.
