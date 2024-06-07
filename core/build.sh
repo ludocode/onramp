@@ -62,16 +62,18 @@ sh core/ld/1-omc/build.sh
 sh core/libc/1-omc/build.sh
 sh core/cc/build.sh
 
-# Next build up to the full C compiler
+# Build the opC toolchain
 sh core/cci/1-opc/build.sh
 sh core/libc/2-opc/build.sh
-sh core/libo/1-opc/build.sh
-## sh core/cpp/2-full/build.sh
-## sh core/cci/2-full/build.sh
-##
-## # Build the rest of the C toolchain
-## sh core/libc/3-full/build.sh
 sh core/ld/2-full/build.sh
+
+# Build the full C compiler
+sh core/libo/1-opc/build.sh
+sh core/cci/2-full/build.sh
+
+## # Build the rest of the C toolchain
+## sh core/cpp/2-full/build.sh
+## sh core/libc/3-full/build.sh
 ## sh core/as/2-full/build.sh
 ##
 ## # Rebuild our C toolchain with itself
