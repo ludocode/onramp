@@ -23,11 +23,15 @@
  */
 
 /*
- * Functions for 64-bit math.
+ * Functions for 64-bit integer math.
  *
  * For all functions, the source pointers are allowed to match the destination
- * and each other. We make sure to read all the data we need before writing any
- * out.
+ * and each other, but they cannot overlap only partially.
+ *
+ * TODO: Most of this code was written in omC and originally compiled with
+ * cci/0 so it avoids array defererencing, `else`, etc. We actually have cci/1
+ * and opC available so this code should be cleaned up to look more like modern
+ * C.
  */
 
 #include <stdbool.h>
@@ -46,7 +50,7 @@
     }
 #endif
 
-void __64_add(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_add(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
     unsigned b0 = *b;
@@ -60,7 +64,7 @@ void __64_add(unsigned* out, const unsigned* a, const unsigned* b) {
     *(out + 1) = o1;
 }
 
-void __64_sub(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_sub(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
     unsigned b0 = *b;
@@ -74,7 +78,7 @@ void __64_sub(unsigned* out, const unsigned* a, const unsigned* b) {
     *(out + 1) = o1;
 }
 
-void __64_mul(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_mul(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
     unsigned b0 = *b;
@@ -141,23 +145,23 @@ void __64_mul(unsigned* out, const unsigned* a, const unsigned* b) {
     *(out + 1) = o1;
 }
 
-void __64_divs(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_divs(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit divide is not yet implemented.");
 }
 
-void __64_divu(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_divu(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit divide is not yet implemented.");
 }
 
-void __64_mods(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_mods(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit modulus is not yet implemented.");
 }
 
-void __64_modu(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_modu(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit modulus is not yet implemented.");
 }
 
-bool __64_ltu(const unsigned* a, const unsigned* b) {
+bool __llong_ltu(const unsigned* a, const unsigned* b) {
     unsigned a1 = *(a + 1);
     unsigned b1 = *(b + 1);
     if (a1 < b1) {
@@ -169,19 +173,7 @@ bool __64_ltu(const unsigned* a, const unsigned* b) {
     return *a < *b;
 }
 
-bool __64_gtu(const unsigned* a, const unsigned* b) {
-    unsigned a1 = *(a + 1);
-    unsigned b1 = *(b + 1);
-    if (a1 > b1) {
-        return true;
-    }
-    if (a1 != b1) {
-        return false;
-    }
-    return *a > *b;
-}
-
-void __64_shl(unsigned* out, const unsigned* a, int bits) {
+void __llong_shl(unsigned* out, const unsigned* a, int bits) {
     if (bits >= 32) {
         if (bits == 32) {
             *out = 0;
@@ -207,7 +199,7 @@ void __64_shl(unsigned* out, const unsigned* a, int bits) {
     *(out + 1) = ((a1 << bits) | (a0 >> (32 - bits)));
 }
 
-void __64_shru(unsigned* out, const unsigned* a, int bits) {
+void __llong_shru(unsigned* out, const unsigned* a, int bits) {
     if (bits >= 32) {
         if (bits == 32) {
             *(out + 1) = 0;
@@ -233,7 +225,7 @@ void __64_shru(unsigned* out, const unsigned* a, int bits) {
     *out = ((a1 << (32 - bits)) | (a0 >> bits));
 }
 
-void __64_shrs(int* out, int* a, int bits) {
+void __llong_shrs(int* out, int* a, int bits) {
     int a0 = *a;
     int a1 = *(a + 1);
 
@@ -250,8 +242,7 @@ void __64_shrs(int* out, int* a, int bits) {
     }
 
     // Rather than trying to figure out the sign, we just shift twice to fill
-    // with the sign bit. This is probably way slower than it needs to be.
-    // Maybe we could add an assembly instruction to do this.
+    // with the sign bit. This is probably slower than it needs to be.
     int sign = ((a1 >> 16) >> 16);
 
     if (bits == 32) {
@@ -264,22 +255,22 @@ void __64_shrs(int* out, int* a, int bits) {
     *out = (a1 >> (bits - 32));
 }
 
-void __64_and(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_and(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a & *b);
     *(out + 1) = (*(a + 1) & *(b + 1));
 }
 
-void __64_or(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_or(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a | *b);
     *(out + 1) = (*(a + 1) | *(b + 1));
 }
 
-void __64_xor(unsigned* out, const unsigned* a, const unsigned* b) {
+void __llong_xor(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a ^ *b);
     *(out + 1) = (*(a + 1) ^ *(b + 1));
 }
 
-void __64_not(unsigned* out, const unsigned* src) {
+void __llong_not(unsigned* out, const unsigned* src) {
     *out = ~*src;
     *(out + 1) = ~*(src + 1);
 }

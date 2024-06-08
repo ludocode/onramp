@@ -61,7 +61,7 @@ OBJS=\
 		$(OUT)/file.oo \
 		$(OUT)/format.oo \
 		$(OUT)/io.oo \
-		$(OUT)/math64.oo \
+		$(OUT)/llong.oo \
 		$(OUT)/string.oo \
 		$(OUT)/system.oo \
 
@@ -191,11 +191,11 @@ $(OUT)/io.oo: $(SRC2)/io.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/io.c -o $(OUT)/io.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/io.c -o $@
 
-$(OUT)/math64.oo: $(SRC2)/math64.c Makefile
+$(OUT)/llong.oo: $(SRC2)/llong.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math64.c -o $(OUT)/math64.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math64.c -o $@
+	$(CC) $(CPPFLAGS) -c $(SRC2)/llong.c -o $(OUT)/llong.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/llong.c -o $@
 
 $(OUT)/string.oo: $(SRC2)/string.c Makefile
 	@rm -f $@
