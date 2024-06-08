@@ -56,7 +56,9 @@ scripts/posix/install.sh
 
 Assuming `~/.local/bin` is on your PATH, you can then use `onrampcc` and run the programs it compiles normally. (I suppose you could also install it into `/usr/local` but I have no idea why anyone prefers that to `~/.local` so the script doesn't have an option for it.)
 
-If you don't want to install it, you can instead use it in-place by sourcing `env.sh` like this:
+You can pass `--dev` to the install script to install symlinks to your build folder instead of copying files.
+
+If you don't want to install Onramp, you can instead use it in-place by sourcing `env.sh` like this:
 
 ```sh
 . scripts/posix/env.sh
