@@ -354,12 +354,19 @@ static void parse_case(bool declaration_allowed) {
 
     // Parse the constant expression of the case statement, put it in r0
     type_t* case_type;
+    // TODO enum values are not treated as constants yet so this doesn't work
+    // with enum values. As a workaround we allow non-constant expressions in
+    // our case statements. We can solve this by making our enum values into
+    // real constants, by adding a new constant kind of global.
+    /*
     int value;
     if (!try_parse_constant_expression(&case_type, &value)) {
         fatal("Expected a constant expression after `case`.");
     }
-    lexer_expect(":", "Expected `:` after `case` expression.");
     compile_immediate(value);
+    */
+    case_type = parse_expression();
+    lexer_expect(":", "Expected `:` after `case` expression.");
 
     // Get the switch value in r1
     compile_frame_offset(true, switch_offset, 1);

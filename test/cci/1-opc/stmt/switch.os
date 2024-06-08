@@ -43,7 +43,19 @@
   ret 
   jmp &_Lx7 
 :_Lx6 
-  imw r0 8 
+  imw r0 2 
+  push r0 
+  imw r0 2 
+  pop r1 
+  mul r0 r1 r0 
+  push r0 
+  imw r0 2 
+  push r0 
+  imw r0 2 
+  pop r1 
+  mul r0 r1 r0 
+  pop r1 
+  add r0 r1 r0 
   ldw r1 rfp -8 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -64,7 +76,7 @@
   jmp &_LxA 
   jmp &_LxB 
 :_LxA 
-  imw r0 97 
+  mov r0 "a"
   ldw r1 rfp -12 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -76,7 +88,7 @@
   ret 
   jmp &_LxD 
 :_LxC 
-  imw r0 98 
+  mov r0 "b"
   ldw r1 rfp -12 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -88,7 +100,7 @@
   ret 
   jmp &_LxF 
 :_LxE 
-  imw r0 99 
+  mov r0 "c"
   ldw r1 rfp -12 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -112,7 +124,7 @@
   jmp &_Lx12 
   jmp &_Lx13 
 :_Lx12 
-  imw r0 97 
+  mov r0 "a"
   ldw r1 rfp -16 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -124,7 +136,7 @@
   ret 
   jmp &_Lx15 
 :_Lx14 
-  imw r0 98 
+  mov r0 "b"
   ldw r1 rfp -16 
   cmpu r0 r1 r0 
   and r0 r0 1 
@@ -143,7 +155,7 @@
   stw r0 0 r1 
   jmp &_Lx17 
 :_Lx16 
-  imw r0 99 
+  mov r0 "c"
   ldw r1 rfp -16 
   cmpu r0 r1 r0 
   and r0 r0 1 
