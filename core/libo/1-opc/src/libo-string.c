@@ -41,11 +41,11 @@ static table_t string_table;
     }
 #endif
 
-void strings_init(void) {
+void string_table_init(void) {
     table_init(&string_table);
 }
 
-void strings_destroy(void) {
+void string_table_destroy(void) {
     if (table_count(&string_table) != 0) {
         // We don't log a fatal error under ASAN because it will report the
         // leak on its own.

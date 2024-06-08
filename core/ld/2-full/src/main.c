@@ -165,7 +165,7 @@ static void open_output_files(void) {
 }
 
 int main(int argc, const char** argv) {
-    strings_init();
+    string_table_init();
     emit_init();
     symbols_init();
     labels_init();
@@ -200,7 +200,7 @@ int main(int argc, const char** argv) {
     labels_destroy();
     symbols_destroy();
     emit_destroy();
-    strings_destroy();
+    string_table_destroy();
 
     ;//printf("closing output\n");
     if (debug_file) {
