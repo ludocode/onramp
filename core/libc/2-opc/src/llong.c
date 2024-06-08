@@ -173,6 +173,18 @@ bool __llong_ltu(const unsigned* a, const unsigned* b) {
     return *a < *b;
 }
 
+bool __llong_lts(const unsigned* a, const unsigned* b) {
+    int a1 = (int)*(a + 1);
+    int b1 = (int)*(b + 1);
+    if (a1 < b1) {
+        return true;
+    }
+    if (a1 != b1) {
+        return false;
+    }
+    return *a < *b;
+}
+
 void __llong_shl(unsigned* out, const unsigned* a, int bits) {
     if (bits >= 32) {
         if (bits == 32) {

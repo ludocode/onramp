@@ -49,7 +49,7 @@ SRCS=\
 	$(SRC)/generate_ops.c \
 	$(SRC)/instruction.c \
 	$(SRC)/lexer.c \
-	$(SRC)/longlong.c \
+	$(SRC)/llong.c \
 	$(SRC)/main.c \
 	$(SRC)/node.c \
 	$(SRC)/options.c \

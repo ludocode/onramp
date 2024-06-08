@@ -78,11 +78,11 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/lexer.c \
     -o build/intermediate/cci-2-full/lexer.oo
 
-echo Compiling cci/2-full longlong.c
+echo Compiling cci/2-full llong.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/2-full/build-ccargs \
-    -c core/cci/2-full/src/longlong.c \
-    -o build/intermediate/cci-2-full/longlong.oo
+    -c core/cci/2-full/src/llong.c \
+    -o build/intermediate/cci-2-full/llong.oo
 
 echo Compiling cci/2-full main.c
 onrampvm build/intermediate/cc/cc.oe \
@@ -168,7 +168,7 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cci-2-full/generate_ops.oo \
     build/intermediate/cci-2-full/instruction.oo \
     build/intermediate/cci-2-full/lexer.oo \
-    build/intermediate/cci-2-full/longlong.oo \
+    build/intermediate/cci-2-full/llong.oo \
     build/intermediate/cci-2-full/main.oo \
     build/intermediate/cci-2-full/node.oo \
     build/intermediate/cci-2-full/options.oo \

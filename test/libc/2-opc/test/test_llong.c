@@ -16,7 +16,7 @@ void __llong_divu(unsigned* out, unsigned* a, unsigned* b);
 bool __llong_ltu(unsigned* a, unsigned* b);
 void __llong_shl(unsigned* out, unsigned* a, int bits);
 void __llong_shru(unsigned* out, unsigned* a, int bits);
-void __llong_shrs(int* out, int* a, int bits);
+void __llong_shrs(unsigned* out, unsigned* a, int bits);
 void __llong_and(unsigned* out, unsigned* a, unsigned* b);
 void __llong_or(unsigned* out, unsigned* a, unsigned* b);
 void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
