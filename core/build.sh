@@ -69,7 +69,7 @@ sh core/libc/2-opc/build.sh
 # Build the full C compiler
 sh core/libo/1-opc/build.sh
 sh core/ld/2-full/build.sh
-## sh core/cci/2-full/build.sh
+sh core/cci/2-full/build.sh
 ## sh core/cpp/2-full/build.sh
 
 ## # Build the rest of the C toolchain

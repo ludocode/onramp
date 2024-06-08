@@ -94,6 +94,8 @@ make -C test/ld/2-full build
 ( core/libo/1-opc/build.sh && true ) #TODO libo tests don't exist yet
 ( core/ld/2-full/build.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/intermediate/ld-2-full/ld.oe )
 
+                ( core/cci/2-full/build.sh ) #TODO none of the cci/2 tests pass yet but we still want to build it
+
                 #
                 #
                 # TODO the rest of this is not bootstrappable yet
@@ -101,11 +103,11 @@ make -C test/ld/2-full build
                 #
                 #
 
-( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 ( core/cci/2-full/build.sh && cd test/cci/2-full && \
     ../run.sh . onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
     ../run.sh --other-stage ../1-opc onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
     ../run.sh --other-stage ../0-omc onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
+( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 
 # Build the rest of the C toolchain
 core/libc/3-full/build.sh
