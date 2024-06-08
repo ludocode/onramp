@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/libo-1-opc
 
+echo
+echo === Building libo/1-opc
+
 echo Assembling libo/1-opc libo-data.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \

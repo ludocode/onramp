@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/cci-2-full
 
+echo
+echo === Building cci/2-full
+
 echo Compiling cci/2-full block.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/2-full/build-ccargs \

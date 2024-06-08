@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/cpp-0-strip
 
+echo
+echo === Building cpp/0-strip
+
 echo Assembling cpp/0-strip
 onrampvm build/intermediate/as-1-compound/as.oe \
     core/cpp/0-strip/cpp.os -o build/intermediate/cpp-0-strip/cpp.oo

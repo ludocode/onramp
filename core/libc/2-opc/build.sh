@@ -27,6 +27,8 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/libc-2-opc
 
+echo
+echo === Building libc/2-opc
 
 echo Assembling libc/2-opc start.os
 onrampvm build/intermediate/cc/cc.oe \

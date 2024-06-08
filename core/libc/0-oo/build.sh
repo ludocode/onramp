@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/libc-0-oo
 
+echo
+echo === Building libc/0-oo
+
 echo Archiving libc/0-oo
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-0-oo/libc.oa \

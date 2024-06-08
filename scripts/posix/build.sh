@@ -555,7 +555,6 @@ onrampvm build/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o build/inter
 if [ $SKIP_CORE -eq 0 ]; then
     echo
     echo "Entering Onramp virtual machine..."
-    echo
     # TODO since our sh tool is incomplete we run this script directly.
     #onrampvm build/intermediate/sh/sh.oe core/build.sh
     sh core/build.sh

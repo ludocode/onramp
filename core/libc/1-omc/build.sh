@@ -27,6 +27,11 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/libc-1-omc
 
+echo
+echo === Building libc/1-omc
+
+
+
 # TODO it would be nice to build cc before this stage of libc (and even before
 # ld/1), we could make this file much shorter (or even get rid of this stage
 # libc entirely.)

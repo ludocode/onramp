@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/as-1-compound
 
+echo
+echo === Building as/1-compound
+
 echo Assembling as/1-compound emit.os
 onrampvm build/intermediate/as-0-basic/as.oe \
     core/as/1-compound/src/emit.os -o build/intermediate/as-1-compound/emit.oo

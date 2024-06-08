@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/ld-2-full
 
+echo
+echo === Building ld/2-full
+
 echo Compiling ld/2-full common.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/ld/2-full/build-ccargs \

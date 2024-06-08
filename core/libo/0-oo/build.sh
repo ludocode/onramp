@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/libo-0-oo
 
+echo
+echo === Building libo/0-oo
+
 echo Archiving libo/0-oo
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libo-0-oo/libo.oa \

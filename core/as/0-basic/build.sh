@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/as-0-basic
 
+echo
+echo === Building as/0-basic
+
 echo Linking as/0-basic
 onrampvm build/intermediate/ld-0-global/ld.oe \
     -o build/intermediate/as-0-basic/as.oe \

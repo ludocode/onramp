@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/cpp-1-omc
 
+echo
+echo === Building cpp/1-omc
+
 echo Preprocessing cpp/1-omc
 onrampvm build/intermediate/cpp-0-strip/cpp.oe \
     core/cpp/1-omc/cpp.c -o build/intermediate/cpp-1-omc/cpp.i

@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/ar-0-cat
 
+echo
+echo === Building ar/0-cat
+
 # Our libraries don't exist as archives yet (because this archiver doesn't
 # exist yet!) We have to link all the libc and libo object files manually.
 

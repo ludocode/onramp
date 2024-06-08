@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/cci-0-omc
 
+echo
+echo === Building cci/0-omc
+
 echo Assembling cci/0-omc common.os
 onrampvm build/intermediate/as-1-compound/as.oe \
     core/cci/0-omc/src/common.os -o build/intermediate/cci-0-omc/common.oo

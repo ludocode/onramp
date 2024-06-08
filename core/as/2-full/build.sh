@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/as-2-full
 
+echo
+echo === Building as/2-full
+
 echo Compiling as/2-full common.c
 onrampvm build/intermediate/cc/cc.oe \
     -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \

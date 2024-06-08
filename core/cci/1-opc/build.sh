@@ -27,6 +27,9 @@ mkdir -p build
 mkdir -p build/intermediate
 mkdir -p build/intermediate/cci-1-opc
 
+echo
+echo === Building cci/1-opc
+
 echo Compiling cci/1-opc common.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
