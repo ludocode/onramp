@@ -87,4 +87,4 @@ test-2: build FORCE
 test: test-2 test-1 test-0 FORCE
 
 generate: build FORCE $(VM)
-	$(ROOT)/test/cci/generate.sh test full $(VM) $(OUT)/cci
+	../generate.sh . full $(VM) $(OUT)/cci

@@ -193,6 +193,7 @@ static node_t* parse_break(node_t* parent) {
         fatal_token(lexer_token, "Cannot `break` outside of a loop or switch.");
     node_t* node = node_new_lexer(NODE_BREAK);
     node->container = break_container;
+    node->type = type_new_base(BASE_VOID);
     return node;
 }
 
@@ -201,6 +202,7 @@ static node_t* parse_continue(node_t* parent) {
         fatal_token(lexer_token, "Cannot `continue` outside of a loop.");
     node_t* node = node_new_lexer(NODE_CONTINUE);
     node->container = continue_container;
+    node->type = type_new_base(BASE_VOID);
     return node;
 }
 
