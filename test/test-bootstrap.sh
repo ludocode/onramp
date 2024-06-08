@@ -72,7 +72,7 @@ make -C test/ld/2-full build
             -I../../../core/libc/0-oo/include )
 ( core/cc/build.sh && cd test/cc && ./run.sh . onrampvm ../../../build/intermediate/cc/cc.oe )
 
-# Next build up to the full C compiler
+# Build the opC toolchain
 ( core/cci/1-opc/build.sh && cd test/cci/1-opc && \
     ../run.sh . opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe && \
     ../run.sh --other-stage ../0-omc opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
@@ -89,6 +89,9 @@ make -C test/ld/2-full build
             -I../../../core/libc/2-opc/include \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include )
+
+# Build the full C compiler
+( core/libo/1-opc/build.sh && true ) #TODO libo tests don't exist yet
 ( core/ld/2-full/build.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/intermediate/ld-2-full/ld.oe )
 
                 #
