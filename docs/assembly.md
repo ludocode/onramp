@@ -210,25 +210,27 @@ Memory:
 
 Control:
 
-| Pr. | Opcode | Arguments                     | Description                                                  |
-|-----|--------|-------------------------------|--------------------------------------------------------------|
-|  x  |`ims`   | `<r:reg> <b:high> <b:low>`    | Shifts register up 16 bits, then loads a 16-bit immediate    |
-|     |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate                                     |
-|x \* |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest   |
-|     |`cmps`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 signed, placing -1, 0 or 1 in dest     |
-|  x  |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                               |
-|     |`jnz`   | `<m:pred> <j:label>`          | Jumps if the predicate is not zero                           |
-|x \* |`je`    | \* `<m:pred> <j:label>`       | Jumps if the predicate is zero                               |
-|     |`jne`   | \* `<m:pred> <j:label>`       | Jumps if the predicate is not zero                           |
-|     |`jl`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is -1                                 |
-|     |`jg`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is 1                                  |
-|     |`jle`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not 1                              |
-|     |`jge`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not -1                             |
-|     |`jmp`   | `<j:label>` or `<c:function>` | Jumps unconditionally                                        |
-|     |`call`  | `<c:function>`                | Calls a function (pushing the return address to the stack)   |
-|     |`ret`   | none                          | Returns from a function call                                 |
-|     |`enter` | none                          | Creates a stack frame                                        |
-|     |`leave` | none                          | Destroys the current stack frame                             |
-|  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                       |
+| Pr. | Opcode | Arguments                     | Description                                                       |
+|-----|--------|-------------------------------|-------------------------------------------------------------------|
+|  x  |`ims`   | `<r:reg> <b:high> <b:low>`    | Shifts register up 16 bits, then loads a 16-bit immediate         |
+|     |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate                                          |
+|x \* |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest        |
+|  \* |`cmps`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 signed, placing -1, 0 or 1 in dest          |
+| \*  |`ltu`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 unsigned, 0 otherwise  |
+|     |`lts`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 signed, 0 otherwise    |
+|  x  |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                                    |
+|     |`jnz`   | `<m:pred> <j:label>`          | Jumps if the predicate is not zero                                |
+|x \* |`je`    | \* `<m:pred> <j:label>`       | Jumps if the predicate is zero                                    |
+|     |`jne`   | \* `<m:pred> <j:label>`       | Jumps if the predicate is not zero                                |
+|     |`jl`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is -1                                      |
+|     |`jg`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is 1                                       |
+|     |`jle`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not 1                                   |
+|     |`jge`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not -1                                  |
+|     |`jmp`   | `<j:label>` or `<c:function>` | Jumps unconditionally                                             |
+|     |`call`  | `<c:function>`                | Calls a function (pushing the return address to the stack)        |
+|     |`ret`   | none                          | Returns from a function call                                      |
+|     |`enter` | none                          | Creates a stack frame                                             |
+|     |`leave` | none                          | Destroys the current stack frame                                  |
+|  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                            |
 
-\* WARNING: The above tables will change significantly. `xor` and `ror` are currently primitive instructions but they will be replaced with `shl` and `shru` at some point. The comparison conditional jump instructions (`je`, `jne`, `jl`, `jg`, `jle`, `jge`) are currently designed to take the result of a comparison (`cmpu`, `cmps`) as predicate; they will be changed to take two source arguments and compare them internally. `sys`, `cmpu` and `cmps` may be removed entirely.
+\* WARNING: The above tables will change significantly. `xor`, `ror` and `cmpu` are currently primitive instructions but they will be replaced with `shl`, `shru` and `ltu` at some point. The comparison conditional jump instructions (`je`, `jne`, `jl`, `jg`, `jle`, `jge`) are currently designed to take the result of a comparison (`cmpu`, `cmps`) as predicate; they will be changed to take two source arguments and compare them internally. `sys`, `cmpu` and `cmps` may be removed entirely.

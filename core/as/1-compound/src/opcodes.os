@@ -111,6 +111,8 @@
     ^opcode_str_imw ^opcode_imw
     ^opcode_str_cmps ^opcode_cmps
     ^opcode_str_cmpu ^opcode_cmpu
+    ^opcode_str_lts ^opcode_lts
+    ^opcode_str_ltu ^opcode_ltu
     ^opcode_str_jz ^opcode_jz
     ^opcode_str_jnz ^opcode_jnz
     ^opcode_str_je ^opcode_je
@@ -172,11 +174,13 @@
 
 ; control
 :opcode_str_ims "ims" '00
-:opcode_str_cmpu "cmpu" '00
 :opcode_str_jz "jz" '00
 :opcode_str_sys "sys" '00
 :opcode_str_imw "imw" '00
+:opcode_str_cmpu "cmpu" '00
 :opcode_str_cmps "cmps" '00
+:opcode_str_ltu "ltu" '00
+:opcode_str_lts "lts" '00
 :opcode_str_jnz "jnz" '00
 :opcode_str_jmp "jmp" '00
 :opcode_str_je "je" '00

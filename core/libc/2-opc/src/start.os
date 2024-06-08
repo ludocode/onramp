@@ -38,7 +38,7 @@
 ; ==========================================================
 
 =__start
-    "~Onr~amp~   "
+    "~Onr~amp~   "    ; The executable file identifier; see "File Format" in the VM spec
     mov r1 rsp
     jmp ^__start_c
 
@@ -67,7 +67,8 @@
 ; files to let our parent process continue so we have no choice but to take
 ; down the whole VM.
 ;
-; We do this simply by running an illegal instruction.
+; We do this simply by running an illegal instruction. If the VM is hosted it
+; will exit with code 125.
 ; ==========================================================
 
 =abort

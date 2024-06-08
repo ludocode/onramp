@@ -772,7 +772,7 @@
     ims ra <opcode_cmps_template
     ims ra >opcode_cmps_template
     add r0 rpp ra
-    add r1 '00 '18
+    add r1 '00 '10
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
@@ -795,6 +795,113 @@
     add ra '81 rb    ; add ra src1 rb
     add rb '82 rb    ; add rb src2 rb
     cmpu '80 ra rb   ; cmpu dest ra rb
+
+
+
+; ==========================================================
+; void opcode_ltu(void)
+; ==========================================================
+; Implements the ltu opcode.
+;
+; This is a temporary implementation. ltu will eventually become a primitive
+; opcode.
+; ==========================================================
+
+=opcode_ltu
+
+    ; push space to parse arguments
+    sub rsp rsp '04
+    add r0 rsp '00
+
+    ; call parse_register_mix_mix()
+    ims ra <parse_register_mix_mix
+    ims ra >parse_register_mix_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; get the template
+    ims ra <opcode_ltu_template
+    ims ra >opcode_ltu_template
+    add r0 rpp ra
+    add r1 '00 '0C
+
+    ; fill it in
+    ldb r2 rsp '00    ; load dest
+    stb r2 r0 '09
+    ldb r2 rsp '01    ; load src1
+    stb r2 r0 '02
+    ldb r2 rsp '02    ; load src2
+    stb r2 r0 '03
+
+    ; pop the arguments
+    add rsp rsp '04   ; popd
+
+    ; output it, tail-call emit_bytes_as_hex()
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_ltu_template
+    cmpu ra '81 '82  ; cmpu ra src1 src2
+    ror ra ra '01    ; ror ra ra 1
+    and '80 ra '01   ; and r0 ra 1
+
+
+
+; ==========================================================
+; void opcode_lts(void)
+; ==========================================================
+; Implements the lts opcode.
+; ==========================================================
+
+=opcode_lts
+
+    ; push space to parse arguments
+    sub rsp rsp '04
+    add r0 rsp '00
+
+    ; call parse_register_mix_mix()
+    ims ra <parse_register_mix_mix
+    ims ra >parse_register_mix_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; get the template
+    ims ra <opcode_lts_template
+    ims ra >opcode_lts_template
+    add r0 rpp ra
+    add r1 '00 '18
+
+    ; fill it in
+    ldb r2 rsp '00    ; load dest
+    stb r2 r0 '15
+    ldb r2 rsp '01    ; load src1
+    stb r2 r0 '06
+    ldb r2 rsp '02    ; load src2
+    stb r2 r0 '0A
+
+    ; pop the arguments
+    add rsp rsp '04   ; popd
+
+    ; output it, tail-call emit_bytes_as_hex()
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_lts_template
+    ror rb '01 '01   ; ror rb 1 1       ; rb = 0x80000000
+    add ra '81 rb    ; add ra src1 rb
+    add rb '82 rb    ; add rb src2 rb
+    ; This is temporary; the rest of this should become ltu.
+    cmpu ra ra rb    ; cmpu ra ra rb
+    ror ra ra '01    ; ror ra ra 1
+    and '80 ra '01   ; and r0 ra 1
 
 
 

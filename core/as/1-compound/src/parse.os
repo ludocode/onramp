@@ -97,7 +97,8 @@
 ; ==========================================================
 ; A fixed-size buffer for storing keywords and label names.
 ;
-; The final stage assembler has no limit on identifier length.
+; This assembler limits identifier length to the size of this buffer. (The
+; final stage assembler has no limit on identifier length.)
 ; ==========================================================
 
 =identifier

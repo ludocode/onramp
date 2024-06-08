@@ -902,6 +902,36 @@ static void opcode_cmps(void) {
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
+static void opcode_ltu(void) {
+    // This is a temporary implementation that uses cmpu. Eventually cmpu will
+    // be replaced by ltu in the VM.
+    uint8_t dest = parse_register();
+    uint8_t arg1 = parse_mix_non_scratch();
+    uint8_t arg2 = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        CMPU, RA, arg1, arg2,  // cmpu ra arg1 arg2
+        ROR, RA, RA, 0x01,     // ror ra ra 1
+        AND, dest, RA, 0x01,   // and dest ra 1
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
+static void opcode_lts(void) {
+    uint8_t dest = parse_register();
+    uint8_t arg1 = parse_mix_non_scratch();
+    uint8_t arg2 = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        ROR, RB, 0x01, 0x01,  // ror rb 1 1       // rb = 0x80000000
+        ADD, RA, arg1, RB,    // add ra arg1 rb
+        ADD, RB, arg2, RB,    // add rb arg2 rb
+        // This is temporary; the rest of this should become LTU.
+        CMPU, RA, RA, RB,     // cmpu ra ra rb
+        ROR, RA, RA, 0x01,    // ror ra ra 1
+        AND, dest, RA, 0x01,  // and dest ra 1
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
 static void opcode_jnz(void) {
     opcode_jnz_jne(parse_mix());
 }
@@ -1068,6 +1098,8 @@ static opcode_fn_t opcodes_list[] = {
     {"imw", opcode_imw},
     {"cmpu", opcode_cmpu},
     {"cmps", opcode_cmps},
+    {"ltu", opcode_ltu},
+    {"lts", opcode_lts},
     {"jz", opcode_jz},
     {"jnz", opcode_jnz},
     {"je", opcode_je},

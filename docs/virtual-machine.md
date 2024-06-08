@@ -664,6 +664,6 @@ On some hosted platforms, Onramp bytecode can also be wrapped in a script that e
 # This is a wrapped Onramp program.
 ```
 
-This script automatically launches program in the VM (as long as it's on your PATH.)
+This script automatically launches the program in the VM (as long as it's on your PATH.)
 
 VMs that support these platforms check for a script preamble (e.g. `#!` or `REM`). If found, they skip the first 128 bytes.
