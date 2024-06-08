@@ -20,8 +20,9 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+.SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter -DDEBUG
 
 -include ../../local.mk
 
@@ -38,10 +39,29 @@ SRCS=\
 	$(LIBO)/src/libo-string.c \
 	$(LIBO)/src/libo-table.c \
 	$(LIBO)/src/libo-util.c \
+	$(LIBO)/src/libo-vector.c \
 	\
+	$(SRC)/block.c \
 	$(SRC)/common.c \
+	$(SRC)/emit.c \
+	$(SRC)/function.c \
+	$(SRC)/generate.c \
+	$(SRC)/generate_ops.c \
+	$(SRC)/instruction.c \
+	$(SRC)/lexer.c \
+	$(SRC)/longlong.c \
 	$(SRC)/main.c \
-	$(SRC)/parse.c \
+	$(SRC)/node.c \
+	$(SRC)/options.c \
+	$(SRC)/parse_decl.c \
+	$(SRC)/parse_expr.c \
+	$(SRC)/parse_stmt.c \
+	$(SRC)/record.c \
+	$(SRC)/scope.c \
+	$(SRC)/strings.c \
+	$(SRC)/symbol.c \
+	$(SRC)/token.c \
+	$(SRC)/type.c \
 
 all: build test FORCE
 FORCE:
@@ -55,5 +75,16 @@ $(OUT)/cci: $(SRCS) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-test: build FORCE
-	../run.sh . $(OUT)/cci
+test-0: build FORCE
+	../run.sh --other-stage ../0-omc full $(OUT)/cci
+
+test-1: build FORCE
+	../run.sh --other-stage ../1-opc full $(OUT)/cci
+
+test-2: build FORCE
+	../run.sh . full $(OUT)/cci
+
+test: test-2 test-1 test-0 FORCE
+
+generate: build FORCE $(VM)
+	$(ROOT)/test/cci/generate.sh test full $(VM) $(OUT)/cci

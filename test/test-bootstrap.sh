@@ -128,3 +128,5 @@ core/libc/3-full/build.sh
 # Build the last few tools we need
 platform/hex/c89/build.sh
 core/ar/1-unix/build.sh
+
+# TODO rebuild, test rebuilt tools as bootstrapped

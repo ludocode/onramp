@@ -25,20 +25,157 @@
 set -e
 mkdir -p build
 mkdir -p build/intermediate
+mkdir -p build/intermediate/cci-2-full
 
-# TODO all preprocessor args, all source files
+echo Compiling cci/2-full block.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/block.c \
+    -o build/intermediate/cci-2-full/block.oo
+
+echo Compiling cci/2-full common.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/common.c \
+    -o build/intermediate/cci-2-full/common.oo
+
+echo Compiling cci/2-full emit.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/emit.c \
+    -o build/intermediate/cci-2-full/emit.oo
+
+echo Compiling cci/2-full function.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/function.c \
+    -o build/intermediate/cci-2-full/function.oo
+
+echo Compiling cci/2-full generate.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/generate.c \
+    -o build/intermediate/cci-2-full/generate.oo
+
+echo Compiling cci/2-full generate_ops.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/generate_ops.c \
+    -o build/intermediate/cci-2-full/generate_ops.oo
+
+echo Compiling cci/2-full instruction.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/instruction.c \
+    -o build/intermediate/cci-2-full/instruction.oo
+
+echo Compiling cci/2-full lexer.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/lexer.c \
+    -o build/intermediate/cci-2-full/lexer.oo
+
+echo Compiling cci/2-full longlong.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/longlong.c \
+    -o build/intermediate/cci-2-full/longlong.oo
 
 echo Compiling cci/2-full main.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/cci/2-full/build-ccargs \
     -c core/cci/2-full/src/main.c \
     -o build/intermediate/cci-2-full/main.oo
 
-echo Linking cci/2-full
-onrampvm build/intermediate/ld-1-omc/ld.oe \
+echo Compiling cci/2-full node.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/node.c \
+    -o build/intermediate/cci-2-full/node.oo
+
+echo Compiling cci/2-full options.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/options.c \
+    -o build/intermediate/cci-2-full/options.oo
+
+echo Compiling cci/2-full parse_decl.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/parse_decl.c \
+    -o build/intermediate/cci-2-full/parse_decl.oo
+
+echo Compiling cci/2-full parse_expr.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/parse_expr.c \
+    -o build/intermediate/cci-2-full/parse_expr.oo
+
+echo Compiling cci/2-full parse_stmt.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/parse_stmt.c \
+    -o build/intermediate/cci-2-full/parse_stmt.oo
+
+echo Compiling cci/2-full record.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/record.c \
+    -o build/intermediate/cci-2-full/record.oo
+
+echo Compiling cci/2-full scope.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/scope.c \
+    -o build/intermediate/cci-2-full/scope.oo
+
+echo Compiling cci/2-full strings.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/strings.c \
+    -o build/intermediate/cci-2-full/strings.oo
+
+echo Compiling cci/2-full symbol.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/symbol.c \
+    -o build/intermediate/cci-2-full/symbol.oo
+
+echo Compiling cci/2-full token.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/token.c \
+    -o build/intermediate/cci-2-full/token.oo
+
+echo Compiling cci/2-full type.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/type.c \
+    -o build/intermediate/cci-2-full/type.oo
+
+echo Linking cci/1-opc
+onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/libc-2-opc/libc.oa \
     build/intermediate/libo-1-opc/libo.oa \
+    build/intermediate/cci-2-full/block.oo \
+    build/intermediate/cci-2-full/common.oo \
+    build/intermediate/cci-2-full/emit.oo \
+    build/intermediate/cci-2-full/function.oo \
+    build/intermediate/cci-2-full/generate.oo \
+    build/intermediate/cci-2-full/generate_ops.oo \
+    build/intermediate/cci-2-full/instruction.oo \
+    build/intermediate/cci-2-full/lexer.oo \
+    build/intermediate/cci-2-full/longlong.oo \
     build/intermediate/cci-2-full/main.oo \
+    build/intermediate/cci-2-full/node.oo \
+    build/intermediate/cci-2-full/options.oo \
+    build/intermediate/cci-2-full/parse_decl.oo \
+    build/intermediate/cci-2-full/parse_expr.oo \
+    build/intermediate/cci-2-full/parse_stmt.oo \
+    build/intermediate/cci-2-full/record.oo \
+    build/intermediate/cci-2-full/scope.oo \
+    build/intermediate/cci-2-full/strings.oo \
+    build/intermediate/cci-2-full/symbol.oo \
+    build/intermediate/cci-2-full/token.oo \
+    build/intermediate/cci-2-full/type.oo \
     -o build/intermediate/cci-2-full/cci.oe
