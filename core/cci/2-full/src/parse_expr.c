@@ -38,6 +38,7 @@
 #include "parse_decl.h"
 #include "parse_stmt.h"
 #include "emit.h"
+#include "llong.h"
 
 static int next_string;
 
@@ -50,12 +51,137 @@ void parse_expr_init(void) {
 void parse_expr_destroy(void) {
 }
 
+/**
+ * Parses a number.
+ */
 static node_t* parse_number(void) {
     assert(lexer_token->type == token_type_number);
     node_t* node = node_new_lexer(NODE_NUMBER);
-    sscanf(string_cstr(node->token->value), "%i", &node->int_value); // TODO manual parse number, error check, don't use sscanf
+
+    const char* p = string_cstr(node->token->value);
+    unsigned base = 0;
+
+    // detecting leading 0x/0X for hex
+    if (*p == '0') {
+        char x = *(p + 1);
+        if ((x == 'x') | (x == 'X')) {
+            base = 16;
+            p = (p + 2);
+        }
+    }
+
+    // detect leading binary 0b/0B for binary
+    if (base == 0) {
+        if (*p == '0') {
+            char b = *(p + 1);
+            if ((b == 'b') | (b == 'B')) {
+                base = 2;
+                p = (p + 2);
+            }
+        }
+    }
+
+    // detect leading 0 for octal
+    if (base == 0) {
+        if (*p == '0') {
+            base = 8;
+        }
+    }
+
+    // otherwise assume decimal
+    if (base == 0) {
+        base = 10;
+    }
+
+    // accumulate digits
+    llong_t value;
+    llong_clear(&value);
+    while (1) {
+        // TODO hex_to_int in libo
+        unsigned digit = 99;
+        if ((*p >= '0') & (*p <= '9')) {
+            digit = (*p - '0');
+        }
+        if ((*p >= 'a') & (*p <= 'f')) {
+            digit = ((*p - 'a') + 10);
+        }
+        if ((*p >= 'A') & (*p <= 'F')) {
+            digit = ((*p - 'A') + 10);
+        }
+        if (digit >= base) {
+            break;
+        }
+
+        // Add the digit, checking for overflow
+        llong_t temp;
+        llong_set(&temp, &value);
+        llong_mul_u(&temp, base);
+        if (llong_ltu(&temp, &value)) {
+            goto out_of_range;
+        }
+        llong_add_u(&temp, digit);
+        if (llong_ltu(&temp, &value)) {
+            goto out_of_range;
+        }
+        llong_set(&value, &temp);
+
+        p = (p + 1);
+    }
+
+    // parse out the suffix
+    bool suffix_unsigned = false;
+    bool suffix_long = false;
+    bool suffix_long_long = false;
+    while (*p) {
+
+        // parse long
+        if ((*p == 'l') | (*p == 'L')) {
+            if (suffix_long_long) {
+                fatal("`long long long` integer suffix is not supported.");
+            }
+            if (suffix_long) {
+                suffix_long_long = true;
+            } else {
+                suffix_long = true;
+            }
+            p = (p + 1);
+            continue;
+        }
+
+        // parse unsigned
+        if ((*p == 'u') | (*p == 'U')) {
+            if (suffix_unsigned) {
+                fatal("Redundant `u` suffix on integer literal.");
+            }
+            suffix_unsigned = true;
+            p = (p + 1);
+            continue;
+        }
+
+        // unrecognized. try to give slightly better error mesagge
+        if (((*p == '.') | ((*p == 'e') | (*p == 'E'))) |
+                ((*p == 'p') | (*p == 'P')))
+        {
+            fatal("TODO floating point literals are not yet supported");
+        }
+        fatal("Malformed number literal.");
+    }
+
+    // TODO for now we just ignore the suffix and truncate it down to an int.
+    // we're just trying to match the functionality of cci/0 right now. we'll
+    // need to store the full llong value in the node
+    #ifdef LLONG_NATIVE
+    node->int_value = (int)value.value;
+    #endif
+    #ifndef LLONG_NATIVE
+    node->int_value = value.words[0];
+    #endif
+
     node->type = type_new_base(BASE_SIGNED_INT);
     return node;
+
+out_of_range:
+    fatal_token(node->token, "Number does not fit in a 64-bit integer.");
 }
 
 static node_t* parse_character(void) {

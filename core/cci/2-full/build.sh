@@ -156,7 +156,7 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/type.c \
     -o build/intermediate/cci-2-full/type.oo
 
-echo Linking cci/1-opc
+echo Linking cci/2-full
 onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/libc-2-opc/libc.oa \
     build/intermediate/libo-1-opc/libo.oa \

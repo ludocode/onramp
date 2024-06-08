@@ -179,10 +179,10 @@ static void parse_number(const char* p, type_t** out_type, int* out_value) {
     }
 
     // accumulate digits
-    long value = 0;
+    int value = 0;
     while (1) {
         // TODO hex_to_int in libo
-        long digit = 99;
+        int digit = 99;
         if ((*p >= '0') & (*p <= '9')) {
             digit = (*p - '0');
         }

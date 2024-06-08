@@ -56,10 +56,12 @@ typedef struct llong_t {
 } llong_t;
 
 void llong_clear(llong_t* llong);
+void llong_set(llong_t* llong, const llong_t* other);
 void llong_add(llong_t* llong, const llong_t* other);
-void llong_add_i(llong_t* llong, int other);
+void llong_add_u(llong_t* llong, unsigned other);
 void llong_sub(llong_t* llong, const llong_t* other);
 void llong_mul(llong_t* llong, const llong_t* other);
+void llong_mul_u(llong_t* llong, unsigned other);
 void llong_divu(llong_t* llong, const llong_t* other);
 void llong_divs(llong_t* llong, const llong_t* other);
 bool llong_ltu(const llong_t* left, const llong_t* right);

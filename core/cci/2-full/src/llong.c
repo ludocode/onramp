@@ -55,6 +55,17 @@ void llong_clear(llong_t* llong) {
     #endif
 }
 
+void llong_set(llong_t* llong, const llong_t* other) {
+    #ifdef LLONG_NATIVE
+    llong->value = other->value;
+    #endif
+
+    #ifndef LLONG_NATIVE
+    llong->words[0] = other->words[0];
+    llong->words[1] = other->words[1];
+    #endif
+}
+
 void llong_add(llong_t* llong, const llong_t* other) {
     #ifdef LLONG_NATIVE
     llong->value += other->value;
@@ -65,7 +76,7 @@ void llong_add(llong_t* llong, const llong_t* other) {
     #endif
 }
 
-void llong_add_i(llong_t* llong, int other) {
+void llong_add_u(llong_t* llong, unsigned other) {
     #ifdef LLONG_NATIVE
     llong->value += other;
     #endif
@@ -96,6 +107,20 @@ void llong_mul(llong_t* llong, const llong_t* other) {
 
     #ifndef LLONG_NATIVE
     __llong_mul(llong->words, llong->words, other->words);
+    #endif
+}
+
+void llong_mul_u(llong_t* llong, unsigned other) {
+    #ifdef LLONG_NATIVE
+    llong->value *= other;
+    #endif
+
+    #ifndef LLONG_NATIVE
+    // TODO very inefficient, doesn't matter
+    unsigned words[2];
+    words[0] = other;
+    words[1] = 0;
+    __llong_mul(llong->words, llong->words, words);
     #endif
 }
 
