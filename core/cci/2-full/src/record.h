@@ -27,37 +27,49 @@
 
 #include "common.h"
 
+#include "libo-table.h"
+#include "libo-string.h"
+
 struct type_t;
 
 /**
- * A field (member) of a record (struct or union).
+ * A member of a record (struct or union).
  */
-typedef struct field_t {
-    unsigned offset;
-    unsigned bit_size;
+typedef struct member_t {
+    table_entry_t map_entry;
+    struct member_t* next;
     string_t* name;
     struct type_t* type;
-} field_t;
+    unsigned offset;
+    unsigned bit_size;
+} member_t;
 
 /**
  * A record is a struct or union type in C.
  *
- * A record is created when a struct or union is first declared. Its fields are
- * initially empty. When the struct or union is later defined, the fields are
- * parsed and assigned to the record.
+ * The record can represent both unions and structs. In a struct, the members
+ * have distinct offsets; in a union, the members overlap.
  *
- * Records are owned by the scope in which they were declared. They are
- * destroyed when the scope is destroyed (which also destroys anything that
- * could reference them, preventing any dangling references.)
+ * A record is created when a struct or union is first declared. Its members
+ * are initially empty. When the struct or union is later defined, the members
+ * are parsed and assigned to the record. We support structs with no members as
+ * an extension so the flag `is_defined` is used to tell whether the record was
+ * defined.
  *
- * Fields are stored in a hashtable. The fields of anonymous nested structs
- * and unions are flattened into it.
+ * Direct members are stored in a linked list (whether named or unnamed.) The
+ * record owns these members.
+ *
+ * Named members, as well as the named members of anonymous nested structs and
+ * unions, are stored in a hashtable for quick lookups.
  */
 typedef struct record_t {
     unsigned refcount;
+    bool is_struct;
+    bool is_defined;
     string_t* name;
-    field_t* fields;
-    size_t fields_bits;
+    table_t member_map;
+    member_t* member_list;
+    size_t size;
 } record_t;
 
 /**
@@ -65,7 +77,7 @@ typedef struct record_t {
  *
  * The record takes ownership of the given name.
  *
- * If the record is anonymous, the name is an empty (allocated) string.
+ * If the record is anonymous, the name is an empty string.
  */
 record_t* record_new(string_t* name);
 
@@ -76,22 +88,20 @@ static inline record_t* record_ref(record_t* record) {
 
 void record_deref(record_t* record);
 
-const char* record_name(const record_t* record);
-
 /**
- * Returns the fields of this record.
+ * Returns the members of this record.
  *
  * If the record has not been defined yet (i.e. it has only been
  * forward-declared), this returns NULL.
  */
-field_t* record_fields(const record_t* record);
+//member_t* record_members(const record_t* record);
 
 /**
- * Sets the fields of the given record.
+ * Sets the members of the given record.
  *
- * The record takes ownership and frees the fields when done.
+ * The record takes ownership and frees the members when done.
  */
-void record_set_fields(record_t* record, field_t* fields, bool is_struct);
+//void record_set_members(record_t* record, member_t* members, bool is_struct);
 
 /**
  * Returns the size (as in sizeof) of this record.
@@ -99,17 +109,24 @@ void record_set_fields(record_t* record, field_t* fields, bool is_struct);
 size_t record_size(const record_t* record);
 
 /**
- * Finds the field and offset with the given name, returning NULL if the field
+ * Adds a new member to the record.
+ *
+ * This takes ownership of the given name and type.
+ */
+void record_add(record_t* record, string_t* name, struct type_t* type, unsigned offset);
+
+/**
+ * Finds the member and offset with the given name, returning NULL if the member
  * does not exist.
  *
  * NOTE: The returned offset is not necessarily the same as the offset stored
- * in the field because the field may be nested in an anonymous struct or
+ * in the member because the member may be nested in an anonymous struct or
  * union. The returned offset is the offset from the start of *this* record,
- * whereas field_offset() returns the offset relative to its direct parent.
+ * whereas member_offset() returns the offset relative to its direct parent.
  *
  * If the record is incomplete, a fatal error is raised.
  */
-const field_t* record_find_field(const record_t* record, const char* name,
+const member_t* record_find(const record_t* record, const char* name,
         size_t* out_offset);
 
 #endif

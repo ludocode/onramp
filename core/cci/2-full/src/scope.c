@@ -36,6 +36,8 @@
 scope_t* scope_global;
 scope_t* scope_current;
 
+#define TAG_HASH_MULTIPLIER 37u
+
 /**
  * A type or symbol in the scope's hashtables.
  */
@@ -45,7 +47,7 @@ typedef struct scope_element_t {
         struct {
             token_t* name;
             type_t* type;
-            bool is_typedef;
+            tag_t tag;
         };
         symbol_t* symbol;
     };
@@ -101,9 +103,7 @@ static void scope_delete(scope_t* scope) {
     free(scope);
 }
 
-void scope_global_init(void) {
-    assert(scope_global == NULL);
-    scope_global = (scope_current = scope_new(NULL));
+static void scope_create_va_list(void) {
 
     // We store __builtin_va_list as a typedef of int*. This means it's
     // implicitly convertible with int*, can be copied by value, etc. That's
@@ -118,11 +118,18 @@ void scope_global_init(void) {
             filename,
             0,
             NULL);
-    scope_add_typedef(scope_global, token, listp);
+    scope_add_type(scope_global, TAG_TYPEDEF, token, listp);
+
     token_deref(token);
     string_deref(filename);
     type_deref(listp);
     type_deref(list);
+}
+
+void scope_global_init(void) {
+    assert(scope_global == NULL);
+    scope_global = (scope_current = scope_new(NULL));
+    scope_create_va_list();
 }
 
 void scope_global_destroy(void) {
@@ -159,12 +166,13 @@ void scope_add_symbol(scope_t* scope, symbol_t* symbol) {
     table_put(&scope->symbols, &element->entry, string_hash(symbol->name));
 }
 
-void scope_add_typedef(scope_t* scope, token_t* name, type_t* type) {
+void scope_add_type(scope_t* scope, tag_t tag, token_t* name, type_t* type) {
     // TODO make sure the name is not a keyword
-    type_t* previous = scope_find_typedef(scope, name->value, false);
+    type_t* previous = scope_find_type(scope, tag, name->value, false);
     if (previous) {
         // duplicate typedefs are allowed as long as the types match.
-        if (!type_equal(type, previous)) {
+        // TODO handle duplicates of other tags
+        if (tag == TAG_TYPEDEF && !type_equal(type, previous)) {
             fatal_token(name, "`typedef` redeclared in the same scope with a different type.");
         }
         return;
@@ -173,10 +181,10 @@ void scope_add_typedef(scope_t* scope, token_t* name, type_t* type) {
     scope_element_t* element = malloc(sizeof(scope_element_t));
     element->type = type_ref(type);
     element->name = token_ref(name);
-    table_put(&scope->types, &element->entry, string_hash(name->value));
+    table_put(&scope->types, &element->entry, string_hash(name->value) + (unsigned)tag * TAG_HASH_MULTIPLIER);
 }
 
-symbol_t* scope_find_symbol(scope_t* scope, string_t* name, bool recurse) {
+symbol_t* scope_find_symbol(scope_t* scope, const string_t* name, bool recurse) {
     do {
         table_entry_t* entry = table_bucket(&scope->symbols, string_hash(name));
         while (entry) {
@@ -191,12 +199,12 @@ symbol_t* scope_find_symbol(scope_t* scope, string_t* name, bool recurse) {
     return NULL;
 }
 
-type_t* scope_find_typedef(scope_t* scope, string_t* name, bool recurse) {
+type_t* scope_find_type(scope_t* scope, tag_t tag, const string_t* name, bool recurse) {
     do {
-        table_entry_t* entry = table_bucket(&scope->types, string_hash(name));
+        table_entry_t* entry = table_bucket(&scope->types, string_hash(name) + (unsigned)tag * TAG_HASH_MULTIPLIER);
         while (entry) {
             scope_element_t* element = (scope_element_t*)entry;
-            if (element->is_typedef && string_equal(element->name->value, name)) {
+            if (element->tag == tag && string_equal(element->name->value, name)) {
                 return element->type;
             }
             entry = table_entry_next(entry);

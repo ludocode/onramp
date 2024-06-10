@@ -183,4 +183,18 @@ void string_print(const string_t* string, FILE* file);
     }
 #endif
 
+/**
+ * Returns true if the string is empty, false otherwise
+ */
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define string_is_empty(str) ((str)->length == 0)
+    #endif
+#endif
+#ifndef string_is_empty
+    static inline bool string_is_empty(const string_t* str) {
+        return str->length == 0;
+    }
+#endif
+
 #endif

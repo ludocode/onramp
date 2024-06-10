@@ -10,7 +10,7 @@ The compiler is implemented in three stages:
 
 - [`0-omc`](0-omc/) is written in compound assembly and compiles [Onramp Minimal C (omC)](../../docs/minimal-c.md). It is a single-pass compiler designed to be as simple as possible with no optimizations whatsoever.
 
-- [`1-opc`](1-opc/) is written in omC and compiles [Onramp Practical C (omC)](../../docs/practical-c.md). This aims to support a large subset of modern C sufficient to comfortably implement the final stage. It is also a single-pass compiler with only trivial micro-optimizations where it is convenient.
+- [`1-opc`](1-opc/) is written in omC and compiles [Onramp Practical C (opC)](../../docs/practical-c.md). This aims to support a large subset of modern C sufficient to comfortably implement the final stage. It is also a single-pass compiler with only trivial micro-optimizations where it is convenient.
 
 - [`2-full`](2-full/) is written in opC and aims to implement most of the C2x language plus several GNU extensions. This adds function pointers, `long long`, floating point and more. It should be sufficient to compile any modern C software.
 

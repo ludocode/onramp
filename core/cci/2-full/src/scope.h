@@ -34,6 +34,13 @@ struct type_t;
 struct string_t;
 struct token_t;
 
+typedef enum tag_t {
+    TAG_TYPEDEF = 1,
+    TAG_STRUCT,
+    TAG_UNION,
+    TAG_ENUM,
+} tag_t;
+
 typedef struct scope_t {
     struct scope_t* parent;
     table_t symbols;
@@ -60,7 +67,7 @@ void scope_emit_tentative_definitions(void);
  */
 void scope_add_symbol(scope_t* scope, struct symbol_t* symbol);
 
-void scope_add_typedef(scope_t* scope, struct token_t* name, struct type_t* type);
+void scope_add_type(scope_t* scope, tag_t tag, struct token_t* name, struct type_t* type);
 
 /**
  * Removes the given symbol from the given scope, relinquishing ownership of
@@ -76,14 +83,14 @@ void scope_remove_symbol(scope_t* scope, struct symbol_t* symbol);
  *
  * Returns NULL if no such symbol exists.
  */
-struct symbol_t* scope_find_symbol(scope_t* scope, string_t* name, bool recurse);
+struct symbol_t* scope_find_symbol(scope_t* scope, const string_t* name, bool recurse);
 
 /**
- * Finds a typedef of the given name in this scope, or any parent scope if
- * recurse is true.
+ * Finds a type of the given name and tag kind in this scope, or any parent
+ * scope if recurse is true.
  *
  * Returns NULL if no such typedef exists.
  */
-struct type_t* scope_find_typedef(scope_t* scope, string_t* name, bool recurse);
+struct type_t* scope_find_type(scope_t* scope, tag_t tag, const string_t* name, bool recurse);
 
 #endif
