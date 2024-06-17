@@ -4,6 +4,8 @@ This is the implementation of the Onramp second stage compiler. It is written in
 
 This adds `else`, `for`, `struct`, `enum`, `switch`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
 
+It implements most of C89 with some C99 and C11 features. We exclude global initializers, function pointers, multi-dimensional arrays, `long long`, floating point, and a few other minor features.
+
 This document describes the implementation. For a description of the language it compiles, see [Onramp Practical C](../../../docs/practical-c.md).
 
 
@@ -129,3 +131,77 @@ foo_2 = 4; // invalid, assigning an enum value
 ```
 
 All of the above nonsense is accepted by this compiler. Nevertheless, these constructs are not legal opC, and should be avoided to remain compatible with C.
+
+
+
+## Switch
+
+The switch statement in this stage is inefficient but very simple in implementation. We use switch statements extensively in our final stage compiler so we need a switch. It doesn't have to be fast; it just has to work.
+
+(As usual the final stage compiler has a much better implementation of switch. This section describes the switch implemented by this bootstrapping stage.)
+
+The entire implementation is about 120 lines of code. The switch parsing code is in these functions in `parse-stmt.c`:
+
+- `parse_switch()`
+- `parse_case()`
+- `parse_default()`
+- `parse_break()`
+
+As everything else, the switch statement emits all its contents on-the-fly, including `case` and `default` labels. We do not collect case labels, and we do not emit a jump table or binary search or anything else. Each `case` test is emitted as parsed, interleaved with the other code contents of the switch. All emitted assembly is in the same order as the original source.
+
+It's best to follow the details with a diagram. Here's an example:
+
+```
+switch (foo) {
+    case X: puts("X"); break;
+    default:
+    case Y: puts("Y"); // fallthrough
+    case Z: puts("Z"); break;
+}
+```
+
+The above compiles to the following logical blocks:
+
+```
+             ------------------------------
+             | compute and store `foo`    |            switch (foo)
+         .-- | jump to "test case X"      |            {
+         |   ------------------------------
+         |   | jump over test case X      | --.            case X:
+         '-> | test case X. if no match,  |   |
+         .-- |     jump to "test case Y"  |   |
+         |   ------------------------------   |
+         |   | call puts("X")             | <-'                puts("X");
+      .--+-- | break                      |                    break;
+      |  |   ------------------------------
+      |  |   | jump over test case Y      | --. <--.       default: case Y:
+      |  '-> | test case Y. if no match,  |   |    |
+      |  .-- |     jump to "test case Z"  |   |    |
+      |  |   ------------------------------   |    |
+      |  |   | call puts("Y")             | <-'    |           puts("Y");
+      |  |   ------------------------------        |
+      |  |   | jump over test case Z      | --.    |       case Z:
+      |  '-> | test case Z. if no match,  |   |    |
+      |  .-- |     jump to end/default    |   |    |
+      |  |   ------------------------------   |    |
+      |  |   | call puts("Z")             | <-'    |           puts("Z");
+      |.-+-- | break                      |        |           break;
+      |  |   -----------------------------|        |
+      |  '-> | jump to default label      | -------'   }
+      '----> | end of switch              |
+             ------------------------------
+```
+
+The `switch` statement creates an anonymous local variable in which its expression is stored. It then generates a label for the first case label test and emits a jump to it, and then parses a block as normal.
+
+A `case` label emits the previously generated label, then tests the local variable against the value of the `case` expression. It emits a conditional jump to the next case test when the values don't match. The `case` labels form a sort of linked list.
+
+When a match is found, the case tests don't jump, so the control flow continues to the next statement after the case. In order to ignore the `case` label tests when executing the contents of the switch, each `case` label also emits an unconditional jump around it (the "jump over" lines in the above graphic.) This makes fallthrough work. Once we've matched any case test, subsequent case tests are skipped as we flow through the block.
+
+A `default` label just emits a label. At the closing brace of the switch, if none of the labels matched, we emit a jump to the `default` label if one exists.
+
+The result is of course a mess of unnecessary jumps, but it means the compiler does not need to store anything at all besides a couple of label numbers. Everything is truly emitted on-the-fly, and the compiler memory usage is essentially zero even for gigantic nested switches.
+
+An interesting quirk of this switch statement is that `case` label expressions don't have to be constant. In fact it is necessary because our enum values are not actually constants; they're just global variables. If we required cases to take constant expressions, we'd have to create a new kind of symbol to store enum values as constants. It's simpler to just make cases non-constant.
+
+This means you can put arbitrary expressions in `case` labels and even call functions with side effects. Obviously it's not a good idea to do this; this is not officially supported by opC and must be avoided to remain compatible with C.
