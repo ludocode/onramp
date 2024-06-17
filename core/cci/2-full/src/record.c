@@ -30,8 +30,8 @@
 
 member_t* member_new(string_t* name, type_t* type) {
     member_t* member = calloc(1, sizeof(member_t));
-    member->name = name;
-    member->type = type;
+    member->name = string_ref(name);
+    member->type = type_ref(type);
     return member;
 }
 
@@ -83,11 +83,12 @@ void record_deref(record_t* record) {
         member_delete(member);
         member = next;
     }
+
+    free(record);
 }
 
 size_t record_size(const record_t* record) {
-    fatal("TODO record_size();");
-    return 0;
+    return record->size;
 }
 
 void record_add(record_t* record, string_t* name, struct type_t* type, unsigned offset) {

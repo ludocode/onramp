@@ -110,8 +110,6 @@ size_t record_size(const record_t* record);
 
 /**
  * Adds a new member to the record.
- *
- * This takes ownership of the given name and type.
  */
 void record_add(record_t* record, string_t* name, struct type_t* type, unsigned offset);
 

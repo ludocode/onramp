@@ -56,6 +56,10 @@ void parse_decl_destroy(void) {
  * Specifiers
  */
 
+/*
+ * The specifier sequence of a declaration (the part that does not include the
+ * declarators.)
+ */
 typedef struct specifiers_t {
     int storage_specifiers;
     int type_specifiers;
@@ -65,13 +69,20 @@ typedef struct specifiers_t {
 
     // none of these have strong references
     type_t* type;
-    record_t* record; // TODO probably don't need these, type_t* can cover it
-    enum_t* enum_;
+    //record_t* record; // TODO probably don't need these, type_t* can cover it
+    //enum_t* enum_;
 
     // this should have a strong reference
-    bool is_struct;
-    token_t* record_name;
+    //bool is_struct;
+    //token_t* record_name;
 } specifiers_t;
+
+static void specifiers_init(specifiers_t* specifiers) {
+    memset(&specifiers, 0, sizeof(specifiers));
+}
+
+static void specifiers_destroy(specifiers_t* specifiers) {
+}
 
 #define STORAGE_SPECIFIER_TYPEDEF        (1 << 0)
 #define STORAGE_SPECIFIER_EXTERN         (1 << 1)
@@ -187,20 +198,28 @@ static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
 
 static void parse_record_member(record_t* record) {
 
-    // Parse specifiers.
+    // Parse specifier sequence
     specifiers_t specifiers;
-    memset(&specifiers, 0, sizeof(specifiers));
+    specifiers_init(&specifiers);
     if (!try_parse_declaration_specifiers(&specifiers)) {
         fatal_token(lexer_token, "Expected a declaration.");
     }
     type_t* base_type = specifiers_make_type(&specifiers);
 
+    // No storage or function specifiers are allowed
+    if (specifiers.storage_specifiers) {
+        fatal("Storage specifiers are not allowed in a `struct` or `union` definition.");
+    }
+    if (specifiers.function_specifiers) {
+        fatal("Function specifiers are not allowed in a `struct` or `union` definition.");
+    }
+
     // Parse comma-separated list of declarators.
-    do {
+    for (;;) {
         type_t* type = type_ref(base_type);
         token_t* name = NULL;
         if (!try_parse_declarator(&type, &name)) {
-            fatal_token(lexer_token, "Expected a declarator for this global declaration.");
+            fatal_token(lexer_token, "Expected a declarator for this `struct` or `union` member declaration.");
         }
 
         if (name == NULL) {
@@ -208,13 +227,31 @@ static void parse_record_member(record_t* record) {
             // - an anonymous struct or union
             // - a zero-width bitfield
             // TODO handle these cases
+            fatal("TODO record member with blank name");
         }
 
-        fatal("TODO record member parsing incomplete");
-    } while (1);
+        int offset = record->is_struct ? record_size(record) : 0;
+        record_add(record, name->value, type, offset);
+        token_deref(name);
+        type_deref(type);
+
+        if (lexer_is(STR_ASSIGN)) {
+            fatal_token(lexer_token, "An initializer is not allowed in a `struct` or `union` member declaration.");
+        }
+        if (lexer_accept(STR_COMMA)) {
+            continue;
+        }
+        lexer_expect(STR_SEMICOLON, "Expected `;` or `,` at end of declaration.");
+        break;
+    }
+
+    type_deref(base_type);
+    specifiers_destroy(&specifiers);
 }
 
 static void parse_record(specifiers_t* specifiers) {
+
+    // apply the struct/union keyword
     if (specifiers->type_specifiers & TYPE_SPECIFIER_RECORD) {
         fatal_token(lexer_token, "Redundant struct/union specifier");
     }
@@ -222,37 +259,42 @@ static void parse_record(specifiers_t* specifiers) {
     bool is_struct = lexer_is(STR_STRUCT);
     lexer_consume();
 
+    // collect the name
     if (lexer_token->type != token_type_alphanumeric && !lexer_is(STR_BRACE_OPEN)) {
         fatal_token(lexer_token, "Expected name or `{` after `%s`", is_struct ? "struct" : "union");
     }
+    token_t* name = lexer_take();
 
-    // collect the name
-    if (lexer_token->type == token_type_alphanumeric) {
-        specifiers->record_name = lexer_take();
+    // find or create the struct
+    type_t* type = scope_find_type(scope_current,
+            is_struct ? TAG_STRUCT : TAG_UNION,
+            name->value,
+            false);
+    if (type == NULL) {
+        record_t* record = record_new(name->value);
+        type = type_new_record(record);
+        scope_add_type(scope_current,
+                is_struct ? TAG_STRUCT : TAG_UNION,
+                name,
+                type);
+        type_deref(type);
+        record_deref(record);
     }
+    assert(type_matches_base(type, BASE_RECORD));
+    token_deref(name);
+    specifiers->type = type;
 
     // parse a definition if given
     if (lexer_is(STR_BRACE_OPEN)) {
 
-        // check if there is already a record with this name in scope
-        type_t* type = scope_find_type(scope_current,
-                is_struct ? TAG_STRUCT : TAG_UNION,
-                specifiers->record_name->value,
-                false);
-
-        if (type) {
-            // record already exists; make sure it's only a forward declaration
-            assert(type_matches_base(type, BASE_RECORD));
-            if (type->record->is_defined) {
-                fatal_token(lexer_token, "Duplicate definition of struct/union");
-            }
-        } else {
-            // record does not exist. create it
-            type = type_new_record(record_new(specifiers->record_name->value));
+        // make sure we don't already have a definition
+        if (type->record->is_defined) {
+            fatal_token(lexer_token, "Duplicate definition of struct/union");
         }
-
         lexer_consume();
+
         record_t* record = type->record;
+        record->is_defined = true;
 
         // parse members
         while (!lexer_accept(STR_BRACE_CLOSE)) {
@@ -374,18 +416,15 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
 
 static type_t* specifiers_make_type(specifiers_t* specifiers) {
     if (specifiers->type) {
-        switch (specifiers->type_specifiers)
+        switch (specifiers->type_specifiers) {
             case TYPE_SPECIFIER_TYPEDEF:
             case TYPE_SPECIFIER_ENUM:
             case TYPE_SPECIFIER_RECORD:
                 return type_ref(specifiers->type);
+            default:
+                break;
+        }
         fatal("Unsupported combination of type specifiers.");
-    }
-    if (specifiers->record) {
-        fatal("TODO specifiers_make_type record");
-    }
-    if (specifiers->enum_) {
-        fatal("TODO specifiers_make_type record");
     }
     base_t base = specifiers_convert(specifiers);
     return type_new_base(base);
@@ -430,9 +469,9 @@ static void parse_function_arguments(type_t** type) {
             break;
         }
 
-        // Parse specifiers
+        // Parse specifier sequence
         specifiers_t specifiers;
-        memset(&specifiers, 0, sizeof(specifiers));
+        specifiers_init(&specifiers);
         if (!try_parse_declaration_specifiers(&specifiers)) {
             // TODO implicit int, K&R-style function prototypes
             fatal_token(lexer_token, "Expected a declaration specifier (a type) for this function parameter.");
@@ -450,6 +489,7 @@ static void parse_function_arguments(type_t** type) {
         type_t** type = arg_types + arg_count;
         token_t** name = arg_names + arg_count;
         *type = specifiers_make_type(&specifiers);
+        specifiers_destroy(&specifiers);
         *name = NULL;
         if (!try_parse_declarator(type, name)) {
             // Check for (void)
@@ -754,10 +794,11 @@ ignore_declaration:
 
 type_t* try_parse_type(void) {
 
-    // Parse specifiers.
+    // Parse specifier sequence
     specifiers_t specifiers;
-    memset(&specifiers, 0, sizeof(specifiers));
+    specifiers_init(&specifiers);
     if (!try_parse_declaration_specifiers(&specifiers)) {
+        specifiers_destroy(&specifiers);
         return NULL;
     }
 
@@ -778,6 +819,7 @@ type_t* try_parse_type(void) {
         fatal_token(name, "Expected an unnamed type declarator.");
     }
 
+    specifiers_destroy(&specifiers);
     return type;
 }
 
@@ -827,21 +869,29 @@ static string_t* parse_asm_name(node_t* /*nullable*/ parent, specifiers_t* speci
 bool try_parse_declaration(node_t* /*nullable*/ parent) {
     //printf("\n-------------------\ntrying to parse new decl - %s\n", lexer_token->value->bytes);
 
-    // Parse specifiers. At file scope we allow a empty specifier list if
-    // implicit int is enabled. TODO make that an option
+    // Parse specifier sequence. At file scope we allow a empty specifier list
+    // if implicit int is enabled. TODO make that an option
     specifiers_t specifiers;
-    memset(&specifiers, 0, sizeof(specifiers));
+    specifiers_init(&specifiers);
     if (!try_parse_declaration_specifiers(&specifiers) && parent != NULL) {
+        specifiers_destroy(&specifiers);
         return false;
     }
     type_t* base_type = specifiers_make_type(&specifiers);
 
     // Parse comma-separated list of declarators.
-    do {
+    for (;;) {
         type_t* type = type_ref(base_type);
         token_t* name = NULL;
         if (!try_parse_declarator(&type, &name)) {
-            fatal("Expected a declarator for this global declaration.");
+            if (specifiers.type_specifiers == TYPE_SPECIFIER_RECORD) {
+                // A forward declaration of a struct is allowed. TODO make sure
+                // it's in the correct scope, if not re-declare it.
+            } else if (specifiers.type_specifiers == TYPE_SPECIFIER_ENUM) {
+                fatal("TODO enum forward declaration");
+            } else {
+                fatal("Expected a declarator for this global declaration.");
+            }
         }
 
         // A no-name declaration is not necessarily an error, for example it
@@ -893,9 +943,10 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         }
         lexer_expect(STR_SEMICOLON, "Expected `;` or `,` at end of declaration.");
         break;
-    } while (1);
+    }
 
     type_deref(base_type);
+    specifiers_destroy(&specifiers);
     return true;
 }
 

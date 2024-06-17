@@ -151,7 +151,7 @@ As everything else, the switch statement emits all its contents on-the-fly, incl
 
 It's best to follow the details with a diagram. Here's an example:
 
-```
+```c
 switch (foo) {
     case X: puts("X"); break;
     default:

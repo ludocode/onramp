@@ -172,6 +172,9 @@ void scope_add_type(scope_t* scope, tag_t tag, token_t* name, type_t* type) {
     if (previous) {
         // duplicate typedefs are allowed as long as the types match.
         // TODO handle duplicates of other tags
+// TODO actually we should completely forbid duplicates here, let the
+// parser check for duplicates because different tags handle them
+// differently
         if (tag == TAG_TYPEDEF && !type_equal(type, previous)) {
             fatal_token(name, "`typedef` redeclared in the same scope with a different type.");
         }
