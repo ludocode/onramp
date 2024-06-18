@@ -78,7 +78,7 @@ typedef struct specifiers_t {
 } specifiers_t;
 
 static void specifiers_init(specifiers_t* specifiers) {
-    memset(&specifiers, 0, sizeof(specifiers));
+    memset(specifiers, 0, sizeof(*specifiers));
 }
 
 static void specifiers_destroy(specifiers_t* specifiers) {
@@ -121,7 +121,7 @@ static bool try_parse_specifier(int* flags, int flag, const string_t* keyword) {
         return false;
     }
     if (*flags & flag) {
-        fatal("Redundant declaration specifier: %s", keyword);
+        fatal("Redundant declaration specifier: %s", keyword->bytes);
     }
     *flags |= flag;
     return true;
