@@ -132,8 +132,10 @@ void table_put(table_t* table, table_entry_t* entry, uint32_t hash) {
     table_entry_t** bucket;
     if (table->bits == 0) {
         bucket = &table->entries.single_bucket;
+        //printf("inserting into %p entry %p hash %u single bucket\n", (void*)table, (void*)entry, hash);
     } else {
         bucket = &table->entries.buckets[knuth_hash_32(hash, table->bits)];
+        //printf("inserting into %p entry %p hash %u bucket %u\n", (void*)table, (void*)entry, hash, knuth_hash_32(hash, table->bits));
     }
 
     // insert at front of list
@@ -165,8 +167,10 @@ table_entry_t** table_next_bucket(table_t* table, table_entry_t** bucket) {
 
 table_entry_t* table_bucket(table_t* table, uint32_t hash) {
     if (table->bits == 0) {
+        //printf("table %p returning hash %u single bucket\n", (void*)table, hash);
         return table->entries.single_bucket;
     }
+    //printf("table %p returning hash %u bucket %u\n", (void*)table, hash, knuth_hash_32(hash, table->bits));
     return table->entries.buckets[knuth_hash_32(hash, table->bits)];
 }
 

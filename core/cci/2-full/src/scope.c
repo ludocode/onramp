@@ -182,8 +182,10 @@ void scope_add_type(scope_t* scope, tag_t tag, token_t* name, type_t* type) {
     }
 
     scope_element_t* element = malloc(sizeof(scope_element_t));
+    //printf("scope adding %s element %p hash %u\n", name->value->bytes, (void*)element, string_hash(name->value) + (unsigned)tag * TAG_HASH_MULTIPLIER);
     element->type = type_ref(type);
     element->name = token_ref(name);
+    element->tag = tag;
     table_put(&scope->types, &element->entry, string_hash(name->value) + (unsigned)tag * TAG_HASH_MULTIPLIER);
 }
 
@@ -203,7 +205,9 @@ symbol_t* scope_find_symbol(scope_t* scope, const string_t* name, bool recurse) 
 }
 
 type_t* scope_find_type(scope_t* scope, tag_t tag, const string_t* name, bool recurse) {
+    //printf("scope searching for %s hash %u\n", name->bytes, string_hash(name) + (unsigned)tag * TAG_HASH_MULTIPLIER);
     do {
+        //printf("  searching table\n");
         table_entry_t* entry = table_bucket(&scope->types, string_hash(name) + (unsigned)tag * TAG_HASH_MULTIPLIER);
         while (entry) {
             scope_element_t* element = (scope_element_t*)entry;
@@ -214,6 +218,7 @@ type_t* scope_find_type(scope_t* scope, tag_t tag, const string_t* name, bool re
         }
         scope = scope->parent;
     } while (scope && recurse);
+    //printf("  not found\n");
     return NULL;
 }
 
