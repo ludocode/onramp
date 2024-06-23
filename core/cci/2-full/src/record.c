@@ -28,10 +28,11 @@
 
 #include "type.h"
 
-member_t* member_new(string_t* name, type_t* type) {
+member_t* member_new(string_t* name, type_t* type, int offset) {
     member_t* member = calloc(1, sizeof(member_t));
     member->name = string_ref(name);
     member->type = type_ref(type);
+    member->offset = offset;
     return member;
 }
 
@@ -49,10 +50,11 @@ void member_delete(member_t* member) {
     member_t* member;
 } record_element_t;*/
 
-record_t* record_new(string_t* name) {
+record_t* record_new(string_t* name, bool is_struct) {
     record_t* record = calloc(1, sizeof(record_t));
     record->refcount = 1;
     record->name = string_ref(name);
+    record->is_struct = is_struct;
     table_init(&record->member_map);
     return record;
 }
@@ -94,7 +96,7 @@ size_t record_size(const record_t* record) {
 void record_add(record_t* record, string_t* name, struct type_t* type, unsigned offset) {
 
     // add member
-    member_t* member = member_new(name, type);
+    member_t* member = member_new(name, type, offset);
     member->next = record->member_list;
     record->member_list = member;
     if (!string_is_empty(name))
@@ -105,4 +107,21 @@ void record_add(record_t* record, string_t* name, struct type_t* type, unsigned 
     if (end > record->size) {
         record->size = end;
     }
+}
+
+member_t* record_find(record_t* record, const string_t* name,
+        size_t* out_offset)
+{
+    if (!record->is_defined)
+        fatal("Internal error: Cannot call record_find() on incomplete record.");
+
+    member_t* member = (member_t*)table_bucket(&record->member_map, string_hash(name));
+    while (member) {
+        if (string_equal(name, member->name)) {
+            *out_offset = member->offset;
+            return member;
+        }
+        member = member->next;
+    }
+    return NULL;
 }

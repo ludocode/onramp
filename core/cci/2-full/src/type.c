@@ -216,10 +216,13 @@ void type_print(type_t* type) {
         case BASE_DOUBLE: fputs("double", stdout); break;
         case BASE_LONG_DOUBLE: fputs("long double", stdout); break;
         case BASE_RECORD:
-            fputs("record TODO", stdout);
+            fputs(type->record->is_struct ? "struct " : "union ", stdout);
+            fputs(type->record->name->bytes, stdout);
             break;
         case BASE_ENUM:
-            fputs("enum TODO", stdout);
+            fputs("enum ", stdout);
+            fputs("(TODO type_print enum name)", stdout);
+            //fputs(type->enum_->name->bytes, stdout);
             break;
     }
 }
@@ -444,4 +447,10 @@ type_t* type_decay(type_t* type) {
     }
     return type_new_pointer(type->ref, type->is_const, type->is_volatile,
             type->is_restrict);
+}
+
+type_t* type_pointed_to(type_t* type) {
+    if (!type_is_indirection(type))
+        fatal("Internal error: cannot call type_pointed_to() on a non-pointer");
+    return type->ref;
 }

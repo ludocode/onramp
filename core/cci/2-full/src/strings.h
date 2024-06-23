@@ -108,6 +108,7 @@ extern string_t* STR_QUESTION;                // ?
 extern string_t* STR_COLON;                   // :
 extern string_t* STR_COMMA;                   // ,
 extern string_t* STR_SEMICOLON;               // ;
+extern string_t* STR_ARROW;                   // ->
 extern string_t* STR_PLUS_EQUAL;              // +=
 extern string_t* STR_MINUS_EQUAL;             // -=
 extern string_t* STR_ASTERISK_EQUAL;          // *=

@@ -158,6 +158,11 @@ void node_delete(node_t* node) {
             if (node->symbol) {
                 symbol_deref(node->symbol);
             }
+            break;
+        case NODE_MEMBER_VAL:
+        case NODE_MEMBER_PTR:
+            token_deref(node->member);
+            break;
         default:
             break;
     }
@@ -222,6 +227,9 @@ void node_print(node_t* node) {
             fputs(" : ", stdout);
             type_print(node->symbol->type);
             break;
+        case NODE_MEMBER_PTR:
+        case NODE_MEMBER_VAL:
+            printf(" `%s`", string_cstr(node->member->value));
         default:
             break;
     }

@@ -107,8 +107,8 @@ typedef enum node_kind_t {
     NODE_POST_INC,  // One child
     NODE_POST_DEC,  // One child
     NODE_ARRAY_INDEX, // Array indexing expression, two children: array, index
-    NODE_MEMBER_VAL, // Member access by value (`.`), one child: record, plus member name value
-    NODE_MEMBER_PTR, // Member access by pointer (`->`), one child: record, plus member name value
+    NODE_MEMBER_VAL, // Member access by value (`.`), one child: record (left expression) plus member name
+    NODE_MEMBER_PTR, // Member access by pointer (`->`), one child: record (left expression) plus member name
 
     // other expressions
     NODE_IF,        // `if` or `?`. Two or three children: condition, `if` block, optional `else` block.
@@ -149,6 +149,8 @@ typedef struct node_t {
 
     int offset; // offset of storage for value, used in code generation
 
+    int member_offset;
+
     union {
         // TODO this will do for now but we'll need to support several more
         // value types. e.g. we need wide and unicode characters and strings,
@@ -162,6 +164,7 @@ typedef struct node_t {
 
         string_t* string; // An arbitrary string value, e.g. a label name, record member name
 
+        struct token_t* member; // The member for NODE_MEMBER_*
         struct symbol_t* symbol; // The symbol for NODE_ACCESS
         struct node_t* container; // loop/switch reference for break/continue
         int int_value; // number or character

@@ -346,6 +346,44 @@ static node_t* parse_function_call(node_t* function) {
     return call;
 }
 
+static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind) {
+    node_t* access = node_new_lexer(kind);
+    node_append(access, record_expr);
+
+    // get the member name
+    if (lexer_token->type != token_type_alphanumeric) {
+        fatal_token(lexer_token, "Expected an identifier for this struct or union member access.");
+        // TODO also make sure it's not a keyword
+    }
+    access->member = lexer_take();
+    
+    // get the record type
+    type_t* type = record_expr->type;
+    if (kind == NODE_MEMBER_PTR) {
+        if (!type_is_indirection(type)) {
+            fatal_token(access->token, "Cannot use `->` on non-pointer.");
+        }
+        type = type_pointed_to(type);
+    }
+    if (!type_matches_base(type, BASE_RECORD)) {
+        fatal_token(access->token, "Member access operators `.` and `->` can only be used on structs and unions.");
+    }
+
+    // make sure it's not incomplete
+    record_t* record = type->record;
+
+    // lookup the member
+    size_t offset;
+    const member_t* member = record_find(record, access->member->value, &offset);
+    if (!member) {
+        fatal_token(access->member, "This struct or union has no member with this name.");
+    }
+    access->type = type_ref(member->type);
+    access->member_offset = (int)offset;
+
+    return access;
+}
+
 static node_t* parse_postfix_expression(void) {
 
     // A postfix expression starts with a primary expression.
@@ -357,6 +395,18 @@ static node_t* parse_postfix_expression(void) {
         // function call
         if (lexer_is(STR_PAREN_OPEN)) {
             node = parse_function_call(node);
+            continue;
+        }
+
+        // record value access
+        if (lexer_is(STR_DOT)) {
+            node = parse_record_member_access(node, NODE_MEMBER_VAL);
+            continue;
+        }
+
+        // record pointer access
+        if (lexer_is(STR_ARROW)) {
+            node = parse_record_member_access(node, NODE_MEMBER_PTR);
             continue;
         }
 

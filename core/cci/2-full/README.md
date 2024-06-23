@@ -69,7 +69,7 @@ The tree is based on expressions. Every node in the tree has a type; this is the
 
 This allows us to share node types for statements and expressions. For example, `NODE_IF` is used for both the `if` statement and the ternary conditional `?` operator. In the case of `if`, the node's type is `void`. In the case of `?`, the node's type is the type of its contained expressions. These are compiled in exactly the same way; the code generator does not know or care whether it was an `if` or a `?`.
 
-Similarly, `NODE_SEQUENCE` is used for any sequence of statements or expressions. This includes a compound statement (i.e. braces), a comma operator expression, an expression statement (a GNU extension), and for some internal purposes. A compound statement always has type `void`, whereas a comma expression and an expression statement will have the type of their last child node. These are also all compiled identically.
+Similarly, `NODE_SEQUENCE` is used for any sequence of statements or expressions. This includes a compound statement (i.e. a block), a comma operator expression, an expression statement (a GNU extension), and for some internal purposes. A compound statement always has type `void`, whereas a comma expression and an expression statement will have the type of their last child node. These are also all compiled identically.
 
 One instance where a synthetic `NODE_SEQUENCE` is needed is with labels and cases. In the C grammar, labels and cases are always attached to the statement that follows. For example, this is a switch with one unbraced statement:
 
@@ -139,7 +139,7 @@ For simplicity, such initializer functions are used to initialize most globals. 
 
 ## Error Reporting
 
-The lexer reports most errors through the same mechanism as previous stages: the `fatal()` function in libo which tracks the current file and line of the lexer.
+The lexer reports some errors through the same mechanism as previous stages: the `fatal()` function in libo which tracks the current file and line of the lexer.
 
 Unlike previous stages however, file and line information is attached to each token. The parser therefore reports most errors against a particular token using the `fatal_token()` function. This gives more accurate file and line information especially when errors are reported after a whole expression or function is parsed.
 

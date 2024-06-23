@@ -221,4 +221,9 @@ bool type_is_passed_indirectly(type_t* type);
  */
 type_t* type_decay(type_t* type);
 
+/**
+ * Returns the pointed-to type for a pointer or array.
+ */
+type_t* type_pointed_to(type_t* type);
+
 #endif

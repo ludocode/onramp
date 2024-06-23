@@ -105,6 +105,7 @@ string_t* STR_QUESTION;                // ?
 string_t* STR_COLON;                   // :
 string_t* STR_COMMA;                   // ,
 string_t* STR_SEMICOLON;               // ;
+string_t* STR_ARROW;                   // ->
 string_t* STR_PLUS_EQUAL;              // +=
 string_t* STR_MINUS_EQUAL;             // -=
 string_t* STR_ASTERISK_EQUAL;          // *=
@@ -208,6 +209,7 @@ void strings_init(void) {
     STR_COLON                       = string_intern_cstr(":");
     STR_COMMA                       = string_intern_cstr(",");
     STR_SEMICOLON                   = string_intern_cstr(";");
+    STR_ARROW                       = string_intern_cstr("->");
     STR_PLUS_EQUAL                  = string_intern_cstr("+=");
     STR_MINUS_EQUAL                 = string_intern_cstr("-=");
     STR_ASTERISK_EQUAL              = string_intern_cstr("*=");
@@ -312,6 +314,7 @@ void strings_destroy(void) {
     string_deref(STR_COLON);
     string_deref(STR_COMMA);
     string_deref(STR_SEMICOLON);
+    string_deref(STR_ARROW);
     string_deref(STR_PLUS_EQUAL);
     string_deref(STR_MINUS_EQUAL);
     string_deref(STR_ASTERISK_EQUAL);

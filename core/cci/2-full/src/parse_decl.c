@@ -265,13 +265,24 @@ static void parse_record(specifiers_t* specifiers) {
     }
     token_t* name = lexer_take();
 
+    // TODO this logic is wrong, handle definitions separetly.
+    // - if {, check NON-recursively for existing struct
+    // - if not {, check recursively for existing struct.
+    //     - if struct is not in current scope and this is a no-name
+    //     declaration, it's a forward declaration of a struct, and we'll
+    //     recreate it in the current scope later.
+
+    // if this is a struct definition, we don't search recursively for an
+    // existing struct; it always defines the struct in this scope.
+    bool find_recursive = !lexer_is(STR_BRACE_OPEN);
+
     // find or create the struct
     type_t* type = scope_find_type(scope_current,
             is_struct ? TAG_STRUCT : TAG_UNION,
             name->value,
-            false);
+            find_recursive);
     if (type == NULL) {
-        record_t* record = record_new(name->value);
+        record_t* record = record_new(name->value, is_struct);
         type = type_new_record(record);
         scope_add_type(scope_current,
                 is_struct ? TAG_STRUCT : TAG_UNION,
@@ -288,13 +299,11 @@ static void parse_record(specifiers_t* specifiers) {
     if (lexer_is(STR_BRACE_OPEN)) {
 
         // make sure we don't already have a definition
-        if (type->record->is_defined) {
+        record_t* record = type->record;
+        if (record->is_defined) {
             fatal_token(lexer_token, "Duplicate definition of struct/union");
         }
         lexer_consume();
-
-        record_t* record = type->record;
-        record->is_defined = true;
 
         // parse members
         while (!lexer_accept(STR_BRACE_CLOSE)) {
@@ -305,6 +314,8 @@ static void parse_record(specifiers_t* specifiers) {
             // TODO an empty struct is a GNU extension
             fatal("TODO empty struct not yet supported, GNU extension");
         }
+
+        record->is_defined = true;
     }
 }
 

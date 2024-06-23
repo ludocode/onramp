@@ -79,7 +79,7 @@ typedef struct record_t {
  *
  * If the record is anonymous, the name is an empty string.
  */
-record_t* record_new(string_t* name);
+record_t* record_new(string_t* name, bool is_struct);
 
 static inline record_t* record_ref(record_t* record) {
     ++record->refcount;
@@ -122,9 +122,10 @@ void record_add(record_t* record, string_t* name, struct type_t* type, unsigned 
  * union. The returned offset is the offset from the start of *this* record,
  * whereas member_offset() returns the offset relative to its direct parent.
  *
- * If the record is incomplete, a fatal error is raised.
+ * This can only be called on defined records. If the record is incomplete,
+ * the program aborts.
  */
-const member_t* record_find(const record_t* record, const char* name,
+member_t* record_find(record_t* record, const string_t* name,
         size_t* out_offset);
 
 #endif

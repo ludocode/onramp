@@ -637,6 +637,46 @@ void generate_dereference(node_t* node, int register_num) {
     }
 }
 
+static void generate_member_impl(type_t* type, int register_num, int member_offset) {
+    block_add(current_block, ADD, register_num + 1, register_num + 1, member_offset);
+
+    // TODO for now this is copied from generate_dereference() above, need a
+    // shared way to generate code to dereference a ptr
+    size_t size = type_size(type);
+    opcode_t opcode;
+    if (size == 1) {
+        opcode = LDB;
+    } else if (size == 2) {
+        opcode = LDS;
+    } else if (size == 4) {
+        opcode = LDW;
+    }
+    block_add(current_block, opcode, register_num, 0, register_num + 1);
+}
+
+static void generate_member_val(node_t* node, int register_num) {
+    bool pushed = generate_register_push(&register_num);
+    generate_location(node->first_child, register_num + 1);
+    generate_member_impl(node->type, register_num, node->member_offset);
+    generate_register_pop(pushed);
+}
+
+static void generate_member_ptr(node_t* node, int register_num) {
+    bool pushed = generate_register_push(&register_num);
+    generate_node(node->first_child, register_num + 1);
+    generate_register_pop(pushed);
+}
+
+static void generate_location_member_val(node_t* node, int register_num) {
+    generate_location(node->first_child, register_num);
+    block_add(current_block, ADD, register_num, register_num, node->member_offset);
+}
+
+static void generate_location_member_ptr(node_t* node, int register_num) {
+    generate_node(node->first_child, register_num);
+    block_add(current_block, ADD, register_num, register_num, node->member_offset);
+}
+
 void generate_node(node_t* node, int register_num) {
     switch (node->kind) {
         case NODE_INVALID:
@@ -720,8 +760,8 @@ void generate_node(node_t* node, int register_num) {
         case NODE_POST_INC: fatal_token(node->token, "TODO generate POST_INC");
         case NODE_POST_DEC: fatal_token(node->token, "TODO generate POST_DEC");
         case NODE_ARRAY_INDEX: fatal_token(node->token, "TODO generate ARRAY_INDEX");
-        case NODE_MEMBER_VAL: fatal_token(node->token, "TODO generate MEMBER_VAL");
-        case NODE_MEMBER_PTR: fatal_token(node->token, "TODO generate MEMBER_PTR");
+        case NODE_MEMBER_VAL: generate_member_val(node, register_num); break;
+        case NODE_MEMBER_PTR: generate_member_ptr(node, register_num); break;
 
         // other expressions
         case NODE_IF: generate_if(node, register_num); break;
@@ -741,6 +781,12 @@ void generate_location(node_t* node, int register_num) {
             break;
         case NODE_DEREFERENCE:
             generate_node(node->first_child, register_num);
+            break;
+        case NODE_MEMBER_VAL:
+            generate_location_member_val(node, register_num);
+            break;
+        case NODE_MEMBER_PTR:
+            generate_location_member_ptr(node, register_num);
             break;
         default:
             fatal("Internal error, cannot generate location of non-value.");
