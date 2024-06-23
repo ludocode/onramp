@@ -2,11 +2,9 @@
 // Copyright (c) 2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-// this is a forward declaration of a struct at file scope, even though it has
-// useless qualifiers
-// (TODO this apparently only forward declares at file scope; within a
-// function, qualifiers make it not forward declare in GCC. i haven't yet
-// figured out a test case where this matters.)
+// This is technically *not* a forward declaration of a struct because of the
+// qualifiers, but since no type with this tag exists, it declares a struct in
+// this scope anyway.
 const struct a volatile;
 
 // foo() uses the `struct a` declared at file scope

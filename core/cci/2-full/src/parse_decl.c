@@ -265,16 +265,22 @@ static void parse_record(specifiers_t* specifiers) {
     }
     token_t* name = lexer_take();
 
-    // TODO this logic is wrong, handle definitions separetly.
-    // - if {, check NON-recursively for existing struct
-    // - if not {, check recursively for existing struct.
-    //     - if struct is not in current scope and this is a no-name
-    //     declaration, it's a forward declaration of a struct, and we'll
-    //     recreate it in the current scope later.
-
-    // if this is a struct definition, we don't search recursively for an
-    // existing struct; it always defines the struct in this scope.
-    bool find_recursive = !lexer_is(STR_BRACE_OPEN);
+    // Decide if we should search in parent scopes or only in the current scope
+    // for this record definition. If this is a record definition, or if this
+    // is a forward declaration, we only check the current scope (as both
+    // declare a record in the current scope if one doesn't already exist.)
+    //
+    // A forward declaration of a struct occurs when the named struct is the
+    // only thing in the declaration. Anything else, even a type qualifier
+    // (e.g. const), makes it not a forward declaration.
+    //
+    // GCC has a warning about an incorrect forward declaration (e.g. `const
+    // struct foo;`) that fails to shadow a declaration in an outer scope. We
+    // could potentially implement the same. We have a test for this: see
+    bool is_definition = lexer_is(STR_BRACE_OPEN);
+    bool is_forward_declaration = lexer_is(STR_SEMICOLON)
+            && specifiers->type_qualifiers == 0 && specifiers->storage_specifiers == 0;
+    bool find_recursive = !is_definition && !is_forward_declaration;
 
     // find or create the struct
     type_t* type = scope_find_type(scope_current,
@@ -642,7 +648,7 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
 }
 
 static void parse_function_declaration(specifiers_t* specifiers, type_t* type, token_t* name, string_t* asm_name) {
-    
+
     // create the symbol
     symbol_t* symbol = symbol_new(symbol_kind_function, type, name, asm_name);
     // TODO handle duplicate/redundant declarations
