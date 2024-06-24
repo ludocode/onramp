@@ -48,12 +48,20 @@ void types_destroy(void);
  */
 type_t* types_add_typedef(char* name, type_t* type);
 
-void types_add_struct(record_t* record);
-void types_add_union(record_t* record);
-
-record_t* types_find_struct(const char* name);
-record_t* types_find_union(const char* name);
+/**
+ * Finds a typedef with the given name, or NULL if none exists.
+ */
 const type_t* types_find_typedef(const char* name);
+
+/**
+ * Adds the given struct or union.
+ */
+void types_add_record(record_t* record);
+
+/**
+ * Finds a struct or union with the given tag.
+ */
+record_t* types_find_record(const char* name);
 
 /**
  * Adds an anonymous record.

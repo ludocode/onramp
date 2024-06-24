@@ -226,19 +226,20 @@ static record_t* parse_record(bool is_struct) {
 
     // `struct` and `union` are allowed to be anonymous.
     if (lexer_type != lexer_type_alphanumeric) {
-        record = record_new(strdup_checked(""));
+        record = record_new(strdup_checked(""), is_struct);
         types_add_anonymous_record(record);
     }
 
     // A named struct might already exist.
     if (lexer_type == lexer_type_alphanumeric) {
-        if (is_struct) {
-            record = types_find_struct(lexer_token);
-        }
-        if (!is_struct) {
-            record = types_find_union(lexer_token);
-        }
+        record = types_find_record(lexer_token);
         if (record != NULL) {
+            if (is_struct != record_is_struct(record)) {
+                if (is_struct) {
+                    fatal("`struct` used but this tag was previously declared a union in this scope.");
+                }
+                fatal("`union` used but this tag was previously declared a struct in this scope.");
+            }
             lexer_consume();
         }
 
@@ -247,13 +248,8 @@ static record_t* parse_record(bool is_struct) {
             if (inside_function) {
                 fatal("Structs and unions cannot be declared inside functions in opC.");
             }
-            record = record_new(lexer_take());
-            if (is_struct) {
-                types_add_struct(record);
-            }
-            if (!is_struct) {
-                types_add_union(record);
-            }
+            record = record_new(lexer_take(), is_struct);
+            types_add_record(record);
         }
     }
 

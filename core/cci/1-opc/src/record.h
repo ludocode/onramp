@@ -46,7 +46,7 @@
  *
  * If the record is anonymous, the name is an empty (allocated) string.
  */
-record_t* record_new(char* name);
+record_t* record_new(char* name, bool is_struct);
 
 void record_delete(record_t* record);
 
@@ -71,6 +71,11 @@ void record_set_fields(record_t* record, field_t* fields, bool is_struct);
  * Returns the size (as in sizeof) of this record.
  */
 size_t record_size(const record_t* record);
+
+/**
+ * Returns true if this is a struct; false if it's a union.
+ */
+bool record_is_struct(const record_t* record);
 
 /**
  * Finds the field and offset with the given name, returning NULL if the field

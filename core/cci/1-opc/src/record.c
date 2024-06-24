@@ -37,6 +37,7 @@
  *     char* name;
  *     field_t* fields;
  *     size_t size;
+ *     bool is_struct;
  * } record_t;
  *
  * A record is created when it is first declared. Structs and unions can be
@@ -47,9 +48,10 @@
 #define RECORD_OFFSET_NAME 0
 #define RECORD_OFFSET_FIELDS 1
 #define RECORD_OFFSET_SIZE 2
-#define RECORD_FIELD_COUNT 3
+#define RECORD_OFFSET_IS_STRUCT 3
+#define RECORD_FIELD_COUNT 4
 
-record_t* record_new(char* name) {
+record_t* record_new(char* name, bool is_struct) {
     record_t* record = malloc(sizeof(void*) * RECORD_FIELD_COUNT);
     if (!record) {
         fatal("Out of memory.");
@@ -57,6 +59,7 @@ record_t* record_new(char* name) {
     *(char**)((void**)record + RECORD_OFFSET_NAME) = name;
     *(field_t**)((void**)record + RECORD_OFFSET_FIELDS) = NULL;
     *(size_t*)((void**)record + RECORD_OFFSET_SIZE) = 0;
+    *(bool*)((void**)record + RECORD_OFFSET_IS_STRUCT) = is_struct;
     return record;
 }
 
@@ -80,7 +83,7 @@ const char* record_name(const record_t* record) {
 }
 
 field_t* record_fields(const record_t* record) {
-    return*(field_t**)((void**)record + RECORD_OFFSET_FIELDS);
+    return *(field_t**)((void**)record + RECORD_OFFSET_FIELDS);
 }
 
 void record_set_fields(record_t* record, field_t* fields, bool is_struct) {
@@ -147,6 +150,10 @@ size_t record_size(const record_t* record) {
         fatal("Cannot `sizeof` an incomplete struct or union.");
     }
     return size;
+}
+
+bool record_is_struct(const record_t* record) {
+    return *(bool**)((void**)record + RECORD_OFFSET_IS_STRUCT);
 }
 
 const field_t* record_find_field(const record_t* record, const char* name,
