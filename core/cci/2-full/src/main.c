@@ -64,19 +64,8 @@ static void parse_command_line(char** argv) {
             continue;
         }
 
-        // dump ast
-        if (0 == strcmp("-dump-ast=off", *argv)) {
-            dump_ast = DUMP_AST_OFF;
-            ++argv;
-            continue;
-        }
-        if (0 == strcmp("-dump-ast", *argv) || 0 == strcmp("-dump-ast=unicode", *argv)) {
-            dump_ast = DUMP_AST_UNICODE;
-            ++argv;
-            continue;
-        }
-        if (0 == strcmp("-dump-ast=ascii", *argv)) {
-            dump_ast = DUMP_AST_ASCII;
+        // other options
+        if (options_parse(*argv)) {
             ++argv;
             continue;
         }

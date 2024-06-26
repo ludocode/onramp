@@ -43,6 +43,10 @@ static table_t string_table;
 
 void string_table_init(void) {
     table_init(&string_table);
+
+    // We'd like to avoid too many resizes of this table. We start off with
+    // 4 kB which should fit roughly 1000 strings.
+    table_reserve_bits(&string_table, 10);
 }
 
 void string_table_destroy(void) {

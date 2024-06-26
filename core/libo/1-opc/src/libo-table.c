@@ -120,6 +120,12 @@ static void table_resize(table_t* table, int new_bits) {
     table->bits = new_bits;
 }
 
+void table_reserve_bits(table_t* table, int new_bits) {
+    if (table->bits <= new_bits)
+        return;
+    table_resize(table, new_bits);
+}
+
 void table_put(table_t* table, table_entry_t* entry, uint32_t hash) {
 
     // if our hashtable is at capacity, grow by 4x

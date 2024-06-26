@@ -110,6 +110,12 @@ void table_destroy(table_t* table);
 void table_delete(table_t* table);
 
 /**
+ * Reserves a number of buckets equal to two to the power of the given number
+ * of bits.
+ */
+void table_reserve_bits(table_t* table, int new_bits);
+
+/**
  * Returns the number of entries in the hashtable.
  */
 #ifndef __onramp_cpp_omc__

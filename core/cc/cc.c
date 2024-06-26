@@ -232,6 +232,10 @@ static void string_array_free(char** array, size_t count) {
     free(array);
 }
 
+/**
+ * Returns true if string starts with prefix.
+ * TODO put this in libo, cci/2 also uses it. can also optimize it there, this implementation scans twice
+ */
 static bool starts_with(const char* string, const char* prefix) {
     size_t len = strlen(prefix);
     if (len > strlen(string)) {
@@ -359,13 +363,24 @@ static bool try_parse_include(char*** argv) {
 }
 
 static bool try_parse_cci_opts(char*** argv) {
-    // TODO cci-specific options are not implemented yet.
-    // TODO we can't cast to void in cci/0  (TODO is this fixed yet?)
-    /*
-    (void)cci_opts;
-    (void)cci_opts_count;
-    (void)cci_opts_capacity;
-    */
+
+    // Check if it's an option cci cares about. We accept everything starting
+    // with `-f` or `-W`; we let cci sort out the details.
+    // Also note that the option to `-std` cannot be separate; `=` is required.
+// TODO there are some warnings that only cpp needs and some that both cpp
+// and cci need. We need to check those first.
+    if (starts_with(**argv, "-std=")) {goto accept;}
+    if (starts_with(**argv, "-f")) {goto accept;}
+    if (starts_with(**argv, "-W")) {goto accept;}
+    if (starts_with(**argv, "-pedantic")) {goto accept;}
+    if (0 == strcmp(**argv, "-ansi")) {goto accept;}
+    return false;
+accept:
+
+    // add it to our cci options
+    string_array_append(&cci_opts, &cci_opts_count, &cci_opts_capacity, **argv);
+    *argv = (*argv + 1);
+
     return false;
 }
 
@@ -822,9 +837,9 @@ static void run_onramp(size_t argc, char** argv) {
 //    fputs("spawning: ", stdout);
 //    puts(*argv);
 
-    // Note: We should be making a copy of argv and environ here in case our
+    // TODO: We should be making a copy of argv and environ here in case our
     // child process modifies them. We happen to know that none of our Onramp
-    // tools modify them so we don't worry about it.
+    // tools modify them so for now we don't worry about it.
 
     // allocate a process information table for the child as a copy of ours
     int* parent_pit = __process_info_table;

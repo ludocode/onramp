@@ -36,6 +36,9 @@ extern int dump_ast;
 #define DUMP_AST_UNICODE 1
 #define DUMP_AST_ASCII 2
 
+/**
+ * Warnings (`-W`) are indexed by this enum.
+ */
 typedef enum warning_t {
 
     // groups
@@ -49,13 +52,37 @@ typedef enum warning_t {
     // extension usage
     warning_statement_expressions,    // -Wstatement-expressions: ({...})
     warning_extra_keywords,           // -Wasm (or -fasm): asm, inline (pre-C99), typeof (pre-C23)
-    
+
     warning_count,
 } warning_t;
 
-void warn(warning_t warning, struct token_t* token, const char* message, ...);
+void warn(warning_t option, struct token_t* token, const char* message, ...);
+
+/**
+ * Flags (`-f`) are indexed by this enum.
+ */
+typedef enum flag_t {
+
+    // groups
+    flag_gnu_extensions,     // -fgnu-extensions
+    flag_ms_extensions,      // -fms-extensions
+    flag_plan9_extensions,   // -fplan9-extensions
+
+    flag_count,
+} flag_t;
+
+/**
+ * All other options (except `-o` and the mode options) are indexed by this enum.
+ */
+typedef enum option_t {
+    option_dump_ast,          // -dump-ast=...
+    option_pedantic,          // -pedantic
+    option_pendatic_errors,   // -pedantic-errors
+} option_t;
 
 void options_init(void);
 void options_destroy(void);
+
+bool options_parse(const char* arg);
 
 #endif

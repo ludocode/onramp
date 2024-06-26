@@ -40,7 +40,18 @@ The output of linking is an Onramp bytecode executable, optionally wrapped for y
 
 
 
-## Mode
+## Command-Line Options
+
+The command-line syntax for the Onramp compiler driver is:
+
+```
+onrampcc [options...] <input> [input...] -o <output>
+```
+
+The `-o` option is used to specify the output file. It is currently required.
+
+
+### Mode
 
 By default `onrampcc` operates in linking mode. In this mode it can take multiple files as input, each of which can be any of the supported input types (C, preprocessed C source, assembly, object files and static library archives.) It will perform all phases of translation as needed to translate each input file to an object file, then link the objects together to produce an executable.
 
@@ -52,15 +63,23 @@ You can instead limit the phases it will perform with these options:
 
 In each of these modes, the input must consist of a single file, which must be at an earlier phase of translation than the option given (for example you cannot preprocess an assembly file.)
 
+### Language standard:
 
+The Onramp compiler supports several versions of the C standard, along with some extensions implemented by popular compilers.
 
-## Command-Line Options
+- `-std=<version>` -- Sets the language standard to compile. Supported versions:
+    - `c89`, `c99`, `c11`, `c17` (default), `c23` -- The corresponding version of standard C
+    - `gnu89`, `gnu99`, `gnu11`, `gnu17`, `gnu23` -- GNU C; implies `-fgnu-extensions`
+- `-ansi` -- An alias of `-std=c89`
 
-Stages of translation:
+Onramp does not emulate a GNU C compiler by default, although it does accept GNU extensions with warnings. Other extensions must be manually enabled.
 
-- `-E` -- Preprocess to `.i` preprocessed C.
-- `-S` -- Preprocess and compile to `.os` assembly.
-- `-c` -- Preproces, compile and assemble to `.oo` object.
+- `-fgnu-extensions` -- Disables warnings for GNU extensions and defines `__GNUC__` and friends
+    - `-fno-gnu-extensions` -- Disables all GNU extensions
+- `-fms-extensions` -- Enables Microsoft VC++ extensions
+- `-fplan9-extensions` -- Enables Plan 9 extensions
+
+### Other Options
 
 Output format:
 
