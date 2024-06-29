@@ -100,6 +100,7 @@ int main(int argc, char** argv) {
     options_init();
 
     parse_command_line(argv);
+    options_resolve();
 
     strings_init();
     scope_global_init();

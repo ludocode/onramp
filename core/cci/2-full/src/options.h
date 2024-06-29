@@ -84,5 +84,6 @@ void options_init(void);
 void options_destroy(void);
 
 bool options_parse(const char* arg);
+void options_resolve(void);
 
 #endif
