@@ -362,26 +362,27 @@ static bool try_parse_include(char*** argv) {
     return true;
 }
 
-static bool try_parse_cci_opts(char*** argv) {
-
+static bool is_cci_option(char* arg) {
     // Check if it's an option cci cares about. We accept everything starting
     // with `-f` or `-W`; we let cci sort out the details.
     // Also note that the option to `-std` cannot be separate; `=` is required.
 // TODO there are some warnings that only cpp needs and some that both cpp
 // and cci need. We need to check those first.
-    if (starts_with(**argv, "-std=")) {goto accept;}
-    if (starts_with(**argv, "-f")) {goto accept;}
-    if (starts_with(**argv, "-W")) {goto accept;}
-    if (starts_with(**argv, "-pedantic")) {goto accept;}
-    if (0 == strcmp(**argv, "-ansi")) {goto accept;}
+    if (starts_with(arg, "-std=")) {return true;}
+    if (starts_with(arg, "-f")) {return true;}
+    if (starts_with(arg, "-W")) {return true;}
+    if (starts_with(arg, "-pedantic")) {return true;}
+    if (0 == strcmp(arg, "-ansi")) {return true;}
     return false;
-accept:
+}
 
-    // add it to our cci options
+static bool try_parse_cci_opts(char*** argv) {
+    if (!is_cci_option(**argv)) {
+        return false;
+    }
     string_array_append(&cci_opts, &cci_opts_count, &cci_opts_capacity, **argv);
     *argv = (*argv + 1);
-
-    return false;
+    return true;
 }
 
 // Parses an option that takes an extra string
