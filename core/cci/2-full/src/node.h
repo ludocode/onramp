@@ -149,7 +149,7 @@ typedef struct node_t {
 
     int offset; // offset of storage for value, used in code generation
 
-    int member_offset;
+    unsigned member_offset;
 
     union {
         // TODO this will do for now but we'll need to support several more

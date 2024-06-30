@@ -31,14 +31,14 @@
 #include "libo-string.h"
 
 struct type_t;
+struct token_t;
 
 /**
  * A member of a record (struct or union).
  */
 typedef struct member_t {
-    table_entry_t map_entry;
     struct member_t* next;
-    string_t* name;
+    struct token_t* name; // null if anonymous
     struct type_t* type;
     unsigned offset;
     unsigned bit_size;
@@ -111,7 +111,8 @@ size_t record_size(const record_t* record);
 /**
  * Adds a new member to the record.
  */
-void record_add(record_t* record, string_t* name, struct type_t* type, unsigned offset);
+void record_add(record_t* record, struct token_t* /*nullable*/ token,
+        struct type_t* type, unsigned offset);
 
 /**
  * Finds the member and offset with the given name, returning NULL if the member
@@ -125,7 +126,6 @@ void record_add(record_t* record, string_t* name, struct type_t* type, unsigned 
  * This can only be called on defined records. If the record is incomplete,
  * the program aborts.
  */
-member_t* record_find(record_t* record, const string_t* name,
-        size_t* out_offset);
+struct type_t* record_find(record_t* record, const string_t* name, unsigned* out_offset);
 
 #endif

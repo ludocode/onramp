@@ -358,28 +358,28 @@ static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind)
     access->member = lexer_take();
     
     // get the record type
-    type_t* type = record_expr->type;
+    type_t* record_type = record_expr->type;
     if (kind == NODE_MEMBER_PTR) {
-        if (!type_is_indirection(type)) {
+        if (!type_is_indirection(record_type)) {
             fatal_token(access->token, "Cannot use `->` on non-pointer.");
         }
-        type = type_pointed_to(type);
+        record_type = type_pointed_to(record_type);
     }
-    if (!type_matches_base(type, BASE_RECORD)) {
+    if (!type_matches_base(record_type, BASE_RECORD)) {
         fatal_token(access->token, "Member access operators `.` and `->` can only be used on structs and unions.");
     }
 
     // make sure it's not incomplete
-    record_t* record = type->record;
+    record_t* record = record_type->record;
 
     // lookup the member
-    size_t offset;
-    const member_t* member = record_find(record, access->member->value, &offset);
-    if (!member) {
+    unsigned offset;
+    type_t* member_type = record_find(record, access->member->value, &offset);
+    if (!member_type) {
         fatal_token(access->member, "This struct or union has no member with this name.");
     }
-    access->type = type_ref(member->type);
-    access->member_offset = (int)offset;
+    access->type = type_ref(member_type);
+    access->member_offset = offset;
 
     return access;
 }
