@@ -328,13 +328,15 @@ static void parse_record(specifiers_t* specifiers) {
                     is_struct ? TAG_STRUCT : TAG_UNION,
                     tag,
                     type);
-            token_deref(tag);
         }
         record_deref(record);
     }
 
     assert(type_matches_base(type, BASE_RECORD));
     specifiers->type = type;
+    if (tag) {
+        token_deref(tag);
+    }
 
     // parse a definition if given
     if (lexer_is(STR_BRACE_OPEN)) {

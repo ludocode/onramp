@@ -1,0 +1,1 @@
+-Wno-anonymous-tags $INPUT -o $OUTPUT
