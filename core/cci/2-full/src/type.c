@@ -217,7 +217,7 @@ void type_print(type_t* type) {
         case BASE_LONG_DOUBLE: fputs("long double", stdout); break;
         case BASE_RECORD:
             fputs(type->record->is_struct ? "struct " : "union ", stdout);
-            fputs(type->record->name->bytes, stdout);
+            fputs(type->record->tag ? type->record->tag->value->bytes : "<anon>", stdout);
             break;
         case BASE_ENUM:
             fputs("enum ", stdout);

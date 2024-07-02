@@ -72,11 +72,10 @@ The Onramp compiler supports several versions of the C standard, along with some
     - `gnu89`, `gnu99`, `gnu11`, `gnu17`, `gnu23` -- GNU C; implies `-fgnu-extensions`
 - `-ansi` -- An alias of `-std=c89`
 
-Onramp does not emulate a GNU C compiler by default, although it does accept GNU extensions with warnings. Other extensions must be manually enabled.
+Onramp can emulate GNU C and other compilers but this is not on by default. Extensions must be manually enabled.
 
-- `-fgnu-extensions` -- Disables warnings for GNU extensions and defines `__GNUC__` and friends
-    - `-fno-gnu-extensions` -- Disables all GNU extensions
-- `-fms-extensions` -- Enables Microsoft VC++ extensions
+- `-fgnu-extensions` -- Enables GNU extensions and defines `__GNUC__`
+- `-fms-extensions` -- Enables Microsoft Visual C++ extensions
 - `-fplan9-extensions` -- Enables Plan 9 extensions
 
 ### Other Options

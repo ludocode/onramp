@@ -66,7 +66,7 @@ typedef struct record_t {
     unsigned refcount;
     bool is_struct;
     bool is_defined;
-    string_t* name;
+    struct token_t* tag; // NULL if anonymous
     table_t member_map;
     member_t* member_list;
     size_t size;
@@ -75,11 +75,11 @@ typedef struct record_t {
 /**
  * Creates a new record.
  *
- * The record takes ownership of the given name.
+ * The record takes ownership of the given tag.
  *
- * If the record is anonymous, the name is an empty string.
+ * If the record is anonymous, the tag is an empty string.
  */
-record_t* record_new(string_t* name, bool is_struct);
+record_t* record_new(struct token_t* tag, bool is_struct);
 
 static inline record_t* record_ref(record_t* record) {
     ++record->refcount;

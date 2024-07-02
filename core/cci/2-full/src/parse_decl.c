@@ -67,7 +67,9 @@ typedef struct specifiers_t {
     int function_specifiers;
     //int alignment_specifier; // value, not flags; 0 if not provided
 
-    // none of these have strong references
+    // We hold a strong reference to type because it might be an anonymous
+    // record, in which case nothing else holds a reference to it until the
+    // declarator is parsed.
     type_t* type;
     //record_t* record; // TODO probably don't need these, type_t* can cover it
     //enum_t* enum_;
@@ -82,6 +84,8 @@ static void specifiers_init(specifiers_t* specifiers) {
 }
 
 static void specifiers_destroy(specifiers_t* specifiers) {
+    if (specifiers->type)
+        type_deref(specifiers->type);
 }
 
 #define STORAGE_SPECIFIER_TYPEDEF        (1 << 0)
@@ -198,6 +202,9 @@ static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
 
 static void parse_record_member(record_t* record) {
 
+    // Keep the start of this declaration for error reporting
+    token_t* error_token = token_ref(lexer_token);
+
     // Parse specifier sequence
     specifiers_t specifiers;
     specifiers_init(&specifiers);
@@ -218,21 +225,37 @@ static void parse_record_member(record_t* record) {
     for (;;) {
         type_t* type = type_ref(base_type);
         token_t* name = NULL;
-        if (!try_parse_declarator(&type, &name)) {
-            fatal_token(lexer_token, "Expected a declarator for this `struct` or `union` member declaration.");
-        }
+        (void)try_parse_declarator(&type, &name);
+        // fatal_token(lexer_token, "Expected a declarator for this `struct` or `union` member declaration.");
 
         if (name == NULL) {
             // There are a few cases where a struct member can be anonymous:
             // - an anonymous struct or union
             // - a zero-width bitfield
-            // TODO handle these cases
-            fatal("TODO record member with blank name");
+            if (type_matches_base(type, BASE_RECORD)) {
+                // We have an anonymous record.
+                record_t* record = type->record;
+                assert(record != NULL);
+                if (record->tag != NULL) {
+                    // TODO It would be better if we could warn specifically on
+                    // the tag name but we currently don't have a way to get
+                    // it. (The record only stores the tag of its first
+                    // declaration.) Probably specifiers_t could store it.
+                    warn(warning_anonymous_tags, error_token,
+                            "Anonymous struct/union members of struct/union type having tag names is a Microsoft/Plan9 extension.");
+                }
+            } else {
+                // TODO handle zero-width bitfield
+                fatal_token(error_token,
+                        "This struct/union member needs a name. (Only struct/union types and zero-width bitfields are allowed to be anonymous.)");
+            }
         }
 
         int offset = record->is_struct ? record_size(record) : 0;
         record_add(record, name, type, offset);
-        token_deref(name);
+
+        if (name != NULL)
+            token_deref(name);
         type_deref(type);
 
         if (lexer_is(STR_ASSIGN)) {
@@ -247,6 +270,7 @@ static void parse_record_member(record_t* record) {
 
     type_deref(base_type);
     specifiers_destroy(&specifiers);
+    token_deref(error_token);
 }
 
 static void parse_record(specifiers_t* specifiers) {
@@ -259,11 +283,13 @@ static void parse_record(specifiers_t* specifiers) {
     bool is_struct = lexer_is(STR_STRUCT);
     lexer_consume();
 
-    // collect the name
-    if (lexer_token->type != token_type_alphanumeric && !lexer_is(STR_BRACE_OPEN)) {
-        fatal_token(lexer_token, "Expected name or `{` after `%s`", is_struct ? "struct" : "union");
+    // collect the tag
+    token_t* tag = NULL;
+    if (lexer_token->type == token_type_alphanumeric) {
+        tag = lexer_take();
+    } else if (!lexer_is(STR_BRACE_OPEN)) {
+        fatal_token(lexer_token, "Expected tag or `{` after `%s`", is_struct ? "struct" : "union");
     }
-    token_t* name = lexer_take();
 
     // Decide if we should search in parent scopes or only in the current scope
     // for this record definition. If this is a record definition, or if this
@@ -276,29 +302,38 @@ static void parse_record(specifiers_t* specifiers) {
     //
     // GCC has a warning about an incorrect forward declaration (e.g. `const
     // struct foo;`) that fails to shadow a declaration in an outer scope. We
-    // could potentially implement the same. We have a test for this: see
+    // could potentially implement the same.
     bool is_definition = lexer_is(STR_BRACE_OPEN);
     bool is_forward_declaration = lexer_is(STR_SEMICOLON)
             && specifiers->type_qualifiers == 0 && specifiers->storage_specifiers == 0;
     bool find_recursive = !is_definition && !is_forward_declaration;
 
-    // find or create the struct
-    type_t* type = scope_find_type(scope_current,
-            is_struct ? TAG_STRUCT : TAG_UNION,
-            name->value,
-            find_recursive);
-    if (type == NULL) {
-        record_t* record = record_new(name->value, is_struct);
-        type = type_new_record(record);
-        scope_add_type(scope_current,
+    // find the struct if it exists
+    type_t* type = NULL;
+    if (tag) {
+        type = scope_find_type(scope_current,
                 is_struct ? TAG_STRUCT : TAG_UNION,
-                name,
-                type);
-        type_deref(type);
+                tag->value,
+                find_recursive);
+        if (type)
+            type_ref(type);
+    }
+
+    // create it if it doesn't exist
+    if (type == NULL) {
+        record_t* record = record_new(tag, is_struct);
+        type = type_new_record(record);
+        if (tag) {
+            scope_add_type(scope_current,
+                    is_struct ? TAG_STRUCT : TAG_UNION,
+                    tag,
+                    type);
+            token_deref(tag);
+        }
         record_deref(record);
     }
+
     assert(type_matches_base(type, BASE_RECORD));
-    token_deref(name);
     specifiers->type = type;
 
     // parse a definition if given
@@ -309,6 +344,7 @@ static void parse_record(specifiers_t* specifiers) {
         if (record->is_defined) {
             fatal_token(lexer_token, "Duplicate definition of struct/union");
         }
+        record->is_defined = true;
         lexer_consume();
 
         // parse members
@@ -320,8 +356,6 @@ static void parse_record(specifiers_t* specifiers) {
             // TODO an empty struct is a GNU extension
             fatal("TODO empty struct not yet supported, GNU extension");
         }
-
-        record->is_defined = true;
     }
 }
 
@@ -360,7 +394,7 @@ static bool try_parse_declaration_specifiers(specifiers_t* specifiers) {
                 }
                 lexer_consume();
                 specifiers->type_specifiers |= TYPE_SPECIFIER_TYPEDEF;
-                specifiers->type = type;
+                specifiers->type = type_ref(type);
                 continue;
             }
         }

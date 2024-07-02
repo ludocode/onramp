@@ -39,7 +39,8 @@ static member_t* member_new(token_t* /*nullable*/ name, type_t* type, int offset
 }
 
 static void member_delete(member_t* member) {
-    token_deref(member->name);
+    if (member->name)
+        token_deref(member->name);
     type_deref(member->type);
     free(member);
 }
@@ -58,10 +59,10 @@ typedef struct record_element_t {
     unsigned offset;
 } record_element_t;
 
-record_t* record_new(string_t* name, bool is_struct) {
+record_t* record_new(token_t* tag, bool is_struct) {
     record_t* record = calloc(1, sizeof(record_t));
     record->refcount = 1;
-    record->name = string_ref(name);
+    record->tag = tag ? token_ref(tag) : NULL;
     record->is_struct = is_struct;
     table_init(&record->member_map);
     return record;
@@ -71,7 +72,8 @@ void record_deref(record_t* record) {
     if (--record->refcount != 0)
         return;
 
-    string_deref(record->name);
+    if (record->tag)
+        token_deref(record->tag);
 
     // clear table
     for (table_entry_t** bucket = table_first_bucket(&record->member_map);
@@ -99,7 +101,7 @@ size_t record_size(const record_t* record) {
     return record->size;
 }
 
-static void record_add_to_table(record_t* record, member_t* member) {
+static void record_add_to_table(record_t* record, member_t* member, unsigned offset) {
     assert(!string_is_empty(member->name->value));
 
     // check for duplicates
@@ -112,11 +114,30 @@ static void record_add_to_table(record_t* record, member_t* member) {
     // TODO check for duplicates!
     record_element_t* element = malloc(sizeof(record_element_t));
     element->member = member;
+    element->offset = offset;
     table_put(&record->member_map, &element->entry, string_hash(member->name->value));
 }
 
+/*
+ * Adds all members of the given anonymous record member to this record.
+ *
+ * This is used to add all the members of an anonymous record member to the
+ * parent. Since we're adding the contents of its map to our own, this also
+ * includes the members of its own anonymous member records recursively.
+ */
 static void record_add_anonymous_to_table(record_t* record, member_t* member, unsigned offset) {
-    //TODO
+    assert(type_matches_base(member->type, BASE_RECORD));
+    record_t* child = member->type->record;
+    for (table_entry_t** bucket = table_first_bucket(&child->member_map);
+            bucket; bucket = table_next_bucket(&child->member_map, bucket))
+    {
+        for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
+            record_element_t* element = (record_element_t*)entry;
+            // We add the offset within the child record to the offset of the
+            // anonymous member in this record to get the full offset.
+            record_add_to_table(record, element->member, offset + element->offset);
+        }
+    }
 }
 
 void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* type, unsigned offset) {
@@ -128,7 +149,7 @@ void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* ty
 
     // add to table
     if (token) {
-        record_add_to_table(record, member);
+        record_add_to_table(record, member, offset);
     } else {
         record_add_anonymous_to_table(record, member, member->offset);
     }
@@ -144,13 +165,15 @@ type_t* record_find(record_t* record, const string_t* name, unsigned* out_offset
     if (!record->is_defined)
         fatal("Internal error: Cannot call record_find() on incomplete record.");
 
-    member_t* member = (member_t*)table_bucket(&record->member_map, string_hash(name));
-    while (member) {
+    for (table_entry_t* entry = table_bucket(&record->member_map, string_hash(name));
+            entry; entry = table_entry_next(entry))
+    {
+        record_element_t* element = (record_element_t*)entry;
+        member_t* member = element->member;
         if (string_equal(name, member->name->value)) {
-            *out_offset = member->offset;
+            *out_offset = element->offset;
             return member->type;
         }
-        member = member->next;
     }
     return NULL;
 }

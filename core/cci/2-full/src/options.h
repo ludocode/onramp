@@ -52,6 +52,7 @@ typedef enum warning_t {
     // extension usage
     warning_statement_expressions,    // -Wstatement-expressions: ({...})
     warning_extra_keywords,           // -Wasm (or -fasm): asm, inline (pre-C99), typeof (pre-C23)
+    warning_anonymous_tags,           // -Wanonymous-tags, called -fms-extensions in GCC
 
     warning_count,
 } warning_t;

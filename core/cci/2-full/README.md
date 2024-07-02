@@ -6,7 +6,7 @@ Despite its simplicity, we aim to implement most of C11 with many C23 features a
 
 The compiler itself also has some optimizations in its implementation. For example it uses [string interning](https://en.wikipedia.org/wiki/String_interning) to make token comparisons fast. We also intern some base types. In combination with a faster libc, the final compiler is much faster than previous stages, especially after recompiling itself with optimizations.
 
-The compiler implements a command-line interface similar to GCC and friends, but most GNU extensions cause warnings by default. Pass `-fgnu-extensions` or a `-std=gnu*` mode to make it behave more like GCC. (When passed to the driver, these also define `__GNUC__`.) See the [Usage Guide](../../../docs/usage-guide.md) for details.
+The compiler implements a command-line interface similar to GCC and friends, but extension usage causes errors by default. Pass `-fgnu-extensions` or a `-std=gnu*` mode to make it behave more like GCC. (When passed to the driver, these also define `__GNUC__`.) See the [Usage Guide](../../../docs/usage-guide.md) for details.
 
 
 
