@@ -540,10 +540,10 @@ void lexer_push(token_t* token) {
 void lexer_expect(const string_t* token, const char* error_message) {
     if (!lexer_is(token)) {
         if (error_message) {
-            fatal(error_message);
+            fatal_token(lexer_token, error_message);
         }
         if (!error_message) {
-            fatal("Expected `%s`", token);
+            fatal_token(lexer_token, "Expected `%s`", token->bytes);
         }
     }
     lexer_consume();

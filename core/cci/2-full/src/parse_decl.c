@@ -994,7 +994,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         if (lexer_accept(STR_COMMA)) {
             continue;
         }
-        lexer_expect(STR_SEMICOLON, "Expected `;` or `,` at end of declaration.");
+        lexer_expect(STR_SEMICOLON, "Expected `;` or `,` at end of declarator.");
         break;
     }
 
