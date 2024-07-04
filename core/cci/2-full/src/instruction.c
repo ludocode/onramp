@@ -31,9 +31,9 @@
 #include "common.h"
 
 static const char* opcode_to_string(opcode_t opcode) {
-
     switch (opcode) {
         case NOP: return "nop";
+        case VALUE: break;
 
         // arithmetic
         case ADD: return "add";
@@ -93,11 +93,9 @@ static const char* opcode_to_string(opcode_t opcode) {
         case ENTER: return "enter";
         case LEAVE: return "leave";
         case SYS: return "sys";
-
-        default:
-            break;
     }
-    fatal("Internal error: no such opcode");
+
+    fatal("Internal error: no such opcode: %i", (int)opcode);
 }
 
 void instruction_vset(instruction_t* instruction, opcode_t opcode, va_list args) {
@@ -210,7 +208,7 @@ void instruction_vset(instruction_t* instruction, opcode_t opcode, va_list args)
             break;
 
         default:
-            fatal("Internal error: no such opcode");
+            fatal("Internal error: no such opcode: %i", (int)opcode);
     }
 }
 
@@ -339,7 +337,7 @@ void instruction_emit(instruction_t* instruction) {
             break;
 
         default:
-            fatal("Internal error: no such opcode");
+            fatal("Internal error: no such opcode: %i", (int)instruction->opcode);
     }
 
     emit_newline();

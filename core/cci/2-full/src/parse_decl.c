@@ -173,8 +173,7 @@ static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
     if (try_parse_specifier(&specifiers->function_specifiers, FUNCTION_SPECIFIER_NORETURN, STR_NORETURN_X)) return true;
 
     // `long` can appear at most twice.
-//TODO long disabled to compile as cci/0
-    if (0&&lexer_accept(STR_LONG)) {
+    if (lexer_accept(STR_LONG)) {
         if (specifiers->type_specifiers & TYPE_SPECIFIER_LONG_LONG) {
             fatal("`long long long` is invalid.");
         }

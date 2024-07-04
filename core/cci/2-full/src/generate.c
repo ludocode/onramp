@@ -154,6 +154,8 @@ static void generate_access(node_t* node, int register_num) {
         opcode = LDS;
     } else if (size == 4) {
         opcode = LDW;
+    } else {
+        fatal("TODO load larger than register");
     }
 
     if (symbol_is_global(symbol)) {
@@ -528,62 +530,112 @@ static base_t cast_base(type_t* type) {
 }
 
 void generate_cast(node_t* node, int register_num) {
-    base_t desired_base = cast_base(node->type);
-    base_t current_base = cast_base(node->first_child->type);
-    size_t desired_size = base_size(desired_base);
-    size_t current_size = base_size(current_base);
+    base_t target_base = cast_base(node->type);
+    base_t source_base = cast_base(node->first_child->type);
+    if (target_base == source_base) {
+        // TODO we also need BASE_DOUBLE and BASE_LONG_DOUBLE to be equivalent
+        generate_node(node->first_child, register_num);
+        return;
+    }
 
-    if (current_size > 4) {
-        fatal("TODO casting of large values not implemented yet");
-        // TODO ensure there's an extra register, make stack space, generate
-        // into it.
-        // can cast from llong by just LDW lowest word
-        // cast from float/double will need a function call.
-        if (desired_size > 4) {
-            // cast from large to large
+    size_t target_size = base_size(target_base);
+    size_t source_size = base_size(source_base);
+
+    if (source_size > 4) {
+        if (target_size <= 4) {
+
+            // generate the source into stack space. we can re-use the same
+            // register.
+            assert(source_size < 0x80);
+            block_add(current_block, SUB, RSP, RSP, (uint8_t)source_size);
+            block_add(current_block, MOV, register_num, RSP);
+            generate_node(node->first_child, register_num);
+
+            // convert source to target
+            if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
+                // It's a double. we need a function call to cast it.
+                if (target_base == BASE_FLOAT) {
+                    fatal("TODO cast from double to float, emit function call");
+                } else {
+                    fatal("TODO cast from double to int, emit function call");
+                }
+            } else {
+                // It's llong.
+                if (target_base == BASE_FLOAT) {
+                    fatal("TODO cast from long to float, emit function call");
+                } else {
+                    // We're casting from llong to a register-size or smaller
+                    // integer. We can just load the low word.
+                    block_add(current_block, LDW, register_num, register_num, 0);
+                }
+            }
+
+            block_add(current_block, ADD, RSP, RSP, (uint8_t)source_size);
+
+        } else {
+
+            // Casting from llong or double to llong or double.
+            // The register already contains a pointer to 64-bit space. We can
+            // use it to generate our source, then convert to target in-place.
+            generate_node(node->first_child, register_num);
+
+            if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
+                fatal("TODO cast from double to llong, emit function call");
+            } else {
+                fatal("TODO cast from llong to double, emit function call");
+            }
         }
-    }
-    if (desired_size > 4) {
-        fatal("TODO casting of large values not implemented yet");
-        // cast to llong can just STW low word and then STW 0 or STW -1 for the
-        // high word depending on sign
-        // cast to float/double will need a function call
-    }
+    } else {
+        if (target_size > 4) {
 
-    // The to and from types both fit in registers. We can use the same
-    // register for both and truncate or sign-extend in place.
-    generate_node(node->first_child, register_num);
+            // The register contains a pointer to 64-bit space. We need an
+            // auxiliary register to generate the word-size source.
+            // TODO make a register, generate into it, do manual stores for ints or function call for float/double
+            fatal("TODO casting of large values not implemented yet");
 
-    // For simplicity, if the current size is signed and less than register
-    // size, we just sign extend right away. This can lead to some redundant
-    // combinations but we can optimize those out afterwards.
-    switch (current_base) {
-        case BASE_CHAR:
-        case BASE_SIGNED_CHAR:
-            block_add(current_block, SXB, register_num, register_num);
-            break;
-        case BASE_SIGNED_SHORT:
-            block_add(current_block, SXS, register_num, register_num);
-            break;
-        default:
-            break;
-    }
-    switch (desired_base) {
-        case BASE_CHAR:
-        case BASE_SIGNED_CHAR:
-            block_add(current_block, SXB, register_num, register_num);
-            break;
-        case BASE_UNSIGNED_CHAR:
-            block_add(current_block, TRB, register_num, register_num);
-            break;
-        case BASE_SIGNED_SHORT:
-            block_add(current_block, SXS, register_num, register_num);
-            break;
-        case BASE_UNSIGNED_SHORT:
-            block_add(current_block, TRS, register_num, register_num);
-            break;
-        default:
-            break;
+        } else {
+
+            // The to and from types both fit in registers. We can use the same
+            // register for both and truncate or sign-extend in place.
+            generate_node(node->first_child, register_num);
+
+            // For simplicity, if the source size is signed and less than register
+            // size, we just sign extend right away. This can lead to some redundant
+            // combinations but we can optimize those out afterwards.
+            switch (source_base) {
+                case BASE_CHAR:
+                case BASE_SIGNED_CHAR:
+                    block_add(current_block, SXB, register_num, register_num);
+                    break;
+                case BASE_SIGNED_SHORT:
+                    block_add(current_block, SXS, register_num, register_num);
+                    break;
+                default:
+                    break;
+            }
+
+            // TODO aren't these target casts redundant? we should only do
+            // these to source casts. no point in doing sxb if we're just going
+            // to follow it up with stb for example. pretty sure these casts
+            // are all wrong
+            switch (target_base) {
+                case BASE_CHAR:
+                case BASE_SIGNED_CHAR:
+                    block_add(current_block, SXB, register_num, register_num);
+                    break;
+                case BASE_UNSIGNED_CHAR:
+                    block_add(current_block, TRB, register_num, register_num);
+                    break;
+                case BASE_SIGNED_SHORT:
+                    block_add(current_block, SXS, register_num, register_num);
+                    break;
+                case BASE_UNSIGNED_SHORT:
+                    block_add(current_block, TRS, register_num, register_num);
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 }
 

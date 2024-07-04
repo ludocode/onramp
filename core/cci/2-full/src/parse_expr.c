@@ -356,7 +356,7 @@ static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind)
         // TODO also make sure it's not a keyword
     }
     access->member = lexer_take();
-    
+
     // get the record type
     type_t* record_type = record_expr->type;
     if (kind == NODE_MEMBER_PTR) {
@@ -541,18 +541,33 @@ static node_t* parse_conditional_expression(void) {
     if (!lexer_is(STR_QUESTION)) {
         return condition;
     }
+    node_t* conditional = node_new_lexer(NODE_IF);
 
     if (lexer_is(STR_COLON)) {
         // https://gcc.gnu.org/onlinedocs/gcc/extensions-to-the-c-language-family/conditionals-with-omitted-operands.html
         fatal_token(lexer_token, "TODO support elvis operator");
     }
 
-    node_t* node = node_new_lexer(NODE_IF);
-    node_append(node, node_make_predicate(condition));
-    node_append(node, parse_expression());
+    node_t* left = parse_expression();
+    token_t* colon = token_ref(lexer_token);
     lexer_expect(STR_COLON, "Expected `:` after true branch of conditional `?` expression.");
-    node_append(node, parse_conditional_expression());
-    return node;
+    node_t* right = parse_conditional_expression();
+
+    node_append(conditional, node_make_predicate(condition));
+    node_append(conditional, left);
+    node_append(conditional, right);
+
+    // TODO types don't need to be equal, there are some type promotion and
+    // implicit cast rules here. need a function to determine the common type,
+    // then insert cast operators in each side if not equal to the common type.
+    if (!type_equal(left->type, right->type)) {
+        fatal_token(colon, "TODO allow implicit cast to a common type in ternary conditional");
+    }
+    conditional->type = type_ref(left->type);
+
+    token_deref(colon);
+printf("parsed conditional\n");
+    return conditional;
 }
 
 static node_t* parse_assignment_expression(void) {
