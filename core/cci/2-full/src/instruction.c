@@ -241,7 +241,6 @@ void instruction_emit(instruction_t* instruction) {
         case AND:
         case OR:
         case XOR:
-        case NOT:
         case SHL:
         case SHRU:
         case SHRS:
@@ -266,6 +265,7 @@ void instruction_emit(instruction_t* instruction) {
         case SXB:
         case TRS:
         case TRB:
+        case NOT:
         case MOV:
         case BOOL:
         case ISZ:

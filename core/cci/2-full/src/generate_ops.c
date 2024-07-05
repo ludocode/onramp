@@ -147,11 +147,12 @@ void generate_bit_or(node_t* node, int register_num) {
 
 
 void generate_bit_not(node_t* node, int register_num) {
-    if (type_size(node->type) != 4) {
-        // TODO
+    generate_node(node->first_child, register_num);
+    if (type_size(node->type) > 4) {
         fatal("TODO bit not llong");
+    } else {
+        block_add(current_block, NOT, register_num, register_num);
     }
-    block_add(current_block, SUB, register_num, 0xFF, register_num);
 }
 
 void generate_log_not(node_t* node, int register_num) {
