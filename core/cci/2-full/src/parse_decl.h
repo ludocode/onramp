@@ -48,7 +48,7 @@ void parse_decl_destroy(void);
 void parse_global(void);
 
 /**
- * Parses a declaration, which make consist of several comma-separated
+ * Parses a declaration, which may consist of several comma-separated
  * declarators and initializers.
  */
 bool try_parse_declaration(struct node_t* /*nullable*/ parent);

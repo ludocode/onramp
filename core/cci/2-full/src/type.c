@@ -238,9 +238,7 @@ bool type_is_arithmetic(type_t* type) {
 
 size_t base_size(base_t base) {
     switch (base) {
-        case BASE_VOID:
-            fatal("Internal error: void does not have a size.");
-            break;
+        case BASE_VOID: // fallthrough, GNU extension; -Wpointer-arith checked during parse
         case BASE_BOOL:
         case BASE_CHAR:
         case BASE_SIGNED_CHAR:

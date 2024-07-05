@@ -43,6 +43,7 @@ typedef enum node_kind_t {
     NODE_PARAMETER,         // Function parameter. No children.
     NODE_VARIABLE,          // Variable definition. Optional child is initializer
     NODE_INITIALIZER_LIST,  // A compound (braced) initializer. Any number of children (including none)
+    NODE_TYPE,              // A type, for example as the argument to sizeof
 
     // statements
     NODE_WHILE,     // Two children: condition, statement

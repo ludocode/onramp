@@ -116,7 +116,6 @@ int main(int argc, char** argv) {
 
     scope_emit_tentative_definitions();
 
-
     lexer_destroy();
     emit_destroy();
     parse_stmt_init();

@@ -418,10 +418,38 @@ static node_t* parse_postfix_expression(void) {
     return node;
 }
 
-// Parses an "of" operator, e.g. sizeof, typeof, alignof
-static node_t* parse_of(node_kind_t kind) {
-    // TODO
-    fatal("sizeof/typeof not implemented");
+static node_t* parse_sizeof(void) {
+    node_t* node = node_new_lexer(NODE_SIZEOF);
+    node_t* child;
+
+    if (lexer_accept(STR_PAREN_OPEN)) {
+
+        // Check for sizeof(type). The type declaration must be abstract.
+        type_t* type = try_parse_type();
+        if (type) {
+            // It's a type.
+            child = node_new(NODE_TYPE);
+            child->type = type;
+        } else {
+            // Otherwise it's a parenthesized expression.
+            child = parse_expression();
+        }
+
+        lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression in `sizeof(`");
+    } else {
+        // sizeof without parens has high precedence. We only consume a unary
+        // expression.
+        child = parse_unary_expression();
+    }
+
+    node_append(node, child);
+    node->type = type_new_base(BASE_UNSIGNED_INT);
+
+    if (type_matches_base(node->type, BASE_VOID)) {
+        warn(warning_pointer_arith, node->token, "sizeof(void) is 1 as a GNU extension.");
+    }
+
+    return node;
 }
 
 static node_t* parse_unary_operator(node_kind_t kind) {
@@ -469,17 +497,10 @@ static node_t* parse_unary_expression(void) {
 
     // a few other operators
     if (lexer_is(STR_SIZEOF)) {
-        return parse_of(NODE_SIZEOF);
-    }
-    if (lexer_is(STR_TYPEOF) || lexer_is(STR_TYPEOF_X)) {
-        return parse_of(NODE_TYPEOF);
-    }
-    if (lexer_is(STR_TYPEOF_UNQUAL)) {
-        return parse_of(NODE_TYPEOF_UNQUAL);
+        return parse_sizeof();
     }
     if (lexer_is(STR_ALIGNOF) || lexer_is(STR_ALIGNOF_X)) {
         fatal("TODO alignof");
-        //return parse_of(NODE_ALIGNOF);
     }
 
     return parse_postfix_expression();

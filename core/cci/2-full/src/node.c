@@ -40,6 +40,7 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_PARAMETER:         return "PARAMETER";
         case NODE_VARIABLE:          return "VARIABLE";
         case NODE_INITIALIZER_LIST:  return "INITIALIZER_LIST";
+        case NODE_TYPE:              return "TYPE";
         case NODE_WHILE:             return "WHILE";
         case NODE_DO:                return "DO";
         case NODE_FOR:               return "FOR";

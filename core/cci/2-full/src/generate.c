@@ -729,19 +729,30 @@ static void generate_location_member_ptr(node_t* node, int register_num) {
     block_add(current_block, ADD, register_num, register_num, node->member_offset);
 }
 
+static void generate_sizeof(node_t* node, int register_num) {
+    unsigned size = type_size(node->first_child->type);
+    if (size < 0x80) {
+        block_add(current_block, MOV, register_num, size);
+    } else {
+        block_add(current_block, IMW, ARGTYPE_NUMBER, register_num, size);
+    }
+}
+
 void generate_node(node_t* node, int register_num) {
     switch (node->kind) {
         case NODE_INVALID:
             fatal("Internal error: cannot generate unrecognized node.");
             break;
 
-        // these nodes are generated separately, not through generate_node()
+        // these nodes are handled separately, not generated through generate_node()
         case NODE_FUNCTION:
             fatal("Internal error: cannot generate arbitrary FUNCTION node.");
         case NODE_PARAMETER:
             fatal("Internal error: cannot generate arbitrary PARAMETER node.");
         case NODE_INITIALIZER_LIST:
             fatal("Internal error: cannot generate arbitrary INITIALIZER_LIST node.");
+        case NODE_TYPE:
+            fatal("Internal error: cannot generate arbitrary TYPE node.");
 
         case NODE_VARIABLE:
             if (node->first_child) {
@@ -796,7 +807,7 @@ void generate_node(node_t* node, int register_num) {
 
         // unary expressions
         case NODE_CAST: generate_cast(node, register_num); break;
-        case NODE_SIZEOF: fatal_token(node->token, "TODO generate SIZEOF");
+        case NODE_SIZEOF: generate_sizeof(node, register_num); break;
         case NODE_TYPEOF: fatal_token(node->token, "TODO generate TYPEOF");
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
         case NODE_UNARY_PLUS: fatal_token(node->token, "TODO generate UNARY_PLUS");
