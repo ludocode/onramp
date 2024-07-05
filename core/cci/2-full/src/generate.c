@@ -738,6 +738,10 @@ static void generate_sizeof(node_t* node, int register_num) {
     }
 }
 
+static void generate_address_of(node_t* node, int register_num) {
+    generate_location(node->first_child, register_num);
+}
+
 void generate_node(node_t* node, int register_num) {
     switch (node->kind) {
         case NODE_INVALID:
@@ -815,7 +819,7 @@ void generate_node(node_t* node, int register_num) {
         case NODE_BIT_NOT: generate_bit_not(node, register_num); break;
         case NODE_LOGICAL_NOT: generate_log_not(node, register_num); break;
         case NODE_DEREFERENCE: generate_dereference(node, register_num); break;
-        case NODE_ADDRESS_OF: generate_location(node, register_num); break;
+        case NODE_ADDRESS_OF: generate_address_of(node, register_num); break;
         case NODE_PRE_INC: fatal_token(node->token, "TODO generate PRE_INC");
         case NODE_PRE_DEC: fatal_token(node->token, "TODO generate PRE_DEC");
 

@@ -122,6 +122,8 @@ typedef enum node_kind_t {
 
 } node_kind_t;
 
+const char* node_kind_to_string(node_kind_t kind);
+
 /**
  * A node in the abstract syntax tree.
  *
