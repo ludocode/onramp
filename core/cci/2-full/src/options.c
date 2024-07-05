@@ -260,7 +260,7 @@ static void warnings_init(void) {
     warning_add("statement-expressions", warning_statement_expressions, warning_level_error);
     warning_add("asm", warning_extra_keywords, warning_level_error); // TODO also need to support -fasm
     warning_add("anonymous-tags", warning_anonymous_tags, warning_level_error);
-    warning_add("pointer-arith", warning_pointer_arith, warning_level_off); // TODO warn by default? GCC doesn't, but invalid per spec
+    warning_add("pointer-arith", warning_pointer_arith, warning_level_error);
 }
 
 static void warnings_destroy(void) {

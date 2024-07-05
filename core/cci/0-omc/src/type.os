@@ -430,13 +430,13 @@
 
 =type_size
 
-    ; we shouldn't be calling sizeof() on l-values (TODO why not?)
+    ; we shouldn't be calling sizeof() on l-values or void
     and r1 r0 0x40   ; l-value flag
     jnz r1 &type_size_invalid
-
-    ; `char` has size 1, as does `void` for some reason.
     sub r1 r0 0x10  ; void
-    jz r1 &type_size_1
+    jz r1 &type_size_void
+
+    ; `char` has size 1
     sub r1 r0 0x20   ; char
     jz r1 &type_size_1
 
@@ -451,6 +451,12 @@
 :type_size_invalid
     ; fatal, internal error
     imw r0 ^error_internal
+    add r0 r0 rpp
+    call ^fatal
+
+:type_size_void
+    ; fatal, sizeof(void) not allowed
+    imw r0 ^error_sizeof_void
     add r0 r0 rpp
     call ^fatal
 

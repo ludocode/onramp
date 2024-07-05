@@ -158,6 +158,9 @@
 =error_cast_void
     "Casting to `void` is not allowed." '00
 
+=error_sizeof_void
+    "`sizeof(void)` is not allowed." '00
+
 
 
 ; Keyword strings

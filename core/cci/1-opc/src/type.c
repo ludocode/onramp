@@ -37,10 +37,6 @@
  */
 
 static size_t base_size(base_t base) {
-    if (base == BASE_VOID) {
-        // For some reason sizeof(void) is 1.
-        return 1;
-    }
     if (base == BASE_UNSIGNED_CHAR) {return 1;}
     if (base == BASE_UNSIGNED_SHORT) {return 2;}
     if (base == BASE_UNSIGNED_INT) {return 4;}
@@ -48,11 +44,14 @@ static size_t base_size(base_t base) {
     if (base == BASE_SIGNED_SHORT) {return 2;}
     if (base == BASE_SIGNED_INT) {return 4;}
 
+    if (base == BASE_VOID) {
+        fatal("`sizeof(void)` is invalid in C and not supported.");
+    }
+
     if (base == BASE_RECORD) {
         // it's a record. should be calling record_size(), not base_size()
         fatal("Internal error: cannot base_size(BASE_RECORD)");
     }
-
     fatal("Internal error: invalid base type");
 }
 
