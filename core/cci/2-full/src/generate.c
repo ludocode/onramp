@@ -639,6 +639,13 @@ void generate_cast(node_t* node, int register_num) {
     }
 }
 
+void generate_unary_plus(node_t* node, int register_num) {
+    // We don't need to do anything besides generate. Probably unary plus
+    // should be an implicit cast, but we should actually insert this cast into
+    // the tree, not do it in codegen.
+    generate_node(node->first_child, register_num);
+}
+
 void generate_unary_minus(node_t* node, int register_num) {
     generate_node(node->first_child, register_num);
     if (type_size(node->type) > 4) {
@@ -814,7 +821,7 @@ void generate_node(node_t* node, int register_num) {
         case NODE_SIZEOF: generate_sizeof(node, register_num); break;
         case NODE_TYPEOF: fatal_token(node->token, "TODO generate TYPEOF");
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
-        case NODE_UNARY_PLUS: fatal_token(node->token, "TODO generate UNARY_PLUS");
+        case NODE_UNARY_PLUS: generate_unary_plus(node, register_num); break;
         case NODE_UNARY_MINUS: generate_unary_minus(node, register_num); break;
         case NODE_BIT_NOT: generate_bit_not(node, register_num); break;
         case NODE_LOGICAL_NOT: generate_log_not(node, register_num); break;
