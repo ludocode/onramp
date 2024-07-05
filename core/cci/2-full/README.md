@@ -63,15 +63,39 @@ The lexer does not support digraphs or trigraphs. It is the responsibility of th
 
 ## Parse Tree
 
-The parser parses code into a tree. We sometimes call it an abstract syntax tree or a parse tree but it's really a semantic tree, as most semantic properties are resolved as it builds the tree. For example the types of all nodes are resolved during parsing, not in a separate analysis pass. It also does not include some syntax such as function prototypes (which are instead parsed as types.)
+The parser parses code into a tree. We sometimes call it an abstract syntax tree or a parse tree but it's really a semantic tree, as most semantic properties are resolved as it builds the tree. For example the types of all nodes are resolved during parsing, not in a separate analysis pass. It also does not include some syntax such as types.
 
-The tree is based on expressions. Every node in the tree has a type; this is the result type of the expression it represents. If the node is a statement or a declaration, we still consider it an expression of type void.
+You can pass `-ast-dump` to the compiler to view the tree. (By default the output uses UTF-8-encoded box-drawing characters. Pass `-ast-dump=ascii` to restrict the output to ASCII.) For example:
+
+```c
+int square(int x) {
+    return x * x;
+}
+```
+
+The above is parsed into:
+
+```
+FUNCTION `square` int
+├─PARAMETER `x` int
+└─SEQUENCE `{` void
+  └─RETURN `return` int
+    └─MUL `*` int
+      ├─ACCESS `x` int
+      └─ACCESS `x` int
+```
+
+The tree is based on expressions. Every node in the tree has a type, which is the result type of the expression it represents. If the node is a statement or a declaration, we still consider it an expression of type void.
 
 This allows us to share node types for statements and expressions. For example, `NODE_IF` is used for both the `if` statement and the ternary conditional `?` operator. In the case of `if`, the node's type is `void`. In the case of `?`, the node's type is the type of its contained expressions. These are compiled in exactly the same way; the code generator does not know or care whether it was an `if` or a `?`.
 
 Similarly, `NODE_SEQUENCE` is used for any sequence of statements or expressions. This includes a compound statement (i.e. a block), a comma operator expression, an expression statement (a GNU extension), and for some internal purposes. A compound statement always has type `void`, whereas a comma expression and an expression statement will have the type of their last child node. These are also all compiled identically.
 
-One instance where a synthetic `NODE_SEQUENCE` is needed is with labels and cases. In the C grammar, labels and cases are always attached to the statement that follows. For example, this is a switch with one unbraced statement:
+
+
+## Labels and Cases
+
+In the C grammar, labels and cases are always attached to the statement that follows. For example, this is a switch with one unbraced statement:
 
 ```c
 // skip the rest of this function if foo is A, B or C
@@ -82,9 +106,9 @@ switch (foo)
         return;
 ```
 
-In the Onramp tree, we separate labels and cases from statements for simplicity. The above creates a `NODE_SEQUENCE` containing four children: three `NODE_CASE` and a `NODE_RETURN`. In fact the structure of the tree is essentially identical whether or not it has braces. The only difference is during parsing, wherein braces allow declarations and create a scope.
+In the Onramp tree, we separate labels and cases from statements for simplicity. When parsing the above, Onramp creates a synthetic `NODE_SEQUENCE` containing four children: three `NODE_CASE` and a `NODE_RETURN`. In fact the structure of the tree is essentially identical whether or not it has braces. The only difference is during parsing, wherein braces allow declarations and multiple statements and create a scope.
 
-You can pass `-ast-dump` to the compiler to view the tree. (By default the output uses UTF-8-encoded box-drawing characters. Pass `-ast-dump=ascii` to restrict the output to ASCII.) The above switch statement is parsed as:
+The above switch statement is parsed as:
 
 ```
 SWITCH `switch` void
@@ -143,6 +167,6 @@ The lexer reports some errors through the same mechanism as previous stages: the
 
 Unlike previous stages however, file and line information is attached to each token. The parser therefore reports most errors against a particular token using the `fatal_token()` function. This gives more accurate file and line information especially when errors are reported after a whole expression or function is parsed.
 
-In both cases, the stack of included files is stored, and the compiler reports the path of `#include` directives that led to the incorrect source line. A stack of include files is stored in libo for the lexer. Tokens contain a reference to a parent token from the file that included them, so the stack of include files for a token is essentially a linked list of tokens.
+In both cases, the stack of included files is stored, and the compiler can report the path of `#include` directives that led to the incorrect source line (although this is not entirely implemented yet.) Tokens contain a reference to a parent token from the file that included them, so the stack of include files for a token is essentially a linked list of tokens.
 
 This compiler still only reports the first error and immediately exits. All errors are considered fatal; there is no attempt at all to recover from errors or to report multiple errors.
