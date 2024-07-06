@@ -290,8 +290,8 @@ static node_t* parse_primary_expression(void) {
         // check for a cast expression
         type_t* type = try_parse_type();
         if (type) {
-            node_t* node = node_cast(parse_unary_expression(), type, paren);
             lexer_expect(STR_PAREN_CLOSE, "Expected `)` after cast expression");
+            node_t* node = node_cast(parse_unary_expression(), type, paren);
             type_deref(type);
             token_deref(paren);
             return node;
