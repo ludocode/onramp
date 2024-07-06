@@ -49,3 +49,7 @@ void vfatal_token(struct token_t* token, const char* format, va_list args) {
     current_filename = (char*)string_cstr(token->filename);
     vfatal(format, args);
 }
+
+bool is_pow2(int n) {
+    return n && !(n & (n - 1));
+}

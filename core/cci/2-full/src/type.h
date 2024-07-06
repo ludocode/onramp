@@ -214,7 +214,7 @@ bool type_is_function(type_t* type);
 bool type_is_passed_indirectly(type_t* type);
 
 /**
- * Decays pointers to arrays.
+ * Decays arrays to pointers.
  *
  * Returns a strong reference, which may be the given type or a new type. You
  * must deref it when done.

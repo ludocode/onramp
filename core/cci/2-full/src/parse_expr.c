@@ -506,30 +506,111 @@ static node_t* parse_unary_expression(void) {
     return parse_postfix_expression();
 }
 
+static void parse_usual_arithmetic_conversions(node_t** left, node_t** right) {
+    *left = node_promote(*left);
+    *right = node_promote(*right);
+
+    if (!type_equal((*left)->type, (*right)->type)) {
+        fatal_token((*left)->token, "TODO usual arithmetic conversions");
+    }
+}
+
 static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
-    if (!type_is_arithmetic(left->type))
-        fatal_token(op->token, "Left side of binary expression must be an arithmetic type.");
-    if (!type_is_arithmetic(right->type))
-        fatal_token(op->token, "Right side of binary expression must be an arithmetic type.");
-
-    // All operands of binary arithmetic operations must first be promoted to
-    // register width.
-    left = node_promote(left);
-    right = node_promote(right);
-
     switch (op->kind) {
+        case NODE_ADD:
+            // Binary addition requires that at most one side is a pointer, and
+            // that the remaining sides are arithmetic types. When adding a
+            // pointer, the arithmetic side is cast to a word size unsigned
+            // integer.
+
+            // Left side pointer
+            if (type_is_indirection(left->type)) {
+                if (type_is_indirection(right->type))
+                    fatal_token(op->token, "At most one side of a binary addition can be an indirection (i.e. a pointer.)");
+                if (!type_is_arithmetic(right->type))
+                    fatal_token(op->token, "A pointer can only be added to an arithmetic type.");
+                type_t* target = type_new_base(BASE_UNSIGNED_INT);
+                right = node_cast(node_promote(right), target, NULL);
+                type_deref(target);
+                op->type = type_decay(left->type);
+
+            // Right side pointer
+            } else if (type_is_indirection(right->type)) {
+                if (!type_is_arithmetic(left->type))
+                    fatal_token(op->token, "A pointer can only be added to an arithmetic type.");
+                type_t* target = type_new_base(BASE_UNSIGNED_INT);
+                left = node_cast(node_promote(left), target, NULL);
+                type_deref(target);
+                op->type = type_decay(right->type);
+
+            // Neither side pointer
+            } else {
+                if (!type_is_arithmetic(left->type))
+                    fatal_token(op->token, "The left side of binary addition must be a pointer or an arithmetic type.");
+                if (!type_is_arithmetic(right->type))
+                    fatal_token(op->token, "The right side of binary addition must be a pointer or an arithmetic type.");
+
+                parse_usual_arithmetic_conversions(&left, &right);
+                op->type = type_ref(left->type);
+            }
+            break;
+
+        case NODE_SUB:
+            // Subtraction allows two pointers to be subtracted, resulting in
+            // ptrdiff_t; or it allows an arithmetic type to be subtracted from
+            // a pointer, which moves the pointer; or it allows subtraction of
+            // two arithmetic types.
+
+            // Both pointers
+            if (type_is_indirection(right->type)) {
+                if (!type_is_indirection(left->type))
+                    fatal_token(op->token, "Cannot subtract a pointer from a non-pointer.");
+                if (!type_equal(left->type, right->type)) // TODO should only require types compatible
+                    fatal_token(op->token, "Cannot subtract two pointers of incompatible types.");
+                op->type = type_new_base(BASE_SIGNED_INT);
+
+            // Left side pointer
+            } else if (type_is_indirection(left->type)) {
+                if (!type_is_arithmetic(right->type))
+                    fatal_token(op->token, "Subtracting from a pointer requires a pointer of compatible type or an arithmetic type.");
+                type_t* target = type_new_base(BASE_UNSIGNED_INT);
+                right = node_cast(node_promote(right), target, NULL);
+                type_deref(target);
+                op->type = type_decay(left->type);
+
+            // Neither side pointer
+            } else {
+                if (!type_is_arithmetic(left->type))
+                    fatal_token(op->token, "The left side of binary subtraction must be a pointer or an arithmetic type.");
+                if (!type_is_arithmetic(right->type))
+                    fatal_token(op->token, "The right side of binary subtraction must be a pointer or an arithmetic type.");
+
+                parse_usual_arithmetic_conversions(&left, &right);
+                op->type = type_ref(left->type);
+            }
+            break;
+
         case NODE_SHL:
         case NODE_SHR:
+            // TODO shl, shr don't use usual arithmetic conversions. for now we
+            // just promote. probably we need to forbid floats, cast right side
+            // to int, etc.
+            left = node_promote(left);
+            right = node_promote(right);
+            op->type = type_ref(left->type);
             break;
-        case NODE_ADD:
-        case NODE_SUB:
-            // TODO
-            break;
+
         default:
+            // Other binary operators require that both sides be arithmetic types.
+            if (!type_is_arithmetic(left->type))
+                fatal_token(op->token, "Left side of binary operator must be an arithmetic type.");
+            if (!type_is_arithmetic(right->type))
+                fatal_token(op->token, "Right side of binary operator must be an arithmetic type.");
+            parse_usual_arithmetic_conversions(&left, &right);
+            op->type = type_ref(left->type);
             break;
     }
 
-    op->type = type_ref(left->type);
     node_append(op, left);
     node_append(op, right);
 }

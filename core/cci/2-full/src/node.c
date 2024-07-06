@@ -531,7 +531,7 @@ size_t node_child_count(node_t* node) {
     return i;
 }
 
-static void node_check_cast_valid(type_t* type, token_t* token) {
+static void node_check_cast_valid(type_t* type, token_t* /*nullable*/ token) {
     if (type_matches_base(type, BASE_RECORD)) {
         fatal_token(token, "Cannot cast to or from a struct or union type.");
     }
@@ -555,8 +555,6 @@ node_t* node_cast(node_t* node, type_t* type, token_t* /*nullable*/ token) {
     // they're not complete.
 
     node_t* cast = node_new_token(NODE_CAST, token);
-    if (token)
-        token_deref(token);
     cast->type = type_ref(type);
     node_append(cast, node);
     return cast;

@@ -63,4 +63,8 @@ void vfatal_token(struct token_t* token, const char* format, va_list args);
 _Noreturn
 void fatal(const char* format, ...);
 
+// TODO these may be in libc in C2x, should move them there
+bool is_pow2(int n);
+// TODO fls() used in generate_ops
+
 #endif

@@ -100,11 +100,101 @@ static void generate_simple_arithmetic(node_t* node, int register_num,
     generate_register_pop(pushed);
 }
 
+/**
+ * Add or subtract a value from a pointer.
+ */
+static void generate_pointer_add_sub(node_t* node, int register_num) {
+
+    // Generate the sides
+    bool pushed = generate_register_push(&register_num);
+    generate_node(node->first_child, register_num);
+    generate_node(node->last_child, register_num + 1);
+
+    // One side is a pointer and the other side is an int offset. The offset
+    // needs to be shifted or multiplied by the pointer size.
+
+    // Figure out the size of the pointed-to type
+    bool is_left_ptr = type_is_indirection(node->first_child->type);
+    type_t* ptr_type = (is_left_ptr ? node->first_child : node->last_child)->type;
+    size_t size = type_size(ptr_type->ref);
+    int int_register = is_left_ptr ? register_num : (register_num + 1);
+
+    // Shift or multiply the offset
+    // TODO there's a GCC extension for a zero-size struct. should figure out if/how pointer arithmetic works with it
+    if (size != 1) {
+        if (is_pow2(size)) {
+            // TODO use fls() or clz() or similar function
+            int shift = 0;
+            while (size) {
+                size >>= 1;
+                ++shift;
+            }
+            block_add(current_block, SHL, int_register, int_register, shift - 1);
+        } else if (size < 0x80) {
+            block_add(current_block, MUL, int_register, int_register, size);
+        } else {
+            bool pushed = generate_register_push(&register_num);
+            block_add(current_block, IMW, ARGTYPE_NUMBER, register_num + 2, size);
+            block_add(current_block, MUL, int_register, int_register, register_num + 2);
+            generate_register_pop(pushed);
+        }
+    }
+
+    // Perform the addition or subtraction
+    block_add(current_block, node->kind == NODE_ADD ? ADD : SUB,
+            register_num, register_num, register_num + 1);
+    generate_register_pop(pushed);
+}
+
+static void generate_pointers_sub(node_t* node, int register_num) {
+
+    // Generate the sides
+    bool pushed = generate_register_push(&register_num);
+    generate_node(node->first_child, register_num);
+    generate_node(node->last_child, register_num + 1);
+
+    // Perform the subtraction
+    block_add(current_block, SUB, register_num, register_num, register_num + 1);
+
+    // Shift or divide the result
+    size_t size = type_size(node->first_child->type->ref);
+    if (size != 1) {
+        if (is_pow2(size)) {
+            // TODO use fls() or clz() or similar function
+            int shift = 0;
+            while (size) {
+                size >>= 1;
+                ++shift;
+            }
+            block_add(current_block, SHRS, register_num, register_num, shift - 1);
+        } else if (size < 0x80) {
+            block_add(current_block, DIVS, register_num, register_num, size);
+        } else {
+            block_add(current_block, IMW, ARGTYPE_NUMBER, register_num + 1, size);
+            block_add(current_block, DIVS, register_num, register_num, register_num + 1);
+        }
+    }
+
+    generate_register_pop(pushed);
+}
+
 void generate_add(node_t* node, int register_num) {
+    if (type_is_indirection(node->type)) {
+        generate_pointer_add_sub(node, register_num);
+        return;
+    }
     generate_simple_arithmetic(node, register_num, ADD, "__llong_add", "__float_add", "__double_add");
 }
 
 void generate_sub(node_t* node, int register_num) {
+    if (type_is_indirection(node->type)) {
+        generate_pointer_add_sub(node, register_num);
+        return;
+    }
+    if (type_is_indirection(node->first_child->type)) {
+        generate_pointers_sub(node, register_num);
+        return;
+    }
     generate_simple_arithmetic(node, register_num, SUB, "__llong_sub", "__float_sub", "__double_sub");
 }
 
