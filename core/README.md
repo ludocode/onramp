@@ -17,7 +17,9 @@ All core components are written in Onramp languages and are fully platform-indep
 | [`ar`](ar/)      | Archiver               | Combines `.oo` object files into `.oa` library    |
 | [`ld`](ld/)      | Linker                 | Links `.oo` and `.oa` into `.oe` executable       |
 | [`libc`](libc/)  | Standard library       | Provides C and POSIX library functions            |
-| [`sh`](sh/)      | Shell                  | Runs scripts                                      |
+| [`libo`](libo/)  | Onramp library         | Provides library functions for Onramp components  |
+| [`hex`](hex/)    | Hex Tool               | Converts Onramp Hexadecimal `.ohx` to raw bytes   |
+| [`sh`](sh/)      | Shell                  | Runs Onramp `.sh` scripts                         |
 | [`os`](os/)      | Operating System       | Implements a filesystem and syscalls              |
 
 
