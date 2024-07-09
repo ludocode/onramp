@@ -28,6 +28,7 @@
 #include "node.h"
 #include "block.h"
 #include "type.h"
+#include "token.h"
 
 /**
  * Generates an arithmetic or other binary calculation that must be done with a
@@ -37,7 +38,7 @@ static void generate_binary_function(node_t* node, int register_num, const char*
 
     // push registers
     for (int i = register_num; i > R0;) {
-        block_add(current_block, PUSH, --i);
+        block_add(current_block, node->token, PUSH, --i);
     }
 
     // for 64-bit math, arguments must point to storage space. make room for a
@@ -46,9 +47,9 @@ static void generate_binary_function(node_t* node, int register_num, const char*
     assert(size >= 4); // should already be promoted
     if (size != 4) {
         if (register_num != R0)
-            block_add(current_block, MOV, R0, register_num);
-        block_add(current_block, SUB, RSP, RSP, size);
-        block_add(current_block, MOV, R1, RSP);
+            block_add(current_block, node->token, MOV, R0, register_num);
+        block_add(current_block, node->token, SUB, RSP, RSP, size);
+        block_add(current_block, node->token, MOV, R1, RSP);
     }
 
     // generate arguments
@@ -56,20 +57,20 @@ static void generate_binary_function(node_t* node, int register_num, const char*
     generate_node(node->last_child, R1);
 
     // generate function call
-    block_add(current_block, CALL, '^', function_name);
+    block_add(current_block, node->token, CALL, '^', function_name);
 
     // move return value into output register
     if (register_num != R0)
-        block_add(current_block, MOV, register_num, R0);
+        block_add(current_block, node->token, MOV, register_num, R0);
 
     // pop registers
     for (int i = 0; i < register_num; ++i) {
-        block_add(current_block, PUSH, i);
+        block_add(current_block, node->token, PUSH, i);
     }
 
     // pop stack space used for temporary
     if (size != 4) {
-        block_add(current_block, ADD, RSP, RSP, 8);
+        block_add(current_block, node->token, ADD, RSP, RSP, 8);
     }
 }
 
@@ -94,7 +95,7 @@ static void generate_simple_arithmetic(node_t* node, int register_num,
     } else {
         generate_node(node->first_child, register_num);
         generate_node(node->last_child, register_num + 1);
-        block_add(current_block, opcode, register_num, register_num, register_num + 1);
+        block_add(current_block, node->token, opcode, register_num, register_num, register_num + 1);
     }
 
     generate_register_pop(pushed);
@@ -129,19 +130,19 @@ static void generate_pointer_add_sub(node_t* node, int register_num) {
                 size >>= 1;
                 ++shift;
             }
-            block_add(current_block, SHL, int_register, int_register, shift - 1);
+            block_add(current_block, node->token, SHL, int_register, int_register, shift - 1);
         } else if (size < 0x80) {
-            block_add(current_block, MUL, int_register, int_register, size);
+            block_add(current_block, node->token, MUL, int_register, int_register, size);
         } else {
             bool pushed = generate_register_push(&register_num);
-            block_add(current_block, IMW, ARGTYPE_NUMBER, register_num + 2, size);
-            block_add(current_block, MUL, int_register, int_register, register_num + 2);
+            block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num + 2, size);
+            block_add(current_block, node->token, MUL, int_register, int_register, register_num + 2);
             generate_register_pop(pushed);
         }
     }
 
     // Perform the addition or subtraction
-    block_add(current_block, node->kind == NODE_ADD ? ADD : SUB,
+    block_add(current_block, node->token, node->kind == NODE_ADD ? ADD : SUB,
             register_num, register_num, register_num + 1);
     generate_register_pop(pushed);
 }
@@ -154,7 +155,7 @@ static void generate_pointers_sub(node_t* node, int register_num) {
     generate_node(node->last_child, register_num + 1);
 
     // Perform the subtraction
-    block_add(current_block, SUB, register_num, register_num, register_num + 1);
+    block_add(current_block, node->token, SUB, register_num, register_num, register_num + 1);
 
     // Shift or divide the result
     size_t size = type_size(node->first_child->type->ref);
@@ -166,12 +167,12 @@ static void generate_pointers_sub(node_t* node, int register_num) {
                 size >>= 1;
                 ++shift;
             }
-            block_add(current_block, SHRS, register_num, register_num, shift - 1);
+            block_add(current_block, node->token, SHRS, register_num, register_num, shift - 1);
         } else if (size < 0x80) {
-            block_add(current_block, DIVS, register_num, register_num, size);
+            block_add(current_block, node->token, DIVS, register_num, register_num, size);
         } else {
-            block_add(current_block, IMW, ARGTYPE_NUMBER, register_num + 1, size);
-            block_add(current_block, DIVS, register_num, register_num, register_num + 1);
+            block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num + 1, size);
+            block_add(current_block, node->token, DIVS, register_num, register_num, register_num + 1);
         }
     }
 
@@ -241,7 +242,7 @@ void generate_bit_not(node_t* node, int register_num) {
     if (type_size(node->type) > 4) {
         fatal("TODO bit not llong");
     } else {
-        block_add(current_block, NOT, register_num, register_num);
+        block_add(current_block, node->token, NOT, register_num, register_num);
     }
 }
 
@@ -250,7 +251,7 @@ void generate_log_not(node_t* node, int register_num) {
         // TODO
         fatal("TODO log not llong");
     }
-    block_add(current_block, ISZ, register_num, register_num);
+    block_add(current_block, node->token, ISZ, register_num, register_num);
 }
 
 /**
@@ -272,7 +273,7 @@ static void generate_ordering(node_t* node, int register_num) {
     } else {
         generate_node(node->first_child, register_num);
         generate_node(node->last_child, register_num + 1);
-        block_add(current_block,
+        block_add(current_block, node->token,
                 type_matches_base(type, BASE_SIGNED_INT) ? CMPS : CMPU,
                 register_num, register_num, register_num + 1);
     }
@@ -282,28 +283,28 @@ static void generate_ordering(node_t* node, int register_num) {
 
 void generate_less(node_t* node, int register_num) {
     generate_ordering(node, register_num);
-    block_add(current_block, CMPU, register_num, register_num, -1);
-    block_add(current_block, ADD, register_num, register_num, 1);
-    block_add(current_block, AND, register_num, register_num, 1);
+    block_add(current_block, node->token, CMPU, register_num, register_num, -1);
+    block_add(current_block, node->token, ADD, register_num, register_num, 1);
+    block_add(current_block, node->token, AND, register_num, register_num, 1);
 }
 
 void generate_greater(node_t* node, int register_num) {
     generate_ordering(node, register_num);
-    block_add(current_block, CMPU, register_num, register_num, 1);
-    block_add(current_block, ADD, register_num, register_num, 1);
-    block_add(current_block, AND, register_num, register_num, 1);
+    block_add(current_block, node->token, CMPU, register_num, register_num, 1);
+    block_add(current_block, node->token, ADD, register_num, register_num, 1);
+    block_add(current_block, node->token, AND, register_num, register_num, 1);
 }
 
 void generate_less_or_equal(node_t* node, int register_num) {
     generate_ordering(node, register_num);
-    block_add(current_block, CMPU, register_num, register_num, 1);
-    block_add(current_block, AND, register_num, register_num, 1);
+    block_add(current_block, node->token, CMPU, register_num, register_num, 1);
+    block_add(current_block, node->token, AND, register_num, register_num, 1);
 }
 
 void generate_greater_or_equal(node_t* node, int register_num) {
     generate_ordering(node, register_num);
-    block_add(current_block, CMPU, register_num, register_num, -1);
-    block_add(current_block, AND, register_num, register_num, 1);
+    block_add(current_block, node->token, CMPU, register_num, register_num, -1);
+    block_add(current_block, node->token, AND, register_num, register_num, 1);
 }
 
 /**
@@ -319,7 +320,7 @@ static void generate_equality(node_t* node, int register_num) {
     } else {
         generate_node(node->first_child, register_num);
         generate_node(node->last_child, register_num + 1);
-        block_add(current_block, SUB, register_num, register_num, register_num + 1);
+        block_add(current_block, node->token, SUB, register_num, register_num, register_num + 1);
     }
 
     generate_register_pop(pushed);
@@ -327,27 +328,27 @@ static void generate_equality(node_t* node, int register_num) {
 
 void generate_equal(node_t* node, int register_num) {
     generate_equality(node, register_num);
-    block_add(current_block, CMPU, register_num, register_num, 0);
-    block_add(current_block, ADD, register_num, register_num, 1);
-    block_add(current_block, AND, register_num, register_num, 1);
+    block_add(current_block, node->token, CMPU, register_num, register_num, 0);
+    block_add(current_block, node->token, ADD, register_num, register_num, 1);
+    block_add(current_block, node->token, AND, register_num, register_num, 1);
 }
 
 void generate_not_equal(node_t* node, int register_num) {
     generate_equality(node, register_num);
-    block_add(current_block, CMPU, register_num, register_num, 0);
-    block_add(current_block, AND, register_num, register_num, 1);
+    block_add(current_block, node->token, CMPU, register_num, register_num, 0);
+    block_add(current_block, node->token, AND, register_num, register_num, 1);
 }
 
-void generate_store(type_t* type, int register_location, int register_value) {
+void generate_store(token_t* token, type_t* type, int register_location, int register_value) {
     switch (type_size(type)) {
         case 1:
-            block_add(current_block, STB, register_value, 0, register_location);
+            block_add(current_block, token, STB, register_value, 0, register_location);
             break;
         case 2:
-            block_add(current_block, STS, register_value, 0, register_location);
+            block_add(current_block, token, STS, register_value, 0, register_location);
             break;
         case 4:
-            block_add(current_block, STW, register_value, 0, register_location);
+            block_add(current_block, token, STW, register_value, 0, register_location);
             break;
             // fallthrough
         default:
@@ -363,7 +364,7 @@ void generate_assign(node_t* node, int register_num) {
 
     generate_node(node->last_child, register_num);
     generate_location(node->first_child, register_num + 1);
-    generate_store(node->type, register_num + 1, register_num);
+    generate_store(node->token, node->type, register_num + 1, register_num);
 
     generate_register_pop(pushed);
 }

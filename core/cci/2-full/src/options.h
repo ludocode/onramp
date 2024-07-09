@@ -29,6 +29,7 @@
 
 struct token_t;
 
+extern bool option_debug_info;
 extern bool optimization;
 
 extern int dump_ast;

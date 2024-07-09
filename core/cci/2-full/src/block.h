@@ -31,6 +31,8 @@
 
 #include "instruction.h"
 
+struct token_t;
+
 /**
  * A basic block of assembly instructions.
  */
@@ -58,18 +60,18 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
 /**
  * Appends a new instruction to the end of the block.
  */
-void block_add(block_t* block, opcode_t opcode, ...);
+void block_add(block_t* block, struct token_t* token, opcode_t opcode, ...);
 
 /**
  * Emits instructions to subtract a value from the stack pointer, using r9 as
  * temporary storage if needed.
  */
-void block_sub_rsp_r9(block_t* block, size_t offset);
+void block_sub_rsp_r9(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
 
 /**
  * Emits instructions to add a value from the stack pointer, using r9 as
  * temporary storage if needed.
  */
-void block_add_rsp_r9(block_t* block, size_t offset);
+void block_add_rsp_r9(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
 
 #endif

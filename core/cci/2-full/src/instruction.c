@@ -29,6 +29,7 @@
 #include "libo-error.h"
 #include "emit.h"
 #include "common.h"
+#include "token.h"
 
 static const char* opcode_to_string(opcode_t opcode) {
     switch (opcode) {
@@ -98,9 +99,25 @@ static const char* opcode_to_string(opcode_t opcode) {
     fatal("Internal error: no such opcode: %i", (int)opcode);
 }
 
-void instruction_vset(instruction_t* instruction, opcode_t opcode, va_list args) {
-    instruction->opcode = opcode;
+void instruction_init(instruction_t* instruction) {
+    memset(instruction, 0, sizeof(*instruction));
+}
 
+void instruction_destroy(instruction_t* instruction) {
+    if (instruction->token)
+        token_deref(instruction->token);
+}
+
+void instruction_vset(instruction_t* instruction, token_t* token,
+        opcode_t opcode, va_list args)
+{
+    if (token)
+        token_ref(token);
+    if (instruction->token)
+        token_deref(instruction->token);
+    instruction->token = token;
+
+    instruction->opcode = opcode;
     switch (opcode) {
         case NOP:
             break;
@@ -212,14 +229,17 @@ void instruction_vset(instruction_t* instruction, opcode_t opcode, va_list args)
     }
 }
 
-void instruction_set(instruction_t* instruction, opcode_t opcode, ...) {
+void instruction_set(instruction_t* instruction, token_t* token, opcode_t opcode, ...) {
     va_list args;
     va_start(args, opcode);
-    instruction_vset(instruction, opcode, args);
+    instruction_vset(instruction, token, opcode, args);
     va_end(args);
 }
 
 void instruction_emit(instruction_t* instruction) {
+    if (instruction->token) {
+        // TODO emit debug info
+    }
     if (instruction->opcode == NOP)
         return;
 

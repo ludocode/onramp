@@ -46,7 +46,13 @@ token_t* token_new(
     token->prefix = prefix;
     token->filename = string_ref(filename);
     token->line = line;
-    token->source = source ? token_ref(source) : NULL;
+    if (source) {
+        token->source = token_ref(source);
+        token->depth = source->depth + 1;
+    } else {
+        token->source = NULL;
+        token->depth = 0;
+    }
     //printf("new token: %s\n", value->bytes);
     return token;
 }

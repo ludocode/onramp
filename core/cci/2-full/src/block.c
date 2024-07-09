@@ -28,6 +28,7 @@
 
 #include "emit.h"
 #include "common.h"
+#include "token.h"
 
 #define BLOCK_INSTRUCTIONS_MIN 8
 
@@ -42,11 +43,13 @@ block_t* block_new(int label) {
 }
 
 void block_delete(block_t* block) {
+    for (size_t i = 0; i < block->instructions_count; ++i)
+        instruction_destroy(&block->instructions[i]);
     free(block->instructions);
     free(block);
 }
 
-void block_add(block_t* block, opcode_t opcode, ...) {
+void block_add(block_t* block, token_t* token, opcode_t opcode, ...) {
     if (block->instructions_count == block->instructions_capacity) {
         // grow
         size_t new_capacity = block->instructions_capacity * 2;
@@ -63,30 +66,32 @@ void block_add(block_t* block, opcode_t opcode, ...) {
         }
     }
 
+    instruction_t* instruction = block->instructions + block->instructions_count++;
     va_list args;
     va_start(args, opcode);
-    instruction_vset(block->instructions + block->instructions_count++, opcode, args);
+    instruction_init(instruction);
+    instruction_vset(instruction, token, opcode, args);
     va_end(args);
 }
 
-void block_sub_rsp_r9(block_t* block, size_t offset) {
+void block_sub_rsp_r9(block_t* block, token_t* token, size_t offset) {
     if (offset == 0)
         return;
     if (offset > 0x7F) {
-        block_add(block, IMW, ARGTYPE_NUMBER, R9, (int)offset);
-        block_add(block, SUB, RSP, RSP, R9);
+        block_add(block, token, IMW, ARGTYPE_NUMBER, R9, (int)offset);
+        block_add(block, token, SUB, RSP, RSP, R9);
     } else {
-        block_add(block, SUB, RSP, RSP, (int)offset);
+        block_add(block, token, SUB, RSP, RSP, (int)offset);
     }
 }
 
-void block_add_rsp_r9(block_t* block, size_t offset) {
+void block_add_rsp_r9(block_t* block, token_t* token, size_t offset) {
     if (offset == 0)
         return;
     if (offset > 0x7F) {
-        block_add(block, IMW, ARGTYPE_NUMBER, R9, (int)offset);
-        block_add(block, ADD, RSP, RSP, R9);
+        block_add(block, token, IMW, ARGTYPE_NUMBER, R9, (int)offset);
+        block_add(block, token, ADD, RSP, RSP, R9);
     } else {
-        block_add(block, ADD, RSP, RSP, (int)offset);
+        block_add(block, token, ADD, RSP, RSP, (int)offset);
     }
 }

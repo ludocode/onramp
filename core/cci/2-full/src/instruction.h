@@ -28,6 +28,8 @@
 #include <stdint.h>
 #include <stdarg.h>
 
+struct token_t;
+
 typedef enum opcode_t {
 
     // "virtual" opcodes, i.e. not real opcodes
@@ -125,8 +127,14 @@ typedef enum instruction_argtypes_t {
  *
  * An instruction consists of an opcode and up to three arguments of various
  * types. The fields in use depend on the opcode.
+ *
+ * The instruction contains a strong reference to the nearest token from which
+ * the instruction was generated (typically the token of the tree node, for
+ * example the `+` for an ADD instruction.) This is used to generate debug
+ * info.
  */
 typedef struct instruction_t {
+    struct token_t* /*nullable*/ token;
     opcode_t opcode;
 
     instruction_argtypes_t argtypes;
@@ -145,12 +153,17 @@ typedef struct instruction_t {
     };
 } instruction_t;
 
+void instruction_init(instruction_t* instruction);
+void instruction_destroy(instruction_t* instruction);
+
 /**
  * Configures an instruction.
  */
-void instruction_set(instruction_t* instruction, opcode_t opcode, ...);
+void instruction_set(instruction_t* instruction, struct token_t* /*nullable*/ token,
+        opcode_t opcode, ...);
 
-void instruction_vset(instruction_t* instruction, opcode_t opcode, va_list args);
+void instruction_vset(instruction_t* instruction, struct token_t* /*nullable*/ token,
+        opcode_t opcode, va_list args);
 
 void instruction_emit(instruction_t* instruction);
 

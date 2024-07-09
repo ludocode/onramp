@@ -195,6 +195,7 @@ static warning_level_t* warning_levels;
 //static size_t warning_levels_stack_count;
 //static size_t warning_levels_stack_capacity;
 
+bool option_debug_info;
 bool optimization;
 int dump_ast;
 static bool werror;
