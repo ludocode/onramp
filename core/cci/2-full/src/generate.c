@@ -502,7 +502,8 @@ static void generate_call(node_t* call, int register_num) {
 
     // move the return value where it goes (this is necessary for both direct
     // and indirect)
-    block_add(current_block, call->token, MOV, register_num, R0);
+    if (register_num != R0)
+        block_add(current_block, call->token, MOV, register_num, R0);
 
     // pop all argument stack usage
     block_add_rsp_r9(current_block, call->token, stack_space);

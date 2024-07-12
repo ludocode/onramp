@@ -118,7 +118,7 @@ static void generate_pointer_add_sub(node_t* node, int register_num) {
     bool is_left_ptr = type_is_indirection(node->first_child->type);
     type_t* ptr_type = (is_left_ptr ? node->first_child : node->last_child)->type;
     size_t size = type_size(ptr_type->ref);
-    int int_register = is_left_ptr ? register_num : (register_num + 1);
+    int int_register = is_left_ptr ? (register_num + 1) : register_num;
 
     // Shift or multiply the offset
     // TODO there's a GCC extension for a zero-size struct. should figure out if/how pointer arithmetic works with it
