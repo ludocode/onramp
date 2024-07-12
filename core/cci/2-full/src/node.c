@@ -141,6 +141,9 @@ void node_delete(node_t* node) {
     if (node->token) {
         token_deref(node->token);
     }
+    if (node->end_token) {
+        token_deref(node->end_token);
+    }
     if (node->type) {
         type_deref(node->type);
     }

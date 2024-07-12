@@ -263,9 +263,10 @@ node_t* parse_compound_statement(void) {
     scope_push();
     node_t* node = node_new_lexer(NODE_SEQUENCE);
     node->type = type_new_base(BASE_VOID);
-    while (!lexer_accept(STR_BRACE_CLOSE)) {
+    while (!lexer_is(STR_BRACE_CLOSE)) {
         parse_statement(node, true);
     }
+    node->end_token = lexer_take();
     scope_pop();
     return node;
 }

@@ -147,6 +147,7 @@ typedef struct node_t {
 
     node_kind_t kind;
     struct token_t* /*nullable*/ token;
+    struct token_t* /*nullable*/ end_token; // e.g. closing brace of block
     //string_t* operator; // Operator for certain binary or unary expressions TODO is this useful? just put it in kind?
     struct type_t* type; // The type of this expression or `void`.
 

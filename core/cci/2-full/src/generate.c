@@ -407,16 +407,14 @@ void generate_function(function_t* function) {
 
     // If the last block doesn't end in 'ret', we add a return. If the function
     // is main, we have to return 0.
-    // TODO we're passing NULL as location here. It would be nice to use the
-    // closing brace of the function but we don't currently store it in the
-    // sequence node.
     size_t count = block_count(current_block);
     if (count == 0 || block_at(current_block, count - 1)->opcode != RET) {
+        token_t* end_token = root->first_child->end_token;
         if (string_equal_cstr(function->asm_name, "main")) {
-            block_add(current_block, NULL, ZERO, R0);
+            block_add(current_block, end_token, ZERO, R0);
         }
-        block_add(current_block, NULL, LEAVE);
-        block_add(current_block, NULL, RET);
+        block_add(current_block, end_token, LEAVE);
+        block_add(current_block, end_token, RET);
     }
 }
 
