@@ -358,6 +358,7 @@ static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
 
 void generate_function(function_t* function) {
     node_t* root = function->root;
+    emit_source_location(root->token);
 
     if (dump_ast) {
         putchar('\n');
@@ -406,13 +407,16 @@ void generate_function(function_t* function) {
 
     // If the last block doesn't end in 'ret', we add a return. If the function
     // is main, we have to return 0.
+    // TODO we're passing NULL as location here. It would be nice to use the
+    // closing brace of the function but we don't currently store it in the
+    // sequence node.
     size_t count = block_count(current_block);
     if (count == 0 || block_at(current_block, count - 1)->opcode != RET) {
         if (string_equal_cstr(function->asm_name, "main")) {
-            block_add(current_block, root->token, ZERO, R0);
+            block_add(current_block, NULL, ZERO, R0);
         }
-        block_add(current_block, root->token, LEAVE);
-        block_add(current_block, root->token, RET);
+        block_add(current_block, NULL, LEAVE);
+        block_add(current_block, NULL, RET);
     }
 }
 
@@ -876,6 +880,7 @@ void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable
 
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
 
+    emit_source_location(symbol->token);
     emit_char(symbol->is_static ? '@' : '=');
     emit_string(symbol->asm_name);
 

@@ -30,6 +30,7 @@
 #include "emit.h"
 #include "common.h"
 #include "token.h"
+#include "options.h"
 
 static const char* opcode_to_string(opcode_t opcode) {
     switch (opcode) {
@@ -111,6 +112,9 @@ void instruction_destroy(instruction_t* instruction) {
 void instruction_vset(instruction_t* instruction, token_t* token,
         opcode_t opcode, va_list args)
 {
+    // preserve the given token only if `-g` was specified
+    if (!option_debug_info)
+        token = NULL;
     if (token)
         token_ref(token);
     if (instruction->token)
@@ -237,17 +241,17 @@ void instruction_set(instruction_t* instruction, token_t* token, opcode_t opcode
 }
 
 void instruction_emit(instruction_t* instruction) {
-    if (instruction->token) {
-        // TODO emit debug info
-    }
     if (instruction->opcode == NOP)
         return;
+    if (instruction->token)
+        emit_source_location(instruction->token);
 
     emit_cstr(ASM_INDENT);
     emit_cstr(opcode_to_string(instruction->opcode));
-    
+
     switch (instruction->opcode) {
         case NOP:
+            fatal("Internal error, emit NOP unreachable");
             break;
 
         // three register or mix arguments

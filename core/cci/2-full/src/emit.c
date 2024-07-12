@@ -33,8 +33,10 @@
 #include "libo-error.h"
 #include "libo-util.h"
 #include "options.h"
+#include "token.h"
 
 static FILE* output_file;
+static token_t* current_location;
 
 void emit_init(const char* output_filename) {
     output_file = fopen(output_filename, "wb");
@@ -42,9 +44,12 @@ void emit_init(const char* output_filename) {
         fatal("ERROR: Failed to open output file.");
     }
     emit_cstr("#line manual\n");
+    emit_global_divider();
 }
 
 void emit_destroy(void) {
+    if (current_location)
+        token_deref(current_location);
     fclose(output_file);
 }
 
@@ -259,4 +264,35 @@ void emit_function(function_t* function) {
     }
 
     emit_global_divider();
+}
+
+static void emit_source_location_full(token_t* token) {
+    fprintf(output_file, "#line %i ", token->line);
+    emit_string_literal(string_cstr(token->filename));
+    emit_char('\n');
+}
+
+void emit_source_location(token_t* token) {
+    if (!option_debug_info)
+        return;
+
+    if (current_location == NULL) {
+        emit_source_location_full(token);
+        current_location = token_ref(token);
+        return;
+    }
+
+    if (!string_equal(token->filename, current_location->filename)) {
+        emit_source_location_full(token);
+    } else if (token->line == current_location->line) {
+        // nothing
+    } else if (token->line == current_location->line + 1) {
+        emit_cstr("#\n");
+    } else {
+        fprintf(output_file, "#line %i\n", token->line);
+    }
+
+    token_ref(token);
+    token_deref(current_location);
+    current_location = token;
 }

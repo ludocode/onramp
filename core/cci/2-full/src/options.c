@@ -443,6 +443,10 @@ static bool options_parse_misc(const char* arg) {
         werror = false;
         return true;
     }
+    if (0 == strcmp(arg, "-g")) { // TODO support numbers after g, at least 0-3
+        option_debug_info = true;
+        return true;
+    }
     return false;
 }
 

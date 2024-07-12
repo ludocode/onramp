@@ -63,7 +63,6 @@ typedef struct token_t {
     string_t* filename;
     int line;
     struct token_t* source;
-    int depth;
 } token_t;
 
 /**

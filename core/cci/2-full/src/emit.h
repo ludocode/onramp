@@ -30,6 +30,7 @@
 #include "libo-string.h"
 
 struct function_t;
+struct token_t;
 
 void emit_init(const char* output_filename);
 void emit_destroy(void);
@@ -53,5 +54,11 @@ void emit_arg_invocation(char sigil, const char* prefix);
 void emit_label_def(const char* prefix, int number);
 
 void emit_function(struct function_t* function);
+
+/**
+ * Emits `#line` directives as needed to set the source location to that of the
+ * given token.
+ */
+void emit_source_location(struct token_t* token);
 
 #endif

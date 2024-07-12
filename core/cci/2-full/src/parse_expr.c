@@ -202,6 +202,7 @@ static node_t* parse_string(void) {
     // identical string literals and we don't bother to optimize away string
     // literals that are only used in e.g. sizeof. We'll let the linker's
     // garbage collection clean them up.
+    emit_source_location(lexer_token);
     emit_char('@');
     emit_cstr(STRING_LABEL_PREFIX);
     emit_hex_number(label);
@@ -215,6 +216,7 @@ static node_t* parse_string(void) {
             fatal_token(lexer_token, "TODO string prefixes not yet implemented");
         }
         length += string_length(lexer_token->value);
+        emit_source_location(lexer_token);
         emit_cstr("  ");
         emit_string_literal(string_cstr(lexer_token->value));
         emit_newline();
