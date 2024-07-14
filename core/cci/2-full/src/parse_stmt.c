@@ -64,8 +64,10 @@ static node_t* parse_return(void) {
 
         node_t* expression = parse_expression();
         if (!type_equal(expression->type, expected)) {
-            // need to insert a cast operator
-            fatal("TODO return type implicit cast");
+            // TODO for now we just insert a cast and let codegen fail if it's
+            // bad. Probably we should check here that the implicit cast is
+            // valid, at least for better error messages.
+            expression = node_cast(expression, expected, NULL);
         }
 
         node_return->type = type_ref(expression->type);
