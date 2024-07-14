@@ -232,8 +232,78 @@ bool type_matches_base(type_t* type, base_t base) {
 }
 
 bool type_is_arithmetic(type_t* type) {
-    // TODO
-    return true;
+    if (!type_is_base(type))
+        return false;
+    switch (type->base) {
+        case BASE_BOOL:
+        case BASE_CHAR:
+        case BASE_SIGNED_CHAR:
+        case BASE_UNSIGNED_CHAR:
+        case BASE_SIGNED_SHORT:
+        case BASE_UNSIGNED_SHORT:
+        case BASE_SIGNED_INT:
+        case BASE_UNSIGNED_INT:
+        case BASE_SIGNED_LONG:
+        case BASE_UNSIGNED_LONG:
+        case BASE_FLOAT:
+        //case BASE_ENUM: // TODO is enum considered arithmetic? or does it get implicitly cast to int first?
+        case BASE_SIGNED_LONG_LONG:
+        case BASE_UNSIGNED_LONG_LONG:
+        case BASE_DOUBLE:
+        case BASE_LONG_DOUBLE:
+            return true;
+        default: break;
+    }
+    return false;
+}
+
+bool type_is_integer(type_t* type) {
+    if (!type_is_base(type))
+        return false;
+    switch (type->base) {
+        case BASE_BOOL:
+        case BASE_CHAR:
+        case BASE_SIGNED_CHAR:
+        case BASE_UNSIGNED_CHAR:
+        case BASE_SIGNED_SHORT:
+        case BASE_UNSIGNED_SHORT:
+        case BASE_SIGNED_INT:
+        case BASE_UNSIGNED_INT:
+        case BASE_SIGNED_LONG:
+        case BASE_UNSIGNED_LONG:
+        //case BASE_ENUM: // TODO as above, is enum considered integer? if yes, then it should also be considered arithmetic
+        case BASE_SIGNED_LONG_LONG:
+        case BASE_UNSIGNED_LONG_LONG:
+            return true;
+        default: break;
+    }
+    return false;
+}
+
+int type_integer_rank(type_t* type) {
+    if (!type_is_base(type))
+        fatal("Internal error: non-base type does not have an integer rank.");
+    switch (type->base) {
+        case BASE_BOOL:
+            return 1;
+        case BASE_CHAR:
+        case BASE_SIGNED_CHAR:
+        case BASE_UNSIGNED_CHAR:
+            return 2;
+        case BASE_SIGNED_SHORT:
+        case BASE_UNSIGNED_SHORT:
+            return 3;
+        case BASE_SIGNED_INT:
+        case BASE_UNSIGNED_INT:
+        //case BASE_ENUM: // TODO as above, is enum considered integer? if yes, then it should also be considered arithmetic
+            return 4;
+        case BASE_SIGNED_LONG:
+        case BASE_UNSIGNED_LONG:
+        case BASE_SIGNED_LONG_LONG:
+            return 5;
+        default: break;
+    }
+    fatal("Internal error: non-integer type does not have an integer rank.");
 }
 
 size_t base_size(base_t base) {
@@ -265,6 +335,25 @@ size_t base_size(base_t base) {
             break;
     }
     fatal("Internal error: end of base_size() unreachable.");
+}
+
+base_t base_unsigned_of_signed(base_t base) {
+    switch (base) {
+        case BASE_CHAR:
+        case BASE_SIGNED_CHAR:
+            return BASE_UNSIGNED_CHAR;
+        case BASE_SIGNED_SHORT:
+            return BASE_UNSIGNED_SHORT;
+        case BASE_SIGNED_INT:
+            return BASE_UNSIGNED_INT;
+        case BASE_SIGNED_LONG:
+            return BASE_UNSIGNED_LONG;
+        case BASE_SIGNED_LONG_LONG:
+            return BASE_UNSIGNED_LONG_LONG;
+        default:
+            break;
+    }
+    fatal("Internal error: Expected a signed integer base to convert to unsigned.");
 }
 
 size_t type_size(type_t* type) {

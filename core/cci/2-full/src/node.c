@@ -562,3 +562,10 @@ node_t* node_cast(node_t* node, type_t* type, token_t* /*nullable*/ token) {
     node_append(cast, node);
     return cast;
 }
+
+node_t* node_cast_base(node_t* node, base_t base, token_t* /*nullable*/ token) {
+    type_t* type = type_new_base(base);
+    node_t* ret = node_cast(node, type, token);
+    type_deref(type);
+    return ret;
+}

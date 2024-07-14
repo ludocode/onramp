@@ -509,12 +509,104 @@ static node_t* parse_unary_expression(void) {
 }
 
 static void parse_usual_arithmetic_conversions(node_t** left, node_t** right) {
+
+    // Usual arithmetic conversions always start with promotion.
     *left = node_promote(*left);
     *right = node_promote(*right);
 
-    if (!type_equal((*left)->type, (*right)->type)) {
-        fatal_token((*left)->token, "TODO usual arithmetic conversions");
+    // We don't have to do anything if the types match.
+    type_t* left_type = (*left)->type;
+    type_t* right_type = (*right)->type;
+    if (type_equal(left_type, right_type))
+        return;
+
+    // We can assume both types are arithmetic types at least. This should have
+    // been checked before calling this.
+    assert(type_is_arithmetic(left_type));
+    assert(type_is_arithmetic(right_type));
+
+    // The rest of this basically follows 6.3.1.8 of the C11 spec.
+
+    // If either type is floating point, convert the other to it, in order of
+    // rank.
+    if (type_matches_base(left_type, BASE_LONG_DOUBLE)) {
+        *right = node_cast(*right, left_type, NULL);
+        return;
     }
+    if (type_matches_base(right_type, BASE_LONG_DOUBLE)) {
+        *left = node_cast(*left, right_type, NULL);
+        return;
+    }
+    if (type_matches_base(left_type, BASE_DOUBLE)) {
+        *right = node_cast(*right, left_type, NULL);
+        return;
+    }
+    if (type_matches_base(right_type, BASE_DOUBLE)) {
+        *left = node_cast(*left, right_type, NULL);
+        return;
+    }
+    if (type_matches_base(left_type, BASE_FLOAT)) {
+        *right = node_cast(*right, left_type, NULL);
+        return;
+    }
+    if (type_matches_base(right_type, BASE_FLOAT)) {
+        *left = node_cast(*left, right_type, NULL);
+        return;
+    }
+
+    // Both types are integers. We'll need to compare signedness and rank.
+    bool left_signed = type_is_signed_integer(left_type);
+    bool right_signed = type_is_signed_integer(right_type);
+    int left_rank = type_integer_rank(left_type);
+    int right_rank = type_integer_rank(right_type);
+
+    // If both are signed or both are unsigned, cast the lesser rank type to
+    // that of the greater rank.
+    if (left_signed == right_signed) {
+        if (left_rank > right_rank) {
+            *right = node_cast(*right, left_type, NULL);
+            return;
+        } else {
+            *left = node_cast(*left, right_type, NULL);
+            return;
+        }
+    }
+
+    // If the signed type has lower rank than the unsigned type, convert to
+    // unsigned.
+    if (left_signed) {
+        if (left_rank < right_rank) {
+            *left = node_cast(*left, right_type, NULL);
+            return;
+        }
+    } else {
+        if (right_rank < left_rank) {
+            *right = node_cast(*right, left_type, NULL);
+            return;
+        }
+    }
+
+    // If the signed type can represent all values of the unsigned type (i.e.
+    // it is strictly larger), convert to signed.
+    size_t left_size = type_size(left_type);
+    size_t right_size = type_size(right_type);
+    if (left_signed) {
+        if (left_size > right_size) {
+            *right = node_cast(*right, left_type, NULL);
+            return;
+        }
+    } else {
+        if (right_size > left_size) {
+            *left = node_cast(*left, right_type, NULL);
+            return;
+        }
+    }
+
+    // Otherwise, cast both to the unsigned type that corresponds to that of
+    // the signed type.
+    base_t base = base_unsigned_of_signed((left_signed ? left_type : right_type)->base);
+    *left = node_cast_base(*left, base, NULL);
+    *right = node_cast_base(*right, base, NULL);
 }
 
 static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {

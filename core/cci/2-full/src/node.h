@@ -27,6 +27,7 @@
 
 #include "libo-string.h"
 #include "libo-vector.h"
+#include "type.h"
 
 struct type_t;
 struct token_t;
@@ -269,5 +270,10 @@ node_t* node_make_predicate(node_t* node);
  * Inserts a cast for the given node to the given type if necessary.
  */
 node_t* node_cast(node_t* node, struct type_t* type, struct token_t* /*nullable*/ token);
+
+/**
+ * Inserts a cast for the given node to the given base type if necessary.
+ */
+node_t* node_cast_base(node_t* node, base_t base, struct token_t* /*nullable*/ token);
 
 #endif

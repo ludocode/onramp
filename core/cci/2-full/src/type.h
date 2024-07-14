@@ -79,6 +79,11 @@ typedef enum base_t {
 size_t base_size(base_t);
 
 /**
+ * Converts a signed base to its corresponding unsigned base.
+ */
+base_t base_unsigned_of_signed(base_t);
+
+/**
  * A `type_t` describes a type.
  *
  * One `type_t` struct encodes one element of a type. It can be a base type
@@ -160,6 +165,10 @@ static inline bool type_is_declarator(type_t* type) {
 bool type_matches_base(type_t* type, base_t base);
 
 bool type_is_arithmetic(type_t* type);
+
+bool type_is_integer(type_t* type);
+
+int type_integer_rank(type_t* type);
 
 /**
  * The size of the given type, as in sizeof().
