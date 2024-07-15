@@ -709,30 +709,28 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type, t
 /**
  * Parses an initializer for the given type.
  *
- * The initializer can be an expression, a string, or an initializer list.
+ * The initializer can be an expression or an initializer list.
+ *
+ * In the case that the initializer is a string or character literal, we just
+ * parse it as an expression. The reason for this is because GCC allows
+ * parenthesized string literal initializers for char arrays as an extension
+ * (though it warns about it under -Wpedantic.) For example:
+ *
+ *     char x[] = ("foo");
+ *
+ * This is not legal C but GCC accepts it so we do too. We do type checking on
+ * the initializer after parsing.
  */
 static node_t* parse_initializer(type_t* type) {
     if (lexer_accept(STR_BRACE_OPEN)) {
         fatal("TODO parse initializer list");
     }
 
-    if (lexer_token->type == token_type_string) {
-        fatal("TODO parse string literal initializer");
-    }
-
-    if (lexer_token->type == token_type_character) {
-        fatal("TODO parse char literal initializer");
-    }
-
     node_t* node = parse_expression();
     if (!type_equal(type, node->type)) {
-        // TODO check that types compatible, etc. We need a general purpose
-        // "insert cast" function somewhere that handles all these cases (both
-        // implicit and explicit) and does the appropriate checks
-        node_t* cast = node_new(NODE_CAST);
-        cast->type = type_ref(type);
-        node_append(cast, node);
-        node = cast;
+        // TODO we could use some checks to make sure the conversion is valid.
+        // For now we just insert the implicit cast.
+        node = node_cast(node, type, NULL);
     }
     return node;
 }
