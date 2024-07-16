@@ -384,6 +384,24 @@ size_t type_size(type_t* type) {
     fatal("Internal error: end of type_size() unreachable.");
 }
 
+size_t type_alignment(type_t* type) {
+    if (type_is_array(type)) {
+        return type_alignment(type_pointed_to(type));
+    }
+    size_t size = type_size(type);
+
+    // TODO we'll need to be a bit smarter about this since users can specify
+    // greater alignment. Probably the simplest thing is if we have a manual
+    // alignment, use that; otherwise if we're a record, use its alignment;
+    // otherwise use the alignment of the integer/float (where this basically
+    // works.) Not bothering with any of this now.
+    if (size > 4)
+        return 4;
+
+    assert(size != 3); // internal error, nothing has a size of 3 (except for an array, checked above)
+    return size;
+}
+
 bool type_is_int(type_t* type) {
     if (type->is_declarator)
         return false;

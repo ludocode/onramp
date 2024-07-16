@@ -140,7 +140,25 @@ static void record_add_anonymous_to_table(record_t* record, member_t* member, un
     }
 }
 
-void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* type, unsigned offset) {
+void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* type) {
+
+    // determine offset of member
+    int offset;
+    if (record->is_struct && record->member_list) {
+        member_t* last = record->member_list;
+        offset = last->offset + type_size(last->type);
+    } else {
+        offset = 0;
+    }
+
+    // update alignment
+    size_t alignment = type_alignment(type);
+    if (record->alignment < alignment)
+        record->alignment = alignment;
+
+    // align member
+    offset = (offset + alignment - 1) & ~(alignment - 1);
+    //printf("assigned offset %u to member %s\n", offset, token ? token->value->bytes : "<anonymous>");
 
     // create member
     member_t* member = member_new(token, type, offset);
@@ -155,10 +173,12 @@ void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* ty
     }
 
     // update size
-    unsigned end = offset + type_size(type);
-    if (end > record->size) {
+    size_t extent = type_size(type);
+    if (extent < alignment)
+        extent = alignment;
+    unsigned end = offset + extent;
+    if (end > record->size)
         record->size = end;
-    }
 }
 
 type_t* record_find(record_t* record, const string_t* name, unsigned* out_offset) {

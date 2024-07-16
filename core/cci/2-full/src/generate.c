@@ -319,6 +319,7 @@ static int generate_parameter_offsets(function_t* function) {
             frame_size += 4;
             param->symbol->offset = -frame_size;
         }
+        //printf("assigned offset %i to param %s of size %i\n", param->symbol->offset, param->symbol->name->bytes, (int)type_size(param->symbol->type));
     }
 
     return frame_size;
@@ -340,8 +341,8 @@ static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
                 offset &= ~3;
 
             offset -= size;
-            //printf("assigning offset %i to var %s\n", offset, child->symbol->name->bytes);
             child->symbol->offset = offset;
+            //printf("assigned offset %i to var %s of size %i\n", offset, child->symbol->name->bytes, (int)type_size(child->symbol->type));
             if (frame_size < -offset) {
                 frame_size = -offset;
             }

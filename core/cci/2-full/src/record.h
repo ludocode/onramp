@@ -40,7 +40,7 @@ typedef struct member_t {
     struct member_t* next;
     struct token_t* name; // null if anonymous
     struct type_t* type;
-    unsigned offset; // TODO this is probably useless, don't need this here
+    unsigned offset;
     unsigned bit_size;
 } member_t;
 
@@ -70,6 +70,7 @@ typedef struct record_t {
     table_t member_map;
     member_t* member_list;
     size_t size;
+    size_t alignment;
 } record_t;
 
 /**
@@ -111,8 +112,7 @@ size_t record_size(const record_t* record);
 /**
  * Adds a new member to the record.
  */
-void record_add(record_t* record, struct token_t* /*nullable*/ token,
-        struct type_t* type, unsigned offset);
+void record_add(record_t* record, struct token_t* /*nullable*/ token, struct type_t* type);
 
 /**
  * Finds the member and offset with the given name, returning NULL if the member

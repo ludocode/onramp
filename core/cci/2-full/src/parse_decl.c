@@ -250,8 +250,7 @@ static void parse_record_member(record_t* record) {
             }
         }
 
-        int offset = record->is_struct ? record_size(record) : 0;
-        record_add(record, name, type, offset);
+        record_add(record, name, type);
 
         if (name != NULL)
             token_deref(name);

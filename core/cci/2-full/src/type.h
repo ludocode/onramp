@@ -175,6 +175,8 @@ int type_integer_rank(type_t* type);
  */
 size_t type_size(type_t* type);
 
+size_t type_alignment(type_t* type);
+
 /**
  * Returns true if the type is signed or unsigned int.
  */

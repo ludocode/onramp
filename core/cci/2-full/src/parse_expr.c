@@ -620,6 +620,7 @@ static void parse_comparison_conversions(node_t* op, node_t** left, node_t** rig
 
     // If either side is a struct, the types must exactly match. Since we've
     // checked for a match above, it's an error.
+    // TODO we should also prevent ordering comparisons with struct/union values. For now code generation will fail on it.
     if (type_matches_base(left_type, BASE_RECORD) || type_matches_base(right_type, BASE_RECORD)) {
         fatal_token(op->token, "Cannot compare a struct or union with a value of a different type.");
     }
