@@ -315,8 +315,10 @@ static void generate_equality(node_t* node, int register_num) {
     bool pushed = generate_register_push(&register_num);
     type_t* type = node->type;
 
-    if (type_is_long_long(type) || type_matches_base(type, BASE_DOUBLE)) {
-        generate_binary_function(node, register_num, "__llong_double_neq");
+    if (type_is_long_long(type)) {
+        generate_binary_function(node, register_num, "__llong_neq");
+    } else if (type_matches_base(type, BASE_DOUBLE)) {
+        generate_binary_function(node, register_num, "__double_neq");
     } else {
         generate_node(node->first_child, register_num);
         generate_node(node->last_child, register_num + 1);

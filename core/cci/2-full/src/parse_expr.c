@@ -609,6 +609,36 @@ static void parse_usual_arithmetic_conversions(node_t** left, node_t** right) {
     *right = node_cast_base(*right, base, NULL);
 }
 
+static void parse_comparison_conversions(node_t* op, node_t** left, node_t** right) {
+
+    // If the types already match, we're done.
+    type_t* left_type = (*left)->type;
+    type_t* right_type = (*right)->type;
+    if (type_equal(left_type, right_type)) {
+        return;
+    }
+
+    // If either side is a struct, the types must exactly match. Since we've
+    // checked for a match above, it's an error.
+    if (type_matches_base(left_type, BASE_RECORD) || type_matches_base(right_type, BASE_RECORD)) {
+        fatal_token(op->token, "Cannot compare a struct or union with a value of a different type.");
+    }
+
+    // If either side is a pointer, the other side must be a compatible pointer
+    // type, or a void*, or a literal zero.
+    // TODO for now just cast to int, we'll skip type checking of pointer comparisons for simplicity
+    if (type_is_indirection(left_type)) {
+        *left = node_cast_base(*left, BASE_UNSIGNED_INT, NULL);
+    }
+    if (type_is_indirection(right_type)) {
+        *right = node_cast_base(*right, BASE_UNSIGNED_INT, NULL);
+    }
+
+    // Otherwise both sides must be arithmetic types. We do the usual
+    // arithmetic conversions.
+    parse_usual_arithmetic_conversions(left, right);
+}
+
 static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
     switch (op->kind) {
         case NODE_ADD:
@@ -682,6 +712,16 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
                 parse_usual_arithmetic_conversions(&left, &right);
                 op->type = type_ref(left->type);
             }
+            break;
+
+        case NODE_EQUAL:
+        case NODE_NOT_EQUAL:
+        case NODE_LESS:
+        case NODE_GREATER:
+        case NODE_LESS_OR_EQUAL:
+        case NODE_GREATER_OR_EQUAL:
+            op->type = type_new_base(BASE_SIGNED_INT);
+            parse_comparison_conversions(op, &left, &right);
             break;
 
         case NODE_SHL:
