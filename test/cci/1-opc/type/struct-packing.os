@@ -28,7 +28,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx1 
-  imw r0 1 
+  imw r0 2 
   leave 
   ret 
 :_Lx1 
@@ -45,7 +45,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx2 
-  imw r0 1 
+  imw r0 3 
   leave 
   ret 
 :_Lx2 
@@ -62,7 +62,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx3 
-  imw r0 1 
+  imw r0 4 
   leave 
   ret 
 :_Lx3 
@@ -79,7 +79,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx4 
-  imw r0 1 
+  imw r0 5 
   leave 
   ret 
 :_Lx4 
@@ -96,7 +96,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx5 
-  imw r0 1 
+  imw r0 6 
   leave 
   ret 
 :_Lx5 
@@ -113,7 +113,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx6 
-  imw r0 1 
+  imw r0 7 
   leave 
   ret 
 :_Lx6 
@@ -130,7 +130,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx7 
-  imw r0 1 
+  imw r0 8 
   leave 
   ret 
 :_Lx7 
@@ -147,7 +147,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx8 
-  imw r0 1 
+  imw r0 9 
   leave 
   ret 
 :_Lx8 
@@ -164,7 +164,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx9 
-  imw r0 1 
+  imw r0 10 
   leave 
   ret 
 :_Lx9 
@@ -181,7 +181,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxA 
-  imw r0 1 
+  imw r0 11 
   leave 
   ret 
 :_LxA 
@@ -198,7 +198,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxB 
-  imw r0 1 
+  imw r0 12 
   leave 
   ret 
 :_LxB 
@@ -215,7 +215,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxC 
-  imw r0 1 
+  imw r0 13 
   leave 
   ret 
 :_LxC 
@@ -232,7 +232,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxD 
-  imw r0 1 
+  imw r0 14 
   leave 
   ret 
 :_LxD 
@@ -249,7 +249,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxE 
-  imw r0 1 
+  imw r0 15 
   leave 
   ret 
 :_LxE 
@@ -266,7 +266,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_LxF 
-  imw r0 1 
+  imw r0 16 
   leave 
   ret 
 :_LxF 
@@ -283,7 +283,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx10 
-  imw r0 1 
+  imw r0 17 
   leave 
   ret 
 :_Lx10 
@@ -300,7 +300,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx11 
-  imw r0 1 
+  imw r0 18 
   leave 
   ret 
 :_Lx11 
@@ -317,7 +317,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx12 
-  imw r0 1 
+  imw r0 19 
   leave 
   ret 
 :_Lx12 
@@ -351,7 +351,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx13 
-  imw r0 1 
+  imw r0 20 
   leave 
   ret 
 :_Lx13 
@@ -369,7 +369,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx14 
-  imw r0 1 
+  imw r0 21 
   leave 
   ret 
 :_Lx14 
@@ -386,7 +386,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx15 
-  imw r0 1 
+  imw r0 22 
   leave 
   ret 
 :_Lx15 

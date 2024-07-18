@@ -77,38 +77,32 @@
 :_Lx4 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_Lx6 
 :_Lx3 
   imw r0 7 
@@ -121,38 +115,32 @@
 :_Lx6 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_Lx8 
 :_Lx7 
   imw r0 6 
@@ -165,38 +153,32 @@
 :_Lx8 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_LxA 
 :_Lx9 
   imw r0 5 
@@ -209,38 +191,32 @@
 :_LxA 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_LxC 
 :_LxB 
   imw r0 4 
@@ -253,38 +229,32 @@
 :_LxC 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_LxE 
 :_LxD 
   imw r0 3 
@@ -297,38 +267,32 @@
 :_LxE 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_Lx10 
 :_LxF 
   imw r0 2 
@@ -341,38 +305,32 @@
 :_Lx10 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   jmp &_Lx12 
 :_Lx11 
   imw r0 1 
@@ -385,38 +343,32 @@
 :_Lx12 
   imw r0 -136 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   push r0 
   imw r0 -140 
   add r0 rfp r0 
+  mov r1 r0 
   ldw r0 0 r0 
+  push r0 
+  push r1 
+  imw r0 1 
+  ldw r1 0 r1 
+  add r0 r1 r0 
+  pop r1 
+  stw r0 0 r1 
+  pop r0 
   pop r1 
   ldb r0 0 r0 
   stb r0 0 r1 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -136 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 -140 
-  add r0 rfp r0 
-  push r0 
-  imw r0 1 
-  pop r1 
-  ldw r1 0 r1 
-  add r0 r1 r0 
-  pop r1 
-  stw r0 0 r1 
   imw r0 -148 
   add r0 rfp r0 
   push r0 

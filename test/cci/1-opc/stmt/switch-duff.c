@@ -15,15 +15,14 @@ int main(void) {
     // duff's device
     int n = ((count + 7) / 8);
     switch (count & 7) {
-        // TODO fix these operators once we implement pre/post increment
-        case 0: do { *to = *from; to = (to + 1); from = (from + 1);
-        case 7:      *to = *from; to = (to + 1); from = (from + 1);
-        case 6:      *to = *from; to = (to + 1); from = (from + 1);
-        case 5:      *to = *from; to = (to + 1); from = (from + 1);
-        case 4:      *to = *from; to = (to + 1); from = (from + 1);
-        case 3:      *to = *from; to = (to + 1); from = (from + 1);
-        case 2:      *to = *from; to = (to + 1); from = (from + 1);
-        case 1:      *to = *from; to = (to + 1); from = (from + 1);
+        case 0: do { *to++ = *from++;
+        case 7:      *to++ = *from++;
+        case 6:      *to++ = *from++;
+        case 5:      *to++ = *from++;
+        case 4:      *to++ = *from++;
+        case 3:      *to++ = *from++;
+        case 2:      *to++ = *from++;
+        case 1:      *to++ = *from++;
                 } while ((n = (n - 1)) > 0);
     }
 

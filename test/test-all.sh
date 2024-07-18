@@ -31,6 +31,7 @@ cd "$(dirname "$0")"
 
 # We test core components with the best available toolchains before testing as
 # bootstrapped since they are more likely to find the real source of bugs.
+../scripts/posix/build.sh --dev
 ./test-core.sh
 
 # Finally we test everything as bootstrapped.
