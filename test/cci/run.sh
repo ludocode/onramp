@@ -72,6 +72,7 @@ TEMP_OS_CLEAN=/tmp/onramp-test-clean.os
 TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
+TEMP_STDERR=/tmp/onramp-test.stderr
 TOTAL_ERRORS=0
 
 # we want address sanitizer to return the same error code as the vm so we can
@@ -148,17 +149,19 @@ for TESTFILE in $FILES; do
 
     # compile
     set +e
-    $COMMAND $ARGS &> /dev/null
+    $COMMAND $ARGS 1> $TEMP_STDOUT 2> $TEMP_STDERR
     RET=$?
     set -e
 
     # check compile status and assembly
     if [ $RET -eq 125 ]; then
         echo "ERROR: compiler crashed on $BASENAME; expected success or error message."
+        cat $TEMP_STDERR
         THIS_ERROR=1
     elif [ -e $BASENAME.os ]; then
         if [ $RET -ne 0 ]; then
             echo "ERROR: $BASENAME failed to compile; expected success."
+            cat $TEMP_STDERR
             THIS_ERROR=1
         elif [ $OTHER_STAGE -eq 1 ]; then
             true # don't compare assembly
@@ -189,7 +192,6 @@ for TESTFILE in $FILES; do
         fi
         if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld \
                 -g $ROOT/build/test/libc-$LIBC/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
-            # TODO libc/1 not libc/0 ^^^^^
             echo "ERROR: $BASENAME failed to link."
             THIS_ERROR=1
         fi
@@ -244,6 +246,7 @@ for TESTFILE in $FILES; do
     rm -f $TEMP_OO
     rm -f $TEMP_OE
     rm -f $TEMP_STDOUT
+    rm -f $TEMP_STDERR
 done
 
 if [ $TOTAL_ERRORS -ne 0 ]; then
