@@ -36,7 +36,7 @@
 scope_t* scope_global;
 scope_t* scope_current;
 
-#define TAG_HASH_MULTIPLIER 37u
+#define NAMESPACE_HASH_MULTIPLIER 37u
 
 /**
  * A type or symbol in the scope's hashtables.
@@ -47,7 +47,7 @@ typedef struct scope_element_t {
         struct {
             token_t* name;
             type_t* type;
-            tag_t tag;
+            namespace_t namespace;
         };
         symbol_t* symbol;
     };
@@ -118,7 +118,7 @@ static void scope_create_va_list(void) {
             filename,
             0,
             NULL);
-    scope_add_type(scope_global, TAG_TYPEDEF, token, listp);
+    scope_add_type(scope_global, NAMESPACE_TYPEDEF, token, listp);
 
     token_deref(token);
     string_deref(filename);
@@ -166,27 +166,27 @@ void scope_add_symbol(scope_t* scope, symbol_t* symbol) {
     table_put(&scope->symbols, &element->entry, string_hash(symbol->name));
 }
 
-void scope_add_type(scope_t* scope, tag_t tag, token_t* name, type_t* type) {
+void scope_add_type(scope_t* scope, namespace_t namespace, token_t* name, type_t* type) {
     // TODO make sure the name is not a keyword
-    type_t* previous = scope_find_type(scope, tag, name->value, false);
+    type_t* previous = scope_find_type(scope, namespace, name->value, false);
     if (previous) {
         // duplicate typedefs are allowed as long as the types match.
-        // TODO handle duplicates of other tags
+        // TODO handle duplicate tags
 // TODO actually we should completely forbid duplicates here, let the
-// parser check for duplicates because different tags handle them
-// differently
-        if (tag == TAG_TYPEDEF && !type_equal(type, previous)) {
+// parser check for duplicates because different namespaces handle them
+// differently (and even different tag types handle them differently)
+        if (namespace == NAMESPACE_TYPEDEF && !type_equal(type, previous)) {
             fatal_token(name, "`typedef` redeclared in the same scope with a different type.");
         }
         return;
     }
 
     scope_element_t* element = malloc(sizeof(scope_element_t));
-    //printf("scope adding %s element %p hash %u\n", name->value->bytes, (void*)element, string_hash(name->value) + (unsigned)tag * TAG_HASH_MULTIPLIER);
+    //printf("scope adding %s element %p hash %u\n", name->value->bytes, (void*)element, string_hash(name->value) + (unsigned)namespace * NAMESPACE_HASH_MULTIPLIER);
     element->type = type_ref(type);
     element->name = token_ref(name);
-    element->tag = tag;
-    table_put(&scope->types, &element->entry, string_hash(name->value) + (unsigned)tag * TAG_HASH_MULTIPLIER);
+    element->namespace = namespace;
+    table_put(&scope->types, &element->entry, string_hash(name->value) + (unsigned)namespace * NAMESPACE_HASH_MULTIPLIER);
 }
 
 symbol_t* scope_find_symbol(scope_t* scope, const string_t* name, bool recurse) {
@@ -204,14 +204,14 @@ symbol_t* scope_find_symbol(scope_t* scope, const string_t* name, bool recurse) 
     return NULL;
 }
 
-type_t* scope_find_type(scope_t* scope, tag_t tag, const string_t* name, bool recurse) {
-    //printf("scope searching for %s hash %u\n", name->bytes, string_hash(name) + (unsigned)tag * TAG_HASH_MULTIPLIER);
+type_t* scope_find_type(scope_t* scope, namespace_t namespace, const string_t* name, bool recurse) {
+    //printf("scope searching for %s hash %u\n", name->bytes, string_hash(name) + (unsigned)namespace * NAMESPACE_HASH_MULTIPLIER);
     do {
         //printf("  searching table\n");
-        table_entry_t* entry = table_bucket(&scope->types, string_hash(name) + (unsigned)tag * TAG_HASH_MULTIPLIER);
+        table_entry_t* entry = table_bucket(&scope->types, string_hash(name) + (unsigned)namespace * NAMESPACE_HASH_MULTIPLIER);
         while (entry) {
             scope_element_t* element = (scope_element_t*)entry;
-            if (element->tag == tag && string_equal(element->name->value, name)) {
+            if (element->namespace == namespace && string_equal(element->name->value, name)) {
                 return element->type;
             }
             entry = table_entry_next(entry);

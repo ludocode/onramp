@@ -310,11 +310,19 @@ static void parse_record(specifiers_t* specifiers) {
     type_t* type = NULL;
     if (tag) {
         type = scope_find_type(scope_current,
-                is_struct ? TAG_STRUCT : TAG_UNION,
+                NAMESPACE_TAG,
                 tag->value,
                 find_recursive);
-        if (type)
+        if (type) {
+            if (!type_matches_base(type, BASE_RECORD) || is_struct != type->record->is_struct) {
+                if (is_struct) {
+                    fatal_token(tag, "Non-struct tag cannot be referred to as `struct`");
+                } else {
+                    fatal_token(tag, "Non-union tag cannot be referred to as `union`");
+                }
+            }
             type_ref(type);
+        }
     }
 
     // create it if it doesn't exist
@@ -323,14 +331,13 @@ static void parse_record(specifiers_t* specifiers) {
         type = type_new_record(record);
         if (tag) {
             scope_add_type(scope_current,
-                    is_struct ? TAG_STRUCT : TAG_UNION,
+                    NAMESPACE_TAG,
                     tag,
                     type);
         }
         record_deref(record);
     }
 
-    assert(type_matches_base(type, BASE_RECORD));
     specifiers->type = type;
     if (tag) {
         token_deref(tag);
@@ -386,7 +393,7 @@ static bool try_parse_declaration_specifiers(specifiers_t* specifiers) {
 
         // typedef (only if we don't already have a type specifier)
         if (specifiers->type_specifiers == 0) {
-            type_t* type = scope_find_type(scope_current, TAG_TYPEDEF, lexer_token->value, true);
+            type_t* type = scope_find_type(scope_current, NAMESPACE_TYPEDEF, lexer_token->value, true);
             if (type) {
                 found = true;
                 if (specifiers->type) {
@@ -962,7 +969,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
             if (specifiers.storage_specifiers != STORAGE_SPECIFIER_TYPEDEF) {
                 fatal_token(name, "`typedef` cannot be combined with other storage specifiers.");
             }
-            scope_add_type(scope_current, TAG_TYPEDEF, name, type);
+            scope_add_type(scope_current, NAMESPACE_TYPEDEF, name, type);
             if (lexer_is(STR_ASSIGN) || lexer_is(STR_BRACE_OPEN)) {
                 fatal_token(name, "A definition cannot be provided for a `typedef` declaration.");
             }
