@@ -22,39 +22,39 @@
  * SOFTWARE.
  */
 
-#ifndef COMMON_H_INCLUDED
-#define COMMON_H_INCLUDED
-
-#include <stdbool.h>
-#include <stdarg.h>
-
-#include "libo-string.h"
-
-#define JUMP_LABEL_PREFIX         "_Lx"
-#define STRING_LABEL_PREFIX       "_Sx"
-#define INITIALIZER_LABEL_PREFIX  "_Ix"
-
-#define ASM_INDENT "  "
+#ifndef ENUM_H_INCLUDED
+#define ENUM_H_INCLUDED
 
 struct token_t;
 
 /**
- * Prints a fatal error message at the location of the given token.
+ * An enum definition.
+ *
+ * Values of the enum are collected here for the purpose of generating warnings
+ * (for example, `-Wswitch` ensures that all enum values appear in a switch.)
+ *
+ * Eventually we also aim to support C23 enums with fixed underlying types.
  */
-_Noreturn
-void fatal_token(struct token_t* token, const char* format, ...);
+typedef struct enum_t {
+    int refcount;
+    struct token_t* tag; // null if anonymous
 
-/**
- * Prints a fatal error message at the location of the given token.
- */
-_Noreturn
-void vfatal_token(struct token_t* token, const char* format, va_list args);
+    // TODO underlying type
 
-_Noreturn
-void fatal(const char* format, ...);
+    // TODO collect values
+    //symbol_t** values;
+    //size_t values_count;
+} enum_t;
 
-// TODO these may be in libc in C2x, should move them there
-bool is_pow2(int n);
-// TODO fls() used in generate_ops
+enum_t* enum_new(struct token_t* /*nullable*/ tag);
+
+static inline enum_t* enum_ref(enum_t* enum_) {
+    ++enum_->refcount;
+    return enum_;
+}
+
+void enum_deref(enum_t* enum_);
+
+//void enum_set_values(symbol_t** values, size_t values_count);
 
 #endif

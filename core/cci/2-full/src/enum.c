@@ -22,39 +22,24 @@
  * SOFTWARE.
  */
 
-#ifndef COMMON_H_INCLUDED
-#define COMMON_H_INCLUDED
+#include "enum.h"
 
-#include <stdbool.h>
-#include <stdarg.h>
+#include <stdlib.h>
 
-#include "libo-string.h"
+#include "token.h"
 
-#define JUMP_LABEL_PREFIX         "_Lx"
-#define STRING_LABEL_PREFIX       "_Sx"
-#define INITIALIZER_LABEL_PREFIX  "_Ix"
+enum_t* enum_new(token_t* /*nullable*/ tag) {
+    enum_t* enum_ = malloc(sizeof(enum_t));
+    enum_->refcount = 1;
+    enum_->tag = tag ? token_ref(tag) : NULL;
+    return enum_;
+}
 
-#define ASM_INDENT "  "
-
-struct token_t;
-
-/**
- * Prints a fatal error message at the location of the given token.
- */
-_Noreturn
-void fatal_token(struct token_t* token, const char* format, ...);
-
-/**
- * Prints a fatal error message at the location of the given token.
- */
-_Noreturn
-void vfatal_token(struct token_t* token, const char* format, va_list args);
-
-_Noreturn
-void fatal(const char* format, ...);
-
-// TODO these may be in libc in C2x, should move them there
-bool is_pow2(int n);
-// TODO fls() used in generate_ops
-
-#endif
+void enum_deref(enum_t* enum_) {
+    if (--enum_->refcount != 0) {
+        return;
+    }
+    if (enum_->tag)
+        token_deref(enum_->tag);
+    free(enum_);
+}

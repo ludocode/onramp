@@ -142,7 +142,21 @@ static void generate_string(node_t* node, int register_num) {
 static void generate_access(node_t* node, int register_num) {
     symbol_t* symbol = node->symbol;
     type_t* type = symbol->type;
-    size_t size = type_size(type);
+
+    if (symbol->kind == symbol_kind_function) {
+        // We should be generating the location of the function, not the
+        // function itself.
+        fatal("Internal error: Cannot generate access to function.");
+    }
+
+    if (symbol->kind == symbol_kind_constant) {
+        // TODO for now we only support enum values
+        if (!type_matches_base(type, BASE_ENUM)) {
+            fatal("TODO: Constants other than enum values are not yet supported.");
+        }
+        block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num, symbol->constant.i);
+        return;
+    }
 
     // TODO if value is larger than a register, or is a record, need to copy it
     // to where register points. should have a generic copy function in
@@ -151,14 +165,17 @@ static void generate_access(node_t* node, int register_num) {
     if (type_is_array(type)) {
         opcode = ADD; // decay array to pointer
         // TODO maybe don't do this, instead have the parser insert & wherever it is needed
-    } else if (size == 1) {
-        opcode = LDB;
-    } else if (size == 2) {
-        opcode = LDS;
-    } else if (size == 4) {
-        opcode = LDW;
     } else {
-        fatal("TODO load larger than register");
+        size_t size = type_size(type);
+        if (size == 1) {
+            opcode = LDB;
+        } else if (size == 2) {
+            opcode = LDS;
+        } else if (size == 4) {
+            opcode = LDW;
+        } else {
+            fatal("TODO load larger than register");
+        }
     }
 
     if (symbol_is_global(symbol)) {

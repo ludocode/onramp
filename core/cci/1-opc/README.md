@@ -2,9 +2,9 @@
 
 This is the implementation of the Onramp second stage compiler. It is written in [Onramp Minimal C](../../../docs/minimal-c.md) and compiles [Onramp Practical C](../../../docs/practical-c.md).
 
-This adds `else`, `for`, `struct`, `enum`, `switch`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
+This adds `short`, `else`, `for`, `struct`, `enum`, `switch`, arrays, variadic functions and more, with which we can implement our final stage C compiler.
 
-It implements most of C89 with some C99 and C11 features. We exclude global initializers, function pointers, multi-dimensional arrays, `long long`, floating point, and a few other minor features.
+It implements most of C89 with some C99 and C11 features. We exclude global and compound initializers, function pointers, multi-dimensional arrays, `long long`, floating point, and a few other minor features.
 
 This document describes the implementation. For a description of the language it compiles, see [Onramp Practical C](../../../docs/practical-c.md).
 
@@ -12,7 +12,7 @@ This document describes the implementation. For a description of the language it
 
 ## Types
 
-opC has all C99 signed and unsigned integer types, `void`, `struct`, `union`, `enum`, pointers and arrays. However, it has no function pointers, no multi-dimensional arrays, and no pointers to arrays. Additionally, the `const` and `volatile` qualifiers are ignored.
+The opC type system has `char`, `short`, `int`, `long` (as an alias of `int`), `void`, `struct`, `union`, `enum`, pointers and arrays. However, it has no function pointers, no multi-dimensional arrays, and no pointers to arrays. Additionally, the `const` and `volatile` qualifiers are ignored.
 
 These simplifications mean we do not have to store a real declarator list. The only items allowed in a declarator list before the final array size are pointers, so we can flatten the entire declarator list down to a pointer count and an array size.
 
@@ -38,7 +38,7 @@ The record pointer points to an immutable type called `record_t`. This contains 
 
 Expression parsing in cci/1 is similar to cci/0. All expression functions emit code on the fly. When an expression parsing function returns, code to compute that expression has already been emitted.
 
-The code they emit places the result of the expression in `r0`. This stage only supports word-size r-values in expressions. This means structs cannot be passed by value and `long long` is not supported.
+The code they emit places the result of the expression in `r0`. This stage only supports register-sized r-values in expressions. This means structs cannot be passed by value and `long long` is not supported.
 
 When an expression returns an l-value, the emitted code places the *address of* the value in `r0` instead of the value itself. The function `compile_lvalue_to_rvalue()` converts an l-value into an r-value.
 

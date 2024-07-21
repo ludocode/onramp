@@ -25,6 +25,7 @@
 #include "parse_expr.h"
 
 #include "common.h"
+#include "record.h"
 #include "strings.h"
 #include "libo-error.h"
 #include "node.h"

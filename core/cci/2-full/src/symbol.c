@@ -29,14 +29,14 @@
 #include "type.h"
 #include "token.h"
 
-symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* asm_name) {
+symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* /*nullable*/ asm_name) {
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->refcount = 1;
     symbol->kind = kind;
     symbol->type = type_ref(type);
     symbol->token = token_ref(name);
     symbol->name = string_ref(name->value);
-    symbol->asm_name = string_ref(asm_name);
+    symbol->asm_name = string_ref(asm_name ? asm_name : symbol->name);
     symbol->offset = SYMBOL_OFFSET_GLOBAL;
     return symbol;
 }

@@ -28,6 +28,8 @@
 #include <assert.h>
 
 #include "token.h"
+#include "record.h"
+#include "enum.h"
 
 type_t* type_new_base(base_t base) {
     type_t* type = calloc(1, sizeof(type_t));

@@ -70,7 +70,7 @@ typedef struct symbol_t {
 } symbol_t;
 
 symbol_t* symbol_new(symbol_kind_t kind, struct type_t* type,
-        struct token_t* name, string_t* asm_name);
+        struct token_t* name, string_t* /*nullable*/ asm_name);
 
 static inline bool symbol_is_global(symbol_t* symbol) {
     return symbol->offset == SYMBOL_OFFSET_GLOBAL;

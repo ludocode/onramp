@@ -28,6 +28,8 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "record.h"
+#include "enum.h"
 #include "strings.h"
 #include "type.h"
 #include "scope.h"
@@ -281,7 +283,7 @@ static void parse_record(specifiers_t* specifiers) {
     bool is_struct = lexer_is(STR_STRUCT);
     lexer_consume();
 
-    // collect the tag
+    // collect the optional tag
     token_t* tag = NULL;
     if (lexer_token->type == token_type_alphanumeric) {
         tag = lexer_take();
@@ -366,6 +368,85 @@ static void parse_record(specifiers_t* specifiers) {
     }
 }
 
+static void parse_enum(specifiers_t* specifiers) {
+
+    // Apply the enum keyword
+    if (specifiers->type_specifiers & TYPE_SPECIFIER_ENUM) {
+        fatal_token(lexer_token, "Redundant enum specifier. (Are you missing `;` between these enums?)");
+    }
+    specifiers->type_specifiers |= TYPE_SPECIFIER_ENUM;
+    token_t* keyword = lexer_take();
+
+    // Collect the optional tag
+    token_t* tag = NULL;
+    if (lexer_token->type == token_type_alphanumeric) {
+        tag = lexer_take();
+    }
+
+    // If this is not a definition, the enum have a tag and must already exist.
+    // (There are no forward declarations of enums.)
+    if (!lexer_accept(STR_BRACE_OPEN)) {
+        if (!tag) {
+            fatal_token(keyword, "Expected `{` or a tag name after `enum`.");
+        }
+        type_t* type = scope_find_type(scope_current, NAMESPACE_TAG, tag->value, true);
+        if (!type) {
+            fatal_token(tag, "An enum with this tag has not been defined. (Forward declarations of enums are not allowed.)");
+        }
+        if (!type_matches_base(type, BASE_ENUM)) {
+            fatal_token(tag, "This tag refers to a struct or union in this scope. It cannot be referred to as `enum`.");
+        }
+        specifiers->type = type_ref(type);
+        goto done;
+    }
+
+    // This is a definition. Check in the current scope for a duplicate.
+    if (tag) {
+        type_t* type = scope_find_type(scope_current, NAMESPACE_TAG, tag->value, false);
+        if (type) {
+            fatal_token(tag, "A union, struct or enum with this tag is already defined in this scope.");
+        }
+    }
+
+    // Create new type, add to current scope
+    enum_t* enum_ = enum_new(tag);
+    type_t* type = type_new_enum(enum_);
+    specifiers->type = type;
+    enum_deref(enum_);
+
+    // Parse values
+    int value = 0;
+    while (!lexer_accept(STR_BRACE_CLOSE)) {
+        if (lexer_token->type != token_type_alphanumeric) {
+            fatal_token(lexer_token, "Expected an identifier for this enum value");
+        }
+        token_t* name = lexer_take();
+
+        if (lexer_accept(STR_ASSIGN)) {
+            fatal("TODO parse a constant expression for enum value");
+            // TODO parse an expression (that doesn't have a comma in it), resolve it, make sure it's int, set value to it
+        }
+
+        symbol_t* symbol = symbol_new(symbol_kind_constant, type, name, NULL);
+        symbol->constant.i = value++;
+        scope_add_symbol(scope_current, symbol);
+        symbol_deref(symbol);
+
+        // TODO add the symbol to the enum
+
+        token_deref(name);
+        if (lexer_accept(STR_BRACE_CLOSE))
+            break;
+        // TODO trailing comma isn't allowed in pedantic C89 mode
+        lexer_expect(STR_COMMA, "Expected `,` or `}` after this enum value.");
+    }
+
+done:
+    if (tag)
+        token_deref(tag);
+    token_deref(keyword);
+}
+
 static bool try_parse_declaration_specifiers(specifiers_t* specifiers) {
     bool found;
 
@@ -385,9 +466,9 @@ static bool try_parse_declaration_specifiers(specifiers_t* specifiers) {
         }
 
         // enum
-        if (lexer_accept(STR_ENUM)) {
+        if (lexer_is(STR_ENUM)) {
             found = true;
-            fatal("enum not yet implemented");
+            parse_enum(specifiers);
             continue;
         }
 
@@ -469,7 +550,7 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
 
     // TODO floats, etc
 
-    fatal("Unsupported combination of type specifiers.");
+    fatal("Unsupported combination of type specifiers: %i.", ts);
 }
 
 static type_t* specifiers_make_type(specifiers_t* specifiers) {
@@ -940,11 +1021,10 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         type_t* type = type_ref(base_type);
         token_t* name = NULL;
         if (!try_parse_declarator(&type, &name)) {
-            if (specifiers.type_specifiers == TYPE_SPECIFIER_RECORD) {
-                // A forward declaration of a struct is allowed. TODO make sure
-                // it's in the correct scope, if not re-declare it.
-            } else if (specifiers.type_specifiers == TYPE_SPECIFIER_ENUM) {
-                fatal("TODO enum forward declaration");
+            if (specifiers.type_specifiers & (TYPE_SPECIFIER_RECORD | TYPE_SPECIFIER_ENUM)) {
+                // A struct, union or record declaration is allowed to have no
+                // declarators (because they can define the contents or, for
+                // structs and unions, can be forward declarations.)
             } else {
                 fatal("Expected a declarator for this global declaration.");
             }

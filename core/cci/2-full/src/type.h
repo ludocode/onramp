@@ -27,9 +27,11 @@
 
 #include <stdint.h>
 
-#include "record.h"
+#include "common.h"
 
 struct token_t;
+struct record_t;
+struct enum_t;
 
 /**
  * The kind of declarator element in a `type_t`.
@@ -112,8 +114,8 @@ typedef struct type_t {
         struct {
             base_t base;
             union {
-                record_t* record;
-                enum_t* enum_;
+                struct record_t* record;
+                struct enum_t* enum_;
             };
         };
         struct {
@@ -129,8 +131,8 @@ typedef struct type_t {
 } type_t;
 
 type_t* type_new_base(base_t element);
-type_t* type_new_record(record_t* record);
-type_t* type_new_enum(enum_t* enum_);
+type_t* type_new_record(struct record_t* record);
+type_t* type_new_enum(struct enum_t* enum_);
 type_t* type_new_pointer(type_t* pointed_to_type, bool is_const, bool is_volatile, bool is_restrict);
 type_t* type_new_array(type_t* element_type, uint32_t element_count);
 type_t* type_new_function(type_t* return_type, type_t** arg_types,

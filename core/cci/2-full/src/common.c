@@ -29,15 +29,6 @@
 #include "libo-error.h"
 #include "token.h"
 
-// TODO
-void enum_deref(enum_t* enum_) {
-    if (--enum_->refcount != 0) {
-        return;
-    }
-    //TODO
-    free(enum_);
-}
-
 void fatal_token(struct token_t* token, const char* format, ...) {
     va_list args;
     va_start(args, format);

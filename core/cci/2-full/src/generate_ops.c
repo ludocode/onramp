@@ -24,6 +24,7 @@
 
 #include "generate_ops.h"
 
+#include "common.h"
 #include "generate.h"
 #include "node.h"
 #include "block.h"

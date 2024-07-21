@@ -38,8 +38,8 @@ For each function in the input file, the following phases are performed:
 - The function is parsed into a tree;
 - An optional optimization pass runs on the tree;
 - The tree is compiled into basic blocks containing assembly code;
-- An optional optimization pass runs on each basic block, and blocks are merged and eliminated where possible;
-- The complete function is emitted to the output file, along with any strings and other literals, static variables, etc.
+- An optional optimization pass runs on each basic block;
+- The complete function is emitted to the output file.
 
 Note that, to keep the compiler simple, there currently isn't an intermediate representation. The tree is compiled directly into assembly. See the Code Generation section below.
 
@@ -57,7 +57,7 @@ All built-in tokens are added to the string table at startup. Functions like `le
 
 The intern string table reference counts all strings. It can free strings that are unused and remove them from the table. Since we free every function after compiling it, memory usage is kept to a minimum throughout the run of the compiler.
 
-The lexer does not support digraphs or trigraphs. It is the responsibility of the preprocessor to convert them. It also does not support comments or preprocessor directives other than `#line` and `#pragma`, which are also cleaned by the preprocessor. The compiler is expected to always be run on the output of the preprocessor.
+The lexer does not support digraphs, trigraphs, comments, or preprocessor directives other than `#line` and `#pragma`. These are the responsibility of the preprocessor. The compiler is expected to always be run on the output of the preprocessor.
 
 
 

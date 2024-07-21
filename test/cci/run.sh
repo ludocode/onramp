@@ -73,6 +73,7 @@ TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
 TEMP_STDERR=/tmp/onramp-test.stderr
+TEMP_FILES=/tmp/onramp-test-files
 TOTAL_ERRORS=0
 
 # we want address sanitizer to return the same error code as the vm so we can
@@ -114,10 +115,15 @@ fi
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
 
+# Collect and sort file list
 # Note: We support .i files only because we have test cases that test error
 # handling on things that the preprocessor would otherwise break on (such as
 # unclosed string and character literals.) Almost all tests are .c files.
-FILES="$(find $SOURCE_FOLDER/* -name '*.c') $(find $SOURCE_FOLDER/* -name '*.i')"
+rm -f $TEMP_FILES
+find $SOURCE_FOLDER/* -name '*.c' >> $TEMP_FILES
+find $SOURCE_FOLDER/* -name '*.i' >> $TEMP_FILES
+FILES="$(cat $TEMP_FILES | sort)"
+rm -f $TEMP_FILES
 
 for TESTFILE in $FILES; do
     THIS_ERROR=0

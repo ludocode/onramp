@@ -44,6 +44,7 @@ SRCS=\
 	$(SRC)/block.c \
 	$(SRC)/common.c \
 	$(SRC)/emit.c \
+	$(SRC)/enum.c \
 	$(SRC)/function.c \
 	$(SRC)/generate.c \
 	$(SRC)/generate_ops.c \

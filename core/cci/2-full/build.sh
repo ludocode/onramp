@@ -48,6 +48,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/emit.c \
     -o build/intermediate/cci-2-full/emit.oo
 
+echo Compiling cci/2-full enum.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/enum.c \
+    -o build/intermediate/cci-2-full/enum.oo
+
 echo Compiling cci/2-full function.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/2-full/build-ccargs \
