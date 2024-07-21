@@ -36,6 +36,7 @@
 #include "common.h"
 #include "scope.h"
 #include "options.h"
+#include "generate.h"
 
 static const char* input_filename;
 static const char* output_filename;
@@ -109,6 +110,7 @@ int main(int argc, char** argv) {
     parse_stmt_init();
     emit_init(output_filename);
     lexer_init(input_filename);
+    generate_init();
 
     while (lexer_token->type != token_type_end) {
         parse_global();
@@ -116,6 +118,7 @@ int main(int argc, char** argv) {
 
     scope_emit_tentative_definitions();
 
+    generate_destroy();
     lexer_destroy();
     emit_destroy();
     parse_stmt_init();

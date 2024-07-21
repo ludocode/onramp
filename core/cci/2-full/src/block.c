@@ -29,6 +29,7 @@
 #include "emit.h"
 #include "common.h"
 #include "token.h"
+#include "generate.h"
 
 #define BLOCK_INSTRUCTIONS_MIN 8
 
@@ -49,7 +50,7 @@ void block_delete(block_t* block) {
     free(block);
 }
 
-void block_add(block_t* block, token_t* token, opcode_t opcode, ...) {
+void block_append(block_t* block, token_t* token, opcode_t opcode, ...) {
     if (block->instructions_count == block->instructions_capacity) {
         // grow
         size_t new_capacity = block->instructions_capacity * 2;
@@ -74,24 +75,29 @@ void block_add(block_t* block, token_t* token, opcode_t opcode, ...) {
     va_end(args);
 }
 
-void block_sub_rsp_r9(block_t* block, token_t* token, size_t offset) {
-    if (offset == 0)
-        return;
-    if (offset > 0x7F) {
-        block_add(block, token, IMW, ARGTYPE_NUMBER, R9, (int)offset);
-        block_add(block, token, SUB, RSP, RSP, R9);
-    } else {
-        block_add(block, token, SUB, RSP, RSP, (int)offset);
-    }
+void block_sub_rsp(block_t* block, token_t* token, size_t offset) {
+    // TODO remove this wrapper function
+    block_append_op_imm(block, token, SUB, RSP, (int)offset);
 }
 
-void block_add_rsp_r9(block_t* block, token_t* token, size_t offset) {
-    if (offset == 0)
+void block_add_rsp(block_t* block, token_t* token, size_t offset) {
+    // TODO remove this wrapper function
+    block_append_op_imm(block, token, ADD, RSP, (int)offset);
+}
+
+void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
+        int reg_out, int value)
+{
+    if (value == 0)
         return;
-    if (offset > 0x7F) {
-        block_add(block, token, IMW, ARGTYPE_NUMBER, R9, (int)offset);
-        block_add(block, token, ADD, RSP, RSP, R9);
-    } else {
-        block_add(block, token, ADD, RSP, RSP, (int)offset);
+
+    if (value <= 127 && value >= -112) {
+        block_append(block, token, opcode, reg_out, reg_out, value);
+        return;
     }
+
+    int reg_value = register_alloc(token);
+    block_append(block, token, IMW, ARGTYPE_NUMBER, reg_value, value);
+    block_append(block, token, opcode, reg_out, reg_out, reg_value);
+    register_free(token, reg_value);
 }

@@ -33,32 +33,32 @@ struct node_t;
 struct type_t;
 struct token_t;
 
-void generate_add(struct node_t* node, int register_num);
-void generate_sub(struct node_t* node, int register_num);
-void generate_mul(struct node_t* node, int register_num);
-void generate_div(struct node_t* node, int register_num);
-void generate_mod(struct node_t* node, int register_num);
+void generate_add(struct node_t* node, int reg_out);
+void generate_sub(struct node_t* node, int reg_out);
+void generate_mul(struct node_t* node, int reg_out);
+void generate_div(struct node_t* node, int reg_out);
+void generate_mod(struct node_t* node, int reg_out);
 
-void generate_shl(struct node_t* node, int register_num);
-void generate_shr(struct node_t* node, int register_num);
-void generate_bit_or(struct node_t* node, int register_num);
-void generate_bit_not(struct node_t* node, int register_num);
-void generate_log_not(struct node_t* node, int register_num);
+void generate_shl(struct node_t* node, int reg_out);
+void generate_shr(struct node_t* node, int reg_out);
+void generate_bit_or(struct node_t* node, int reg_out);
+void generate_bit_not(struct node_t* node, int reg_out);
+void generate_log_not(struct node_t* node, int reg_out);
 
-void generate_equal(struct node_t* node, int register_num);
-void generate_not_equal(struct node_t* node, int register_num);
-void generate_less(struct node_t* node, int register_num);
-void generate_greater(struct node_t* node, int register_num);
-void generate_less_or_equal(struct node_t* node, int register_num);
-void generate_greater_or_equal(struct node_t* node, int register_num);
+void generate_equal(struct node_t* node, int reg_out);
+void generate_not_equal(struct node_t* node, int reg_out);
+void generate_less(struct node_t* node, int reg_out);
+void generate_greater(struct node_t* node, int reg_out);
+void generate_less_or_equal(struct node_t* node, int reg_out);
+void generate_greater_or_equal(struct node_t* node, int reg_out);
 
 void generate_store(struct token_t* /*nullable*/ token, struct type_t* type,
         int register_location, int register_value);
 
-void generate_assign(struct node_t* node, int register_num);
-void generate_assign_add(struct node_t* node, int register_num);
-void generate_assign_sub(struct node_t* node, int register_num);
-void generate_assign_mul(struct node_t* node, int register_num);
-void generate_assign_div(struct node_t* node, int register_num);
+void generate_assign(struct node_t* node, int reg_out);
+void generate_assign_add(struct node_t* node, int reg_out);
+void generate_assign_sub(struct node_t* node, int reg_out);
+void generate_assign_mul(struct node_t* node, int reg_out);
+void generate_assign_div(struct node_t* node, int reg_out);
 
 #endif

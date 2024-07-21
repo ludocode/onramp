@@ -31,11 +31,18 @@ struct node_t;
 struct function_t;
 struct block_t;
 struct symbol_t;
+struct token_t;
 
 // TODO make better names
 extern struct function_t* current_function;
 extern struct block_t* current_block;
 extern int next_label;
+
+extern int register_next;
+extern int register_loop_count;
+
+void generate_init(void);
+void generate_destroy(void);
 
 /**
  * Compiles the parse tree of given the function into a series of basic blocks
@@ -44,29 +51,33 @@ extern int next_label;
 void generate_function(struct function_t* function);
 
 /**
- * Makes room for an extra register, if needed.
+ * Allocates a register, returning its number (i.e. the value 0x80-0x89
+ * corresponding to the register r0-r9.)
  *
- * This handles the case of all registers being full. A register is spilled to
- * the stack to make room.
+ * The register must be passed to a subsequent call to
+ * register_free(). Registers must be freed in reverse order of
+ * allocation.
  *
- * If register_num is less than 9, there is already an extra register, so this
- * does nothing and returns false.
+ * Registers are allocated sequentially from r0-r9. If additional registers are
+ * needed, we loop back around to r0 and push the existing value to make room.
+ * (This means only the last 10 allocated registers can be used. This is not a
+ * problem because most operations use at most four allocated registers.)
  *
- * If register_num is 9, this pushes r8 and moves r9 to r8, thus clearing an
- * extra register and keeping the registers in order. In this case this returns
- * true.
- *
- * The return value should be passed to a subsequent call to
- * generate_register_pop().
+ * The given token is used to emit source location information if a push is
+ * needed.
  */
-bool generate_register_push(int* register_num);
+int register_alloc(struct token_t* /*nullable*/ token);
 
 /**
- * Undoes a register spill that was done earlier, if needed.
+ * Frees a register.
  *
- * This undoes an earlier call to generate_register_push().
+ * The register given must be the last allocated register that has not yet been
+ * freed.
+ *
+ * The given token is used to emit source location information if a pop is
+ * needed.
  */
-void generate_register_pop(bool pushed);
+void register_free(struct token_t* /*nullable*/ token, int reg);
 
 /**
  * Compiles a node recursively.
@@ -75,14 +86,14 @@ void generate_register_pop(bool pushed);
  * larger than a register, the given register must contain a pointer to where
  * the return value is to be stored.
  */
-void generate_node(struct node_t* node, int register_num);
+void generate_node(struct node_t* node, int reg_out);
 
 /**
  * Compiles an l-value node, for example as the left-hand side of the
  * assignment. This emits code to place the address of the value in the given
  * register instead of the value itself.
  */
-void generate_location(struct node_t* node, int register_num);
+void generate_location(struct node_t* node, int reg_out);
 
 void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
 

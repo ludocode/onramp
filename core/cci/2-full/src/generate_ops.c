@@ -35,22 +35,25 @@
  * Generates an arithmetic or other binary calculation that must be done with a
  * libc function. This is used for long long, float and double.
  */
-static void generate_binary_function(node_t* node, int register_num, const char* function_name) {
+static void generate_binary_function(node_t* node, int reg_out, const char* function_name) {
+    size_t size = type_size(node->type);
+    assert(size >= 4); // should already be promoted
 
-    // push registers
-    for (int i = register_num; i > R0;) {
-        block_add(current_block, node->token, PUSH, --i);
+    // push all registers (except for the return register)
+    int last_pushed_register = register_loop_count ? R9 : reg_out;
+    for (int i = R0; i != last_pushed_register; ++i) {
+        if (i != reg_out) {
+            block_append(current_block, node->token, PUSH, i);
+        }
     }
 
     // for 64-bit math, arguments must point to storage space. make room for a
     // temporary
-    size_t size = type_size(node->type);
-    assert(size >= 4); // should already be promoted
     if (size != 4) {
-        if (register_num != R0)
-            block_add(current_block, node->token, MOV, R0, register_num);
-        block_add(current_block, node->token, SUB, RSP, RSP, size);
-        block_add(current_block, node->token, MOV, R1, RSP);
+        assert(size == 8);
+        block_append(current_block, node->token, MOV, R0, reg_out);
+        block_append(current_block, node->token, SUB, RSP, RSP, size);
+        block_append(current_block, node->token, MOV, R1, RSP);
     }
 
     // generate arguments
@@ -58,31 +61,31 @@ static void generate_binary_function(node_t* node, int register_num, const char*
     generate_node(node->last_child, R1);
 
     // generate function call
-    block_add(current_block, node->token, CALL, '^', function_name);
+    block_append(current_block, node->token, CALL, '^', function_name);
 
     // move return value into output register
-    if (register_num != R0)
-        block_add(current_block, node->token, MOV, register_num, R0);
-
-    // pop registers
-    for (int i = 0; i < register_num; ++i) {
-        block_add(current_block, node->token, PUSH, i);
-    }
+    block_append(current_block, node->token, MOV, reg_out, R0);
 
     // pop stack space used for temporary
     if (size != 4) {
-        block_add(current_block, node->token, ADD, RSP, RSP, 8);
+        block_append(current_block, node->token, ADD, RSP, RSP, 8);
+    }
+
+    // pop registers
+    for (int i = last_pushed_register; i-- != R0;) {
+        if (i != reg_out) {
+            block_append(current_block, node->token, POP, i);
+        }
     }
 }
 
 /**
  * Generates a simple arithmetic calculation.
  */
-static void generate_simple_arithmetic(node_t* node, int register_num,
+static void generate_simple_arithmetic(node_t* node, int reg_left,
         opcode_t opcode, const char* llong_func,
         const char* float_func, const char* double_func)
 {
-    bool pushed = generate_register_push(&register_num);
     type_t* type = node->type;
 
     const char* function =
@@ -92,25 +95,25 @@ static void generate_simple_arithmetic(node_t* node, int register_num,
             NULL;
 
     if (function) {
-        generate_binary_function(node, register_num, function);
+        generate_binary_function(node, reg_left, function);
     } else {
-        generate_node(node->first_child, register_num);
-        generate_node(node->last_child, register_num + 1);
-        block_add(current_block, node->token, opcode, register_num, register_num, register_num + 1);
+        generate_node(node->first_child, reg_left);
+        int reg_right = register_alloc(node->token);
+        generate_node(node->last_child, reg_right);
+        block_append(current_block, node->token, opcode, reg_left, reg_left, reg_right);
+        register_free(node->token, reg_right);
     }
-
-    generate_register_pop(pushed);
 }
 
 /**
  * Add or subtract a value from a pointer.
  */
-static void generate_pointer_add_sub(node_t* node, int register_num) {
+static void generate_pointer_add_sub(node_t* node, int reg_left) {
 
     // Generate the sides
-    bool pushed = generate_register_push(&register_num);
-    generate_node(node->first_child, register_num);
-    generate_node(node->last_child, register_num + 1);
+    int reg_right = register_alloc(node->token);
+    generate_node(node->first_child, reg_left);
+    generate_node(node->last_child, reg_right);
 
     // One side is a pointer and the other side is an int offset. The offset
     // needs to be shifted or multiplied by the pointer size.
@@ -119,7 +122,7 @@ static void generate_pointer_add_sub(node_t* node, int register_num) {
     bool is_left_ptr = type_is_indirection(node->first_child->type);
     type_t* ptr_type = (is_left_ptr ? node->first_child : node->last_child)->type;
     size_t size = type_size(ptr_type->ref);
-    int int_register = is_left_ptr ? (register_num + 1) : register_num;
+    int int_register = is_left_ptr ? (reg_right) : reg_left;
 
     // Shift or multiply the offset
     // TODO there's a GCC extension for a zero-size struct. should figure out if/how pointer arithmetic works with it
@@ -131,32 +134,27 @@ static void generate_pointer_add_sub(node_t* node, int register_num) {
                 size >>= 1;
                 ++shift;
             }
-            block_add(current_block, node->token, SHL, int_register, int_register, shift - 1);
-        } else if (size < 0x80) {
-            block_add(current_block, node->token, MUL, int_register, int_register, size);
+            block_append(current_block, node->token, SHL, int_register, int_register, shift - 1);
         } else {
-            bool pushed = generate_register_push(&register_num);
-            block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num + 2, size);
-            block_add(current_block, node->token, MUL, int_register, int_register, register_num + 2);
-            generate_register_pop(pushed);
+            block_append_op_imm(current_block, node->token, MUL, int_register, size);
         }
     }
 
     // Perform the addition or subtraction
-    block_add(current_block, node->token, node->kind == NODE_ADD ? ADD : SUB,
-            register_num, register_num, register_num + 1);
-    generate_register_pop(pushed);
+    block_append(current_block, node->token, node->kind == NODE_ADD ? ADD : SUB,
+            reg_left, reg_left, reg_right);
+    register_free(node->token, reg_right);
 }
 
-static void generate_pointers_sub(node_t* node, int register_num) {
+static void generate_pointers_sub(node_t* node, int reg_left) {
 
     // Generate the sides
-    bool pushed = generate_register_push(&register_num);
-    generate_node(node->first_child, register_num);
-    generate_node(node->last_child, register_num + 1);
+    int reg_right = register_alloc(node->token);
+    generate_node(node->first_child, reg_left);
+    generate_node(node->last_child, reg_right);
 
     // Perform the subtraction
-    block_add(current_block, node->token, SUB, register_num, register_num, register_num + 1);
+    block_append(current_block, node->token, SUB, reg_left, reg_left, reg_right);
 
     // Shift or divide the result
     size_t size = type_size(node->first_child->type->ref);
@@ -168,98 +166,95 @@ static void generate_pointers_sub(node_t* node, int register_num) {
                 size >>= 1;
                 ++shift;
             }
-            block_add(current_block, node->token, SHRS, register_num, register_num, shift - 1);
-        } else if (size < 0x80) {
-            block_add(current_block, node->token, DIVS, register_num, register_num, size);
+            block_append(current_block, node->token, SHRS, reg_left, reg_left, shift - 1);
         } else {
-            block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num + 1, size);
-            block_add(current_block, node->token, DIVS, register_num, register_num, register_num + 1);
+            block_append_op_imm(current_block, node->token, DIVS, reg_left, size);
         }
     }
 
-    generate_register_pop(pushed);
+    register_free(node->token, reg_right);
 }
 
-void generate_add(node_t* node, int register_num) {
+void generate_add(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
-        generate_pointer_add_sub(node, register_num);
+        generate_pointer_add_sub(node, reg_out);
         return;
     }
-    generate_simple_arithmetic(node, register_num, ADD, "__llong_add", "__float_add", "__double_add");
+    generate_simple_arithmetic(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
 }
 
-void generate_sub(node_t* node, int register_num) {
+void generate_sub(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
-        generate_pointer_add_sub(node, register_num);
+        generate_pointer_add_sub(node, reg_out);
         return;
     }
     if (type_is_indirection(node->first_child->type)) {
-        generate_pointers_sub(node, register_num);
+        generate_pointers_sub(node, reg_out);
         return;
     }
-    generate_simple_arithmetic(node, register_num, SUB, "__llong_sub", "__float_sub", "__double_sub");
+    generate_simple_arithmetic(node, reg_out, SUB, "__llong_sub", "__float_sub", "__double_sub");
 }
 
-void generate_mul(node_t* node, int register_num) {
-    generate_simple_arithmetic(node, register_num, MUL, "__llong_mul", "__float_mul", "__double_mul");
+void generate_mul(node_t* node, int reg_out) {
+    generate_simple_arithmetic(node, reg_out, MUL, "__llong_mul", "__float_mul", "__double_mul");
 }
 
-void generate_div(node_t* node, int register_num) {
+void generate_div(node_t* node, int reg_out) {
     if (type_is_signed_integer(node->type)) {
-        generate_simple_arithmetic(node, register_num, DIVS, "__llong_divs", NULL, NULL);
+        generate_simple_arithmetic(node, reg_out, DIVS, "__llong_divs", NULL, NULL);
     } else {
-        generate_simple_arithmetic(node, register_num, DIVU, "__llong_divu", "__float_div", "__double_div");
+        generate_simple_arithmetic(node, reg_out, DIVU, "__llong_divu", "__float_div", "__double_div");
     }
 }
 
-void generate_mod(node_t* node, int register_num) {
+void generate_mod(node_t* node, int reg_out) {
     if (type_is_signed_integer(node->type)) {
-        generate_simple_arithmetic(node, register_num, MODS, "__llong_mods", NULL, NULL);
+        generate_simple_arithmetic(node, reg_out, MODS, "__llong_mods", NULL, NULL);
     } else {
-        generate_simple_arithmetic(node, register_num, MODU, "__llong_modu", "__float_mod", "__double_mod");
+        generate_simple_arithmetic(node, reg_out, MODU, "__llong_modu", "__float_mod", "__double_mod");
     }
 }
 
-void generate_shl(node_t* node, int register_num) {
-    generate_simple_arithmetic(node, register_num, SHL, "__llong_shl", NULL, NULL);
+void generate_shl(node_t* node, int reg_out) {
+    generate_simple_arithmetic(node, reg_out, SHL, "__llong_shl", NULL, NULL);
 }
 
-void generate_shr(node_t* node, int register_num) {
+void generate_shr(node_t* node, int reg_out) {
     if (type_is_signed_integer(node->type)) {
-        generate_simple_arithmetic(node, register_num, SHRS, "__llong_shrs", NULL, NULL);
+        generate_simple_arithmetic(node, reg_out, SHRS, "__llong_shrs", NULL, NULL);
     } else {
-        generate_simple_arithmetic(node, register_num, SHRU, "__llong_shru", NULL, NULL);
+        generate_simple_arithmetic(node, reg_out, SHRU, "__llong_shru", NULL, NULL);
     }
 }
 
-void generate_bit_or(node_t* node, int register_num) {
-    generate_simple_arithmetic(node, register_num, OR, "__llong_bit_or", NULL, NULL);
+void generate_bit_or(node_t* node, int reg_out) {
+    generate_simple_arithmetic(node, reg_out, OR, "__llong_bit_or", NULL, NULL);
 }
 
 
 
-void generate_bit_not(node_t* node, int register_num) {
-    generate_node(node->first_child, register_num);
+void generate_bit_not(node_t* node, int reg_out) {
+    generate_node(node->first_child, reg_out);
     if (type_size(node->type) > 4) {
         fatal("TODO bit not llong");
     } else {
-        block_add(current_block, node->token, NOT, register_num, register_num);
+        block_append(current_block, node->token, NOT, reg_out, reg_out);
     }
 }
 
-void generate_log_not(node_t* node, int register_num) {
+void generate_log_not(node_t* node, int reg_out) {
     if (type_size(node->type) != 4) {
         // TODO
         fatal("TODO log not llong");
     }
-    block_add(current_block, node->token, ISZ, register_num, register_num);
+    block_append(current_block, node->token, ISZ, reg_out, reg_out);
 }
 
 /**
  * Generates an ordered comparison.
  */
-static void generate_ordering(node_t* node, int register_num) {
-    bool pushed = generate_register_push(&register_num);
+static void generate_ordering(node_t* node, int reg_left) {
+    int reg_right = register_alloc(node->token);
     type_t* type = node->type;
 
     const char* function =
@@ -270,88 +265,88 @@ static void generate_ordering(node_t* node, int register_num) {
             NULL;
 
     if (function) {
-        generate_binary_function(node, register_num, function);
+        generate_binary_function(node, reg_left, function);
     } else {
-        generate_node(node->first_child, register_num);
-        generate_node(node->last_child, register_num + 1);
-        block_add(current_block, node->token,
+        generate_node(node->first_child, reg_left);
+        generate_node(node->last_child, reg_right);
+        block_append(current_block, node->token,
                 type_matches_base(type, BASE_SIGNED_INT) ? CMPS : CMPU,
-                register_num, register_num, register_num + 1);
+                reg_left, reg_left, reg_right);
     }
 
-    generate_register_pop(pushed);
+    register_free(node->token, reg_right);
 }
 
-void generate_less(node_t* node, int register_num) {
-    generate_ordering(node, register_num);
-    block_add(current_block, node->token, CMPU, register_num, register_num, -1);
-    block_add(current_block, node->token, ADD, register_num, register_num, 1);
-    block_add(current_block, node->token, AND, register_num, register_num, 1);
+void generate_less(node_t* node, int reg_out) {
+    generate_ordering(node, reg_out);
+    block_append(current_block, node->token, CMPU, reg_out, reg_out, -1);
+    block_append(current_block, node->token, ADD, reg_out, reg_out, 1);
+    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-void generate_greater(node_t* node, int register_num) {
-    generate_ordering(node, register_num);
-    block_add(current_block, node->token, CMPU, register_num, register_num, 1);
-    block_add(current_block, node->token, ADD, register_num, register_num, 1);
-    block_add(current_block, node->token, AND, register_num, register_num, 1);
+void generate_greater(node_t* node, int reg_out) {
+    generate_ordering(node, reg_out);
+    block_append(current_block, node->token, CMPU, reg_out, reg_out, 1);
+    block_append(current_block, node->token, ADD, reg_out, reg_out, 1);
+    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-void generate_less_or_equal(node_t* node, int register_num) {
-    generate_ordering(node, register_num);
-    block_add(current_block, node->token, CMPU, register_num, register_num, 1);
-    block_add(current_block, node->token, AND, register_num, register_num, 1);
+void generate_less_or_equal(node_t* node, int reg_out) {
+    generate_ordering(node, reg_out);
+    block_append(current_block, node->token, CMPU, reg_out, reg_out, 1);
+    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-void generate_greater_or_equal(node_t* node, int register_num) {
-    generate_ordering(node, register_num);
-    block_add(current_block, node->token, CMPU, register_num, register_num, -1);
-    block_add(current_block, node->token, AND, register_num, register_num, 1);
+void generate_greater_or_equal(node_t* node, int reg_out) {
+    generate_ordering(node, reg_out);
+    block_append(current_block, node->token, CMPU, reg_out, reg_out, -1);
+    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
 /**
  * Generates code for == and != operators. The result is zero if the types
  * match and non-zero otherwise.
  */
-static void generate_equality(node_t* node, int register_num) {
-    bool pushed = generate_register_push(&register_num);
+static void generate_equality(node_t* node, int reg_left) {
+    int reg_right = register_alloc(node->token);
     type_t* type = node->type;
 
     if (type_is_long_long(type)) {
-        generate_binary_function(node, register_num, "__llong_neq");
+        generate_binary_function(node, reg_left, "__llong_neq");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        generate_binary_function(node, register_num, "__double_neq");
+        generate_binary_function(node, reg_left, "__double_neq");
     } else {
-        generate_node(node->first_child, register_num);
-        generate_node(node->last_child, register_num + 1);
-        block_add(current_block, node->token, SUB, register_num, register_num, register_num + 1);
+        generate_node(node->first_child, reg_left);
+        generate_node(node->last_child, reg_right);
+        block_append(current_block, node->token, SUB, reg_left, reg_left, reg_right);
     }
 
-    generate_register_pop(pushed);
+    register_free(node->token, reg_right);
 }
 
-void generate_equal(node_t* node, int register_num) {
-    generate_equality(node, register_num);
-    block_add(current_block, node->token, CMPU, register_num, register_num, 0);
-    block_add(current_block, node->token, ADD, register_num, register_num, 1);
-    block_add(current_block, node->token, AND, register_num, register_num, 1);
+void generate_equal(node_t* node, int reg_out) {
+    generate_equality(node, reg_out);
+    block_append(current_block, node->token, CMPU, reg_out, reg_out, 0);
+    block_append(current_block, node->token, ADD, reg_out, reg_out, 1);
+    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-void generate_not_equal(node_t* node, int register_num) {
-    generate_equality(node, register_num);
-    block_add(current_block, node->token, CMPU, register_num, register_num, 0);
-    block_add(current_block, node->token, AND, register_num, register_num, 1);
+void generate_not_equal(node_t* node, int reg_out) {
+    generate_equality(node, reg_out);
+    block_append(current_block, node->token, CMPU, reg_out, reg_out, 0);
+    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-void generate_store(token_t* token, type_t* type, int register_location, int register_value) {
+void generate_store(token_t* token, type_t* type, int reg_loc, int reg_val) {
     switch (type_size(type)) {
         case 1:
-            block_add(current_block, token, STB, register_value, 0, register_location);
+            block_append(current_block, token, STB, reg_val, 0, reg_loc);
             break;
         case 2:
-            block_add(current_block, token, STS, register_value, 0, register_location);
+            block_append(current_block, token, STS, reg_val, 0, reg_loc);
             break;
         case 4:
-            block_add(current_block, token, STW, register_value, 0, register_location);
+            block_append(current_block, token, STW, reg_val, 0, reg_loc);
             break;
             // fallthrough
         default:
@@ -362,12 +357,11 @@ void generate_store(token_t* token, type_t* type, int register_location, int reg
     }
 }
 
-void generate_assign(node_t* node, int register_num) {
-    bool pushed = generate_register_push(&register_num);
+void generate_assign(node_t* node, int reg_val) {
+    generate_node(node->last_child, reg_val);
 
-    generate_node(node->last_child, register_num);
-    generate_location(node->first_child, register_num + 1);
-    generate_store(node->token, node->type, register_num + 1, register_num);
-
-    generate_register_pop(pushed);
+    int reg_loc = register_alloc(node->token);
+    generate_location(node->first_child, reg_loc);
+    generate_store(node->token, node->type, reg_loc, reg_val);
+    register_free(node->token, reg_loc);
 }

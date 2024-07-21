@@ -60,18 +60,24 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
 /**
  * Appends a new instruction to the end of the block.
  */
-void block_add(block_t* block, struct token_t* token, opcode_t opcode, ...);
+void block_append(block_t* block, struct token_t* token, opcode_t opcode, ...);
 
 /**
- * Emits instructions to subtract a value from the stack pointer, using r9 as
- * temporary storage if needed.
+ * Appends instructions to subtract a value from the stack pointer.
  */
-void block_sub_rsp_r9(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
+void block_sub_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
 
 /**
- * Emits instructions to add a value from the stack pointer, using r9 as
- * temporary storage if needed.
+ * Appends instructions to add a value to the stack pointer.
  */
-void block_add_rsp_r9(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
+void block_add_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
+
+/**
+ * Emits instructions to perform a basic opcode with an immediate value to the
+ * given register. This will use a temporary register if necessary (if the
+ * value doesn't fit in a mix-type byte.)
+ */
+void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
+        int reg, int value);
 
 #endif

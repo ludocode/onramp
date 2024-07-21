@@ -40,106 +40,122 @@
 function_t* current_function;
 block_t* current_block;
 int next_label;
+int register_next;       // next register to allocate
+int register_loop_count; // number of times we've looped back to r0 while allocating registers
 
-// TODO probably change this to free a number of registers. compound assignment,
-// initializer, post-increment take 3 registers
-bool generate_register_push(int* register_num) {
-    if (*register_num != 9)
-        return false;
-    // TODO fix token later
-    block_add(current_block, NULL, PUSH, R8);
-    block_add(current_block, NULL, MOV, R9, R8);
-    *register_num = 8;
-    return true;
+void generate_init(void) {
+    register_next = R0;
 }
 
-void generate_register_pop(bool pushed) {
-    if (pushed) {
-        // TODO fix token later
-        block_add(current_block, NULL, MOV, R8, R9);
-        block_add(current_block, NULL, POP, R8);
+void generate_destroy(void) {
+    // nothing
+}
+
+int register_alloc(token_t* /*nullable*/ token) {
+    //printf("register alloc %i\n", register_next);
+    int reg = register_next;
+    if (register_loop_count) {
+        block_append(current_block, token, PUSH, reg);
     }
+
+    if (register_next < R9) {
+        ++register_next;
+    } else {
+        register_next = R0;
+        ++register_loop_count;
+    }
+
+    return reg;
 }
 
-static void generate_sequence(node_t* node, int register_num) {
+void register_free(token_t* /*nullable*/ token, int reg) {
+    //printf("register free %i\n", reg);
+    if (register_next == R0) {
+        register_next = R9;
+        --register_loop_count;
+    } else {
+        --register_next;
+    }
+
+    if (reg != register_next) {
+        fatal_token(token, "Internal error: incorrect register free");
+    }
+
+    if (register_loop_count)
+        block_append(current_block, token, POP, reg);
+}
+
+static void generate_sequence(node_t* node, int reg_out) {
     assert(node->kind == NODE_SEQUENCE);
     if (node->first_child == NULL)
         return;
 
-    // TODO we only need temporary space if the return type is indirect
-
-    // we only need an extra register if we are passing indirectly and have
-    // multiple children.
-    // TODO pushing isn't necessary if only one of the children uses registers
-    // (some of them might be labels for example.) we could try to defer this
-    // until needed.
-    bool pushed = false;
-    if (node->first_child != node->last_child && type_is_passed_indirectly(node->type)) {
-        pushed = generate_register_push(&register_num);
-    }
-
     // generate all but last child
     for (node_t* child = node->first_child; child != node->last_child; child = child->right_sibling) {
 
-        // make temporary storage (if passed indirectly)
-        bool indirect = type_is_passed_indirectly(child->type);
-        int reg = register_num + (pushed ? 1 : 0);
-        int size;
-        if (indirect) {
-            size = (int)type_size(child->type);
-            if (size > 0x7F) {
-                block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, R9, size);
-                block_add(current_block, node->token, SUB, RSP, RSP, R9);
-            } else {
-                block_add(current_block, node->token, SUB, RSP, RSP, size);
-            }
-            block_add(current_block, node->token, MOV, reg, RSP, 0);
+        // if both this node and the final node are passed directly, the return
+        // register is free, so we can generate directly into it.
+        if (!type_is_passed_indirectly(child->type) &&
+               !type_is_passed_indirectly(node->last_child->type))
+        {
+            generate_node(child, reg_out);
+            continue;
         }
 
-        generate_node(child, reg);
+        // make temporary storage
+        int child_register = register_alloc(child->token);
+        int size = (int)type_size(child->type);
+        if (size > 0x7F) {
+            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, R9, size);
+            block_append(current_block, node->token, SUB, RSP, RSP, R9);
+        } else {
+            block_append(current_block, node->token, SUB, RSP, RSP, size);
+        }
+        block_append(current_block, node->token, MOV, child_register, RSP, 0);
 
-        // discard the storage (if passed indirectly)
-        if (indirect) {
-            if (size > 0x7F) {
-                block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, R9, size);
-                block_add(current_block, node->token, ADD, RSP, RSP, R9);
-            } else {
-                block_add(current_block, node->token, ADD, RSP, RSP, size);
-            }
+        // generate
+        generate_node(child, child_register);
+
+        // discard the storage
+        register_free(child->token, child_register);
+        if (size > 0x7F) {
+            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, R9, size);
+            block_append(current_block, node->token, ADD, RSP, RSP, R9);
+        } else {
+            block_append(current_block, node->token, ADD, RSP, RSP, size);
         }
     }
 
     // generate the last child into the destination
-    generate_node(node->last_child, register_num);
-    generate_register_pop(pushed);
+    generate_node(node->last_child, reg_out);
 }
 
-static void generate_number(node_t* node, int register_num) {
+static void generate_number(node_t* node, int reg_out) {
     assert(node->kind == NODE_NUMBER);
     assert(node->first_child == NULL);
     // TODO for now assume it's int
     int value = node->int_value;
     if (value <= 127 && value >= -112) {
-        block_add(current_block, node->token, MOV, register_num, value);
+        block_append(current_block, node->token, MOV, reg_out, value);
     } else {
-        block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num, value);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, value);
     }
 }
 
-static void generate_character(node_t* node, int register_num) {
+static void generate_character(node_t* node, int reg_out) {
     assert(node->kind == NODE_CHARACTER);
     assert(node->first_child == NULL);
-    block_add(current_block, node->token, MOV, register_num, node->int_value);
+    block_append(current_block, node->token, MOV, reg_out, node->int_value);
 }
 
-static void generate_string(node_t* node, int register_num) {
+static void generate_string(node_t* node, int reg_out) {
     assert(node->kind == NODE_STRING);
     assert(node->first_child == NULL);
-    block_add(current_block, node->token, IMW, ARGTYPE_GENERATED, register_num, '^', STRING_LABEL_PREFIX, node->string_label);
-    block_add(current_block, node->token, ADD, register_num, RPP, register_num);
+    block_append(current_block, node->token, IMW, ARGTYPE_GENERATED, reg_out, '^', STRING_LABEL_PREFIX, node->string_label);
+    block_append(current_block, node->token, ADD, reg_out, RPP, reg_out);
 }
 
-static void generate_access(node_t* node, int register_num) {
+static void generate_access(node_t* node, int reg_out) {
     symbol_t* symbol = node->symbol;
     type_t* type = symbol->type;
 
@@ -154,7 +170,7 @@ static void generate_access(node_t* node, int register_num) {
         if (!type_matches_base(type, BASE_ENUM)) {
             fatal("TODO: Constants other than enum values are not yet supported.");
         }
-        block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num, symbol->constant.i);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->constant.i);
         return;
     }
 
@@ -179,28 +195,28 @@ static void generate_access(node_t* node, int register_num) {
     }
 
     if (symbol_is_global(symbol)) {
-        block_add(current_block, node->token, IMW, ARGTYPE_NAME, register_num, '^', string_cstr(symbol->asm_name));
-        block_add(current_block, node->token, LDW, register_num, RPP, register_num);
+        block_append(current_block, node->token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
+        block_append(current_block, node->token, LDW, reg_out, RPP, reg_out);
     } else {
         if (symbol->offset <= 127 && symbol->offset >= -112) {
-            block_add(current_block, node->token, opcode, register_num, RFP, symbol->offset);
+            block_append(current_block, node->token, opcode, reg_out, RFP, symbol->offset);
         } else {
-            block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num, symbol->offset);
-            block_add(current_block, node->token, opcode, register_num, RFP, register_num);
+            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
+            block_append(current_block, node->token, opcode, reg_out, RFP, reg_out);
         }
     }
 }
 
-static void generate_access_location(token_t* token, symbol_t* symbol, int register_num) {
+static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out) {
     if (symbol->offset == SYMBOL_OFFSET_GLOBAL) {
-        block_add(current_block, token, IMW, ARGTYPE_NAME, register_num, '^', string_cstr(symbol->asm_name));
-        block_add(current_block, token, ADD, register_num, RPP, register_num);
+        block_append(current_block, token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
+        block_append(current_block, token, ADD, reg_out, RPP, reg_out);
     } else {
         if (symbol->offset <= 127 && symbol->offset >= -112) {
-            block_add(current_block, token, ADD, register_num, RFP, symbol->offset);
+            block_append(current_block, token, ADD, reg_out, RFP, symbol->offset);
         } else {
-            block_add(current_block, token, IMW, ARGTYPE_NUMBER, register_num, symbol->offset);
-            block_add(current_block, token, ADD, register_num, RFP, register_num);
+            block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
+            block_append(current_block, token, ADD, reg_out, RFP, reg_out);
         }
     }
 }
@@ -212,29 +228,29 @@ static void generate_return(node_t* node) {
             // The pointer to storage for the return value was pushed just
             // above the return address. We load it so we can generate the
             // return value directly into it.
-            block_add(current_block, node->token, LDW, R0, RFP, 8);
+            block_append(current_block, node->token, LDW, R0, RFP, 8);
         }
         generate_node(node->first_child, R0);
     } else {
         // No return value. If the function is main, we have to implicitly
         // return zero.
         if (string_equal_cstr(current_function->asm_name, "main")) {
-            block_add(current_block, node->token, ZERO, R0);
+            block_append(current_block, node->token, ZERO, R0);
         }
     }
-    block_add(current_block, node->token, LEAVE);
-    block_add(current_block, node->token, RET);
+    block_append(current_block, node->token, LEAVE);
+    block_append(current_block, node->token, RET);
 }
 
 static void generate_break(node_t* node) {
-    block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->end_label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->end_label);
 }
 
 static void generate_continue(node_t* node) {
-    block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->body_label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->body_label);
 }
 
-static void generate_if(node_t* node, int register_num) {
+static void generate_if(node_t* node, int reg_out) {
     node_t* condition = node->first_child;
     node_t* true_node = condition->right_sibling;
     node_t* false_node = true_node->right_sibling;
@@ -248,22 +264,24 @@ static void generate_if(node_t* node, int register_num) {
         function_add_block(current_function, false_block);
     function_add_block(current_function, end_block);
 
-    // TODO check range, spill if needed
-    // TODO we could use the destination register if it's not indirect
-    int pred_register = register_num + 1;
+    bool indirect = type_is_passed_indirectly(node->type);
+    int pred_register = indirect ? register_alloc(node->token) : reg_out;
     generate_node(condition, pred_register);
 
-    block_add(current_block, node->token, JNZ, pred_register, '&', JUMP_LABEL_PREFIX, true_block->label);
-    block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, false_node ? false_block->label : end_block->label);
+    block_append(current_block, node->token, JNZ, pred_register, '&', JUMP_LABEL_PREFIX, true_block->label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, false_node ? false_block->label : end_block->label);
+
+    if (indirect)
+        register_free(node->token, pred_register);
 
     current_block = true_block;
-    generate_node(true_node, register_num);
-    block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
+    generate_node(true_node, reg_out);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
 
     if (false_node) {
         current_block = false_block;
-        generate_node(false_node, register_num);
-        block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
+        generate_node(false_node, reg_out);
+        block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
     }
 
     current_block = end_block;
@@ -281,13 +299,13 @@ static void generate_while(node_t* node) {
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
-    block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
 
     current_block = body_block;
     generate_node(condition, R0);
-    block_add(current_block, node->token, JZ, R0, '&', JUMP_LABEL_PREFIX, end_block->label);
+    block_append(current_block, node->token, JZ, R0, '&', JUMP_LABEL_PREFIX, end_block->label);
     generate_node(body, R0);
-    block_add(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
 
     current_block = end_block;
 }
@@ -406,8 +424,8 @@ void generate_function(function_t* function) {
     current_function = function;
     current_block = block_new(-1);
     function_add_block(function, current_block);
-    block_add(current_block, root->token, ENTER);
-    block_sub_rsp_r9(current_block, root->token, frame_size);
+    block_append(current_block, root->token, ENTER);
+    block_sub_rsp(current_block, root->token, frame_size);
 
     // move register arguments into local variables
     int param_reg = R0;
@@ -415,13 +433,15 @@ void generate_function(function_t* function) {
         assert(param->kind == NODE_PARAMETER);
         if (param->symbol && param->symbol->offset < 0) {
             int offset = -(param_reg - R0 + 1) * 4;
-            block_add(current_block, param->token, STW, param_reg, RFP, offset);
+            block_append(current_block, param->token, STW, param_reg, RFP, offset);
             ++param_reg;
         }
     }
 
     // generate the function contents
-    generate_node(root->last_child, R0);
+    int reg = register_alloc(root->token);
+    generate_node(root->last_child, reg);
+    register_free(root->token, reg);
 
     // If the last block doesn't end in 'ret', we add a return. If the function
     // is main, we have to return 0.
@@ -429,26 +449,36 @@ void generate_function(function_t* function) {
     if (count == 0 || block_at(current_block, count - 1)->opcode != RET) {
         token_t* end_token = root->first_child->end_token;
         if (string_equal_cstr(function->asm_name, "main")) {
-            block_add(current_block, end_token, ZERO, R0);
+            block_append(current_block, end_token, ZERO, R0);
         }
-        block_add(current_block, end_token, LEAVE);
-        block_add(current_block, end_token, RET);
+        block_append(current_block, end_token, LEAVE);
+        block_append(current_block, end_token, RET);
     }
 }
 
-static void generate_call(node_t* call, int register_num) {
+static void generate_call(node_t* call, int reg_out) {
 
-    // push all registers (not including the return register)
-    for (int i = R0; i != register_num; ++i) {
-        block_add(current_block, call->token, PUSH, i);
+    // push all registers (except for the return register)
+    int last_pushed_register = register_loop_count ? R9 : reg_out;
+    for (int i = R0; i != last_pushed_register; ++i) {
+        if (i != reg_out) {
+            block_append(current_block, call->token, PUSH, i);
+        }
     }
 
-    // if the return value is passed indirectly, stash its pointer in r0 for
-    // now. (it goes at the top of the stack after pushing args.)
+    // clear register allocator
+    int old_register_next = register_next;
+    int old_register_loop_count = register_loop_count;
+    register_next = R0;
+    register_loop_count = 0;
+
+    // if the return value is passed indirectly, stash its pointer for now. (it
+    // goes at the top of the stack after pushing args.)
     bool return_indirect = type_is_passed_indirectly(call->type);
-    int first_register = return_indirect ? R1 : R0;
+    int reg_return_indirect = -1;
     if (return_indirect) {
-        block_add(current_block, call->token, MOV, R0, register_num);
+        reg_return_indirect = register_alloc(call->token);
+        block_append(current_block, call->token, MOV, reg_return_indirect, reg_out);
     }
 
     // find the last argument passed in a register
@@ -468,6 +498,7 @@ static void generate_call(node_t* call, int register_num) {
     // if and only if they do not fit in a register.)
     int stack_space = 0;
     bool last_register_arg_found = false;
+    int reg_arg = register_alloc(call->token);
     for (node_t* arg = call->last_child; arg != call->first_child; arg = arg->left_sibling) {
         if (arg == last_register_arg)
             last_register_arg_found = true;
@@ -476,32 +507,34 @@ static void generate_call(node_t* call, int register_num) {
             // argument does not fit in a register. make stack space for it and
             // generate it.
             size_t size = type_size(arg->type);
-            block_sub_rsp_r9(current_block, arg->token, size);
-            block_add(current_block, arg->token, MOV, first_register, RSP);
-            generate_node(arg, first_register);
+            block_sub_rsp(current_block, arg->token, size);
+            block_append(current_block, arg->token, MOV, reg_arg, RSP);
+            generate_node(arg, reg_arg);
             stack_space += size;
 
         } else if (!last_register_arg_found) {
             // argument fits in a register but we have too many register-size
             // arguments. generate and push it.
-            generate_node(arg, first_register);
-            block_add(current_block, arg->token, PUSH, first_register);
+            generate_node(arg, reg_arg);
+            block_append(current_block, arg->token, PUSH, reg_arg);
             stack_space += 4;
         }
     }
+    register_free(call->token, reg_arg);
 
     // push the return pointer (if indirect)
     if (return_indirect) {
-        block_add(current_block, call->token, PUSH, R0);
+        block_append(current_block, call->token, PUSH, reg_return_indirect);
+        register_free(call->token, reg_return_indirect);
         stack_space += 4;
     }
 
     // compute register args into registers r0-r3
-    int reg = R0;
     for (node_t* arg = call->first_child->right_sibling; arg; arg = arg->right_sibling) {
+        int reg_num = register_alloc(arg->token);
         if (type_is_passed_indirectly(arg->type))
             continue;
-        generate_node(arg, reg++);
+        generate_node(arg, reg_num);
         if (arg == last_register_arg)
             break;
     }
@@ -509,24 +542,30 @@ static void generate_call(node_t* call, int register_num) {
     // call the function
     node_t* function = call->first_child;
     if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
-        block_add(current_block, call->token, CALL, '^', string_cstr(function->symbol->asm_name));
+        block_append(current_block, call->token, CALL, '^', string_cstr(function->symbol->asm_name));
     } else {
         // It's a function pointer expression.
         // TODO compile the expression into r4 and call it
         fatal("TODO function pointer calling not implemented yet");
     }
 
-    // move the return value where it goes (this is necessary for both direct
-    // and indirect)
-    if (register_num != R0)
-        block_add(current_block, call->token, MOV, register_num, R0);
+    // Move the return value where it goes. (This is necessary for both direct
+    // and indirect.) Often this is r0 so the value is already there; we let
+    // the optimizer delete the instruction if it's useless.
+    block_append(current_block, call->token, MOV, reg_out, R0);
 
     // pop all argument stack usage
-    block_add_rsp_r9(current_block, call->token, stack_space);
+    block_add_rsp(current_block, call->token, stack_space);
+
+    // restore the register allocator (we don't bother to free the argument registers first)
+    register_next = old_register_next;
+    register_loop_count = old_register_loop_count;
 
     // pop all registers
-    for (int i = register_num; i-- != R0;) {
-        block_add(current_block, call->token, POP, i);
+    for (int i = last_pushed_register; i-- != R0;) {
+        if (i != reg_out) {
+            block_append(current_block, call->token, POP, i);
+        }
     }
 }
 
@@ -553,12 +592,12 @@ static base_t cast_base(type_t* type) {
     return type->base;
 }
 
-void generate_cast(node_t* node, int register_num) {
+void generate_cast(node_t* node, int reg_out) {
     base_t target_base = cast_base(node->type);
     base_t source_base = cast_base(node->first_child->type);
     if (target_base == source_base) {
         // TODO we also need BASE_DOUBLE and BASE_LONG_DOUBLE to be equivalent
-        generate_node(node->first_child, register_num);
+        generate_node(node->first_child, reg_out);
         return;
     }
 
@@ -571,9 +610,9 @@ void generate_cast(node_t* node, int register_num) {
             // generate the source into stack space. we can re-use the same
             // register.
             assert(source_size < 0x80);
-            block_add(current_block, node->token, SUB, RSP, RSP, (uint8_t)source_size);
-            block_add(current_block, node->token, MOV, register_num, RSP);
-            generate_node(node->first_child, register_num);
+            block_append(current_block, node->token, SUB, RSP, RSP, (uint8_t)source_size);
+            block_append(current_block, node->token, MOV, reg_out, RSP);
+            generate_node(node->first_child, reg_out);
 
             // convert source to target
             if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
@@ -590,18 +629,18 @@ void generate_cast(node_t* node, int register_num) {
                 } else {
                     // We're casting from llong to a register-size or smaller
                     // integer. We can just load the low word.
-                    block_add(current_block, node->token, LDW, register_num, register_num, 0);
+                    block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
                 }
             }
 
-            block_add(current_block, node->token, ADD, RSP, RSP, (uint8_t)source_size);
+            block_append(current_block, node->token, ADD, RSP, RSP, (uint8_t)source_size);
 
         } else {
 
             // Casting from llong or double to llong or double.
             // The register already contains a pointer to 64-bit space. We can
             // use it to generate our source, then convert to target in-place.
-            generate_node(node->first_child, register_num);
+            generate_node(node->first_child, reg_out);
 
             if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
                 fatal("TODO cast from double to llong, emit function call");
@@ -621,7 +660,7 @@ void generate_cast(node_t* node, int register_num) {
 
             // The to and from types both fit in registers. We can use the same
             // register for both and truncate or sign-extend in place.
-            generate_node(node->first_child, register_num);
+            generate_node(node->first_child, reg_out);
 
             // For simplicity, if the source size is signed and less than register
             // size, we just sign extend right away. This can lead to some redundant
@@ -629,10 +668,10 @@ void generate_cast(node_t* node, int register_num) {
             switch (source_base) {
                 case BASE_CHAR:
                 case BASE_SIGNED_CHAR:
-                    block_add(current_block, node->token, SXB, register_num, register_num);
+                    block_append(current_block, node->token, SXB, reg_out, reg_out);
                     break;
                 case BASE_SIGNED_SHORT:
-                    block_add(current_block, node->token, SXS, register_num, register_num);
+                    block_append(current_block, node->token, SXS, reg_out, reg_out);
                     break;
                 default:
                     break;
@@ -645,16 +684,16 @@ void generate_cast(node_t* node, int register_num) {
             switch (target_base) {
                 case BASE_CHAR:
                 case BASE_SIGNED_CHAR:
-                    block_add(current_block, node->token, SXB, register_num, register_num);
+                    block_append(current_block, node->token, SXB, reg_out, reg_out);
                     break;
                 case BASE_UNSIGNED_CHAR:
-                    block_add(current_block, node->token, TRB, register_num, register_num);
+                    block_append(current_block, node->token, TRB, reg_out, reg_out);
                     break;
                 case BASE_SIGNED_SHORT:
-                    block_add(current_block, node->token, SXS, register_num, register_num);
+                    block_append(current_block, node->token, SXS, reg_out, reg_out);
                     break;
                 case BASE_UNSIGNED_SHORT:
-                    block_add(current_block, node->token, TRS, register_num, register_num);
+                    block_append(current_block, node->token, TRS, reg_out, reg_out);
                     break;
                 default:
                     break;
@@ -663,69 +702,68 @@ void generate_cast(node_t* node, int register_num) {
     }
 }
 
-void generate_unary_plus(node_t* node, int register_num) {
+void generate_unary_plus(node_t* node, int reg_out) {
     // We don't need to do anything besides generate. Probably unary plus
     // should be an implicit cast, but we should actually insert this cast into
     // the tree, not do it in codegen.
-    generate_node(node->first_child, register_num);
+    generate_node(node->first_child, reg_out);
 }
 
-void generate_unary_minus(node_t* node, int register_num) {
-    generate_node(node->first_child, register_num);
+void generate_unary_minus(node_t* node, int reg_out) {
+    generate_node(node->first_child, reg_out);
     if (type_size(node->type) > 4) {
         fatal("TODO codegen negate long long, float, etc.");
     }
-    block_add(current_block, node->token, SUB, register_num, 0, register_num);
+    block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
 }
 
-void generate_initializer(node_t* variable, int register_num) {
+void generate_initializer(node_t* variable, int reg_out) {
 
-    // We need two free registers to do the store.
-    // TODO the first register push here is probably not necessary, or at least
+    // TODO the first register alloc here is probably not necessary, or at least
     // there is a way of optimizing it in most cases (e.g. when the declaration
     // is in a void sequence.) We do it all the time anyway for simplicity.
-    bool pushed_1 = generate_register_push(&register_num);
-    ++register_num;
-    bool pushed_2 = generate_register_push(&register_num);
+
+    // TODO this needs to be fixed up, we should be generating in place for
+    // indirect values
 
     node_t* initializer = variable->first_child;
     if (initializer->kind == NODE_INITIALIZER_LIST) {
         fatal("TODO generate initializer list not yet implemented");
     }
+    int reg_value = register_alloc(variable->token);
+    generate_node(initializer, reg_value);
 
-    generate_node(initializer, register_num);
-    generate_access_location(variable->token, variable->symbol, register_num + 1);
+    int reg_location = register_alloc(variable->token);
+    generate_access_location(variable->token, variable->symbol, reg_location);
+
     // TODO figure out cast or whatever, probably the parser should do it
-    generate_store(variable->token, variable->symbol->type, register_num + 1, register_num);
+    generate_store(variable->token, variable->symbol->type, reg_location, reg_value);
 
-    generate_register_pop(pushed_2);
-    generate_register_pop(pushed_1);
+    register_free(variable->token, reg_location);
+    register_free(variable->token, reg_value);
 }
 
-void generate_dereference(node_t* node, int register_num) {
+/**
+ * Given a pointer and member offset, performs a dereference operation. This
+ * includes unary `*`, binary `.` and binary `->`.
+ *
+ * The pointer in reg_ptr is shifted by the given member offset, then loaded
+ * into reg_out.
+ */
+static void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offset) {
+
+    // TODO the shift and load could be done together if small enough. could optimize this later
+
+    // shift the pointer by the member offset
+    block_append_op_imm(current_block, node->token, ADD, reg_ptr, offset);
+
     if (type_is_passed_indirectly(node->type)) {
         fatal_token(node->token, "TODO dereference indirectly, need function to memcpy struct");
-    } else {
-        generate_node(node->first_child, register_num);
-        size_t size = type_size(node->type);
-        opcode_t opcode;
-        if (size == 1) {
-            opcode = LDB;
-        } else if (size == 2) {
-            opcode = LDS;
-        } else if (size == 4) {
-            opcode = LDW;
-        }
-        block_add(current_block, node->token, opcode, register_num, 0, register_num);
+        return;
     }
-}
 
-static void generate_member_impl(token_t* token, type_t* type, int register_num, int member_offset) {
-    block_add(current_block, token, ADD, register_num + 1, register_num + 1, member_offset);
-
-    // TODO for now this is copied from generate_dereference() above, need a
-    // shared way to generate code to dereference a ptr
-    size_t size = type_size(type);
+    // TODO should move this to a block_append helper
+    size_t size = type_size(node->type);
     opcode_t opcode;
     if (size == 1) {
         opcode = LDB;
@@ -734,47 +772,65 @@ static void generate_member_impl(token_t* token, type_t* type, int register_num,
     } else if (size == 4) {
         opcode = LDW;
     }
-    block_add(current_block, token, opcode, register_num, 0, register_num + 1);
+    block_append(current_block, node->token, opcode, reg_out, 0, reg_ptr);
 }
 
-static void generate_member_val(node_t* node, int register_num) {
-    bool pushed = generate_register_push(&register_num);
-    generate_location(node->first_child, register_num + 1);
-    generate_member_impl(node->token, node->type, register_num, node->member_offset);
-    generate_register_pop(pushed);
+static void generate_dereference(node_t* node, int reg_out) {
+
+    // When passing directly, we can use the same register for location and
+    // value.
+    if (!type_is_passed_indirectly(node->type)) {
+        generate_node(node->first_child, reg_out);
+        generate_dereference_impl(node, reg_out, reg_out, 0);
+    }
+
+    // Otherwise we need to generate in a temporary register.
+    int reg_loc = register_alloc(node->token);
+    generate_node(node->first_child, reg_loc);
+    generate_dereference_impl(node, reg_out, reg_loc, 0);
+    register_free(node->token, reg_loc);
 }
 
-static void generate_member_ptr(node_t* node, int register_num) {
-    bool pushed = generate_register_push(&register_num);
-    generate_node(node->first_child, register_num + 1);
-    fatal("TODO member ptr not implemented properly");
-    generate_register_pop(pushed);
+static void generate_member_val(node_t* node, int reg_out) {
+    // TODO we don't always need to alloc a register, see generate_dereference above
+    int reg_loc = register_alloc(node->token);
+    generate_location(node->first_child, reg_loc);
+    generate_dereference_impl(node, reg_out, reg_loc, node->member_offset);
+    register_free(node->token, reg_loc);
 }
 
-static void generate_location_member_val(node_t* node, int register_num) {
-    generate_location(node->first_child, register_num);
-    block_add(current_block, node->token, ADD, register_num, register_num, node->member_offset);
+static void generate_member_ptr(node_t* node, int reg_out) {
+    // TODO we don't always need to alloc a register, see generate_dereference above
+    int reg_loc = register_alloc(node->token);
+    generate_node(node->first_child, reg_loc);
+    generate_dereference_impl(node, reg_out, reg_loc, node->member_offset);
+    register_free(node->token, reg_loc);
 }
 
-static void generate_location_member_ptr(node_t* node, int register_num) {
-    generate_node(node->first_child, register_num);
-    block_add(current_block, node->token, ADD, register_num, register_num, node->member_offset);
+static void generate_location_member_val(node_t* node, int reg_out) {
+    generate_location(node->first_child, reg_out);
+    block_append(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
 }
 
-static void generate_sizeof(node_t* node, int register_num) {
+static void generate_location_member_ptr(node_t* node, int reg_out) {
+    generate_node(node->first_child, reg_out);
+    block_append(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
+}
+
+static void generate_sizeof(node_t* node, int reg_out) {
     unsigned size = type_size(node->first_child->type);
     if (size < 0x80) {
-        block_add(current_block, node->token, MOV, register_num, size);
+        block_append(current_block, node->token, MOV, reg_out, size);
     } else {
-        block_add(current_block, node->token, IMW, ARGTYPE_NUMBER, register_num, size);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, size);
     }
 }
 
-static void generate_address_of(node_t* node, int register_num) {
-    generate_location(node->first_child, register_num);
+static void generate_address_of(node_t* node, int reg_out) {
+    generate_location(node->first_child, reg_out);
 }
 
-void generate_node(node_t* node, int register_num) {
+void generate_node(node_t* node, int reg_out) {
     switch (node->kind) {
         case NODE_INVALID:
             fatal("Internal error: cannot generate unrecognized node.");
@@ -792,7 +848,7 @@ void generate_node(node_t* node, int register_num) {
 
         case NODE_VARIABLE:
             if (node->first_child) {
-                generate_initializer(node, register_num);
+                generate_initializer(node, reg_out);
             }
             break;
 
@@ -809,7 +865,7 @@ void generate_node(node_t* node, int register_num) {
         case NODE_GOTO: fatal_token(node->token, "TODO generate GOTO");
 
         // assignment expressions
-        case NODE_ASSIGN: generate_assign(node, register_num); break;
+        case NODE_ASSIGN: generate_assign(node, reg_out); break;
         case NODE_ADD_ASSIGN: fatal_token(node->token, "TODO generate ADD_ASSIGN");
         case NODE_SUB_ASSIGN: fatal_token(node->token, "TODO generate SUB_ASSIGN");
         case NODE_MUL_ASSIGN: fatal_token(node->token, "TODO generate MUL_ASSIGN");
@@ -824,34 +880,34 @@ void generate_node(node_t* node, int register_num) {
         // other binary expressions
         case NODE_LOGICAL_OR: fatal_token(node->token, "TODO generate LOGICAL_OR");
         case NODE_LOGICAL_AND: fatal_token(node->token, "TODO generate LOGICAL_AND");
-        case NODE_BIT_OR: generate_bit_or(node, register_num); break;
+        case NODE_BIT_OR: generate_bit_or(node, reg_out); break;
         case NODE_BIT_XOR: fatal_token(node->token, "TODO generate BIT_XOR");
         case NODE_BIT_AND: fatal_token(node->token, "TODO generate BIT_AND");
-        case NODE_EQUAL: generate_equal(node, register_num); break;
-        case NODE_NOT_EQUAL: generate_not_equal(node, register_num); break;
-        case NODE_LESS: generate_less(node, register_num); break;
-        case NODE_GREATER: generate_greater(node, register_num); break;
-        case NODE_LESS_OR_EQUAL: generate_less_or_equal(node, register_num); break;
-        case NODE_GREATER_OR_EQUAL: generate_greater_or_equal(node, register_num); break;
-        case NODE_SHL: generate_shl(node, register_num); break;
-        case NODE_SHR: generate_shr(node, register_num); break;
-        case NODE_ADD: generate_add(node, register_num); break;
-        case NODE_SUB: generate_sub(node, register_num); break;
-        case NODE_MUL: generate_mul(node, register_num); break;
-        case NODE_DIV: generate_div(node, register_num); break;
-        case NODE_MOD: generate_mod(node, register_num); break;
+        case NODE_EQUAL: generate_equal(node, reg_out); break;
+        case NODE_NOT_EQUAL: generate_not_equal(node, reg_out); break;
+        case NODE_LESS: generate_less(node, reg_out); break;
+        case NODE_GREATER: generate_greater(node, reg_out); break;
+        case NODE_LESS_OR_EQUAL: generate_less_or_equal(node, reg_out); break;
+        case NODE_GREATER_OR_EQUAL: generate_greater_or_equal(node, reg_out); break;
+        case NODE_SHL: generate_shl(node, reg_out); break;
+        case NODE_SHR: generate_shr(node, reg_out); break;
+        case NODE_ADD: generate_add(node, reg_out); break;
+        case NODE_SUB: generate_sub(node, reg_out); break;
+        case NODE_MUL: generate_mul(node, reg_out); break;
+        case NODE_DIV: generate_div(node, reg_out); break;
+        case NODE_MOD: generate_mod(node, reg_out); break;
 
         // unary expressions
-        case NODE_CAST: generate_cast(node, register_num); break;
-        case NODE_SIZEOF: generate_sizeof(node, register_num); break;
+        case NODE_CAST: generate_cast(node, reg_out); break;
+        case NODE_SIZEOF: generate_sizeof(node, reg_out); break;
         case NODE_TYPEOF: fatal_token(node->token, "TODO generate TYPEOF");
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
-        case NODE_UNARY_PLUS: generate_unary_plus(node, register_num); break;
-        case NODE_UNARY_MINUS: generate_unary_minus(node, register_num); break;
-        case NODE_BIT_NOT: generate_bit_not(node, register_num); break;
-        case NODE_LOGICAL_NOT: generate_log_not(node, register_num); break;
-        case NODE_DEREFERENCE: generate_dereference(node, register_num); break;
-        case NODE_ADDRESS_OF: generate_address_of(node, register_num); break;
+        case NODE_UNARY_PLUS: generate_unary_plus(node, reg_out); break;
+        case NODE_UNARY_MINUS: generate_unary_minus(node, reg_out); break;
+        case NODE_BIT_NOT: generate_bit_not(node, reg_out); break;
+        case NODE_LOGICAL_NOT: generate_log_not(node, reg_out); break;
+        case NODE_DEREFERENCE: generate_dereference(node, reg_out); break;
+        case NODE_ADDRESS_OF: generate_address_of(node, reg_out); break;
         case NODE_PRE_INC: fatal_token(node->token, "TODO generate PRE_INC");
         case NODE_PRE_DEC: fatal_token(node->token, "TODO generate PRE_DEC");
 
@@ -859,33 +915,33 @@ void generate_node(node_t* node, int register_num) {
         case NODE_POST_INC: fatal_token(node->token, "TODO generate POST_INC");
         case NODE_POST_DEC: fatal_token(node->token, "TODO generate POST_DEC");
         case NODE_ARRAY_INDEX: fatal_token(node->token, "TODO generate ARRAY_INDEX");
-        case NODE_MEMBER_VAL: generate_member_val(node, register_num); break;
-        case NODE_MEMBER_PTR: generate_member_ptr(node, register_num); break;
+        case NODE_MEMBER_VAL: generate_member_val(node, reg_out); break;
+        case NODE_MEMBER_PTR: generate_member_ptr(node, reg_out); break;
 
         // other expressions
-        case NODE_IF: generate_if(node, register_num); break;
-        case NODE_SEQUENCE: generate_sequence(node, register_num); break;
-        case NODE_CHARACTER: generate_character(node, register_num); break;
-        case NODE_STRING: generate_string(node, register_num); break;
-        case NODE_NUMBER: generate_number(node, register_num); break;
-        case NODE_ACCESS: generate_access(node, register_num); break;
-        case NODE_CALL: generate_call(node, register_num); break;
+        case NODE_IF: generate_if(node, reg_out); break;
+        case NODE_SEQUENCE: generate_sequence(node, reg_out); break;
+        case NODE_CHARACTER: generate_character(node, reg_out); break;
+        case NODE_STRING: generate_string(node, reg_out); break;
+        case NODE_NUMBER: generate_number(node, reg_out); break;
+        case NODE_ACCESS: generate_access(node, reg_out); break;
+        case NODE_CALL: generate_call(node, reg_out); break;
     }
 }
 
-void generate_location(node_t* node, int register_num) {
+void generate_location(node_t* node, int reg_out) {
     switch (node->kind) {
         case NODE_ACCESS:
-            generate_access_location(node->token, node->symbol, register_num);
+            generate_access_location(node->token, node->symbol, reg_out);
             break;
         case NODE_DEREFERENCE:
-            generate_node(node->first_child, register_num);
+            generate_node(node->first_child, reg_out);
             break;
         case NODE_MEMBER_VAL:
-            generate_location_member_val(node, register_num);
+            generate_location_member_val(node, reg_out);
             break;
         case NODE_MEMBER_PTR:
-            generate_location_member_ptr(node, register_num);
+            generate_location_member_ptr(node, reg_out);
             break;
         default:
             fatal("Internal error, cannot generate location of non-value.");

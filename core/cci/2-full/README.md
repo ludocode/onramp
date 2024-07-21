@@ -131,13 +131,11 @@ The tree is compiled directly to basic blocks of assembly. We do not (yet) have 
 
 The most important function is `generate_node()`. This takes a node and a numbered register (`r0`-`r9`) into which the expression should compute its value. If the expression computes a value larger than a register, the register contains a pointer to where the value should be stored (which must be provided or allocated from the stack by the parent expression.)
 
-The generator assumes that all registers from `r0` to the given register are in use, while subsequent registers up to `r9` are available. An expression for register `n` can therefore compute temporaries into `n + 1`, `n + 2`, and so on up to `r9`. If the expression has type `void`, it can also use the given register `n` as a temporary. The generator will push registers to the stack if it runs out.
+The register allocator is as simple as possible. Registered are allocated sequentially from r0 to r9 and freed in reverse order of allocation. If additional registers are needed, we loop back around to r0 and push the existing value to make room. (This means only the last 10 allocated registers can be used at any time. This is not a problem because most operations use at most four allocated registers.)
 
 All local variables are spilled at all times. We don't (yet) do any kind of register allocation for variables. This has poor performance but the code generation is extremely simple.
 
-On a function call for register `n`, all registers from `r0` to `n - 1` are pushed to the stack, and the function call is emitted. The return value is then moved from `r0` to `n` and the preceding registers are popped.
-
-(The code generator is by far the weakest part of the compiler, and probably the weakest part of all of the final stage Onramp tools. There isn't much focus on good code generation at this point since it's purely for performance; a more important goal is to get everything working first. I aspire to one day read a book about compilers to learn how to implement a proper code generator.)
+(The code generator is by far the weakest part of the compiler, and probably the weakest part of all of the final stage Onramp tools. There isn't much focus on good code generation at this point since it's purely for performance; a more important goal is to get everything working first.)
 
 
 
