@@ -27,14 +27,17 @@
 
 #include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 /**
  * During bootstrapping we don't have `long long`. We need to represent it as
  * two `unsigned`. We do our 64-bit math by manually calling out to the
  * __llong_*() functions in libc/2.
  *
- * When the final stage is re-compiling itself (or when compiling with an
- * ordinary C compiler) we use normal `long long` math.
+ * When the final stage is re-compiling itself, or when compiling with an
+ * native C compiler, we use normal `long long` math. (This is necessary
+ * because, when compiling with a native C compiler, we don't have our llong
+ * libc functions.)
  */
 #ifdef __onramp_cci_full__
     #define LLONG_NATIVE
@@ -55,8 +58,10 @@ typedef struct llong_t {
     #endif
 } llong_t;
 
+// These functions modify the argument in place.
 void llong_clear(llong_t* llong);
 void llong_set(llong_t* llong, const llong_t* other);
+void llong_set_u(llong_t* llong, uint32_t other);
 void llong_add(llong_t* llong, const llong_t* other);
 void llong_add_u(llong_t* llong, unsigned other);
 void llong_sub(llong_t* llong, const llong_t* other);
@@ -64,15 +69,22 @@ void llong_mul(llong_t* llong, const llong_t* other);
 void llong_mul_u(llong_t* llong, unsigned other);
 void llong_divu(llong_t* llong, const llong_t* other);
 void llong_divs(llong_t* llong, const llong_t* other);
-bool llong_ltu(const llong_t* left, const llong_t* right);
-bool llong_lts(const llong_t* left, const llong_t* right);
+void llong_modu(llong_t* llong, const llong_t* other);
+void llong_mods(llong_t* llong, const llong_t* other);
 void llong_shl(llong_t* llong, int bits);
 void llong_shru(llong_t* llong, int bits);
 void llong_shrs(llong_t* llong, int bits);
 void llong_and(llong_t* llong, const llong_t* other);
 void llong_or(llong_t* llong, const llong_t* other);
 void llong_xor(llong_t* llong, const llong_t* other);
-void llong_not(llong_t* llong);
+void llong_bit_not(llong_t* llong);
+void llong_negate(llong_t* llong);
 void llong_print(const llong_t* llong, FILE* stream);
+
+// These functions do not modify the argument.
+uint32_t llong_to_u32(const llong_t* llong);
+bool llong_ltu(const llong_t* left, const llong_t* right);
+bool llong_lts(const llong_t* left, const llong_t* right);
+bool llong_bool(const llong_t* llong);
 
 #endif

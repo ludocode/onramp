@@ -20,7 +20,7 @@ void __llong_shrs(unsigned* out, unsigned* a, int bits);
 void __llong_and(unsigned* out, unsigned* a, unsigned* b);
 void __llong_or(unsigned* out, unsigned* a, unsigned* b);
 void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
-void __llong_not(unsigned* out, unsigned* src);
+void __llong_bit_not(unsigned* out, unsigned* src);
 
 static void test_add(void) {
     unsigned long long a = 0x0123456789abcdefULL;
@@ -193,7 +193,7 @@ static void test_xor(void) {
 
 static void test_not(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
-    __llong_not((unsigned*)&a, (unsigned*)&a);
+    __llong_bit_not((unsigned*)&a, (unsigned*)&a);
     if (a != 0xcba9876f543210edULL) {
         exit(1);
     }

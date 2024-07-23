@@ -282,7 +282,7 @@ void __llong_xor(unsigned* out, const unsigned* a, const unsigned* b) {
     *(out + 1) = (*(a + 1) ^ *(b + 1));
 }
 
-void __llong_not(unsigned* out, const unsigned* src) {
+void __llong_bit_not(unsigned* out, const unsigned* src) {
     *out = ~*src;
     *(out + 1) = ~*(src + 1);
 }

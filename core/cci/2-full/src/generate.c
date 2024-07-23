@@ -134,7 +134,7 @@ static void generate_number(node_t* node, int reg_out) {
     assert(node->kind == NODE_NUMBER);
     assert(node->first_child == NULL);
     // TODO for now assume it's int
-    int value = node->int_value;
+    int value = (int)node->u32;
     if (value <= 127 && value >= -112) {
         block_append(current_block, node->token, MOV, reg_out, value);
     } else {
@@ -145,7 +145,7 @@ static void generate_number(node_t* node, int reg_out) {
 static void generate_character(node_t* node, int reg_out) {
     assert(node->kind == NODE_CHARACTER);
     assert(node->first_child == NULL);
-    block_append(current_block, node->token, MOV, reg_out, node->int_value);
+    block_append(current_block, node->token, MOV, reg_out, node->u32);
 }
 
 static void generate_string(node_t* node, int reg_out) {
@@ -170,7 +170,7 @@ static void generate_access(node_t* node, int reg_out) {
         if (!type_matches_base(type, BASE_ENUM)) {
             fatal("TODO: Constants other than enum values are not yet supported.");
         }
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->constant.i);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->constant.u32);
         return;
     }
 

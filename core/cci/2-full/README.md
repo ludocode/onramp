@@ -29,6 +29,18 @@ The compiler implements a command-line interface similar to GCC and friends, but
 
 
 
+## Implementation Language
+
+The final stage compiler is written in [opC](../../../docs/practical-c.md) with the [omC](../../../docs/minimal-c.md) preprocessor. The code mostly looks like C11 but there are some major limitations that affect its implementation.
+
+opC only supports 32-bit integer values. It does not have `long long`, `float` or `double` so we can't use them in this implementation. Instead, `float` values are stored in a `uint32_t`, and the compiler has a type `llong_t` to store 64-bit `long long` and `double` values.
+
+We define functions `llong_*()`, `double_*()` and `float_*()` for performing arithmetic. When bootstrapping, these are wrappers for the corresponding arithmetic functions in the Onramp libc. When the compiler rebuilds itself, or when compiling with a native compiler (e.g. when unit testing), these instead wrap the normal C operators.
+
+opC does not have function pointers, and the omC preprocessor does not have function-like macros. In cases where these would have been useful, we have to do other workarounds instead. The code can end up being quite a bit more verbose than you might expect.
+
+
+
 ## Algorithm
 
 The final stage compiler operates in phases on units of functions.
@@ -63,7 +75,7 @@ The lexer does not support digraphs, trigraphs, comments, or preprocessor direct
 
 ## Parse Tree
 
-The parser parses code into a tree. We sometimes call it an abstract syntax tree or a parse tree but it's really a semantic tree, as most semantic properties are resolved as it builds the tree. For example the types of all nodes are resolved during parsing, not in a separate analysis pass. It also does not include some syntax such as types.
+The parser parses code into a tree. We sometimes call it an abstract syntax tree or a parse tree but it's really a semantic tree, as most semantic properties are resolved as it builds the tree. For example the types of all nodes are resolved during parsing, not in a separate analysis pass. It also does not include some syntax such as types, enum declarations, etc.
 
 You can pass `-ast-dump` to the compiler to view the tree. (By default the output uses UTF-8-encoded box-drawing characters. Pass `-ast-dump=ascii` to restrict the output to ASCII.) For example:
 
@@ -106,7 +118,7 @@ switch (foo)
         return;
 ```
 
-In the Onramp tree, we separate labels and cases from statements for simplicity. When parsing the above, Onramp creates a synthetic `NODE_SEQUENCE` containing four children: three `NODE_CASE` and a `NODE_RETURN`. In fact the structure of the tree is essentially identical whether or not it has braces. The only difference is during parsing, wherein braces allow declarations and multiple statements and create a scope.
+In the Onramp tree, we separate labels and cases from statements for simplicity. When parsing the above, Onramp creates a synthetic `NODE_SEQUENCE` containing four children: three `NODE_CASE` and a `NODE_RETURN`. In fact the structure of the tree is essentially identical whether or not it has braces. The only difference is during parsing, wherein braces create a scope and allow multiple statements and declarations.
 
 The above switch statement is parsed as:
 

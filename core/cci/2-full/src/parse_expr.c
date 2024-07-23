@@ -172,10 +172,10 @@ static node_t* parse_number(void) {
     // we're just trying to match the functionality of cci/0 right now. we'll
     // need to store the full llong value in the node
     #ifdef LLONG_NATIVE
-    node->int_value = (int)value.value;
+    node->u32 = (int)value.value;
     #endif
     #ifndef LLONG_NATIVE
-    node->int_value = value.words[0];
+    node->u32 = value.words[0];
     #endif
 
     node->type = type_new_base(BASE_SIGNED_INT);
@@ -189,7 +189,7 @@ static node_t* parse_character(void) {
     assert(lexer_token->type == token_type_character);
     node_t* node = node_new_lexer(NODE_CHARACTER);
     // TODO char prefixes
-    node->int_value = node->token->value->bytes[0];
+    node->u32 = node->token->value->bytes[0];
     node->type = type_new_base(BASE_SIGNED_INT);
     return node;
 }
@@ -852,4 +852,14 @@ node_t* parse_expression(void) {
 
 node_t* parse_predicate(void) {
     return node_make_predicate(parse_expression());
+}
+
+node_t* parse_constant_expression(void) {
+    // Comma and assignment operators are not allowed in a constant expression
+    // so we start at a conditional expression. Note that we don't check
+    // whether the expression actually is constant; evaluation will fail if it
+    // isn't.
+    // TODO we should check that the forbidden operators are not used
+    // recursively.
+    return parse_conditional_expression();
 }

@@ -28,6 +28,7 @@
 #include "libo-string.h"
 #include "libo-vector.h"
 #include "type.h"
+#include "llong.h"
 
 struct type_t;
 struct token_t;
@@ -93,7 +94,7 @@ typedef enum node_kind_t {
 
     // Unary expressions. One child.
     NODE_CAST,
-    NODE_SIZEOF,
+    NODE_SIZEOF,  // one child TYPE
     NODE_TYPEOF,
     NODE_TYPEOF_UNQUAL,
     NODE_UNARY_PLUS,   // unary +
@@ -137,7 +138,7 @@ const char* node_kind_to_string(node_kind_t kind);
  * children are the condition followed by the block, while the `do` node's
  * children are the block followed by the expression.
  *
- * Some nodes may have unlimited children, for example blocks.
+ * Some nodes may have unlimited children, for example sequences.
  */
 typedef struct node_t {
     struct node_t* parent;
@@ -172,7 +173,8 @@ typedef struct node_t {
         struct token_t* member; // The member for NODE_MEMBER_*
         struct symbol_t* symbol; // The symbol for NODE_ACCESS
         struct node_t* container; // loop/switch reference for break/continue
-        int int_value; // number or character
+        uint32_t u32; // 32-bit float, int or character
+        llong_t u64; // 64-bit double or long long
         int string_label;
     };
 
@@ -275,5 +277,21 @@ node_t* node_cast(node_t* node, struct type_t* type, struct token_t* /*nullable*
  * Inserts a cast for the given node to the given base type if necessary.
  */
 node_t* node_cast_base(node_t* node, base_t base, struct token_t* /*nullable*/ token);
+
+/**
+ * Evaluates a constant expression of an integer up to 32 bits in size. The
+ * type may be signed or unsigned, and it may be long, int, short or char.
+ */
+uint32_t node_eval_32(node_t* node);
+
+/**
+ * Evaluates a constant expression of a 64-bit integer size. The type may be
+ * signed or unsigned long long.
+ *
+ * 64-bit math is fairly expensive on Onramp since it's emulated with 32-bit
+ * instructions. For this reason we separate out 64-bit evaluation so we can
+ * avoid it wherever possible.
+ */
+void node_eval_64(node_t* node, llong_t* out);
 
 #endif

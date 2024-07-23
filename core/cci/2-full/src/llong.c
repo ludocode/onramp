@@ -41,8 +41,18 @@ extern void __llong_shrs(unsigned* out, unsigned* a, int bits);
 extern void __llong_and(unsigned* out, unsigned* a, unsigned* b);
 extern void __llong_or(unsigned* out, unsigned* a, unsigned* b);
 extern void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_not(unsigned* out, unsigned* src);
+extern void __llong_bit_not(unsigned* out, unsigned* src);
 #endif
+
+uint32_t llong_to_u32(const llong_t* llong) {
+    #ifdef LLONG_NATIVE
+    return (uint32_t)llong->value;
+    #endif
+
+    #ifndef LLONG_NATIVE
+    return llong->words[0];
+    #endif
+}
 
 void llong_clear(llong_t* llong) {
     #ifdef LLONG_NATIVE
@@ -63,6 +73,17 @@ void llong_set(llong_t* llong, const llong_t* other) {
     #ifndef LLONG_NATIVE
     llong->words[0] = other->words[0];
     llong->words[1] = other->words[1];
+    #endif
+}
+
+void llong_set_u(llong_t* llong, uint32_t other) {
+    #ifdef LLONG_NATIVE
+    llong->value = other;
+    #endif
+
+    #ifndef LLONG_NATIVE
+    llong->words[0] = other;
+    llong->words[1] = 0;
     #endif
 }
 
@@ -145,6 +166,14 @@ void llong_divs(llong_t* llong, const llong_t* other) {
     #endif
 }
 
+void llong_modu(llong_t* llong, const llong_t* other) {
+    fatal("TODO llong_modu() not yet implemented");
+}
+
+void llong_mods(llong_t* llong, const llong_t* other) {
+    fatal("TODO llong_mods() not yet implemented");
+}
+
 bool llong_ltu(const llong_t* left, const llong_t* right) {
     #ifdef LLONG_NATIVE
     return left->value < right->value;
@@ -225,14 +254,33 @@ void llong_xor(llong_t* llong, const llong_t* other) {
     #endif
 }
 
-void llong_not(llong_t* llong) {
+void llong_bit_not(llong_t* llong) {
     #ifdef LLONG_NATIVE
     llong->value = ~llong->value;
     #endif
 
     #ifndef LLONG_NATIVE
-    __llong_not(llong->words, llong->words);
+    __llong_bit_not(llong->words, llong->words);
     #endif
+}
+
+bool llong_bool(const llong_t* llong) {
+    #ifdef LLONG_NATIVE
+    return !!llong->value;
+    #endif
+
+    #ifndef LLONG_NATIVE
+    return !!(llong->words[0] | llong->words[1]);
+    #endif
+}
+
+void llong_negate(llong_t* llong) {
+    // TODO surely there's a faster way to do this but I don't feel like
+    // testing right now
+    llong_t temp;
+    llong_set_u(&temp, 0);
+    llong_sub(&temp, llong);
+    llong_set(llong, &temp);
 }
 
 void llong_print(const llong_t* llong, FILE* stream) {

@@ -169,6 +169,7 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cci-2-full/block.oo \
     build/intermediate/cci-2-full/common.oo \
     build/intermediate/cci-2-full/emit.oo \
+    build/intermediate/cci-2-full/enum.oo \
     build/intermediate/cci-2-full/function.oo \
     build/intermediate/cci-2-full/generate.oo \
     build/intermediate/cci-2-full/generate_ops.oo \

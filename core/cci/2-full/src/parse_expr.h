@@ -33,5 +33,6 @@ void parse_expr_destroy(void);
 
 struct node_t* parse_expression(void);
 struct node_t* parse_predicate(void);
+struct node_t* parse_constant_expression(void);
 
 #endif

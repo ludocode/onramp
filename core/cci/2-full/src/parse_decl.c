@@ -415,31 +415,43 @@ static void parse_enum(specifiers_t* specifiers) {
     enum_deref(enum_);
 
     // Parse values
+    bool found = false;
     int value = 0;
-    while (!lexer_accept(STR_BRACE_CLOSE)) {
+    while (!lexer_is(STR_BRACE_CLOSE)) {
         if (lexer_token->type != token_type_alphanumeric) {
             fatal_token(lexer_token, "Expected an identifier for this enum value");
         }
         token_t* name = lexer_take();
 
-        if (lexer_accept(STR_ASSIGN)) {
-            fatal("TODO parse a constant expression for enum value");
-            // TODO parse an expression (that doesn't have a comma in it), resolve it, make sure it's int, set value to it
+        if (lexer_is(STR_ASSIGN)) {
+            token_t* token = lexer_take();
+            node_t* node = parse_constant_expression();
+            // TODO should do a type conversion check and give a better error message
+            node = node_cast_base(node, BASE_SIGNED_INT, token);
+            value = (int)node_eval_32(node);
+            node_delete(node);
+            token_deref(token);
         }
 
         symbol_t* symbol = symbol_new(symbol_kind_constant, type, name, NULL);
-        symbol->constant.i = value++;
+        symbol->constant.u32 = value++;
         scope_add_symbol(scope_current, symbol);
         symbol_deref(symbol);
 
         // TODO add the symbol to the enum
 
+        found = true;
         token_deref(name);
-        if (lexer_accept(STR_BRACE_CLOSE))
+        if (lexer_is(STR_BRACE_CLOSE))
             break;
         // TODO trailing comma isn't allowed in pedantic C89 mode
         lexer_expect(STR_COMMA, "Expected `,` or `}` after this enum value.");
     }
+
+    if (!found) {
+        fatal_token(lexer_token, "Expected an enumerator in this enumeration. (An empty `enum` is not allowed.)");
+    }
+    lexer_consume();
 
 done:
     if (tag)

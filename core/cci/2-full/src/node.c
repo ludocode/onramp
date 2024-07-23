@@ -176,6 +176,8 @@ void node_delete(node_t* node) {
 
 void node_append(node_t* parent, node_t* child) {
     assert(parent);
+    assert(child);
+
     child->parent = parent;
     if (parent->last_child) {
         child->left_sibling = parent->last_child;
@@ -463,29 +465,23 @@ node_t* node_promote(node_t* node) {
         fatal("Internal error: node is missing type!");
     }
 
-    assert(type_is_arithmetic(type)); // this must not be called on non-arithmetic types
-    if (!type_is_base(type))
-        return node;
+    // this must not be called on non-arithmetic types
+    assert(type_matches_base(type, BASE_ENUM) || type_is_arithmetic(type));
 
     switch (type->base) {
         case BASE_CHAR:
         case BASE_SIGNED_CHAR:
         case BASE_SIGNED_SHORT:
         case BASE_SIGNED_LONG: // note: we cast long to int here
-        {
-            node_t* cast = node_new(NODE_CAST);
-            cast->type = type_new_base(BASE_SIGNED_INT);
-            node_append(cast, node);
-            return cast;
-        }
         case BASE_UNSIGNED_CHAR:
         case BASE_UNSIGNED_SHORT:
-        case BASE_UNSIGNED_LONG: // note: we cast long to int here
+        case BASE_ENUM:
         {
-            node_t* cast = node_new(NODE_CAST);
-            cast->type = type_new_base(BASE_SIGNED_INT);
-            node_append(cast, node);
-            return cast;
+            return node_cast_base(node, BASE_SIGNED_INT, NULL);
+        }
+        case BASE_UNSIGNED_LONG:
+        {
+            return node_cast_base(node, BASE_UNSIGNED_INT, NULL);
         }
         default:
             break;
@@ -568,4 +564,330 @@ node_t* node_cast_base(node_t* node, base_t base, token_t* /*nullable*/ token) {
     node_t* ret = node_cast(node, type, token);
     type_deref(type);
     return ret;
+}
+
+
+
+// Evaluates a node for a logical (true or false) value. This is used for
+// evaluation of the `||`, `&&` and `!` operators.
+bool node_eval_logical(node_t* node) {
+    if (!type_is_arithmetic(node->type))
+        fatal_token(node->token, "Internal error: a non-arithmetic type cannot be an operand to a logical operator.");
+
+    if (!type_is_integer(node->type))
+        fatal_token(node->token, "TODO logical operators on floats");
+
+    if (type_size(node->type) == 8) {
+        llong_t llong;
+        node_eval_64(node, &llong);
+        return llong_bool(&llong);
+    }
+
+    return !!node_eval_32(node);
+}
+
+static uint32_t node_eval_32_binary(node_t* node) {
+
+    // The arguments to all of these binary operators are always 32 bits
+    // because the node is 32 bits, and its arguments have undergone integer
+    // promotions and conversions.
+    uint32_t left = node_eval_32(node->first_child);
+    uint32_t right = node_eval_32(node->last_child);
+
+    switch (node->kind) {
+        case NODE_BIT_OR: return left | right;
+        case NODE_BIT_XOR: return left ^ right;
+        case NODE_BIT_AND: return left & right;
+        case NODE_EQUAL: return left == right;
+        case NODE_NOT_EQUAL: return left != right;
+        case NODE_LESS: return left < right;
+        case NODE_GREATER: return left > right;
+        case NODE_LESS_OR_EQUAL: return left <= right;
+        case NODE_GREATER_OR_EQUAL: return left >= right;
+        case NODE_SHL: return left << right;
+        case NODE_ADD: return left + right;
+        case NODE_SUB: return left - right;
+        case NODE_MUL: return left * right;
+
+        case NODE_SHR:
+            if (type_is_signed_integer(node->type))
+                return (uint32_t)((int32_t)left >> right);
+            return left >> right;
+        case NODE_DIV:
+            if (type_is_signed_integer(node->type))
+                return (uint32_t)((int32_t)left / right);
+            return left / right;
+        case NODE_MOD:
+            if (type_is_signed_integer(node->type))
+                return (uint32_t)((int32_t)left % right);
+            return left % right;
+
+        default:
+            break;
+    }
+
+    fatal_token(node->token, "Internal error: unreachable");
+}
+
+uint32_t node_eval_32(node_t* node) {
+    assert(type_is_integer(node->type));
+
+    // TODO type size should be at most 4, want to be able to evaluate char and
+    // short nodes with this as well
+    assert(type_size(node->type) == 4);
+
+    switch (node->kind) {
+
+        // Note that we don't short circuit binary logical operators. Both
+        // sides must be constant expressions even if the left side is true.
+        case NODE_LOGICAL_OR:
+            return node_eval_logical(node->first_child) || node_eval_logical(node->last_child);
+        case NODE_LOGICAL_AND:
+            return node_eval_logical(node->first_child) && node_eval_logical(node->last_child);
+        case NODE_LOGICAL_NOT:
+            return !node_eval_logical(node->first_child);
+
+        case NODE_BIT_OR:
+        case NODE_BIT_XOR:
+        case NODE_BIT_AND:
+        case NODE_EQUAL:
+        case NODE_NOT_EQUAL:
+        case NODE_LESS:
+        case NODE_GREATER:
+        case NODE_LESS_OR_EQUAL:
+        case NODE_GREATER_OR_EQUAL:
+        case NODE_SHL:
+        case NODE_SHR:
+        case NODE_ADD:
+        case NODE_SUB:
+        case NODE_MUL:
+        case NODE_DIV:
+        case NODE_MOD:
+            // We break these out into a separate function for convenience.
+            return node_eval_32_binary(node);
+
+        case NODE_UNARY_PLUS:
+            return node_eval_32(node->first_child);
+        case NODE_UNARY_MINUS:
+            return -node_eval_32(node->first_child);
+        case NODE_BIT_NOT:
+            return ~node_eval_32(node->first_child);
+
+        // TODO we also need to support lots more stuff, e.g. member or array
+        // index of a const object is supposed to be supported. not yet
+        // implemented.
+        case NODE_ARRAY_INDEX:
+        case NODE_MEMBER_VAL:
+        case NODE_MEMBER_PTR:
+        case NODE_DEREFERENCE:
+        case NODE_ADDRESS_OF:
+            fatal_token(node->token, "TODO this operator in a constant expression is not yet implemented.");
+
+        case NODE_CHARACTER:
+        case NODE_NUMBER:
+            return node->u32;
+
+        case NODE_SIZEOF:
+            return type_size(node->first_child->type);
+
+        case NODE_ACCESS:
+            if (node->symbol->kind != symbol_kind_constant)
+                break;
+            return node->symbol->constant.u32;
+
+        case NODE_CAST: {
+            node_t* child = node->first_child;
+
+            // integer casts
+            if (type_is_integer(child->type)) {
+                if (type_size(child->type) == 4)
+                    return node_eval_32(child);
+
+                if (type_size(child->type) == 8) {
+                    llong_t llong;
+                    node_eval_64(child, &llong);
+                    return llong_to_u32(&llong);
+                }
+            }
+
+            // float to int casts are allowed but we don't support them yet.
+            // (float arithmetic is *not* allowed though; casts can only take
+            // float constants so I don't know if this is really useful.)
+            if (type_is_arithmetic(child->type))
+                fatal_token(node->token, "TODO cast of float not yet implemented");
+
+            // some other casts are also allowed but we don't support them yet.
+            fatal_token(node->token, "TODO cast of non-arithmetic type in a constant expression is not yet supported.");
+        }
+
+        default:
+            break;
+    }
+
+    fatal_token(node->token, "Expected a constant expression.");
+}
+
+static void node_eval_64_binary(node_t* node, llong_t* out) {
+
+    // The arguments to all of these binary operators are always 64 bits
+    // because the node is 64 bits, and its arguments have undergone integer
+    // promotions and conversions.
+    llong_t temp;
+    node_eval_64(node->first_child, out);
+    node_eval_64(node->last_child, &temp);
+
+    switch (node->kind) {
+        case NODE_BIT_OR:
+            llong_or(out, &temp);
+            return;
+        case NODE_BIT_XOR:
+            llong_xor(out, &temp);
+            return;
+        case NODE_BIT_AND:
+            llong_and(out, &temp);
+            return;
+        case NODE_ADD:
+            llong_add(out, &temp);
+            return;
+        case NODE_SUB:
+            llong_sub(out, &temp);
+            return;
+        case NODE_MUL:
+            llong_mul(out, &temp);
+            return;
+
+        case NODE_DIV:
+            if (type_is_signed_integer(node->type))
+                llong_divs(out, &temp);
+            else
+                llong_divu(out, &temp);
+            return;
+        case NODE_MOD:
+            if (type_is_signed_integer(node->type))
+                llong_mods(out, &temp);
+            else
+                llong_modu(out, &temp);
+            return;
+
+        default:
+            break;
+    }
+
+    fatal_token(node->token, "Internal error: unreachable");
+}
+
+void node_eval_64(node_t* node, llong_t* out) {
+    assert(type_is_integer(node->type));
+    assert(type_size(node->type) == 8);
+
+    switch (node->kind) {
+        case NODE_BIT_OR:
+        case NODE_BIT_XOR:
+        case NODE_BIT_AND:
+        case NODE_ADD:
+        case NODE_SUB:
+        case NODE_MUL:
+        case NODE_DIV:
+        case NODE_MOD:
+            // We break these out into a separate function for convenience.
+            node_eval_64_binary(node, out);
+            return;
+
+        case NODE_SHL: {
+            node_eval_64(node->first_child, out);
+            uint32_t bits = node_eval_32(node->last_child);
+            llong_shl(out, bits);
+            return;
+        }
+
+        case NODE_SHR: {
+            node_eval_64(node->first_child, out);
+            uint32_t bits = node_eval_32(node->last_child);
+            if (type_is_signed_integer(node->type))
+                llong_shrs(out, bits);
+            else
+                llong_shru(out, bits);
+            return;
+        }
+
+        case NODE_UNARY_PLUS:
+            node_eval_64(node->first_child, out);
+            return;
+
+        case NODE_UNARY_MINUS:
+            node_eval_64(node->first_child, out);
+            llong_negate(out);
+            return;
+
+        case NODE_BIT_NOT:
+            node_eval_64(node->first_child, out);
+            llong_bit_not(out);
+            return;
+
+        // TODO we also need to support lots more stuff, e.g. member or array
+        // index of a const object is supposed to be supported. not yet
+        // implemented.
+        case NODE_IF:
+        case NODE_ARRAY_INDEX:
+        case NODE_MEMBER_VAL:
+        case NODE_MEMBER_PTR:
+        case NODE_DEREFERENCE:
+        case NODE_ADDRESS_OF:
+            fatal_token(node->token, "TODO this operator in a constant expression is not yet implemented.");
+
+        // None of these nodes can have 64-bit type. They are all signed or
+        // unsigned int.
+        case NODE_LOGICAL_OR:
+        case NODE_LOGICAL_AND:
+        case NODE_EQUAL:
+        case NODE_NOT_EQUAL:
+        case NODE_LESS:
+        case NODE_GREATER:
+        case NODE_LESS_OR_EQUAL:
+        case NODE_GREATER_OR_EQUAL:
+        case NODE_LOGICAL_NOT:
+        case NODE_CHARACTER:
+        case NODE_SIZEOF:
+            fatal_token(node->token, "Internal error: a %s node cannot be 64 bits.", node_kind_to_string(node->kind));
+
+        case NODE_NUMBER:
+            llong_set(out, &node->u64);
+            return;
+
+        case NODE_ACCESS:
+            if (node->symbol->kind != symbol_kind_constant)
+                break;
+            llong_set(out, &node->symbol->constant.u64);
+            return;
+
+        case NODE_CAST: {
+            node_t* child = node->first_child;
+
+            // integer casts
+            if (type_is_integer(child->type)) {
+                if (type_size(child->type) == 8) {
+                    node_eval_64(child, out);
+                    return;
+                }
+
+                uint32_t value = node_eval_32(child);
+                llong_set_u(out, value);
+                return;
+            }
+
+            // float to int casts are allowed but we don't support them yet.
+            // (float arithmetic is *not* allowed though; casts can only take
+            // float constants so I don't know if this is really useful.)
+            if (type_is_arithmetic(child->type))
+                fatal_token(node->token, "TODO cast of float not yet implemented");
+
+            // some other casts are also allowed but we don't support them yet.
+            fatal_token(node->token, "TODO cast of non-arithmetic type in a constant expression is not yet supported.");
+        }
+
+        default:
+            break;
+    }
+
+    fatal_token(node->token, "Expected a constant expression.");
 }
