@@ -25,13 +25,16 @@
 set -e
 cd "$(dirname "$0")"
 
+if ! command -v onrampvm >/dev/null ; then
+    echo "onrampvm is required on your PATH."
+fi
+
 # We run platform-specific tests first to make sure there are no VM bugs before
 # we test stuff that depends on a VM.
 ./test-platform.sh
 
 # We test core components with the best available toolchains before testing as
 # bootstrapped since they are more likely to find the real source of bugs.
-../scripts/posix/build.sh --dev
 ./test-core.sh
 
 # Finally we test everything as bootstrapped.

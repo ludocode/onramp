@@ -906,6 +906,7 @@ static void run_onramp(size_t argc, char** argv) {
 
 #ifndef __onramp__
 static void run_posix(size_t argc, char** argv) {
+    char** old_argv = argv;
     char** new_argv = NULL;
 
     // Check if the name of the executable has a .oe extension
@@ -923,6 +924,9 @@ static void run_posix(size_t argc, char** argv) {
     // Run the subprocess
     pid_t pid;
     if (0 != (new_argv ? posix_spawnp : posix_spawn)(&pid, *argv, NULL, NULL, argv, environ)) {
+        fputs("Attempting to run: ", stderr);
+        fputs(*old_argv, stderr);
+        fputc('\n', stderr);
         fatal_cleanup("Failed to spawn subprocess");
     }
     free(new_argv);
