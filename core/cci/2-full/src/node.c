@@ -386,6 +386,8 @@ node_kind_t node_kind_of_assignment_operator(token_t* token) {
 }
 
 node_kind_t node_kind_of_unary_operator(token_t* token) {
+    if (token->type != token_type_punctuation)
+        return NODE_INVALID;
     const char* op = string_cstr(token->value);
 
     switch (*op) {
