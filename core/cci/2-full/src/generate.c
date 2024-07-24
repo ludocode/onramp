@@ -881,8 +881,8 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_LOGICAL_OR: fatal_token(node->token, "TODO generate LOGICAL_OR");
         case NODE_LOGICAL_AND: fatal_token(node->token, "TODO generate LOGICAL_AND");
         case NODE_BIT_OR: generate_bit_or(node, reg_out); break;
-        case NODE_BIT_XOR: fatal_token(node->token, "TODO generate BIT_XOR");
-        case NODE_BIT_AND: fatal_token(node->token, "TODO generate BIT_AND");
+        case NODE_BIT_XOR: generate_bit_xor(node, reg_out); break;
+        case NODE_BIT_AND: generate_bit_and(node, reg_out); break;
         case NODE_EQUAL: generate_equal(node, reg_out); break;
         case NODE_NOT_EQUAL: generate_not_equal(node, reg_out); break;
         case NODE_LESS: generate_less(node, reg_out); break;

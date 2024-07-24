@@ -42,6 +42,8 @@ void generate_mod(struct node_t* node, int reg_out);
 void generate_shl(struct node_t* node, int reg_out);
 void generate_shr(struct node_t* node, int reg_out);
 void generate_bit_or(struct node_t* node, int reg_out);
+void generate_bit_and(struct node_t* node, int reg_out);
+void generate_bit_xor(struct node_t* node, int reg_out);
 void generate_bit_not(struct node_t* node, int reg_out);
 void generate_log_not(struct node_t* node, int reg_out);
 

@@ -231,6 +231,14 @@ void generate_bit_or(node_t* node, int reg_out) {
     generate_simple_arithmetic(node, reg_out, OR, "__llong_bit_or", NULL, NULL);
 }
 
+void generate_bit_and(node_t* node, int reg_out) {
+    generate_simple_arithmetic(node, reg_out, AND, "__llong_bit_and", NULL, NULL);
+}
+
+void generate_bit_xor(node_t* node, int reg_out) {
+    generate_simple_arithmetic(node, reg_out, XOR, "__llong_bit_xor", NULL, NULL);
+}
+
 
 
 void generate_bit_not(node_t* node, int reg_out) {
@@ -247,6 +255,7 @@ void generate_log_not(node_t* node, int reg_out) {
         // TODO
         fatal("TODO log not llong");
     }
+    generate_node(node->first_child, reg_out);
     block_append(current_block, node->token, ISZ, reg_out, reg_out);
 }
 
