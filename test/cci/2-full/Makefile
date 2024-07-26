@@ -50,7 +50,6 @@ SRCS=\
 	$(SRC)/generate_ops.c \
 	$(SRC)/instruction.c \
 	$(SRC)/lexer.c \
-	$(SRC)/llong.c \
 	$(SRC)/main.c \
 	$(SRC)/node.c \
 	$(SRC)/options.c \
@@ -63,6 +62,7 @@ SRCS=\
 	$(SRC)/symbol.c \
 	$(SRC)/token.c \
 	$(SRC)/type.c \
+	$(SRC)/u64.c \
 
 all: build test FORCE
 FORCE:

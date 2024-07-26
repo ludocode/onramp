@@ -580,7 +580,7 @@ bool node_eval_logical(node_t* node) {
         fatal_token(node->token, "TODO logical operators on floats");
 
     if (type_size(node->type) == 8) {
-        llong_t llong;
+        u64_t llong;
         node_eval_64(node, &llong);
         return llong_bool(&llong);
     }
@@ -706,7 +706,7 @@ uint32_t node_eval_32(node_t* node) {
                     return node_eval_32(child);
 
                 if (type_size(child->type) == 8) {
-                    llong_t llong;
+                    u64_t llong;
                     node_eval_64(child, &llong);
                     return llong_to_u32(&llong);
                 }
@@ -729,12 +729,12 @@ uint32_t node_eval_32(node_t* node) {
     fatal_token(node->token, "Expected a constant expression.");
 }
 
-static void node_eval_64_binary(node_t* node, llong_t* out) {
+static void node_eval_64_binary(node_t* node, u64_t* out) {
 
     // The arguments to all of these binary operators are always 64 bits
     // because the node is 64 bits, and its arguments have undergone integer
     // promotions and conversions.
-    llong_t temp;
+    u64_t temp;
     node_eval_64(node->first_child, out);
     node_eval_64(node->last_child, &temp);
 
@@ -778,7 +778,7 @@ static void node_eval_64_binary(node_t* node, llong_t* out) {
     fatal_token(node->token, "Internal error: unreachable");
 }
 
-void node_eval_64(node_t* node, llong_t* out) {
+void node_eval_64(node_t* node, u64_t* out) {
     assert(type_is_integer(node->type));
     assert(type_size(node->type) == 8);
 

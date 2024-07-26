@@ -33,7 +33,7 @@ The compiler implements a command-line interface similar to GCC and friends, but
 
 The final stage compiler is written in [opC](../../../docs/practical-c.md) with the [omC](../../../docs/minimal-c.md) preprocessor. The code mostly looks like C11 but there are some major limitations that affect its implementation.
 
-opC only supports 32-bit integer values. It does not have `long long`, `float` or `double` so we can't use them in this implementation. Instead, `float` values are stored in a `uint32_t`, and the compiler has a type `llong_t` to store 64-bit `long long` and `double` values.
+opC only supports 32-bit integer values. It does not have `long long`, `float` or `double` so we can't use them in this implementation. Instead, `float` values are stored in a `uint32_t`, and the compiler has a type `u64_t` to store 64-bit `long long` and `double` values.
 
 We define functions `llong_*()`, `double_*()` and `float_*()` for performing arithmetic. When bootstrapping, these are wrappers for the corresponding arithmetic functions in the Onramp libc. When the compiler rebuilds itself, or when compiling with a native compiler (e.g. when unit testing), these instead wrap the normal C operators.
 

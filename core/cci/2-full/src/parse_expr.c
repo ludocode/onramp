@@ -39,7 +39,7 @@
 #include "parse_decl.h"
 #include "parse_stmt.h"
 #include "emit.h"
-#include "llong.h"
+#include "u64.h"
 
 static int next_string;
 
@@ -95,7 +95,7 @@ static node_t* parse_number(void) {
     }
 
     // accumulate digits
-    llong_t value;
+    u64_t value;
     llong_clear(&value);
     while (1) {
         // TODO hex_to_int in libo
@@ -114,7 +114,7 @@ static node_t* parse_number(void) {
         }
 
         // Add the digit, checking for overflow
-        llong_t temp;
+        u64_t temp;
         llong_set(&temp, &value);
         llong_mul_u(&temp, base);
         if (llong_ltu(&temp, &value)) {
@@ -171,12 +171,7 @@ static node_t* parse_number(void) {
     // TODO for now we just ignore the suffix and truncate it down to an int.
     // we're just trying to match the functionality of cci/0 right now. we'll
     // need to store the full llong value in the node
-    #ifdef LLONG_NATIVE
-    node->u32 = (int)value.value;
-    #endif
-    #ifndef LLONG_NATIVE
-    node->u32 = value.words[0];
-    #endif
+    node->u32 = llong_to_u32(&value);
 
     node->type = type_new_base(BASE_SIGNED_INT);
     return node;

@@ -84,12 +84,6 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/lexer.c \
     -o build/intermediate/cci-2-full/lexer.oo
 
-echo Compiling cci/2-full llong.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/cci/2-full/build-ccargs \
-    -c core/cci/2-full/src/llong.c \
-    -o build/intermediate/cci-2-full/llong.oo
-
 echo Compiling cci/2-full main.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/2-full/build-ccargs \
@@ -162,6 +156,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/type.c \
     -o build/intermediate/cci-2-full/type.oo
 
+echo Compiling cci/2-full u64.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/u64.c \
+    -o build/intermediate/cci-2-full/u64.oo
+
 echo Linking cci/2-full
 onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/libc-2-opc/libc.oa \
@@ -175,7 +175,6 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cci-2-full/generate_ops.oo \
     build/intermediate/cci-2-full/instruction.oo \
     build/intermediate/cci-2-full/lexer.oo \
-    build/intermediate/cci-2-full/llong.oo \
     build/intermediate/cci-2-full/main.oo \
     build/intermediate/cci-2-full/node.oo \
     build/intermediate/cci-2-full/options.oo \
@@ -188,4 +187,5 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cci-2-full/symbol.oo \
     build/intermediate/cci-2-full/token.oo \
     build/intermediate/cci-2-full/type.oo \
+    build/intermediate/cci-2-full/u64.oo \
     -o build/intermediate/cci-2-full/cci.oe

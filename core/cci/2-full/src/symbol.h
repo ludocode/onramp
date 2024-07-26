@@ -28,7 +28,7 @@
 #include <limits.h>
 
 #include "libo-string.h"
-#include "llong.h"
+#include "u64.h"
 
 struct type_t;
 struct token_t;
@@ -66,7 +66,7 @@ typedef struct symbol_t {
 
     union {
         uint32_t u32; // float or int/short/char
-        llong_t u64;  // double or long long
+        u64_t u64;    // double or long long
     } constant;
 } symbol_t;
 

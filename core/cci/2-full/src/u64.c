@@ -22,11 +22,11 @@
  * SOFTWARE.
  */
 
-#include "llong.h"
+#include "u64.h"
 
 #include "common.h"
 
-#ifndef LLONG_NATIVE
+#ifndef ONRAMP_U64_NATIVE
 // libc/2 functions
 extern void __llong_add(unsigned* out, unsigned* a, unsigned* b);
 extern void __llong_sub(unsigned* out, unsigned* a, unsigned* b);
@@ -44,65 +44,65 @@ extern void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
 extern void __llong_bit_not(unsigned* out, unsigned* src);
 #endif
 
-uint32_t llong_to_u32(const llong_t* llong) {
-    #ifdef LLONG_NATIVE
+uint32_t llong_to_u32(const u64_t* llong) {
+    #ifdef ONRAMP_U64_NATIVE
     return (uint32_t)llong->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     return llong->words[0];
     #endif
 }
 
-void llong_clear(llong_t* llong) {
-    #ifdef LLONG_NATIVE
+void llong_clear(u64_t* llong) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value = 0;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     llong->words[0] = 0;
     llong->words[1] = 0;
     #endif
 }
 
-void llong_set(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_set(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value = other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     llong->words[0] = other->words[0];
     llong->words[1] = other->words[1];
     #endif
 }
 
-void llong_set_u(llong_t* llong, uint32_t other) {
-    #ifdef LLONG_NATIVE
+void llong_set_u(u64_t* llong, uint32_t other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value = other;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     llong->words[0] = other;
     llong->words[1] = 0;
     #endif
 }
 
-void llong_add(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_add(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value += other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_add(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_add_u(llong_t* llong, unsigned other) {
-    #ifdef LLONG_NATIVE
+void llong_add_u(u64_t* llong, unsigned other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value += other;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     // TODO very inefficient, doesn't matter
     unsigned words[2];
     words[0] = other;
@@ -111,32 +111,32 @@ void llong_add_u(llong_t* llong, unsigned other) {
     #endif
 }
 
-void llong_sub(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_sub(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value -= other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_sub(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_mul(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_mul(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value *= other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_mul(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_mul_u(llong_t* llong, unsigned other) {
-    #ifdef LLONG_NATIVE
+void llong_mul_u(u64_t* llong, unsigned other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value *= other;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     // TODO very inefficient, doesn't matter
     unsigned words[2];
     words[0] = other;
@@ -145,144 +145,144 @@ void llong_mul_u(llong_t* llong, unsigned other) {
     #endif
 }
 
-void llong_divu(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_divu(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value /= other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_divu(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_divs(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_divs(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value = (unsigned long long)(
             (long long)llong->value / (long long)other->value);
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_divs(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_modu(llong_t* llong, const llong_t* other) {
+void llong_modu(u64_t* llong, const u64_t* other) {
     fatal("TODO llong_modu() not yet implemented");
 }
 
-void llong_mods(llong_t* llong, const llong_t* other) {
+void llong_mods(u64_t* llong, const u64_t* other) {
     fatal("TODO llong_mods() not yet implemented");
 }
 
-bool llong_ltu(const llong_t* left, const llong_t* right) {
-    #ifdef LLONG_NATIVE
+bool llong_ltu(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
     return left->value < right->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     return __llong_ltu(left->words, right->words);
     #endif
 }
 
-bool llong_lts(const llong_t* left, const llong_t* right) {
-    #ifdef LLONG_NATIVE
+bool llong_lts(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
     return (long long)left->value < (long long)right->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     return __llong_lts(left->words, right->words);
     #endif
 }
 
-void llong_shl(llong_t* llong, int bits) {
-    #ifdef LLONG_NATIVE
+void llong_shl(u64_t* llong, int bits) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value <<= bits;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_shl(llong->words, llong->words, bits);
     #endif
 }
 
-void llong_shru(llong_t* llong, int bits) {
-    #ifdef LLONG_NATIVE
+void llong_shru(u64_t* llong, int bits) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value >>= bits;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_shru(llong->words, llong->words, bits);
     #endif
 }
 
-void llong_shrs(llong_t* llong, int bits) {
-    #ifdef LLONG_NATIVE
+void llong_shrs(u64_t* llong, int bits) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value = (unsigned long long)((long long)llong->value >> bits);
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_shrs(llong->words, llong->words, bits);
     #endif
 }
 
-void llong_and(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_and(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value &= other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_and(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_or(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_or(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value |= other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_or(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_xor(llong_t* llong, const llong_t* other) {
-    #ifdef LLONG_NATIVE
+void llong_xor(u64_t* llong, const u64_t* other) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value ^= other->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_xor(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_bit_not(llong_t* llong) {
-    #ifdef LLONG_NATIVE
+void llong_bit_not(u64_t* llong) {
+    #ifdef ONRAMP_U64_NATIVE
     llong->value = ~llong->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     __llong_bit_not(llong->words, llong->words);
     #endif
 }
 
-bool llong_bool(const llong_t* llong) {
-    #ifdef LLONG_NATIVE
+bool llong_bool(const u64_t* llong) {
+    #ifdef ONRAMP_U64_NATIVE
     return !!llong->value;
     #endif
 
-    #ifndef LLONG_NATIVE
+    #ifndef ONRAMP_U64_NATIVE
     return !!(llong->words[0] | llong->words[1]);
     #endif
 }
 
-void llong_negate(llong_t* llong) {
+void llong_negate(u64_t* llong) {
     // TODO surely there's a faster way to do this but I don't feel like
     // testing right now
-    llong_t temp;
+    u64_t temp;
     llong_set_u(&temp, 0);
     llong_sub(&temp, llong);
     llong_set(llong, &temp);
 }
 
-void llong_print(const llong_t* llong, FILE* stream) {
+void llong_print(const u64_t* llong, FILE* stream) {
     fatal("TODO llong_print()");
 }

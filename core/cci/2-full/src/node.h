@@ -28,7 +28,7 @@
 #include "libo-string.h"
 #include "libo-vector.h"
 #include "type.h"
-#include "llong.h"
+#include "u64.h"
 
 struct type_t;
 struct token_t;
@@ -174,7 +174,7 @@ typedef struct node_t {
         struct symbol_t* symbol; // The symbol for NODE_ACCESS
         struct node_t* container; // loop/switch reference for break/continue
         uint32_t u32; // 32-bit float, int or character
-        llong_t u64; // 64-bit double or long long
+        u64_t u64;    // 64-bit double or long long
         int string_label;
     };
 
@@ -292,6 +292,6 @@ uint32_t node_eval_32(node_t* node);
  * instructions. For this reason we separate out 64-bit evaluation so we can
  * avoid it wherever possible.
  */
-void node_eval_64(node_t* node, llong_t* out);
+void node_eval_64(node_t* node, u64_t* out);
 
 #endif
