@@ -34,10 +34,8 @@
 set -e
 cd "$(dirname "$0")/.."
 
-if ! command -v onrampvm >/dev/null; then
-    echo "onrampvm is required on your PATH."
-    exit 1
-fi
+# Put the VM on our PATH
+. scripts/posix/env.sh
 
 # initial hex tool
 platform/hex/onramp/test.sh

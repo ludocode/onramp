@@ -30,8 +30,7 @@
 set -e
 cd "$(dirname "$0")/.."
 
-# Setup for a POSIX environment
-#scripts/posix/setup.sh
+# Put the VM on our PATH
 . scripts/posix/env.sh
 
 # We need some of our non-bootstrapped tools built because they are used to
