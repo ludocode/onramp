@@ -710,9 +710,9 @@ static int file_type(const char* name) {
             return TYPE_OS;
         }
 
-        // We don't differentiate between .oo and .os files.
+        // We don't differentiate between .oo and .oa files.
         if (((0 == strcmp(extension, "oo")) | (0 == strcmp(extension, "OO"))) |
-            ((0 == strcmp(extension, "os")) | (0 == strcmp(extension, "OS"))))
+            ((0 == strcmp(extension, "oa")) | (0 == strcmp(extension, "OA"))))
         {
             return TYPE_OO;
         }
