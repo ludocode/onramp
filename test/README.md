@@ -23,7 +23,7 @@ scripts/posix/clean.sh
 You'll need to have a VM and hex tool on your PATH. The simplest way to do that is:
 
 ```sh
-scripts/posix/setup.sh
+scripts/posix/build.sh --dev --skip-core
 . scripts/posix/env.sh
 ```
 

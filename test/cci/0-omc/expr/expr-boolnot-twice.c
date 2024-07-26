@@ -3,5 +3,16 @@
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
-    return !!0;
+    if (!!0) {
+        return 1;
+    }
+    if (!!(char)0x100) {
+        return 2;
+    }
+    if (!!(char)3) {
+        if (!!1) {
+            return 0;
+        }
+    }
+    return 3;
 }

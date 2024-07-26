@@ -8,13 +8,21 @@ int main(void) {
     }
 
     if ((5 + 3) != 8) {
-        return 1;
+        return 2;
     }
 
     // test promotion from char to int
     char x = -3;
     if ((x + -5) != -8) {
-        return 1;
+        return 3;
+    }
+
+    // test correct truncation of chars
+    if (((char)0x101 + (char)0x102) != 3) {
+        return 4;
+    }
+    if (((char)0xffffff03 + (char)0xeeeeee04) != 7) {
+        return 5;
     }
 
     return 0;

@@ -34,10 +34,10 @@
 set -e
 cd "$(dirname "$0")/.."
 
-if ! [ -e build/posix/bin/onrampvm ]; then
-    echo "Run scripts/posix/build.sh before running this."
+if ! command -v onrampvm >/dev/null; then
+    echo "onrampvm is required on your PATH."
+    exit 1
 fi
-. scripts/posix/env.sh
 
 # initial hex tool
 platform/hex/onramp/test.sh
