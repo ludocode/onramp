@@ -962,7 +962,7 @@ void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable
     } else {
         // TODO emit a zero symbol. Linker and libc don't support them yet. For
         // now we just emit a bunch of zeroes.
-        for (size_t count = type_size(symbol->type) >> 2; count-- > 0;) {
+        for (size_t count = (type_size(symbol->type) + 3) >> 2; count-- > 0;) {
             if (!(count & 15)) {
                 emit_newline();
                 emit_cstr(ASM_INDENT);
