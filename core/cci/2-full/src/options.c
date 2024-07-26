@@ -391,8 +391,6 @@ static bool flag_parse(const char* arg) {
 void options_init(void) {
     warnings_init();
     flags_init();
-
-    //optimization = true;
 }
 
 void options_destroy(void) {
@@ -443,10 +441,17 @@ static bool options_parse_misc(const char* arg) {
         werror = false;
         return true;
     }
-    if (0 == strcmp(arg, "-g")) { // TODO support numbers after g, at least 0-3
+
+    // cc doesn't pass along suffixes for -g or -O
+    if (0 == strcmp(arg, "-g")) {
         option_debug_info = true;
         return true;
     }
+    if (0 == strcmp(arg, "-O")) {
+        optimization = true;
+        return true;
+    }
+
     return false;
 }
 
