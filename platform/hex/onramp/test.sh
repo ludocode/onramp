@@ -24,12 +24,15 @@
 
 
 # This script tests the Onramp bytecode hex tool.
-#
-# We depend upon the C89 VM to run these tests.
 
 
 set -e
-"$(dirname "$0")/build.sh"
 cd "$(dirname "$0")/../../.."
-platform/vm/c89/build.sh
-test/hex/run.sh build/test/vm-c89/vm build/test/hex-onramp/hex.oe
+
+if ! command -v onrampvm >/dev/null; then
+    echo "onrampvm is required on your PATH."
+    exit 1
+fi
+
+"$(dirname "$0")/build.sh"
+test/hex/run.sh onrampvm build/test/hex-onramp/hex.oe

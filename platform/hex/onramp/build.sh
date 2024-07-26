@@ -32,5 +32,5 @@ cd "$(dirname "$0")/../../.."
 # Since this is a POSIX shell script, we assume we can use the POSIX shell hex
 # tool to hex it.
 mkdir -p build/test/hex-onramp
+echo "Hexing: build/test/hex-onramp/hex.oe"
 platform/hex/sh/hex.sh core/hex/0-onramp/hex.oe.ohx -o build/test/hex-onramp/hex.oe
-echo "Hexed: build/test/hex-onramp/hex.oe"
