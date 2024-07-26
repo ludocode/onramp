@@ -2,13 +2,13 @@
   0
 =main
   enter
-  imw r1 ^x
-  ldw r1 rpp r1
-  mov r2 0
-  sub r1 r1 r2
-  cmpu r1 r1 0
-  and r1 r1 1
-  jnz r1 &_Lx0
+  imw r0 ^x
+  ldw r0 rpp r0
+  mov r1 0
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx0
   jmp &_Lx1
 :_Lx0
   mov r0 1

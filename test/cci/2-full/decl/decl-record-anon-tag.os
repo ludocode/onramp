@@ -8,13 +8,12 @@
   stw r0 0 r1
   imw r2 ^b
   add r2 rpp r2
-  add r2 r2 0
-  ldw r1 0 r2
-  mov r2 1
-  sub r1 r1 r2
-  cmpu r1 r1 0
-  and r1 r1 1
-  jnz r1 &_Lx0
+  ldw r0 0 r2
+  mov r1 1
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx0
   jmp &_Lx1
 :_Lx0
   mov r0 1
@@ -39,13 +38,12 @@
   add r1 r1 0
   stw r0 0 r1
   add r2 rfp -8
-  add r2 r2 0
-  ldw r1 0 r2
-  mov r2 4
-  sub r1 r1 r2
-  cmpu r1 r1 0
-  and r1 r1 1
-  jnz r1 &_Lx2
+  ldw r0 0 r2
+  mov r1 4
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx2
   jmp &_Lx3
 :_Lx2
   mov r0 1
@@ -55,12 +53,12 @@
 :_Lx3
   add r2 rfp -8
   add r2 r2 4
-  ldw r1 0 r2
-  mov r2 2
-  sub r1 r1 r2
-  cmpu r1 r1 0
-  and r1 r1 1
-  jnz r1 &_Lx4
+  ldw r0 0 r2
+  mov r1 2
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx4
   jmp &_Lx5
 :_Lx4
   mov r0 2
@@ -69,13 +67,12 @@
   jmp &_Lx5
 :_Lx5
   add r2 rfp -8
-  add r2 r2 0
-  ldw r1 0 r2
-  mov r2 4
-  sub r1 r1 r2
-  cmpu r1 r1 0
-  and r1 r1 1
-  jnz r1 &_Lx6
+  ldw r0 0 r2
+  mov r1 4
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx6
   jmp &_Lx7
 :_Lx6
   mov r0 3
@@ -84,13 +81,12 @@
   jmp &_Lx7
 :_Lx7
   add r2 rfp -8
-  add r2 r2 0
-  ldw r1 0 r2
-  mov r2 4
-  sub r1 r1 r2
-  cmpu r1 r1 0
-  and r1 r1 1
-  jnz r1 &_Lx8
+  ldw r0 0 r2
+  mov r1 4
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx8
   jmp &_Lx9
 :_Lx8
   mov r0 4
