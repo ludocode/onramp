@@ -50,6 +50,7 @@ SRCS=\
 	$(SRC)/function.c \
 	$(SRC)/generate.c \
 	$(SRC)/generate_ops.c \
+	$(SRC)/generate_stmt.c \
 	$(SRC)/instruction.c \
 	$(SRC)/lexer.c \
 	$(SRC)/main.c \

@@ -72,6 +72,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/generate_ops.c \
     -o build/intermediate/cci-2-full/generate_ops.oo
 
+echo Compiling cci/2-full generate_stmt.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/build-ccargs \
+    -c core/cci/2-full/src/generate_stmt.c \
+    -o build/intermediate/cci-2-full/generate_stmt.oo
+
 echo Compiling cci/2-full instruction.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/2-full/build-ccargs \
@@ -173,6 +179,7 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cci-2-full/function.oo \
     build/intermediate/cci-2-full/generate.oo \
     build/intermediate/cci-2-full/generate_ops.oo \
+    build/intermediate/cci-2-full/generate_stmt.oo \
     build/intermediate/cci-2-full/instruction.oo \
     build/intermediate/cci-2-full/lexer.oo \
     build/intermediate/cci-2-full/main.oo \
