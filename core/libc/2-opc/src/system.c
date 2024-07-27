@@ -31,7 +31,7 @@
 
 int __argc;
 char** __argv;
-extern char** __environ;
+extern char** environ;
 
 // TODO clean these up
 _Noreturn void __end(unsigned exit_code, unsigned exit_address);
@@ -52,7 +52,7 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     // store environment
     __process_info_table = process_info;
     __argv = process_info[__ONRAMP_PIT_ARGS];
-    __environ = process_info[__ONRAMP_PIT_ENVIRON];
+    environ = process_info[__ONRAMP_PIT_ENVIRON];
 
     // count command-line args
     for (__argc = 0; __argv[__argc]; ++__argc) {}
@@ -63,7 +63,7 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     __file_init();
 
     // run user code. _Exit() does not return.
-    _Exit(main(__argc, __argv, __environ));
+    _Exit(main(__argc, __argv, environ));
 }
 #endif
 

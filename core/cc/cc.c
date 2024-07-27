@@ -43,8 +43,6 @@
  * Headers
  */
 
-#define _GNU_SOURCE
-
 #include <ctype.h>
 #include <spawn.h>
 #include <stdbool.h>
@@ -60,6 +58,8 @@
 
 #include "libo-error.h"
 #include "libo-util.h"
+
+extern char** environ;
 
 // TODO dedupe these with libc/2
 void* __memdup(const void* p, size_t count);
@@ -886,7 +886,7 @@ static void run_onramp(size_t argc, char** argv) {
     // setup the child pit
     *(child_pit + PIT_BREAK) = (int)child_break;
     *(child_pit + PIT_ARGS) = (int)argv;
-    *(child_pit + PIT_ENVIRON) = (int)__environ;
+    *(child_pit + PIT_ENVIRON) = (int)environ;
 
     // run it
     int ret = __onramp_spawn(child_pit, child_start, child_end);

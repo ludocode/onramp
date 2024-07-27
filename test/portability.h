@@ -7,6 +7,16 @@
  */
 
 /*
+ * On Windows, environ is called _environ.
+ *
+ * We otherwise assume environ is available. It's not standard C, but it is in
+ * POSIX and there's no other way to get a list of all environment variables.
+ */
+#ifdef _WIN32
+    #define environ _environ
+#endif
+
+/*
  * Clang warns about the use of bitwise `|` on boolean value because it wants
  * us to use `||`, but `||` does not exist in omC.
  *

@@ -31,6 +31,4 @@
 
 #include <__onramp/__size_t.h>
 
-char** __environ;
-
 #endif

@@ -24,12 +24,11 @@
 
 #include "string.h"
 
-// TODO in POSIX this is maybe supposed to be called environ, not __environ
-char** __environ;
+char** environ;
 
 // TODO move this to libc/1, cc needs it
 char* getenv(const char* name) {
-    for (char** p = __environ; p; ++p) {
+    for (char** p = environ; p; ++p) {
         char* start = *p;
 
         // get the end of the key
