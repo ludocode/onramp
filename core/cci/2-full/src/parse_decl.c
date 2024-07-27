@@ -391,7 +391,9 @@ static void parse_enum(specifiers_t* specifiers) {
         }
         type_t* type = scope_find_type(scope_current, NAMESPACE_TAG, tag->value, true);
         if (!type) {
-            fatal_token(tag, "An enum with this tag has not been defined. (Forward declarations of enums are not allowed.)");
+            if (lexer_is(STR_SEMICOLON))
+                fatal_token(tag, "Forward declarations of enums are not allowed.");
+            fatal_token(tag, "An enum with this tag has not been defined.");
         }
         if (!type_matches_base(type, BASE_ENUM)) {
             fatal_token(tag, "This tag refers to a struct or union in this scope. It cannot be referred to as `enum`.");
@@ -408,11 +410,18 @@ static void parse_enum(specifiers_t* specifiers) {
         }
     }
 
-    // Create new type, add to current scope
+    // Create new type
     enum_t* enum_ = enum_new(tag);
     type_t* type = type_new_enum(enum_);
     specifiers->type = type;
     enum_deref(enum_);
+
+    // Add to current scope
+    // (If the enum is anonymous, we don't add it anywhere; the enum values
+    // hold strong references to it.)
+    if (tag) {
+        scope_add_type(scope_current, NAMESPACE_TAG, tag, type);
+    }
 
     // Parse values
     bool found = false;
@@ -438,7 +447,7 @@ static void parse_enum(specifiers_t* specifiers) {
         scope_add_symbol(scope_current, symbol);
         symbol_deref(symbol);
 
-        // TODO add the symbol to the enum
+        // TODO add the symbol to the enum (as non-retaining reference to prevent cycles)
 
         found = true;
         token_deref(name);
