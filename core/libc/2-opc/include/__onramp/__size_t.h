@@ -29,6 +29,6 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-typedef unsigned int size_t;
+typedef unsigned long size_t;
 
 #endif

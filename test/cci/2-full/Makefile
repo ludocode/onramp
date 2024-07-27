@@ -32,7 +32,9 @@ BUILD=$(ROOT)/build/test
 OUT=$(BUILD)/cci-2-full
 SRC=$(ROOT)/core/cci/2-full/src
 LIBO=$(ROOT)/core/libo/1-opc
-CPPFLAGS += -I$(LIBO)/include
+CPPFLAGS += \
+	-include ../../portability.h \
+	-I$(LIBO)/include
 
 SRCS=\
 	$(LIBO)/src/libo-error.c \

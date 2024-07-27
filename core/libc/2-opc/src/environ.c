@@ -24,6 +24,7 @@
 
 #include "string.h"
 
+// TODO in POSIX this is maybe supposed to be called environ, not __environ
 char** __environ;
 
 // TODO move this to libc/1, cc needs it
@@ -38,7 +39,7 @@ char* getenv(const char* name) {
         }
 
         // check if it matches
-        if (end - start != strlen(name)) {
+        if ((size_t)(end - start) != strlen(name)) {
             continue;
         }
         if (0 != memcmp(start, name, end - start)) {

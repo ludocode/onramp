@@ -88,13 +88,6 @@ CPPFLAGS += \
 		-I../../../core/libc/1-omc/include \
 		-I../../../core/libc/0-oo/include \
 		-include __onramp/__predef.h
-# TODO disabling a few warnings for now
-CPPFLAGS := \
-		-Wno-builtin-declaration-mismatch \
-		-Wno-unused-function \
-		-Wno-pointer-to-int-cast \
-		-Wno-int-to-pointer-cast \
-		$(CPPFLAGS)
 
 all: build test FORCE
 FORCE:

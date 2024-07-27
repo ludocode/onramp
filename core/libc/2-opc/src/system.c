@@ -41,7 +41,7 @@ extern void __file_destroy(void);
 extern void __io_init(void);
 extern void __io_destroy(void);
 static void exit_flush(void);
-extern void main(int argc, char** argv, char** environ);
+extern int main(int argc, char** argv, char** envp);
 
 unsigned* __process_info_table;
 
@@ -75,6 +75,7 @@ _Noreturn void _Exit(int status) {
 
     // clean up libc. we need to flush and close open files; our parent process
     // can't do it for us.
+    exit_flush();
     __file_destroy();
     __io_destroy();
 

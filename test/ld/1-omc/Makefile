@@ -31,7 +31,10 @@ BUILD=$(ROOT)/build/test
 OUT=$(BUILD)/ld-1-omc
 SRC=$(ROOT)/core/ld/1-omc
 LIBO=$(ROOT)/core/libo/1-opc
-CPPFLAGS += -I$(LIBO)/include
+CPPFLAGS += \
+	-include ../../portability.h \
+	-I$(LIBO)/include \
+	-D__onramp_omc__=1
 
 SRCS=\
 	$(LIBO)/src/libo-error.c \

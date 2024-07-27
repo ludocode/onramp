@@ -120,7 +120,7 @@ static bool try_parse_whitespace(void) {
     return true;
 }
 
-static bool try_parse_comment() {
+static bool try_parse_comment(void) {
     if (current_char != ';') {
         return false;
     }
@@ -139,7 +139,7 @@ static bool try_parse_comment() {
     return true;
 }
 
-static bool try_parse_debug() {
+static bool try_parse_debug(void) {
     if (current_char != '#') {
         return false;
     }
@@ -243,7 +243,7 @@ static bool try_parse_debug() {
     return true;
 }
 
-static bool try_parse_hex() {
+static bool try_parse_hex(void) {
     if (!isxdigit(current_char)) {
         return false;
     }

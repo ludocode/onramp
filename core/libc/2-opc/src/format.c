@@ -26,6 +26,7 @@
 
 #include "internal.h"
 
+#include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -783,7 +784,7 @@ int snprintf(char* restrict buffer, size_t buffer_size, const char* restrict for
 int sprintf(char* restrict buffer, const char* restrict format, ...) {
     va_list args;
     va_start(args, format);
-    int ret = vsnprintf(buffer, SIZE_MAX, format, args);
+    int ret = vsnprintf(buffer, INT_MAX, format, args);
     va_end(args);
     return ret;
 }
@@ -809,7 +810,7 @@ int vscanf(const char* restrict format, va_list args) {
 #endif
 
 int vsprintf(char* restrict s, const char* restrict format, va_list args) {
-    return vsnprintf(s, SIZE_MAX, format, args);
+    return vsnprintf(s, INT_MAX, format, args);
 }
 
 int asprintf(char** restrict out_string, const char* restrict format, ...) {

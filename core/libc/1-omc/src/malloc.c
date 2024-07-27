@@ -66,6 +66,13 @@ int printf(const char* restrict format, ...); // TODO debugging only
 // enough to bootstrap the libc/2 allocator and maybe we could get rid of this
 // stage of the libc entirely.
 
+#ifdef __GNUC__
+// TODO for now we disable these warnings. The code only works on 32-bit
+// platforms. See above, not sure if it's worth fixing yet.
+#pragma GCC diagnostic ignored "-Wpointer-to-int-cast"
+#pragma GCC diagnostic ignored "-Wint-to-pointer-cast"
+#endif
+
 static int* free_list;
 
 #ifdef __onramp_libc1_test
