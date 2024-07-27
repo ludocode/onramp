@@ -132,10 +132,11 @@ static node_t* parse_switch(void) {
     node_append(node_switch, expression);
     lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression for `switch`.");
 
-    // make sure the expression is an integer type
+    // make sure the expression is an integer or enum type
     if (!type_is_base(expression->type))
         goto bad_type;
     switch (expression->type->base) {
+        case BASE_ENUM:
         case BASE_BOOL:
         case BASE_CHAR:
         case BASE_SIGNED_CHAR:
