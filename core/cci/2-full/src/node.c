@@ -532,12 +532,51 @@ size_t node_child_count(node_t* node) {
     return i;
 }
 
-static void node_check_cast_valid(type_t* type, token_t* /*nullable*/ token) {
+// Check if this type is valid as either side of a cast
+static void node_check_cast_type(type_t* type, token_t* token) {
     if (type_matches_base(type, BASE_RECORD)) {
         fatal_token(token, "Cannot cast to or from a struct or union type.");
     }
     if (type_is_declarator(type) && type->declarator == DECLARATOR_FUNCTION) {
         fatal_token(token, "Cannot cast to or from a function type. (Did you mean to cast to a function pointer type?)");
+    }
+}
+
+// Check if the cast between these types is valid
+static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* token) {
+    node_check_cast_type(to, token);
+    node_check_cast_type(from, token);
+
+    if (to->is_declarator) {
+        if (to->declarator != DECLARATOR_POINTER) { // TODO probably flexible as well
+            fatal_token(token, "Cannot cast to an array.");
+        }
+        if (explicit) {
+            // We allow explicitly casting just about anything to a pointer.
+            return;
+        }
+    }
+
+    if (explicit)
+        return;
+
+    if (to->is_declarator != from->is_declarator) {
+        fatal_token(token, "Cannot implicitly cast between pointers and base types.");
+    }
+
+    if (!to->is_declarator) {
+        // TODO issue warnings if it's a shortening cast. For now we don't bother.
+        return;
+    }
+
+    // void pointers can be implicitly converted to and from anything.
+    if (type_matches_base(from->ref, BASE_VOID))
+        return;
+    if (type_matches_base(to->ref, BASE_VOID))
+        return;
+
+    if (type_equal(to->ref, from->ref)) {
+        fatal_token(token, "Cannot implicitly cast between pointers of different types.");
     }
 }
 
@@ -550,10 +589,7 @@ node_t* node_cast(node_t* node, type_t* type, token_t* /*nullable*/ token) {
     if (type_equal(node->type, type) && token == NULL)
         return node;
 
-    node_check_cast_valid(node->type, token);
-    node_check_cast_valid(type, token);
-    // TODO make sure the cast/conversion is legal. we do some checks above but
-    // they're not complete.
+    node_check_cast(type, node->type, token != NULL, token ? token : node->token);
 
     node_t* cast = node_new_token(NODE_CAST, token);
     cast->type = type_ref(type);

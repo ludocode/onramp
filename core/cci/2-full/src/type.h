@@ -200,6 +200,11 @@ bool type_is_signed_integer(type_t* type);
 bool type_equal(type_t* left, type_t* right);
 
 /**
+ * Returns true if the given types are compatible.
+ */
+bool type_compatible(type_t* left, type_t* right);
+
+/**
  * Returns true if the given type is callable (i.e. it is a function or a
  * function pointer.
  */

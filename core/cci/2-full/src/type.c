@@ -489,6 +489,11 @@ bool type_equal(type_t* left, type_t* right) {
     return true;
 }
 
+bool type_compatible(type_t* left, type_t* right) {
+    // Need to implement type compatibility
+    fatal("TODO type_compatible()");
+}
+
 bool type_is_callable(type_t* type) {
     if (!type_is_declarator(type))
         return false;
