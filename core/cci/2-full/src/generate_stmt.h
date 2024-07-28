@@ -27,10 +27,10 @@
 
 struct node_t;
 
-void generate_return(struct node_t* node);
-void generate_break(struct node_t* node);
-void generate_continue(struct node_t* node);
+void generate_return(struct node_t* node, int reg_out);
+void generate_break(struct node_t* node, int reg_out);
+void generate_continue(struct node_t* node, int reg_out);
 void generate_if(struct node_t* node, int reg_out);
-void generate_while(struct node_t* node);
+void generate_while(struct node_t* node, int reg_out);
 
 #endif

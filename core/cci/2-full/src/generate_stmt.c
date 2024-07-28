@@ -29,7 +29,12 @@
 #include "generate.h"
 #include "function.h"
 
-void generate_return(node_t* node) {
+void generate_return(node_t* node, int reg_out) {
+
+    // reg_out is ignored. We aren't returning a value to the parent
+    // expression; we are exiting the function entirely.
+    (void)reg_out;
+
     assert(node->kind == NODE_RETURN);
     if (node->first_child) {
         if (type_is_passed_indirectly(current_function->root->type)) {
@@ -50,11 +55,11 @@ void generate_return(node_t* node) {
     block_append(current_block, node->token, RET);
 }
 
-void generate_break(node_t* node) {
+void generate_break(node_t* node, int reg_out) {
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->end_label);
 }
 
-void generate_continue(node_t* node) {
+void generate_continue(node_t* node, int reg_out) {
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->body_label);
 }
 
@@ -95,7 +100,7 @@ void generate_if(node_t* node, int reg_out) {
     current_block = end_block;
 }
 
-void generate_while(node_t* node) {
+void generate_while(node_t* node, int reg_out) {
     node_t* condition = node->first_child;
     node_t* body = condition->right_sibling;
 
@@ -110,9 +115,9 @@ void generate_while(node_t* node) {
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
 
     current_block = body_block;
-    generate_node(condition, R0);
-    block_append(current_block, node->token, JZ, R0, '&', JUMP_LABEL_PREFIX, end_block->label);
-    generate_node(body, R0);
+    generate_node(condition, reg_out);
+    block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
+    generate_node(body, reg_out);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
 
     current_block = end_block;
