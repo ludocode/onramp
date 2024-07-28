@@ -884,6 +884,11 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
             fatal_token(name, "Variable re-declared with a different type.");
         }
 
+        // We can't re-declare local variables.
+        if (!is_extern && !is_static && parent != NULL) {
+            fatal_token(name, "Variable re-declared in the same local scope.");
+        }
+
         // We replace the declaration if:
         // - The previous declaration is extern and this one is not; or
         // - The previous declaration is tentative and this one is neither
@@ -895,6 +900,9 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
             symbol_deref(previous);
         } else {
             // If we're not replacing the declaration, ignore it.
+            if (initializer) {
+                fatal("Internal error: cannot ignore a declaration with an initializer");
+            }
             goto ignore_declaration;
         }
     }

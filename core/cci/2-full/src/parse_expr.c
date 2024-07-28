@@ -250,14 +250,17 @@ static node_t* parse_statement_expression(token_t* paren) {
     node_t* sequence = node_new_token(NODE_SEQUENCE, paren);
     token_deref(paren);
 
+    scope_push();
     while (!lexer_accept(STR_BRACE_CLOSE)) {
         parse_statement(sequence, true);
     }
+    scope_pop();
 
     lexer_expect(STR_PAREN_CLOSE, "Expected `)` after `}` of statement expression.");
     sequence->type = sequence->last_child ?
             type_ref(sequence->last_child->type) :
             type_new_base(BASE_VOID); // empty expression statement is allowed
+
     return sequence;
 }
 
@@ -799,7 +802,6 @@ static node_t* parse_conditional_expression(void) {
     conditional->type = type_ref(left->type);
 
     token_deref(colon);
-printf("parsed conditional\n");
     return conditional;
 }
 
@@ -838,6 +840,7 @@ static node_t* parse_comma_expression(void) {
     do {
         node_append(parent, parse_assignment_expression());
     } while (lexer_accept(STR_COMMA));
+    parent->type = type_ref(parent->last_child->type);
     return parent;
 }
 
