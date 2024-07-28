@@ -1,0 +1,1 @@
+-Wno-statement-expressions $INPUT -o $OUTPUT
