@@ -492,6 +492,7 @@ bool type_equal(type_t* left, type_t* right) {
 bool type_compatible(type_t* left, type_t* right) {
     // Need to implement type compatibility
     fatal("TODO type_compatible()");
+    // start from C17 6.7.6.1.2, go from there
 }
 
 bool type_is_callable(type_t* type) {

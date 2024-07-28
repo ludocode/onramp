@@ -561,6 +561,13 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
         return;
 
     if (to->is_declarator != from->is_declarator) {
+        // TODO, only a zero can be implicitly converted to integers. We don't have
+        // a great way to test this so for now we allow all ints.
+        if (type_matches_base(to, BASE_SIGNED_INT) || type_matches_base(to, BASE_UNSIGNED_INT)
+                || type_matches_base(from, BASE_SIGNED_INT) || type_matches_base(from, BASE_UNSIGNED_INT)) {
+            return;
+        }
+
         fatal_token(token, "Cannot implicitly cast between pointers and base types.");
     }
 
@@ -575,7 +582,7 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
     if (type_matches_base(to->ref, BASE_VOID))
         return;
 
-    if (type_equal(to->ref, from->ref)) {
+    if (!type_equal(to->ref, from->ref)) {
         fatal_token(token, "Cannot implicitly cast between pointers of different types.");
     }
 }

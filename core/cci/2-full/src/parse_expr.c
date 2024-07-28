@@ -333,15 +333,33 @@ static node_t* parse_function_call(node_t* function) {
     call->type = type_ref(function->type->ref); // return type of function
     node_append(call, function);
 
-    // collect args
+    // collect args, checking types
+    bool has_prototype = true; // TODO
+    uint32_t arg_count = 0;
     if (!lexer_accept(STR_PAREN_CLOSE)) {
-        while (1) {
-            node_append(call, parse_assignment_expression());
-            if (lexer_accept(STR_COMMA))
+        for (;;) {
+            if (has_prototype && ++arg_count > function->type->count) {
+                fatal_token(call->token, "Too many arguments in function call.");
+            }
+
+            node_t* arg = parse_assignment_expression();
+            if (has_prototype) {
+                arg = node_cast(arg, function->type->args[arg_count - 1], NULL);
+            }
+            node_append(call, arg);
+
+            if (lexer_accept(STR_PAREN_CLOSE)) {
+                break;
+            }
+            if (lexer_accept(STR_COMMA)) {
                 continue;
+            }
             lexer_expect(STR_PAREN_CLOSE, "Expected `,` or `)` after function argument.");
-            break;
         }
+    }
+
+    if (has_prototype && arg_count != function->type->count) {
+        fatal_token(call->token, "Not enough arguments in function call.");
     }
 
     return call;

@@ -544,6 +544,7 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
     // bitmap (minus our simplifications above.) See C11 6.7.2.2
 
     if (ts == TYPE_SPECIFIER_VOID) {return BASE_VOID;}
+    if (ts == TYPE_SPECIFIER_CHAR) {return BASE_CHAR;}
 
     if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR))
         {return BASE_UNSIGNED_CHAR;}
@@ -555,8 +556,7 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
     if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG))
         {return BASE_UNSIGNED_LONG_LONG;}
 
-    if ((ts == TYPE_SPECIFIER_CHAR) |
-            (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR)))
+    if (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR))
         {return BASE_SIGNED_CHAR;}
     if ((ts == TYPE_SPECIFIER_SHORT) |
             (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT)))
@@ -663,6 +663,7 @@ static void parse_function_arguments(type_t** type) {
     }
 
     *type = type_new_function(*type, arg_types, arg_names, arg_count, is_variadic);
+
     free(arg_types);
     free(arg_names);
 }
@@ -672,11 +673,20 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
 
     // Parens before another direct declarator are a parenthesized declarator.
     if (lexer_accept(STR_PAREN_OPEN)) {
+        found = true;
+
+        type_t* temp = *type;
         if (!try_parse_declarator(type, out_name)) {
             fatal("Expected declarator after `(`");
         }
         lexer_expect(STR_PAREN_CLOSE, "Expected `)` after parenthesized declarator.");
-        found = true;
+
+        // Postfix operators are parsed below. They associate with whatever the
+        // parenthesized declarator points to, so we insert them in the
+        // declarator list in between.
+        while ((*type)->ref != temp) {
+            type = &((*type)->ref);
+        }
     }
 
     // If out_name is NULL, this declarator is abstract. In that case a name
@@ -714,31 +724,20 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
     return found;
 }
 
+/**
+ * Tries to parse a declarator.
+ *
+ * If out_name is NULL, this parses an abstract declarator.
+ */
 static bool try_parse_declarator(type_t** type, token_t** /*nullable*/ out_name) {
-
-    /*
-    // Check for a pointer. If so, recurse and apply the pointer afterwards.
-    // TODO no, this is all wrong
-    if (lexer_accept(STR_ASTERISK)) {
-        int type_qualifiers = 0;
-        try_parse_type_qualifiers(&type_qualifiers);
-        if (!try_parse_declarator(type, out_name)) {
-            fatal("Expected a declarator.");
-        }
-        type_t* new_type = type_new_pointer(*type,
-                !!(type_qualifiers & TYPE_QUALIFIER_CONST),
-                !!(type_qualifiers & TYPE_QUALIFIER_VOLATILE),
-                !!(type_qualifiers & TYPE_QUALIFIER_RESTRICT));
-        type_deref(*type);
-        *type = new_type;
-        return true;
-    }
-    */
 
     // Collect pointers
     while (lexer_accept(STR_ASTERISK)) {
         int type_qualifiers = 0;
         try_parse_type_qualifiers(&type_qualifiers);
+        // TODO we need these !! to work in cci/1 because otherwise it will
+        // implicitly convert to char. we should fix cci/1 so we don't have to
+        // (probably just need to alias bool to int instead of char)
         type_t* new_type = type_new_pointer(*type,
                 !!(type_qualifiers & TYPE_QUALIFIER_CONST),
                 !!(type_qualifiers & TYPE_QUALIFIER_VOLATILE),
@@ -1046,6 +1045,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
     type_t* base_type = specifiers_make_type(&specifiers);
 
     // Parse comma-separated list of declarators.
+    bool first_declarator = true;
     for (;;) {
         type_t* type = type_ref(base_type);
         token_t* name = NULL;
@@ -1094,6 +1094,10 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         //printf("asm name %s\n", asm_name->bytes);
         //type_print(type);
         if (type_is_declarator(type) && type->declarator == DECLARATOR_FUNCTION) {
+            if (!first_declarator && lexer_is(STR_BRACE_OPEN)) {
+                fatal_token(lexer_token,
+                        "A function definition can only appear on a sole declarator of a declaration.");
+            }
             //printf("    is func\n");
             parse_function_declaration(&specifiers, type, name, asm_name);
             break;
@@ -1104,6 +1108,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
 
     declarator_done:
         if (lexer_accept(STR_COMMA)) {
+            first_declarator = false;
             continue;
         }
         lexer_expect(STR_SEMICOLON, "Expected `;` or `,` at end of declarator.");

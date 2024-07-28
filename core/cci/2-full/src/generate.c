@@ -491,7 +491,6 @@ static base_t cast_base(type_t* type) {
     }
     switch (type->base) {
         case BASE_ENUM:
-        case BASE_CHAR:
         case BASE_SIGNED_LONG:
             return BASE_SIGNED_INT;
         case BASE_UNSIGNED_LONG:
@@ -508,7 +507,6 @@ void generate_cast(node_t* node, int reg_out) {
     base_t target_base = cast_base(node->type);
     base_t source_base = cast_base(node->first_child->type);
     if (target_base == source_base) {
-        // TODO we also need BASE_DOUBLE and BASE_LONG_DOUBLE to be equivalent
         generate_node(node->first_child, reg_out);
         return;
     }
