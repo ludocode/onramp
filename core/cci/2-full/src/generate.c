@@ -681,6 +681,8 @@ static void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, in
         opcode = LDS;
     } else if (size == 4) {
         opcode = LDW;
+    } else {
+        fatal_token(node->token, "Internal error: unknown size cannot be dereferenced in a register");
     }
     block_append(current_block, node->token, opcode, reg_out, 0, reg_ptr);
 }
