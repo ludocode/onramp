@@ -98,18 +98,12 @@ void __malloc_init(void) {
         heap_end = ((char*)&dummy - 32768);
     #endif
 
-    #ifdef __linux__
-        // When testing on Linux we just use a fixed heap.
+    #ifndef __onramp__
+        // When running unit tests on other platforms we just use a fixed heap.
         static int heap[131072];
         //printf("heap is at %p\n",heap);
         heap_start = (char*)heap;
         heap_end = (char*)heap + sizeof(heap);
-    #endif
-
-    #ifndef __onramp__
-        #ifndef __linux__
-            #error "Platform not supported."
-        #endif
     #endif
 
     // align start and end pointers
