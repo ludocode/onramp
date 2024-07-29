@@ -78,21 +78,21 @@ Valid debug info consists of `#line` and `#pragma` directives. See the [Debug In
 
 The Onramp assembly language uses the same syntax for labels and symbols as Onramp object code. Unlike most assemblers, the Onramp assembler does not actually resolve labels. They are passed directly through to the linker.
 
-Here's a reference table:
+Here's a quick reference table:
 
-| Syntax | Meaning                                     |
-|--------|---------------------------------------------|
-| `^`    | invocation: absolute, 32 bits               |
-| `<`    | invocation: absolute, 16 high bits          |
-| `>`    | invocation: absolute, 16 low bits           |
-| `&`    | invocation: relative, 16-bit signed words   |
-| `:`    | definition: label                           |
-| `=`    | definition: global symbol                   |
-| `@`    | definition: static symbol                   |
-| `+`    | flag: zero symbol definition                |
-| `?`    | flag: weak definition or invocation         |
-| `{`    | flag: constructor                           |
-| `}`    | flag: destructor                            |
+| Syntax | Meaning                                       |
+|--------|-----------------------------------------------|
+| `^`    | invocation: absolute, 32 bits                 |
+| `<`    | invocation: absolute, 16 high bits            |
+| `>`    | invocation: absolute, 16 low bits             |
+| `&`    | invocation: relative, 16-bit signed words     |
+| `:`    | definition: label                             |
+| `=`    | definition: global symbol                     |
+| `@`    | definition: static symbol                     |
+| `+`    | flag: zero symbol                             |
+| `?`    | flag: weak definition or invocation           |
+| `{`    | flag: constructor, optional priority 0-65535  |
+| `}`    | flag: destructor, optional priority 0-65535   |
 
 For full usage details, see the [Onramp object code spec](object-code.md).
 
@@ -114,7 +114,7 @@ You can concatenate strings and raw bytes however you like. The above is equival
 "Hello" '20 "world" '21
 ```
 
-A string can contain any printable ASCII characters except for the double-quote (`"`) and the backslash (`\`). There are no escape sequences. To add other characters, concatenate the string with the raw bytes as above.
+A string can contain any printable ASCII characters except for the double-quote (`"`) and the backslash (`\`). There are no escape sequences. To add other bytes to a string, concatenate it with the raw hex values as above.
 
 No null-terminator is appended. If you want one you have to append it (`'00`) yourself.
 
@@ -172,8 +172,8 @@ Arithmetic:
 |     |`zero`  | `<r:dest>`                   | Sets the register to zero                                          |
 |     |`inc`   | `<r:reg>`                    | Increments the register, unsigned overflow                         |
 |     |`dec`   | `<r:reg>`                    | Decrements the register, unsigned underflow                        |
-|     |`sxs`   | `<r:dest>` `<m:src>`         | Sign-extends the value to a short (copies bit 15 to upper 16 bits) |
-|     |`sxb`   | `<r:dest>` `<m:src>`         | Sign-extends the value to a byte (copies bit 7 to upper 24 bits)   |
+|     |`sxs`   | `<r:dest>` `<m:src>`         | Sign-extends a short value (copies bit 15 to upper 16 bits)        |
+|     |`sxb`   | `<r:dest>` `<m:src>`         | Sign-extends a byte value (copies bit 7 to upper 24 bits)          |
 |     |`trs`   | `<r:dest>` `<m:src>`         | Truncates the value to a short (zeroes upper 16 bits)              |
 |     |`trb`   | `<r:dest>` `<m:src>`         | Truncates the value to a byte (zeroes upper 24 bits)               |
 
@@ -186,8 +186,8 @@ Logic:
 |x \* |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
 |     |`not`   | `<r:dest> <m:src>`           | Bitwise not (inverts all bits)                       |
 | \*  |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
-| \*  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right unsigned (high to low)   |
-|     |`shrs`  | `<r:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right signed (high to low)  |
+| \*  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right (unsigned, high to low)  |
+|     |`shrs`  | `<r:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right (signed, high to low) |
 |     |`rol`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate left (low to high)                    |
 |x \* |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
 |     |`mov`   | `<r:dest> <m:src>`           | Copies src to dest                                   |
@@ -200,10 +200,10 @@ Memory:
 |-----|--------|---------------------------------|------------------------------------------------------------------|
 |  x  |`ldw`   | `<r:dest> <m:base> <m:offset>`  | Loads a 4-byte word from memory (aligned)                        |
 |     |`lds`   | `<r:dest> <m:base> <m:offset>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
-|  x  |`ldb`   | `<r:dest> <m:base> <m:offset>`  | Loads a 1-byte byte from memory, zeroes upper 24 bits            |
+|  x  |`ldb`   | `<r:dest> <m:base> <m:offset>`  | Loads a byte from memory, zeroes upper 24 bits                   |
 |  x  |`stw`   | `<m:value> <m:base> <m:offset>` | Stores a 4-byte word in memory (aligned)                         |
 |     |`sts`   | `<m:value> <m:base> <m:offset>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
-|  x  |`stb`   | `<m:value> <m:base> <m:offset>` | Stores a 1-byte byte in memory, ignores upper 24 bits            |
+|  x  |`stb`   | `<m:value> <m:base> <m:offset>` | Stores a byte in memory, ignores upper 24 bits                   |
 |     |`push`  | `<m:value>`                     | Pushes a value to the stack                                      |
 |     |`pop`   | `<r:reg>`                       | Pops the top stack value into the register                       |
 |     |`popd`  | none                            | Pops the top stack value and discards it                         |

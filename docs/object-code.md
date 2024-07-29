@@ -23,22 +23,22 @@ The Onramp object file format is described here.
 
 ## Quick Reference
 
-| Syntax | Meaning                                     |
-|--------|---------------------------------------------|
-| `;`    | line comment                                |
-| `#`    | debug info                                  |
-| `%`    | static library member info                  |
-| `^`    | invocation: absolute, 32 bits               |
-| `<`    | invocation: absolute, 16 high bits          |
-| `>`    | invocation: absolute, 16 low bits           |
-| `&`    | invocation: relative, 16-bit signed words   |
-| `:`    | definition: label                           |
-| `=`    | definition: global symbol                   |
-| `@`    | definition: static symbol                   |
-| `+`    | flag: zero symbol                           |
-| `?`    | flag: weak definition or invocation         |
-| `{`    | flag: constructor                           |
-| `}`    | flag: destructor                            |
+| Syntax | Meaning                                       |
+|--------|-----------------------------------------------|
+| `;`    | line comment                                  |
+| `#`    | debug info                                    |
+| `%`    | static library member info                    |
+| `^`    | invocation: absolute, 32 bits                 |
+| `<`    | invocation: absolute, 16 high bits            |
+| `>`    | invocation: absolute, 16 low bits             |
+| `&`    | invocation: relative, 16-bit signed words     |
+| `:`    | definition: label                             |
+| `=`    | definition: global symbol                     |
+| `@`    | definition: static symbol                     |
+| `+`    | flag: zero symbol                             |
+| `?`    | flag: weak definition or invocation           |
+| `{`    | flag: constructor, optional priority 0-65535  |
+| `}`    | flag: destructor, optional priority 0-65535   |
 
 
 
@@ -137,7 +137,7 @@ This loads the address of `malloc()` into register `ra`. If the address of mallo
 7C 8A 78 56
 ```
 
-The 32-bit invocation is used to insert label addresses as constant data, not as part of an instruction.
+The 32-bit invocation is used to insert label and symbol addresses as constant data, not as part of an instruction. This is used to create arrays of string literals for example.
 
 The relative invocation is used for relative jumps with the conditional jump instruction. For example:
 
@@ -164,7 +164,7 @@ A global symbol definition that is not weak is called strong. If a strong defini
 
 A weak invocation can be used whether or not the label or symbol exists. If the symbol exists, the invocation functions normally. If the symbol does not exist, the invocation is replaced with zero.
 
-Static symbols and relative invocations cannot be weak.
+Static symbol definitions, label definitions, and relative invocations cannot be weak.
 
 
 
@@ -175,35 +175,43 @@ A global or static symbol definition can be prefixed with `+` to make it zero.
 - `=` `+` `<identifier>` defines a zero global symbol with the given name.
 - `@` `+` `<identifier>` defines a zero static symbol with the given name.
 
-A zero symbol does not contain literal data. Instead, it must contain exactly four hex bytes which define the size of the symbol in little-endian order.
+A zero symbol does not contain literal data. Instead, it must contain exactly four hex bytes in little-endian order which define the size of the symbol.
 
 The linker moves all zero symbols to the end of the program. It assigns each one a unique address starting at the end of the program, i.e. after the program break. The linker defines the following symbol internally and adds it to the end of the program:
 
 - `__onramp_zero_size` -- The combined size of all zero symbols
 
-This symbol contains a single word which is the size of the area to reserve for zero symbols. On program start, the libc increments the program break by this size and zeroes the area, thus allocating space for all zero symbols in the program.
+This symbol contains a single little-endian word which is the size of the area to reserve for zero symbols. On program start, the Onramp libc increments the program break by this size and zeroes the area, thus allocating space for all zero symbols in the program.
+
+This is analogous to the [bss section](https://en.wikipedia.org/wiki/.bss) of an object file or executable on UNIX and Windows systems.
+
+The weak and zero flags can both be provided on a global symbol definition in either order. (In such a case, it is strongly recommended that all instances of a weak zero symbol have the same size.)
 
 
 
 ### Constructors and Destructors
 
-- `=` `{` `<identifier>` defines a symbol and adds its address to the end of the constructor list.
-- `=` `}` `<identifier>` defines a symbol and inserts its address to the front of the destructor list.
+Symbols can be marked *constructor* to run automatically at program start, and *destructor* to run automatically at normal program exit.
 
-The Onramp C compiler outputs these for functions marked  `__attribute__((constructor))` and `__attribute__((destructor))`.
+- `=` `{` `[priority]` `<identifier>` defines a symbol and inserts its address into the constructor list.
+- `=` `}` `[priority]` `<identifier>` defines a symbol and inserts its address into the destructor list.
 
-The linker defines the following symbols internally and adds them to the end of the program:
+The priority is optional. If provided, it must be one to five decimal digits in the range 0 to 65535. If not provided, the priority is 65535.
+
+The linker defines the following symbols and adds them to the program:
 
 - `__onramp_constructors` -- The list of constructors
 - `__onramp_destructors` -- The list of destructors
 
-Each of these symbols contain a null-terminated list of 32-bit values, where each value is the address of a symbol marked constructor or destructor. The constructor list is in the order the constructor markers were encountered in the input files. The destructor list is in reverse order. Both lists are therefore in the order they should be run.
+Each of these symbols contains a null-terminated list of 32-bit values, where each value is the address of a symbol marked constructor or destructor. The constructor list is sorted by priority (lower first); constructors with equal priority are in the order they were encountered in the input files. The destructor list is in reverse order.
 
-The Onramp libc uses these symbols to run all static constructors and destructors in a program. (`__onramp_constructors` is analogous to the `init_array` section of an ELF file or the `.CRT$XCU` section in MSVC.)
+The Onramp libc uses these symbols to run all static constructors and destructors in a program. (`__onramp_constructors` is analogous to the `init_array` section of an ELF file or the `.CRT$XCU` section in Microsoft Visual C++.)
 
-Symbols added to the constructor or destructor lists are never stripped.
+Symbols added to the constructor or destructor lists are never stripped (even if they appear in a file within a static library archive that is otherwise unused.)
 
-Weak symbols cannot be marked as constructor/destructor.
+Weak or zero symbols cannot be marked constructor or destructor.
+
+The Onramp C compiler outputs these flags for global initializers and for functions marked  `__attribute__((constructor))` and `__attribute__((destructor))`. Note that `__attribute__((constructor(<priority>)))` accepts values in the range 101-65535; smaller values are reserved. Constructor functions for global variable initializers are emitted with priority 50.
 
 
 
@@ -223,10 +231,16 @@ The first stage linker treats debug info as comments.
 
 ### Archive Info
 
-A `%` character starts a member of a static library.
+A `%` character starts a line describing a member of a static library.
+
+- `%` `[filename]`
+
+The archive info runs until the end of the line. The rest of the line is reserved for future archive metadata.
 
 This instructs the linker to treat this line as a file break for the purpose of scoping labels and static symbols. This allows multiple object files to be concatenated together into a static library.
 
-An Onramp static library is essentially a set of Onramp object files concatenated together. It has the file extension `.oa` and can be manipulated with the [`ar` tool](../core/ar). Aside from the addition of `%` lines to delimit the contents, it is identical to an Onramp object file.
+An Onramp static library is essentially a set of Onramp object files concatenated together. It has the file extension `.oa` and can be manipulated with the [`ar` archiver tool](../core/ar). Aside from the addition of `%` lines to delimit the contents, it is identical to an Onramp object file.
+
+The filename is used by the linker for error reporting and by the archiver for manipulating the archive. It does not affect the output.
 
 The first stage linker does not support file scope. It treats archive info as comments.
