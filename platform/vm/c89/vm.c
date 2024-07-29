@@ -48,7 +48,7 @@
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
     /* We currently rely on ftruncate() on POSIX systems. */
     #define VM_POSIX
-    #define _POSIX_C_SOURCE 199309L
+    #define _POSIX_C_SOURCE 200809L
     #include <unistd.h>
     #include <sys/types.h>
     #include <sys/stat.h>
