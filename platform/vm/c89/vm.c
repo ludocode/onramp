@@ -45,8 +45,9 @@
  * Portability
  */
 
-#ifdef __unix__
+#if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
     /* We currently rely on ftruncate() on POSIX systems. */
+    #define VM_POSIX
     #define _POSIX_C_SOURCE 199309L
     #include <unistd.h>
     #include <sys/types.h>
@@ -86,6 +87,12 @@
 
 #ifndef UINT32_MAX
     #define UINT32_MAX 0xFFFFFFFFu
+#endif
+
+
+#ifdef _WIN32
+    #define getcwd _getcwd
+    #define envrion _environ
 #endif
 
 
@@ -355,8 +362,8 @@ static void vm_init(int argc, char** argv) {
     const char* filename = NULL;
     int i;
     uint32_t address, process_info_address, halt_address;
-    char** env;
-    char* cwd;
+    char** env = 0;
+    char* cwd = 0;
     char cwd_buffer[256];
 
     for (i = 1; i < argc; ++i) {
@@ -397,12 +404,8 @@ static void vm_init(int argc, char** argv) {
     address = vm_store_string_array(address, argv + 1); /* skip vm name */
 
     /* environment variables */
-    #ifdef __unix__
+    #if defined(_WIN32) || defined(VM_POSIX)
         env = environ;
-    #elif defined(_WIN32);
-        env = _environ;
-    #else
-        env = 0;
     #endif
     if (env) {
         vm_store_u32(process_info_address + 28, address);
@@ -412,12 +415,8 @@ static void vm_init(int argc, char** argv) {
     }
 
     /* working directory */
-    #ifdef __unix__
+    #if defined(_WIN32) || defined(VM_POSIX)
         cwd = getcwd(cwd_buffer, sizeof(cwd_buffer));
-    #elif defined(_WIN32);
-        cwd = _getcwd(cwd_buffer, sizeof(cwd_buffer));
-    #else
-        cwd = 0;
     #endif
     if (cwd) {
         vm_store_u32(process_info_address + 32, address);
@@ -593,13 +592,13 @@ static void vm_ftrunc(void) {
         int ret = _chsize(fileno(file), upos);
     #endif
 
-    #ifdef __unix__
-        /* On UNIX systems we call ftruncate(). */
+    #if defined(VM_POSIX)
+        /* On POSIX systems we call ftruncate(). */
         off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
         int ret = ftruncate(fileno(file), upos);
     #endif
 
-    #if !defined(_WIN32) && !defined(__unix__)
+    #if !defined(_WIN32) && !defined(VM_POSIX)
         /* TODO make this work with only standard C. If size is zero, freopen()
          * the file in "wb" mode; otherwise rename the file to a temporary and
          * copy the desired bytes. The Onramp bootstrap process only ever calls
