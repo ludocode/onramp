@@ -714,6 +714,9 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
         }
     }
 
+    // Function and array declarators have left-to-right associativity, so each
+    // one gets inserted into the list after the previous one.
+    type_t** brackets = type;
     for (;;) {
 
         // Square brackets are arrays
@@ -721,23 +724,31 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
             type_t* array;
             if (lexer_accept(STR_SQUARE_CLOSE)) {
                 array = type_new_declarator(DECLARATOR_INDETERMINATE);
-                array->ref = *type;
-                *type = array;
+                array->ref = *brackets;
             } else {
                 // TODO if this is not a constant expression, it's a variable-length array
                 node_t* expr = parse_assignment_expression();
-                array = type_new_array(*type, node_eval_32(expr));
-                type_deref(*type);
+                array = type_new_array(*brackets, node_eval_32(expr));
+                type_deref(*brackets);
                 node_delete(expr);
+                lexer_expect(STR_SQUARE_CLOSE, "Expected `]` after array length in declarator.");
             }
-            *type = array;
-            lexer_expect(STR_SQUARE_CLOSE, "Expected `]` after array length in declarator.");
+            *brackets = array;
+            brackets = &array->ref;
             continue;
         }
 
         // Parens after another direct declarator are function arguments.
         if (lexer_accept(STR_PAREN_OPEN)) {
-            parse_function_arguments(type);
+            parse_function_arguments(brackets);
+            brackets = &(*brackets)->ref;
+            if (lexer_is(STR_PAREN_OPEN)) {
+                // TODO should make this check smarter, we can't have an array
+                // of functions either, only an array of function pointers.
+                // Probably this whole argument block can be moved out above
+                // the loop and we only loop on square brackets.
+                fatal_token(lexer_token, "A function cannot return a function.");
+            }
             continue;
         }
 
