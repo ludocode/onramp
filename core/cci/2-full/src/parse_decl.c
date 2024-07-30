@@ -627,6 +627,10 @@ static void parse_function_arguments(type_t** type) {
     type_t** arg_types = malloc(arg_capacity * sizeof(type_t*));
     token_t** arg_names = malloc(arg_capacity * sizeof(token_t*));
 
+    // Push a scope. This is important for things like struct and enum tag
+    // declarations which only exist within the scope of the function.
+    scope_push();
+
     // TODO we should check for ")" here for an old-style function that is not
     // a prototype
 
@@ -683,6 +687,7 @@ static void parse_function_arguments(type_t** type) {
     }
 
     *type = type_new_function(*type, arg_types, arg_names, arg_count, is_variadic);
+    (*type)->scope = scope_take();
 
     free(arg_types);
     free(arg_names);
@@ -799,6 +804,12 @@ static bool try_parse_declarator(type_t** type, token_t** /*nullable*/ out_name)
 
 static void parse_function_definition(type_t* type, token_t* name, string_t* asm_name) {
 
+    // apply the scope for function arguments (in case any struct or enum were
+    // defined in them)
+    assert(type->scope);
+    scope_apply(type->scope);
+    type->scope = NULL;
+
     // create the function
     assert(type_is_function(type));
     node_t* root = node_new_token(NODE_FUNCTION, name);
@@ -827,6 +838,7 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
     // TODO handle args
     node_append(root, parse_compound_statement());
     scope_pop();
+    scope_pop();
 
     // codegen
     generate_function(function);
@@ -837,8 +849,9 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
     function_delete(function);
 }
 
-static void parse_function_declaration(specifiers_t* specifiers, type_t* type, token_t* name, string_t* asm_name) {
-
+static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
+        token_t* name, string_t* asm_name, bool is_file_scope)
+{
     // create the symbol
     symbol_t* symbol = symbol_new(symbol_kind_function, type, name, asm_name);
     // TODO handle duplicate/redundant declarations
@@ -850,7 +863,7 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type, t
     if (!lexer_is(STR_BRACE_OPEN)) {
         lexer_expect(STR_SEMICOLON, "Expected `;` or `{` after function declaration");
     } else {
-        if (scope_current != scope_global) {
+        if (!is_file_scope) {
             fatal_token(lexer_token, "Function definitions can only appear at file scope.");
         }
         parse_function_definition(type, name, asm_name);
@@ -1150,7 +1163,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
                         "A function definition can only appear on a sole declarator of a declaration.");
             }
             //printf("    is func\n");
-            parse_function_declaration(&specifiers, type, name, asm_name);
+            parse_function_declaration(&specifiers, type, name, asm_name, parent == NULL);
             break;
         } else {
             //printf("    is var\n");

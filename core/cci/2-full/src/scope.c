@@ -65,7 +65,7 @@ static scope_t* scope_new(scope_t* parent) {
     return scope;
 }
 
-static void scope_delete(scope_t* scope) {
+void scope_delete(scope_t* scope) {
 
     // free anonymous records
     for (size_t i = 0; i < vector_count(&scope->anonymous_records); ++i) {
@@ -142,8 +142,21 @@ void scope_push(void) {
 }
 
 void scope_pop(void) {
-    scope_t* scope = scope_current->parent;
+    scope_t* parent = scope_current->parent;
     scope_delete(scope_current);
+    scope_current = parent;
+}
+
+scope_t* scope_take(void) {
+    scope_t* scope = scope_current;
+    assert(scope);
+    scope_current = scope->parent;
+    scope->parent = NULL;
+    return scope;
+}
+
+void scope_apply(scope_t* scope) {
+    scope->parent = scope_current;
     scope_current = scope;
 }
 

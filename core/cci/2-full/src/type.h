@@ -32,6 +32,7 @@
 struct token_t;
 struct record_t;
 struct enum_t;
+struct scope_t;
 
 /**
  * The kind of declarator element in a `type_t`.
@@ -126,6 +127,7 @@ typedef struct type_t {
             uint32_t count;         // array size or argument count
             struct type_t** args;   // function argument types
             struct token_t** names; // function argument names
+            struct scope_t* scope;  // function argument scope
         };
     };
 } type_t;

@@ -49,10 +49,19 @@ typedef struct scope_t {
 void scope_global_init(void);
 void scope_global_destroy(void);
 
+void scope_delete(scope_t* scope);
+
 extern scope_t* scope_global;
 extern scope_t* scope_current;
 void scope_push(void);
 void scope_pop(void);
+
+// When a function declaration is parsed, it creates a scope for its arguments,
+// and we then "take" the scope to remove it. If the function is then defined,
+// we put the scope back. It's important to get this right. For example if a
+// function definition defines an enum in one argument and a function pointer 
+scope_t* scope_take(void);
+void scope_apply(scope_t* scope);
 
 void scope_emit_tentative_definitions(void);
 

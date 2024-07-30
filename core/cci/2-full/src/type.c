@@ -30,6 +30,7 @@
 #include "token.h"
 #include "record.h"
 #include "enum.h"
+#include "scope.h"
 
 static type_t* type_clone(type_t* type) {
     type_t* clone = malloc(sizeof(type_t));
@@ -168,6 +169,9 @@ void type_deref(type_t* type) {
                 free(type->args);
                 free(type->names);
                 type_deref(type->ref);
+                if (type->scope) {
+                    scope_delete(type->scope);
+                }
                 break;
             case DECLARATOR_POINTER:
             case DECLARATOR_ARRAY:
