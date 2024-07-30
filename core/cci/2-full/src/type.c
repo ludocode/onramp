@@ -31,6 +31,37 @@
 #include "record.h"
 #include "enum.h"
 
+static type_t* type_clone(type_t* type) {
+    type_t* clone = malloc(sizeof(type_t));
+    memcpy(clone, type, sizeof(*clone));
+    clone->refcount = 1;
+
+    // If it's a base, ref the record or enum
+    if (!clone->is_declarator) {
+        if (clone->base == BASE_RECORD)
+            record_ref(clone->record);
+        else if (clone->base == BASE_ENUM)
+            enum_ref(clone->enum_);
+        return clone;
+    }
+
+    // Ref the pointed-to type or return type
+    type_ref(clone->ref);
+
+    // Copy and ref the arguments
+    if (clone->declarator == DECLARATOR_FUNCTION) {
+        type_t** new_args = malloc(sizeof(type_t*) * clone->count);
+        token_t** new_names = malloc(sizeof(token_t*) * clone->count);
+        for (size_t i = 0; i < clone->count; ++i) {
+            new_args[i] = type_ref(clone->args[i]);
+            new_names[i] = token_ref(clone->names[i]);
+        }
+        clone->args = new_args;
+        clone->names = new_names;
+    }
+    return clone;
+}
+
 type_t* type_new_base(base_t base) {
     type_t* type = calloc(1, sizeof(type_t));
     if (type == NULL) {
@@ -42,7 +73,7 @@ type_t* type_new_base(base_t base) {
     return type;
 }
 
-static type_t* type_new_declarator(declarator_t declarator) {
+type_t* type_new_declarator(declarator_t declarator) {
     type_t* type = calloc(1, sizeof(type_t));
     if (type == NULL) {
         fatal("Out of memory.");
@@ -109,6 +140,16 @@ type_t* type_new_function(type_t* return_type, type_t** arg_types,
     return type;
 }
 
+type_t* type_qualify(type_t* type, bool is_const, bool is_volatile) {
+    if (!is_const && !is_volatile)
+        return type;
+    type_t* clone = type_clone(type);
+    type_deref(type);
+    clone->is_const |= is_const;
+    clone->is_volatile |= is_volatile;
+    return clone;
+}
+
 void type_deref(type_t* type) {
     assert(type->refcount != 0);
     if (--type->refcount != 0) {
@@ -131,7 +172,7 @@ void type_deref(type_t* type) {
             case DECLARATOR_POINTER:
             case DECLARATOR_ARRAY:
             case DECLARATOR_VLA:
-            case DECLARATOR_FLEXIBLE:
+            case DECLARATOR_INDETERMINATE:
                 type_deref(type->ref);
                 break;
         }
@@ -159,7 +200,7 @@ bool type_is_indirection(type_t* type) {
         case DECLARATOR_POINTER:
         case DECLARATOR_ARRAY:
         case DECLARATOR_VLA:
-        case DECLARATOR_FLEXIBLE:
+        case DECLARATOR_INDETERMINATE:
             return true;
         default:
             break;
@@ -167,38 +208,9 @@ bool type_is_indirection(type_t* type) {
     return false;
 }
 
-void type_print(type_t* type) {
-    if (type->is_declarator) {
-        type_print(type->ref);
-        switch (type->declarator) {
-            case DECLARATOR_POINTER:
-                fputs("*", stdout);
-                if (type->is_const) fputs(" const", stdout);
-                if (type->is_volatile) fputs(" volatile", stdout);
-                if (type->is_restrict) fputs(" restrict", stdout);
-                return;
-            case DECLARATOR_FUNCTION:
-                fputs("(", stdout);
-                for (uint32_t i = 0; i < type->count; ++i) {
-                    if (i != 0) fputs(", ", stdout);
-                    type_print(type->args[i]);
-                }
-                if (type->is_variadic) fputs(", ...", stdout);
-                fputs(")", stdout);
-                return;
-            case DECLARATOR_ARRAY:
-                printf("[%u]", type->count);
-                return;
-            case DECLARATOR_VLA:
-                fputs("[<vla>]", stdout);
-                return;
-            case DECLARATOR_FLEXIBLE:
-                fputs("[]", stdout);
-                return;
-        }
-        // unreachable
-        return;
-    }
+static void type_base_print(const type_t* type) {
+    if (type->is_const) fputs("const ", stdout);
+    if (type->is_volatile) fputs("volatile ", stdout);
 
     switch (type->base) {
         case BASE_VOID: fputs("void", stdout); break;
@@ -223,10 +235,119 @@ void type_print(type_t* type) {
             break;
         case BASE_ENUM:
             fputs("enum ", stdout);
-            fputs("(TODO type_print enum name)", stdout);
-            //fputs(type->enum_->name->bytes, stdout);
+            fputs(type->enum_->tag->value->bytes, stdout);
             break;
     }
+}
+
+static void type_print_prefix(type_t* type) {
+    if (!type->is_declarator) {
+        type_base_print(type);
+        return;
+    }
+
+    type_print_prefix(type->ref);
+
+    if (type->declarator == DECLARATOR_POINTER) {
+        type_t* ref = type->ref;
+        if (ref->is_declarator && ref->declarator != DECLARATOR_POINTER)
+            fputc('(', stdout);
+        fputc('*', stdout);
+        if (type->is_const) fputs(" const", stdout);
+        if (type->is_volatile) fputs(" volatile", stdout);
+        if (type->is_restrict) fputs(" restrict", stdout);
+    }
+}
+
+static void type_print_suffix(type_t* type) {
+    if (!type->is_declarator) {
+        return;
+    }
+
+    switch (type->declarator) {
+        case DECLARATOR_POINTER: {
+            type_t* ref = type->ref;
+            if (ref->is_declarator && ref->declarator != DECLARATOR_POINTER)
+                fputc(')', stdout);
+            break;
+        }
+
+        case DECLARATOR_FUNCTION:
+            fputs("(", stdout);
+            for (uint32_t i = 0; i < type->count; ++i) {
+                if (i != 0) fputs(", ", stdout);
+                type_print(type->args[i]);
+            }
+            if (type->is_variadic)
+                fputs(", ...", stdout);
+            fputs(")", stdout);
+            break;
+
+        case DECLARATOR_ARRAY:
+            printf("[%u]", type->count);
+            break;
+
+        case DECLARATOR_VLA:
+            fputs("[<vla>]", stdout);
+            break;
+
+        case DECLARATOR_INDETERMINATE:
+            fputs("[]", stdout);
+            break;
+    }
+
+    type_print_suffix(type->ref);
+}
+
+void type_print(type_t* type) {
+    type_print_prefix(type);
+    type_print_suffix(type);
+}
+
+void type_print_words(const type_t* type) {
+    if (!type->is_declarator) {
+        type_base_print(type);
+        return;
+    }
+
+    switch (type->declarator) {
+        case DECLARATOR_POINTER:
+            if (type->is_const) fputs("const ", stdout);
+            if (type->is_volatile) fputs("volatile ", stdout);
+            if (type->is_restrict) fputs("restrict ", stdout);
+            fputs("pointer to ", stdout);
+            break;
+
+        case DECLARATOR_FUNCTION:
+            fputs("function taking ", stdout);
+            if (type->count == 0) {
+                fputs("no arguments ", stdout);
+            } else {
+                fputs("(", stdout);
+                for (uint32_t i = 0; i < type->count; ++i) {
+                    if (i != 0) fputs(", ", stdout);
+                    type_print_words(type->args[i]);
+                }
+                if (type->is_variadic)
+                    fputs(", and variadic arguments", stdout);
+                fputs(") ", stdout);
+            }
+            fputs("and returning ", stdout);
+            break;
+
+        case DECLARATOR_ARRAY:
+            printf("array of %u elements of ", type->count);
+            break;
+
+        case DECLARATOR_VLA:
+            fputs("variable-length array of ", stdout);
+            break;
+
+        case DECLARATOR_INDETERMINATE:
+            fputs("indeterminate array of ", stdout);
+            break;
+    }
+    type_print_words(type->ref);
 }
 
 bool type_matches_base(type_t* type, base_t base) {
@@ -378,7 +499,7 @@ size_t type_size(type_t* type) {
             // sizeof() on a VLA is runtime code inserted in parse_sizeof().
             fatal("Internal error: cannot take the compile-time size of a variable-length array.");
             break;
-        case DECLARATOR_FLEXIBLE:
+        case DECLARATOR_INDETERMINATE:
             fatal("Internal error: cannot take the size of an array of indeterminate size.");
             break;
     }
@@ -436,10 +557,16 @@ bool type_is_signed_integer(type_t* type) {
 }
 
 bool type_equal(type_t* left, type_t* right) {
-    if (left->is_declarator != right->is_declarator ||
-            left->is_const != right->is_const ||
+    if (left->is_const != right->is_const ||
             left->is_volatile != right->is_volatile)
         return false;
+    if (left->is_declarator && right->is_declarator &&
+            left->is_restrict != right->is_restrict)
+        return false;
+    return type_equal_unqual(left, right);
+}
+
+bool type_equal_unqual(type_t* left, type_t* right) {
 
     // declarators
     if (left->is_declarator) {
@@ -511,7 +638,7 @@ bool type_is_array(type_t* type) {
     switch (type->declarator) {
         case DECLARATOR_ARRAY:
         case DECLARATOR_VLA:
-        case DECLARATOR_FLEXIBLE:
+        case DECLARATOR_INDETERMINATE:
             return true;
         default:
             break;
@@ -555,7 +682,7 @@ type_t* type_decay(type_t* type) {
             return type_ref(type);
         case DECLARATOR_ARRAY:
         case DECLARATOR_VLA:
-        case DECLARATOR_FLEXIBLE:
+        case DECLARATOR_INDETERMINATE:
             break;
     }
     return type_new_pointer(type->ref, type->is_const, type->is_volatile,

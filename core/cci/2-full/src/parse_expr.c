@@ -44,7 +44,6 @@
 static int next_string;
 
 static node_t* parse_unary_expression(void);
-static node_t* parse_assignment_expression(void);
 
 void parse_expr_init(void) {
 }
@@ -823,7 +822,7 @@ static node_t* parse_conditional_expression(void) {
     return conditional;
 }
 
-static node_t* parse_assignment_expression(void) {
+node_t* parse_assignment_expression(void) {
     node_t* left = parse_conditional_expression();
 
     node_kind_t kind = node_kind_of_assignment_operator(lexer_token);

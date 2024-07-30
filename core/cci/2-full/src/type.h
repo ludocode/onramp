@@ -39,9 +39,9 @@ struct enum_t;
 typedef enum declarator_t {
     DECLARATOR_POINTER,
     DECLARATOR_FUNCTION,
-    DECLARATOR_ARRAY,     // an array of constant size
-    DECLARATOR_VLA,       // an array of variable size
-    DECLARATOR_FLEXIBLE,  // an array of indeterminate size
+    DECLARATOR_ARRAY,          // an array of constant length
+    DECLARATOR_VLA,            // an array of variable length
+    DECLARATOR_INDETERMINATE,  // an array of indeterminate length
 } declarator_t;
 
 /**
@@ -131,6 +131,7 @@ typedef struct type_t {
 } type_t;
 
 type_t* type_new_base(base_t element);
+type_t* type_new_declarator(declarator_t declarator);
 type_t* type_new_record(struct record_t* record);
 type_t* type_new_enum(struct enum_t* enum_);
 type_t* type_new_pointer(type_t* pointed_to_type, bool is_const, bool is_volatile, bool is_restrict);
@@ -147,11 +148,26 @@ static inline type_t* type_ref(type_t* type) {
 void type_deref(type_t* type);
 
 /**
+ * Returns a copy of the given type with the additional given qualifiers (or
+ * the same type if they are all false.)
+ */
+type_t* type_qualify(type_t* type, bool is_const, bool is_volatile);
+
+/**
  * Returns true if this is a pointer or array type.
  */
 bool type_is_indirection(type_t* type);
 
+/**
+ * Prints a type in C syntax.
+ */
 void type_print(type_t* type);
+
+/**
+ * Prints a description of a type in words.
+ */
+void type_print_words(const type_t* type);
+
 
 static inline bool type_is_base(type_t* type) {
     return !type->is_declarator;
@@ -198,6 +214,11 @@ bool type_is_signed_integer(type_t* type);
  * Returns true if the given types match.
  */
 bool type_equal(type_t* left, type_t* right);
+
+/**
+ * Returns true if the given types match, ignoring top-level qualifiers.
+ */
+bool type_equal_unqual(type_t* left, type_t* right);
 
 /**
  * Returns true if the given types are compatible.

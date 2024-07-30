@@ -576,13 +576,16 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
         return;
     }
 
+    if (to->is_const && !from->is_const)
+        fatal_token(token, "Cannot implicitly cast from a const pointer to a non-const pointer.");
+
     // void pointers can be implicitly converted to and from anything.
     if (type_matches_base(from->ref, BASE_VOID))
         return;
     if (type_matches_base(to->ref, BASE_VOID))
         return;
 
-    if (!type_equal(to->ref, from->ref)) {
+    if (!type_equal_unqual(to->ref, from->ref)) {
         fatal_token(token, "Cannot implicitly cast between pointers of different types.");
     }
 }

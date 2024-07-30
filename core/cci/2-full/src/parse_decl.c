@@ -575,19 +575,25 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
 }
 
 static type_t* specifiers_make_type(specifiers_t* specifiers) {
+    type_t* type;
+
     if (specifiers->type) {
         switch (specifiers->type_specifiers) {
             case TYPE_SPECIFIER_TYPEDEF:
             case TYPE_SPECIFIER_ENUM:
             case TYPE_SPECIFIER_RECORD:
-                return type_ref(specifiers->type);
-            default:
+                type = type_ref(specifiers->type);
                 break;
+            default:
+                fatal("Unsupported combination of type specifiers.");
         }
-        fatal("Unsupported combination of type specifiers.");
+    } else {
+        type = type_new_base(specifiers_convert(specifiers));
     }
-    base_t base = specifiers_convert(specifiers);
-    return type_new_base(base);
+
+    return type_qualify(type,
+            specifiers->type_qualifiers & TYPE_QUALIFIER_CONST,
+            specifiers->type_qualifiers & TYPE_QUALIFIER_VOLATILE);
 }
 
 
@@ -684,7 +690,7 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
         // Postfix operators are parsed below. They associate with whatever the
         // parenthesized declarator points to, so we insert them in the
         // declarator list in between.
-        while ((*type)->ref != temp) {
+        while (*type != temp) {
             type = &((*type)->ref);
         }
     }
@@ -708,24 +714,41 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
         }
     }
 
-    // Square brackets are arrays
-    while (lexer_accept(STR_SQUARE_OPEN)) {
-        fatal("TODO array declarators");
-    }
+    for (;;) {
 
-    // Parens after another direct declarator are function arguments.
-    while (lexer_accept(STR_PAREN_OPEN)) {
-        //printf("found a `(` for %s ", (*out_name)->value->bytes);
-        //type_print(*type);
-        //printf("\n");
-        parse_function_arguments(type);
+        // Square brackets are arrays
+        if (lexer_accept(STR_SQUARE_OPEN)) {
+            type_t* array;
+            if (lexer_accept(STR_SQUARE_CLOSE)) {
+                array = type_new_declarator(DECLARATOR_INDETERMINATE);
+                array->ref = *type;
+                *type = array;
+            } else {
+                // TODO if this is not a constant expression, it's a variable-length array
+                node_t* expr = parse_assignment_expression();
+                array = type_new_array(*type, node_eval_32(expr));
+                type_deref(*type);
+                node_delete(expr);
+            }
+            *type = array;
+            lexer_expect(STR_SQUARE_CLOSE, "Expected `]` after array length in declarator.");
+            continue;
+        }
+
+        // Parens after another direct declarator are function arguments.
+        if (lexer_accept(STR_PAREN_OPEN)) {
+            parse_function_arguments(type);
+            continue;
+        }
+
+        break;
     }
 
     return found;
 }
 
 /**
- * Tries to parse a declarator.
+ * Tries to parse a declarator for the given type.
  *
  * If out_name is NULL, this parses an abstract declarator.
  */
@@ -738,12 +761,12 @@ static bool try_parse_declarator(type_t** type, token_t** /*nullable*/ out_name)
         // TODO we need these !! to work in cci/1 because otherwise it will
         // implicitly convert to char. we should fix cci/1 so we don't have to
         // (probably just need to alias bool to int instead of char)
-        type_t* new_type = type_new_pointer(*type,
+        type_t* ptr = type_new_pointer(*type,
                 !!(type_qualifiers & TYPE_QUALIFIER_CONST),
                 !!(type_qualifiers & TYPE_QUALIFIER_VOLATILE),
                 !!(type_qualifiers & TYPE_QUALIFIER_RESTRICT));
         type_deref(*type);
-        *type = new_type;
+        *type = ptr;
     }
 
     return try_parse_direct_declarator(type, out_name);
@@ -1067,10 +1090,13 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
             type_deref(type);
             goto declarator_done;
         }
+
         /*
-        printf("parsed name: %s  type: ", string_cstr(name->value));
+        printf("parsed name: `%s` type:\n    ", string_cstr(name->value));
         type_print(type);
-        puts("");
+        printf("\n    ");
+        type_print_words(type);
+        printf("\n");
         */
 
         // Check for a typedef
