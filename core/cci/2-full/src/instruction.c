@@ -35,7 +35,7 @@
 static const char* opcode_to_string(opcode_t opcode) {
     switch (opcode) {
         case NOP: return "nop";
-        case VALUE: break;
+        case VALUE: return "<value>"; // not a real opcode but we want a name for debugging
 
         // arithmetic
         case ADD: return "add";
@@ -79,7 +79,6 @@ static const char* opcode_to_string(opcode_t opcode) {
         case POPD: return "popd";
 
         // control
-        //case IMS: return "ims";
         case IMW: return "imw";
         case CMPU: return "cmpu";
         case CMPS: return "cmps";
@@ -125,6 +124,9 @@ void instruction_vset(instruction_t* instruction, token_t* token,
     switch (opcode) {
         case NOP:
             break;
+        case VALUE:
+            fatal("TODO vset VALUE opcode");
+            break;
 
         // three register or mix arguments
         case ADD:
@@ -144,8 +146,10 @@ void instruction_vset(instruction_t* instruction, token_t* token,
         case ROL:
         case ROR:
         case LDW:
+        case LDS:
         case LDB:
         case STW:
+        case STS:
         case STB:
         case CMPU:
         case CMPS:
@@ -185,7 +189,6 @@ void instruction_vset(instruction_t* instruction, token_t* token,
             break;
 
         // register and either number or invocation
-        //case IMS:
         case IMW: {
             instruction->argtypes = va_arg(args, instruction_argtypes_t);
             instruction->arg1 = (int8_t)va_arg(args, int);
@@ -245,13 +248,22 @@ void instruction_emit(instruction_t* instruction) {
         return;
     if (instruction->token)
         emit_source_location(instruction->token);
-
     emit_cstr(ASM_INDENT);
+
+    if (instruction->opcode == VALUE) {
+        // need to decide what types can value have, probably need number and absolute invocation
+        fatal("TODO emit VALUE instruction");
+        emit_number(instruction->number);
+        emit_newline();
+        return;
+    }
+
     emit_cstr(opcode_to_string(instruction->opcode));
 
     switch (instruction->opcode) {
         case NOP:
-            fatal("Internal error, emit NOP unreachable");
+        case VALUE:
+            fatal("Internal error, emit opcode unreachable");
             break;
 
         // three register or mix arguments
@@ -314,7 +326,6 @@ void instruction_emit(instruction_t* instruction) {
             break;
 
         // register and number
-        //case IMS:
         case IMW:
             emit_arg_mix(instruction->arg1);
             if (instruction->argtypes == ARGTYPE_NUMBER) {
