@@ -109,6 +109,8 @@ static void specifiers_destroy(specifiers_t* specifiers) {
 #define TYPE_SPECIFIER_ENUM         (1 << 9)
 #define TYPE_SPECIFIER_TYPEDEF      (1 << 10)
 #define TYPE_SPECIFIER_BOOL         (1 << 11)
+#define TYPE_SPECIFIER_FLOAT        (1 << 12)
+#define TYPE_SPECIFIER_DOUBLE       (1 << 13)
 
 #define TYPE_QUALIFIER_CONST        (1 << 0)
 #define TYPE_QUALIFIER_VOLATILE     (1 << 1)
@@ -164,6 +166,8 @@ static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
     if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_INT, STR_INT)) return true;
     if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_SIGNED, STR_SIGNED)) return true;
     if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_UNSIGNED, STR_UNSIGNED)) return true;
+    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_FLOAT, STR_FLOAT)) return true;
+    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_DOUBLE, STR_DOUBLE)) return true;
 //TODO _Bool disabled to compile as cci/0
     //if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_BOOL, STR_BOOL_X)) return true;
 
@@ -534,7 +538,14 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
         }
     }
 
+    // If we have "long double", convert it to "double".
+    // TODO this breaks _Generic, we'll have to retain this base type
+    if ((ts & TYPE_SPECIFIER_LONG) && (ts & TYPE_SPECIFIER_DOUBLE)) {
+        ts &= ~TYPE_SPECIFIER_LONG;
+    }
+
     // If we have "long", convert it to "int".
+    // TODO this breaks _Generic, we'll have to retain this base type
     if (ts & TYPE_SPECIFIER_LONG) {
         ts &= ~TYPE_SPECIFIER_LONG;
         ts |= TYPE_SPECIFIER_INT;
@@ -569,7 +580,10 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
             (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG)))
         {return BASE_SIGNED_LONG_LONG;}
 
-    // TODO floats, etc
+    if (ts == TYPE_SPECIFIER_FLOAT)
+        return BASE_FLOAT;
+    if (ts == TYPE_SPECIFIER_DOUBLE)
+        return BASE_DOUBLE;
 
     fatal("Unsupported combination of type specifiers: %i.", ts);
 }
