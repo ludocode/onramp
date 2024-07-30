@@ -737,7 +737,7 @@
 
 
 ;==========================================
-; const char error_out_of_memory[];
+; const char error_too_many_symbols[];
 ;==========================================
 
 @0x4D0 error_too_many_symbols
@@ -1496,10 +1496,13 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; return true
+    ; TODO it would probably improve performance if we just jump back to the
+    ; top of the function. We don't actually have the padding to do that, but
+    ; we can steal padding from the previous function by moving this one up.
     70 80 00 01    ; add r0 0 1
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
 
-    ; padding
+    ; no padding left!
 @0xB60
 
 
