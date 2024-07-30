@@ -804,11 +804,14 @@ static bool try_parse_declarator(type_t** type, token_t** /*nullable*/ out_name)
 
 static void parse_function_definition(type_t* type, token_t* name, string_t* asm_name) {
 
-    // apply the scope for function arguments (in case any struct or enum were
-    // defined in them)
+    // apply the scope for prototype tags (in case any struct, union or enum
+    // were defined in the prototype)
     assert(type->scope);
     scope_apply(type->scope);
-    type->scope = NULL;
+
+    // create a new scope for the parameters (we don't want to modify our
+    // type's scope in case it's shared with other types)
+    scope_push();
 
     // create the function
     assert(type_is_function(type));
@@ -834,8 +837,8 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
     }
 
     // parse
-    scope_push();
-    // TODO handle args
+    // TODO the root sequence of a function should not create a scope because
+    // you cannot shadow a parameter at function scope
     node_append(root, parse_compound_statement());
     scope_pop();
     scope_pop();

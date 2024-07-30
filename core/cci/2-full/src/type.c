@@ -49,7 +49,7 @@ static type_t* type_clone(type_t* type) {
     // Ref the pointed-to type or return type
     type_ref(clone->ref);
 
-    // Copy and ref the arguments
+    // Copy and ref the arguments and scope
     if (clone->declarator == DECLARATOR_FUNCTION) {
         type_t** new_args = malloc(sizeof(type_t*) * clone->count);
         token_t** new_names = malloc(sizeof(token_t*) * clone->count);
@@ -59,6 +59,7 @@ static type_t* type_clone(type_t* type) {
         }
         clone->args = new_args;
         clone->names = new_names;
+        scope_ref(clone->scope);
     }
     return clone;
 }
@@ -170,7 +171,7 @@ void type_deref(type_t* type) {
                 free(type->names);
                 type_deref(type->ref);
                 if (type->scope) {
-                    scope_delete(type->scope);
+                    scope_deref(type->scope);
                 }
                 break;
             case DECLARATOR_POINTER:

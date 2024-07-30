@@ -58,6 +58,7 @@ static scope_t* scope_new(scope_t* parent) {
     if (!scope) {
         fatal("Out of memory.");
     }
+    scope->refcount = 1;
     scope->parent = parent;
     table_init(&scope->symbols);
     table_init(&scope->types);
@@ -65,7 +66,11 @@ static scope_t* scope_new(scope_t* parent) {
     return scope;
 }
 
-void scope_delete(scope_t* scope) {
+void scope_deref(scope_t* scope) {
+    assert(scope->refcount != 0);
+    if (--scope->refcount != 0) {
+        return;
+    }
 
     // free anonymous records
     for (size_t i = 0; i < vector_count(&scope->anonymous_records); ++i) {
@@ -134,7 +139,7 @@ void scope_global_init(void) {
 
 void scope_global_destroy(void) {
     assert(scope_global == scope_current);
-    scope_delete(scope_global);
+    scope_deref(scope_global);
 }
 
 void scope_push(void) {
@@ -143,7 +148,7 @@ void scope_push(void) {
 
 void scope_pop(void) {
     scope_t* parent = scope_current->parent;
-    scope_delete(scope_current);
+    scope_deref(scope_current);
     scope_current = parent;
 }
 
@@ -156,7 +161,7 @@ scope_t* scope_take(void) {
 }
 
 void scope_apply(scope_t* scope) {
-    scope->parent = scope_current;
+    scope->parent = scope_ref(scope_current);
     scope_current = scope;
 }
 
