@@ -37,7 +37,7 @@ extern string_t* STR_ASM_X;           // __asm__
 extern string_t* STR_ATOMIC;          // _Atomic
 extern string_t* STR_AUTO;            // auto
 extern string_t* STR_BITINT;          // _Bitint
-extern string_t* STR_BOOL;            // _Bool
+extern string_t* STR_BOOL_X;          // _Bool
 extern string_t* STR_BREAK;           // break
 extern string_t* STR_CASE;            // case
 extern string_t* STR_CHAR;            // char

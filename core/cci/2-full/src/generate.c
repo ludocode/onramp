@@ -576,6 +576,9 @@ void generate_cast(node_t* node, int reg_out) {
             // size, we just sign extend right away. This can lead to some redundant
             // combinations but we can optimize those out afterwards.
             switch (source_base) {
+                case BASE_BOOL:
+                    block_append(current_block, node->token, BOOL, reg_out, reg_out);
+                    break;
                 case BASE_CHAR:
                 case BASE_SIGNED_CHAR:
                     block_append(current_block, node->token, SXB, reg_out, reg_out);
@@ -592,6 +595,9 @@ void generate_cast(node_t* node, int reg_out) {
             // to follow it up with stb for example. pretty sure these casts
             // are all wrong
             switch (target_base) {
+                case BASE_BOOL:
+                    block_append(current_block, node->token, BOOL, reg_out, reg_out);
+                    break;
                 case BASE_CHAR:
                 case BASE_SIGNED_CHAR:
                     block_append(current_block, node->token, SXB, reg_out, reg_out);

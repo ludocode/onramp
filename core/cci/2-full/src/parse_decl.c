@@ -168,8 +168,7 @@ static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
     if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_UNSIGNED, STR_UNSIGNED)) return true;
     if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_FLOAT, STR_FLOAT)) return true;
     if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_DOUBLE, STR_DOUBLE)) return true;
-//TODO _Bool disabled to compile as cci/0
-    //if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_BOOL, STR_BOOL_X)) return true;
+    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_BOOL, STR_BOOL_X)) return true;
 
     // type qualifiers
     if (try_parse_type_qualifier(&specifiers->type_qualifiers)) return true;
@@ -524,7 +523,7 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
     // Check for implicit int
     if (ts == 0) {
         warn(warning_implicit_int, lexer_token,
-                "No type specifiers for this declaration. (Implicit int was removed in C99.)");
+                "Unrecognized type, or no type specifiers for this declaration."); // (Implicit int was removed in C99.)
         return BASE_SIGNED_INT;
     }
 
@@ -554,8 +553,9 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
     // We check each supported type combination against our type specifier
     // bitmap (minus our simplifications above.) See C11 6.7.2.2
 
-    if (ts == TYPE_SPECIFIER_VOID) {return BASE_VOID;}
-    if (ts == TYPE_SPECIFIER_CHAR) {return BASE_CHAR;}
+    if (ts == TYPE_SPECIFIER_VOID) return BASE_VOID;
+    if (ts == TYPE_SPECIFIER_CHAR) return BASE_CHAR;
+    if (ts == TYPE_SPECIFIER_BOOL) return BASE_BOOL;
 
     if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR))
         return BASE_UNSIGNED_CHAR;
@@ -585,7 +585,7 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
     if (ts == TYPE_SPECIFIER_DOUBLE)
         return BASE_DOUBLE;
 
-    fatal("Unsupported combination of type specifiers: %i.", ts);
+    fatal("Unsupported combination of type specifiers: 0x%x", ts);
 }
 
 static type_t* specifiers_make_type(specifiers_t* specifiers) {

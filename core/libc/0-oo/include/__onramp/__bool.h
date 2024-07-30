@@ -25,17 +25,28 @@
 #ifndef __ONRAMP_LIBC_ONRAMP_BOOL_H_INCLUDED
 #define __ONRAMP_LIBC_ONRAMP_BOOL_H_INCLUDED
 
+// omC and opC don't support _Bool so when compiling under these compilers,
+// _Bool is int (with a size of 4 bytes.) It's not the same semantics as _Bool
+// but it's good enough.
+//
+// (We use int instead of char to prevent truncating conversions from losing
+// upper bits. If we store a high bit in a bool and then test that bool in an
+// if statement, it should evaluate as true.)
+//
+// In the final stage, _Bool is a fundamental type with a size of 1 byte. It's
+// effectively a 1-bit integer, except that assigning any non-zero value to it
+// makes it 1.
+//
+// TODO make sure that these definitions of _Bool are ABI-compatible, otherwise
+// we wouldn't be able to link cci/1 objects with cci/2 objects. This *should*
+// be safe already; we just need to make sure we never have high bits set when
+// we pass or return a _Bool.
+
 #ifdef __onramp_cci_omc__
-    // omC doesn't support _Bool so when compiling with omC, _Bool is int. The
-    // semantics don't exactly match but it's close enough for our purposes.
     typedef int _Bool;
-    #define bool _Bool
 #endif
 #ifdef __onramp_cci_opc__
-    // opC also doesn't support _Bool. We make it unsigned char, which is
-    // closer but still not the same as a real _Bool.
-    typedef /*unsigned*/ char _Bool; // TODO unsigned not supported yet in cci/1
-    #define bool _Bool
+    typedef int _Bool;
 #endif
 
 #endif

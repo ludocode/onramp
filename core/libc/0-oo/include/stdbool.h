@@ -30,6 +30,7 @@
 #endif
 
 // According to the spec, bool has to be a macro, not a typedef.
+// TODO in C23 it's apparently a keyword
 #define bool _Bool
 
 // In C23, true and false have type _Bool.

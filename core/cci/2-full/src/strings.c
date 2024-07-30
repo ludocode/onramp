@@ -34,7 +34,7 @@ string_t* STR_ASM_X;           // __asm__
 string_t* STR_ATOMIC;          // _Atomic
 string_t* STR_AUTO;            // auto
 string_t* STR_BITINT;          // _Bitint
-string_t* STR_BOOL;            // _Bool
+string_t* STR_BOOL_X;          // _Bool
 string_t* STR_BREAK;           // break
 string_t* STR_CASE;            // case
 string_t* STR_CHAR;            // char
@@ -138,7 +138,7 @@ void strings_init(void) {
     STR_ATOMIC                      = string_intern_cstr("_Atomic");
     STR_AUTO                        = string_intern_cstr("auto");
     STR_BITINT                      = string_intern_cstr("_Bitint");
-    STR_BOOL                        = string_intern_cstr("_Bool");
+    STR_BOOL_X                      = string_intern_cstr("_Bool");
     STR_BREAK                       = string_intern_cstr("break");
     STR_CASE                        = string_intern_cstr("case");
     STR_CHAR                        = string_intern_cstr("char");
@@ -243,7 +243,7 @@ void strings_destroy(void) {
     string_deref(STR_ATOMIC);
     string_deref(STR_AUTO);
     string_deref(STR_BITINT);
-    string_deref(STR_BOOL);
+    string_deref(STR_BOOL_X);
     string_deref(STR_BREAK);
     string_deref(STR_CASE);
     string_deref(STR_CHAR);
