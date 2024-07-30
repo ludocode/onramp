@@ -558,27 +558,27 @@ static base_t specifiers_convert(specifiers_t* specifiers) {
     if (ts == TYPE_SPECIFIER_CHAR) {return BASE_CHAR;}
 
     if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR))
-        {return BASE_UNSIGNED_CHAR;}
+        return BASE_UNSIGNED_CHAR;
     if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT))
-        {return BASE_UNSIGNED_SHORT;}
-    if ((ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)) |
+        return BASE_UNSIGNED_SHORT;
+    if ((ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)) ||
             (ts == TYPE_SPECIFIER_UNSIGNED))
-        {return BASE_UNSIGNED_INT;}
+        return BASE_UNSIGNED_INT;
     if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG))
-        {return BASE_UNSIGNED_LONG_LONG;}
+        return BASE_UNSIGNED_LONG_LONG;
 
     if (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR))
-        {return BASE_SIGNED_CHAR;}
-    if ((ts == TYPE_SPECIFIER_SHORT) |
+        return BASE_SIGNED_CHAR;
+    if ((ts == TYPE_SPECIFIER_SHORT) ||
             (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT)))
-        {return BASE_SIGNED_SHORT;}
-    if (((ts == TYPE_SPECIFIER_INT) |
-            (ts == TYPE_SPECIFIER_SIGNED)) |
+        return BASE_SIGNED_SHORT;
+    if ((ts == TYPE_SPECIFIER_INT) ||
+            (ts == TYPE_SPECIFIER_SIGNED) ||
             (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT)))
-        {return BASE_SIGNED_INT;}
-    if ((ts == TYPE_SPECIFIER_LONG_LONG) |
+        return BASE_SIGNED_INT;
+    if ((ts == TYPE_SPECIFIER_LONG_LONG) ||
             (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG)))
-        {return BASE_SIGNED_LONG_LONG;}
+        return BASE_SIGNED_LONG_LONG;
 
     if (ts == TYPE_SPECIFIER_FLOAT)
         return BASE_FLOAT;
