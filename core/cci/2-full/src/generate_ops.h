@@ -63,4 +63,13 @@ void generate_assign_sub(struct node_t* node, int reg_out);
 void generate_assign_mul(struct node_t* node, int reg_out);
 void generate_assign_div(struct node_t* node, int reg_out);
 
+/**
+ * Generates an add or subtract, or the location of an array subscript (i.e.
+ * without the dereference.)
+ *
+ * One child of the node must be a pointer and the other side must be a (signed
+ * or unsigned) 32-bit integer.
+ */
+void generate_pointer_add_sub(struct node_t* node, int reg_out);
+
 #endif

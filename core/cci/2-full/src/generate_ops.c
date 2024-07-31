@@ -105,10 +105,7 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
     }
 }
 
-/**
- * Add or subtract a value from a pointer.
- */
-static void generate_pointer_add_sub(node_t* node, int reg_left) {
+void generate_pointer_add_sub(node_t* node, int reg_left) {
 
     // Generate the sides
     int reg_right = register_alloc(node->token);
@@ -141,8 +138,9 @@ static void generate_pointer_add_sub(node_t* node, int reg_left) {
     }
 
     // Perform the addition or subtraction
-    block_append(current_block, node->token, node->kind == NODE_ADD ? ADD : SUB,
-            reg_left, reg_left, reg_right);
+    // (This is also used for NODE_ARRAY_SUBSCRIPT, in which case we ADD.)
+    opcode_t op = node->kind == NODE_SUB ? SUB : ADD;
+    block_append(current_block, node->token, op, reg_left, reg_left, reg_right);
     register_free(node->token, reg_right);
 }
 

@@ -699,3 +699,11 @@ type_t* type_pointed_to(type_t* type) {
         fatal("Internal error: cannot call type_pointed_to() on a non-pointer");
     return type->ref;
 }
+
+bool type_is_complete(type_t* type) {
+    if (!type_is_indirection(type))
+        return true;
+    if (!type_matches_base(type->ref, BASE_RECORD))
+        return true;
+    return type->ref->record->is_defined;
+}

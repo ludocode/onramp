@@ -92,7 +92,7 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_ADDRESS_OF:        return "ADDRESS_OF";
         case NODE_IF:                return "IF";
         case NODE_SEQUENCE:          return "SEQUENCE";
-        case NODE_ARRAY_INDEX:       return "ARRAY_INDEX";
+        case NODE_ARRAY_SUBSCRIPT:   return "ARRAY_SUBSCRIPT";
         case NODE_MEMBER_VAL:        return "MEMBER_VAL";
         case NODE_MEMBER_PTR:        return "MEMBER_PTR";
         case NODE_POST_INC:          return "POST_INC";
@@ -445,10 +445,10 @@ int node_kind_precedence_of_binary_operator(node_kind_t kind) {
 
 bool node_is_location(node_t* node) {
     switch (node->kind) {
-        case NODE_DEREFERENCE: // fallthrough
-        case NODE_ARRAY_INDEX: // fallthrough
-        case NODE_MEMBER_VAL: // fallthrough
-        case NODE_MEMBER_PTR: // fallthrough
+        case NODE_DEREFERENCE:
+        case NODE_ARRAY_SUBSCRIPT:
+        case NODE_MEMBER_VAL:
+        case NODE_MEMBER_PTR:
             return true;
         case NODE_ACCESS:
             // TODO symbol cannot be a function
@@ -724,7 +724,7 @@ uint32_t node_eval_32(node_t* node) {
         // TODO we also need to support lots more stuff, e.g. member or array
         // index of a const object is supposed to be supported. not yet
         // implemented.
-        case NODE_ARRAY_INDEX:
+        case NODE_ARRAY_SUBSCRIPT:
         case NODE_MEMBER_VAL:
         case NODE_MEMBER_PTR:
         case NODE_DEREFERENCE:
@@ -876,7 +876,7 @@ void node_eval_64(node_t* node, u64_t* out) {
         // index of a const object is supposed to be supported. not yet
         // implemented.
         case NODE_IF:
-        case NODE_ARRAY_INDEX:
+        case NODE_ARRAY_SUBSCRIPT:
         case NODE_MEMBER_VAL:
         case NODE_MEMBER_PTR:
         case NODE_DEREFERENCE:

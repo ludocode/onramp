@@ -402,18 +402,37 @@ static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind)
     return access;
 }
 
-static node_t* parse_array_indexing(node_t* left) {
-    node_t* op = node_new_lexer(NODE_ARRAY_INDEX);
+static node_t* parse_array_subscript(node_t* left) {
+    node_t* op = node_new_lexer(NODE_ARRAY_SUBSCRIPT);
     node_t* right = parse_expression();
-    lexer_expect(STR_SQUARE_CLOSE, "Expected `]` at the end of array indexing expression.");
+    lexer_expect(STR_SQUARE_CLOSE, "Expected `]` at the end of array subscript expression.");
 
-    node_append(op, left);
-    node_append(op, right);
+    // The array subscript operator is symmetric.
+    // Figure out which is the pointer and which is the index
+    node_t* ptr;
+    node_t* index;
+    if (type_is_indirection(left->type)) {
+        ptr = left;
+        index = right;
+    } else if (type_is_indirection(right->type)) {
+        ptr = right;
+        index = left;
+    } else {
+        fatal_token(op->token, "One side of this array subscript expression must be a pointer or an array.");
+    }
+    if (!type_is_complete(ptr->type)) {
+        fatal_token(op->token, "Cannot subscript a pointer to an incomplete type.");
+    }
 
-    // TODO do some proper type checking, see what the constraints are in the
-    // spec. for now we assume one is a pointer and the other is a scalar. our
-    // node type is the result of dereferencing whichever is a pointer.
-    op->type = type_ref((type_is_indirection(left->type) ? left->type : right->type)->ref);
+    // Cast the index if necessary
+    if (!type_is_integer(index->type)) {
+        fatal_token(op->token, "One side of this array subscript expression must be an integer.");
+    }
+    index = node_cast_base(index, BASE_UNSIGNED_INT, NULL);
+
+    node_append(op, ptr);
+    node_append(op, index);
+    op->type = type_ref(ptr->type->ref);
 
     return op;
 }
@@ -452,9 +471,9 @@ static node_t* parse_postfix_expression(void) {
             continue;
         }
 
-        // array indexing
+        // array subscript
         if (lexer_is(STR_SQUARE_OPEN)) {
-            node = parse_array_indexing(node);
+            node = parse_array_subscript(node);
             continue;
         }
 

@@ -237,6 +237,8 @@ bool type_is_array(type_t* type);
 
 bool type_is_function(type_t* type);
 
+bool type_is_complete(type_t* type);
+
 /**
  * Returns true if values of this type are passed indirectly (on the stack);
  * false if they are passed in registers.

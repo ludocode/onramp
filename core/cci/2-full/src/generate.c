@@ -44,6 +44,9 @@ int next_label;
 int register_next;       // next register to allocate
 int register_loop_count; // number of times we've looped back to r0 while allocating registers
 
+static void generate_location_array_subscript(node_t* node, int reg_out);
+static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
+
 void generate_init(void) {
     register_next = R0;
 }
@@ -175,29 +178,31 @@ static void generate_access(node_t* node, int reg_out) {
         return;
     }
 
+    if (type_is_array(type)) {
+        // arrays decay to pointers.
+        generate_access_location(node->token, node->symbol, reg_out);
+        return;
+    }
+
     // TODO if value is larger than a register, or is a record, need to copy it
     // to where register points. should have a generic copy function in
     // generate that copies of a known size using an extra register.
     opcode_t opcode;
-    if (type_is_array(type)) {
-        opcode = ADD; // decay array to pointer
-        // TODO maybe don't do this, instead have the parser insert & wherever it is needed
+    size_t size = type_size(type);
+    if (size == 1) {
+        opcode = LDB;
+    } else if (size == 2) {
+        opcode = LDS;
+    } else if (size == 4) {
+        opcode = LDW;
     } else {
-        size_t size = type_size(type);
-        if (size == 1) {
-            opcode = LDB;
-        } else if (size == 2) {
-            opcode = LDS;
-        } else if (size == 4) {
-            opcode = LDW;
-        } else {
-            fatal("TODO load larger than register");
-        }
+        fatal("TODO load larger than register");
     }
 
+    // TODO share this code with generate_access_location below
     if (symbol_is_global(symbol)) {
         block_append(current_block, node->token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
-        block_append(current_block, node->token, LDW, reg_out, RPP, reg_out);
+        block_append(current_block, node->token, opcode, reg_out, RPP, reg_out);
     } else {
         if (symbol->offset <= 127 && symbol->offset >= -112) {
             block_append(current_block, node->token, opcode, reg_out, RFP, symbol->offset);
@@ -661,7 +666,8 @@ void generate_initializer(node_t* variable, int reg_out) {
 
 /**
  * Given a pointer and member offset, performs a dereference operation. This
- * includes unary `*`, binary `.` and binary `->`.
+ * includes unary `*`, binary `.`, binary `->`, and array indexing (after
+ * addition.)
  *
  * The pointer in reg_ptr is shifted by the given member offset, then loaded
  * into reg_out.
@@ -709,6 +715,14 @@ static void generate_dereference(node_t* node, int reg_out) {
     register_free(node->token, reg_loc);
 }
 
+static void generate_array_subscript(node_t* node, int reg_out) {
+    // TODO we don't always need to alloc a register, see generate_dereference above
+    int reg_loc = register_alloc(node->token);
+    generate_location_array_subscript(node, reg_loc);
+    generate_dereference_impl(node, reg_out, reg_loc, 0);
+    register_free(node->token, reg_loc);
+}
+
 static void generate_member_val(node_t* node, int reg_out) {
     // TODO we don't always need to alloc a register, see generate_dereference above
     int reg_loc = register_alloc(node->token);
@@ -733,6 +747,10 @@ static void generate_location_member_val(node_t* node, int reg_out) {
 static void generate_location_member_ptr(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
     block_append(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
+}
+
+static void generate_location_array_subscript(node_t* node, int reg_out) {
+    generate_pointer_add_sub(node, reg_out);
 }
 
 static void generate_sizeof(node_t* node, int reg_out) {
@@ -832,7 +850,7 @@ void generate_node(node_t* node, int reg_out) {
         // postfix operators
         case NODE_POST_INC: fatal_token(node->token, "TODO generate POST_INC");
         case NODE_POST_DEC: fatal_token(node->token, "TODO generate POST_DEC");
-        case NODE_ARRAY_INDEX: fatal_token(node->token, "TODO generate ARRAY_INDEX");
+        case NODE_ARRAY_SUBSCRIPT: generate_array_subscript(node, reg_out); break;
         case NODE_MEMBER_VAL: generate_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_member_ptr(node, reg_out); break;
 
@@ -849,18 +867,11 @@ void generate_node(node_t* node, int reg_out) {
 
 void generate_location(node_t* node, int reg_out) {
     switch (node->kind) {
-        case NODE_ACCESS:
-            generate_access_location(node->token, node->symbol, reg_out);
-            break;
-        case NODE_DEREFERENCE:
-            generate_node(node->first_child, reg_out);
-            break;
-        case NODE_MEMBER_VAL:
-            generate_location_member_val(node, reg_out);
-            break;
-        case NODE_MEMBER_PTR:
-            generate_location_member_ptr(node, reg_out);
-            break;
+        case NODE_ACCESS: generate_access_location(node->token, node->symbol, reg_out); break;
+        case NODE_DEREFERENCE: generate_node(node->first_child, reg_out); break;
+        case NODE_MEMBER_VAL: generate_location_member_val(node, reg_out); break;
+        case NODE_MEMBER_PTR: generate_location_member_ptr(node, reg_out); break;
+        case NODE_ARRAY_SUBSCRIPT: generate_location_array_subscript(node, reg_out); break;
         default:
             fatal("Internal error, cannot generate location of non-value.");
             break;

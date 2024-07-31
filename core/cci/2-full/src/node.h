@@ -107,11 +107,11 @@ typedef enum node_kind_t {
     NODE_PRE_DEC,      // unary prefix --
 
     // Postfix operators
-    NODE_POST_INC,  // One child
-    NODE_POST_DEC,  // One child
-    NODE_ARRAY_INDEX, // Array indexing expression, two children: array, index
-    NODE_MEMBER_VAL, // Member access by value (`.`), one child: record (left expression) plus member name
-    NODE_MEMBER_PTR, // Member access by pointer (`->`), one child: record (left expression) plus member name
+    NODE_POST_INC,           // One child
+    NODE_POST_DEC,           // One child
+    NODE_ARRAY_SUBSCRIPT,    // Two children: ptr/array, index
+    NODE_MEMBER_VAL,         // Member access by value (`.`), one child: record (left expression) plus member name
+    NODE_MEMBER_PTR,         // Member access by pointer (`->`), one child: record (left expression) plus member name
 
     // other expressions
     NODE_IF,        // `if` or `?`. Two or three children: condition, `if` block, optional `else` block.
