@@ -402,13 +402,37 @@ static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind)
     return access;
 }
 
+static node_t* parse_array_indexing(node_t* left) {
+    node_t* op = node_new_lexer(NODE_ARRAY_INDEX);
+    node_t* right = parse_expression();
+    lexer_expect(STR_SQUARE_CLOSE, "Expected `]` at the end of array indexing expression.");
+
+    node_append(op, left);
+    node_append(op, right);
+
+    // TODO do some proper type checking, see what the constraints are in the
+    // spec. for now we assume one is a pointer and the other is a scalar. our
+    // node type is the result of dereferencing whichever is a pointer.
+    op->type = type_ref((type_is_indirection(left->type) ? left->type : right->type)->ref);
+
+    return op;
+}
+
+static node_t* parse_post_incdec(node_t* child, node_kind_t kind) {
+    node_t* op = node_new_lexer(NODE_POST_INC);
+    node_append(op, child);
+    // TODO is the result of this operator promoted? It's probably supposed to be
+    op->type = type_ref(child->type);
+    return op;
+}
+
 static node_t* parse_postfix_expression(void) {
 
     // A postfix expression starts with a primary expression.
     node_t* node = parse_primary_expression();
 
     // Check for postfix operators
-    while (1) {
+    for (;;) {
 
         // function call
         if (lexer_is(STR_PAREN_OPEN)) {
@@ -416,19 +440,35 @@ static node_t* parse_postfix_expression(void) {
             continue;
         }
 
-        // record value access
+        // record member value access
         if (lexer_is(STR_DOT)) {
             node = parse_record_member_access(node, NODE_MEMBER_VAL);
             continue;
         }
 
-        // record pointer access
+        // record member pointer access
         if (lexer_is(STR_ARROW)) {
             node = parse_record_member_access(node, NODE_MEMBER_PTR);
             continue;
         }
 
-        // TODO
+        // array indexing
+        if (lexer_is(STR_SQUARE_OPEN)) {
+            node = parse_array_indexing(node);
+            continue;
+        }
+
+        // post-increment
+        if (lexer_is(STR_PLUS_PLUS)) {
+            node = parse_post_incdec(node, NODE_POST_INC);
+            continue;
+        }
+
+        // post-decrement
+        if (lexer_is(STR_MINUS_MINUS)) {
+            node = parse_post_incdec(node, NODE_POST_DEC);
+            continue;
+        }
 
         break;
     }
@@ -476,6 +516,10 @@ static node_t* parse_unary_operator(node_kind_t kind) {
     node_append(node, child);
 
     switch (kind) {
+        // TODO is the result of any of these operators promoted? It's probably
+        // supposed to be in all cases
+        case NODE_PRE_INC:
+        case NODE_PRE_DEC:
         case NODE_UNARY_PLUS:
         case NODE_UNARY_MINUS:
         case NODE_BIT_NOT:
@@ -484,20 +528,24 @@ static node_t* parse_unary_operator(node_kind_t kind) {
             // other rules, check the spec
             node->type = type_ref(child->type);
             break;
+
         case NODE_LOGICAL_NOT:
             // TODO also handle types appropriately
             node->type = type_new_base(BASE_SIGNED_INT);
             break;
+
         case NODE_DEREFERENCE:
             if (!type_is_indirection(child->type)) {
                 fatal_token(node->token, "Cannot dereference non-pointer type");
             }
             node->type = type_ref(child->type->ref);
             break;
+
         case NODE_ADDRESS_OF:
             // TODO child node must be a location
             node->type = type_new_pointer(child->type, false, false, false);
             break;
+
         default:
             fatal("Internal error: not a unary operator");
     }
