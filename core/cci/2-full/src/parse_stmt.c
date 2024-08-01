@@ -100,26 +100,88 @@ static node_t* parse_if(void) {
     return node_if;
 }
 
-static node_t* parse_while(void) {
-    node_t* node_while = node_new_lexer(NODE_WHILE);
-    node_while->type = type_new_base(BASE_VOID);
-    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `while`.");
-    node_append(node_while, parse_predicate());
-    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after condition for `while`.");
-
+/*
+ * Parses the body of a while, do or for loop.
+ *
+ * A break in the expression or other clauses of a loop (in a statement
+ * expression) breaks out of the *outer* loop/switch. We push and pop the break
+ * container only around the loop body.
+ */
+static void parse_loop_body(node_t* loop) {
     node_t* old_break_container = break_container;
     node_t* old_continue_container = continue_container;
-    break_container = node_while;
-    continue_container = node_while;
+    break_container = loop;
+    continue_container = loop;
 
     node_t* body = node_new(NODE_SEQUENCE);
     body->type = type_new_base(BASE_VOID);
-    node_append(node_while, body);
+    node_append(loop, body);
     parse_statement(body, false);
 
     break_container = old_break_container;
     continue_container = old_continue_container;
+}
+
+static node_t* parse_while(void) {
+    node_t* node_while = node_new_lexer(NODE_WHILE);
+    node_while->type = type_new_base(BASE_VOID);
+
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `while`.");
+    node_append(node_while, parse_predicate());
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after condition for `while`.");
+
+    parse_loop_body(node_while);
     return node_while;
+}
+
+static node_t* parse_do(void) {
+    node_t* node_do = node_new_lexer(NODE_DO);
+    node_do->type = type_new_base(BASE_VOID);
+
+    parse_loop_body(node_do);
+
+    lexer_expect(STR_WHILE, "Expected `while` after statement of `do` loop.");
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `while`.");
+    node_append(node_do, parse_predicate());
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after condition for `while`.");
+
+    return node_do;
+}
+
+static node_t* parse_for(void) {
+    node_t* node_for = node_new_lexer(NODE_FOR);
+    node_for->type = type_new_base(BASE_VOID);
+
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `for`.");
+
+    // parse clause-1, declaration or expression
+    scope_push(); // TODO don't push in gnu89
+    if (lexer_accept(STR_SEMICOLON)) {
+        node_append(node_for, node_new_noop());
+    } else {
+        // TODO check if commas (multiple declarators) are allowed in declaration
+        if (!try_parse_declaration(node_for)) {
+            node_append(node_for, parse_expression());
+            lexer_expect(STR_SEMICOLON, "Expected `;` after first clause of `for` loop.");
+        }
+    }
+
+    // parse clause-2, predicate expression
+    node_append(node_for, lexer_is(STR_SEMICOLON) ?
+        node_new_noop() : parse_predicate());
+    lexer_expect(STR_SEMICOLON, "Expected `;` after second clause of `for` loop.");
+
+    // parse clause-3, arbitrary expression (usually increment)
+    node_append(node_for, lexer_is(STR_PAREN_CLOSE) ?
+        node_new_noop() : parse_expression());
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after third clause of `for` loop.");
+
+    // break in the for loop clauses (in a statement expression) breaks out of
+    // the *outer* loop/switch. we push the break container after parsing it.
+
+    parse_loop_body(node_for);
+    scope_pop();
+    return node_for;
 }
 
 static node_t* parse_switch(void) {
@@ -241,8 +303,8 @@ void parse_statement(node_t* parent, bool declaration_allowed) {
         // check for keyword statements
         if (lexer_is(STR_IF)) { node_append(parent, parse_if()); return; }
         if (lexer_is(STR_WHILE)) { node_append(parent, parse_while()); return; }
-        //if (lexer_is(STR_DO)) { node_append(parent, parse_do()); return; }
-        //if (lexer_is(STR_FOR)) { node_append(parent, parse_for()); return; }
+        if (lexer_is(STR_DO)) { node_append(parent, parse_do()); return; }
+        if (lexer_is(STR_FOR)) { node_append(parent, parse_for()); return; }
         if (lexer_is(STR_SWITCH)) { node_append(parent, parse_switch()); return; }
         if (lexer_is(STR_CASE)) { parse_case(parent, declaration_allowed); return; }
         //if (lexer_is(STR_DEFAULT)) { node_append(parent, parse_default(declaration_allowed); }

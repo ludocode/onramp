@@ -36,6 +36,7 @@
 const char* node_kind_to_string(node_kind_t kind) {
     switch (kind) {
         case NODE_INVALID:           return "INVALID";
+        case NODE_NOOP:              return "NOOP";
         case NODE_FUNCTION:          return "FUNCTION";
         case NODE_PARAMETER:         return "PARAMETER";
         case NODE_VARIABLE:          return "VARIABLE";
@@ -90,6 +91,8 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_LOGICAL_NOT:       return "LOGICAL_NOT";
         case NODE_DEREFERENCE:       return "DEREFERENCE";
         case NODE_ADDRESS_OF:        return "ADDRESS_OF";
+        case NODE_PRE_INC:           return "PRE_INC";
+        case NODE_PRE_DEC:           return "PRE_DEC";
         case NODE_IF:                return "IF";
         case NODE_SEQUENCE:          return "SEQUENCE";
         case NODE_ARRAY_SUBSCRIPT:   return "ARRAY_SUBSCRIPT";
@@ -102,7 +105,6 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_NUMBER:            return "NUMBER";
         case NODE_ACCESS:            return "ACCESS";
         case NODE_CALL:              return "CALL";
-        default: break;
     }
     return "<unknown>";
 }
@@ -113,6 +115,12 @@ node_t* node_new(node_kind_t kind) {
         fatal("Out of memory.");
     }
     node->kind = kind;
+    return node;
+}
+
+node_t* node_new_noop(void) {
+    node_t* node = node_new(NODE_NOOP);
+    node->type = type_new_base(BASE_VOID);
     return node;
 }
 
@@ -494,6 +502,8 @@ node_t* node_promote(node_t* node) {
 
 node_t* node_make_predicate(node_t* node) {
     type_t* type = node->type;
+
+    // TODO get rid of all of this, use node_cast(BOOL)
 
     // make sure the value is a valid predicate
     if (type_is_base(type)) {

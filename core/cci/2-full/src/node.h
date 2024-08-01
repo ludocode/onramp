@@ -39,6 +39,7 @@ struct symbol_t;
  */
 typedef enum node_kind_t {
     NODE_INVALID,
+    NODE_NOOP, // No operation. Always void, no children.
 
     // definitions
     NODE_FUNCTION,          // The root of all functions, no parent. Children are parameters and sequence
@@ -187,6 +188,11 @@ typedef struct node_t {
  * Creates a node without a token.
  */
 node_t* node_new(node_kind_t kind);
+
+/**
+ * Creates an empty node.
+ */
+node_t* node_new_noop(void);
 
 /**
  * Creates a node with the given token.

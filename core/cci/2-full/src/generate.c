@@ -771,6 +771,9 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_INVALID:
             fatal("Internal error: cannot generate unrecognized node.");
             break;
+        case NODE_NOOP:
+            // nothing
+            break;
 
         // these nodes are handled separately, not generated through generate_node()
         case NODE_FUNCTION:
