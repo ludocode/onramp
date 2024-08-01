@@ -111,14 +111,12 @@
   bool r0 r0 
   jz r0 &_Lx4 
   imw r0 0 
-  sxb r0 r0 
   leave 
   ret 
 :_Lx4 
   jmp &_Lx0 
 :_Lx1 
   imw r0 1 
-  sxb r0 r0 
   leave 
   ret 
   zero r0 
