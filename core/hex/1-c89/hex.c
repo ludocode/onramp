@@ -23,9 +23,12 @@
  */
 
 /*
- * This is the reference implementation of the Onramp hex tool. It implements
- * address assertions, checks for trailing backslashes, and provides rich error
- * messages with line numbers and expected addresses. It passes all tests.
+ * This is the reference implementation of the Onramp hex tool. It is written
+ * in ANSI C (i.e. C89) for maximum portability.
+ *
+ * It implements address assertions, checks for trailing backslashes, and
+ * provides rich error messages with line numbers and expected addresses. It
+ * passes all tests.
  *
  * You should use this tool to develop and verify your hex files.
  */
