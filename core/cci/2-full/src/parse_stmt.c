@@ -348,7 +348,7 @@ static void parse_statement_no_labels(node_t* parent) {
 
     // Compound statement
     if (lexer_is(STR_BRACE_OPEN)) {
-        node_append(parent, parse_compound_statement());
+        node_append(parent, parse_compound_statement(true));
         return;
     }
 
@@ -392,16 +392,23 @@ void parse_declaration_or_statement(node_t* parent) {
     }
 }
 
-
-node_t* parse_compound_statement(void) {
+node_t* parse_compound_statement(bool create_scope) {
     assert(lexer_is(STR_BRACE_OPEN));
-    scope_push();
+
+    if (create_scope) {
+        scope_push();
+    }
+
     node_t* node = node_new_lexer(NODE_SEQUENCE);
     node->type = type_new_base(BASE_VOID);
     while (!lexer_is(STR_BRACE_CLOSE)) {
         parse_declaration_or_statement(node);
     }
     node->end_token = lexer_take();
-    scope_pop();
+
+    if (create_scope) {
+        scope_pop();
+    }
+
     return node;
 }

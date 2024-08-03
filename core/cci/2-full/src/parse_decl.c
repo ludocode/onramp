@@ -874,9 +874,7 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
     }
 
     // parse
-    // TODO the root sequence of a function should not create a scope because
-    // you cannot shadow a parameter at function scope
-    node_append(root, parse_compound_statement());
+    node_append(root, parse_compound_statement(false));
     scope_pop();
     scope_pop();
 

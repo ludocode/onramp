@@ -35,6 +35,13 @@ void parse_stmt_destroy(void);
 
 void parse_declaration_or_statement(struct node_t* parent);
 
-struct node_t* parse_compound_statement(void);
+/**
+ * Parses a compound statement.
+ *
+ * Compound statements normally create a scope. However, we also use this to
+ * parse the body of a function; in this case it must share a scope with the
+ * parameters so we don't create one.
+ */
+struct node_t* parse_compound_statement(bool create_scope);
 
 #endif
