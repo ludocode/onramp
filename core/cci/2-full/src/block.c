@@ -33,9 +33,10 @@
 
 #define BLOCK_INSTRUCTIONS_MIN 8
 
-block_t* block_new(int label) {
+static block_t* block_new_impl(void) {
     block_t* block = malloc(sizeof(block_t));
-    block->label = label;
+    block->label = -1;
+    block->user_label = NULL;
     block->instructions = NULL;
     block->instructions_count = 0;
     block->instructions_capacity = 0;
@@ -43,9 +44,23 @@ block_t* block_new(int label) {
     return block;
 }
 
+block_t* block_new(int label) {
+    block_t* block = block_new_impl();
+    block->label = label;
+    return block;
+}
+
+block_t* block_new_user_label(string_t* label) {
+    block_t* block = block_new_impl();
+    block->user_label = string_ref(label);
+    return block;
+}
+
 void block_delete(block_t* block) {
     for (size_t i = 0; i < block->instructions_count; ++i)
         instruction_destroy(&block->instructions[i]);
+    if (block->user_label)
+        string_deref(block->user_label);
     free(block->instructions);
     free(block);
 }

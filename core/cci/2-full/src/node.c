@@ -169,6 +169,11 @@ void node_delete(node_t* node) {
         case NODE_FUNCTION:
             //string_deref(node->string);
             break;
+        case NODE_GOTO:
+            if (node->string) {
+                string_deref(node->string);
+            }
+            break;
         case NODE_ACCESS:
         case NODE_PARAMETER:
         case NODE_VARIABLE:

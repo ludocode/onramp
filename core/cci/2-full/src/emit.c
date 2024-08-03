@@ -123,7 +123,9 @@ void emit_arg_invocation_prefix(char sigil, const char* prefix, int number) {
     emit_char(' ');
     emit_char(sigil);
     emit_cstr(prefix);
-    emit_hex_number(number);
+    if (number != -1) {
+        emit_hex_number(number);
+    }
 }
 
 void emit_arg_invocation(char sigil, const char* label) {
@@ -136,6 +138,12 @@ void emit_label_def(const char* prefix, int number) {
     emit_char(':');
     emit_cstr(prefix);
     emit_hex_number(number);
+    emit_newline();
+}
+
+void emit_label_def_str(const char* prefix, const string_t* label) {
+    emit_char(':');
+    emit_string(label);
     emit_newline();
 }
 
@@ -216,6 +224,9 @@ static void emit_blocks(function_t* function, block_t* block) {
 
     if (block->label != -1) {
         emit_label_def(JUMP_LABEL_PREFIX, block->label);
+    }
+    if (block->user_label != NULL) {
+        emit_label_def_str(JUMP_LABEL_PREFIX, block->user_label);
     }
 
     // check if we end in an unconditional jump

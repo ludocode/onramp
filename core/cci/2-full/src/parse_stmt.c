@@ -252,12 +252,6 @@ static node_t* parse_continue(node_t* parent) {
     return node;
 }
 
-void parse_declaration_or_statement(node_t* parent) {
-    if (!try_parse_declaration(parent)) {
-        parse_statement(parent);
-    }
-}
-
 static void parse_case(node_t* parent) {
     // TODO make sure we're actually in a switch
     node_t* node = node_new_lexer(NODE_CASE);
@@ -287,12 +281,14 @@ static void parse_default(node_t* parent) {
 
 static void parse_label(node_t* parent, token_t* name) {
     // TODO ensure name is not a keyword
+    // TODO ensure label is not already defined in this function. We'll need to
+    // add a table of labels to the function.
     node_t* node = node_new_token(NODE_LABEL, name);
     node->type = type_new_base(BASE_VOID);
     node_append(parent, node);
 }
 
-bool parse_labels(node_t* parent) {
+static bool parse_labels(node_t* parent) {
     bool found_label = false;
 
     for (;;) {
@@ -323,20 +319,27 @@ bool parse_labels(node_t* parent) {
     return found_label;
 }
 
+static node_t* parse_goto(void) {
+    lexer_consume();
+    if (lexer_token->type != token_type_alphanumeric) {
+        fatal_token(lexer_token, "`goto` must be followed by a label name.");
+    }
+
+    // TODO make sure it's not a keyword
+
+    node_t* node = node_new_lexer(NODE_GOTO);
+    node->type = type_new_base(BASE_VOID);
+    lexer_expect(STR_SEMICOLON, "Expected `;` at end of `goto`.");
+    return node;
+}
+
 /**
  * Parses one statement.
  *
  * A statement can append multiple nodes to the given parent because labels
  * (including `case` and `default` labels) are individual nodes.
  */
-static void parse_statement(node_t* parent) {
-    bool found_label = parse_labels(parent);
-
-    // A bit of a hack to allow labels at the end of blocks
-    if (found_label && lexer_is(STR_BRACE_CLOSE)) {
-        // TODO this is C2x only, warn otherwise
-        return;
-    }
+static void parse_statement_no_labels(node_t* parent) {
 
     // Empty statement
     if (lexer_accept(STR_SEMICOLON)) {
@@ -359,13 +362,36 @@ static void parse_statement(node_t* parent) {
         if (lexer_is(STR_BREAK)) { node_append(parent, parse_break(parent)); return; }
         if (lexer_is(STR_CONTINUE)) { node_append(parent, parse_continue(parent)); return; }
         if (lexer_is(STR_RETURN)) { node_append(parent, parse_return()); return; }
-        //if (lexer_is(STR_GOTO)) { node_append(parent, parse_goto()); return; }
+        if (lexer_is(STR_GOTO)) { node_append(parent, parse_goto()); return; }
     }
 
     // Expression statement
     node_append(parent, parse_expression());
     lexer_expect(STR_SEMICOLON, "Expected `;` at end of expression statement.");
 }
+
+static void parse_statement(node_t* parent) {
+    if (parse_labels(parent) && lexer_is(STR_BRACE_CLOSE)) {
+        // allow labels at the end of a block
+        // TODO this is C2x only, warn otherwise
+        return;
+    }
+
+    parse_statement_no_labels(parent);
+}
+
+void parse_declaration_or_statement(node_t* parent) {
+    if (parse_labels(parent) && lexer_is(STR_BRACE_CLOSE)) {
+        // allow labels at the end of a block
+        // TODO this is C2x only, warn otherwise
+        return;
+    }
+
+    if (!try_parse_declaration(parent)) {
+        parse_statement_no_labels(parent);
+    }
+}
+
 
 node_t* parse_compound_statement(void) {
     assert(lexer_is(STR_BRACE_OPEN));

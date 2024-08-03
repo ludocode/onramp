@@ -24,7 +24,10 @@
 
 #include "generate_stmt.h"
 
+#include <stdlib.h>
+
 #include "node.h"
+#include "token.h"
 #include "block.h"
 #include "generate.h"
 #include "function.h"
@@ -179,4 +182,48 @@ void generate_for(node_t* node, int reg_out) {
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, increment_block->label);
 
     current_block = end_block;
+}
+
+// TODO this is really horrible. We need to make it explicit in the object code
+// and assembly that labels are local to symbols, that way we don't need to
+// do anything (except check for duplicates) to ensure that the names are unique.
+static string_t* generate_label_name(node_t* node) {
+    string_t* func_name = current_function->name;
+    string_t* label_name = node->token->value;
+
+    char prefix[32];
+    snprintf(prefix, sizeof(prefix), "%u", (unsigned)string_length(func_name));
+
+    size_t len = strlen(USER_LABEL_PREFIX) + strlen(prefix) + 1 +
+            string_length(func_name) + 1 + string_length(label_name);
+    char* cstr = malloc(len + 1);
+
+    strcpy(cstr, USER_LABEL_PREFIX);
+    strcat(cstr, prefix);
+    strcat(cstr, "_");
+    strcat(cstr, func_name->bytes);
+    strcat(cstr, "_");
+    strcat(cstr, label_name->bytes);
+
+    string_t* string = string_intern_bytes(cstr, len);
+    free(cstr);
+    return string;
+}
+
+void generate_label(node_t* node, int reg_out) {
+    string_t* string = generate_label_name(node);
+    current_block = block_new_user_label(string);
+    function_add_block(current_function, current_block);
+    string_deref(string);
+}
+
+void generate_goto(node_t* node, int reg_out) {
+    // TODO make sure the label actually exists; see parse_label(), need a
+    // table of labels in function
+
+    if (node->string == NULL) {
+        node->string = generate_label_name(node);
+    }
+
+    block_append(current_block, node->token, JMP, '&', node->string->bytes, -1);
 }

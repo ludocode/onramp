@@ -12,19 +12,19 @@ foo:
     // jumping into a loop
     int x = 0;
     goto bar;
-    return 1;
+    return 2;
     while (1) {
         break;
     bar:
         x = 1;
     }
     if (x != 1) {
-        return 1;
+        return 3;
     }
 
     // unbraced if statement with label
     if (0)
-        baz: return 1;
+        baz: return 4;
 
     return 0;
 }

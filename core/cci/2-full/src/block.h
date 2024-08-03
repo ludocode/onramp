@@ -30,6 +30,7 @@
 #include <stdbool.h>
 
 #include "instruction.h"
+#include "libo-string.h"
 
 struct token_t;
 
@@ -38,6 +39,8 @@ struct token_t;
  */
 typedef struct block_t {
     int label; // the label to jump to this block, or -1 if there is no label
+    string_t* user_label; // non-null if this is a user-defined label
+    // TODO should also store the token for the user label so we can emit file/line info for it
     instruction_t* instructions;
     size_t instructions_count;
     size_t instructions_capacity;
@@ -45,6 +48,8 @@ typedef struct block_t {
 } block_t;
 
 block_t* block_new(int label);
+
+block_t* block_new_user_label(string_t* label);
 
 void block_delete(block_t* block);
 

@@ -34,5 +34,8 @@ void generate_if(struct node_t* node, int reg_out);
 void generate_while(struct node_t* node, int reg_out);
 void generate_for(struct node_t* node, int reg_out);
 void generate_do(struct node_t* node, int reg_out);
+void generate_goto(struct node_t* node, int reg_out);
+
+void generate_label(struct node_t* node, int reg_out);
 
 #endif
