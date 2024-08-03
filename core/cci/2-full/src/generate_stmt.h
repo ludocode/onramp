@@ -32,5 +32,7 @@ void generate_break(struct node_t* node, int reg_out);
 void generate_continue(struct node_t* node, int reg_out);
 void generate_if(struct node_t* node, int reg_out);
 void generate_while(struct node_t* node, int reg_out);
+void generate_for(struct node_t* node, int reg_out);
+void generate_do(struct node_t* node, int reg_out);
 
 #endif

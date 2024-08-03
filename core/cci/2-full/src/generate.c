@@ -793,8 +793,8 @@ void generate_node(node_t* node, int reg_out) {
 
         // statements
         case NODE_WHILE: generate_while(node, reg_out); break;
-        case NODE_DO: fatal_token(node->token, "TODO generate DO");
-        case NODE_FOR: fatal_token(node->token, "TODO generate FOR");
+        case NODE_DO: generate_do(node, reg_out); break;
+        case NODE_FOR: generate_for(node, reg_out); break;
         case NODE_SWITCH: fatal_token(node->token, "TODO generate SWITCH");
         case NODE_CASE: fatal_token(node->token, "TODO generate CASE");
         case NODE_DEFAULT: fatal_token(node->token, "TODO generate DEFAULT");

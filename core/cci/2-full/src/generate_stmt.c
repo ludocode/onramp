@@ -122,3 +122,55 @@ void generate_while(node_t* node, int reg_out) {
 
     current_block = end_block;
 }
+
+void generate_do(node_t* node, int reg_out) {
+    node_t* body = node->first_child;
+    node_t* condition = body->right_sibling;
+
+    node->body_label = next_label++;
+    node->end_label = next_label++;
+
+    block_t* body_block = block_new(node->body_label);
+    block_t* end_block = block_new(node->end_label);
+    function_add_block(current_function, body_block);
+    function_add_block(current_function, end_block);
+
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+
+    current_block = body_block;
+    generate_node(body, reg_out);
+    generate_node(condition, reg_out);
+    block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+
+    current_block = end_block;
+}
+
+void generate_for(node_t* node, int reg_out) {
+    node_t* initialization = node->first_child;
+    node_t* condition = initialization->right_sibling;
+    node_t* increment = condition->right_sibling;
+    node_t* body = increment->right_sibling;
+
+    node->body_label = next_label++;
+    node->end_label = next_label++;
+
+    block_t* body_block = block_new(node->body_label);
+    block_t* end_block = block_new(node->end_label);
+    function_add_block(current_function, body_block);
+    function_add_block(current_function, end_block);
+
+    generate_node(initialization, reg_out);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+
+    current_block = body_block;
+    if (condition->kind != NODE_NOOP) {
+        generate_node(condition, reg_out);
+        block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
+    }
+    generate_node(body, reg_out);
+    generate_node(increment, reg_out);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+
+    current_block = end_block;
+}

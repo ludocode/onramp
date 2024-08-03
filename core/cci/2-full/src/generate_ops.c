@@ -262,7 +262,7 @@ void generate_log_not(node_t* node, int reg_out) {
  */
 static void generate_ordering(node_t* node, int reg_left) {
     int reg_right = register_alloc(node->token);
-    type_t* type = node->type;
+    type_t* type = node->first_child->type;
 
     const char* function =
             type_matches_base(type, BASE_SIGNED_LONG_LONG)    ? "__llong_cmps" :
@@ -316,7 +316,7 @@ void generate_greater_or_equal(node_t* node, int reg_out) {
  */
 static void generate_equality(node_t* node, int reg_left) {
     int reg_right = register_alloc(node->token);
-    type_t* type = node->type;
+    type_t* type = node->first_child->type;
 
     if (type_is_long_long(type)) {
         generate_binary_function(node, reg_left, "__llong_neq");
