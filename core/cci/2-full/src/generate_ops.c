@@ -34,6 +34,9 @@
 /**
  * Generates an arithmetic or other binary calculation that must be done with a
  * libc function. This is used for long long, float and double.
+ *
+ * The reg_out register must already contain (or point to) the value for the
+ * left node. We only need to generate the right node.
  */
 static void generate_binary_function(node_t* node, int reg_out, const char* function_name) {
     size_t size = type_size(node->type);
@@ -47,17 +50,18 @@ static void generate_binary_function(node_t* node, int reg_out, const char* func
         }
     }
 
+    // the left value goes in r0
+    block_append(current_block, node->token, MOV, R0, reg_out);
+
     // for 64-bit math, arguments must point to storage space. make room for a
     // temporary
     if (size != 4) {
         assert(size == 8);
-        block_append(current_block, node->token, MOV, R0, reg_out);
         block_append(current_block, node->token, SUB, RSP, RSP, size);
         block_append(current_block, node->token, MOV, R1, RSP);
     }
 
-    // generate arguments
-    generate_node(node->first_child, R0);
+    // generate right node into r1
     generate_node(node->last_child, R1);
 
     // generate function call
@@ -94,10 +98,10 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
             type_matches_base(type, BASE_DOUBLE) ? "__double_add" :
             NULL;
 
+    generate_node(node->first_child, reg_left);
     if (function) {
         generate_binary_function(node, reg_left, function);
     } else {
-        generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, opcode, reg_left, reg_left, reg_right);
@@ -105,11 +109,14 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
     }
 }
 
-void generate_pointer_add_sub(node_t* node, int reg_left) {
-
-    // Generate the sides
+/**
+ * Same as generate_pointer_add_sub() except the left value has already been
+ * generated.
+ *
+ * This is called directly by the compound assignment operators.
+ */
+static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_left) {
     int reg_right = register_alloc(node->token);
-    generate_node(node->first_child, reg_left);
     generate_node(node->last_child, reg_right);
 
     // One side is a pointer and the other side is an int offset. The offset
@@ -138,10 +145,18 @@ void generate_pointer_add_sub(node_t* node, int reg_left) {
     }
 
     // Perform the addition or subtraction
-    // (This is also used for NODE_ARRAY_SUBSCRIPT, in which case we ADD.)
-    opcode_t op = node->kind == NODE_SUB ? SUB : ADD;
     block_append(current_block, node->token, op, reg_left, reg_left, reg_right);
+
     register_free(node->token, reg_right);
+}
+
+void generate_pointer_add_sub(node_t* node, int reg_left) {
+    generate_node(node->first_child, reg_left);
+
+    // This is used for NODE_ADD, NODE_SUB and NODE_ARRAY_SUBSCRIPT (which is
+    // also ADD.)
+    opcode_t op = node->kind == NODE_SUB ? SUB : ADD;
+    generate_pointer_add_sub_impl(node, op, reg_left);
 }
 
 static void generate_pointers_sub(node_t* node, int reg_left) {
@@ -176,21 +191,19 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
 void generate_add(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
         generate_pointer_add_sub(node, reg_out);
-        return;
+    } else {
+        generate_simple_arithmetic(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
     }
-    generate_simple_arithmetic(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
 }
 
 void generate_sub(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
         generate_pointer_add_sub(node, reg_out);
-        return;
-    }
-    if (type_is_indirection(node->first_child->type)) {
+    } else if (type_is_indirection(node->first_child->type)) {
         generate_pointers_sub(node, reg_out);
-        return;
+    } else {
+        generate_simple_arithmetic(node, reg_out, SUB, "__llong_sub", "__float_sub", "__double_sub");
     }
-    generate_simple_arithmetic(node, reg_out, SUB, "__llong_sub", "__float_sub", "__double_sub");
 }
 
 void generate_mul(node_t* node, int reg_out) {
@@ -271,10 +284,10 @@ static void generate_ordering(node_t* node, int reg_left) {
             type_matches_base(type, BASE_DOUBLE)              ? "__double_cmp" :
             NULL;
 
+    generate_node(node->first_child, reg_left);
     if (function) {
         generate_binary_function(node, reg_left, function);
     } else {
-        generate_node(node->first_child, reg_left);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token,
                 type_matches_base(type, BASE_SIGNED_INT) ? CMPS : CMPU,
@@ -318,12 +331,12 @@ static void generate_equality(node_t* node, int reg_left) {
     int reg_right = register_alloc(node->token);
     type_t* type = node->first_child->type;
 
+    generate_node(node->first_child, reg_left);
     if (type_is_long_long(type)) {
         generate_binary_function(node, reg_left, "__llong_neq");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
         generate_binary_function(node, reg_left, "__double_neq");
     } else {
-        generate_node(node->first_child, reg_left);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, SUB, reg_left, reg_left, reg_right);
     }
@@ -371,4 +384,99 @@ void generate_assign(node_t* node, int reg_val) {
     generate_location(node->first_child, reg_loc);
     generate_store(node->token, node->type, reg_loc, reg_val);
     register_free(node->token, reg_loc);
+}
+
+void generate_add_sub_assign(node_t* node, int reg_val,
+        opcode_t opcode, const char* llong_func,
+        const char* float_func, const char* double_func)
+{
+    // generate the storage location
+    int reg_loc = register_alloc(node->token);
+    generate_location(node->first_child, reg_loc);
+
+    // load it into the output register
+    generate_dereference_impl(node, reg_val, reg_loc, 0);
+
+    // do the operation
+    if (type_is_indirection(node->type)) {
+        generate_pointer_add_sub_impl(node, opcode, reg_val);
+    } else {
+        generate_simple_arithmetic(node, reg_val, opcode, llong_func, float_func, double_func);
+    }
+
+    // store the result
+    generate_store(node->token, node->type, reg_loc, reg_val);
+    register_free(node->token, reg_loc);
+}
+
+// Generates a compound assignment other than add or sub.
+void generate_compound_assign(node_t* node, int reg_val,
+        opcode_t opcode, const char* llong_func,
+        const char* float_func, const char* double_func)
+{
+    // generate the storage location
+    int reg_loc = register_alloc(node->token);
+    generate_location(node->first_child, reg_loc);
+
+    // load it into the output register
+    generate_dereference_impl(node, reg_val, reg_loc, 0);
+
+    // do the operation
+    generate_simple_arithmetic(node, reg_val, opcode, llong_func, float_func, double_func);
+
+    // store the result
+    generate_store(node->token, node->type, reg_loc, reg_val);
+    register_free(node->token, reg_loc);
+}
+
+void generate_add_assign(node_t* node, int reg_out) {
+    generate_add_sub_assign(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
+}
+
+void generate_sub_assign(struct node_t* node, int reg_out) {
+    generate_add_sub_assign(node, reg_out, SUB, "__llong_sub", "__float_sub", "__double_sub");
+}
+
+void generate_mul_assign(struct node_t* node, int reg_out) {
+    generate_compound_assign(node, reg_out, MUL, "__llong_mul", "__float_mul", "__double_mul");
+}
+
+void generate_div_assign(struct node_t* node, int reg_out) {
+    if (type_is_signed_integer(node->type)) {
+        generate_compound_assign(node, reg_out, DIVS, "__llong_divs", NULL, NULL);
+    } else {
+        generate_compound_assign(node, reg_out, DIVU, "__llong_divu", "__float_div", "__double_div");
+    }
+}
+
+void generate_mod_assign(struct node_t* node, int reg_out) {
+    if (type_is_signed_integer(node->type)) {
+        generate_compound_assign(node, reg_out, MODS, "__llong_mods", NULL, NULL);
+    } else {
+        generate_compound_assign(node, reg_out, MODU, "__llong_modu", "__float_mod", "__double_mod");
+    }
+}
+
+void generate_and_assign(struct node_t* node, int reg_out) {
+    generate_compound_assign(node, reg_out, AND, "__llong_bit_and", NULL, NULL);
+}
+
+void generate_or_assign(struct node_t* node, int reg_out) {
+    generate_compound_assign(node, reg_out, OR, "__llong_bit_or", NULL, NULL);
+}
+
+void generate_xor_assign(struct node_t* node, int reg_out) {
+    generate_compound_assign(node, reg_out, XOR, "__llong_bit_xor", NULL, NULL);
+}
+
+void generate_shl_assign(struct node_t* node, int reg_out) {
+    generate_compound_assign(node, reg_out, SHL, "__llong_shl", NULL, NULL);
+}
+
+void generate_shr_assign(struct node_t* node, int reg_out) {
+    if (type_is_signed_integer(node->type)) {
+        generate_compound_assign(node, reg_out, SHRS, "__llong_shrs", NULL, NULL);
+    } else {
+        generate_compound_assign(node, reg_out, SHRU, "__llong_shru", NULL, NULL);
+    }
 }

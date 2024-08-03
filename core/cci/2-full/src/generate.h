@@ -95,6 +95,16 @@ void generate_node(struct node_t* node, int reg_out);
  */
 void generate_location(struct node_t* node, int reg_out);
 
+/**
+ * Given a pointer and member offset, performs a dereference operation. This
+ * includes unary `*`, binary `.`, binary `->`, array indexing (after
+ * addition), and the compound assignment operators.
+ *
+ * The pointer in reg_ptr is shifted by the given member offset, then loaded
+ * into reg_out.
+ */
+void generate_dereference_impl(struct node_t* node, int reg_out, int reg_ptr, int offset);
+
 void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
 
 #endif

@@ -58,14 +58,23 @@ void generate_store(struct token_t* /*nullable*/ token, struct type_t* type,
         int register_location, int register_value);
 
 void generate_assign(struct node_t* node, int reg_out);
-void generate_assign_add(struct node_t* node, int reg_out);
-void generate_assign_sub(struct node_t* node, int reg_out);
-void generate_assign_mul(struct node_t* node, int reg_out);
-void generate_assign_div(struct node_t* node, int reg_out);
+void generate_add_assign(struct node_t* node, int reg_out);
+void generate_sub_assign(struct node_t* node, int reg_out);
+void generate_mul_assign(struct node_t* node, int reg_out);
+void generate_div_assign(struct node_t* node, int reg_out);
+void generate_mod_assign(struct node_t* node, int reg_out);
+void generate_and_assign(struct node_t* node, int reg_out);
+void generate_or_assign(struct node_t* node, int reg_out);
+void generate_xor_assign(struct node_t* node, int reg_out);
+void generate_shl_assign(struct node_t* node, int reg_out);
+void generate_shr_assign(struct node_t* node, int reg_out);
 
 /**
- * Generates an add or subtract, or the location of an array subscript (i.e.
- * without the dereference.)
+ * Generates an add or subtract of a pointer and an integer. The integer is
+ * multiplied by the size of the pointed-to type.
+ *
+ * This is also used for calculating the location of an array subscript
+ * operation.
  *
  * One child of the node must be a pointer and the other side must be a (signed
  * or unsigned) 32-bit integer.

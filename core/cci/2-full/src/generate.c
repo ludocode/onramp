@@ -672,7 +672,7 @@ void generate_initializer(node_t* variable, int reg_out) {
  * The pointer in reg_ptr is shifted by the given member offset, then loaded
  * into reg_out.
  */
-static void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offset) {
+void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offset) {
 
     // TODO the shift and load could be done together if small enough. could optimize this later
 
@@ -805,16 +805,16 @@ void generate_node(node_t* node, int reg_out) {
 
         // assignment expressions
         case NODE_ASSIGN: generate_assign(node, reg_out); break;
-        case NODE_ADD_ASSIGN: fatal_token(node->token, "TODO generate ADD_ASSIGN");
-        case NODE_SUB_ASSIGN: fatal_token(node->token, "TODO generate SUB_ASSIGN");
-        case NODE_MUL_ASSIGN: fatal_token(node->token, "TODO generate MUL_ASSIGN");
-        case NODE_DIV_ASSIGN: fatal_token(node->token, "TODO generate DIV_ASSIGN");
-        case NODE_MOD_ASSIGN: fatal_token(node->token, "TODO generate MOD_ASSIGN");
-        case NODE_AND_ASSIGN: fatal_token(node->token, "TODO generate AND_ASSIGN");
-        case NODE_OR_ASSIGN: fatal_token(node->token, "TODO generate OR_ASSIGN");
-        case NODE_XOR_ASSIGN: fatal_token(node->token, "TODO generate XOR_ASSIGN");
-        case NODE_SHL_ASSIGN: fatal_token(node->token, "TODO generate SHL_ASSIGN");
-        case NODE_SHR_ASSIGN: fatal_token(node->token, "TODO generate SHR_ASSIGN");
+        case NODE_ADD_ASSIGN: generate_add_assign(node, reg_out); break;
+        case NODE_SUB_ASSIGN: generate_sub_assign(node, reg_out); break;
+        case NODE_MUL_ASSIGN: generate_mul_assign(node, reg_out); break;
+        case NODE_DIV_ASSIGN: generate_div_assign(node, reg_out); break;
+        case NODE_MOD_ASSIGN: generate_mod_assign(node, reg_out); break;
+        case NODE_AND_ASSIGN: generate_and_assign(node, reg_out); break;
+        case NODE_OR_ASSIGN: generate_or_assign(node, reg_out); break;
+        case NODE_XOR_ASSIGN: generate_xor_assign(node, reg_out); break;
+        case NODE_SHL_ASSIGN: generate_shl_assign(node, reg_out); break;
+        case NODE_SHR_ASSIGN: generate_shr_assign(node, reg_out); break;
 
         // other binary expressions
         case NODE_LOGICAL_OR: fatal_token(node->token, "TODO generate LOGICAL_OR");
