@@ -15,7 +15,7 @@ int main(void) {
 
     struct foo f;
     if (sizeof(f) != 12) {
-        return 1;
+        return 2;
     }
 
     return 0;

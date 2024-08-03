@@ -17,7 +17,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx1 
-  imw r0 1 
+  imw r0 2 
   leave 
   ret 
 :_Lx1 

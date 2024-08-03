@@ -176,8 +176,8 @@ void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* ty
 
     // update size
     size_t extent = type_size(type);
-    if (extent < alignment)
-        extent = alignment;
+    if (extent < record->alignment)
+        extent = record->alignment;
     unsigned end = offset + extent;
     if (end > record->size)
         record->size = end;
