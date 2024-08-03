@@ -212,6 +212,7 @@ static string_t* generate_label_name(node_t* node) {
 
 void generate_label(node_t* node, int reg_out) {
     string_t* string = generate_label_name(node);
+    block_append(current_block, node->token, JMP, '&', string->bytes, -1);
     current_block = block_new_user_label(string);
     function_add_block(current_function, current_block);
     string_deref(string);

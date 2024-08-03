@@ -134,14 +134,14 @@ void emit_arg_invocation(char sigil, const char* label) {
     emit_cstr(label);
 }
 
-void emit_label_def(const char* prefix, int number) {
+static void emit_label_def(const char* prefix, int number) {
     emit_char(':');
     emit_cstr(prefix);
     emit_hex_number(number);
     emit_newline();
 }
 
-void emit_label_def_str(const char* prefix, const string_t* label) {
+static void emit_label_def_str(const string_t* label) {
     emit_char(':');
     emit_string(label);
     emit_newline();
@@ -219,44 +219,53 @@ void emit_string_literal(const char* str) {
  * outside the main code path.
  */
 static void emit_blocks(function_t* function, block_t* block) {
-    assert(!block->emitted);
-    block->emitted = true;
+    for (;;) {
+        assert(!block->emitted);
+        block->emitted = true;
 
-    if (block->label != -1) {
-        emit_label_def(JUMP_LABEL_PREFIX, block->label);
-    }
-    if (block->user_label != NULL) {
-        emit_label_def_str(JUMP_LABEL_PREFIX, block->user_label);
-    }
+        if (block->label != -1) {
+            emit_label_def(JUMP_LABEL_PREFIX, block->label);
+        }
+        if (block->user_label != NULL) {
+            emit_label_def_str(block->user_label);
+        }
 
-    // check if we end in an unconditional jump
-    block_t* next = NULL;
-    size_t count = block->instructions_count;
-    if (optimization && count > 1) {
-        instruction_t* instruction = block_at(block, count - 1);
-        if (instruction->opcode == JMP && instruction->invocation_type == '&') {
+        // get the last instruction
+        size_t count = block->instructions_count;
+        if (count == 0) {
+            fatal("Internal error: a basic block cannot be empty.");
+        }
+        instruction_t* last = block_at(block, count - 1);
 
+        // make sure the block ends properly
+        if (last->opcode != JMP && last->opcode != RET) {
+            fatal("Internal error: a basic block must end in JMP or RET.");
+        }
+
+        // check if we end in an unconditional jump
+        block_t* next = NULL;
+        if (optimization && last->opcode == JMP && last->invocation_type == '&') {
             // see if we can emit the target of the jump
             size_t block_count = vector_count(&function->blocks);
             for (size_t i = 0; i < block_count; ++i) {
                 block_t* candidate = vector_at(&function->blocks, i);
-                if (candidate->emitted == false && candidate->label == instruction->invocation_number) {
-
-                    // we can. emit the target block after this one instead of the final jump.
-                    next = candidate;
-                    --count;
+                if (candidate->emitted == false && candidate->label == last->invocation_number) {
+                    next = candidate; // found. emit the target block after this one
+                    --count; // skip the last instruction
                     break;
                 }
             }
         }
-    }
 
-    for (size_t i = 0; i < count; ++i) {
-        instruction_emit(block_at(block, i));
-    }
+        for (size_t i = 0; i < count; ++i) {
+            instruction_emit(block_at(block, i));
+        }
 
-    if (next) {
-        emit_blocks(function, next);
+        if (next) {
+            block = next;
+            continue;
+        }
+        break;
     }
 }
 

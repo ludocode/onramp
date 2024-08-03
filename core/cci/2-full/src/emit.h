@@ -51,9 +51,6 @@ void emit_arg_number(int number);
 void emit_arg_invocation_prefix(char sigil, const char* prefix, int number);
 void emit_arg_invocation(char sigil, const char* prefix);
 
-void emit_label_def(const char* prefix, int number);
-void emit_label_def_str(const char* prefix, const string_t* label);
-
 void emit_function(struct function_t* function);
 
 /**
