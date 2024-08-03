@@ -480,3 +480,69 @@ void generate_shr_assign(struct node_t* node, int reg_out) {
         generate_compound_assign(node, reg_out, SHRU, "__llong_shru", NULL, NULL);
     }
 }
+
+static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
+
+    // generate the storage location
+    int reg_loc = register_alloc(node->token);
+    generate_location(node->first_child, reg_loc);
+
+    // load it into the output register
+    generate_dereference_impl(node, reg_val, reg_loc, 0);
+
+    // increment/decrement it
+    if (type_size(node->type) == 4) {
+        block_append(current_block, node->token, inc ? INC : DEC, reg_val);
+    } else if (type_size(node->type) == 8) {
+        // TODO we should be able to just inline `inc jz inc` or equivalent.
+        // need to create a block, use a temporary register, etc.
+        fatal("TODO pre/post inc/dec llong");
+    }
+
+    // store it back again
+    generate_store(node->token, node->type, reg_loc, reg_val);
+    register_free(node->token, reg_loc);
+}
+
+static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
+
+    // generate the storage location
+    int reg_loc = register_alloc(node->token);
+    generate_location(node->first_child, reg_loc);
+
+    // load it into the output register
+    generate_dereference_impl(node, reg_val, reg_loc, 0);
+
+    // increment/decrement it into a temporary reister
+    int reg_temp = register_alloc(node->token);
+    if (type_size(node->type) == 4) {
+        block_append(current_block, node->token, MOV, reg_temp, reg_val);
+        block_append(current_block, node->token, inc ? INC : DEC, reg_temp);
+    } else if (type_size(node->type) == 8) {
+        // TODO need to allocate stack space and copy
+        // TODO we should be able to just inline `inc jz inc` or equivalent.
+        // need to create a block, use a temporary register, etc.
+        fatal("TODO pre/post inc/dec llong");
+    }
+
+    // store it back again
+    generate_store(node->token, node->type, reg_loc, reg_temp);
+    register_free(node->token, reg_temp);
+    register_free(node->token, reg_loc);
+}
+
+void generate_pre_inc(node_t* node, int reg_out) {
+    generate_pre_inc_dec(node, reg_out, true);
+}
+
+void generate_pre_dec(node_t* node, int reg_out) {
+    generate_pre_inc_dec(node, reg_out, false);
+}
+
+void generate_post_inc(node_t* node, int reg_out) {
+    generate_post_inc_dec(node, reg_out, true);
+}
+
+void generate_post_dec(node_t* node, int reg_out) {
+    generate_post_inc_dec(node, reg_out, false);
+}

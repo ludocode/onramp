@@ -847,12 +847,12 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_LOGICAL_NOT: generate_log_not(node, reg_out); break;
         case NODE_DEREFERENCE: generate_dereference(node, reg_out); break;
         case NODE_ADDRESS_OF: generate_address_of(node, reg_out); break;
-        case NODE_PRE_INC: fatal_token(node->token, "TODO generate PRE_INC");
-        case NODE_PRE_DEC: fatal_token(node->token, "TODO generate PRE_DEC");
+        case NODE_PRE_INC: generate_pre_inc(node, reg_out); break;
+        case NODE_PRE_DEC: generate_pre_dec(node, reg_out); break;
 
         // postfix operators
-        case NODE_POST_INC: fatal_token(node->token, "TODO generate POST_INC");
-        case NODE_POST_DEC: fatal_token(node->token, "TODO generate POST_DEC");
+        case NODE_POST_INC: generate_post_inc(node, reg_out); break;
+        case NODE_POST_DEC: generate_post_dec(node, reg_out); break;
         case NODE_ARRAY_SUBSCRIPT: generate_array_subscript(node, reg_out); break;
         case NODE_MEMBER_VAL: generate_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_member_ptr(node, reg_out); break;

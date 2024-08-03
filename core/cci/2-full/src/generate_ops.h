@@ -69,6 +69,11 @@ void generate_xor_assign(struct node_t* node, int reg_out);
 void generate_shl_assign(struct node_t* node, int reg_out);
 void generate_shr_assign(struct node_t* node, int reg_out);
 
+void generate_pre_inc(struct node_t* node, int reg_out);
+void generate_pre_dec(struct node_t* node, int reg_out);
+void generate_post_inc(struct node_t* node, int reg_out);
+void generate_post_dec(struct node_t* node, int reg_out);
+
 /**
  * Generates an add or subtract of a pointer and an integer. The integer is
  * multiplied by the size of the pointed-to type.
