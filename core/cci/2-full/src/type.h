@@ -184,6 +184,11 @@ static inline bool type_is_declarator(type_t* type) {
  */
 bool type_matches_base(type_t* type, base_t base);
 
+/**
+ * Returns true if the given type is the given kind of declarator.
+ */
+bool type_matches_declarator(type_t* type, declarator_t declarator);
+
 bool type_is_arithmetic(type_t* type);
 
 bool type_is_integer(type_t* type);
@@ -268,5 +273,12 @@ type_t* type_decay(type_t* type);
  * Returns the pointed-to type for a pointer or array.
  */
 type_t* type_pointed_to(type_t* type);
+
+/**
+ * Returns true if this type is accepted as a flexible array member.
+ *
+ * We allow the standard [] as well as [0] as an extension.
+ */
+bool type_is_flexible_array(type_t* type);
 
 #endif

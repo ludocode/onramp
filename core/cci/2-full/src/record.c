@@ -142,12 +142,25 @@ static void record_add_anonymous_to_table(record_t* record, member_t* member, un
     }
 }
 
-void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* type) {
+void record_add(record_t* record, token_t* /*nullable*/ token, type_t* type) {
+
+    // Check for flexible array members. If we have a previous member, it must
+    // not be a flexible array.
+    // TODO currently we treat zero-length arrays the same as indeterminate
+    // arrays. To match GCC/Clang we should allow zero length anywhere, only
+    // forbid indeterminate arrays. Zero-length arrays have size zero and, if
+    // they have a subsequent member, they share its address.
+    member_t* last = record->member_list;
+    if (last && type_is_flexible_array(last->type)) {
+        fatal_token(token, "Only the last member in a struct is allowed to be an array of zero/indeterminate length.");
+    }
+    if (type_is_flexible_array(type) && !record->is_struct) {
+        fatal_token(token, "Unions cannot contain flexible array members.");
+    }
 
     // determine offset of member
     int offset;
     if (record->is_struct && record->member_list) {
-        member_t* last = record->member_list;
         offset = last->offset + type_size(last->type);
     } else {
         offset = 0;
@@ -175,9 +188,12 @@ void record_add(record_t* record, token_t* /*nullable*/ token, struct type_t* ty
     }
 
     // update size
-    size_t extent = type_size(type);
-    if (extent < record->alignment)
-        extent = record->alignment;
+    size_t extent = 0;
+    if (!type_is_flexible_array(type)) {
+        extent = type_size(type);
+        if (extent < record->alignment)
+            extent = record->alignment;
+    }
     unsigned end = offset + extent;
     if (end > record->size)
         record->size = end;

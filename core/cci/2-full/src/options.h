@@ -48,7 +48,8 @@ typedef enum warning_t {
     warning_pedantic,  // -Wpedantic (or -pedantic)
 
     // incorrect code
-    warning_implicit_int,  // -Wimplicit-int
+    warning_implicit_int,       // -Wimplicit-int
+    warning_zero_length_array,  // -Wzero-length-array
 
     // extension usage
     warning_statement_expressions,    // -Wstatement-expressions: ({...})

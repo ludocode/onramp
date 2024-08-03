@@ -359,6 +359,10 @@ bool type_matches_base(type_t* type, base_t base) {
     return !type->is_declarator && type->base == base;
 }
 
+bool type_matches_declarator(type_t* type, declarator_t declarator) {
+    return type->is_declarator && type->declarator == declarator;
+}
+
 bool type_is_arithmetic(type_t* type) {
     if (!type_is_base(type))
         return false;
@@ -706,4 +710,12 @@ bool type_is_complete(type_t* type) {
     if (!type_matches_base(type->ref, BASE_RECORD))
         return true;
     return type->ref->record->is_defined;
+}
+
+bool type_is_flexible_array(type_t* type) {
+    if (type_matches_declarator(type, DECLARATOR_INDETERMINATE))
+        return true;
+    if (type_matches_declarator(type, DECLARATOR_ARRAY) && type->count == 0)
+        return true;
+    return false;
 }
