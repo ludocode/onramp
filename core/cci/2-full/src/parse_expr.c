@@ -168,11 +168,11 @@ static node_t* parse_number(void) {
     }
 
     // TODO for now we just ignore the suffix and truncate it down to an int.
-    // we're just trying to match the functionality of cci/0 right now. we'll
+    // we're just trying to match the functionality of cci/1 right now. we'll
     // need to store the full llong value in the node
     node->u32 = llong_to_u32(&value);
 
-    node->type = type_new_base(BASE_SIGNED_INT);
+    node->type = type_new_base(suffix_unsigned ? BASE_UNSIGNED_INT : BASE_SIGNED_INT);
     return node;
 
 out_of_range:
