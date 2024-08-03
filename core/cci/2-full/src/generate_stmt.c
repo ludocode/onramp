@@ -281,6 +281,7 @@ static int case_cmp(void* vleft, void* vright) {
     return 0;
 }
 
+/*
 static void check_cases_overlap(node_t* switch_, node_t* left, node_t* right) {
     type_t* type = switch_->first_child->type;
 
@@ -306,6 +307,7 @@ static void check_cases_overlap(node_t* switch_, node_t* left, node_t* right) {
     // not straightforward to fix and not worth fixing at the moment.
     fatal_token(right->token, "Duplicate (or overlapping range of) `case` label in switch.");
 }
+*/
 
 /**
  * Sort the list of cases.
@@ -331,7 +333,12 @@ void cases_sort(node_t* switch_, node_t** cases, size_t count) {
     // TODO for now always insertion sort, we'll get qsort() working later
     #define CASES_SORT_FALLBACK
 
-    // If we can't qsort, we use a little insertion sort.
+    // Use libc qsort() if we can
+    #ifndef CASES_SORT_FALLBACK
+    qsort(cases, count, sizeof(*cases), case_cmp);
+    #endif
+
+    // If we can't, our fallback a little insertion sort.
     #ifdef CASES_SORT_FALLBACK
     for (size_t i = 1; i < count; ++i) {
         node_t* temp = cases[i];
@@ -342,8 +349,6 @@ void cases_sort(node_t* switch_, node_t** cases, size_t count) {
         }
         cases[j] = temp;
     }
-    #else
-    qsort(cases, count, sizeof(*cases), case_cmp);
     #endif
 }
 
@@ -432,7 +437,7 @@ void generate_switch(node_t* switch_, int reg_out) {
         for (size_t i = 0; i < count - 1; ++i) {
             check_cases_overlap(switch_, cases[i], cases[i + 1]);
         }
-        */ (void)check_cases_overlap;
+        */// (void)check_cases_overlap;
 
         // emit code to jump to the appropriate case
 
