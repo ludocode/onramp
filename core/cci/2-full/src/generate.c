@@ -235,7 +235,7 @@ static int generate_parameter_offsets(function_t* function) {
 
     // The frame pointer points to the previous frame pointer. The arguments
     // are above it.
-    int indirect_offset = 4;
+    int indirect_offset = 8;
     int frame_size = 0;
 
     // If the return value is indirect, the return value pointer is above it.
@@ -246,6 +246,7 @@ static int generate_parameter_offsets(function_t* function) {
     // All nodes except the last child of the function are parameters. The
     // first four register-size arguments are passed in registers; other
     // arguments are passed on the stack.
+    size_t reg_count = 0;
     for (node_t* param = function->root->first_child;
             param != function->root->last_child;
             param = param->right_sibling)
@@ -254,7 +255,7 @@ static int generate_parameter_offsets(function_t* function) {
         type_t* type = param->type;
         int size = (int)type_size(type);
 
-        if (type_is_passed_indirectly(type)) {
+        if (reg_count == 4 || type_is_passed_indirectly(type)) {
             // The argument is already on the stack. All arguments are
             // word-aligned. (The symbol won't exist if the parameter is
             // unnamed.)
@@ -270,6 +271,7 @@ static int generate_parameter_offsets(function_t* function) {
             // to pack them.
             frame_size += 4;
             param->symbol->offset = -frame_size;
+            ++reg_count;
         }
         //printf("assigned offset %i to param %s of size %i\n", param->symbol->offset, param->symbol->name->bytes, (int)type_size(param->symbol->type));
     }
@@ -324,19 +326,6 @@ void generate_function(function_t* function) {
     frame_size = generate_variable_offsets(root, -frame_size, frame_size);
     frame_size = (frame_size + 3) & ~3;
 
-    // TODO walk the tree.
-    // - assign a stack frame offset to each variable and arg
-    //     - args 5+ can have a positive offset! they stay where they are
-    //     - DONE for vars, not for args
-    // - add up "weight" of each node
-    //     - weight should be estimate of how many temp registers it needs
-    //     - used so binary expressions can compute heavier branches first
-    //       (extra registers)
-    //     - TODO don't bother with weight for now (or maybe ever)
-
-    // TODO calculate stack frame size, emit preamble
-    // TODO args
-
     // generate the preamble
     current_function = function;
     current_block = block_new(-1);
@@ -346,8 +335,14 @@ void generate_function(function_t* function) {
 
     // move register arguments into local variables
     int param_reg = R0;
-    for (node_t* param = root->first_child; param != root->last_child; param = param->right_sibling) {
+    for (node_t* param = root->first_child;
+            param != root->last_child;
+            param = param->right_sibling)
+    {
         assert(param->kind == NODE_PARAMETER);
+        // TODO why would param->symbol be null? if it's because the parameter
+        // is unnamed, it should still skip the register if direct
+                if (!param->symbol) fatal("TODO unnamed parameter register args are incorrectly handled");
         if (param->symbol && param->symbol->offset < 0) {
             int offset = -(param_reg - R0 + 1) * 4;
             block_append(current_block, param->token, STW, param_reg, RFP, offset);
