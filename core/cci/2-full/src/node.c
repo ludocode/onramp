@@ -571,8 +571,10 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
         return;
 
     if (to->is_declarator != from->is_declarator) {
-        // TODO, only a zero can be implicitly converted to integers. We don't have
-        // a great way to test this so for now we allow all ints.
+        // TODO, only a zero can be implicitly converted to a pointer. We don't
+        // have a great way to test this so for now we allow all ints.
+        // TODO we need to add a zero/nullptr type or node kind that is
+        // convertible to both integers and pointers. see also parse_conditional_expression_types()
         if (type_matches_base(to, BASE_SIGNED_INT) || type_matches_base(to, BASE_UNSIGNED_INT)
                 || type_matches_base(from, BASE_SIGNED_INT) || type_matches_base(from, BASE_UNSIGNED_INT)) {
             return;

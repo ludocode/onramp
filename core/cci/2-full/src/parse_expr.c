@@ -864,6 +864,50 @@ static node_t* parse_binary_expression(int min_precedence) {
     return left;
 }
 
+/**
+ * Applies type conversion rules to the two sides of a conditional expression.
+ *
+ * Rules are in the C17 spec, 6.5.15 .
+ */
+static void parse_conditional_expression_types(node_t** left, node_t** right) {
+    type_t* left_type = (*left)->type;
+    type_t* right_type = (*right)->type;
+    token_t* right_token = (*right)->token;
+
+    // Both sides are arithmetic
+    // TODO this fails if one side is NULL or 0 and the other is a pointer.
+    if (type_is_arithmetic(left_type) != type_is_arithmetic(right_type)) {
+        fatal_token(right_token, "Both or neither side of this conditional expression can be an arithmetic type.");
+    }
+    if (type_is_arithmetic(left_type)) {
+        parse_usual_arithmetic_conversions(left, right);
+        return;
+    }
+
+    // Both sides are structs
+    if (type_matches_base(left_type, BASE_RECORD) != type_matches_base(right_type, BASE_RECORD)) {
+        fatal_token(right_token, "Both or neither side of this conditional expression can be a struct or union type.");
+    }
+    if (type_matches_base(left_type, BASE_RECORD)) {
+        if (left_type->record != right_type->record) {
+            fatal_token(right_token, "The sides of a conditional expression cannot have different struct or union types.");
+        }
+        return;
+    }
+
+    // Both sides are void
+    if (type_matches_base(left_type, BASE_VOID) != type_matches_base(right_type, BASE_VOID)) {
+        fatal_token(right_token, "Both or neither side of this conditional expression can be void.");
+    }
+    if (type_matches_base(left_type, BASE_VOID)) {
+        return;
+    }
+
+    // TODO pointers must be compatible, or one side must be void* or nullptr.
+    // We don't bother to test any of this yet; we'll just use the left hand
+    // type.
+}
+
 static node_t* parse_conditional_expression(void) {
     node_t* condition = parse_binary_expression(0);
     if (!lexer_is(STR_QUESTION)) {
@@ -881,16 +925,12 @@ static node_t* parse_conditional_expression(void) {
     lexer_expect(STR_COLON, "Expected `:` after true branch of conditional `?` expression.");
     node_t* right = parse_conditional_expression();
 
+    parse_conditional_expression_types(&left, &right);
+
     node_append(conditional, node_make_predicate(condition));
     node_append(conditional, left);
     node_append(conditional, right);
 
-    // TODO types don't need to be equal, there are some type promotion and
-    // implicit cast rules here. need a function to determine the common type,
-    // then insert cast operators in each side if not equal to the common type.
-    if (!type_equal(left->type, right->type)) {
-        fatal_token(colon, "TODO allow implicit cast to a common type in ternary conditional");
-    }
     conditional->type = type_ref(left->type);
 
     token_deref(colon);
