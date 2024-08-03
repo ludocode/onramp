@@ -817,8 +817,8 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_SHR_ASSIGN: generate_shr_assign(node, reg_out); break;
 
         // other binary expressions
-        case NODE_LOGICAL_OR: fatal_token(node->token, "TODO generate LOGICAL_OR");
-        case NODE_LOGICAL_AND: fatal_token(node->token, "TODO generate LOGICAL_AND");
+        case NODE_LOGICAL_OR: generate_logical_or(node, reg_out); break;
+        case NODE_LOGICAL_AND: generate_logical_and(node, reg_out); break;
         case NODE_BIT_OR: generate_bit_or(node, reg_out); break;
         case NODE_BIT_XOR: generate_bit_xor(node, reg_out); break;
         case NODE_BIT_AND: generate_bit_and(node, reg_out); break;

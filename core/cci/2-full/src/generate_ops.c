@@ -25,6 +25,7 @@
 #include "generate_ops.h"
 
 #include "common.h"
+#include "function.h"
 #include "generate.h"
 #include "node.h"
 #include "block.h"
@@ -250,8 +251,6 @@ void generate_bit_xor(node_t* node, int reg_out) {
     generate_simple_arithmetic(node, reg_out, XOR, "__llong_bit_xor", NULL, NULL);
 }
 
-
-
 void generate_bit_not(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
     if (type_size(node->type) > 4) {
@@ -269,6 +268,28 @@ void generate_log_not(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
     block_append(current_block, node->token, ISZ, reg_out, reg_out);
 }
+
+static void generate_logical(node_t* node, int reg_out, bool and) {
+    int end_label = next_label++;
+    generate_node(node->first_child, reg_out);
+    block_append(current_block, node->token, and ? JZ : JNZ, reg_out, '&', JUMP_LABEL_PREFIX, end_label);
+    generate_node(node->last_child, reg_out);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_label);
+
+    current_block = block_new(end_label);
+    function_add_block(current_function, current_block);
+}
+
+void generate_logical_or(node_t* node, int reg_out) {
+    generate_logical(node, reg_out, false);
+}
+
+void generate_logical_and(node_t* node, int reg_out) {
+    generate_logical(node, reg_out, true);
+}
+
+
+
 
 /**
  * Generates an ordered comparison.

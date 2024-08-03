@@ -818,6 +818,14 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
             op->type = type_ref(left->type);
             break;
 
+        case NODE_LOGICAL_OR:
+        case NODE_LOGICAL_AND:
+            // TODO check the real rules. For now we cast to bool.
+            left = node_cast_base(left, BASE_BOOL, NULL);
+            right = node_cast_base(right, BASE_BOOL, NULL);
+            op->type = type_new_base(BASE_BOOL);
+            break;
+
         default:
             // Other binary operators require that both sides be arithmetic types.
             if (!type_is_arithmetic(left->type))
