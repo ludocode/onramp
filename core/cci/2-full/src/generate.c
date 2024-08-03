@@ -701,6 +701,7 @@ static void generate_dereference(node_t* node, int reg_out) {
     if (!type_is_passed_indirectly(node->type)) {
         generate_node(node->first_child, reg_out);
         generate_dereference_impl(node, reg_out, reg_out, 0);
+        return;
     }
 
     // Otherwise we need to generate in a temporary register.
