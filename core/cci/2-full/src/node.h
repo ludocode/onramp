@@ -180,8 +180,8 @@ typedef struct node_t {
     };
 
     // labels for break/continue
-    int body_label;
-    int end_label;
+    int break_label;
+    int continue_label;
 } node_t;
 
 /**

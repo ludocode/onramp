@@ -56,11 +56,11 @@ void generate_return(node_t* node, int reg_out) {
 }
 
 void generate_break(node_t* node, int reg_out) {
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->end_label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->break_label);
 }
 
 void generate_continue(node_t* node, int reg_out) {
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->body_label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->continue_label);
 }
 
 void generate_if(node_t* node, int reg_out) {
@@ -104,11 +104,11 @@ void generate_while(node_t* node, int reg_out) {
     node_t* condition = node->first_child;
     node_t* body = condition->right_sibling;
 
-    node->body_label = next_label++;
-    node->end_label = next_label++;
+    node->continue_label = next_label++;
+    node->break_label = next_label++;
 
-    block_t* body_block = block_new(node->body_label);
-    block_t* end_block = block_new(node->end_label);
+    block_t* body_block = block_new(node->continue_label);
+    block_t* end_block = block_new(node->break_label);
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
@@ -127,11 +127,11 @@ void generate_do(node_t* node, int reg_out) {
     node_t* body = node->first_child;
     node_t* condition = body->right_sibling;
 
-    node->body_label = next_label++;
-    node->end_label = next_label++;
+    node->continue_label = next_label++;
+    node->break_label = next_label++;
 
-    block_t* body_block = block_new(node->body_label);
-    block_t* end_block = block_new(node->end_label);
+    block_t* body_block = block_new(node->continue_label);
+    block_t* end_block = block_new(node->break_label);
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
@@ -152,16 +152,23 @@ void generate_for(node_t* node, int reg_out) {
     node_t* increment = condition->right_sibling;
     node_t* body = increment->right_sibling;
 
-    node->body_label = next_label++;
-    node->end_label = next_label++;
+    int body_label = next_label++;
+    node->continue_label = next_label++;
+    node->break_label = next_label++;
 
-    block_t* body_block = block_new(node->body_label);
-    block_t* end_block = block_new(node->end_label);
+    block_t* increment_block = block_new(node->continue_label);
+    block_t* body_block = block_new(body_label);
+    block_t* end_block = block_new(node->break_label);
+    function_add_block(current_function, increment_block);
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
     generate_node(initialization, reg_out);
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
+
+    current_block = increment_block;
+    generate_node(increment, reg_out);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
 
     current_block = body_block;
     if (condition->kind != NODE_NOOP) {
@@ -169,8 +176,7 @@ void generate_for(node_t* node, int reg_out) {
         block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
     }
     generate_node(body, reg_out);
-    generate_node(increment, reg_out);
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, increment_block->label);
 
     current_block = end_block;
 }
