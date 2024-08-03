@@ -125,6 +125,7 @@ typedef enum node_kind_t {
     NODE_NUMBER,    // No children, value is a number
     NODE_ACCESS,    // Name of a variable or uncalled function in an expression. Children are extra fragments to concatenate.
     NODE_CALL,      // Function call. First child is function, rest are arguments.
+    NODE_BUILTIN,   // Builtin. Children depend on which one.
 
 } node_kind_t;
 
@@ -180,6 +181,7 @@ typedef struct node_t {
         uint32_t u32; // 32-bit float, int or character
         u64_t u64;    // 64-bit double or long long
         int string_label;
+        builtin_t builtin;
 
         // Contents of a case label
         struct {

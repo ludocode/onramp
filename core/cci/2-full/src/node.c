@@ -114,6 +114,7 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_NUMBER:            return "NUMBER";
         case NODE_ACCESS:            return "ACCESS";
         case NODE_CALL:              return "CALL";
+        case NODE_BUILTIN:           return "BUILTIN";
     }
     return "<unknown>";
 }
@@ -767,7 +768,7 @@ uint32_t node_eval_32(node_t* node) {
         case NODE_ACCESS:
             if (node->symbol->kind != symbol_kind_constant)
                 break;
-            return node->symbol->constant.u32;
+            return node->symbol->u32;
 
         case NODE_CAST: {
             node_t* child = node->first_child;
@@ -931,7 +932,7 @@ void node_eval_64(node_t* node, u64_t* out) {
         case NODE_ACCESS:
             if (node->symbol->kind != symbol_kind_constant)
                 break;
-            llong_set(out, &node->symbol->constant.u64);
+            llong_set(out, &node->symbol->u64);
             return;
 
         case NODE_CAST: {

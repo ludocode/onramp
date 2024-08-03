@@ -38,6 +38,7 @@
 #include "options.h"
 #include "generate.h"
 #include "type.h"
+#include "symbol.h"
 
 static const char* input_filename;
 static const char* output_filename;
@@ -114,6 +115,7 @@ int main(int argc, char** argv) {
     generate_init();
 
     type_create_builtins();
+    symbol_create_builtins();
 
     while (lexer_token->type != token_type_end) {
         parse_global();

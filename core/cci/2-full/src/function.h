@@ -40,6 +40,7 @@ typedef struct function_t {
     string_t* asm_name;
     struct node_t* root;
     vector_t blocks;
+    int variadic_offset; // offset above rfp where variadic args start
 } function_t;
 
 function_t* function_new(struct type_t* type, string_t* name,

@@ -110,8 +110,10 @@ static void generate_sequence(node_t* node, int reg_out) {
         int child_register = register_alloc(child->token);
         int size = (int)type_size(child->type);
         if (size > 0x7F) {
-            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, R9, size);
-            block_append(current_block, node->token, SUB, RSP, RSP, R9);
+            int reg_temp = register_alloc(child->token);
+            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, size);
+            block_append(current_block, node->token, SUB, RSP, RSP, reg_temp);
+            register_free(child->token, reg_temp);
         } else {
             block_append(current_block, node->token, SUB, RSP, RSP, size);
         }
@@ -123,8 +125,10 @@ static void generate_sequence(node_t* node, int reg_out) {
         // discard the storage
         register_free(child->token, child_register);
         if (size > 0x7F) {
-            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, R9, size);
-            block_append(current_block, node->token, ADD, RSP, RSP, R9);
+            int reg_temp = register_alloc(child->token);
+            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, size);
+            block_append(current_block, node->token, ADD, RSP, RSP, reg_temp);
+            register_free(child->token, reg_temp);
         } else {
             block_append(current_block, node->token, ADD, RSP, RSP, size);
         }
@@ -174,7 +178,7 @@ static void generate_access(node_t* node, int reg_out) {
         if (!type_matches_base(type, BASE_ENUM)) {
             fatal("TODO: Constants other than enum values are not yet supported.");
         }
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->constant.u32);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->u32);
         return;
     }
 
@@ -276,6 +280,7 @@ static int generate_parameter_offsets(function_t* function) {
         //printf("assigned offset %i to param %s of size %i\n", param->symbol->offset, param->symbol->name->bytes, (int)type_size(param->symbol->type));
     }
 
+    function->variadic_offset = indirect_offset;
     return frame_size;
 }
 
@@ -342,8 +347,11 @@ void generate_function(function_t* function) {
         assert(param->kind == NODE_PARAMETER);
         // TODO why would param->symbol be null? if it's because the parameter
         // is unnamed, it should still skip the register if direct
-                if (!param->symbol) fatal("TODO unnamed parameter register args are incorrectly handled");
-        if (param->symbol && param->symbol->offset < 0) {
+        if (!param->symbol) {
+            fatal("TODO unnamed parameter register args are incorrectly handled");
+            continue;
+        }
+        if (param->symbol->offset < 0) {
             int offset = -(param_reg - R0 + 1) * 4;
             block_append(current_block, param->token, STW, param_reg, RFP, offset);
             ++param_reg;
@@ -369,6 +377,8 @@ void generate_function(function_t* function) {
 }
 
 static void generate_call(node_t* call, int reg_out) {
+    node_t* function = call->first_child;
+    type_t* function_type = function->type;
 
     // push all registers (except for the return register)
     int last_pushed_register = register_loop_count ? R9 : reg_out;
@@ -396,12 +406,16 @@ static void generate_call(node_t* call, int reg_out) {
     // find the last argument passed in a register
     node_t* last_register_arg = NULL;
     int register_args = 0;
+    uint32_t arg_count = 0;
     for (node_t* arg = call->first_child->right_sibling; arg; arg = arg->right_sibling) {
-        if (!type_is_passed_indirectly(arg->type)) {
+        // to be passed by register, the argument must be a named parameter
+        // (not variadic) and must fit in a register
+        if (arg_count < function_type->count && !type_is_passed_indirectly(arg->type)) {
             last_register_arg = arg;
             if (++register_args == 4)
                 break;
         }
+        ++arg_count;
     }
 
     // push all indirect args right-to-left
@@ -452,7 +466,6 @@ static void generate_call(node_t* call, int reg_out) {
     }
 
     // call the function
-    node_t* function = call->first_child;
     if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
         block_append(current_block, call->token, CALL, '^', string_cstr(function->symbol->asm_name));
     } else {
@@ -864,6 +877,7 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_NUMBER: generate_number(node, reg_out); break;
         case NODE_ACCESS: generate_access(node, reg_out); break;
         case NODE_CALL: generate_call(node, reg_out); break;
+        case NODE_BUILTIN: generate_builtin(node, reg_out); break;
     }
 }
 
@@ -906,4 +920,55 @@ void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable
 
     emit_newline();
     emit_global_divider();
+}
+
+static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
+
+    // load the return value
+    int reg_loc = register_alloc(builtin->token);
+    generate_location(builtin->first_child, reg_loc);
+    int reg_val = register_alloc(builtin->token);
+    generate_dereference_impl(builtin->first_child, reg_val, reg_loc, 0);
+    generate_dereference_impl(builtin, reg_out, reg_val, 0);
+
+    // increment the va_list
+    int reg_size = register_alloc(builtin->token);
+    block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_size, type_size(builtin->type));
+    block_append(current_block, builtin->token, ADD, reg_val, reg_val, reg_size);
+    generate_store(builtin->token, builtin->first_child->type, reg_loc, reg_val);
+
+    register_free(builtin->token, reg_size);
+    register_free(builtin->token, reg_val);
+    register_free(builtin->token, reg_loc);
+}
+
+static void generate_builtin_va_start(node_t* builtin, int reg_out) {
+    generate_location(builtin->first_child, reg_out);
+    int reg_val = register_alloc(builtin->token);
+    block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_val, current_function->variadic_offset);
+    block_append(current_block, builtin->token, ADD, reg_val, RFP, reg_val);
+    generate_store(builtin->token, builtin->first_child->type, reg_out, reg_val);
+    register_free(builtin->token, reg_val);
+}
+
+static void generate_builtin_va_end(node_t* builtin, int reg_out) {
+    // nothing
+}
+
+static void generate_builtin_va_copy(node_t* builtin, int reg_out) {
+    generate_location(builtin->first_child, reg_out);
+    int reg_val = register_alloc(builtin->token);
+    generate_node(builtin->last_child, reg_val);
+    generate_store(builtin->token, builtin->first_child->type, reg_out, reg_val);
+    register_free(builtin->token, reg_val);
+}
+
+void generate_builtin(node_t* node, int reg_out) {
+    switch (node->builtin) {
+        case BUILTIN_VA_ARG: generate_builtin_va_arg(node, reg_out); break;
+        case BUILTIN_VA_START: generate_builtin_va_start(node, reg_out); break;
+        case BUILTIN_VA_END: generate_builtin_va_end(node, reg_out); break;
+        case BUILTIN_VA_COPY: generate_builtin_va_copy(node, reg_out); break;
+        default: break;
+    }
 }

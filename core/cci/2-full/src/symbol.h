@@ -29,6 +29,7 @@
 
 #include "libo-string.h"
 #include "u64.h"
+#include "common.h"
 
 struct type_t;
 struct token_t;
@@ -37,18 +38,19 @@ typedef enum symbol_kind_t {
     symbol_kind_variable,
     symbol_kind_function,
     symbol_kind_constant,
+    symbol_kind_builtin,
 } symbol_kind_t;
 
 #define SYMBOL_OFFSET_GLOBAL INT_MAX
 
 /**
- * A symbol is a variable, a function or a constant.
+ * A symbol is a variable, a function, a constant, or a builtin.
  */
 typedef struct symbol_t {
     int refcount;
 
     symbol_kind_t kind;
-    struct type_t* type;
+    struct type_t* type; // null for builtins; parser fills in the type
     struct token_t* token;
     string_t* name;     // name in C; always non-null, empty string if anonymous
     string_t* asm_name; // name in assembly; null if this is not a global
@@ -67,7 +69,8 @@ typedef struct symbol_t {
     union {
         uint32_t u32; // float or int/short/char
         u64_t u64;    // double or long long
-    } constant;
+        builtin_t builtin;
+    };
 } symbol_t;
 
 symbol_t* symbol_new(symbol_kind_t kind, struct type_t* type,
@@ -83,5 +86,7 @@ static inline symbol_t* symbol_ref(symbol_t* symbol) {
 }
 
 void symbol_deref(symbol_t* symbol);
+
+void symbol_create_builtins(void);
 
 #endif

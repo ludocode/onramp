@@ -58,4 +58,11 @@ void fatal(const char* format, ...);
 bool is_pow2(int n);
 // TODO fls() used in generate_ops
 
+typedef enum builtin_t {
+    BUILTIN_VA_START,
+    BUILTIN_VA_ARG,
+    BUILTIN_VA_END,
+    BUILTIN_VA_COPY,
+} builtin_t;
+
 #endif

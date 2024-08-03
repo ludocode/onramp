@@ -483,7 +483,7 @@ static void parse_enum(specifiers_t* specifiers) {
         }
 
         symbol_t* symbol = symbol_new(symbol_kind_constant, type, name, NULL);
-        symbol->constant.u32 = value++;
+        symbol->u32 = value++;
         scope_add_symbol(scope_current, symbol);
         symbol_deref(symbol);
 

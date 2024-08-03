@@ -34,6 +34,10 @@
 #define va_arg __builtin_va_arg
 #define va_copy __builtin_va_copy
 #define va_end __builtin_va_end
+
+// TODO in C23 we should ignore any extra arguments to va_start. This will
+// require the final preprocessor; probably only do this in a replacement
+// header in libc/3.
 #define va_start __builtin_va_start
 
 #endif

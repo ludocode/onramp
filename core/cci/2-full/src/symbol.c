@@ -28,12 +28,18 @@
 
 #include "type.h"
 #include "token.h"
+#include "scope.h"
 
 symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* /*nullable*/ asm_name) {
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->refcount = 1;
     symbol->kind = kind;
-    symbol->type = type_ref(type);
+
+    // only builtins have no type
+    assert((type == NULL) == (kind == symbol_kind_builtin));
+    if (type)
+        symbol->type = type_ref(type);
+
     symbol->token = token_ref(name);
     symbol->name = string_ref(name->value);
     symbol->asm_name = string_ref(asm_name ? asm_name : symbol->name);
@@ -48,6 +54,22 @@ void symbol_deref(symbol_t* symbol) {
     string_deref(symbol->asm_name);
     string_deref(symbol->name);
     token_deref(symbol->token);
-    type_deref(symbol->type);
+    if (symbol->type)
+        type_deref(symbol->type);
     free(symbol);
+}
+
+static void symbol_create_builtin(const char* cname, builtin_t builtin) {
+    token_t* token = token_new_builtin(cname);
+    symbol_t* symbol = symbol_new(symbol_kind_builtin, NULL, token, NULL);
+    symbol->builtin = builtin;
+    scope_add_symbol(scope_global, symbol);
+    token_deref(token);
+}
+
+void symbol_create_builtins(void) {
+    symbol_create_builtin("__builtin_va_arg", BUILTIN_VA_ARG);
+    symbol_create_builtin("__builtin_va_start", BUILTIN_VA_START);
+    symbol_create_builtin("__builtin_va_end", BUILTIN_VA_END);
+    symbol_create_builtin("__builtin_va_copy", BUILTIN_VA_COPY);
 }

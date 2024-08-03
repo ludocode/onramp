@@ -25,15 +25,17 @@
 #ifndef PARSE_EXPR_H_INCLUDED
 #define PARSE_EXPR_H_INCLUDED
 
+#include "common.h"
+
 struct node_t;
 
 void parse_expr_init(void);
-
 void parse_expr_destroy(void);
 
 struct node_t* parse_expression(void);
 struct node_t* parse_assignment_expression(void);
 struct node_t* parse_predicate(void);
 struct node_t* parse_constant_expression(void);
+struct node_t* parse_builtin(builtin_t builtin);
 
 #endif

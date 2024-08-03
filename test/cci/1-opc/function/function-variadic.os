@@ -36,7 +36,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx1 
-  imw r0 1 
+  imw r0 2 
   leave 
   ret 
 :_Lx1 
@@ -56,7 +56,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx2 
-  imw r0 1 
+  imw r0 3 
   leave 
   ret 
 :_Lx2 
@@ -76,7 +76,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx3 
-  imw r0 1 
+  imw r0 4 
   leave 
   ret 
 :_Lx3 
@@ -100,7 +100,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx4 
-  imw r0 1 
+  imw r0 5 
   leave 
   ret 
 :_Lx4 
@@ -114,14 +114,21 @@
   pop r1 
   ldw r0 0 r0 
   stw r0 0 r1 
+  add r0 rfp -16 
+  push r0 
   add r0 rfp -12 
   ldw r0 0 r0 
   push r0 
   ldw r0 rsp 0 
   call ^bar 
   add rsp rsp 4 
+  pop r1 
+  stw r0 0 r1 
+  add r0 rfp -16 
+  ldw r0 0 r0 
   jz r0 &_Lx5 
-  imw r0 1 
+  add r0 rfp -16 
+  ldw r0 0 r0 
   leave 
   ret 
 :_Lx5 
@@ -141,7 +148,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx6 
-  imw r0 1 
+  imw r0 7 
   leave 
   ret 
 :_Lx6 
@@ -161,7 +168,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx7 
-  imw r0 1 
+  imw r0 8 
   leave 
   ret 
 :_Lx7 
@@ -181,7 +188,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx8 
-  imw r0 1 
+  imw r0 9 
   leave 
   ret 
 :_Lx8 
@@ -201,7 +208,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx9 
-  imw r0 1 
+  imw r0 10 
   leave 
   ret 
 :_Lx9 
@@ -214,7 +221,7 @@
   ret 
 =foo 
   enter 
-  sub rsp rsp 12 
+  sub rsp rsp 16 
   jmp ^_F_foo 
 @_F_main 
   imw r0 1 

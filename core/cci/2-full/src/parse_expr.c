@@ -272,6 +272,10 @@ static node_t* parse_primary_expression(void) {
             fatal_token(lexer_token, "No such variable or function");
         }
 
+        if (symbol->kind == symbol_kind_builtin) {
+            return parse_builtin(symbol->builtin);
+        }
+
         node_t* node = node_new_lexer(NODE_ACCESS);
         node->symbol = symbol_ref(symbol);
         node->type = type_ref(symbol->type);
@@ -337,15 +341,21 @@ static node_t* parse_function_call(node_t* function) {
     uint32_t arg_count = 0;
     if (!lexer_accept(STR_PAREN_CLOSE)) {
         for (;;) {
-            if (has_prototype && ++arg_count > function->type->count) {
+            if (has_prototype && !function->type->is_variadic && arg_count > function->type->count) {
                 fatal_token(call->token, "Too many arguments in function call.");
             }
 
             node_t* arg = parse_assignment_expression();
-            if (has_prototype) {
-                arg = node_cast(arg, function->type->args[arg_count - 1], NULL);
+            if (has_prototype && arg_count < function->type->count) {
+                arg = node_cast(arg, function->type->args[arg_count], NULL);
+            } else {
+                // TODO node_promote doesn't promote float to double, we need a
+                // separate variadic arg promotion func to do that
+                arg = node_promote(arg);
             }
+
             node_append(call, arg);
+            ++arg_count;
 
             if (lexer_accept(STR_PAREN_CLOSE)) {
                 break;
@@ -357,7 +367,7 @@ static node_t* parse_function_call(node_t* function) {
         }
     }
 
-    if (has_prototype && arg_count != function->type->count) {
+    if (has_prototype && arg_count < function->type->count) {
         fatal_token(call->token, "Not enough arguments in function call.");
     }
 
@@ -992,4 +1002,79 @@ node_t* parse_constant_expression(void) {
     // TODO we should check that the forbidden operators are not used
     // recursively.
     return parse_conditional_expression();
+}
+
+static void parse_va_list_arg(node_t* builtin) {
+    node_t* arg = parse_assignment_expression();
+    if (!type_matches_base(arg->type, BASE_VA_LIST)) {
+        fatal_token(arg->token, "Expected a `va_list` as argument to `%s`.", builtin->token->value->bytes);
+    }
+    node_append(builtin, arg);
+}
+
+static node_t* parse_builtin_va_arg(node_t* builtin) {
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `va_arg`.");
+    parse_va_list_arg(builtin);
+    lexer_expect(STR_COMMA, "Expected `,` after expression in `va_arg`.");
+    builtin->type = try_parse_type();
+    if (builtin->type == NULL) {
+        fatal_token(lexer_token, "Expected type after `,` in `va_arg`.");
+    }
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after type of `va_arg`.");
+    return builtin;
+}
+
+static node_t* parse_builtin_va_start(node_t* builtin) {
+    builtin->type = type_new_base(BASE_VOID);
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `va_start`.");
+    parse_va_list_arg(builtin);
+
+    // TODO: C23 only requires the first argument. Additional arguments are
+    // ignored and not evaluated. We'll wrap this behaviour in our va_start
+    // macro in libc so any extra arguments won't get here. If the argument is
+    // provided to the builtin, we're on an older language standard so it
+    // must be the name of the final parameter.
+    if (lexer_accept(STR_COMMA)) {
+        if (lexer_token->type != token_type_alphanumeric) {
+            fatal_token(lexer_token, "Expected the name of the final named parameter after `va_start`.");
+        }
+        // TODO for now we don't bother to check that it actually matches. We just discard it.
+        lexer_consume();
+    }
+
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after contents of `va_start`.");
+    return builtin;
+}
+
+static node_t* parse_builtin_va_end(node_t* builtin) {
+    builtin->type = type_new_base(BASE_VOID);
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `va_end`.");
+    parse_va_list_arg(builtin);
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression in `va_end`.");
+    return builtin;
+}
+
+static node_t* parse_builtin_va_copy(node_t* builtin) {
+    builtin->type = type_new_base(BASE_VOID);
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `va_copy`.");
+    parse_va_list_arg(builtin);
+    lexer_expect(STR_COMMA, "Expected `,` after first argument to `va_copy`.");
+    parse_va_list_arg(builtin);
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after second argument to `va_copy`.");
+    return builtin;
+}
+
+node_t* parse_builtin(builtin_t builtin) {
+    node_t* node = node_new_lexer(NODE_BUILTIN);
+    node->builtin = builtin;
+
+    switch (builtin) {
+        case BUILTIN_VA_ARG: return parse_builtin_va_arg(node);
+        case BUILTIN_VA_START: return parse_builtin_va_start(node);
+        case BUILTIN_VA_END: return parse_builtin_va_end(node);
+        case BUILTIN_VA_COPY: return parse_builtin_va_copy(node);
+        default: break;
+    }
+
+    fatal("Internal error: cannot parse unrecognized builtin.");
 }
