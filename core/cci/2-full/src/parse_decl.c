@@ -232,10 +232,34 @@ static void parse_record_member(record_t* record) {
         (void)try_parse_declarator(&type, &name);
         // fatal_token(lexer_token, "Expected a declarator for this `struct` or `union` member declaration.");
 
+        // Parse bitfield
+        bool has_bitfield = false;
+        uint32_t bitfield_width;
+        if (lexer_is(STR_COLON)) {
+            if (!type_is_integer(type)) {
+                fatal_token(lexer_token, "Only integer types are allowed to have a bitfield width.");
+            }
+            lexer_consume();
+
+            has_bitfield = true;
+            node_t* node = parse_constant_expression();
+            bitfield_width = node_eval_32(node);
+
+            if (bitfield_width == 0 && name != NULL) {
+                fatal_token(error_token, "Only unnamed fields are allowed to have a bitfield width of zero.");
+            }
+            if (bitfield_width > 64) {
+                fatal_token(node->token, "A bitfield specifier must be from 0 to 64 bits.");
+            }
+
+            node_delete(node);
+        }
+
+        // If the member is anonymous, make sure it's allowed
         if (name == NULL) {
             // There are a few cases where a struct member can be anonymous:
-            // - an anonymous struct or union
-            // - a zero-width bitfield
+            // - a struct or union
+            // - a bitfield
             if (type_matches_base(type, BASE_RECORD)) {
                 // We have an anonymous record.
                 record_t* record = type->record;
@@ -248,14 +272,16 @@ static void parse_record_member(record_t* record) {
                     warn(warning_anonymous_tags, error_token,
                             "Anonymous struct/union members of struct/union type having tag names is a Microsoft/Plan9 extension.");
                 }
-            } else {
-                // TODO handle zero-width bitfield
+            } else if (!has_bitfield) {
                 fatal_token(error_token,
                         "This struct/union member needs a name. (Only struct/union types and zero-width bitfields are allowed to be anonymous.)");
             }
         }
 
-        record_add(record, name, type);
+        // TODO for now we ignore the bitfield width, and we ignore unnamed
+        // bitfield members.
+        if (name != NULL || !has_bitfield)
+            record_add(record, name, type);
 
         if (name != NULL)
             token_deref(name);
