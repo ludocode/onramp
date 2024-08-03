@@ -438,7 +438,7 @@ static node_t* parse_array_subscript(node_t* left) {
 }
 
 static node_t* parse_post_incdec(node_t* child, node_kind_t kind) {
-    node_t* op = node_new_lexer(NODE_POST_INC);
+    node_t* op = node_new_lexer(kind);
     node_append(op, child);
     // TODO is the result of this operator promoted? It's probably supposed to be
     op->type = type_ref(child->type);
