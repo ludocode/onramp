@@ -704,7 +704,7 @@ static uint32_t node_eval_32_binary(node_t* node) {
 }
 
 uint32_t node_eval_32(node_t* node) {
-    assert(type_is_integer(node->type));
+    assert(type_is_integer(node->type) || type_matches_base(node->type, BASE_ENUM));
 
     // TODO type size should be at most 4, want to be able to evaluate char and
     // short nodes with this as well

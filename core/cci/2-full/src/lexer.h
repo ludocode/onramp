@@ -62,8 +62,8 @@ void lexer_consume(void);
 struct token_t* lexer_take(void);
 
 /**
- * "Un-consumes" the given token, returning ownership of it and pushing it to
- * the front of the token queue.
+ * "Un-consumes" the given token, taking ownership of it and pushing it to the
+ * front of the token queue.
  */
 void lexer_push(struct token_t* token);
 

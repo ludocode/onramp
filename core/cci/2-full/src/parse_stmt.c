@@ -39,6 +39,8 @@
 
 static node_t* break_container;     // the node to break out of on a `break` statement
 static node_t* continue_container;  // the node to restart on a `continue` statement
+static node_t* switch_container;    // the node of the containing `switch` statement
+static node_t* switch_list;         // the previous case/default in a `switch`, or the switch itself
 
 static void parse_statement(node_t* parent);
 
@@ -219,14 +221,23 @@ static node_t* parse_switch(void) {
             goto bad_type;
     }
 
+    // `break`, `case`, `default` in a statement expression inside the value
+    // expression of a switch associate with the outer container, not this
+    // switch. We push the old containers after parsing the expression above.
     node_t* old_break_container = break_container;
     break_container = node_switch;
+    node_t* old_switch_container = switch_container;
+    switch_container = node_switch;
+    node_t* old_switch_list = switch_list;
+    switch_list = node_switch;
 
     node_t* body = node_new(NODE_SEQUENCE);
     body->type = type_new_base(BASE_VOID);
     node_append(node_switch, body);
     parse_statement(body);
 
+    switch_container = old_switch_container;
+    switch_list = old_switch_list;
     break_container = old_break_container;
     return node_switch;
 
@@ -253,29 +264,62 @@ static node_t* parse_continue(node_t* parent) {
 }
 
 static void parse_case(node_t* parent) {
-    // TODO make sure we're actually in a switch
     node_t* node = node_new_lexer(NODE_CASE);
     node->type = type_new_base(BASE_VOID);
     node_append(parent, node);
 
-    // parse constant expression
-    node_append(node, parse_constant_expression());
+    // store our case/default statements in a linked list
+    if (switch_container == NULL) {
+        fatal_token(lexer_token, "Cannot use `case` outside of a `switch` statement.");
+    }
+    switch_list->next_case = node;
+    switch_list = node;
+
+    // parse constant expression (cast to switch expression type)
+    type_t* type = switch_container->first_child->type;
+    node_t* start = node_cast(parse_constant_expression(), type, NULL);
+    // TODO llong expr, for now assume 32-bit
+    node->start32 = node_eval_32(start);
 
     // parse optional case range
+    node_t* end = NULL;
     if (lexer_is(STR_ELLIPSIS)) {
         warn(warning_gnu_case_range, lexer_token, "Case ranges are a GNU extension.");
         lexer_consume();
-        node_append(node, parse_constant_expression());
+        end = node_cast(parse_constant_expression(), type, NULL);
+        node->end32 = node_eval_32(end);
+    } else {
+        node->end32 = node->start32;
+    }
+
+    // We attach the case expressions for debugging purposes (so the user can
+    // view them in a tree dump for example.) If the user requested
+    // optimization we discard them right away to reduce memory usage.
+    if (optimization) {
+        node_delete(start);
+        if (end)
+            node_delete(end);
+    } else {
+        node_append(node, start);
+        if (end)
+            node_append(node, end);
     }
 
     lexer_expect(STR_COLON, "Expected `:` after expression for `case`.");
 }
 
 static void parse_default(node_t* parent) {
-    // TODO make sure we're actually in a switch
     node_t* node = node_new_lexer(NODE_DEFAULT);
     node->type = type_new_base(BASE_VOID);
     node_append(parent, node);
+
+    // store our case/default statements in a linked list
+    if (switch_list == NULL) {
+        fatal_token(lexer_token, "Cannot use `default` outside of a `switch` statement.");
+    }
+    switch_list->next_case = node;
+    switch_list = node;
+
     lexer_expect(STR_COLON, "Expected `:` after `default`.");
 }
 

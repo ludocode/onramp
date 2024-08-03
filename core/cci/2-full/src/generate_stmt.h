@@ -27,6 +27,7 @@
 
 struct node_t;
 
+// statements
 void generate_return(struct node_t* node, int reg_out);
 void generate_break(struct node_t* node, int reg_out);
 void generate_continue(struct node_t* node, int reg_out);
@@ -35,7 +36,10 @@ void generate_while(struct node_t* node, int reg_out);
 void generate_for(struct node_t* node, int reg_out);
 void generate_do(struct node_t* node, int reg_out);
 void generate_goto(struct node_t* node, int reg_out);
+void generate_switch(struct node_t* node, int reg_out);
 
+// labels
 void generate_label(struct node_t* node, int reg_out);
+void generate_case_or_default(struct node_t* node, int reg_out);
 
 #endif

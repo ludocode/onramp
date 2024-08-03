@@ -26,7 +26,7 @@
   leave 
   ret 
 :_Lx4 
-  imw r0 1 
+  imw r0 2 
   leave 
   ret 
   jmp &_Lx5 
@@ -38,7 +38,7 @@
   jz r0 &_Lx5 
   jmp &_Lx6 
 :_Lx5 
-  imw r0 1 
+  imw r0 3 
   leave 
   ret 
   jmp &_Lx7 
@@ -63,7 +63,7 @@
   jmp &_Lx8 
 :_Lx7 
   jmp &_Lx0 
-  imw r0 1 
+  imw r0 4 
   leave 
   ret 
   jmp &_Lx0 
@@ -83,7 +83,7 @@
   jz r0 &_LxB 
   jmp &_LxC 
 :_LxB 
-  imw r0 1 
+  imw r0 5 
   leave 
   ret 
   jmp &_LxD 
@@ -95,7 +95,7 @@
   jz r0 &_LxD 
   jmp &_LxE 
 :_LxD 
-  imw r0 1 
+  imw r0 6 
   leave 
   ret 
   jmp &_LxF 
@@ -107,7 +107,7 @@
   jz r0 &_LxF 
   jmp &_Lx10 
 :_LxF 
-  imw r0 1 
+  imw r0 7 
   leave 
   ret 
   jmp &_Lx9 
@@ -131,7 +131,7 @@
   jz r0 &_Lx13 
   jmp &_Lx14 
 :_Lx13 
-  imw r0 1 
+  imw r0 8 
   leave 
   ret 
   jmp &_Lx15 
@@ -195,7 +195,7 @@
   cmpu r0 r1 r0 
   and r0 r0 1 
   jz r0 &_Lx1A 
-  imw r0 1 
+  imw r0 9 
   leave 
   ret 
 :_Lx1A 
@@ -228,7 +228,7 @@
   add r0 rfp -4 
   ldw r0 0 r0 
   jz r0 &_Lx1F 
-  imw r0 1 
+  imw r0 10 
   leave 
   ret 
 :_Lx1F 
@@ -245,7 +245,7 @@
   jz r0 &_Lx22 
   jmp &_Lx23 
 :_Lx22 
-  imw r0 1 
+  imw r0 11 
   leave 
   ret 
   jmp &_Lx20 
@@ -260,7 +260,7 @@
   stw r0 0 r1 
   jmp &_Lx27 
 :_Lx28 
-  imw r0 1 
+  imw r0 12 
   leave 
   ret 
   jmp &_Lx26 

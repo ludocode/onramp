@@ -60,7 +60,7 @@ typedef enum node_kind_t {
 
     // labels
     NODE_LABEL,     // No children, token is name
-    NODE_CASE,      // First child is constant expression, second is optional end expression of case range
+    NODE_CASE,      // Children may be constant expressions (when debugging) or no children
     NODE_DEFAULT,   // No children
 
     // assignment expressions. Two children: location, expression
@@ -180,9 +180,25 @@ typedef struct node_t {
         uint32_t u32; // 32-bit float, int or character
         u64_t u64;    // 64-bit double or long long
         int string_label;
+
+        // Contents of a case label
+        struct {
+            struct node_t* next_case; // linked list of case statements in a switch
+            union {
+                struct {
+                    uint32_t start32;
+                    uint32_t end32;
+                };
+                struct {
+                    u64_t start64;
+                    u64_t end64;
+                };
+            };
+        };
     };
 
-    // labels for break/continue
+    // labels for break/continue, case/default, etc.
+    int jump_label;
     int break_label;
     int continue_label;
 } node_t;
