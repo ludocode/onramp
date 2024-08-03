@@ -33,7 +33,7 @@ void parse_stmt_init(void);
 
 void parse_stmt_destroy(void);
 
-void parse_statement(struct node_t* parent, bool declaration_allowed);
+void parse_declaration_or_statement(struct node_t* parent);
 
 struct node_t* parse_compound_statement(void);
 

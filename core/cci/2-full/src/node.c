@@ -37,21 +37,26 @@ const char* node_kind_to_string(node_kind_t kind) {
     switch (kind) {
         case NODE_INVALID:           return "INVALID";
         case NODE_NOOP:              return "NOOP";
+
         case NODE_FUNCTION:          return "FUNCTION";
         case NODE_PARAMETER:         return "PARAMETER";
         case NODE_VARIABLE:          return "VARIABLE";
         case NODE_INITIALIZER_LIST:  return "INITIALIZER_LIST";
         case NODE_TYPE:              return "TYPE";
+
         case NODE_WHILE:             return "WHILE";
         case NODE_DO:                return "DO";
         case NODE_FOR:               return "FOR";
         case NODE_SWITCH:            return "SWITCH";
-        case NODE_CASE:              return "CASE";
-        case NODE_DEFAULT:           return "DEFAULT";
         case NODE_BREAK:             return "BREAK";
         case NODE_CONTINUE:          return "CONTINUE";
         case NODE_RETURN:            return "RETURN";
         case NODE_GOTO:              return "GOTO";
+
+        case NODE_LABEL:             return "LABEL";
+        case NODE_CASE:              return "CASE";
+        case NODE_DEFAULT:           return "DEFAULT";
+
         case NODE_ASSIGN:            return "ASSIGN";
         case NODE_ADD_ASSIGN:        return "ADD_ASSIGN";
         case NODE_SUB_ASSIGN:        return "SUB_ASSIGN";
@@ -63,6 +68,7 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_XOR_ASSIGN:        return "XOR_ASSIGN";
         case NODE_SHL_ASSIGN:        return "SHL_ASSIGN";
         case NODE_SHR_ASSIGN:        return "SHR_ASSIGN";
+
         case NODE_LOGICAL_OR:        return "LOGICAL_OR";
         case NODE_LOGICAL_AND:       return "LOGICAL_AND";
         case NODE_BIT_OR:            return "BIT_OR";
@@ -81,6 +87,7 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_MUL:               return "MUL";
         case NODE_DIV:               return "DIV";
         case NODE_MOD:               return "MOD";
+
         case NODE_CAST:              return "CAST";
         case NODE_SIZEOF:            return "SIZEOF";
         case NODE_TYPEOF:            return "TYPEOF";
@@ -93,13 +100,15 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_ADDRESS_OF:        return "ADDRESS_OF";
         case NODE_PRE_INC:           return "PRE_INC";
         case NODE_PRE_DEC:           return "PRE_DEC";
-        case NODE_IF:                return "IF";
-        case NODE_SEQUENCE:          return "SEQUENCE";
+
+        case NODE_POST_INC:          return "POST_INC";
+        case NODE_POST_DEC:          return "POST_DEC";
         case NODE_ARRAY_SUBSCRIPT:   return "ARRAY_SUBSCRIPT";
         case NODE_MEMBER_VAL:        return "MEMBER_VAL";
         case NODE_MEMBER_PTR:        return "MEMBER_PTR";
-        case NODE_POST_INC:          return "POST_INC";
-        case NODE_POST_DEC:          return "POST_DEC";
+
+        case NODE_IF:                return "IF";
+        case NODE_SEQUENCE:          return "SEQUENCE";
         case NODE_CHARACTER:         return "CHARACTER";
         case NODE_STRING:            return "STRING";
         case NODE_NUMBER:            return "NUMBER";

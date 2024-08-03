@@ -25,6 +25,7 @@
 #include "parse_stmt.h"
 
 #include "node.h"
+#include "options.h"
 #include "common.h"
 #include "strings.h"
 #include "parse_expr.h"
@@ -38,6 +39,8 @@
 
 static node_t* break_container;     // the node to break out of on a `break` statement
 static node_t* continue_container;  // the node to restart on a `continue` statement
+
+static void parse_statement(node_t* parent);
 
 void parse_stmt_init(void) {
 }
@@ -88,13 +91,13 @@ static node_t* parse_if(void) {
     node_t* node_true = node_new(NODE_SEQUENCE);
     node_true->type = type_new_base(BASE_VOID);
     node_append(node_if, node_true);
-    parse_statement(node_true, false);
+    parse_statement(node_true);
 
     if (lexer_accept(STR_ELSE)) {
         node_t* node_false = node_new(NODE_SEQUENCE);
         node_false->type = type_new_base(BASE_VOID);
         node_append(node_if, node_false);
-        parse_statement(node_false, false);
+        parse_statement(node_false);
     }
     
     return node_if;
@@ -116,7 +119,7 @@ static void parse_loop_body(node_t* loop) {
     node_t* body = node_new(NODE_SEQUENCE);
     body->type = type_new_base(BASE_VOID);
     node_append(loop, body);
-    parse_statement(body, false);
+    parse_statement(body);
 
     break_container = old_break_container;
     continue_container = old_continue_container;
@@ -222,35 +225,13 @@ static node_t* parse_switch(void) {
     node_t* body = node_new(NODE_SEQUENCE);
     body->type = type_new_base(BASE_VOID);
     node_append(node_switch, body);
-    parse_statement(body, false);
+    parse_statement(body);
 
     break_container = old_break_container;
     return node_switch;
 
 bad_type:
     fatal_token(expression->token, "Expected `switch` expression to have integer type.");
-}
-
-static void parse_case(node_t* parent, bool declaration_allowed) {
-    node_t* node_case = node_new_lexer(NODE_CASE);
-    node_case->type = type_new_base(BASE_VOID);
-    node_append(node_case, parse_expression());
-    node_append(parent, node_case);
-    lexer_expect(STR_COLON, "Expected `:` after expression for `case`.");
-
-    // TODO we don't verify yet that the case value is a constant expression.
-    // We'll do that in the tree optimization pass.
-    // TODO we should do it here in addition to the optimization pass because
-    // it can't just optimize to a constant, it must actually be a constant,
-    // e.g. we can't use `static const int` variables in it
-
-    // A case label is not technically its own statement; it is followed by a
-    // statement. This matters e.g. in an unbraced switch.
-        // TODO we've done this recursively like cci/1 for simplicity but this
-        // could overflow the stack if there are a lot of consecutive case
-        // labels. we should move the label parsing to a loop at the top of
-        // parse_statement().
-    parse_statement(parent, declaration_allowed);
 }
 
 static node_t* parse_break(node_t* parent) {
@@ -271,54 +252,117 @@ static node_t* parse_continue(node_t* parent) {
     return node;
 }
 
+void parse_declaration_or_statement(node_t* parent) {
+    if (!try_parse_declaration(parent)) {
+        parse_statement(parent);
+    }
+}
+
+static void parse_case(node_t* parent) {
+    // TODO make sure we're actually in a switch
+    node_t* node = node_new_lexer(NODE_CASE);
+    node->type = type_new_base(BASE_VOID);
+    node_append(parent, node);
+
+    // parse constant expression
+    node_append(node, parse_constant_expression());
+
+    // parse optional case range
+    if (lexer_is(STR_ELLIPSIS)) {
+        warn(warning_gnu_case_range, lexer_token, "Case ranges are a GNU extension.");
+        lexer_consume();
+        node_append(node, parse_constant_expression());
+    }
+
+    lexer_expect(STR_COLON, "Expected `:` after expression for `case`.");
+}
+
+static void parse_default(node_t* parent) {
+    // TODO make sure we're actually in a switch
+    node_t* node = node_new_lexer(NODE_DEFAULT);
+    node->type = type_new_base(BASE_VOID);
+    node_append(parent, node);
+    lexer_expect(STR_COLON, "Expected `:` after `default`.");
+}
+
+static void parse_label(node_t* parent, token_t* name) {
+    // TODO ensure name is not a keyword
+    node_t* node = node_new_token(NODE_LABEL, name);
+    node->type = type_new_base(BASE_VOID);
+    node_append(parent, node);
+}
+
+bool parse_labels(node_t* parent) {
+    bool found_label = false;
+
+    for (;;) {
+        if (lexer_is(STR_CASE)) {
+            parse_case(parent);
+            found_label = true;
+            continue;
+        }
+        if (lexer_is(STR_DEFAULT)) {
+            parse_default(parent);
+            found_label = true;
+            continue;
+        }
+        if (lexer_token->type == token_type_alphanumeric) {
+            token_t* name = lexer_take();
+            if (!lexer_accept(STR_COLON)) {
+                lexer_push(name);
+                break;
+            }
+            parse_label(parent, name);
+            token_deref(name);
+            found_label = true;
+            continue;
+        }
+        break;
+    }
+
+    return found_label;
+}
+
 /**
  * Parses one statement.
  *
- * A statement can append multiple nodes to the given parent because labels and
- * switch cases are individual nodes. They are independent of the statement to
- * which they were attached in the syntax.
+ * A statement can append multiple nodes to the given parent because labels
+ * (including `case` and `default` labels) are individual nodes.
  */
-void parse_statement(node_t* parent, bool declaration_allowed) {
+static void parse_statement(node_t* parent) {
+    bool found_label = parse_labels(parent);
 
-    // Check for a declaration. A declaration is not really a statement but we
-    // support them at any point in a block, and we support them after a label
-    // or case as long as we're in a block.
-    if (declaration_allowed) {
-        if (try_parse_declaration(parent)) {
-            return;
-        }
-    }
-
-    if (lexer_accept(STR_SEMICOLON)) {
-        // empty statement
+    // A bit of a hack to allow labels at the end of blocks
+    if (found_label && lexer_is(STR_BRACE_CLOSE)) {
+        // TODO this is C2x only, warn otherwise
         return;
     }
+
+    // Empty statement
+    if (lexer_accept(STR_SEMICOLON)) {
+        return;
+    }
+
+    // Compound statement
     if (lexer_is(STR_BRACE_OPEN)) {
         node_append(parent, parse_compound_statement());
         return;
     }
 
+    // Keyword statement
     if (lexer_token->type == token_type_alphanumeric) {
-
-        // check for keyword statements
         if (lexer_is(STR_IF)) { node_append(parent, parse_if()); return; }
         if (lexer_is(STR_WHILE)) { node_append(parent, parse_while()); return; }
         if (lexer_is(STR_DO)) { node_append(parent, parse_do()); return; }
         if (lexer_is(STR_FOR)) { node_append(parent, parse_for()); return; }
         if (lexer_is(STR_SWITCH)) { node_append(parent, parse_switch()); return; }
-        if (lexer_is(STR_CASE)) { parse_case(parent, declaration_allowed); return; }
-        //if (lexer_is(STR_DEFAULT)) { node_append(parent, parse_default(declaration_allowed); }
         if (lexer_is(STR_BREAK)) { node_append(parent, parse_break(parent)); return; }
         if (lexer_is(STR_CONTINUE)) { node_append(parent, parse_continue(parent)); return; }
         if (lexer_is(STR_RETURN)) { node_append(parent, parse_return()); return; }
         //if (lexer_is(STR_GOTO)) { node_append(parent, parse_goto()); return; }
-
-        // check for a label
-        if (declaration_allowed) {
-        }
     }
 
-    // parse an expression
+    // Expression statement
     node_append(parent, parse_expression());
     lexer_expect(STR_SEMICOLON, "Expected `;` at end of expression statement.");
 }
@@ -329,7 +373,7 @@ node_t* parse_compound_statement(void) {
     node_t* node = node_new_lexer(NODE_SEQUENCE);
     node->type = type_new_base(BASE_VOID);
     while (!lexer_is(STR_BRACE_CLOSE)) {
-        parse_statement(node, true);
+        parse_declaration_or_statement(node);
     }
     node->end_token = lexer_take();
     scope_pop();

@@ -791,12 +791,15 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_DO: generate_do(node, reg_out); break;
         case NODE_FOR: generate_for(node, reg_out); break;
         case NODE_SWITCH: fatal_token(node->token, "TODO generate SWITCH");
-        case NODE_CASE: fatal_token(node->token, "TODO generate CASE");
-        case NODE_DEFAULT: fatal_token(node->token, "TODO generate DEFAULT");
         case NODE_BREAK: generate_break(node, reg_out); break;
         case NODE_CONTINUE: generate_continue(node, reg_out); break;
         case NODE_RETURN: generate_return(node, reg_out); break;
         case NODE_GOTO: fatal_token(node->token, "TODO generate GOTO");
+
+        // labels
+        case NODE_LABEL: fatal_token(node->token, "TODO generate LABEL");
+        case NODE_CASE: fatal_token(node->token, "TODO generate CASE");
+        case NODE_DEFAULT: fatal_token(node->token, "TODO generate DEFAULT");
 
         // assignment expressions
         case NODE_ASSIGN: generate_assign(node, reg_out); break;

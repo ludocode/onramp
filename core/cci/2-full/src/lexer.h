@@ -62,10 +62,8 @@ void lexer_consume(void);
 struct token_t* lexer_take(void);
 
 /**
- * "Un-consumes" the given token, pushing it to the front of the token queue.
- *
- * This will increment the reference count of the given token. You must still
- * dereference it yourself if you are done with it.
+ * "Un-consumes" the given token, returning ownership of it and pushing it to
+ * the front of the token queue.
  */
 void lexer_push(struct token_t* token);
 

@@ -53,12 +53,15 @@ typedef enum node_kind_t {
     NODE_DO,        // Two children: statement, condition
     NODE_FOR,       // Four children: initialization, condition, increment, statement
     NODE_SWITCH,    // Two children: condition, statement
-    NODE_CASE,      // One child: the constant expression
-    NODE_DEFAULT,   // No children
     NODE_BREAK,     // No children
     NODE_CONTINUE,  // No children
     NODE_RETURN,    // Zero or one children, optional expression
     NODE_GOTO,      // No children, value is a string label
+
+    // labels
+    NODE_LABEL,     // No children, token is name
+    NODE_CASE,      // First child is constant expression, second is optional end expression of case range
+    NODE_DEFAULT,   // No children
 
     // assignment expressions. Two children: location, expression
     NODE_ASSIGN,

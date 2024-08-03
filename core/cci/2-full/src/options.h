@@ -50,6 +50,7 @@ typedef enum warning_t {
     // incorrect code
     warning_implicit_int,       // -Wimplicit-int
     warning_zero_length_array,  // -Wzero-length-array
+    warning_gnu_case_range,     // -Wgnu-case-range
 
     // extension usage
     warning_statement_expressions,    // -Wstatement-expressions: ({...})
@@ -81,7 +82,7 @@ typedef enum flag_t {
 typedef enum option_t {
     option_dump_ast,          // -dump-ast=...
     option_pedantic,          // -pedantic
-    option_pendatic_errors,   // -pedantic-errors
+    option_pedantic_errors,   // -pedantic-errors
 } option_t;
 
 void options_init(void);

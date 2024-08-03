@@ -251,7 +251,7 @@ static node_t* parse_statement_expression(token_t* paren) {
 
     scope_push();
     while (!lexer_accept(STR_BRACE_CLOSE)) {
-        parse_statement(sequence, true);
+        parse_declaration_or_statement(sequence);
     }
     scope_pop();
 

@@ -534,7 +534,8 @@ void lexer_push(token_t* token) {
     if (queued_token) {
         fatal_token(token, "Internal error: At most one token can be queued.");
     }
-    queued_token = token_ref(token);
+    queued_token = lexer_token;
+    lexer_token = token;
 }
 
 void lexer_expect(const string_t* token, const char* error_message) {
