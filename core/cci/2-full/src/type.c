@@ -242,6 +242,7 @@ static void type_base_print(const type_t* type) {
             fputs("enum ", stdout);
             fputs(type->enum_->tag->value->bytes, stdout);
             break;
+        case BASE_VA_LIST: fputs("va_list", stdout); break;
     }
 }
 
@@ -455,6 +456,7 @@ size_t base_size(base_t base) {
         case BASE_UNSIGNED_LONG:
         case BASE_FLOAT:
         case BASE_ENUM:
+        case BASE_VA_LIST:
             return 4;
         case BASE_SIGNED_LONG_LONG:
         case BASE_UNSIGNED_LONG_LONG:
@@ -718,4 +720,16 @@ bool type_is_flexible_array(type_t* type) {
     if (type_matches_declarator(type, DECLARATOR_ARRAY) && type->count == 0)
         return true;
     return false;
+}
+
+static void type_add_builtin(const char* cname, base_t base) {
+    type_t* type = type_new_base(base);
+    token_t* token = token_new_builtin(cname);
+    scope_add_type(scope_global, NAMESPACE_TYPEDEF, token, type);
+    token_deref(token);
+    type_deref(type);
+}
+
+void type_create_builtins(void) {
+    type_add_builtin("__builtin_va_list", BASE_VA_LIST);
 }

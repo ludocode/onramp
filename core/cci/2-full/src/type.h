@@ -77,6 +77,9 @@ typedef enum base_t {
     BASE_RECORD,
     BASE_ENUM,
 
+    // special base types
+    BASE_VA_LIST,
+
 } base_t;
 
 size_t base_size(base_t);
@@ -140,6 +143,8 @@ type_t* type_new_pointer(type_t* pointed_to_type, bool is_const, bool is_volatil
 type_t* type_new_array(type_t* element_type, uint32_t element_count);
 type_t* type_new_function(type_t* return_type, type_t** arg_types,
         struct token_t** arg_names, uint32_t args_count, bool is_variadic);
+
+void type_create_builtins(void);
 
 // Reference-counting
 static inline type_t* type_ref(type_t* type) {

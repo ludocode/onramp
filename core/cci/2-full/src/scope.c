@@ -108,33 +108,9 @@ void scope_deref(scope_t* scope) {
     free(scope);
 }
 
-static void scope_create_va_list(void) {
-
-    // We store __builtin_va_list as a typedef of int*. This means it's
-    // implicitly convertible with int*, can be copied by value, etc. That's
-    // fine; we don't need to diagnose improper use.
-    type_t* list = type_new_base(BASE_SIGNED_INT);
-    type_t* listp = type_new_pointer(list, false, false, false);
-    string_t* filename = string_intern_cstr("<builtin>");
-    token_t* token = token_new(
-            token_type_alphanumeric,
-            string_intern_cstr("__builtin_va_list"),
-            token_prefix_none,
-            filename,
-            0,
-            NULL);
-    scope_add_type(scope_global, NAMESPACE_TYPEDEF, token, listp);
-
-    token_deref(token);
-    string_deref(filename);
-    type_deref(listp);
-    type_deref(list);
-}
-
 void scope_global_init(void) {
     assert(scope_global == NULL);
     scope_global = (scope_current = scope_new(NULL));
-    scope_create_va_list();
 }
 
 void scope_global_destroy(void) {

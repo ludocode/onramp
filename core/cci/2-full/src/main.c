@@ -37,6 +37,7 @@
 #include "scope.h"
 #include "options.h"
 #include "generate.h"
+#include "type.h"
 
 static const char* input_filename;
 static const char* output_filename;
@@ -111,6 +112,8 @@ int main(int argc, char** argv) {
     emit_init(output_filename);
     lexer_init(input_filename);
     generate_init();
+
+    type_create_builtins();
 
     while (lexer_token->type != token_type_end) {
         parse_global();

@@ -55,6 +55,16 @@ token_t* token_new(
     return token;
 }
 
+token_t* token_new_builtin(const char* cname) {
+    string_t* name = string_intern_cstr(cname);
+    string_t* builtins = string_intern_cstr("<builtins>");
+    token_t* token = token_new(token_type_alphanumeric, name,
+            token_prefix_none, builtins, 0, NULL);
+    string_deref(builtins);
+    // we don't deref name; token_new() has taken ownership of it (TODO fix that)
+    return token;
+}
+
 void token_deref(token_t* token) {
     if (--token->refcount != 0) {
         return;

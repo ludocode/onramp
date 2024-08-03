@@ -78,6 +78,11 @@ token_t* token_new(
         int line,
         struct token_t* source);
 
+/**
+ * Creates a token for a builtin.
+ */
+token_t* token_new_builtin(const char* name);
+
 static inline token_t* token_ref(token_t* token) {
     ++token->refcount;
     return token;
