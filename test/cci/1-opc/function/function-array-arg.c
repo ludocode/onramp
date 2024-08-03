@@ -4,12 +4,12 @@
 
 int foo(int a, int x[5], int b) {
     if (a != -5) {return 1;}
-    if (x[0] != 0) {return 1;}
-    if (x[1] != 1) {return 1;}
-    if (x[2] != 2) {return 1;}
-    if (x[3] != 3) {return 1;}
-    if (x[4] != 4) {return 1;}
-    if (b != -7) {return 1;}
+    if (x[0] != 0) {return 2;}
+    if (x[1] != 1) {return 3;}
+    if (x[2] != 2) {return 4;}
+    if (x[3] != 3) {return 5;}
+    if (x[4] != 4) {return 6;}
+    if (b != -7) {return 7;}
     return 0;
 }
 
