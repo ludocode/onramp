@@ -30,20 +30,22 @@
 
 struct block_t;
 struct type_t;
+struct token_t;
 
 /**
  * A function.
  */
 typedef struct function_t {
     struct type_t* type;
-    string_t* name;
+    struct token_t* name;
     string_t* asm_name;
     struct node_t* root;
     vector_t blocks;
     int variadic_offset; // offset above rfp where variadic args start
+    int name_label; // label for __func__ string
 } function_t;
 
-function_t* function_new(struct type_t* type, string_t* name,
+function_t* function_new(struct type_t* type, struct token_t* name,
         string_t* asm_name, struct node_t* root);
 
 void function_delete(function_t* function);

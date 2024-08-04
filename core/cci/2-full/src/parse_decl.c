@@ -854,7 +854,7 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
     assert(type_is_function(type));
     node_t* root = node_new_token(NODE_FUNCTION, name);
     root->type = type_ref(type->ref); // return value
-    function_t* function = function_new(type, name->value, asm_name, root);
+    function_t* function = function_new(type, name, asm_name, root);
     current_function = function;
 
     // attach parameters

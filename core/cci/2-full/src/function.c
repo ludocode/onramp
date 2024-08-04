@@ -29,16 +29,19 @@
 #include "block.h"
 #include "type.h"
 #include "node.h"
+#include "token.h"
 
-function_t* function_new(type_t* type, string_t* name,
+function_t* function_new(type_t* type, token_t* name,
         string_t* asm_name, node_t* root)
 {
     function_t* function = malloc(sizeof(function_t));
     function->type = type_ref(type);
-    function->name = string_ref(name);
+    function->name = token_ref(name);
     function->asm_name = string_ref(asm_name);
     function->root = root;
     vector_init(&function->blocks);
+    function->variadic_offset = -1;
+    function->name_label = -1;
     return function;
 }
 
@@ -50,7 +53,7 @@ void function_delete(function_t* function) {
     vector_destroy(&function->blocks);
     node_delete(function->root);
     string_deref(function->asm_name);
-    string_deref(function->name);
+    token_deref(function->name);
     type_deref(function->type);
     free(function);
 }

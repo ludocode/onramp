@@ -25,6 +25,7 @@
 #include "parse_expr.h"
 
 #include "common.h"
+#include "function.h"
 #include "record.h"
 #include "strings.h"
 #include "libo-error.h"
@@ -212,14 +213,14 @@ static node_t* parse_string(void) {
         }
         length += string_length(lexer_token->value);
         emit_source_location(lexer_token);
-        emit_cstr("  ");
+        emit_cstr(ASM_INDENT);
         emit_string_literal(string_cstr(lexer_token->value));
         emit_newline();
         lexer_consume();
     } while (lexer_token->type == token_type_string);
 
     // append null-terminator
-    emit_cstr("  ");
+    emit_cstr(ASM_INDENT);
     emit_quoted_byte(0);
     emit_newline();
     emit_newline();
@@ -269,7 +270,7 @@ static node_t* parse_primary_expression(void) {
     if (lexer_token->type == token_type_alphanumeric) {
         symbol_t* symbol = scope_find_symbol(scope_current, lexer_token->value, true);
         if (!symbol) {
-            fatal_token(lexer_token, "No such variable or function");
+            fatal_token(lexer_token, "No such variable or function: %s", lexer_token->value->bytes);
         }
 
         if (symbol->kind == symbol_kind_builtin) {
@@ -1064,6 +1065,47 @@ static node_t* parse_builtin_va_copy(node_t* builtin) {
     return builtin;
 }
 
+static node_t* parse_builtin_func(node_t* builtin) {
+    node_t* string = node_new_token(NODE_STRING, current_function->name);
+    type_t* base = type_new_base(BASE_CHAR);
+    string->type = type_new_array(base, string_length(string->token->value) + 1);
+    type_deref(base);
+
+    if (current_function->name_label == -1) {
+        // This is the first time we've seen __func__ in this function. Emit
+        // the name as its own symbol.
+
+        current_function->name_label = next_string++;
+
+        emit_source_location(lexer_token);
+        emit_char('@');
+        emit_cstr(STRING_LABEL_PREFIX);
+        emit_hex_number(current_function->name_label);
+        emit_newline();
+
+        emit_cstr(ASM_INDENT);
+        emit_string_literal(string_cstr(string->token->value)); // TODO don't go through cstr, should be able to emit a string_t*
+        emit_newline();
+
+        emit_cstr(ASM_INDENT);
+        emit_quoted_byte(0);
+        emit_newline();
+        emit_newline();
+    }
+    string->string_label = current_function->name_label;
+
+    // When not optimizing, we append the string node to the builtin instead of
+    // returning the string directly. This way we can see the builtin __func__
+    // node in a tree dump which makes it easier to debug.
+    if (optimization) {
+        node_delete(builtin);
+        return string;
+    }
+    node_append(builtin, string);
+    builtin->type = type_ref(string->type);
+    return builtin;
+}
+
 node_t* parse_builtin(builtin_t builtin) {
     node_t* node = node_new_lexer(NODE_BUILTIN);
     node->builtin = builtin;
@@ -1073,7 +1115,7 @@ node_t* parse_builtin(builtin_t builtin) {
         case BUILTIN_VA_START: return parse_builtin_va_start(node);
         case BUILTIN_VA_END: return parse_builtin_va_end(node);
         case BUILTIN_VA_COPY: return parse_builtin_va_copy(node);
-        default: break;
+        case BUILTIN_FUNC: return parse_builtin_func(node);
     }
 
     fatal("Internal error: cannot parse unrecognized builtin.");

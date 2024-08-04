@@ -72,4 +72,6 @@ void symbol_create_builtins(void) {
     symbol_create_builtin("__builtin_va_start", BUILTIN_VA_START);
     symbol_create_builtin("__builtin_va_end", BUILTIN_VA_END);
     symbol_create_builtin("__builtin_va_copy", BUILTIN_VA_COPY);
+    symbol_create_builtin("__func__", BUILTIN_FUNC);
+    symbol_create_builtin("__FUNCTION__", BUILTIN_FUNC);
 }

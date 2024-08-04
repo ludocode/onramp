@@ -188,7 +188,7 @@ void generate_for(node_t* node, int reg_out) {
 // and assembly that labels are local to symbols, that way we don't need to
 // do anything (except check for duplicates) to ensure that the names are unique.
 static string_t* generate_label_name(node_t* node) {
-    string_t* func_name = current_function->name;
+    string_t* func_name = current_function->name->value;
     string_t* label_name = node->token->value;
 
     char prefix[32];

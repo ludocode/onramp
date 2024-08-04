@@ -63,6 +63,7 @@ typedef enum builtin_t {
     BUILTIN_VA_ARG,
     BUILTIN_VA_END,
     BUILTIN_VA_COPY,
+    BUILTIN_FUNC, // __func__, __FUNCTION__
 } builtin_t;
 
 #endif

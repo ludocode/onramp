@@ -153,7 +153,7 @@ size_t record_size(const record_t* record) {
 }
 
 bool record_is_struct(const record_t* record) {
-    return *(bool**)((void**)record + RECORD_OFFSET_IS_STRUCT);
+    return *(bool*)((void**)record + RECORD_OFFSET_IS_STRUCT);
 }
 
 const field_t* record_find_field(const record_t* record, const char* name,

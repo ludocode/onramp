@@ -963,12 +963,18 @@ static void generate_builtin_va_copy(node_t* builtin, int reg_out) {
     register_free(builtin->token, reg_val);
 }
 
+static void generate_builtin_func(node_t* builtin, int reg_out) {
+    generate_node(builtin->first_child, reg_out);
+}
+
 void generate_builtin(node_t* node, int reg_out) {
     switch (node->builtin) {
-        case BUILTIN_VA_ARG: generate_builtin_va_arg(node, reg_out); break;
-        case BUILTIN_VA_START: generate_builtin_va_start(node, reg_out); break;
-        case BUILTIN_VA_END: generate_builtin_va_end(node, reg_out); break;
-        case BUILTIN_VA_COPY: generate_builtin_va_copy(node, reg_out); break;
-        default: break;
+        case BUILTIN_VA_ARG: generate_builtin_va_arg(node, reg_out); return;
+        case BUILTIN_VA_START: generate_builtin_va_start(node, reg_out); return;
+        case BUILTIN_VA_END: generate_builtin_va_end(node, reg_out); return;
+        case BUILTIN_VA_COPY: generate_builtin_va_copy(node, reg_out); return;
+        case BUILTIN_FUNC: generate_builtin_func(node, reg_out); return;
     }
+
+    fatal("Internal error: cannot generate unrecognized builtin.");
 }

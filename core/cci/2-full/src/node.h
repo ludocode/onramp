@@ -180,7 +180,7 @@ typedef struct node_t {
         struct node_t* container; // loop/switch reference for break/continue
         uint32_t u32; // 32-bit float, int or character
         u64_t u64;    // 64-bit double or long long
-        int string_label;
+        int string_label; // generated name of symbol for NODE_STRING
         builtin_t builtin;
 
         // Contents of a case label
