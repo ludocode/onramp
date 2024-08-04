@@ -352,7 +352,9 @@ static node_t* parse_function_call(node_t* function) {
             } else {
                 // TODO node_promote doesn't promote float to double, we need a
                 // separate variadic arg promotion func to do that
-                arg = node_promote(arg);
+                if (type_is_arithmetic(arg->type)) {
+                    arg = node_promote(arg);
+                }
             }
 
             node_append(call, arg);
