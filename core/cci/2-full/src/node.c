@@ -774,7 +774,7 @@ uint32_t node_eval_32(node_t* node) {
             node_t* child = node->first_child;
 
             // integer casts
-            if (type_is_integer(child->type)) {
+            if (type_is_integer(child->type) || type_matches_base(child->type, BASE_ENUM)) {
                 if (type_size(child->type) == 4)
                     return node_eval_32(child);
 

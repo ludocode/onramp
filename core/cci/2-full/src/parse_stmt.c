@@ -196,30 +196,17 @@ static node_t* parse_switch(void) {
     node_switch->type = type_new_base(BASE_VOID);
     lexer_expect(STR_PAREN_OPEN, "Expected `(` after `switch`.");
     node_t* expression = parse_expression();
-    node_append(node_switch, expression);
     lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression for `switch`.");
 
     // make sure the expression is an integer or enum type
     if (!type_is_base(expression->type))
         goto bad_type;
-    switch (expression->type->base) {
-        case BASE_ENUM:
-        case BASE_BOOL:
-        case BASE_CHAR:
-        case BASE_SIGNED_CHAR:
-        case BASE_UNSIGNED_CHAR:
-        case BASE_SIGNED_SHORT:
-        case BASE_UNSIGNED_SHORT:
-        case BASE_SIGNED_INT:
-        case BASE_UNSIGNED_INT:
-        case BASE_SIGNED_LONG:
-        case BASE_UNSIGNED_LONG:
-        case BASE_SIGNED_LONG_LONG:
-        case BASE_UNSIGNED_LONG_LONG:
-            break;
-        default:
-            goto bad_type;
-    }
+    if (!type_matches_base(expression->type, BASE_ENUM) && !type_is_integer(expression->type))
+        goto bad_type;
+
+    // promote it
+    expression = node_promote(expression);
+    node_append(node_switch, expression);
 
     // `break`, `case`, `default` in a statement expression inside the value
     // expression of a switch associate with the outer container, not this
