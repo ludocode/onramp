@@ -15,8 +15,12 @@ int main(void) {
 
     struct foo f;
     if (sizeof(f) != 8) {
-        return 1;
+        return 2;
     }
+
+    short* s = f.c;
+    if ((char*)s - (char*)&f != 6)
+        return 3;
 
     return 0;
 }

@@ -184,6 +184,7 @@ static void generate_access(node_t* node, int reg_out) {
 
     if (type_is_array(type)) {
         // arrays decay to pointers.
+        // TODO this is probably the wrong way to do this, see generate_member_val()
         generate_access_location(node->token, node->symbol, reg_out);
         return;
     }
@@ -733,6 +734,15 @@ static void generate_array_subscript(node_t* node, int reg_out) {
 }
 
 static void generate_member_val(node_t* node, int reg_out) {
+    // Arrays decay to pointers. TODO this is probably the wrong way to go
+    // about this. We should probably be inserting & operators into the parse
+    // tree. & will generate location and can skip the dereference for arrays.
+    if (type_is_array(node->type)) {
+        generate_location(node->first_child, reg_out);
+        block_append_op_imm(current_block, node->token, ADD, reg_out, node->member_offset);
+        return;
+    }
+
     // TODO we don't always need to alloc a register, see generate_dereference above
     int reg_loc = register_alloc(node->token);
     generate_location(node->first_child, reg_loc);
@@ -741,6 +751,13 @@ static void generate_member_val(node_t* node, int reg_out) {
 }
 
 static void generate_member_ptr(node_t* node, int reg_out) {
+    // Arrays decay to pointers. TODO see above
+    if (type_is_array(node->type)) {
+        generate_node(node->first_child, reg_out);
+        block_append_op_imm(current_block, node->token, ADD, reg_out, node->member_offset);
+        return;
+    }
+
     // TODO we don't always need to alloc a register, see generate_dereference above
     int reg_loc = register_alloc(node->token);
     generate_node(node->first_child, reg_loc);

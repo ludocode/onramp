@@ -36,6 +36,7 @@
 #ifndef __onramp__
 // On Onramp this is defined in libo-data.os because our opC compiler doesn't
 // support global initializers.
+// TODO use this in cci/2
 const char error_out_of_memory[] = "Out of memory.";
 #endif
 
