@@ -51,11 +51,7 @@ void string_table_init(void) {
 
 void string_table_destroy(void) {
     if (table_count(&string_table) != 0) {
-        // We don't log a fatal error under ASAN because it will report the
-        // leak on its own.
-        #ifndef __SANITIZE_ADDRESS__
         fatal("Internal error: a string was leaked.");
-        #endif
     }
     table_destroy(&string_table);
 }

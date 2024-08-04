@@ -115,6 +115,7 @@ void scope_global_init(void) {
 
 void scope_global_destroy(void) {
     assert(scope_global == scope_current);
+    assert(scope_global->refcount == 1);
     scope_deref(scope_global);
 }
 
@@ -137,8 +138,8 @@ scope_t* scope_take(void) {
 }
 
 void scope_apply(scope_t* scope) {
-    scope->parent = scope_ref(scope_current);
-    scope_current = scope;
+    scope->parent = scope_current;
+    scope_current = scope_ref(scope);
 }
 
 void scope_remove_symbol(scope_t* scope, symbol_t* symbol) {

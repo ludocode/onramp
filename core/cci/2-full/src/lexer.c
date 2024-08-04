@@ -139,6 +139,7 @@ void lexer_destroy(void) {
     if (lexer_token) {
         token_deref(lexer_token);
     }
+    current_filename = NULL;
     string_deref(lexer_filename);
     free(lexer_buffer);
 }

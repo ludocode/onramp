@@ -509,7 +509,7 @@ done:
 }
 
 static bool try_parse_declaration_specifiers(specifiers_t* specifiers) {
-    bool found;
+    bool found = false;
 
     // All declaration specifiers are alphanumeric so we can short-circuit with
     // an alphanumeric test.

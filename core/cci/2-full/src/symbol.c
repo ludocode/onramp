@@ -64,6 +64,7 @@ static void symbol_create_builtin(const char* cname, builtin_t builtin) {
     symbol_t* symbol = symbol_new(symbol_kind_builtin, NULL, token, NULL);
     symbol->builtin = builtin;
     scope_add_symbol(scope_global, symbol);
+    symbol_deref(symbol);
     token_deref(token);
 }
 
