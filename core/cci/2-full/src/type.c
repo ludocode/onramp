@@ -580,6 +580,8 @@ bool type_equal(type_t* left, type_t* right) {
 bool type_equal_unqual(type_t* left, type_t* right) {
 
     // declarators
+    if (left->is_declarator != right->is_declarator)
+        return false;
     if (left->is_declarator) {
         if (left->declarator != right->declarator)
             return false;
