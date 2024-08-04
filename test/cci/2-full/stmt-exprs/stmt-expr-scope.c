@@ -6,8 +6,8 @@ int main(void) {
     // make sure x in statement expression doesn't conflict with x declared
     // outside of it
     int x = ({
-        int x = 3;
-        x;
+        int x = 7;
+        3;
     });
     return 5 - x - 2;
 }

@@ -3,7 +3,7 @@
 =foo
   enter
   imw r0 ^x
-  ldw r0 rpp r0
+  ldb r0 rpp r0
   leave
   ret
 =main

@@ -239,7 +239,7 @@ for TESTFILE in $FILES; do
             echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS $BASENAME.c -o $TEMP_I && \\"
         fi
         echo "    $COMMAND -g $ARGS && \\"
-        echo "    sed '/^#* *$/d' $TEMP_OS > $TEMP_OS_CLEAN && \\"
+        echo "    sed -e '/^ *$/d' -e '/^#/d' $TEMP_OS > $TEMP_OS_CLEAN && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-$LIBC/libc.oa $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE"

@@ -46,13 +46,13 @@
     typedef void type_t;
 #endif
 #ifndef __onramp_cci_omc__
-    // When compiling with a better compiler than cci/0, we use empty structs
-    // to ensure that these pointers are not implicitly convertible with each
-    // other or anything else.
-    typedef struct {void* unused;} field_t;
-    typedef struct {void* unused;} global_t;
-    typedef struct {void* unused;} record_t;
-    typedef struct {void* unused;} type_t;
+    // When compiling with a better compiler than cci/0, we use incomplete
+    // structs to ensure that pointers to these are never dereferenced and are
+    // not implicitly convertible with each other or anything else.
+    typedef struct field_t field_t;
+    typedef struct global_t global_t;
+    typedef struct record_t record_t;
+    typedef struct type_t type_t;
 #endif
 
 

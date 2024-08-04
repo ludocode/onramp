@@ -32,4 +32,19 @@
     #endif
 #endif
 
+/**
+ * -Wall -Wextra warns about unused parameters. We have lots of those because
+ * our early stage compilers don't allow us to omit them or cast them to void.
+ */
+#ifdef __GNUC__
+    #ifdef __has_warning
+        #if __has_warning("-Wunused-parameter")
+            #pragma GCC diagnostic ignored "-Wunused-parameter"
+        #endif
+    #else
+        #pragma GCC diagnostic ignored "-Wunused-parameter"
+    #endif
+#endif
+
+
 #endif

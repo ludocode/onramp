@@ -22,7 +22,7 @@
 
 .SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter -DDEBUG
+CPPFLAGS := -Wall -Wextra -Wpedantic -DDEBUG
 
 -include ../../local.mk
 
