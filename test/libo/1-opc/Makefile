@@ -42,6 +42,7 @@ TOOL_LD=$(BUILD)/ld-2-full/ld
 TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
 
 OBJS=\
+		$(OUT)/libo-data.oo \
 		$(OUT)/libo-error.oo \
 		$(OUT)/libo-string.oo \
 		$(OUT)/libo-table.oo \
@@ -122,6 +123,12 @@ $(OUT)/libo-data.oo: $(SRC)/libo-data.os Makefile
 # much better error checking than our Onramp compiler. We can't actually link
 # the resulting objects (at least, not unless we want to implement all of our
 # syscalls for Linux.)
+
+$(OUT)/libo-data.oo: $(SRC)/libo-data.os Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	# no C file to compile
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-data.os -o $@
 
 $(OUT)/libo-error.oo: $(SRC)/libo-error.c Makefile
 	@rm -f $@
