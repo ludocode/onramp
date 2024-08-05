@@ -438,8 +438,8 @@ static node_t* parse_array_subscript(node_t* left) {
     }
 
     // Cast the index if necessary
-    if (!type_is_integer(index->type)) {
-        fatal_token(op->token, "One side of this array subscript expression must be an integer.");
+    if (!type_is_integer(index->type) && !type_matches_base(index->type, BASE_ENUM)) {
+        fatal_token(op->token, "One side of this array subscript expression must be an integer or enum.");
     }
     index = node_cast_base(index, BASE_UNSIGNED_INT, NULL);
 
