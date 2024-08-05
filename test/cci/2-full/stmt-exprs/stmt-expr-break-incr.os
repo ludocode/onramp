@@ -23,7 +23,7 @@
 :_Lx3
   add r1 rfp -4
   ldw r0 0 r1
-  inc r0
+  add r0 r0 1
   stw r0 0 r1
   jmp &_Lx4
 :_Lx5

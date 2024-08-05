@@ -83,6 +83,6 @@ void block_add_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t of
  * value doesn't fit in a mix-type byte.)
  */
 void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
-        int reg, int value);
+        int reg_out, int reg_in, int value);
 
 #endif

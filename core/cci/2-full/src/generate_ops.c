@@ -127,7 +127,7 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     bool is_left_ptr = type_is_indirection(node->first_child->type);
     type_t* ptr_type = (is_left_ptr ? node->first_child : node->last_child)->type;
     size_t size = type_size(ptr_type->ref);
-    int int_register = is_left_ptr ? (reg_right) : reg_left;
+    int reg_int = is_left_ptr ? (reg_right) : reg_left;
 
     // Shift or multiply the offset
     // TODO there's a GCC extension for a zero-size struct. should figure out if/how pointer arithmetic works with it
@@ -139,9 +139,9 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
                 size >>= 1;
                 ++shift;
             }
-            block_append(current_block, node->token, SHL, int_register, int_register, shift - 1);
+            block_append(current_block, node->token, SHL, reg_int, reg_int, shift - 1);
         } else {
-            block_append_op_imm(current_block, node->token, MUL, int_register, size);
+            block_append_op_imm(current_block, node->token, MUL, reg_int, reg_int, size);
         }
     }
 
@@ -182,7 +182,7 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
             }
             block_append(current_block, node->token, SHRS, reg_left, reg_left, shift - 1);
         } else {
-            block_append_op_imm(current_block, node->token, DIVS, reg_left, size);
+            block_append_op_imm(current_block, node->token, DIVS, reg_left, reg_left, size);
         }
     }
 
@@ -513,7 +513,8 @@ static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
 
     // increment/decrement it
     if (type_size(node->type) == 4) {
-        block_append(current_block, node->token, inc ? INC : DEC, reg_val);
+        block_append_op_imm(current_block, node->token, inc ? ADD : SUB, reg_val, reg_val,
+            type_is_indirection(node->type) ? type_size(node->type->ref) : 1);
     } else if (type_size(node->type) == 8) {
         // TODO we should be able to just inline `inc jz inc` or equivalent.
         // need to create a block, use a temporary register, etc.
@@ -537,8 +538,8 @@ static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
     // increment/decrement it into a temporary reister
     int reg_temp = register_alloc(node->token);
     if (type_size(node->type) == 4) {
-        block_append(current_block, node->token, MOV, reg_temp, reg_val);
-        block_append(current_block, node->token, inc ? INC : DEC, reg_temp);
+        block_append_op_imm(current_block, node->token, inc ? ADD : SUB, reg_temp, reg_val,
+            type_is_indirection(node->type) ? type_size(node->type->ref) : 1);
     } else if (type_size(node->type) == 8) {
         // TODO need to allocate stack space and copy
         // TODO we should be able to just inline `inc jz inc` or equivalent.

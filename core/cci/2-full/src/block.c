@@ -92,27 +92,27 @@ void block_append(block_t* block, token_t* token, opcode_t opcode, ...) {
 
 void block_sub_rsp(block_t* block, token_t* token, size_t offset) {
     // TODO remove this wrapper function
-    block_append_op_imm(block, token, SUB, RSP, (int)offset);
+    block_append_op_imm(block, token, SUB, RSP, RSP, (int)offset);
 }
 
 void block_add_rsp(block_t* block, token_t* token, size_t offset) {
     // TODO remove this wrapper function
-    block_append_op_imm(block, token, ADD, RSP, (int)offset);
+    block_append_op_imm(block, token, ADD, RSP, RSP, (int)offset);
 }
 
 void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
-        int reg_out, int value)
+        int reg_out, int reg_in, int value)
 {
     if (value == 0)
         return;
 
     if (value <= 127 && value >= -112) {
-        block_append(block, token, opcode, reg_out, reg_out, value);
+        block_append(block, token, opcode, reg_out, reg_in, value);
         return;
     }
 
     int reg_value = register_alloc(token);
     block_append(block, token, IMW, ARGTYPE_NUMBER, reg_value, value);
-    block_append(block, token, opcode, reg_out, reg_out, reg_value);
+    block_append(block, token, opcode, reg_out, reg_in, reg_value);
     register_free(token, reg_value);
 }

@@ -686,7 +686,7 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     // TODO the shift and load could be done together if small enough. could optimize this later
 
     // shift the pointer by the member offset
-    block_append_op_imm(current_block, node->token, ADD, reg_ptr, offset);
+    block_append_op_imm(current_block, node->token, ADD, reg_ptr, reg_ptr, offset);
 
     if (type_is_passed_indirectly(node->type)) {
         fatal_token(node->token, "TODO dereference indirectly, need function to memcpy struct");
@@ -739,7 +739,7 @@ static void generate_member_val(node_t* node, int reg_out) {
     // tree. & will generate location and can skip the dereference for arrays.
     if (type_is_array(node->type)) {
         generate_location(node->first_child, reg_out);
-        block_append_op_imm(current_block, node->token, ADD, reg_out, node->member_offset);
+        block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
         return;
     }
 
@@ -754,7 +754,7 @@ static void generate_member_ptr(node_t* node, int reg_out) {
     // Arrays decay to pointers. TODO see above
     if (type_is_array(node->type)) {
         generate_node(node->first_child, reg_out);
-        block_append_op_imm(current_block, node->token, ADD, reg_out, node->member_offset);
+        block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
         return;
     }
 
