@@ -104,17 +104,6 @@
 
 
 ; ==========================================================
-; const char* const* environ;
-; ==========================================================
-; A pointer to the null-terminated list of environment variables.
-; ==========================================================
-
-=environ
-    00 00 00 00
-
-
-
-; ==========================================================
 ; [[noreturn]] void __start_main(void);
 ; ==========================================================
 ; Initializes the globals for command-line arguments and environment variables

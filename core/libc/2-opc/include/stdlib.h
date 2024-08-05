@@ -56,4 +56,9 @@ int posix_memalign(void** __ptr, size_t __alignment, size_t __size);
 // TODO extensions
 size_t malloc_size(void* ptr);
 
+/**
+ * Gets the value of the environment variable with the given name.
+ */
+char* getenv(const char* key);
+
 #endif

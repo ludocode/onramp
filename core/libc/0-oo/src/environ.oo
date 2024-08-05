@@ -1,0 +1,150 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2023-2024 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; ==========================================================
+; char** environ;
+; ==========================================================
+; A pointer to the null-terminated list of environment variables.
+; ==========================================================
+
+=environ
+    00 00 00 00
+
+
+
+; ==========================================================
+; char* getenv(const char* key);
+; ==========================================================
+; vars:
+; - key: rfp-4
+; - length: rfp-8
+; - env: rfp-12
+; ==========================================================
+
+=getenv
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store key
+    71 8C 8C 0C     ; sub rsp rsp 12
+    79 80 8D FC     ; stw r0 rfp -4
+
+    ; call strlen(), get key length
+    7C 8A <strlen      ; ims ra <strlen
+    7C 8A >strlen      ; ims ra >strlen
+    71 8C 8C 04        ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra         ; jump
+    70 8C 8C 04        ; add rsp rsp 4          ; pop return address
+
+    ; store length
+    79 80 8D F8     ; stw r0 rfp -8
+
+    ; get and store environ
+    7C 8A <environ    ; ims ra <environ
+    7C 8A >environ    ; ims ra >environ
+    78 80 8E 8A       ; ldw r0 rpp ra
+    79 80 8D F4       ; stw r0 rfp -12
+
+:getenv_loop
+
+    ; get current environment item
+    78 80 8D F4       ; ldw r0 rfp -12
+    78 80 80 00       ; ldw r0 r0 0
+
+    ; if it's null, key not found
+    7E 80 &getenv_not_found   ; jz r0 &getenv_not_found
+
+    ; call strlen(), get item length
+    7C 8A <strlen      ; ims ra <strlen
+    7C 8A >strlen      ; ims ra >strlen
+    71 8C 8C 04        ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra         ; jump
+    70 8C 8C 04        ; add rsp rsp 4          ; pop return address
+
+    ; if it's not long enough, bail out
+    78 82 8D F8       ; ldw r2 rfp -8             ; r2 is key length
+    7D 83 80 82       ; cmpu r3 r0 r2
+    71 83 83 FF       ; sub r3 r3 -1
+    7E 83 &getenv_next   ; jz r3 &getenv_next
+
+    ; check if we have '=' in the right place
+    78 80 8D F4         ; ldw r0 rfp -12
+    78 80 80 00         ; ldw r0 r0 0              ; r0 is env var
+    7A 83 80 82         ; ldb r3 r0 r2
+    71 83 83 3D         ; sub r3 r3 "="
+    7E 83 &getenv_eq    ; jz r3 &getenv_eq
+    7E 00 &getenv_next  ; jz 0 &getenv_next
+:getenv_eq
+
+    ; we have an '=' in the right place. load up our key
+    78 81 8D FC     ; ldw r1 rfp -4           ; r1 is key
+
+    ; call memcmp
+    7C 8A <memcmp      ; ims ra <memcmp
+    7C 8A >memcmp      ; ims ra >memcmp
+    71 8C 8C 04        ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08        ; add rb rip 8
+    79 8B 00 8C        ; stw rb 0 rsp
+    70 8F 8E 8A        ; add rip rpp ra         ; jump
+    70 8C 8C 04        ; add rsp rsp 4          ; pop return address
+
+    ; check if we have a match
+    7E 80 &getenv_match  ; jz r0 &getenv_match
+    7E 00 &getenv_next  ; jz 0 &getenv_next
+:getenv_match
+
+    ; we have a match! return the value
+    78 80 8D F4        ; ldw r0 rfp -12
+    78 80 80 00        ; ldw r0 r0 0         ; get the item
+    78 82 8D F8        ; ldw r2 rfp -8
+    70 80 80 82        ; add r0 r0 r2        ; skip past the key
+    70 80 80 01        ; add r0 r0 1         ; skip past the '='
+    7E 00 &getenv_ret  ; jz 0 &getenv_ret
+
+:getenv_next
+
+    ; increment environment pointer
+    78 80 8D F4       ; ldw r0 rfp -12
+    70 80 80 04       ; add r0 r0 4
+    79 80 8D F4       ; stw r0 rfp -12
+
+    ; restart loop
+    7E 00 &getenv_loop    ; jz 0 &getenv_loop
+
+:getenv_not_found
+    ; return 0
+    70 80 00 00     ; add r0 0 0   ; zero r0
+
+:getenv_ret
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret

@@ -109,6 +109,7 @@ onrampvm build/intermediate/as-1-compound/as.oe \
 
 # The stage 1 libc is an overlay over stage 0. We exclude a few files from
 # stage 0 and include all of the files from stage 1.
+# Note: start.oo must come first!
 echo Archiving libc/1-omc
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-1-omc/libc.oa \
@@ -116,6 +117,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/start.oo \
     \
     core/libc/0-oo/src/ctype.oo \
+    core/libc/0-oo/src/environ.oo \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \

@@ -50,4 +50,9 @@ long atol(const char* p);
 
 _Noreturn void abort(void);
 
+/**
+ * Gets the value of the environment variable with the given name.
+ */
+char* getenv(const char* key);
+
 #endif

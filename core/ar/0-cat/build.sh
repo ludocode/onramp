@@ -32,12 +32,15 @@ echo === Building ar/0-cat
 
 # Our libraries don't exist as archives yet (because this archiver doesn't
 # exist yet!) We have to link all the libc and libo object files manually.
+# Note: start.oo must come first!
 
 echo Linking ar/0-cat
 onrampvm build/intermediate/ld-0-global/ld.oe \
+    \
     core/libc/0-oo/src/start.oo \
     \
     core/libc/0-oo/src/ctype.oo \
+    core/libc/0-oo/src/environ.oo \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/malloc.oo \
     core/libc/0-oo/src/malloc_util.oo \

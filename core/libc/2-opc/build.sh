@@ -103,6 +103,7 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/system.c \
     -o build/intermediate/libc-2-opc/system.oo
 
+# Note: start.oo must come first!
 echo Archiving libc/2-opc
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-2-opc/libc.oa \

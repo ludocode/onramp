@@ -54,4 +54,9 @@ void _Exit(int status);
  */
 void* __malloc_largest_unused_region(size_t* out_size);
 
+/**
+ * Gets the value of the environment variable with the given name.
+ */
+char* getenv(const char* key);
+
 #endif

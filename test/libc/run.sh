@@ -27,7 +27,7 @@ fi
 set -e
 ROOT=$(dirname $0)/../..
 make -C $ROOT/test/cpp/1-omc/ build   # TODO 2-full
-make -C $ROOT/test/cci/1-opc/ build   # TODO 2-full
+make -C $ROOT/test/cci/2-full/ build
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
 if ! command -v onrampvm > /dev/null; then
@@ -49,8 +49,8 @@ TEMP_STDOUT=/tmp/onramp-test.stdout
 ANY_ERROR=0
 
 MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1"
-# TODO use cci/2 and cpp/2 once they exist
-MACROS="$MACROS -D__onramp_cci_opc__=1 -D__onramp_cpp_opc__=1"
+# TODO use cpp/2 once it exists
+MACROS="$MACROS -D__onramp_cci_full__=1 -D__onramp_cpp_opc__=1"
 MACROS="$MACROS -include __onramp/__predef.h"
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
@@ -78,7 +78,7 @@ for TESTFILE in $FILES; do
 
     # compile
     if [ $THIS_ERROR -ne 1 ]; then
-        $ROOT/build/test/cci-1-opc/cci $TEMP_I -o $TEMP_OS #&> /dev/null
+        $ROOT/build/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS #&> /dev/null
         if [ $? -ne 0 ]; then
             echo "ERROR: $BASENAME failed to compile."
             THIS_ERROR=1
@@ -144,7 +144,7 @@ for TESTFILE in $FILES; do
         echo "Commands:"
         echo "    make build && \\"
         echo "    $ROOT/build/test/cpp-1-omc/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
-        echo "    $ROOT/build/test/cci-1-opc/cci $TEMP_I -o $TEMP_OS && \\"
+        echo "    $ROOT/build/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE >$TEMP_STDOUT"

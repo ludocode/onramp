@@ -100,4 +100,9 @@ long long int llabs(long long int j);
 /* Multibyte/wide character conversion functions */
 // TODO
 
+/**
+ * Gets the value of the environment variable with the given name.
+ */
+char* getenv(const char* key);
+
 #endif

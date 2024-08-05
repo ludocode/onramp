@@ -734,9 +734,7 @@ static int file_type(const char* name) {
 static char* make_temp_filename(const char* input, const char* extension) {
 
     // get the temporary directory
-    const char* tmpdir = NULL;
-    // TODO getenv not implemented yet
-    //tmpdir = getenv("TMPDIR");
+    const char* tmpdir = getenv("TMPDIR");
     // TODO check if dir exists
     if (tmpdir == NULL) {
         tmpdir = "/tmp";
