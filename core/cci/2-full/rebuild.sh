@@ -174,6 +174,7 @@ onrampvm build/intermediate/cc/cc.oe \
 echo Linking cci/2-full
 # TODO use rebuilt libc-3-full-re and libo-1-opc-re and maybe rebuilt ld-2
 onrampvm build/intermediate/ld-2-full/ld.oe \
+    -g \
     build/intermediate/libc-2-opc/libc.oa \
     build/intermediate/libo-1-opc/libo.oa \
     build/intermediate/cci-2-full-re/block.oo \

@@ -1005,6 +1005,9 @@ static void compile_file(const char* input, const char* output) {
 
     string_array_append(&args, &args_count, &args_capacity, tool_cci);
 
+    if (debug_info) {
+        string_array_append(&args, &args_count, &args_capacity, "-g");
+    }
     if (optimize) {
         string_array_append(&args, &args_count, &args_capacity, "-O");
     }
@@ -1020,18 +1023,29 @@ static void compile_file(const char* input, const char* output) {
 }
 
 static void assemble_file(const char* input, const char* output) {
-    size_t argc = 4;
-    char** argv = malloc(sizeof(char*) * (argc + 1));
+    char** args = 0;
+    size_t args_count = 0;
+    size_t args_capacity = 0;
 
-    *argv = tool_as;
-    *(argv + 1) = (char*)input;
-    *(argv + 2) = "-o";
-    *(argv + 3) = (char*)output;
-    *(argv + 4) = NULL;
+    string_array_append(&args, &args_count, &args_capacity, tool_as);
 
-    run(argc, argv);
+    /*TODO
+    if (debug_info) {
+        string_array_append(&args, &args_count, &args_capacity, "-g");
+    }
+    if (optimize) {
+        string_array_append(&args, &args_count, &args_capacity, "-O");
+    }
+    */
 
-    free(argv);
+    string_array_append(&args, &args_count, &args_capacity, (char*)input);
+    string_array_append(&args, &args_count, &args_capacity, "-o");
+    string_array_append(&args, &args_count, &args_capacity, (char*)output);
+
+    string_array_append(&args, &args_count, &args_capacity, NULL);
+    run(args_count - 1, args);
+
+    free(args);
 }
 
 static void translate_file(const char* input) {
@@ -1107,15 +1121,11 @@ static void do_link(void) {
         string_array_append(&args, &args_count, &args_capacity, wrap_header);
     }
 
-    // TODO we should ignore these options in ld/1, cc should just be passing
-    // them along and should not need to know which ld it's using
     if (debug_info) {
-        // TODO disabled for now because we can't build ld/2 yet
-        //string_array_append(&args, &args_count, &args_capacity, "-g");
+        string_array_append(&args, &args_count, &args_capacity, "-g");
     }
     if (optimize) {
-        // TODO disabled for now because we can't build ld/2 yet (and it doesn't even support it yet)
-        //string_array_append(&args, &args_count, &args_capacity, "-O");
+        string_array_append(&args, &args_count, &args_capacity, "-O");
     }
     if (!nostdlib) {
         string_array_append(&args, &args_count, &args_capacity, libc_archive);
