@@ -327,4 +327,10 @@ uint32_t node_eval_32(node_t* node);
  */
 void node_eval_64(node_t* node, u64_t* out);
 
+/**
+ * Returns true if the given node is null or a literal zero, possibly cast to a
+ * pointer.
+ */
+bool node_is_null(node_t* node);
+
 #endif

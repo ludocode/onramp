@@ -885,10 +885,41 @@ static node_t* parse_binary_expression(int min_precedence) {
 static void parse_conditional_expression_types(node_t** left, node_t** right) {
     type_t* left_type = (*left)->type;
     type_t* right_type = (*right)->type;
+    token_t* left_token = (*right)->token;
     token_t* right_token = (*right)->token;
 
+    // One side is a pointer.
+    if (type_is_indirection(left_type) || type_is_indirection(right_type)) {
+
+        // Check if pointers are equal
+        if (type_equal_unqual(left_type, right_type)) {
+            // TODO apply qualifiers to both types
+            return;
+        }
+
+        node_t** ptr;
+        node_t** other;
+        if (type_is_indirection(left_type)) {
+            ptr = left;
+            other = right;
+        } else {
+            ptr = right;
+            other = left;
+        }
+
+        // If the other side is null or a void pointer, cast it to the pointer type
+        type_t* other_type = (*other)->type;
+        if (node_is_null(*other) || (type_is_indirection(other_type) &&
+                    type_matches_base(other_type->ref, BASE_VOID)))
+        {
+            *other = node_cast(*other, (*ptr)->type, NULL);
+            return;
+        }
+
+        fatal("TODO find compatible ptr type");
+    }
+
     // Both sides are arithmetic
-    // TODO this fails if one side is NULL or 0 and the other is a pointer.
     if (type_is_arithmetic(left_type) != type_is_arithmetic(right_type)) {
         fatal_token(right_token, "Both or neither side of this conditional expression can be an arithmetic type.");
     }
@@ -909,6 +940,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
     }
 
     // Both sides are void
+    // TODO if one side is void should we cast the other to it?
     if (type_matches_base(left_type, BASE_VOID) != type_matches_base(right_type, BASE_VOID)) {
         fatal_token(right_token, "Both or neither side of this conditional expression can be void.");
     }
@@ -916,9 +948,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
         return;
     }
 
-    // TODO pointers must be compatible, or one side must be void* or nullptr.
-    // We don't bother to test any of this yet; we'll just use the left hand
-    // type.
+    fatal_token(left_token, "Incompatible types in conditional expression.");
 }
 
 static node_t* parse_conditional_expression(void) {

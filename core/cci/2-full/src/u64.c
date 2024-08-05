@@ -174,6 +174,16 @@ void llong_mods(u64_t* llong, const u64_t* other) {
     fatal("TODO llong_mods() not yet implemented");
 }
 
+bool llong_eq(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return left->value == right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return __llong_eq(left->words, right->words);
+    #endif
+}
+
 bool llong_ltu(const u64_t* left, const u64_t* right) {
     #ifdef ONRAMP_U64_NATIVE
     return left->value < right->value;

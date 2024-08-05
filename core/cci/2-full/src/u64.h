@@ -82,6 +82,7 @@ void llong_negate(u64_t* llong);
 
 // These functions do not modify the argument.
 uint32_t llong_to_u32(const u64_t* llong);
+bool llong_eq(const u64_t* left, const u64_t* right);
 bool llong_ltu(const u64_t* left, const u64_t* right);
 bool llong_lts(const u64_t* left, const u64_t* right);
 bool llong_bool(const u64_t* llong);

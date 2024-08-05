@@ -966,3 +966,20 @@ void node_eval_64(node_t* node, u64_t* out) {
 
     fatal_token(node->token, "Expected a constant expression.");
 }
+
+bool node_is_null(node_t* node) {
+
+    // skip pointer casts
+    while (node->kind == NODE_CAST && type_is_indirection(node->type))
+        node = node->first_child;
+
+    // TODO implement nullptr or __null or whatever
+    if (node->kind != NODE_NUMBER)
+        return false;
+    if (type_size(node->type) == 8) {
+        u64_t llong;
+        llong_set_u(&llong, 0);
+        return llong_eq(&llong, &node->u64);
+    }
+    return node->u32 == 0;
+}
