@@ -26,27 +26,16 @@
 
 char** environ;
 
-// TODO move this to libc/1, cc needs it
-char* getenv(const char* name) {
-    for (char** p = environ; p; ++p) {
-        char* start = *p;
+char* getenv(const char* key) {
+    size_t keylen = strlen(key);
 
-        // get the end of the key
-        char* end = strchr(start, '=');
-        if (end == NULL) {
-            continue;
+    for (char** p = environ; *p; ++p) {
+        char* item = *p;
+        if (0 == strncmp(item, key, keylen)) {
+            if (item[keylen] == '=') {
+                return item + keylen + 1;
+            }
         }
-
-        // check if it matches
-        if ((size_t)(end - start) != strlen(name)) {
-            continue;
-        }
-        if (0 != memcmp(start, name, end - start)) {
-            continue;
-        }
-
-        // found!
-        return end + 1;
     }
 
     // not found

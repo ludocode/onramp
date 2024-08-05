@@ -39,6 +39,7 @@ OBJS=\
 		$(ROOT)/core/libc/0-oo/src/start.oo \
 		\
 		$(ROOT)/core/libc/0-oo/src/ctype.oo \
+		$(ROOT)/core/libc/0-oo/src/environ.oo \
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
