@@ -40,7 +40,8 @@
  * our libc functions.)
  */
 #ifdef __onramp_cci_full__
-    #define ONRAMP_U64_NATIVE
+    // TOOD temporarily disabled until we implement long long, float and double
+    //#define ONRAMP_U64_NATIVE
 #endif
 #ifndef __onramp__
     #define ONRAMP_U64_NATIVE
