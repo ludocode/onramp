@@ -33,6 +33,7 @@ struct symbol_t;
 struct type_t;
 struct string_t;
 struct token_t;
+struct record_t;
 
 typedef enum namespace_t {
     NAMESPACE_TYPEDEF = 1,
@@ -44,7 +45,7 @@ typedef struct scope_t {
     struct scope_t* parent;
     table_t symbols;
     table_t types; // typedefs, structs, unions, enums
-    vector_t anonymous_records; // TODO get rid of this, refcount records instead
+    vector_t records;
 } scope_t;
 
 void scope_global_init(void);
@@ -96,6 +97,8 @@ static inline scope_t* scope_ref(scope_t* scope) {
 void scope_add_symbol(scope_t* scope, struct symbol_t* symbol);
 
 void scope_add_type(scope_t* scope, namespace_t namespace, struct token_t* name, struct type_t* type);
+
+void scope_add_record(scope_t* scope, struct record_t* record);
 
 /**
  * Removes the given symbol from the given scope, relinquishing ownership of

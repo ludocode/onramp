@@ -28,6 +28,7 @@
 
 #include "libo-error.h"
 #include "libo-vector.h"
+#include "record.h"
 #include "type.h"
 #include "symbol.h"
 #include "token.h"
@@ -62,7 +63,7 @@ static scope_t* scope_new(scope_t* parent) {
     scope->parent = parent;
     table_init(&scope->symbols);
     table_init(&scope->types);
-    vector_init(&scope->anonymous_records);
+    vector_init(&scope->records);
     return scope;
 }
 
@@ -72,11 +73,11 @@ void scope_deref(scope_t* scope) {
         return;
     }
 
-    // free anonymous records
-    for (size_t i = 0; i < vector_count(&scope->anonymous_records); ++i) {
-        type_deref(vector_at(&scope->anonymous_records, i));
+    // free records
+    for (size_t i = 0; i < vector_count(&scope->records); ++i) {
+        record_delete(vector_at(&scope->records, i));
     }
-    vector_destroy(&scope->anonymous_records);
+    vector_destroy(&scope->records);
 
     // free types
     for (table_entry_t** bucket = table_first_bucket(&scope->types);
@@ -182,6 +183,10 @@ void scope_add_type(scope_t* scope, namespace_t namespace, token_t* name, type_t
     element->name = token_ref(name);
     element->namespace = namespace;
     table_put(&scope->types, &element->entry, string_hash(name->value) + (unsigned)namespace * NAMESPACE_HASH_MULTIPLIER);
+}
+
+void scope_add_record(scope_t* scope, struct record_t* record) {
+    vector_append(&scope->records, record);
 }
 
 symbol_t* scope_find_symbol(scope_t* scope, const string_t* name, bool recurse) {

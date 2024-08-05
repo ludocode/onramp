@@ -63,7 +63,6 @@ typedef struct member_t {
  * unions, are stored in a hashtable for quick lookups.
  */
 typedef struct record_t {
-    unsigned refcount;
     bool is_struct;
     bool is_defined;
     struct token_t* tag; // NULL if anonymous
@@ -82,12 +81,10 @@ typedef struct record_t {
  */
 record_t* record_new(struct token_t* tag, bool is_struct);
 
-static inline record_t* record_ref(record_t* record) {
-    ++record->refcount;
-    return record;
-}
-
-void record_deref(record_t* record);
+/**
+ * Deletes the given record.
+ */
+void record_delete(record_t* record);
 
 /**
  * Returns the members of this record.

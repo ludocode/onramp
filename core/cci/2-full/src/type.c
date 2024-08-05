@@ -39,9 +39,7 @@ static type_t* type_clone(type_t* type) {
 
     // If it's a base, ref the record or enum
     if (!clone->is_declarator) {
-        if (clone->base == BASE_RECORD)
-            record_ref(clone->record);
-        else if (clone->base == BASE_ENUM)
+        if (clone->base == BASE_ENUM)
             enum_ref(clone->enum_);
         return clone;
     }
@@ -88,7 +86,7 @@ type_t* type_new_declarator(declarator_t declarator) {
 
 type_t* type_new_record(record_t* record) {
     type_t* type = type_new_base(BASE_RECORD);
-    type->record = record_ref(record);
+    type->record = record;
     return type;
 }
 
@@ -183,9 +181,6 @@ void type_deref(type_t* type) {
         }
     } else {
         switch (type->base) {
-            case BASE_RECORD:
-                record_deref(type->record);
-                break;
             case BASE_ENUM:
                 enum_deref(type->enum_);
                 break;

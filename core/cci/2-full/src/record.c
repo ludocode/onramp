@@ -61,17 +61,13 @@ typedef struct record_element_t {
 
 record_t* record_new(token_t* tag, bool is_struct) {
     record_t* record = calloc(1, sizeof(record_t));
-    record->refcount = 1;
     record->tag = tag ? token_ref(tag) : NULL;
     record->is_struct = is_struct;
     table_init(&record->member_map);
     return record;
 }
 
-void record_deref(record_t* record) {
-    if (--record->refcount != 0)
-        return;
-
+void record_delete(record_t* record) {
     if (record->tag)
         token_deref(record->tag);
 

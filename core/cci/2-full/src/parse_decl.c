@@ -359,6 +359,7 @@ static void parse_record(specifiers_t* specifiers) {
     // create it if it doesn't exist
     if (type == NULL) {
         record_t* record = record_new(tag, is_struct);
+        scope_add_record(scope_current, record);
         type = type_new_record(record);
         if (tag) {
             scope_add_type(scope_current,
@@ -366,7 +367,6 @@ static void parse_record(specifiers_t* specifiers) {
                     tag,
                     type);
         }
-        record_deref(record);
     }
 
     specifiers->type = type;
@@ -875,14 +875,14 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
 
     // parse
     node_append(root, parse_compound_statement(false));
-    scope_pop();
-    scope_pop();
 
     // codegen
     generate_function(function);
     emit_function(function);
 
     // done
+    scope_pop();
+    scope_pop();
     current_function = NULL;
     function_delete(function);
 }
