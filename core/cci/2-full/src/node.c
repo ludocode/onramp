@@ -983,3 +983,12 @@ bool node_is_null(node_t* node) {
     }
     return node->u32 == 0;
 }
+
+node_t* node_decay(node_t* node) {
+    if (!type_is_array(node->type))
+        return node;
+    type_t* type = type_decay(node->type);
+    node = node_cast(node, type, NULL);
+    type_deref(type);
+    return node;
+}

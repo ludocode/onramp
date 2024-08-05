@@ -333,4 +333,12 @@ void node_eval_64(node_t* node, u64_t* out);
  */
 bool node_is_null(node_t* node);
 
+/**
+ * Decays array types to pointers.
+ *
+ * If this is an array, a node that casts it to pointer is returned; otherwise
+ * the node is returned unchanged.
+ */
+node_t* node_decay(node_t* node);
+
 #endif

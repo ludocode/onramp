@@ -883,6 +883,9 @@ static node_t* parse_binary_expression(int min_precedence) {
  * Rules are in the C17 spec, 6.5.15 .
  */
 static void parse_conditional_expression_types(node_t** left, node_t** right) {
+    *left = node_decay(*left);
+    *right = node_decay(*right);
+
     type_t* left_type = (*left)->type;
     type_t* right_type = (*right)->type;
     token_t* left_token = (*right)->token;
@@ -935,6 +938,17 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
     if (type_matches_base(left_type, BASE_RECORD)) {
         if (left_type->record != right_type->record) {
             fatal_token(right_token, "The sides of a conditional expression cannot have different struct or union types.");
+        }
+        return;
+    }
+
+    // Both sides are enums
+    if (type_matches_base(left_type, BASE_ENUM) != type_matches_base(right_type, BASE_ENUM)) {
+        fatal_token(right_token, "Both or neither side of this conditional expression can be an enum type.");
+    }
+    if (type_matches_base(left_type, BASE_ENUM)) {
+        if (left_type->enum_ != right_type->enum_) {
+            fatal_token(right_token, "The sides of a conditional expression cannot have different enum types.");
         }
         return;
     }
