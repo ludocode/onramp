@@ -585,6 +585,11 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
     if (explicit)
         return;
 
+    // Pointers can be used in a boolean context.
+    if (from->is_declarator && type_matches_base(to, BASE_BOOL)) {
+        return;
+    }
+
     if (to->is_declarator != from->is_declarator) {
         // TODO, only a zero can be implicitly converted to a pointer. We don't
         // have a great way to test this so for now we allow all ints.
