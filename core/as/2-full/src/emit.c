@@ -85,7 +85,7 @@ void emit_imw_absolute(uint8_t reg) {
     emit_label(identifier, label_type_invocation_low, label_flags);
 }
 
-static char int_to_hex(int value) {
+static char int_to_hex(unsigned value) {
     if (value <= 9)
         return '0' + value;
     if (value <= 15)

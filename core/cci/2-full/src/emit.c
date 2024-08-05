@@ -147,8 +147,7 @@ static void emit_label_def_str(const string_t* label) {
     emit_newline();
 }
 
-// TODO move to libo
-static char int_to_hex(int value) {
+static char int_to_hex(unsigned value) {
     if (value <= 9) {
         return '0' + value;
     }
@@ -158,11 +157,11 @@ static char int_to_hex(int value) {
     fatal("Internal error: invalid hex value");
 }
 
-static void emit_hex_char(char nibble) {
+static void emit_hex_char(unsigned nibble) {
     emit_char(int_to_hex(nibble));
 }
 
-static void emit_hex_byte(char byte) {
+static void emit_hex_byte(uint8_t byte) {
     emit_hex_char(byte >> 4);
     emit_hex_char(byte & 0xF);
 }

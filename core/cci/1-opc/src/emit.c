@@ -62,7 +62,6 @@ void emit_string(const char* c) {
     fputs(c, output_file);
 }
 
-// TODO move to libo
 static char int_to_hex(int value) {
     if (value <= 9) {
         return '0' + value;
@@ -78,7 +77,7 @@ static void emit_hex_char(char nibble) {
 }
 
 static void emit_hex_byte(char byte) {
-    emit_hex_char(byte >> 4);
+    emit_hex_char((byte >> 4) & 0xF);
     emit_hex_char(byte & 0xF);
 }
 
