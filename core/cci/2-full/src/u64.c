@@ -180,7 +180,8 @@ bool llong_eq(const u64_t* left, const u64_t* right) {
     #endif
 
     #ifndef ONRAMP_U64_NATIVE
-    return __llong_eq(left->words, right->words);
+    return left->words[0] == right->words[0] &&
+            left->words[1] == right->words[1];
     #endif
 }
 
