@@ -839,7 +839,7 @@ static bool try_parse_declarator(type_t** type, token_t** /*nullable*/ out_name)
     return try_parse_direct_declarator(type, out_name);
 }
 
-static void parse_function_definition(type_t* type, token_t* name, string_t* asm_name) {
+static void parse_function_definition(symbol_t* symbol, type_t* type, token_t* name, string_t* asm_name) {
 
     // apply the scope for prototype tags (in case any struct, union or enum
     // were defined in the prototype)
@@ -855,6 +855,7 @@ static void parse_function_definition(type_t* type, token_t* name, string_t* asm
     node_t* root = node_new_token(NODE_FUNCTION, name);
     root->type = type_ref(type->ref); // return value
     function_t* function = function_new(type, name, asm_name, root);
+    function->symbol = symbol;
     current_function = function;
 
     // attach parameters
@@ -893,9 +894,11 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
     // create the symbol
     symbol_t* symbol = symbol_new(symbol_kind_function, type, name, asm_name);
     // TODO handle duplicate/redundant declarations
-    // TODO refcount properly
     scope_add_symbol(scope_current, symbol);
     symbol_deref(symbol);
+
+    symbol->is_extern = specifiers->storage_specifiers == STORAGE_SPECIFIER_EXTERN;
+    symbol->is_static = specifiers->storage_specifiers == STORAGE_SPECIFIER_STATIC;
 
     // check for a function definition
     if (!lexer_is(STR_BRACE_OPEN)) {
@@ -904,7 +907,7 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
         if (!is_file_scope) {
             fatal_token(lexer_token, "Function definitions can only appear at file scope.");
         }
-        parse_function_definition(type, name, asm_name);
+        parse_function_definition(symbol, type, name, asm_name);
     }
 
     string_deref(asm_name);

@@ -34,6 +34,7 @@
 #include "libo-util.h"
 #include "options.h"
 #include "token.h"
+#include "symbol.h"
 
 static FILE* output_file;
 static token_t* current_location;
@@ -269,8 +270,7 @@ static void emit_blocks(function_t* function, block_t* block) {
 }
 
 void emit_function(function_t* function) {
-    // TODO check if static
-    emit_char('=');
+    emit_char(function->symbol->is_static ? '@' : '=');
     emit_string(function->asm_name);
     emit_newline();
 

@@ -163,7 +163,7 @@ symbol_t* symbols_define(const char* bytes, size_t length, int file_index) {
     while (symbol) {
         if (string_equal_bytes(symbol->name, bytes, length)) {
             if (file_index == symbol->file_index || file_index == -1 || symbol->file_index == -1) {
-                fatal("Duplicate symbol");
+                fatal("Duplicate symbol: %s", symbol->name->bytes);
             }
             if (string == NULL) {
                 string = string_ref(symbol->name);
