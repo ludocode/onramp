@@ -38,6 +38,18 @@ Once you have a VM, Onramp bootstraps itself. Read the [full bootstrapping path]
 
 
 
+## _Why bootstrap?_
+
+**Security**: Compiler binaries can contain malware and [backdoors](https://en.wikipedia.org/wiki/Backdoor_(computing)#Compiler_backdoors) that insert viruses into programs they compile. Malicious code in a compiler can even recognize its own source code and propagate itself. Recompiling a compiler with itself therefore does not eliminate the threat. The only compiler that can truly be trusted is one that you've bootstrapped from scratch.
+
+**Preservation**: We have a duty to preserve information and media about our culture, our history, and our world for future generations. We need to make it possible for contemporary codecs and compression algorithms to run on hardware we can't even concieve of. The best way to do that is to [preserve the code](https://archiveprogram.github.com/arctic-vault/), along with the tools to compile it on anything.
+
+**Education**: Bootstrapping demonstrates the entire stack from machine code to a high-level language. Students can observe how every step of the process works, and in the case of Onramp, on a simplified machine with simplified tools and languages.
+
+**Fun**: Modern languages and frameworks have little connection to how hardware really works. Layers of complexity and waste continue to build upon one another, and goals of simplicity and efficiency have been abandoned by the industry. Bootstrapping is a respite from this. Working with the bare metal, writing low-level code, understanding every part of the machine and the toolchain can reignite our passion for software and bring much needed joy back into programming.
+
+
+
 ## Under Construction!
 
 Onramp is not yet complete. It doesn't compile much besides itself at the moment. My immediate goal is to support enough of C to compile Doom for command-line.
