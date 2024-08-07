@@ -342,7 +342,9 @@ void generate_function(function_t* function) {
     // any registers or saved our arguments yet, so if the stack size is too
     // big, it will clobber r0.
     if (frame_size <= 127) {
-        block_append(current_block, root->token, SUB, RSP, RSP, frame_size);
+        if (frame_size != 0) {
+            block_append(current_block, root->token, SUB, RSP, RSP, frame_size);
+        }
     } else {
         block_append(current_block, root->token, IMW, ARGTYPE_NUMBER, R9, frame_size);
         block_append(current_block, root->token, SUB, RSP, RSP, R9);
