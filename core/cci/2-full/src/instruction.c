@@ -111,9 +111,6 @@ void instruction_destroy(instruction_t* instruction) {
 void instruction_vset(instruction_t* instruction, token_t* token,
         opcode_t opcode, va_list args)
 {
-    // preserve the given token only if `-g` was specified
-    if (!option_debug_info)
-        token = NULL;
     if (token)
         token_ref(token);
     if (instruction->token)

@@ -292,9 +292,6 @@ static void emit_source_location_full(token_t* token) {
 }
 
 void emit_source_location(token_t* token) {
-    if (!option_debug_info)
-        return;
-
     if (current_location == NULL) {
         emit_source_location_full(token);
         current_location = token_ref(token);
