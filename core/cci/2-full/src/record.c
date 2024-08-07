@@ -183,14 +183,12 @@ void record_add(record_t* record, token_t* /*nullable*/ token, type_t* type) {
         record_add_anonymous_to_table(record, member, member->offset);
     }
 
-    // update size
-    size_t extent = 0;
-    if (!type_is_flexible_array(type)) {
-        extent = type_size(type);
-        if (extent < record->alignment)
-            extent = record->alignment;
-    }
-    unsigned end = offset + extent;
+    // calculate end of field
+    size_t extent = type_is_flexible_array(type) ? 0 : type_size(type);
+    size_t end = offset + extent;
+
+    // align record size
+    end = (end + record->alignment - 1) & ~(record->alignment - 1);
     if (end > record->size)
         record->size = end;
 }

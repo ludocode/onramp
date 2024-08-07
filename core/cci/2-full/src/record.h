@@ -40,7 +40,7 @@ typedef struct member_t {
     struct member_t* next;
     struct token_t* name; // null if anonymous
     struct type_t* type;
-    unsigned offset;
+    size_t offset;
     unsigned bit_size;
 } member_t;
 
