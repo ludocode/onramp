@@ -124,8 +124,9 @@ void __malloc_init(void) {
 }
 
 void* malloc(size_t usize) {
-    if (usize == 0)
+    if (usize == 0) {
         usize = 1;
+    }
 //puts("--------");
 //fputs("malloc ", stdout);
 //putd(usize);
