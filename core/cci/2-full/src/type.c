@@ -126,13 +126,13 @@ type_t* type_new_function(type_t* return_type, type_t** arg_types,
     // TODO actually instead of copying we should take ownership and realloc() to the correct size
 
     type->args = malloc(sizeof(type_t*) * args_count);
-    if (type->args == NULL) {
+    if (type->args == NULL && args_count > 0) {
         fatal("Out of memory.");
     }
     memcpy(type->args, arg_types, sizeof(type_t*) * args_count);
 
     type->names = malloc(sizeof(token_t*) * args_count);
-    if (type->names == NULL) {
+    if (type->names == NULL && args_count > 0) {
         fatal("Out of memory.");
     }
     memcpy(type->names, arg_names, sizeof(token_t*) * args_count);
