@@ -29,12 +29,17 @@
 :_Lx1 
   add r0 rfp -12 
   mov r1 r0 
-  add r0 rfp 4 
+  add r0 rfp 8 
   stw r0 0 r1 
   imw r0 ^_Sx0 
   add r0 rpp r0 
   push r0 
   add r0 rfp -12 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -43,7 +48,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   ldw r0 rsp 4 
   ldw r1 rsp 0 
@@ -63,6 +68,11 @@
   add r0 rpp r0 
   push r0 
   add r0 rfp -12 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -71,7 +81,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   ldw r0 rsp 4 
   ldw r1 rsp 0 

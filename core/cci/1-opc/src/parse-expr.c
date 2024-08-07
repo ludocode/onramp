@@ -646,20 +646,27 @@ static type_t* parse_builtin_va_arg(void) {
         fatal("Expected a type as the second argument to va_arg().");
     }
 
-    // decrement the list
+    lexer_expect(")", "Expected `)` after the second argument to va_arg().");
+
+    // load the first argument and stash it
+    compile_mov(1, 0);
+    type_t* arg_type = compile_lvalue_to_rvalue(type_clone(list), 0);
+    arg_type = type_decrement_indirection(arg_type);
+    compile_dereference(arg_type, 0);
+    compile_push(0);
+    compile_mov(0, 1);
+
+    // increment the list to the next argument
     compile_push(0);
     compile_mov(1, 0);
     type_t* int_type = compile_immediate_signed_int(1);
     type_t* value_type = compile_binary_op("+", type_clone(list), int_type);
     compile_pop(1);
-    type_delete(compile_assign(type_clone(list), value_type));
+    type_delete(compile_assign(list, value_type));
 
-    // load the value at the list of the given type
-    list = type_decrement_indirection(list);
-    compile_dereference(list, 0);
-
-    lexer_expect(")", "Expected `)` after the second argument to va_arg().");
-    return compile_cast(list, desired_type, 0);
+    // cast the argument to the correct type
+    compile_pop(0);
+    return compile_cast(arg_type, desired_type, 0);
 }
 
 static type_t* parse_builtin_va_start(void) {
@@ -674,21 +681,26 @@ static type_t* parse_builtin_va_start(void) {
     // check that it's a local and that it matches the correct parameter. We
     // don't currently track the name of the last parameter or which locals
     // match which parameters and it's not worth doing just for this.
+    //
+    // TODO in C23 a second argument is no longer required and all arguments
+    // beyond the first are discarded. In this bootstrapping stage we don't
+    // even need to support a second argument.
     compile_inhibit_push();
     type_delete(parse_expression());
     compile_inhibit_pop();
 
-    // Store the address of one below the first variadic argument.
+    lexer_expect(")", "Expected `)` after the second argument to va_start().");
+
+    // Store the address of the first variadic argument.
     int offset = (global_function_param_count(current_function) - 4);
     if (offset < 0) {
         offset = 0;
     }
-    offset = ((offset + 1) << 2);
+    offset = ((offset + 2) << 2); // skip frame pointer and return address
     compile_mov(1, 0);
     compile_frame_offset(false, offset, 0);
     type_delete(compile_assign(list, type_set_lvalue(type_clone(list), false)));
 
-    lexer_expect(")", "Expected `)` after the second argument to va_start().");
     return type_new_base(BASE_VOID);
 }
 

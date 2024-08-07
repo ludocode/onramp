@@ -1,6 +1,11 @@
 @_F_bar 
   stw r0 rfp -4 
   add r0 rfp -4 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -9,7 +14,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 2 
   pop r1 
@@ -21,6 +26,11 @@
   ret 
 :_Lx0 
   add r0 rfp -4 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -29,7 +39,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 3 
   pop r1 
@@ -41,6 +51,11 @@
   ret 
 :_Lx1 
   add r0 rfp -4 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -49,7 +64,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 4 
   pop r1 
@@ -61,6 +76,11 @@
   ret 
 :_Lx2 
   add r0 rfp -4 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -69,7 +89,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 5 
   pop r1 
@@ -106,7 +126,7 @@
 :_Lx4 
   add r0 rfp -8 
   mov r1 r0 
-  add r0 rfp 4 
+  add r0 rfp 8 
   stw r0 0 r1 
   add r0 rfp -12 
   push r0 
@@ -133,6 +153,11 @@
   ret 
 :_Lx5 
   add r0 rfp -8 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -141,7 +166,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 2 
   pop r1 
@@ -153,6 +178,11 @@
   ret 
 :_Lx6 
   add r0 rfp -8 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -161,7 +191,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 3 
   pop r1 
@@ -173,6 +203,11 @@
   ret 
 :_Lx7 
   add r0 rfp -8 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -181,7 +216,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 4 
   pop r1 
@@ -193,6 +228,11 @@
   ret 
 :_Lx8 
   add r0 rfp -8 
+  mov r1 r0 
+  ldw r0 0 r0 
+  ldw r0 0 r0 
+  push r0 
+  mov r0 r1 
   push r0 
   mov r1 r0 
   imw r0 1 
@@ -201,7 +241,7 @@
   add r0 r1 r0 
   pop r1 
   stw r0 0 r1 
-  ldw r0 0 r0 
+  pop r0 
   push r0 
   imw r0 5 
   pop r1 
