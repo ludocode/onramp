@@ -52,8 +52,8 @@ make -C test/ld/2-full build
 ( core/libo/0-oo/build.sh && true ) #TODO libo tests don't exist yet
 ( core/as/0-basic/build.sh && cd test/as/0-basic && ../run.sh . onrampvm ../../../build/intermediate/as-0-basic/as.oe )
 ( core/as/1-compound/build.sh && cd test/as/1-compound && \
-    ../run.sh . onrampvm ../../../build/intermediate/as-1-compound/as.oe && \
-    ../run.sh --other-stage ../0-basic onrampvm ../../../build/intermediate/as-1-compound/as.oe )
+    ../run.sh --other-stage ../0-basic onrampvm ../../../build/intermediate/as-1-compound/as.oe && \
+    ../run.sh               .          onrampvm ../../../build/intermediate/as-1-compound/as.oe )
 
 # Next build our omC compiler
 ( core/cpp/0-strip/build.sh && cd test/cpp/0-strip && ../run.sh . onrampvm ../../../build/intermediate/cpp-0-strip/cpp.oe )
@@ -63,20 +63,20 @@ make -C test/ld/2-full build
 ( core/cpp/1-omc/build.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe )
 ( core/ld/1-omc/build.sh && cd test/ld/1-omc && ../run.sh . onrampvm ../../../build/intermediate/ld-1-omc/ld.oe )
 ( core/libc/1-omc/build.sh && cd test/libc/1-omc && \
-    ../run.sh . ../../../build/intermediate/libc-1-omc/libc.oa \
+    ../run.sh ../0-oo ../../../build/intermediate/libc-1-omc/libc.oa \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include && \
-    ../run.sh ../0-oo ../../../build/intermediate/libc-1-omc/libc.oa \
+    ../run.sh . ../../../build/intermediate/libc-1-omc/libc.oa \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include )
 ( core/cc/build.sh && cd test/cc && ./run.sh . onrampvm ../../../build/intermediate/cc/cc.oe )
 
 # Build the opC toolchain
 ( core/cci/1-opc/build.sh && cd test/cci/1-opc && \
-    ../run.sh . opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe && \
-    ../run.sh --other-stage ../0-omc opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
+    ../run.sh --other-stage ../0-omc opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe && \
+    ../run.sh               .        opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
 ( core/libc/2-opc/build.sh && cd test/libc/1-omc && \
-    ../run.sh . ../../../build/intermediate/libc-2-opc/libc.oa \
+    ../run.sh ../0-oo ../../../build/intermediate/libc-2-opc/libc.oa \
             -I../../../core/libc/2-opc/include \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include && \
@@ -84,7 +84,7 @@ make -C test/ld/2-full build
             -I../../../core/libc/2-opc/include \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include && \
-    ../run.sh ../0-oo ../../../build/intermediate/libc-2-opc/libc.oa \
+    ../run.sh . ../../../build/intermediate/libc-2-opc/libc.oa \
             -I../../../core/libc/2-opc/include \
             -I../../../core/libc/1-omc/include \
             -I../../../core/libc/0-oo/include )
@@ -92,8 +92,10 @@ make -C test/ld/2-full build
 # Build the full C compiler
 ( core/libo/1-opc/build.sh && true ) #TODO libo tests don't exist yet
 ( core/ld/2-full/build.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/intermediate/ld-2-full/ld.oe )
-
-                ( core/cci/2-full/build.sh ) #TODO none of the cci/2 tests pass yet but we still want to build it
+( core/cci/2-full/build.sh && cd test/cci/2-full && \
+    ../run.sh --other-stage ../0-omc full onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
+    ../run.sh --other-stage ../1-opc full onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
+    ../run.sh               .        full onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
 
                 #
                 #
@@ -102,27 +104,23 @@ make -C test/ld/2-full build
                 #
                 #
 
-( core/cci/2-full/build.sh && cd test/cci/2-full && \
-    ../run.sh . onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
-    ../run.sh --other-stage ../1-opc onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
-    ../run.sh --other-stage ../0-omc onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
 ( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 
 # Build the rest of the C toolchain
 core/libc/3-full/build.sh
 ( core/as/2-full/build.sh && cd test/as/2-full && \
-    ../run.sh . onrampvm ../../../build/intermediate/as-2-full/as.oe && \
+    ../run.sh --other-stage ../0-basic    onrampvm ../../../build/intermediate/as-2-full/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/intermediate/as-2-full/as.oe && \
-    ../run.sh --other-stage ../0-basic onrampvm ../../../build/intermediate/as-2-full/as.oe )
+    ../run.sh               .             onrampvm ../../../build/intermediate/as-2-full/as.oe )
 
 # Rebuild our C toolchain with itself
 ( core/cc/rebuild.sh && cd test/cc && ../run.sh . onrampvm ../../../build/output/bin/cc.oe )
 ( core/libc/3-full/rebuild.sh && true ) # TODO test libc
 ( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
 ( core/as/2-full/rebuild.sh && cd test/as/2-full && \
-    ../run.sh . onrampvm ../../../build/output/bin/as.oe && \
+    ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/output/bin/as.oe && \
-    ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe )
+    ../run.sh . onrampvm ../../../build/output/bin/as.oe )
 ( core/cci/2-full/rebuild.sh && cd test/cci/2-full && ../run.sh . onrampvm ../../../build/output/bin/cci.oe )
 ( core/cpp/2-full/rebuild.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
 
