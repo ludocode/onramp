@@ -776,40 +776,47 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
             }
             break;
 
-        case NODE_SUB:
+        case NODE_SUB: {
             // Subtraction allows two pointers to be subtracted, resulting in
             // ptrdiff_t; or it allows an arithmetic type to be subtracted from
             // a pointer, which moves the pointer; or it allows subtraction of
             // two arithmetic types.
 
+            type_t* left_type = type_decay(left->type);
+            type_t* right_type = type_decay(right->type);
+
             // Both pointers
-            if (type_is_indirection(right->type)) {
-                if (!type_is_indirection(left->type))
+            if (type_is_indirection(right_type)) {
+                if (!type_is_indirection(left_type))
                     fatal_token(op->token, "Cannot subtract a pointer from a non-pointer.");
-                if (!type_equal(left->type, right->type)) // TODO should only require types compatible
+                if (!type_compatible_unqual(left_type, right_type))
                     fatal_token(op->token, "Cannot subtract two pointers of incompatible types.");
                 op->type = type_new_base(BASE_SIGNED_INT);
 
             // Left side pointer
-            } else if (type_is_indirection(left->type)) {
-                if (!type_is_arithmetic(right->type))
+            } else if (type_is_indirection(left_type)) {
+                if (!type_is_arithmetic(right_type))
                     fatal_token(op->token, "Subtracting from a pointer requires a pointer of compatible type or an arithmetic type.");
                 type_t* target = type_new_base(BASE_UNSIGNED_INT);
                 right = node_cast(node_promote(right), target, NULL);
                 type_deref(target);
-                op->type = type_decay(left->type);
+                op->type = type_decay(left_type);
 
             // Neither side pointer
             } else {
-                if (!type_is_arithmetic(left->type))
+                if (!type_is_arithmetic(left_type))
                     fatal_token(op->token, "The left side of binary subtraction must be a pointer or an arithmetic type.");
-                if (!type_is_arithmetic(right->type))
+                if (!type_is_arithmetic(right_type))
                     fatal_token(op->token, "The right side of binary subtraction must be a pointer or an arithmetic type.");
 
                 parse_usual_arithmetic_conversions(&left, &right);
-                op->type = type_ref(left->type);
+                op->type = type_ref(left_type);
             }
+
+            type_deref(right_type);
+            type_deref(left_type);
             break;
+        }
 
         case NODE_EQUAL:
         case NODE_NOT_EQUAL:

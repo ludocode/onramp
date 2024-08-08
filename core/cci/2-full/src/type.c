@@ -562,14 +562,54 @@ bool type_is_signed_integer(type_t* type) {
     return false;
 }
 
-bool type_equal(type_t* left, type_t* right) {
-    if (left->is_const != right->is_const ||
-            left->is_volatile != right->is_volatile)
+bool type_quals_match(type_t* left, type_t* right) {
+    if (left->is_const != right->is_const)
+        return false;
+    if (left->is_volatile != right->is_volatile)
         return false;
     if (left->is_declarator && right->is_declarator &&
             left->is_restrict != right->is_restrict)
         return false;
-    return type_equal_unqual(left, right);
+    return true;
+}
+
+bool type_equal(type_t* left, type_t* right) {
+    return type_quals_match(left, right) && type_equal_unqual(left, right);
+}
+
+bool type_compatible(type_t* left, type_t* right) {
+    return type_quals_match(left, right) && type_compatible_unqual(left, right);
+}
+
+// checks if the declarators match (not counting qualifiers.)
+static bool type_declarator_equal(type_t* left, type_t* right) {
+    assert(left->is_declarator);
+    assert(right->is_declarator);
+    if (left->declarator != right->declarator)
+        return false;
+
+    switch (left->declarator) {
+        case DECLARATOR_POINTER:
+            if (left->is_restrict != right->is_restrict)
+                return false;
+            break;
+        case DECLARATOR_ARRAY:
+            if (left->count != right->count)
+                return false;
+            break;
+        case DECLARATOR_FUNCTION:
+            if (left->is_variadic != right->is_variadic ||
+                    left->count != right->count)
+                return false;
+            for (uint32_t i = 0; i < left->count; ++i)
+                if (!type_equal(left->args[i], right->args[i]))
+                    return false;
+            break;
+        default:
+            break;
+    }
+
+    return true;
 }
 
 bool type_equal_unqual(type_t* left, type_t* right) {
@@ -578,31 +618,8 @@ bool type_equal_unqual(type_t* left, type_t* right) {
     if (left->is_declarator != right->is_declarator)
         return false;
     if (left->is_declarator) {
-        if (left->declarator != right->declarator)
-            return false;
-
-        switch (left->declarator) {
-            case DECLARATOR_POINTER:
-                if (left->is_restrict != right->is_restrict)
-                    return false;
-                break;
-            case DECLARATOR_ARRAY:
-                if (left->count != right->count)
-                    return false;
-                break;
-            case DECLARATOR_FUNCTION:
-                if (left->is_variadic != right->is_variadic ||
-                        left->count != right->count)
-                    return false;
-                for (uint32_t i = 0; i < left->count; ++i)
-                    if (!type_equal(left->args[i], right->args[i]))
-                        return false;
-                break;
-            default:
-                break;
-        }
-
-        return type_equal(left->ref, right->ref);
+        return type_declarator_equal(left, right) &&
+            type_equal(left->ref, right->ref);
     }
 
     // bases
@@ -624,10 +641,45 @@ bool type_equal_unqual(type_t* left, type_t* right) {
     return true;
 }
 
-bool type_compatible(type_t* left, type_t* right) {
-    // Need to implement type compatibility
-    fatal("TODO type_compatible()");
-    // start from C17 6.7.6.1.2, go from there
+bool type_compatible_unqual(type_t* left, type_t* right) {
+
+    // declarators
+    if (left->is_declarator != right->is_declarator)
+        return false;
+    if (left->is_declarator) {
+        if (!type_declarator_equal(left, right))
+            return false;
+
+        // void* is compatible with any other pointer type.
+        if (type_matches_base(left->ref, BASE_VOID))
+            return true;
+        if (type_matches_base(right->ref, BASE_VOID))
+            return true;
+
+        return type_compatible(left->ref, right->ref);
+    }
+
+    // bases
+
+    // enums are compatible with an implementation-defined integer type; in our
+    // case, this is int.
+    if (left->base == BASE_ENUM) {
+        if (right->base == BASE_ENUM)
+            return left->enum_ == right->enum_; // enums must match
+        return type_matches_base(right, BASE_SIGNED_INT);
+    }
+    if (right->base == BASE_ENUM) {
+        return type_matches_base(left, BASE_SIGNED_INT);
+    }
+
+    // otherwise, the bases must match
+    if (left->base != right->base)
+        return false;
+
+    // and if it's a record, the records must match.
+    if (left->base == BASE_RECORD && left->record != right->record)
+        return false;
+    return true;
 }
 
 bool type_is_callable(type_t* type) {

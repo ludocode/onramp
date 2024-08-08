@@ -238,6 +238,16 @@ bool type_equal_unqual(type_t* left, type_t* right);
 bool type_compatible(type_t* left, type_t* right);
 
 /**
+ * Returns true if the given types are compatible, ignoring qualifiers.
+ */
+bool type_compatible_unqual(type_t* left, type_t* right);
+
+/**
+ * Returns true if the given types have the same qualifiers.
+ */
+bool type_quals_match(type_t* left, type_t* right);
+
+/**
  * Returns true if the given type is callable (i.e. it is a function or a
  * function pointer.
  */
