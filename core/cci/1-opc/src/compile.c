@@ -452,12 +452,8 @@ type_t* compile_assign(type_t* left, type_t* right) {
  * Calculates the arithmetic factor of the given type and emits it for the given
  * register.
  *
- * Pointers of word size (e.g. `int*`) have an arithmetic factor of four, which
- * means the other operand in an addition or multiplication must be multiplied
- * by four.
- *
- * For pointers this is essentially the sizeof() of the pointed-to type. We
- * handle a few extra special cases here.
+ * For pointers we multiply or divide by the size of the pointed-to type (using
+ * shifts if possible for efficiency.)
  */
 static void compile_arithmetic_factor(const type_t* type, int register_num, bool multiply) {
 
@@ -479,38 +475,66 @@ static void compile_arithmetic_factor(const type_t* type, int register_num, bool
         fatal("Cannot perform arithmetic on value of `void*` type.");
     }
 
-    // char* has a factor of 1.
-    if (type_is_base(deref, BASE_SIGNED_CHAR) |
-            type_is_base(deref, BASE_UNSIGNED_CHAR))
-    {
-        type_delete(deref);
+    size_t size = type_size(deref);
+    type_delete(deref);
+    if (size == 1) {
         return;
     }
 
-    // Otherwise it's a pointer to something other than char (i.e. it could be
-    // int*, char**, short*, etc.) The arithmetic factor is 2 for short* and 4
-    // for everything else. We use shifts instead of multiply/divide.
-
-    // short* has a shift size of 1; all other types have a shift size of 2.
-    const char* shift_term = "2";
-    if (type_is_base(deref, BASE_SIGNED_SHORT)) {
+    // Calculate the shift for the given size. (We just hardcode a few
+    // possibilities.)
+    const char* shift_term = 0;
+    if (size == 2) {
         shift_term = "1";
     }
-    if (type_is_base(deref, BASE_UNSIGNED_SHORT)) {
-        shift_term = "1";
+    if (size == 4) {
+        shift_term = "2";
     }
-    type_delete(deref);
+    if (size == 8) {
+        shift_term = "3";
+    }
+    if (size == 16) {
+        shift_term = "4";
+    }
 
-    // If we're multiplying, emit shl; if we're diving, emit shrs.
+    // If we have a recognized size, use shifts. If we're multiplying, emit
+    // shl; if we're diving, emit shrs.
+    if (shift_term) {
+        if (multiply) {
+            emit_term("shl");
+        }
+        if (!multiply) {
+            emit_term("shrs");
+        }
+        emit_register(register_num);
+        emit_register(register_num);
+        emit_term(shift_term);
+        emit_newline();
+        return;
+    }
+
+    // We don't recognize the size. Emit mul/divs instead.
+    // If the size is too big, we need to use an ancillary register.
+    if (size > 127) {
+        emit_term("imw");
+        emit_term("r9");
+        emit_int(size);
+        emit_newline();
+    }
     if (multiply) {
-        emit_term("shl");
+        emit_term("mul");
     }
     if (!multiply) {
-        emit_term("shrs");
+        emit_term("divs");
     }
     emit_register(register_num);
     emit_register(register_num);
-    emit_term(shift_term);
+    if (size > 127) {
+        emit_term("r9");
+    }
+    if (size <= 127) {
+        emit_int(size);
+    }
     emit_newline();
 }
 
