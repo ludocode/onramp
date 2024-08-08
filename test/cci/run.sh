@@ -34,6 +34,8 @@
 # given status code. Otherwise, the program must return with status 0
 # (success.)
 #
+# - If a corresponding .skip file exists, the test is skipped.
+#
 # Pass --other-stage as the first argument to run tests with a different stage
 # than the one for which the tests were intended. The assembly output will not
 # be compared and any tests with a .nonstd file will be skipped.
@@ -94,6 +96,7 @@ elif [ "$COMPILER_ID" = "full" ]; then
     MACROS="$MACROS -I$ROOT/core/libc/2-opc/include"   # TODO also 3-full
 else
     echo "ERROR: Unknown compiler: $COMPILER_ID"
+    exit 1
 fi
 MACROS="$MACROS -I$ROOT/core/libc/1-omc/include -I$ROOT/core/libc/0-oo/include"
 MACROS="$MACROS -D__onramp__=1 -D__onramp_cci__=1"
@@ -129,7 +132,7 @@ for TESTFILE in $FILES; do
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\..$//')
 
-    if [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ]; then
+    if [ -e $BASENAME.skip ] || ( [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ] ); then
         echo "Skipping $BASENAME"
         continue
     fi
