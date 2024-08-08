@@ -97,7 +97,7 @@ sh core/cci/2-full/build.sh
         mkdir -p build/output/bin
         cp build/intermediate/cc/cc.oe build/output/bin/cc.oe
         cp build/intermediate/cpp-1-omc/cpp.oe build/output/bin/cpp.oe
-        cp build/intermediate/cci-1-opc/cci.oe build/output/bin/cci.oe
+        cp build/intermediate/cci-2-full/cci.oe build/output/bin/cci.oe
         cp build/intermediate/as-1-compound/as.oe build/output/bin/as.oe
         cp build/intermediate/ld-2-full/ld.oe build/output/bin/ld.oe
         cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe

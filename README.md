@@ -78,7 +78,7 @@ I welcome bug reports but I am not currently accepting contributions. Feel free 
 
 ## Quick Start
 
-WARNING: The final stage compiler and preprocessor are incomplete and not enabled in the bootstrap process. There is no support for function pointers, initializer lists, function-like macros, `#if`, `float`, `long long`, and much more. The compiler is not yet ready for real world use.
+WARNING: The final stage compiler and preprocessor are incomplete. There is no support for function pointers, initializer lists, function-like macros, `#if`, `float`, `long long`, and much more. The compiler is not yet ready for real world use.
 
 On POSIX systems, run the build script and put the results on your PATH.
 

@@ -663,9 +663,7 @@ static void check_options(void) {
     if (!nostddef) {
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp__=1");
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci__=1");
-        // TODO cci/2 is not implemented yet
-        //string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci_full__=1");
-        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci_opc__=1");
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci_full__=1");
     }
 
     if (dump_macros & (mode != MODE_PREPROCESS)) {
