@@ -38,7 +38,6 @@
 #include "types.h"
 
 // function generation
-int function_frame_size;
 bool inside_function;
 global_t* current_function;
 
@@ -798,6 +797,7 @@ bool try_parse_local_declaration(void) {
 
 // Parses a function declaration (and definition, if provided.)
 static void parse_function_declaration(type_t* return_type, char* name, storage_t storage) {
+    locals_reset_frame_size();
     inside_function = true;
     bool is_variadic = false;
     int arg_count = 0;
@@ -866,10 +866,9 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
     if (!lexer_accept(";")) {
 
         // compile the function
-        function_frame_size = 0;
         compile_function_open(global);
         parse_block();
-        compile_function_close(global, function_frame_size, storage);
+        compile_function_close(global, storage);
 
         // output any strings that were used in the function
         output_string_literals();

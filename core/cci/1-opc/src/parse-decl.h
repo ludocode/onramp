@@ -30,7 +30,6 @@
 void parse_decl_init(void);
 void parse_decl_destroy(void);
 
-extern int function_frame_size;
 extern bool inside_function;
 extern global_t* current_function;
 

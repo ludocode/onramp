@@ -51,5 +51,12 @@ int main(void) {
     for (x = 0; x < 5; ++x)
         continue;
 
+    // for loop without braces should work normally
+    x = 8;
+    for (int i = 0; i < 2; ++i)
+        x -= 4;
+    if (x != 0)
+        return 7;
+
     return 0;
 }

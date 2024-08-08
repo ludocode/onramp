@@ -56,10 +56,17 @@ void locals_pop(int previous_locals_count);
 bool locals_find(const char* name, const type_t** type, int* offset);
 
 /**
- * Returns the total size of all local variables currently defined, i.e. the
- * necessary stack frame size to store them.
+ * The size of the stack frame for the current function.
+ *
+ * This is the maximum extent of all local variables that were defined since
+ * the last call to locals_reset_frame_size().
  */
-int locals_frame_size(void);
+extern int locals_frame_size;
+
+/**
+ * Resets the frame size (to start a new function.)
+ */
+void locals_reset_frame_size(void);
 
 /**
  * Prints all variables.

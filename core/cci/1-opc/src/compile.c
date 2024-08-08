@@ -141,7 +141,7 @@ void compile_function_open(const global_t* global) {
     }
 }
 
-void compile_function_close(const global_t* global, int frame_size, storage_t storage) {
+void compile_function_close(const global_t* global, storage_t storage) {
     const char* name = global_name(global);
 
     // add a return to the function in case it didn't return on its own
@@ -168,21 +168,21 @@ void compile_function_close(const global_t* global, int frame_size, storage_t st
     // set up the stack frame (now that we know its size)
     //locals_pop(locals_count - arg_count);
     //printf("closing function, %i vars left, %i max, %i vars in function\n", locals_count, compile_function_max_locals_count, compile_function_max_locals_count - locals_count);
-    if (frame_size > 0) {
-        if (frame_size < 0x80) {
+    if (locals_frame_size > 0) {
+        if (locals_frame_size < 0x80) {
             // the frame size fits in a mix-type byte
             emit_term("sub");
             emit_term("rsp");
             emit_term("rsp");
-            emit_int(frame_size);
+            emit_int(locals_frame_size);
             emit_newline();
         }
     }
-    if (frame_size >= 0x80) {
+    if (locals_frame_size >= 0x80) {
         // the frame size needs to go in a temporary register
         emit_term("imw");
         emit_term("r9");
-        emit_int(frame_size);
+        emit_int(locals_frame_size);
         emit_newline();
         emit_term("sub");
         emit_term("rsp");

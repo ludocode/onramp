@@ -37,6 +37,8 @@ static int* locals_offsets;
 int locals_count;
 int locals_global_count;
 
+int locals_frame_size;
+
 #define LOCALS_MAX 128
 
 void locals_init(void) {
@@ -72,6 +74,13 @@ int locals_add(char* name, type_t* type) {
     *(locals_offsets + locals_count) = offset;
 
     locals_count = (locals_count + 1);
+
+    // Keep track of the maximum offset, since this determines the size of the
+    // stack frame
+    if (locals_frame_size < -offset) {
+        locals_frame_size = -offset;
+    }
+
     return offset;
 }
 
@@ -105,15 +114,8 @@ bool locals_find(const char* name, const type_t** type, int* offset) {
     return false;
 }
 
-int locals_frame_size(void) {
-    if (locals_count == 0) {
-        return 0;
-    }
-
-    // The frame size is the offset of the last local rounded down to a
-    // multiple of the word size. (We don't bother rounding now because the
-    // size of all locals is already rounded up to the word size.)
-    return -(*(locals_offsets + (locals_count - 1)) /*& ~3*/);
+void locals_reset_frame_size(void) {
+    locals_frame_size = 0;
 }
 
 void dump_variables(void) {

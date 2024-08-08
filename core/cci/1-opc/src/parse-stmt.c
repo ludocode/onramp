@@ -483,13 +483,6 @@ static bool try_parse_block(void) {
         parse_statement(true);
     }
 
-    // track the maximum extent of the function's stack frame
-    int frame_size;
-    frame_size = locals_frame_size();
-    if (function_frame_size < frame_size) {
-        function_frame_size = frame_size;
-    }
-
     locals_pop(previous_locals_count);
 
     return true;

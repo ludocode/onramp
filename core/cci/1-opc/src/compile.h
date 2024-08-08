@@ -57,7 +57,7 @@ void compile_function_open(const global_t* global);
 /**
  * Compiles the epilogue of the current function with the given name.
  */
-void compile_function_close(const global_t* global, int frame_size, storage_t storage);
+void compile_function_close(const global_t* global, storage_t storage);
 
 /**
  * Compiles a jump to a label with a generated name.
