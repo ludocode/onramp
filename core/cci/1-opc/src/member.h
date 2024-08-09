@@ -22,48 +22,48 @@
  * SOFTWARE.
  */
 
-#ifndef FIELD_H_INCLUDED
-#define FIELD_H_INCLUDED
+#ifndef MEMBER_H_INCLUDED
+#define MEMBER_H_INCLUDED
 
 #include "common.h"
 
 /**
- * A field is a member of a record (a struct or union.)
+ * A member of a record (a struct or union.)
  *
- * Fields are stored in an intrusive singly-linked list and are owned by their
+ * Members are stored in an intrusive singly-linked list and are owned by their
  * containing record.
  *
- * Fields are immutable.
+ * Members are immutable.
  */
 
 /**
- * Creates a new field.
+ * Creates a new member.
  *
- * The field takes ownership of the given type and name.
+ * The member takes ownership of the given type and name.
  */
-field_t* field_new(char* name, type_t* type, size_t offset, field_t* next);
+member_t* member_new(char* name, type_t* type, size_t offset, member_t* next);
 
-void field_delete(field_t* field);
+void member_delete(member_t* member);
 
-const char* field_name(const field_t* field);
+const char* member_name(const member_t* member);
 
-type_t* field_type(const field_t* field);
+type_t* member_type(const member_t* member);
 
-field_t* field_next(const field_t* field);
+member_t* member_next(const member_t* member);
 
 /**
- * Returns the size (as in sizeof) of this field.
+ * Returns the size (as in sizeof) of this member.
  */
-size_t field_size(const field_t* field);
+size_t member_size(const member_t* member);
 
 /**
- * Returns the offset of this field from the start of its containing record.
+ * Returns the offset of this member from the start of its containing record.
  */
-size_t field_offset(const field_t* field);
+size_t member_offset(const member_t* member);
 
 /**
- * Returns the end offset of this field, i.e. its offset plus its size.
+ * Returns the end offset of this member, i.e. its offset plus its size.
  */
-size_t field_end(const field_t* field);
+size_t member_end(const member_t* member);
 
 #endif

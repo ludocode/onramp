@@ -48,11 +48,11 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/1-opc/src/emit.c \
     -o build/intermediate/cci-1-opc/emit.oo
 
-echo Compiling cci/1-opc field.c
+echo Compiling cci/1-opc member.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/1-opc/build-ccargs \
-    -c core/cci/1-opc/src/field.c \
-    -o build/intermediate/cci-1-opc/field.oo
+    -c core/cci/1-opc/src/member.c \
+    -o build/intermediate/cci-1-opc/member.oo
 
 echo Compiling cci/1-opc global.c
 onrampvm build/intermediate/cc/cc.oe \
@@ -121,7 +121,7 @@ onrampvm build/intermediate/ld-1-omc/ld.oe \
     build/intermediate/cci-1-opc/common.oo \
     build/intermediate/cci-1-opc/compile.oo \
     build/intermediate/cci-1-opc/emit.oo \
-    build/intermediate/cci-1-opc/field.oo \
+    build/intermediate/cci-1-opc/member.oo \
     build/intermediate/cci-1-opc/global.oo \
     build/intermediate/cci-1-opc/lexer.oo \
     build/intermediate/cci-1-opc/locals.oo \

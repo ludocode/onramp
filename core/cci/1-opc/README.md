@@ -24,13 +24,13 @@ Types are therefore not represented as a recursive data structure (e.g. a linked
 - an indirection (pointer) count; and
 - an optional array size.
 
-A qualified base type means either a basic type or a record type. A basic type is a fundamental type with an optional signedness qualifier: `int`, `unsigned short`, `void`, etc. A record is a struct or union type: it stores the names, types and offsets of the contained fields. (An enum is just an alias of `int`; see below.)
+A qualified base type means either a basic type or a record type. A basic type is a fundamental type with an optional signedness qualifier: `int`, `unsigned short`, `void`, etc. A record is a struct or union type: it stores the names, types and offsets of the contained members. (An enum is just an alias of `int`; see below.)
 
-These fields are wrapped in a type called `type_t` which is allocated and passed by pointer (see "emulated structs" below.) Expression parsing functions that generate a type (functions whose name starts with `parse` or `try_parse`) typically return ownership of one so the caller must free it or pass it along. Most other functions either return a type while retaining ownership of it (such as variable lookup) or modify a given type (such as `compile_dereference_if_lvalue()`.)
+These members are wrapped in a type called `type_t` which is allocated and passed by pointer (see "emulated structs" below.) Expression parsing functions that generate a type (functions whose name starts with `parse` or `try_parse`) typically return ownership of one so the caller must free it or pass it along. Most other functions either return a type while retaining ownership of it (such as variable lookup) or modify a given type (such as `compile_dereference_if_lvalue()`.)
 
 Generally speaking, if a function takes a non-const type as an argument, it takes ownership of it, and if a function returns a non-const type, it is returning ownership of it. Functions that modify a given type return it again in order to stick to this rule.
 
-The record pointer points to an immutable type called `record_t`. This contains a linked list of immutable `field_t`, each of which describes the name, type and offset of the fields in the struct. Records and fields are owned by the record table and exist for the lifetime of the compiler.
+The record pointer points to an immutable type called `record_t`. This contains a linked list of immutable `member_t`, each of which describes the name, type and offset of the members in the struct. Records and members are owned by the record table and exist for the lifetime of the compiler.
 
 
 
@@ -88,7 +88,7 @@ int person_age(person_t* person) {
 }
 ```
 
-This way we can create a `person_t` and access its fields using functions. We can write somewhat natural-looking, though a bit object-oriented, code:
+This way we can create a `person_t` and access its members using functions. We can write somewhat natural-looking, though a bit object-oriented, code:
 
 ```c
 person_t* person = person_new("John Doe", 25);

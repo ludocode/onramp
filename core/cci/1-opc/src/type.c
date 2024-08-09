@@ -93,7 +93,7 @@ static bool base_is_signed(base_t base) {
  *     bool is_lvalue;
  * } type_t;
  *
- * We make each field a void* for simplicity.
+ * We make each member a void* for simplicity.
  */
 
 #define TYPE_OFFSET_BASE 0
@@ -101,14 +101,14 @@ static bool base_is_signed(base_t base) {
 #define TYPE_OFFSET_POINTERS 2
 #define TYPE_OFFSET_ARRAY_LENGTH 3
 #define TYPE_OFFSET_IS_LVALUE 4
-#define TYPE_FIELD_COUNT 5
+#define TYPE_MEMBER_COUNT 5
 
 void type_delete(type_t* type) {
     free(type);
 }
 
 static type_t* type_new(void) {
-    type_t* type = calloc(TYPE_FIELD_COUNT, sizeof(void*));
+    type_t* type = calloc(TYPE_MEMBER_COUNT, sizeof(void*));
     if (!type) {
         fatal("Out of memory.");
     }
@@ -130,7 +130,7 @@ type_t* type_new_record(const record_t* record) {
 }
 
 type_t* type_clone(const type_t* other) {
-    type_t* type = memdup(other, TYPE_FIELD_COUNT * sizeof(void*));
+    type_t* type = memdup(other, TYPE_MEMBER_COUNT * sizeof(void*));
     if (!type) {
         fatal("Out of memory.");
     }
@@ -224,7 +224,7 @@ size_t type_alignment(const type_t* type) {
     size_t size = type_element_size(type);
     if (size > 4) {
         // TODO this isn't really correct, for records we need the largest
-        // alignment among its fields. Doesn't matter right now, currently all
+        // alignment among its members. Doesn't matter right now, currently all
         // records are padded to a multiple of words.
         return 4;
     }

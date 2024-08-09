@@ -30,8 +30,8 @@
 /**
  * A record is a struct or union type in C.
  *
- * A record is created when a struct or union is first declared. Its fields are
- * initially empty. When the struct or union is later defined, the fields are
+ * A record is created when a struct or union is first declared. Its members are
+ * initially empty. When the struct or union is later defined, the members are
  * parsed and assigned to the record.
  *
  * Records are owned by the scope in which they were declared. They are
@@ -53,19 +53,19 @@ void record_delete(record_t* record);
 const char* record_name(const record_t* record);
 
 /**
- * Returns the fields of this record.
+ * Returns the members of this record.
  *
  * If the record has not been defined yet (i.e. it has only been
  * forward-declared), this returns NULL.
  */
-field_t* record_fields(const record_t* record);
+member_t* record_members(const record_t* record);
 
 /**
- * Sets the fields of the given record.
+ * Sets the members of the given record.
  *
- * The record takes ownership and frees the fields when done.
+ * The record takes ownership and frees the members when done.
  */
-void record_set_fields(record_t* record, field_t* fields, bool is_struct);
+void record_set_members(record_t* record, member_t* members, bool is_struct);
 
 /**
  * Returns the size (as in sizeof) of this record.
@@ -78,17 +78,17 @@ size_t record_size(const record_t* record);
 bool record_is_struct(const record_t* record);
 
 /**
- * Finds the field and offset with the given name, returning NULL if the field
+ * Finds the member and offset with the given name, returning NULL if the member
  * does not exist.
  *
  * NOTE: The returned offset is not necessarily the same as the offset stored
- * in the field because the field may be nested in an anonymous struct or
+ * in the member because the member may be nested in an anonymous struct or
  * union. The returned offset is the offset from the start of *this* record,
- * whereas field_offset() returns the offset relative to its direct parent.
+ * whereas member_offset() returns the offset relative to its direct parent.
  *
  * If the record is incomplete, a fatal error is raised.
  */
-const field_t* record_find_field(const record_t* record, const char* name,
+const member_t* record_find_member(const record_t* record, const char* name,
         size_t* out_offset);
 
 #endif

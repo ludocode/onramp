@@ -35,7 +35,7 @@
 #include "lexer.h"
 #include "emit.h"  // TODO remove all emit calls in this code
 #include "record.h"
-#include "field.h"
+#include "member.h"
 
 static type_t* parse_unary_expression(void);
 static type_t* parse_identifier_expression(void);
@@ -777,22 +777,22 @@ static type_t* parse_identifier_expression(void) {
 
 static type_t* parse_record_access(type_t* type) {
     size_t offset;
-    const field_t* field = record_find_field(type_record(type), lexer_token, &offset);
-    if (field == NULL) {
-        fatal_2("Struct or union has no such field: ", lexer_token);
+    const member_t* member = record_find_member(type_record(type), lexer_token, &offset);
+    if (member == NULL) {
+        fatal_2("Struct or union has no such member: ", lexer_token);
     }
     lexer_consume();
     compile_offset(offset);
 
     type_delete(type);
-    type = type_clone(field_type(field));
+    type = type_clone(member_type(member));
     type_set_lvalue(type, true);
     return type;
 }
 
 static type_t* parse_record_value_access(type_t* type) {
     if (lexer_type != lexer_type_alphanumeric) {
-        fatal("Expected a struct or union field name after `.`");
+        fatal("Expected a struct or union member name after `.`");
     }
     if ((!type_is_lvalue(type) | (type_indirections(type) != 0)) | (type_base(type) != BASE_RECORD)) {
         fatal("`.` can only be used on a struct or union value.");
@@ -802,7 +802,7 @@ static type_t* parse_record_value_access(type_t* type) {
 
 static type_t* parse_record_pointer_access(type_t* type) {
     if (lexer_type != lexer_type_alphanumeric) {
-        fatal("Expected a struct or union field name after `.`");
+        fatal("Expected a struct or union member name after `.`");
     }
     // Note: We just check that indirections is 1, which means `->` works on an
     // array of structs. Apparently this is normal as neither GCC and Clang

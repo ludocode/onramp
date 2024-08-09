@@ -49,7 +49,7 @@
 #define GLOBAL_VARIADIC_OFFSET 2
 #define GLOBAL_PARAMS_COUNT_OFFSET 3
 #define GLOBAL_PARAM_TYPES_OFFSET 4
-#define GLOBAL_FIELDS 4  // not including param_types
+#define GLOBAL_MEMBERS 4  // not including param_types
 
 static global_t** globals;
 static size_t globals_count;
@@ -173,7 +173,7 @@ global_t* global_add(global_t* global) {
 }
 
 global_t* global_new_variable(type_t* type, char* name) {
-    global_t* global = malloc(sizeof(void*) * GLOBAL_FIELDS);
+    global_t* global = malloc(sizeof(void*) * GLOBAL_MEMBERS);
     *(char**)((void**)global + GLOBAL_NAME_OFFSET) = name;
     *(type_t**)((void**)global + GLOBAL_TYPE_OFFSET) = type;
     *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET) = false; // should never be accessed
@@ -184,7 +184,7 @@ global_t* global_new_variable(type_t* type, char* name) {
 global_t* global_new_function(type_t* return_type, char* name,
         int param_count, type_t** param_types)
 {
-    global_t* global = malloc(sizeof(void*) * (GLOBAL_FIELDS + param_count));
+    global_t* global = malloc(sizeof(void*) * (GLOBAL_MEMBERS + param_count));
     *(char**)((void**)global + GLOBAL_NAME_OFFSET) = name;
     *(type_t**)((void**)global + GLOBAL_TYPE_OFFSET) = return_type;
     *(bool*)((void**)global + GLOBAL_VARIADIC_OFFSET) = false;

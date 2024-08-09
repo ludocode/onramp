@@ -40,7 +40,7 @@
 // We don't have structs so we can't forward-declare them. We have to put
 // these typedefs here instead.
 #ifdef __onramp_cci_omc__
-    typedef void field_t;
+    typedef void member_t;
     typedef void global_t;
     typedef void record_t;
     typedef void type_t;
@@ -49,7 +49,7 @@
     // When compiling with a better compiler than cci/0, we use incomplete
     // structs to ensure that pointers to these are never dereferenced and are
     // not implicitly convertible with each other or anything else.
-    typedef struct field_t field_t;
+    typedef struct member_t member_t;
     typedef struct global_t global_t;
     typedef struct record_t record_t;
     typedef struct type_t type_t;

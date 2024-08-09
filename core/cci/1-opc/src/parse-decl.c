@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include "compile.h"
-#include "field.h"
+#include "member.h"
 #include "global.h"
 #include "lexer.h"
 #include "locals.h"
@@ -260,50 +260,50 @@ static record_t* parse_record(bool is_struct) {
         return record;
     }
 
-    // We're defining the fields of this record. Check for errors
+    // We're defining the members of this record. Check for errors
     if (inside_function) {
         fatal("Structs and unions cannot be defined inside functions in opC.");
     }
-    if (record_fields(record)) {
+    if (record_members(record)) {
         fatal("This struct or union is already defined.");
     }
 
-    // Parse the fields
-    field_t* fields = NULL;
+    // Parse the members
+    member_t* members = NULL;
     size_t offset = 0;
     while (!lexer_accept("}")) {
 
         // Parse the declaration specifiers
         type_t* base_type;
         if (!try_parse_declaration_specifiers(&base_type, NULL)) {
-            fatal("Expected a struct or union field declaration.");
+            fatal("Expected a struct or union member declaration.");
         }
 
         // Parse the declarator list
         type_t* type;
         char* name;
         if (!try_parse_declarator(base_type, &type, &name)) {
-            fatal("Expected a declarator for this struct or union field declaration.");
+            fatal("Expected a declarator for this struct or union member declaration.");
         }
 
-        // check for a bitfield declaration
-        bool bitfield = lexer_accept(":");
-        if (bitfield) {
+        // check for a bitmember declaration
+        bool bitmember = lexer_accept(":");
+        if (bitmember) {
 
-            // parse and ignore the bitfield width
+            // parse and ignore the bitmember width
             type_t* width_type;
             int width;
             if (!try_parse_constant_expression(&width_type, &width)) {
-                fatal("Expected bitfield width after `:`.");
+                fatal("Expected bitmember width after `:`.");
             }
             type_delete(width_type);
 
             if (name == NULL) {
-                // An unnamed bitfield is meant to declare padding. We ignore
+                // An unnamed bitmember is meant to declare padding. We ignore
                 // it.
                 type_delete(type);
                 type_delete(base_type);
-                lexer_expect(";", "Expected `;` after unnamed bitfield declaration.");
+                lexer_expect(";", "Expected `;` after unnamed bitmember declaration.");
                 continue;
             }
         }
@@ -324,9 +324,9 @@ static record_t* parse_record(bool is_struct) {
             fatal("Multiple declarators with `,` are not yet implemented.");
         }
         type_delete(base_type);
-        lexer_expect(";", "Expected `;` after struct or union field declaration.");
+        lexer_expect(";", "Expected `;` after struct or union member declaration.");
 
-        // Align the field offset
+        // Align the member offset
         size_t align = type_alignment(type);
         if (align == 2) {
             offset = ((offset + 1) & ~1);
@@ -335,24 +335,24 @@ static record_t* parse_record(bool is_struct) {
             offset = ((offset + 3) & ~3);
         }
 
-        // Add the field to the linked list
-        fields = field_new(name, type, offset, fields);
+        // Add the member to the linked list
+        members = member_new(name, type, offset, members);
 
-        // In a struct, each field comes after the previous. In a union, all
-        // fields have offset 0.
+        // In a struct, each member comes after the previous. In a union, all
+        // members have offset 0.
         if (is_struct) {
             // Flexible array members haven't been fixed up yet so we skip
-            // them. Fields get checked in record_set_fields().
+            // them. Members get checked in record_set_members().
             if (type_array_length(type) != TYPE_ARRAY_INDETERMINATE) {
-                offset = field_end(fields);
+                offset = member_end(members);
             }
         }
     }
-    if (fields == NULL) {
-        fatal("Structs and unions must have at least one field.");
+    if (members == NULL) {
+        fatal("Structs and unions must have at least one member.");
     }
 
-    record_set_fields(record, fields, is_struct);
+    record_set_members(record, members, is_struct);
     return record;
 }
 

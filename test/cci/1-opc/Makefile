@@ -46,7 +46,7 @@ SRCS=\
 	$(SRC)/common.c \
 	$(SRC)/compile.c \
 	$(SRC)/emit.c \
-	$(SRC)/field.c \
+	$(SRC)/member.c \
 	$(SRC)/global.c \
 	$(SRC)/lexer.c \
 	$(SRC)/locals.c \
