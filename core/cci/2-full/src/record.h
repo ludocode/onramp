@@ -29,6 +29,7 @@
 
 #include "libo-table.h"
 #include "libo-string.h"
+#include "libo-vector.h"
 
 struct type_t;
 struct token_t;
@@ -37,7 +38,6 @@ struct token_t;
  * A member of a record (struct or union).
  */
 typedef struct member_t {
-    struct member_t* next;
     struct token_t* name; // null if anonymous
     struct type_t* type;
     size_t offset;
@@ -67,7 +67,7 @@ typedef struct record_t {
     bool is_defined;
     struct token_t* tag; // NULL if anonymous
     table_t member_map;
-    member_t* member_list;
+    vector_t member_list;
     size_t size;
     size_t alignment;
 } record_t;

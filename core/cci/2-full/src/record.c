@@ -64,6 +64,7 @@ record_t* record_new(token_t* tag, bool is_struct) {
     record->tag = tag ? token_ref(tag) : NULL;
     record->is_struct = is_struct;
     table_init(&record->member_map);
+    vector_init(&record->member_list);
     return record;
 }
 
@@ -84,11 +85,10 @@ void record_delete(record_t* record) {
     table_destroy(&record->member_map);
 
     // delete members
-    for (member_t* member = record->member_list; member;) {
-        member_t* next = member->next;
-        member_delete(member);
-        member = next;
+    for (size_t i = 0; i < vector_count(&record->member_list); ++i) {
+        member_delete(vector_at(&record->member_list, i));
     }
+    vector_destroy(&record->member_list);
 
     free(record);
 }
@@ -146,7 +146,8 @@ void record_add(record_t* record, token_t* /*nullable*/ token, type_t* type) {
     // arrays. To match GCC/Clang we should allow zero length anywhere, only
     // forbid indeterminate arrays. Zero-length arrays have size zero and, if
     // they have a subsequent member, they share its address.
-    member_t* last = record->member_list;
+    member_t* last = vector_is_empty(&record->member_list) ? NULL :
+            vector_last(&record->member_list);
     if (last && type_is_flexible_array(last->type)) {
         fatal_token(token, "Only the last member in a struct is allowed to be an array of zero/indeterminate length.");
     }
@@ -156,7 +157,7 @@ void record_add(record_t* record, token_t* /*nullable*/ token, type_t* type) {
 
     // determine offset of member
     int offset;
-    if (record->is_struct && record->member_list) {
+    if (record->is_struct && last) {
         offset = last->offset + type_size(last->type);
     } else {
         offset = 0;
@@ -173,8 +174,7 @@ void record_add(record_t* record, token_t* /*nullable*/ token, type_t* type) {
 
     // create member
     member_t* member = member_new(token, type, offset);
-    member->next = record->member_list;
-    record->member_list = member;
+    vector_append(&record->member_list, member);
 
     // add to table
     if (token) {

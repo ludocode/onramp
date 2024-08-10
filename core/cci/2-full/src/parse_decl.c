@@ -28,6 +28,7 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "libo-vector.h"
 #include "record.h"
 #include "enum.h"
 #include "strings.h"
@@ -390,7 +391,7 @@ static void parse_record(specifiers_t* specifiers) {
             parse_record_member(record);
         }
 
-        if (record->member_list == NULL) {
+        if (vector_is_empty(&record->member_list)) {
             // TODO an empty struct is a GNU extension
             fatal("TODO empty struct not yet supported, GNU extension");
         }
@@ -399,9 +400,9 @@ static void parse_record(specifiers_t* specifiers) {
         // TODO we should probably just support zero-length arrays as an
         // extension everywhere and show this warning whenever we parse it. See
         // the TODO in record_add().
-        type_t* last_type = record->member_list->type;
-        if (type_matches_declarator(last_type, DECLARATOR_ARRAY) && last_type->count == 0) {
-            warn(warning_zero_length_array, record->member_list->name,
+        member_t* last = vector_last(&record->member_list);
+        if (type_matches_declarator(last->type, DECLARATOR_ARRAY) && last->type->count == 0) {
+            warn(warning_zero_length_array, last->name,
                     "A zero-length array as a flexible array member is a GNU extension.");
         }
 

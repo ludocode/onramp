@@ -96,3 +96,13 @@ void* vector_remove_last(vector_t* vector) {
     vector_remove(vector, vector->count - 1);
     return element;
 }
+
+void* vector_first(vector_t* vector) {
+    assert(vector->count != 0);
+    return vector->elements[0];
+}
+
+void* vector_last(vector_t* vector) {
+    assert(vector->count != 0);
+    return vector->elements[vector->count - 1];
+}

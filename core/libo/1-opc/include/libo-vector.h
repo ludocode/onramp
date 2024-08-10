@@ -27,6 +27,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 /**
  * A vector is a growable array of void pointers.
@@ -52,6 +53,17 @@ void vector_destroy(vector_t* vector);
     }
 #endif
 
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define vector_is_empty(vector) ((vector)->count == 0)
+    #endif
+#endif
+#ifndef vector_is_empty
+static inline bool vector_is_empty(vector_t* vector) {
+    return vector->count == 0;
+}
+#endif
+
 static inline void* vector_at(vector_t* vector, size_t index) {
     assert(index < vector->count);
     return vector->elements[index];
@@ -64,5 +76,9 @@ void vector_insert(vector_t* vector, size_t index, void* element);
 void* vector_remove(vector_t* vector, size_t index);
 
 void* vector_remove_last(vector_t* vector);
+
+void* vector_first(vector_t* vector);
+
+void* vector_last(vector_t* vector);
 
 #endif
