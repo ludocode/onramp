@@ -140,7 +140,7 @@ The following tokens are recognized by the omC lexer. They are given here as reg
 
 **decimal**: `[1-9][0-9]*`
 
-**hexadecimal**: `0[xX][0-9][A-F][a-f]`*
+**hexadecimal**: `0[xX][0-9A-Fa-f]*`
 
 **string**: `"[^"]*"`
 
@@ -157,7 +157,7 @@ Note that numbers are strictly decimal and hexadecimal integers. There is no sup
 
 omC supports C-style `/*comments*/` and C++-style `// line comments`. The preprocessor removes comments.
 
-A preprocessor directive starts at the beginning of a line (after whitespace and comments) and runs until the end of the line. The following directives are recognized:
+A preprocessor directive starts at the beginning of a line and runs until the end of the line. Whitespace and comments are allowed before and after all tokens (except in a _file-specifier_; see below.). The following directives are recognized:
 
 _include-directive_: `#` `include` _file-specifier_
 
@@ -177,7 +177,7 @@ The include directive includes the content of the given file in place of the dir
 
 _file-specifier_: ( `<` **filename** `>` ) / ( `"` **filename** `"` )
 
-The form with `"` searches the current directory first; the form with `<` does not. They otherwise search the same set of include paths.
+The form with `"` searches the current directory first; the form with `<` does not. They otherwise search the same set of include paths and behave identically. Note that whitespace and comments are not allowed in and around the filename.
 
 **filename** is a special kind of token that is only parsed in the context of an include directive. It is essentially any non-whitespace character until the closing `"` or `>`. You can put in a lexer hack to read it, or you can accumulate tokens and concatenate them together, or you can perform lexing after preprocessing as Onramp does.
 
@@ -201,15 +201,17 @@ At most one specifier can be provided. If a specifier is provided, the global ca
 
 ### Functions
 
-_function_: `(` ( `void` / _argument-list_ ) `)` ( `;` / _compound-statement_ )
+_function_: `(` ( `void` / _parameter-list_ ) `)` ( `;` / _compound-statement_ )
 
-_argument-list_: _argument_ ( `,` _argument_ )\*
+_parameter-list_: _parameter_ ( `,` _parameter_ )\*
 
-_argument_: _type_ **alphanumeric**
+_parameter_: _type_ **alphanumeric**\*
 
-An argument list cannot be empty. If a function takes no arguments, it must be declared `(void)`. Functions can have at most four arguments.
+An parameter list cannot be empty. If a function takes no parameters, it must be declared `(void)`. Functions can have at most four parameters.
 
-If a function's argument list is followed by a semicolon, it is a function declaration. Otherwise, it is a function definition, and the compound statement is the body of the function.
+Parameter names are optional. If a parameter name is omitted, the parameter's value cannot be accessed.
+
+If a function's parameter list is followed by a semicolon, it is a function declaration. Otherwise, it is a function definition, and the compound statement is the body of the function.
 
 
 ### Types
