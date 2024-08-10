@@ -118,6 +118,7 @@ See the [Setup Guide](docs/setup-guide.md) for more information on how to build 
 - Languages:
     - [Onramp Hexadecimal](docs/hexadecimal.md)
     - [Onramp Virtual Machine and Bytecode](docs/virtual-machine.md)
+    - [Onramp Object Code](docs/object-code.md)
     - [Onramp Assembly](docs/assembly.md)
     - [Onramp Minimal C](docs/minimal-c.md)
     - [Onramp Practical C](docs/practical-c.md)

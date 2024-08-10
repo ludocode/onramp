@@ -2,6 +2,8 @@
 
 This is the first-stage compiler. It is implemented in compound [Onramp Assembly](../../../docs/assembly.md) and compiles [Onramp Minimal C (omC)](../../../docs/minimal-c.md).
 
+This document describes the implementation. For a specification of the language it compiles, see [Onramp Minimal C](../../../docs/minimal-c.md).
+
 
 
 ## Types
