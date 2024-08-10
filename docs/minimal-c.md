@@ -1,8 +1,8 @@
 # Onramp Minimal C
 
-Onramp Minimal C (omC) is a tiny subset of C. It is implemented by the [first stage Onramp compiler (cci/0-omc)](../core/cci/0-omc/).
+Onramp Minimal C (omC) is a tiny subset of C. It is implemented by Onramp's [first stage compiler (cci/0-omc)](../core/cci/0-omc/) and [second stage preprocessor (cpp/1-omc)](../core/cpp/1-omc/).
 
-It contains the minimum number of C features required to reasonably implement the second stage compiler and other Onramp tools. It's designed to be simple enough for its compiler to be implemented in assembly, but powerful enough to be used to implement most of ANSI C (i.e. [Onramp Practical C](practical-c.md).) It is a critical step in the jump from assembly to a full implementation of C.
+It contains the minimum number of C features required to reasonably implement the [second stage compiler (cci/1-opc)](../core/cci/1-opc/) and other Onramp tools. It's designed to be simple enough for its compiler to be implemented in assembly, but powerful enough to be used to implement most of ANSI C (i.e. [Onramp Practical C](practical-c.md).) It is a critical step in the jump from assembly to a full implementation of C.
 
 Its features are, in brief:
 
@@ -20,9 +20,9 @@ Its features are, in brief:
 
 omC supports enough of C to define libc-compatible headers. This requires `void` and `void*`, `extern` for global variables, and `typedef` for `FILE` and `size_t` (it's actually harder to bootstrap these with `#define`.) The support for `typedef` and file inclusion in particular allows for the construction of large scale projects with idiomatic code organization in omC.
 
-If you've ever been interested in writing a compiler or interpreter, omC is a great place to start. There is a full [grammar specification](#grammar) below; a heavily documented [reference implementation](../core/cci/0-omc/); a large [battery of tests](../test/cci/0-omc/) with scripts to run them; a set of C-compatible [standard library headers](../core/libc/0-oo/include/); and some interesting programs such as an [eight queens solver](../test/cci/0-omc/programs/eight-queens.c), not to mention many of the stages of Onramp itself.
+If you've ever been interested in writing a compiler or interpreter, omC is a great place to start. There is a full [grammar specification](#grammar) below; a heavily documented [reference implementation](../core/cci/0-omc/); a large [battery of tests](../test/cci/0-omc/) with scripts to run them; a set of C-compatible [standard library headers](../core/libc/0-oo/include/); and some interesting programs such as an [eight queens solver](../test/cci/0-omc/programs/eight-queens.c), not to mention many of the stages of Onramp itself. (You don't even need to write the preprocessor either because, once your compiler works, you could compile and use Onramp's preprocessor!)
 
-omC is quite powerful, yet it is simple enough to be implemented in about a thousand lines of your favorite programming language. It is also easy to extend with additional features from C.
+omC is quite powerful, yet it is simple enough to be implemented in about a thousand lines of your favorite programming language (or a few thousand lines of assembly.) It is also easy to extend with additional features from C.
 
 
 
@@ -117,7 +117,7 @@ The `#` character can only appear at the start of a line, after optional whitesp
 
 ## Grammar
 
-The below is a description of the grammar as parsed by the first stage Onramp compiler.
+The below is a description of the grammar as parsed by the Onramp's omC preprocessor (cpp/1) and compiler (cci/0).
 
 The syntax is similar to the style of parsing expression grammars (PEG):
 
@@ -128,29 +128,6 @@ The syntax is similar to the style of parsing expression grammars (PEG):
 - '/' is used for alternatives (the "choice" operator in PEG)
 - \* means repetition
 - \? means optional
-
-
-### Tokenization
-
-The following tokens are recognized by the omC lexer. They are given here as regular expressions.
-
-**alphanumeric**: `[A-Za-z_][0-9A-Za-z_]*`
-
-**number**: **decimal** / **hexadecimal**
-
-**decimal**: `[1-9][0-9]*`
-
-**hexadecimal**: `0[xX][0-9A-Fa-f]*`
-
-**string**: `"[^"]*"`
-
-**character**: `'[^']'`
-
-**punctuation**: `<<` / `>>` / `==` / `!=` / `<=` / `>=` / (any other non-whitespace character)
-
-An alphanumeric token is either a keyword, an identifier or a type name. It is up to the parser to determine what it is.
-
-Note that numbers are strictly decimal and hexadecimal integers. There is no support for numerical suffixes, floating point, or octal or binary representations.
 
 
 ### Preprocessor
@@ -179,7 +156,30 @@ _file-specifier_: ( `<` **filename** `>` ) / ( `"` **filename** `"` )
 
 The form with `"` searches the current directory first; the form with `<` does not. They otherwise search the same set of include paths and behave identically. Note that whitespace and comments are not allowed in and around the filename.
 
-**filename** is a special kind of token that is only parsed in the context of an include directive. It is essentially any non-whitespace character until the closing `"` or `>`. You can put in a lexer hack to read it, or you can accumulate tokens and concatenate them together, or you can perform lexing after preprocessing as Onramp does.
+**filename** is a special kind of token that is only parsed in the context of an include directive. It is essentially any non-whitespace character until the closing `"` or `>`. (This can be difficult to parse with a lexer as it is context-sensitive. Onramp's omC preprocessor is scannerless so this is not an issue.)
+
+
+### Tokenization
+
+The following tokens are recognized by the omC lexer. They are given here as regular expressions.
+
+**alphanumeric**: `[A-Za-z_][0-9A-Za-z_]*`
+
+**number**: **decimal** / **hexadecimal**
+
+**decimal**: `[1-9][0-9]*`
+
+**hexadecimal**: `0[xX][0-9A-Fa-f]*`
+
+**string**: `"[^"]*"`
+
+**character**: `'[^']'`
+
+**punctuation**: `<<` / `>>` / `==` / `!=` / `<=` / `>=` / (any other non-whitespace character)
+
+An alphanumeric token is either a keyword, an identifier or a type name. (Onramp does not use a "lexer hack"; it leaves it up to the parser to determine what an alphanumeric token is.)
+
+Note that numbers are strictly decimal and hexadecimal integers. There is no support for numerical suffixes, floating point, or octal or binary representations.
 
 
 ### Globals
@@ -205,9 +205,9 @@ _function_: `(` ( `void` / _parameter-list_ ) `)` ( `;` / _compound-statement_ )
 
 _parameter-list_: _parameter_ ( `,` _parameter_ )\*
 
-_parameter_: _type_ **alphanumeric**\*
+_parameter_: _type_ **alphanumeric**?
 
-An parameter list cannot be empty. If a function takes no parameters, it must be declared `(void)`. Functions can have at most four parameters.
+A parameter list cannot be empty. If a function takes no parameters, it must be declared `(void)`. Functions can have at most four parameters.
 
 Parameter names are optional. If a parameter name is omitted, the parameter's value cannot be accessed.
 
