@@ -26,25 +26,4 @@ The input to `cci` is the output of the Onramp preprocessor `cpp`. The preproces
 
 These restrictions greatly simplify our lexer. Unlike most other Onramp programs, `cci` is not designed to accept hand-written input files.
 
-The only exception for preprocessor directives is `#line` and `#pragma` for debug info. These are handled specially by the lexer.
-
-
-
-## Lexer
-
-The lexer is similar in all three stages. Its operation is described here.
-
-The lexer consumes characters from the input file and produces tokens. Each token is one of the following types:
-
-- "a" -- alphanumeric (a keyword, a type name or a variable name)
-- "n" -- number
-- "c" -- character literal
-- "s" -- string literal (not merged with adjacent string literals)
-- "p" -- punctuation (a valid operator or other punctuation token)
-- "e" -- end-of-file
-
-The lexer does not use the typical C [lexer hack](https://en.wikipedia.org/wiki/Lexer_hack). Instead the lexer just returns tokens of type "alphanumeric". It is up to the parser to determine whether such tokens are keywords, type names or variable names. The lexer is entirely context-free.
-
-The lexer also handles the few preprocessor directives supported (`#line` and `#pragma`). The lexer does *not* handle comments; they must be stripped by an Onramp preprocessor.
-
-Later stages have a slightly more sophisticated lexer but it follows the same basic principles.
+The only exception for preprocessor directives is `#line` and `#pragma` for debug info. These are handled specially by the lexer in each stage.

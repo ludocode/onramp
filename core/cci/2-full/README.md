@@ -12,8 +12,11 @@ The compiler implements a command-line interface similar to GCC and friends, but
 
 ## Components
 
+- `arithmetic` - Wrappers for `long long`, `float` and `double` math.
 - `block` - A basic block of assembly instructions, starting with a label and ending in a `jmp` or `ret`.
+- `common` - Common utility code such as error handling functions.
 - `emit` - Low-level functions for writing the output file: bytes and numbers, opcode and register names, etc.
+- `enum` - The container for an enum and its values.
 - `function` - The container for a function. Contains its parse tree and its list of basic blocks.
 - `generate` - Code generation. Converts the parse tree into basic blocks of assembly.
 - `instruction` - A single instruction in a basic block.
@@ -21,9 +24,10 @@ The compiler implements a command-line interface similar to GCC and friends, but
 - `node` - A node in a parse tree, along with functions to manipulate it.
 - `options` - Command-line options, such as warnings and optimization flags.
 - `parse` - The parser. Converts tokens from the lexer into a parse tree.
-- `record` - A struct or union.
-- `scope` - Scope lookup functions. Contains hashtables for declared variables and typenames.
+- `record` - The container for a struct or union and its members.
+- `scope` - Scope handling functions. Owns records and contains hashtables for declared symbols and type names.
 - `strings` - Global intern strings for all keywords and operators.
+- `symbol` - A container for any kind of symbol: variables, functions, constants and builtins.
 - `token` - A token, including its source location.
 - `type` - One part of a type, either a declarator or a base, forming a graph that describes a complete type.
 

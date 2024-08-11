@@ -10,6 +10,23 @@ This document describes the implementation. For a description of the language it
 
 
 
+
+## Similarities to cci/0
+
+Some parts of this compiler are implemented the same as the previous stage. The [documentation for cci/0](../0-omc/) should be read first as it applies to cci/1 as well.
+
+In particular:
+
+- The lexer uses the same letter constants for token types, and the same global variables and functions for parsing tokens. This lexer is virtually identical to that of the previous stage.
+
+- The expression evaluation algorithm is the same. All values are spilled to the stack at all times. (Some functions have slightly different names and behaviour, e.g. `compile_dereference_if_lvalue()` vs. `compile_lvalue_to_rvalue()`. These inconsistencies need to be cleaned up.)
+
+- Local variables form a stack the same as the previous stage. The only difference is that structs and arrays have been added which can span multiple words. Each variable's size is simply rounded up to a multiple of the word size.
+
+- The function generator is exactly the same. It emits the function body in a static symbol, then emits a trampoline that performs the preamble, then emits string literals.
+
+
+
 ## Types
 
 The opC type system has `char`, `short`, `int`, `long` (as an alias of `int`), `void`, `struct`, `union`, `enum`, pointers and arrays. However, it has no function pointers, no multi-dimensional arrays, and no pointers to arrays. Additionally, the `const` and `volatile` qualifiers are ignored.
@@ -34,19 +51,9 @@ The record pointer points to an immutable type called `record_t`. This contains 
 
 
 
-## Expression Evaluation
-
-Expression parsing in cci/1 is similar to cci/0. All expression functions emit code on the fly. When an expression parsing function returns, code to compute that expression has already been emitted.
-
-The code they emit places the result of the expression in `r0`. This stage only supports register-sized r-values in expressions. This means structs cannot be passed by value and `long long` is not supported.
-
-When an expression returns an l-value, the emitted code places the *address of* the value in `r0` instead of the value itself. The function `compile_lvalue_to_rvalue()` converts an l-value into an r-value.
-
-
-
 ## Emulated Structs
 
-This implementation does not use structs because they are not supported by omC. Instead we do a "poor man's struct": we emulate them using accessor functions. For example, suppose we wanted to write:
+This implementation does not use structs because they are not supported by omC. Instead we emulate them using accessor functions. For example, suppose we wanted to write:
 
 ```c
 typedef struct {
@@ -55,23 +62,23 @@ typedef struct {
 } person_t;
 ```
 
-In omC, instead we would declare `person_t` as an array of pointers and write accessor functions to access the contents. For example:
+In omC, instead we would declare `person_t` as typedef of `void` and write helper functions to create and access the contents. For example:
 
 ```c
-typedef char person_t;
+typedef void person_t;
 person_t* person_new(const char* name, int age);
 void person_delete(person_t* person);
 char* person_name(person_t* person);
 int person_age(person_t* person);
 ```
 
-The implementation just does the pointer arithmetic and casting manually.
+The implementation just does the pointer arithmetic and casting manually. The struct is allocated as an array of `void*`, and each field is at an offset of `void*`.
 
 ```c
 person_t* person_new(const char* name, int age) {
     person_t* person = malloc(2 * sizeof(void*));
     *(int*)person = strdup(name);
-    *(int*)(person + sizeof(char*)) = age;
+    *(int*)((void**)person + 1) = age;
 }
 
 void person_delete(person_t* person) {
@@ -84,7 +91,7 @@ char* person_name(person_t* person) {
 }
 
 int person_age(person_t* person) {
-    return *(int*)(person + sizeof(char*));
+    return *(int*)((void**)person + 1);
 }
 ```
 

@@ -6,6 +6,27 @@ This document describes the implementation. For a specification of the language 
 
 
 
+## Lexer
+
+The lexer consumes characters from the input file and produces tokens. Each token is one of the following types:
+
+- "a" -- alphanumeric (a keyword, a type name or a variable name)
+- "n" -- number
+- "c" -- character literal
+- "s" -- string literal (not merged with adjacent string literals)
+- "p" -- punctuation (a valid operator or other punctuation token)
+- "e" -- end-of-file
+
+The token types are represented by letters. This lets us compare token types using mix-type arguments in assembly.
+
+The current token type and value are stored in the global variables `lexer_type` and `lexer_value`. The parser loads these directly where needed. It calls the lexer functions `lexer_consume()`, `lexer_accept()`, `lexer_is()`, `lexer_take()` and `lexer_expect()` to parse tokens.
+
+The lexer does not use the typical C [lexer hack](https://en.wikipedia.org/wiki/Lexer_hack). Instead the lexer just returns tokens of type "alphanumeric". It is up to the parser to determine whether such tokens are keywords, type names or variable names. The lexer is entirely context-free.
+
+The lexer also handles the few preprocessor directives supported (`#line` and `#pragma`). The lexer does *not* handle comments; they must be stripped by an Onramp preprocessor.
+
+
+
 ## Types
 
 Onramp Minimal C only supports the base types `void`, `char` and `int`, along with pointers to them: `void*`, `int**`, `char***` and so on.

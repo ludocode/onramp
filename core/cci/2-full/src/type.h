@@ -46,7 +46,7 @@ typedef enum declarator_t {
 } declarator_t;
 
 /**
- * The base typeof a `type_t` (that specified by the type specifiers and
+ * The base type of a `type_t` (that specified by the type specifiers and
  * qualifiers.)
  */
 typedef enum base_t {
