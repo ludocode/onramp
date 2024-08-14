@@ -123,6 +123,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cci/2-full/src/parse_expr.c \
     -o build/intermediate/cci-2-full-re/parse_expr.oo
 
+echo Compiling cci/2-full parse_init.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cci/2-full/rebuild-ccargs \
+    -c core/cci/2-full/src/parse_init.c \
+    -o build/intermediate/cci-2-full-re/parse_init.oo
+
 echo Compiling cci/2-full parse_stmt.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cci/2-full/rebuild-ccargs \
@@ -192,6 +198,7 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cci-2-full-re/options.oo \
     build/intermediate/cci-2-full-re/parse_decl.oo \
     build/intermediate/cci-2-full-re/parse_expr.oo \
+    build/intermediate/cci-2-full-re/parse_init.oo \
     build/intermediate/cci-2-full-re/parse_stmt.oo \
     build/intermediate/cci-2-full-re/record.oo \
     build/intermediate/cci-2-full-re/scope.oo \

@@ -39,19 +39,17 @@ void vector_destroy(vector_t* vector) {
     free(vector->elements);
 }
 
-// Ensures there is space for one more value.
-static void vector_grow_if_necessary(vector_t* vector) {
-    if (vector->count < vector->capacity) {
+// Resizes without zeroing.
+static void vector_resize_impl(vector_t* vector, size_t count) {
+    vector->count = count;
+    if (count <= vector->capacity) {
         return;
     }
 
     // calculate new capacity
-    size_t new_capacity;
-    if (vector->capacity == 0) {
-        new_capacity = 4;
-    }
-    if (vector->capacity != 0) {
-        new_capacity = vector->capacity * 2;
+    size_t new_capacity = vector->capacity ? vector->capacity : 4;
+    while (new_capacity < count) {
+        new_capacity = new_capacity * 2;
         if (new_capacity <= vector->capacity) {
             fatal("Out of address space.");
         }
@@ -65,20 +63,26 @@ static void vector_grow_if_necessary(vector_t* vector) {
     vector->capacity = new_capacity;
 }
 
+void vector_resize(vector_t* vector, size_t new_count) {
+    size_t old_count = vector->count;
+    vector_resize_impl(vector, new_count);
+    if (new_count > old_count) {
+        memset(vector->elements + old_count, 0, (new_count - old_count) * sizeof(void*));
+    }
+}
+
 void vector_append(vector_t* vector, void* element) {
-    vector_grow_if_necessary(vector);
-    vector->elements[vector->count] = element;
-    ++vector->count;
+    vector_resize_impl(vector, vector->count + 1);
+    vector->elements[vector->count - 1] = element;
 }
 
 void vector_insert(vector_t* vector, size_t index, void* element) {
     assert(index <= vector->count);
-    vector_grow_if_necessary(vector);
+    vector_resize_impl(vector, vector->count + 1);
     memmove(vector->elements + index + 1,
             vector->elements + index,
-            vector->count - index);
+            vector->count - index - 1);
     vector->elements[index] = element;
-    ++vector->count;
 }
 
 void* vector_remove(vector_t* vector, size_t index) {
@@ -95,11 +99,6 @@ void* vector_remove_last(vector_t* vector) {
     void* element = vector->elements[vector->count - 1];
     vector_remove(vector, vector->count - 1);
     return element;
-}
-
-void* vector_first(vector_t* vector) {
-    assert(vector->count != 0);
-    return vector->elements[0];
 }
 
 void* vector_last(vector_t* vector) {

@@ -2,22 +2,22 @@
   enter
   sub rsp rsp 8
   mov r0 3
+  add r1 rfp -8
   mov r2 1
-  add r3 rfp -8
-  stw r2 0 r3
+  stw r2 r1 0
   jmp &_Lx0
 :_Lx0
   ldw r1 rfp -8
   jz r1 &_Lx1
   mov r1 0
   add r2 rfp -8
-  stw r1 0 r2
+  stw r1 r2 0
   jmp &_Lx0
 :_Lx1
   mov r1 5
   add r0 r0 r1
   add r1 rfp -4
-  stw r0 0 r1
+  stw r0 r1 0
   ldw r0 rfp -4
   mov r1 8
   sub r0 r0 r1

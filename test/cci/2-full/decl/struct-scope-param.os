@@ -15,7 +15,7 @@
   mov r0 2
   add r1 rfp -12
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   add r0 rfp -12
   mov r1 0
   call ^foo

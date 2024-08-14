@@ -4,11 +4,11 @@
   mov r0 4
   add r1 rfp -4
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   mov r0 4
   add r1 rfp -8
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   add r2 rfp -4
   ldw r0 0 r2
   add r2 rfp -8

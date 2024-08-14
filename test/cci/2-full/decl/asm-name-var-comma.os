@@ -45,7 +45,7 @@
   mov r0 4
   imw r1 ^b
   add r1 rpp r1
-  stw r0 0 r1
+  stw r0 r1 0
   imw r0 ^b
   ldw r0 rpp r0
   mov r1 4

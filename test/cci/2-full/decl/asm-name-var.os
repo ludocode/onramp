@@ -31,7 +31,7 @@
   mov r0 4
   imw r1 ^foo
   add r1 rpp r1
-  stw r0 0 r1
+  stw r0 r1 0
   imw r0 ^foo
   ldw r0 rpp r0
   mov r1 4
@@ -63,7 +63,7 @@
   mov r0 7
   imw r1 ^foo
   add r1 rpp r1
-  stw r0 0 r1
+  stw r0 r1 0
   imw r0 ^foo
   ldw r0 rpp r0
   mov r1 7

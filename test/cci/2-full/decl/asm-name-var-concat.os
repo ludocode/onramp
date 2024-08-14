@@ -31,7 +31,7 @@
   mov r0 4
   imw r1 ^test_test_test
   add r1 rpp r1
-  stw r0 0 r1
+  stw r0 r1 0
   imw r0 ^test_test_test
   ldw r0 rpp r0
   mov r1 4

@@ -25,6 +25,7 @@
 #include "generate.h"
 
 #include "common.h"
+#include "record.h"
 #include "node.h"
 #include "type.h"
 #include "symbol.h"
@@ -658,30 +659,64 @@ void generate_unary_minus(node_t* node, int reg_out) {
     block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
 }
 
-void generate_initializer(node_t* variable, int reg_out) {
+void generate_initializer_scalar(node_t* expr, int reg_loc, size_t offset) {
+    int reg_val = register_alloc(expr->token);
+    generate_node(expr, reg_val);
+    generate_store_offset(expr->token, expr->type, reg_loc, reg_val, offset);
+    register_free(expr->token, reg_val);
+}
 
-    // TODO the first register alloc here is probably not necessary, or at least
-    // there is a way of optimizing it in most cases (e.g. when the declaration
-    // is in a void sequence.) We do it all the time anyway for simplicity.
+/*
+ * Generates an initializer list.
+ *
+ * The address of the variable being initialized is (reg_loc + offset).
+ */
+void generate_initializer_list(node_t* list, type_t* type, int reg_loc, size_t base_offset) {
+    for (size_t i = 0; i < vector_count(&list->initializers); ++i) {
+        node_t* child = vector_at(&list->initializers, i);
+        if (!child)
+            continue;
 
-    // TODO this needs to be fixed up, we should be generating in place for
-    // indirect values
+        // Get the type of the child we're initializing
+        type_t* child_type;
+        size_t offset;
+        if (type_matches_base(type, BASE_RECORD)) {
+            member_t* member = vector_at(&type->record->member_list, i);
+            child_type = member->type;
+            offset = base_offset + member->offset;
+        } else if (type_is_array(type)) {
+            child_type = type->ref;
+            offset = base_offset + i * type_size(child_type);
+        } else {
+            fatal("Internal error: cannot generate initializer list for non-compound type");
+        }
+
+        if (child->kind == NODE_INITIALIZER_LIST) {
+            generate_initializer_list(child, child_type, reg_loc, offset);
+        } else {
+            generate_initializer_scalar(child, reg_loc, offset);
+        }
+    }
+}
+
+/*
+ * Generates an initializer for the given VARIABLE node.
+ *
+ * Variable declarations are never expressions (not even if they are the last
+ * statement of a statement expression) so the given register is available for
+ * our use. We use it as a pointer to the current location in the variable
+ * being initialized.
+ */
+void generate_initializer(node_t* variable, int reg_loc) {
+    generate_access_location(variable->token, variable->symbol, reg_loc);
 
     node_t* initializer = variable->first_child;
     if (initializer->kind == NODE_INITIALIZER_LIST) {
-        fatal("TODO generate initializer list not yet implemented");
+        generate_initializer_list(variable->first_child, variable->symbol->type, reg_loc, 0);
+    } else {
+        assert(type_equal(variable->first_child->type, variable->symbol->type));
+        generate_initializer_scalar(variable->first_child, reg_loc, 0);
     }
-    int reg_value = register_alloc(variable->token);
-    generate_node(initializer, reg_value);
-
-    int reg_location = register_alloc(variable->token);
-    generate_access_location(variable->token, variable->symbol, reg_location);
-
-    // TODO figure out cast or whatever, probably the parser should do it
-    generate_store(variable->token, variable->symbol->type, reg_location, reg_value);
-
-    register_free(variable->token, reg_location);
-    register_free(variable->token, reg_value);
 }
 
 /**

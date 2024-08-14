@@ -1,10 +1,10 @@
 =main
   enter
   sub rsp rsp 4
+  add r0 rfp -1
   imw r1 256
   bool r1 r1
-  add r2 rfp -1
-  stb r1 0 r2
+  stb r1 r0 0
   ldb r0 rfp -1
   bool r0 r0
   mov r1 1
@@ -22,7 +22,7 @@
   imw r0 256
   bool r0 r0
   add r1 rfp -1
-  stb r0 0 r1
+  stb r0 r1 0
   ldb r0 rfp -1
   bool r0 r0
   mov r1 1
@@ -42,7 +42,7 @@
   sxb r0 r0
   bool r0 r0
   add r1 rfp -1
-  stb r0 0 r1
+  stb r0 r1 0
   ldb r0 rfp -1
   bool r0 r0
   mov r1 0

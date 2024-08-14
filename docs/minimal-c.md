@@ -209,7 +209,7 @@ _parameter_: _type_ **alphanumeric**?
 
 A parameter list cannot be empty. If a function takes no parameters, it must be declared `(void)`. Functions can have at most four parameters.
 
-Parameter names are optional. If a parameter name is omitted, the parameter's value cannot be accessed.
+Parameter names are optional. If a parameter name is omitted, the parameter's value is inaccessible.
 
 If a function's parameter list is followed by a semicolon, it is a function declaration. Otherwise, it is a function definition, and the compound statement is the body of the function.
 

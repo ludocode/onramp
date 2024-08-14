@@ -1,9 +1,9 @@
 =main
   enter
   sub rsp rsp 4
+  add r0 rfp -4
   mov r1 0
-  add r2 rfp -4
-  stw r1 0 r2
+  stw r1 r0 0
   jmp &_Lx0
 :_Lx1
   jmp &_Lx0
@@ -24,7 +24,7 @@
   add r1 rfp -4
   ldw r0 0 r1
   add r0 r0 1
-  stw r0 0 r1
+  stw r0 r1 0
   jmp &_Lx4
 :_Lx5
   mov r0 1

@@ -50,13 +50,16 @@ typedef enum warning_t {
     // incorrect code
     warning_implicit_int,       // -Wimplicit-int
     warning_zero_length_array,  // -Wzero-length-array
-    warning_gnu_case_range,     // -Wgnu-case-range
+
+    // probably incorrect code
+    warning_initializer_overrides, // -Winitializer-overrides
 
     // extension usage
     warning_statement_expressions,    // -Wstatement-expressions: ({...})
     warning_extra_keywords,           // -Wasm (or -fasm): asm, inline (pre-C99), typeof (pre-C23)
     warning_anonymous_tags,           // -Wanonymous-tags, called -fms-extensions in GCC
     warning_pointer_arith,            // -Wpointer-arith: sizeof(void), void* arithmetic
+    warning_gnu_case_range,           // -Wgnu-case-range
 
     warning_count,
 } warning_t;

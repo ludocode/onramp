@@ -45,7 +45,7 @@ typedef enum node_kind_t {
     NODE_FUNCTION,          // The root of all functions, no parent. Children are parameters and sequence
     NODE_PARAMETER,         // Function parameter. No children.
     NODE_VARIABLE,          // Variable definition. Optional child is initializer
-    NODE_INITIALIZER_LIST,  // A compound (braced) initializer. Any number of children (including none)
+    NODE_INITIALIZER_LIST,  // A compound (braced) initializer. Sparse vector of children
     NODE_TYPE,              // A type, for example as the argument to sizeof
 
     // statements
@@ -144,6 +144,13 @@ const char* node_kind_to_string(node_kind_t kind);
  * children are the block followed by the expression.
  *
  * Some nodes may have unlimited children, for example sequences.
+ *
+ * Child nodes for most types are stored using the intrusive tree links, but
+ * for initializers the child nodes are stored in a vector because we need O(1)
+ * indexing. TODO probably we should convert all types to use a vector but
+ * I haven't bothered yet. We should add some internal space in libo-vector for
+ * two elements to avoid an extra allocation per node because most nodes have
+ * one or two children.
  */
 typedef struct node_t {
     struct node_t* parent;
@@ -182,6 +189,7 @@ typedef struct node_t {
         u64_t u64;    // 64-bit double or long long
         int string_label; // generated name of symbol for NODE_STRING
         builtin_t builtin;
+        vector_t initializers; // sparse array of non-constant nodes for initializer list
 
         // Contents of a case label
         struct {

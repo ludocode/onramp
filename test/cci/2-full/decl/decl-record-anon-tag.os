@@ -5,7 +5,7 @@
   imw r1 ^b
   add r1 rpp r1
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   imw r2 ^b
   add r2 rpp r2
   ldw r0 0 r2
@@ -24,19 +24,19 @@
   mov r0 1
   add r1 rfp -8
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   mov r0 2
   add r1 rfp -8
   add r1 r1 4
-  stw r0 0 r1
+  stw r0 r1 0
   mov r0 3
   add r1 rfp -8
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   mov r0 4
   add r1 rfp -8
   add r1 r1 0
-  stw r0 0 r1
+  stw r0 r1 0
   add r2 rfp -8
   ldw r0 0 r2
   mov r1 4

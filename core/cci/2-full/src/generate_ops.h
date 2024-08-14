@@ -60,6 +60,9 @@ void generate_greater_or_equal(struct node_t* node, int reg_out);
 void generate_store(struct token_t* /*nullable*/ token, struct type_t* type,
         int register_location, int register_value);
 
+void generate_store_offset(struct token_t* /*nullable*/ token, struct type_t* type,
+        int register_location, int register_value, int offset);
+
 void generate_assign(struct node_t* node, int reg_out);
 void generate_add_assign(struct node_t* node, int reg_out);
 void generate_sub_assign(struct node_t* node, int reg_out);

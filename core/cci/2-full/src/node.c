@@ -125,6 +125,15 @@ node_t* node_new(node_kind_t kind) {
         fatal("Out of memory.");
     }
     node->kind = kind;
+
+    switch (kind) {
+        case NODE_INITIALIZER_LIST:
+            vector_init(&node->initializers);
+            break;
+        default:
+            break;
+    }
+
     return node;
 }
 
@@ -190,6 +199,14 @@ void node_delete(node_t* node) {
         case NODE_MEMBER_PTR:
             token_deref(node->member);
             break;
+        case NODE_INITIALIZER_LIST:
+            for (size_t i = 0; i < vector_count(&node->initializers); ++i) {
+                node_t* child = vector_at(&node->initializers, i);
+                if (child)
+                    node_delete(child);
+            }
+            vector_destroy(&node->initializers);
+            break;
         default:
             break;
     }
@@ -200,6 +217,8 @@ void node_delete(node_t* node) {
 void node_append(node_t* parent, node_t* child) {
     assert(parent);
     assert(child);
+
+    assert(parent->kind != NODE_INITIALIZER_LIST); // initializer list children go in a vector
 
     child->parent = parent;
     if (parent->last_child) {
@@ -264,16 +283,16 @@ void node_print(node_t* node) {
     }
 }
 
+static void node_print_tree_child(node_t* child, size_t length, bool last);
+
 // Prints a node and its children. The prefix (graph) to the node has already
 // been printed. The given length is the length of the buffer leading up to but
 // not including this node.
-static void node_print_tree_impl(node_t* node, size_t length) {
+static void node_print_tree_impl(node_t* node, size_t length, bool root) {
     node_print(node);
     putchar('\n');
 
-    // replace the prefix with one appropriate for our children
-    // TODO this check is wrong, printing the tree only works properly on the root
-    if (node->parent) {
+    if (!root) {
         if (node->right_sibling) {
             const char* bar = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_BAR : NODE_PRINT_UNICODE_BAR;
             strcpy(node_print_buffer + length, bar);
@@ -290,21 +309,29 @@ static void node_print_tree_impl(node_t* node, size_t length) {
     }
 
     for (node_t* child = node->first_child; child; child = child->right_sibling) {
-
-        // generate and output the prefix for this child
-        const char* cross = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_CROSS : NODE_PRINT_UNICODE_CROSS;
-        const char* curve = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_CURVE : NODE_PRINT_UNICODE_CURVE;
-        const char* dash = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_DASH : NODE_PRINT_UNICODE_DASH;
-        strcpy(node_print_buffer + length, child->right_sibling ? cross : curve);
-        strcat(node_print_buffer + length, dash);
-        fwrite(node_print_buffer, 1, length + strlen(node_print_buffer + length), stdout);
-
-        node_print_tree_impl(child, length);
+        node_print_tree_child(child, length, !child->right_sibling);
+    }
+    if (node->kind == NODE_INITIALIZER_LIST) {
+        for (size_t i = 0; i < vector_count(&node->initializers); ++i) {
+            node_print_tree_child(vector_at(&node->initializers, i), length,
+                    i == vector_count(&node->initializers) - 1);
+        }
     }
 }
 
+static void node_print_tree_child(node_t* child, size_t length, bool last) {
+    // generate and output the prefix for this child
+    const char* cross = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_CROSS : NODE_PRINT_UNICODE_CROSS;
+    const char* curve = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_CURVE : NODE_PRINT_UNICODE_CURVE;
+    const char* dash = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_DASH : NODE_PRINT_UNICODE_DASH;
+    strcpy(node_print_buffer + length, last ? curve : cross);
+    strcat(node_print_buffer + length, dash);
+    fwrite(node_print_buffer, 1, length + strlen(node_print_buffer + length), stdout);
+    node_print_tree_impl(child, length, false);
+}
+
 void node_print_tree(node_t* node) {
-    node_print_tree_impl(node, 0);
+    node_print_tree_impl(node, 0, true);
 }
 
 node_kind_t node_kind_of_binary_operator(token_t* token) {

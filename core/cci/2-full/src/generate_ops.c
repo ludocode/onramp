@@ -378,24 +378,41 @@ void generate_not_equal(node_t* node, int reg_out) {
     block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-void generate_store(token_t* token, type_t* type, int reg_loc, int reg_val) {
+static void generate_store_small_offset(token_t* token, type_t* type, int reg_loc, int reg_val, int offset) {
+    assert(offset < 128 && offset >= -112);
     switch (type_size(type)) {
         case 1:
-            block_append(current_block, token, STB, reg_val, 0, reg_loc);
+            block_append(current_block, token, STB, reg_val, reg_loc, offset);
             break;
         case 2:
-            block_append(current_block, token, STS, reg_val, 0, reg_loc);
+            block_append(current_block, token, STS, reg_val, reg_loc, offset);
             break;
         case 4:
-            block_append(current_block, token, STW, reg_val, 0, reg_loc);
+            block_append(current_block, token, STW, reg_val, reg_loc, offset);
             break;
-            // fallthrough
         default:
             // TODO assigning large structures should call memcpy. eventually
             // we can optimize the case of only memcpy'ing e.g. 8 bytes.
             fatal("large assign not yet implemented");
             break;
     }
+}
+
+void generate_store(token_t* token, type_t* type, int reg_loc, int reg_val) {
+    generate_store_offset(token, type, reg_loc, reg_val, 0);
+}
+
+void generate_store_offset(token_t* token, type_t* type, int reg_base, int reg_val, int offset) {
+    if (offset < 128 && offset >= -112) {
+        generate_store_small_offset(token, type, reg_base, reg_val, offset);
+        return;
+    }
+
+    int reg_loc = register_alloc(token);
+    block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
+    block_append(current_block, token, ADD, reg_loc, reg_base, reg_loc);
+    generate_store_small_offset(token, type, reg_loc, reg_val, 0);
+    register_free(token, reg_loc);
 }
 
 void generate_assign(node_t* node, int reg_val) {

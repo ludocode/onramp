@@ -37,6 +37,7 @@
 #include "node.h"
 #include "parse_stmt.h"
 #include "parse_expr.h"
+#include "parse_init.h"
 #include "lexer.h"
 #include "token.h"
 #include "options.h"
@@ -914,35 +915,6 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
     string_deref(asm_name);
     token_deref(name);
     type_deref(type);
-}
-
-/**
- * Parses an initializer for the given type.
- *
- * The initializer can be an expression or an initializer list.
- *
- * In the case that the initializer is a string or character literal, we just
- * parse it as an expression. The reason for this is because GCC allows
- * parenthesized string literal initializers for char arrays as an extension
- * (though it warns about it under -Wpedantic.) For example:
- *
- *     char x[] = ("foo");
- *
- * This is not legal C but GCC accepts it so we do too. We do type checking on
- * the initializer after parsing.
- */
-static node_t* parse_initializer(type_t* type) {
-    if (lexer_accept(STR_BRACE_OPEN)) {
-        fatal("TODO parse initializer list");
-    }
-
-    node_t* node = parse_expression();
-    if (!type_equal(type, node->type)) {
-        // TODO we could use some checks to make sure the conversion is valid.
-        // For now we just insert the implicit cast.
-        node = node_cast(node, type, NULL);
-    }
-    return node;
 }
 
 static void parse_variable_declaration(node_t* /*nullable*/ parent,

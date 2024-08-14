@@ -12,7 +12,7 @@
   bool r0 r0
   imw r1 ^x
   add r1 rpp r1
-  stb r0 0 r1
+  stb r0 r1 0
   call ^foo
   mov r0 r0
   isz r0 r0

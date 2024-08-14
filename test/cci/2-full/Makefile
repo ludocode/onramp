@@ -58,6 +58,7 @@ SRCS=\
 	$(SRC)/options.c \
 	$(SRC)/parse_decl.c \
 	$(SRC)/parse_expr.c \
+	$(SRC)/parse_init.c \
 	$(SRC)/parse_stmt.c \
 	$(SRC)/record.c \
 	$(SRC)/scope.c \
