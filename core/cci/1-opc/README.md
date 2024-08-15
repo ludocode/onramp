@@ -118,7 +118,7 @@ Whenever the compiler encounters `enum`, it consumes and ignores the name that f
 
 This means enums can be forward declared and can be used without ever being defined, and enum values are interchangeable and can even be modified. For example:
 
-```
+```c
 enum foo; // invalid, forward declaration of enum
 
 enum foo {

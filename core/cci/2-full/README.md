@@ -147,7 +147,7 @@ The tree is compiled directly to basic blocks of assembly. We do not (yet) have 
 
 The most important function is `generate_node()`. This takes a node and a numbered register (`r0`-`r9`) into which the expression should compute its value. If the expression computes a value larger than a register, the register contains a pointer to where the value should be stored (which must be provided or allocated from the stack by the parent expression.)
 
-The register allocator is as simple as possible. Registered are allocated sequentially from r0 to r9 and freed in reverse order of allocation. If additional registers are needed, we loop back around to r0 and push the existing value to make room. (This means only the last 10 allocated registers can be used at any time. This is not a problem because most operations use at most four allocated registers.)
+The register allocator is as simple as possible. Registers are allocated sequentially from r0 to r9 and freed in reverse order of allocation. If additional registers are needed, we loop back around to r0 and push the existing value to make room. (This means only the last 10 allocated registers can be used at any time. This is not a problem because operations only use a few registers which are always on top of the register stack.)
 
 All local variables are spilled at all times. We don't (yet) do any kind of register allocation for variables. This has poor performance but the code generation is extremely simple.
 

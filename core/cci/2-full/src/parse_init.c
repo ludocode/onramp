@@ -104,7 +104,8 @@ static void parse_initializer_list_part(type_t* type, node_t* node, size_t index
         // Get the type of child we're initializing next
         type_t* child_type;
         if (type_matches_base(type, BASE_RECORD)) {
-            child_type = vector_at(&type->record->member_list, index);
+            member_t* member = vector_at(&type->record->member_list, index);
+            child_type = member->type;
         } else if (type_is_array(type)) {
             child_type = type->ref;
         } else {
