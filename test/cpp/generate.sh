@@ -28,7 +28,7 @@ for TESTCASE in $(find $SOURCE_FOLDER/* -name '*.c'); do
     ARGS=
     if [ -e $BASENAME.args ]; then
         # eval echo to expand shell macros
-        ARGS=$(eval echo -- "\"$(cat $BASENAME.args)\"")
+        ARGS=$(eval echo "\"$(cat $BASENAME.args)\"")
     else
         ARGS="$INPUT -o $OUTPUT"
     fi

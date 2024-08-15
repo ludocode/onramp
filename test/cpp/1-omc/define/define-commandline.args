@@ -1,0 +1,1 @@
+$INPUT -o $OUTPUT -DFOO=1

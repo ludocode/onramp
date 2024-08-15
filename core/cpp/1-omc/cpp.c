@@ -556,7 +556,7 @@ static void macros_init(void) {
 // The linked list of macros.
 static void** macros;
 
-static void macro_new(const char* name, const char* expansion) {
+static void macro_new(char* name, char* expansion) {
     if ((name == 0) | (expansion == 0)) {
         fatal("Out of memory.");
     }
@@ -1187,7 +1187,7 @@ static void deinitialize(void) {
     free(current_string);
 }
 
-static void parse_command_line(int argc, const char** argv) {
+static void parse_command_line(int argc, char** argv) {
     int i;
     i = 0;
 
@@ -1197,7 +1197,7 @@ static void parse_command_line(int argc, const char** argv) {
             break;
         }
 
-        const char* arg;
+        char* arg;
         int len;
 
         arg = *(argv + i);
@@ -1205,8 +1205,8 @@ static void parse_command_line(int argc, const char** argv) {
 
         /* Macro definition on command-line */
         if ((len >= 2) & (0 == memcmp(arg, "-D", 2))) {
-            const char* name;
-            const char* expansion;
+            char* name;
+            char* expansion;
 
             if (len == 2) {
                 /* -D followed by a space; the macro is the next argument */
@@ -1228,6 +1228,7 @@ static void parse_command_line(int argc, const char** argv) {
                 expansion = (expansion + 1); /* skip the = */
             }
             if (expansion == 0) {
+                name = strdup(name);
                 expansion = "";
             }
 
@@ -1344,7 +1345,7 @@ void dump_macros(void) {
     }
 }
 
-int main(int argc, const char** argv) {
+int main(int argc, char** argv) {
     #ifdef __onramp_cpp_strip__
     true = 1;
     #endif
