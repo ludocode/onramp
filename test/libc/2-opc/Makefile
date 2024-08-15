@@ -76,17 +76,14 @@ CCARGS=\
 		-D__onramp__=1 \
 		-D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
 		-D__onramp_cci__=1 -D__onramp_cci_opc__=1 \
-		-I../../../core/libc/2-opc/include \
-		-I../../../core/libc/1-omc/include \
-		-I../../../core/libc/0-oo/include \
+		-D__onramp_libc_opc__=1 \
+		-I$(ROOT)/core/libc/common/include \
 		-include __onramp/__predef.h
 
 # Arguments for external compiler
 CPPFLAGS += \
 		-nostdinc -nostdlib \
-		-I../../../core/libc/2-opc/include \
-		-I../../../core/libc/1-omc/include \
-		-I../../../core/libc/0-oo/include \
+		-I$(ROOT)/core/libc/common/include \
 		-include __onramp/__predef.h
 
 all: build test FORCE
@@ -209,15 +206,6 @@ $(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)
 	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
 
 test: build FORCE $(VM)
-	../run.sh . $(OUT)/libc.oa \
-		-I$(ROOT)/core/libc/2-opc/include \
-		-I$(ROOT)/core/libc/1-omc/include \
-		-I$(ROOT)/core/libc/0-oo/include
-	../run.sh ../1-omc $(OUT)/libc.oa \
-		-I$(ROOT)/core/libc/2-opc/include \
-		-I$(ROOT)/core/libc/1-omc/include \
-		-I$(ROOT)/core/libc/0-oo/include
-	../run.sh ../0-oo $(OUT)/libc.oa \
-		-I$(ROOT)/core/libc/2-opc/include \
-		-I$(ROOT)/core/libc/1-omc/include \
-		-I$(ROOT)/core/libc/0-oo/include
+	../run.sh .        opc $(OUT)/libc.oa
+	../run.sh ../1-omc opc $(OUT)/libc.oa
+	../run.sh ../0-oo  opc $(OUT)/libc.oa

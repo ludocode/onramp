@@ -37,7 +37,9 @@ fi
 set +e
 
 SOURCE_FOLDER="$1"
-LIBC="$2"
+LIBC_ID="$2"
+LIBC="$3"
+shift
 shift
 shift
 PREPROCESSOR_OPTIONS="$@"
@@ -48,9 +50,25 @@ TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
 ANY_ERROR=0
 
-MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1"
+# we want address sanitizer to return the same error code as the vm so we can
+# detect crashes on both
+export ASAN_OPTIONS="$ASAN_OPTIONS:exitcode=125"
+
+# determine macros and libc to use for this compiler
+if [ "$LIBC_ID" = "oo" ]; then
+    MACROS="-D__onramp_libc_oo__=1"
+elif [ "$LIBC_ID" = "omc" ]; then
+    MACROS="-D__onramp_libc_omc__=1"
+elif [ "$LIBC_ID" = "opc" ]; then
+    MACROS="-D__onramp_libc_opc__=1"
+elif ! [ "$LIBC_ID" = "full" ]; then
+    echo "ERROR: Unknown libc stage: $LIBC_ID"
+    exit 1
+fi
+MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1 $MACROS"
 # TODO use cpp/2 once it exists
-MACROS="$MACROS -D__onramp_cci_full__=1 -D__onramp_cpp_opc__=1"
+MACROS="$MACROS -D__onramp_cpp_opc__=1"
+MACROS="$MACROS -I $ROOT/core/libc/common/include"
 MACROS="$MACROS -include __onramp/__predef.h"
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"

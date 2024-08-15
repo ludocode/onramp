@@ -22,23 +22,22 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_LIMITS_H_INCLUDED
-#define __ONRAMP_LIBC_LIMITS_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_SIZE_T_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_SIZE_T_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#define CHAR_BIT 8
-#define CHAR_MAX SCHAR_MAX
-#define CHAR_MIN SCHAR_MIN
-#define SCHAR_MAX 127
-#define SCHAR_MIN (-127-1)
+// omC doesn't support unsigned, so when compiling with omC, size_t is signed.
+#ifdef __onramp_cci_omc__
+    typedef int size_t;
+#endif
 
-#define INT_MAX 2147483647
-#define INT_MIN (-2147483647-1)
-
-#define LONG_MAX INT_MAX
-#define LONG_MIN INT_MIN
+// Otherwise it's unsigned long to match the type defined by GCC builtins. (We
+// get warnings compiling our libc tests with GCC otherwise.)
+#ifndef __onramp_cci_omc__
+    typedef unsigned long size_t;
+#endif
 
 #endif

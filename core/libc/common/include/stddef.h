@@ -22,21 +22,30 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_ONRAMP_SIZE_T_H_INCLUDED
-#define __ONRAMP_LIBC_ONRAMP_SIZE_T_H_INCLUDED
+#ifndef __ONRAMP_LIBC_STDDEF_H_INCLUDED
+#define __ONRAMP_LIBC_STDDEF_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-/**
- * omC doesn't support unsigned, so when compiling with omC, size_t is signed.
- */
-#ifdef __onramp_cci_omc__
-    typedef int size_t;
-#endif
+#include <__onramp/__null.h>
+#include <__onramp/__size_t.h>
+#include <__onramp/__wchar_t.h>
+
+// TODO
+//#define __STDC_VERSION_STDDEF_H__ 202311L
+
 #ifndef __onramp_cci_omc__
-    typedef /*unsigned*/ int size_t; // TODO unsigned not supported yet in cci/1
+typedef signed int ptrdiff_t;
+typedef unsigned int max_align_t;
+#endif
+
+#ifndef __onramp_cpp_omc__
+    // TODO are we going to define __builtin_offsetof?
+    //#define offsetof(structure, member) __builtin_offsetof(structure, member)
+    #define offsetof(structure, member) \
+            ((size_t)((const char*)(&((structure*)0)->member)))
 #endif
 
 #endif

@@ -34,20 +34,34 @@
 
 /* TODO organize these like the standard */
 
+
+
 #ifndef __ONRAMP_STRING_IMPL
-    #ifndef __onramp_cci_full__
-        #define bcmp memcmp
-        #define memcpy memmove
-        #define index strchr
-        #define rindex strrchr
-    #endif
-    #ifdef __onramp_cci_full__
-        int bcmp(const void* a, const void* b, size_t count) __asm__("memcmp");
-        void* memcpy(void* dest, const void* src, size_t count) __asm__("memmove");
-        char* rindex(const char* s, int c) __asm__("strrchr");
-        char* index(const char* s, int c) __asm__("strchr");
-    #endif
+
+#ifdef __onramp_cci_omc__
+#define __ONRAMP_ASM_NAME_WORKAROUND
 #endif
+#ifdef __onramp_cci_opc__
+#define __ONRAMP_ASM_NAME_WORKAROUND
+#endif
+
+#ifndef __ONRAMP_ASM_NAME_WORKAROUND
+int bcmp(const void* a, const void* b, size_t count) __asm__("memcmp");
+void* memcpy(void* dest, const void* src, size_t count) __asm__("memmove");
+char* rindex(const char* s, int c) __asm__("strrchr");
+char* index(const char* s, int c) __asm__("strchr");
+#endif
+
+#ifdef __ONRAMP_ASM_NAME_WORKAROUND
+#define bcmp memcmp
+#define memcpy memmove
+#define index strchr
+#define rindex strrchr
+#endif
+
+#endif
+
+
 
 void bcopy(const void* src, void* dest, size_t count);
 void bzero(void* p, size_t count);

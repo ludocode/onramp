@@ -46,7 +46,7 @@ make -C test/ld/2-full build
 # First we get our linker and libc up
 ( core/ld/0-global/build.sh && cd test/ld/0-global && ../run.sh . onrampvm ../../../build/intermediate/ld-0-global/ld.oe )
 ( core/ar/0-cat/build.sh && cd test/ar/0-cat && ../run.sh . onrampvm ../../../build/intermediate/ar-0-cat/ar.oe )
-( core/libc/0-oo/build.sh && cd test/libc/0-oo && ../run.sh . ../../../build/intermediate/libc-0-oo/libc.oa -I../../../core/libc/0-oo/include )
+( core/libc/0-oo/build.sh && cd test/libc/0-oo && ../run.sh . oo ../../../build/intermediate/libc-0-oo/libc.oa )
 
 # Next we build an assembler
 ( core/libo/0-oo/build.sh && true ) #TODO libo tests don't exist yet
@@ -63,31 +63,18 @@ make -C test/ld/2-full build
 ( core/cpp/1-omc/build.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe )
 ( core/ld/1-omc/build.sh && cd test/ld/1-omc && ../run.sh . onrampvm ../../../build/intermediate/ld-1-omc/ld.oe )
 ( core/libc/1-omc/build.sh && cd test/libc/1-omc && \
-    ../run.sh ../0-oo ../../../build/intermediate/libc-1-omc/libc.oa \
-            -I../../../core/libc/1-omc/include \
-            -I../../../core/libc/0-oo/include && \
-    ../run.sh . ../../../build/intermediate/libc-1-omc/libc.oa \
-            -I../../../core/libc/1-omc/include \
-            -I../../../core/libc/0-oo/include )
+    ../run.sh ../0-oo omc ../../../build/intermediate/libc-1-omc/libc.oa && \
+    ../run.sh .       omc ../../../build/intermediate/libc-1-omc/libc.oa )
 ( core/cc/build.sh && cd test/cc && ./run.sh . onrampvm ../../../build/intermediate/cc/cc.oe )
 
 # Build the opC toolchain
 ( core/cci/1-opc/build.sh && cd test/cci/1-opc && \
     ../run.sh --other-stage ../0-omc opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe && \
     ../run.sh               .        opc onrampvm ../../../build/intermediate/cci-1-opc/cci.oe )
-( core/libc/2-opc/build.sh && cd test/libc/1-omc && \
-    ../run.sh ../0-oo ../../../build/intermediate/libc-2-opc/libc.oa \
-            -I../../../core/libc/2-opc/include \
-            -I../../../core/libc/1-omc/include \
-            -I../../../core/libc/0-oo/include && \
-    ../run.sh ../1-omc ../../../build/intermediate/libc-2-opc/libc.oa \
-            -I../../../core/libc/2-opc/include \
-            -I../../../core/libc/1-omc/include \
-            -I../../../core/libc/0-oo/include && \
-    ../run.sh . ../../../build/intermediate/libc-2-opc/libc.oa \
-            -I../../../core/libc/2-opc/include \
-            -I../../../core/libc/1-omc/include \
-            -I../../../core/libc/0-oo/include )
+( core/libc/2-opc/build.sh && cd test/libc/2-opc && \
+    ../run.sh ../0-oo  opc ../../../build/intermediate/libc-2-opc/libc.oa && \
+    ../run.sh ../1-omc opc ../../../build/intermediate/libc-2-opc/libc.oa && \
+    ../run.sh .        opc ../../../build/intermediate/libc-2-opc/libc.oa )
 
 # Build the full C compiler
 ( core/libo/1-opc/build.sh && true ) #TODO libo tests don't exist yet
@@ -107,7 +94,11 @@ make -C test/ld/2-full build
 ( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 
 # Build the rest of the C toolchain
-core/libc/3-full/build.sh
+( core/libc/3-full/build.sh && cd test/libc/3-full && \
+    ../run.sh ../0-oo  full ../../../build/intermediate/libc-3-full/libc.oa && \
+    ../run.sh ../1-omc full ../../../build/intermediate/libc-3-full/libc.oa && \
+    ../run.sh ../2-opc full ../../../build/intermediate/libc-3-full/libc.oa && \
+    ../run.sh .        full ../../../build/intermediate/libc-3-full/libc.oa )
 ( core/as/2-full/build.sh && cd test/as/2-full && \
     ../run.sh --other-stage ../0-basic    onrampvm ../../../build/intermediate/as-2-full/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/intermediate/as-2-full/as.oe && \
@@ -115,7 +106,11 @@ core/libc/3-full/build.sh
 
 # Rebuild our C toolchain with itself
 ( core/cc/rebuild.sh && cd test/cc && ../run.sh . onrampvm ../../../build/output/bin/cc.oe )
-( core/libc/3-full/rebuild.sh && true ) # TODO test libc
+( core/libc/3-full/build.sh && cd test/libc/3-full && \
+    ../run.sh ../0-oo  full ../../../build/output/lib/libc.oa && \
+    ../run.sh ../1-omc full ../../../build/output/lib/libc.oa && \
+    ../run.sh ../2-opc full ../../../build/output/lib/libc.oa && \
+    ../run.sh .        full ../../../build/output/lib/libc.oa )
 ( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
 ( core/as/2-full/rebuild.sh && cd test/as/2-full && \
     ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe && \
@@ -127,5 +122,3 @@ core/libc/3-full/build.sh
 # Build the last few tools we need
 platform/hex/c89/build.sh
 core/ar/1-unix/build.sh
-
-# TODO rebuild, test rebuilt tools as bootstrapped

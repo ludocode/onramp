@@ -22,27 +22,15 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_CTYPE_H_INCLUDED
-#define __ONRAMP_LIBC_CTYPE_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_WCHAR_T_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_WCHAR_T_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-int isalnum(int);
-int isalpha(int);
-int isascii(int);
-int isblank(int);
-int iscntrl(int);
-int isdigit(int);
-int isgraph(int);
-int islower(int);
-int isprint(int);
-int ispunct(int);
-int isspace(int);
-int isupper(int);
-int isxdigit(int);
-int tolower(int);
-int toupper(int);
+#ifndef __onramp_cci_omc__
+typedef unsigned int wchar_t;
+#endif
 
 #endif

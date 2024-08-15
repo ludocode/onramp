@@ -22,19 +22,15 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_STDINT_H_INCLUDED
-#define __ONRAMP_LIBC_STDINT_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_VA_LIST_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_VA_LIST_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-// TODO
-typedef int intptr_t;
-
-// Note that size_t is signed in omC, we don't have unsigned numbers
-// TODO should have #ifdef for unsigned
-// TODO should we include __size_t.h?
-#define SIZE_MAX 2147483647
+#ifndef __onramp_cci_omc__
+typedef __builtin_va_list va_list;
+#endif
 
 #endif

@@ -5,9 +5,8 @@
 -nostdinc
 -D__onramp__=1
 -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1
--D__onramp_cci__=1 -D__onramp_cci_omc__=1
--Icore/libc/2-opc/include
--Icore/libc/1-omc/include
--Icore/libc/0-oo/include
+-D__onramp_cci__=1 -D__onramp_cci_opc__=1
+-D__onramp_libc_opc__=1
+-Icore/libc/common/include
 -Icore/libo/1-opc/include
 -include __onramp/__predef.h

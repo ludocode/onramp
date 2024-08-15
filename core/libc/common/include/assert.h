@@ -22,31 +22,49 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_STRING_H_INCLUDED
-#define __ONRAMP_LIBC_STRING_H_INCLUDED
+
+
+/*
+ * <assert.h> is not a normal header file. As per the C spec, this part sits
+ * outside the include guard.
+ */
+
+#ifndef __onramp_cpp_omc__
+    #undef assert
+    #ifdef NDEBUG
+        #define assert(x) ((void)0)
+    #else
+        #define assert(x) ((x) ? ((void)0) : __assert_fail(#x, __FILE__, __LINE__, __func__))
+    #endif
+#endif
+
+
+
+/*
+ * The rest of the file uses a traditional include guard.
+ */
+
+#ifndef __ONRAMP_LIBC_ASSERT_H_INCLUDED
+#define __ONRAMP_LIBC_ASSERT_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#include <__onramp/__size_t.h>
-#include <__onramp/__null.h>
+#ifdef __onramp_cpp_omc__
+    // With the omC preprocessor, assert can't be a macro. It's a function and
+    // it's always called even under NDEBUG.
+    #define assert __assert
+    void __assert(int __expression);
+#endif
 
-void* memcpy(void* dest, const void* src, size_t count);
-void* memmove(void* dest, const void* src, size_t count);
-void* memset(void* dest, int c, size_t count);
-int memcmp(const void* a, const void* b, size_t count);
+void __assert_fail(const char* __expression, const char* __file,
+        int __line, const char* __function);
 
-size_t strlen(const char* s);
-size_t strnlen(const char* s, size_t max_length);
-char* strcpy(char* restrict to, const char* restrict from);
-int strcmp(const char* left, const char* right);
-char* strchr(const char* s, int c);
-
-// TODO this is only defined in libc/1
-char* strrchr(const char* s, int c);
-
-char* strdup(const char* str);
-char* strndup(const char* str, size_t max_length);
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+#define static_assert _Static_assert
+#endif
+#endif
 
 #endif

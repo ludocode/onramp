@@ -42,11 +42,9 @@ echo Preprocessing libc/1-omc malloc.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
-    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-    -D__onramp_libc__=1 -D__onramp_libc_omc__=1 \
+    -D__onramp_libc_omc__=1 \
     -Drestrict= -D_Noreturn= \
-    -Icore/libc/1-omc/include \
-    -Icore/libc/0-oo/include \
+    -Icore/libc/common/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
     core/libc/1-omc/src/malloc.c -o build/intermediate/libc-1-omc/malloc.i
@@ -65,11 +63,9 @@ echo Preprocessing libc/1-omc strtol.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
-    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-    -D__onramp_libc__=1 -D__onramp_libc_omc__=1 \
+    -D__onramp_libc_omc__=1 \
     -Drestrict= -D_Noreturn= \
-    -Icore/libc/1-omc/include \
-    -Icore/libc/0-oo/include \
+    -Icore/libc/common/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
     core/libc/1-omc/src/strtol.c -o build/intermediate/libc-1-omc/strtol.i
@@ -88,11 +84,9 @@ echo Preprocessing libc/1-omc strrchr.c
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
-    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-    -D__onramp_libc__=1 -D__onramp_libc_omc__=1 \
+    -D__onramp_libc_omc__=1 \
     -Drestrict= -D_Noreturn= \
-    -Icore/libc/1-omc/include \
-    -Icore/libc/0-oo/include \
+    -Icore/libc/common/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
     core/libc/1-omc/src/strrchr.c -o build/intermediate/libc-1-omc/strrchr.i

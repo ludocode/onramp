@@ -33,8 +33,10 @@ echo === Building ld/1-omc
 echo Preprocessing ld/1-omc
 onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
+    -D__onramp_cci__=1 \
     -D__onramp_cci_omc__=1 \
-    -Icore/libc/0-oo/include \
+    -D__onramp_libc_omc__=1 \
+    -Icore/libc/common/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
     core/ld/1-omc/ld.c -o build/intermediate/ld-1-omc/ld.i

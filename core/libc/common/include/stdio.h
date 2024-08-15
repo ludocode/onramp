@@ -33,24 +33,19 @@
 #include <__onramp/__null.h>
 #include <__onramp/__va_list.h>
 
+
+
+// FILE is an incomplete struct so that it's not convertible to anything else.
+// (omC doesn't have structs so it's just void when bootstrapping cci/1.)
+
+#ifdef __onramp_cci_omc__
+typedef void FILE;
+#endif
+
+#ifndef __onramp_cci_omc__
 struct __file;
 typedef struct __file FILE;
-typedef long fpos_t;
-
-#define _IOFBF 1
-#define _IOLBF 2
-#define _IONBF 3
-
-#define BUFSIZ 512
-#define EOF (-1)
-#define FOPEN_MAX 13 // TODO
-#define FILENAME_MAX 256
-#define L_tmpnam 256 // TODO
-#define TMP_MAX 1000 // TODO
-
-#define SEEK_CUR 0
-#define SEEK_END 1
-#define SEEK_SET 2
+#endif
 
 // These are supposed to be macros. They also need to be real variables to be
 // accessible from assembly and backwards-compatible with previous stages, but
@@ -67,15 +62,59 @@ extern FILE* stderr;
     #endif
 #endif
 
-// standard C
+
+
+typedef long fpos_t;
+
+#define _IOFBF 1
+#define _IOLBF 2
+#define _IONBF 3
+
+#define BUFSIZ 512
+#define EOF (-1)
+#define FOPEN_MAX 13 // TODO
+#define FILENAME_MAX 256
+#define L_tmpnam 256 // TODO
+#define TMP_MAX 1000 // TODO
+
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
+
+
+// omC
+
+FILE* fopen(const char* restrict filename, const char* restrict mode);
+size_t fread(void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
+size_t fwrite(const void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
+int fclose(FILE* file);
+int feof(FILE* file);
+
+int fgetc(FILE* file);
+int fputc(int c, FILE* file);
+int fputs(const char* restrict s, FILE* restrict file);
+int putchar(int c);
+int putc(int c, FILE* file);
+int puts(const char* s);
+
+int fseek(FILE* file, long offset, int whence);
+long ftell(FILE* file);
 
 int remove(const char* filename);
+
+int chmod(const char* filename, int mode); // TODO this belongs in sys/stat.h
+
+
+
+// opC
+
+#ifndef __onramp_cci_omc__
+
 int rename(const char* old, const char* new);
 FILE* tmpfile(void);
 char* tmpnam(char* s);
-int fclose(FILE* file);
 int fflush(FILE* file);
-FILE* fopen(const char* restrict filename, const char* restrict mode);
 FILE* freopen(const char* restrict filename, const char* restrict mode, FILE* restrict file);
 int setvbuf(FILE* restrict file, char* restrict buf, int mode, size_t size);
 
@@ -95,27 +134,16 @@ int vsprintf(char* restrict buffer, const char* restrict format, va_list arg);
 int vsscanf(const char* restrict buffer, const char* restrict format, va_list arg);
 
 //[[deprecated]] char* gets(char* s);
-int fgetc(FILE* file);
 char* fgets(char* restrict s, int n, FILE* restrict file);
-int fputc(int c, FILE* file);
-int fputs(const char* restrict s, FILE* restrict file);
 int getc(FILE* file);
 int getchar(void);
-int putc(int c, FILE* file);
-int putchar(int c);
-int puts(const char* s);
 int ungetc(int c, FILE* file);
 
-size_t fread(void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
-size_t fwrite(const void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
 int fgetpos(FILE* restrict file, fpos_t* restrict pos);
-int fseek(FILE* file, long offset, int whence);
 int fsetpos(FILE* file, const fpos_t* pos);
-long ftell(FILE* file);
 void rewind(FILE* file);
 
 void clearerr(FILE* file);
-int feof(FILE* file);
 int ferror(FILE* file);
 void perror(const char* s);
 
@@ -127,5 +155,13 @@ FILE* fdopen(int fd, const char* mode);
 int asprintf(char** restrict out_string, const char* restrict format, ...);
 int vasprintf(char** restrict out_string, const char* restrict format, va_list args);
 #endif
+
+// posix
+int fileno(FILE* file);
+typedef int mode_t;
+
+#endif
+
+
 
 #endif

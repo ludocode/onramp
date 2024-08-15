@@ -26,7 +26,6 @@
 #define ONRAMP_LIBO_UTIL_H_INCLUDED
 
 #include <stddef.h>
-#include <stdint.h>
 #include <stdio.h>
 
 /**

@@ -64,4 +64,4 @@ $(OUT)/libc.oa: $(LIBC_FILES) Makefile $(VM) $(AR)
 	$(VM) $(AR) rc $@ $(LIBC_FILES)
 
 test: build FORCE $(VM)
-	../run.sh . $(OUT)/libc.oa -I$(ROOT)/core/libc/0-oo/include
+	../run.sh . oo $(OUT)/libc.oa

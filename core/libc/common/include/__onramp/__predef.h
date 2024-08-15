@@ -30,10 +30,14 @@
  * compilation.
  */
 
+#define __onramp_libc__ 1
+
 #include <__onramp/__bool.h>
 
-#define __onramp_libc__ 1
-#define __onramp_libc_oo__ 1
+#define __STDC_NO_THREADS__
+#define __STDC_NO_ATOMICS__
+#define __STDC_NO_COMPLEX__
+#define __STDC_NO_VLA__
 
 // These are here for lack of a better place to put them. We want functions
 // declared in our libc headers (even those of earlier stages) to match the

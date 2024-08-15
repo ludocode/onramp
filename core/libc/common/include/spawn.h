@@ -31,6 +31,11 @@
 
 int posix_spawn(void); //TODO
 
+int __onramp_spawn(
+        int* process_info_table,
+        char* memory_start,
+        char* memory_end);
+
 /**
  * Runs an Onramp executable as a child process within this VM.
  *
@@ -51,6 +56,7 @@ int posix_spawn(void); //TODO
  * memory. This must be large enough to store the process's image, stack and
  * heap.
  */
+/*TODO
 int __onramp_spawn(
         const char* executable,
         const char* working_directory,
@@ -59,6 +65,7 @@ int __onramp_spawn(
         int stdin_fd,
         int stdout_fd,
         int stderr_fd);
+*/
 
 /**
  * Runs an Onramp executable as a child process within this VM.
@@ -66,9 +73,11 @@ int __onramp_spawn(
  * This is the same as __onramp_spawn() except the working directory and
  * standard file descriptors are those of the current process.
  */
+/*TODO
 int __onramp_spawn_basic(
         const char* executable,
         const char** arguments,
         const char** environment);
+        */
 
 #endif
