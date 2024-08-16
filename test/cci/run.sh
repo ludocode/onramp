@@ -91,7 +91,7 @@ elif [ "$COMPILER_ID" = "opc" ]; then
     MACROS="-D__onramp_cci_opc__=1"
 elif [ "$COMPILER_ID" = "full" ]; then
     LIBC=2-opc  # TODO 3-full
-    MACROS="-D__onramp_cci_full__=1"
+    MACROS=
 else
     echo "ERROR: Unknown compiler: $COMPILER_ID"
     exit 1
@@ -99,7 +99,7 @@ fi
 MACROS="$MACROS -I$ROOT/core/libc/common/include"
 MACROS="$MACROS -D__onramp__=1 -D__onramp_cci__=1"
 # TODO use cpp/2
-#MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_full__=1"
+#MACROS="$MACROS -D__onramp_cpp__=1"
 MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1"
 MACROS="$MACROS -include __onramp/__predef.h"
 

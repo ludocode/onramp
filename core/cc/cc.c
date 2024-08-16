@@ -654,8 +654,7 @@ static void check_options(void) {
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "__onramp/__predef.h");
     }
 
-    // Default macros. By default we're running under the final stages of cci
-    // and cpp, but we don't define the cpp macros because cpp defines them
+    // Default macros. We don't define __onramp_cpp__ because cpp defines it
     // itself. Instead we forward -nostddef to it to inhibit them.
     if (nostddef) {
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-nostddef");
@@ -663,7 +662,6 @@ static void check_options(void) {
     if (!nostddef) {
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp__=1");
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci__=1");
-        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci_full__=1");
     }
 
     if (dump_macros & (mode != MODE_PREPROCESS)) {

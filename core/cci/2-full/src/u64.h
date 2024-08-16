@@ -39,7 +39,7 @@
  * necessary because, when compiling with a native C compiler, we don't have
  * our libc functions.)
  */
-#ifdef __onramp_cci_full__
+#ifndef __onramp_cci_opc__
     // TOOD temporarily disabled until we implement long long, float and double
     //#define ONRAMP_U64_NATIVE
 #endif

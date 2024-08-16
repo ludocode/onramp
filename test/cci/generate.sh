@@ -41,22 +41,20 @@ ANY_ERROR=0
 # determine macros to use for this compiler
 if [ "$COMPILER_ID" = "omc" ]; then
     LIBC=1-omc
-    MACROS="-D__onramp_cci_omc__=1 -Drestrict= -D_Noreturn="
+    MACROS="-D__onramp_cci_omc__=1"
 elif [ "$COMPILER_ID" = "opc" ]; then
     LIBC=2-opc
     MACROS="-D__onramp_cci_opc__=1"
-    MACROS="$MACROS -I$ROOT/core/libc/2-opc/include"
 elif [ "$COMPILER_ID" = "full" ]; then
     LIBC=2-opc  # TODO 3-full
-    MACROS="-D__onramp_cci_full__=1"
-    MACROS="$MACROS -I$ROOT/core/libc/2-opc/include"   # TODO also 3-full
+    MACROS=
 else
     echo "ERROR: Unknown compiler: $COMPILER_ID"
 fi
-MACROS="$MACROS -I$ROOT/core/libc/1-omc/include -I$ROOT/core/libc/0-oo/include"
+MACROS="$MACROS -I$ROOT/core/libc/common/include"
 MACROS="$MACROS -D__onramp__=1 -D__onramp_cci__=1"
 # TODO use cpp/2
-#MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_full__=1"
+#MACROS="$MACROS -D__onramp_cpp__=1"
 MACROS="$MACROS -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1"
 MACROS="$MACROS -include __onramp/__predef.h"
 

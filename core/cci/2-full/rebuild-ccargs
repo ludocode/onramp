@@ -6,7 +6,7 @@
 -nostdinc
 -D__onramp__=1
 -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1
--D__onramp_cci__=1 -D__onramp_cci_full__=1
+-D__onramp_cci__=1
 -Icore/libc/2-opc/include
 -Icore/libc/1-omc/include
 -Icore/libc/0-oo/include

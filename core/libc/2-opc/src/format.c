@@ -543,10 +543,10 @@ static void print(const char* format, output_t* output, va_list args) {
                 // get argument
                 intmax_t value;
                 if (directive.length_modifier == length_modifier_ll) {
-                    #ifdef __onramp_cci_full__
+                    #ifndef __onramp_cci_opc__
                         value = va_arg(args, long long);
                     #endif
-                    #ifndef __onramp_cci_full__
+                    #ifdef __onramp_cci_opc__
                         output->error = true;
                         return;
                     #endif
@@ -599,10 +599,10 @@ static void print(const char* format, output_t* output, va_list args) {
             case 'u': {
                 uintmax_t value;
                 if (directive.length_modifier == length_modifier_ll) {
-                    #ifdef __onramp_cci_full__
+                    #ifndef __onramp_cci_opc__
                         value = va_arg(args, unsigned long long);
                     #endif
-                    #ifndef __onramp_cci_full__
+                    #ifdef __onramp_cci_opc__
                         output->error = true;
                         return;
                     #endif
@@ -618,10 +618,10 @@ static void print(const char* format, output_t* output, va_list args) {
             case 'X': {
                 uintmax_t value;
                 if (directive.length_modifier == length_modifier_ll) {
-                    #ifdef __onramp_cci_full__
+                    #ifndef __onramp_cci_opc__
                         value = va_arg(args, unsigned long long);
                     #endif
-                    #ifndef __onramp_cci_full__
+                    #ifdef __onramp_cci_opc__
                         output->error = true;
                         return;
                     #endif

@@ -100,7 +100,7 @@ Tool and library overrides:
 - `-with-ld=/path/to/ld.oe` -- Use an alternate linker.
 - `-nostdinc` -- Do not use any default include paths (e.g. to the Onramp libc.)
 - `-nostdlib` -- Do not link any libraries by default (e.g. the Onramp libc.)
-- `-nostddef` -- Do not define any macros by default (e.g. `__onramp__`.)
+- `-nostddef` -- Do not define any implementation macros by default (e.g. `__onramp__`.)
 
 Miscellaneous options:
 
@@ -126,15 +126,8 @@ The Onramp compiler pre-defines several macros by default. Here's a list of user
 
 - `#define __onramp__ 1` -- The compiler is targeting an Onramp VM and emits Onramp assembly or bytecode.
 - `#define __onramp_cci__ 1` -- This is the Onramp compiler.
-- `#define __onramp_cci_full__ 1` -- This is the final stage of the Onramp compiler.
 - `#define __onramp_cpp__ 1` -- This is the Onramp preprocessor.
-- `#define __onramp_cpp_full__ 1` -- This is the final stage of the Onramp preprocessor.
 - `#define __onramp_libc__ 1` -- The libc headers are those of the Onramp libc, and the program will be linked with it.
-- `#define __onramp_libc_full__ 1` -- This is the final stage of the Onramp libc.
-
-It's important to use the correct macros. For example if you want to detect the Onramp compiler to work around some issue, you should detect `__onramp_cci__`, not `__onramp__`. If you want special behaviour on an Onramp VM, you should use `__onramp__`, not `__onramp_cci__`. If you are making a backend for some other compiler that emits Onramp assembly or bytecode, you should define only `__onramp__`, and potentially `__onramp_libc__` and `__onramp_libc_full__` if you are also targeting the Onramp libc.
-
-(NOTE: Onramp is currently under development. Since the full Onramp stages are not yet complete, the currently defined stage macros are actually of earlier stages.)
 
 You can view the predefined macros using `-dM`, for example:
 

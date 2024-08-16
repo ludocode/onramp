@@ -31,7 +31,7 @@ echo
 echo === Rebuilding cci/2-full
 
 # TODO rebuild-ccargs needs to use as-2 and cpp-2
-# TODO need to define __onramp_cci_full__, not __onramp_cci_opc__
+# TODO need to not define __onramp_cci_opc__
 
 echo Compiling cci/2-full block.c
 onrampvm build/intermediate/cc/cc.oe \
