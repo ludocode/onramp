@@ -4,5 +4,6 @@
 
 int main(void) {
     int x[] = {1, 2, 3};
-    return 6 - x[0] - x[1] - x[2];
+    if (sizeof(x) != 3 * sizeof(int)) return 1;
+    if (6 != x[0] + x[1] + x[2]) return 2;
 }

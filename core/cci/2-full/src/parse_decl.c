@@ -942,6 +942,15 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         }
         lexer_consume();
         initializer = parse_initializer(type);
+
+        // If we have an array of indetermine size, we can now set its size
+        if (type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE &&
+                initializer->kind == NODE_INITIALIZER_LIST)
+        {
+            type_t* new_type = type_new_array(type->ref, vector_count(&initializer->initializers));
+            type_deref(type);
+            type = new_type;
+        }
     }
 
     bool is_tentative =
