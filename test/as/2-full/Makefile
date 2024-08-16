@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CPPFLAGS := -Wall -Wextra -Wpedantic
 
 -include ../../local.mk
 
@@ -32,7 +32,7 @@ OUT=$(BUILD)/as-2-full
 SRC=$(ROOT)/core/as/2-full
 LIBO=$(ROOT)/core/libo/1-opc
 CPPFLAGS += \
-	-include ../../portability.h \
+	-include $(ROOT)/test/portability.h \
 	-I$(LIBO)/include
 
 SRCS=\

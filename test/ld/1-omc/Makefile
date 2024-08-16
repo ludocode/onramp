@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CPPFLAGS := -Wall -Wextra -Wpedantic
 
 -include ../../local.mk
 
@@ -32,7 +32,7 @@ OUT=$(BUILD)/ld-1-omc
 SRC=$(ROOT)/core/ld/1-omc
 LIBO=$(ROOT)/core/libo/1-opc
 CPPFLAGS += \
-	-include ../../portability.h \
+	-include $(ROOT)/test/portability.h \
 	-I$(LIBO)/include \
 	-D__onramp_omc__=1
 

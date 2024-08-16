@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CPPFLAGS := -Wall -Wextra -Wpedantic
 
 -include ../local.mk
 

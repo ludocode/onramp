@@ -25,7 +25,7 @@ CPPFLAGS += -nostdinc -fno-builtin -fno-stack-protector
 CPPFLAGS += -g -DDEBUG
 CPPFLAGS += -I$(LIBC1)/include -I$(LIBC1)/src -I$(LIBC0)/include
 CPPFLAGS += -Wall -Wextra -Werror
-CPPFLAGS += -Wno-unused-parameter  # TODO temporary since so much is stubbed out
+CPPFLAGS +=  # TODO temporary since so much is stubbed out
 CPPFLAGS += -MD -MP
 CPPFLAGS += -include __onramp/__predef.h
 

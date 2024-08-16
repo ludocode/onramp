@@ -22,7 +22,7 @@
 
 .SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CPPFLAGS := -Wall -Wextra -Wpedantic
 
 -include ../../local.mk
 
@@ -83,6 +83,7 @@ CCARGS=\
 CPPFLAGS += \
 		-nostdinc -nostdlib \
 		-I$(ROOT)/core/libc/common/include \
+		-include $(ROOT)/test/portability.h \
 		-include __onramp/__predef.h
 
 all: build test FORCE

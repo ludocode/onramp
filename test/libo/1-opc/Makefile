@@ -22,7 +22,7 @@
 
 .SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
+CPPFLAGS := -Wall -Wextra -Wpedantic
 
 -include ../../local.mk
 
@@ -73,14 +73,8 @@ CPPFLAGS += \
 		-nostdinc -nostdlib \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libo/1-opc/include \
+		-include $(ROOT)/test/portability.h \
 		-include __onramp/__predef.h
-# TODO disabling a few warnings for now
-CPPFLAGS := \
-		-Wno-builtin-declaration-mismatch \
-		-Wno-unused-function \
-		-Wno-pointer-to-int-cast \
-		-Wno-int-to-pointer-cast \
-		$(CPPFLAGS)
 
 all: build test FORCE
 FORCE:

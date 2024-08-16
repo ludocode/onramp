@@ -33,7 +33,7 @@ OUT=$(BUILD)/cci-2-full
 SRC=$(ROOT)/core/cci/2-full/src
 LIBO=$(ROOT)/core/libo/1-opc
 CPPFLAGS += \
-	-include ../../portability.h \
+	-include $(ROOT)/test/portability.h \
 	-I$(LIBO)/include
 
 SRCS=\
