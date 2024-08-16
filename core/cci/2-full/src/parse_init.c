@@ -158,9 +158,19 @@ static void parse_initializer_list_part(type_t* type, node_t* node, size_t index
 
 
         // TODO trailing comma is C99
+        /*
         if (lexer_accept(STR_BRACE_CLOSE))
             break;
         lexer_expect(STR_COMMA, "Expected `,` or `}` after initializer list expression.");
+        */
+
+        if (!lexer_accept(STR_COMMA)) {
+            lexer_expect(STR_BRACE_CLOSE, "Expected `,` or `}` after initializer list expression.");
+            break;
+        }
+        if (lexer_accept(STR_BRACE_CLOSE)) {
+            break;
+        }
     }
 
 }
