@@ -42,16 +42,12 @@ mkdir -p build/intermediate/hex-1-c89
 echo Compiling hex/1-c89
 onrampvm build/intermediate/cc/cc.oe \
     -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-1-opc/cci.oe \
+    -with-cci=build/intermediate/cci-2-full/cci.oe \
     -with-as=build/intermediate/as-1-compound/as.oe \
-    -with-ld=build/intermediate/ld-1-omc/ld.oe \
-    -nostddef \
+    -with-ld=build/intermediate/ld-2-full/ld.oe \
     -nostdinc \
-    -D__onramp__=1 \
-    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-    -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
-    -Icore/libc/1-omc/include \
-    -Icore/libc/0-oo/include \
+    -D__onramp_libc_omc__=1 \
+    -Icore/libc/common/include \
     -include __onramp/__predef.h \
     core/hex/1-c89/src/hex.c \
     -o build/intermediate/hex-1-c89/hex.oe

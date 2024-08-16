@@ -66,16 +66,15 @@ OBJS=\
 		$(OUT)/system.oo \
 
 # Arguments for Onramp compiler
-# TODO remove -nostddef and macros once we have full cci, full cpp
+# TODO remove -D__onramp_cci_opc__ etc. once we have full cci, full cpp
 CCARGS=\
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
 	    -with-as=$(TOOL_AS) \
 	    -with-ld=$(TOOL_LD) \
-		-nostddef \
-		-D__onramp__=1 \
-		-D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-		-D__onramp_cci__=1 -D__onramp_cci_opc__=1 \
+		-nostdinc \
+		-nostdlib \
+		-D__onramp_cci_opc__=1 \
 		-D__onramp_libc_opc__=1 \
 		-I$(ROOT)/core/libc/common/include \
 		-include __onramp/__predef.h

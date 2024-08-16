@@ -36,7 +36,7 @@ TOOL_VM=$(BUILD)/vm-c-debugger/vm
 TOOL_AR=$(BUILD)/ar-0-cat/ar.oe    # TODO ar/1
 TOOL_CC=$(BUILD)/cc/cc
 TOOL_CPP=$(BUILD)/cpp-1-omc/cpp    # TODO cpp/2
-TOOL_CCI=$(BUILD)/cci-1-opc/cci    # TODO cci/2
+TOOL_CCI=$(BUILD)/cci-2-full/cci
 TOOL_AS=$(BUILD)/as-2-full/as
 TOOL_LD=$(BUILD)/ld-2-full/ld
 TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
@@ -57,29 +57,22 @@ SRCS=\
 		$(SRC)/libo-vector.c \
 
 # Arguments for Onramp compiler
-# TODO remove -nostddef and macros once we have full cci, full cpp
 CCARGS=\
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
 	    -with-as=$(TOOL_AS) \
 	    -with-ld=$(TOOL_LD) \
-		-nostddef \
-		-D__onramp__=1 \
-		-D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
-		-D__onramp_cci__=1 -D__onramp_cci_opc__=1 \
-		-I../../../core/libo/1-opc/include \
-		-I../../../core/libc/2-opc/include \
-		-I../../../core/libc/1-omc/include \
-		-I../../../core/libc/0-oo/include \
+		-nostdinc \
+		-nostdlib \
+		-I$(ROOT)/core/libc/common/include \
+		-I$(ROOT)/core/libo/1-opc/include \
 		-include __onramp/__predef.h
 
 # Arguments for external compiler
 CPPFLAGS += \
 		-nostdinc -nostdlib \
-		-I../../../core/libo/1-opc/include \
-		-I../../../core/libc/2-opc/include \
-		-I../../../core/libc/1-omc/include \
-		-I../../../core/libc/0-oo/include \
+		-I$(ROOT)/core/libc/common/include \
+		-I$(ROOT)/core/libo/1-opc/include \
 		-include __onramp/__predef.h
 # TODO disabling a few warnings for now
 CPPFLAGS := \
@@ -104,7 +97,7 @@ $(TOOL_AR): FORCE
 $(TOOL_CC): FORCE
 	@(make -C ../../cc build)
 $(TOOL_CCI): FORCE
-	@(make -C ../../cci/1-opc build)   # TODO cci/2 build
+	@(make -C ../../cci/2-full build)
 $(TOOL_CPP): FORCE
 	@(make -C ../../cpp/1-omc build)   # TODO cpp/2 build
 $(TOOL_AS): FORCE
@@ -167,13 +160,5 @@ $(OUT)/libo.oa: Makefile $(TOOLS) $(OBJS)
 	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
 
 test: build FORCE
-	../run.sh . $(OUT)/libo.oa \
-		-I../../../core/libo/1-opc/include \
-		-I../../../core/libc/2-opc/include \
-		-I../../../core/libc/1-omc/include \
-		-I../../../core/libc/0-oo/include
-	../run.sh ../0-oo $(OUT)/libo.oa \
-		-I../../../core/libo/1-opc/include \
-		-I../../../core/libc/2-opc/include \
-		-I../../../core/libc/1-omc/include \
-		-I../../../core/libc/0-oo/include
+	../run.sh . $(OUT)/libo.oa
+	../run.sh ../0-oo $(OUT)/libo.oa

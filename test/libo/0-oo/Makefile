@@ -56,5 +56,4 @@ $(OUT)/libo.oa: $(LIBO_FILES) Makefile $(VM) $(AR)
 	$(VM) $(AR) rc $@ $(LIBO_FILES)
 
 test: build FORCE $(VM)
-	@# TODO no tests yet
-	@true
+	../run.sh . $(OUT)/libo.oa

@@ -65,6 +65,7 @@ make -C test/cci/1-opc
 
 # full compiler
 make -C test/libc/2-opc
+make -C test/libo/1-opc
 make -C test/cci/2-full
 # TODO some tools not done yet
 #make -C test/cpp/2-full

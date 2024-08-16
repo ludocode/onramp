@@ -207,7 +207,4 @@ typedef int64_t int_fast64_t;
         // TODO cpp/1 also breaks on #if in untaken conditionals, it doesn't pair it with #endif
 #endif
 
-#define INTMAX_C INT64_C
-#define UINTMAX_C UINT64_C
-
 #endif

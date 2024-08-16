@@ -50,19 +50,15 @@ OBJS=\
 		$(OUT)/strrchr.oo \
 		$(OUT)/strtol.oo \
 
-# TODO remove -nostddef, -D__onramp_cci_opc__ etc. once we have full cci, full cpp
+# TODO remove -D__onramp_cci_opc__ etc. once we have full cci, full cpp
 CCARGS=\
-	    -v \
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
 	    -with-as=$(TOOL_AS) \
 	    -with-ld=$(TOOL_LD) \
-		-nostddef \
 		-nostdinc \
 		-nostdlib \
-		-D__onramp__=1 \
-		-D__onramp_cci__=1 -D__onramp_cci_opc__=1 \
-		-D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
+		-D__onramp_cci_opc__=1 \
 		-D__onramp_libc_omc__=1 \
 		-I$(ROOT)/core/libc/common/include \
 		-include __onramp/__predef.h

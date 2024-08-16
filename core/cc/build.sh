@@ -35,7 +35,6 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_libc_omc__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
-    -D__onramp_cpp__=1 -D__onramp_cpp_omc__=1 \
     -Drestrict= -D_Noreturn= \
     -Icore/cc/include \
     -Icore/libc/common/include \
