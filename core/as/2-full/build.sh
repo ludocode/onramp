@@ -30,43 +30,35 @@ mkdir -p build/intermediate/as-2-full
 echo
 echo === Building as/2-full
 
+# TODO should build with cpp/2, not cpp/1
+
 echo Compiling as/2-full common.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/as/2-full/build-ccargs \
     -c core/as/2-full/src/common.c \
     -o build/intermediate/as-2-full/common.oo
 
 echo Compiling as/2-full emit.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/as/2-full/build-ccargs \
     -c core/as/2-full/src/emit.c \
     -o build/intermediate/as-2-full/emit.oo
 
 echo Compiling as/2-full main.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/as/2-full/build-ccargs \
     -c core/as/2-full/src/main.c \
     -o build/intermediate/as-2-full/main.oo
 
 echo Compiling as/2-full opcodes.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/as/2-full/build-ccargs \
     -c core/as/2-full/src/opcodes.c \
     -o build/intermediate/as-2-full/opcodes.oo
 
 echo Compiling as/2-full parse.c
 onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-0-omc/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
+    @core/as/2-full/build-ccargs \
     -c core/as/2-full/src/parse.c \
     -o build/intermediate/as-2-full/parse.oo
 
