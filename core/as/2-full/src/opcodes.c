@@ -68,7 +68,7 @@ static void parse_and_emit_jump_offset(void) {
 
     // relative label
     if (try_parse_invocation_relative()) {
-        emit_label(identifier, label_type_invocation_relative, label_flags);
+        emit_label(identifier, label_type_invocation_relative, label_flags, -1, -1);
         return;
     }
 
@@ -787,7 +787,7 @@ static void opcode_ims(void) {
     emit_hex_byte(reg);
 
     if (try_parse_invocation_short()) {
-        emit_label(identifier, label_type, label_flags);
+        emit_label(identifier, label_type, label_flags, -1, -1);
         return;
     }
 
@@ -867,7 +867,7 @@ static void opcode_imw(void) {
             CMPU, reg,              // ims reg &label
         };
         emit_hex_bytes(bytes, sizeof(bytes));
-        emit_label(identifier, label_type_invocation_relative, label_flags);
+        emit_label(identifier, label_type_invocation_relative, label_flags, -1, -1);
         return;
     }
 

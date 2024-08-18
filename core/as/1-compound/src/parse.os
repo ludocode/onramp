@@ -1288,18 +1288,14 @@
 
 
 ; ==========================================================
-; char try_parse_linker(void);
+; char try_parse_linker_char(void);
 ; ==========================================================
-; Parses a symbol or label declaration or invocation (i.e. a linker directive.)
+; Parses the first character of a symbol or label declaration or invocation.
 ;
-; The label or symbol name is placed in `identifier` and the control character
-; is returned.
-;
-; If the current token is not a linker directive, 0 is returned. If the linker
-; directive is invalid, a fatal error is raised.
+; Returns 0 if not found.
 ; ==========================================================
 
-=try_parse_linker
+=try_parse_linker_char
 
     ; get the current char
     ims ra <current_char
@@ -1308,27 +1304,27 @@
 
     ; check if it's the start of linker directive
     cmpu ra r0 ":"
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
     cmpu ra r0 "="
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
     cmpu ra r0 "@"
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
     cmpu ra r0 "^"
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
     cmpu ra r0 "<"
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
     cmpu ra r0 ">"
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
     cmpu ra r0 "&"
-    jz ra &try_parse_linker_found
+    jz ra &try_parse_linker_char_found
 
     ; not a linker directive, return 0
     add r0 '00 '00
     ldw rip '00 rsp        ; ret
 
-:try_parse_linker_found
+:try_parse_linker_char_found
 
-    ; stash the control character for later
+    ; stash the character
     sub rsp rsp '04    ; push r0
     stw r0 rsp '00     ; ^^^
 
@@ -1340,6 +1336,44 @@
     stw rb '00 rsp
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
+
+    ; return the control character
+    ldw r0 rsp '00     ; pop r0
+    add rsp rsp '04    ; ^^^
+    ldw rip '00 rsp    ; ret
+
+
+
+; ==========================================================
+; char try_parse_linker(void);
+; ==========================================================
+; Parses a symbol or label declaration or invocation without flags (i.e. a
+; simple linker directive.)
+;
+; The label or symbol name is placed in `identifier` and the control character
+; is returned.
+;
+; If the current token is not a linker directive, 0 is returned. If the linker
+; directive is invalid, a fatal error is raised.
+; ==========================================================
+
+=try_parse_linker
+
+    ; call try_parse_linker_char
+    ims ra <try_parse_linker_char
+    ims ra >try_parse_linker_char
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; if it's not a linker directive, bail out
+    jz r0 &try_parse_linker_not_found
+
+    ; stash the control character for later
+    sub rsp rsp '04    ; push r0
+    stw r0 rsp '00     ; ^^^
 
     ; parse the label or symbol name, call try_parse_identifier()
     ims ra <try_parse_identifier
@@ -1358,6 +1392,10 @@
     add rsp rsp '04    ; ^^^
     ldw rip '00 rsp        ; ret
 
+:try_parse_linker_not_found
+    add r0 '00 '00         ; zero r0
+    ldw rip '00 rsp        ; ret
+
 :try_parse_linker_fail
     ims r0 <error_linker_control_must_have_identifier
     ims r0 >error_linker_control_must_have_identifier
@@ -1371,23 +1409,20 @@
 ; ==========================================================
 ; bool try_parse_and_emit_linker(void);
 ; ==========================================================
-; Parses and emits a symbol or label declaration or invocation (i.e. a linker
-; directive.)
+; Parses and emits a symbol or label declaration or invocation, including flags
+; (i.e. a full linker directive.)
 ;
 ; Returns true if a linker directive was parsed and emitted, false otherwise.
 ;
 ; The linker directive is emitted verbatim to the output (with a trailing space
 ; to prevent hex bytes from being concatenated with it.)
-;
-; This stage of the assembler does not support linker flags (i.e. weak, zero,
-; constructor/destructor.) The final stage assembler supports them.
 ; ==========================================================
 
 =try_parse_and_emit_linker
 
-    ; call try_parse_linker()
-    ims ra <try_parse_linker
-    ims ra >try_parse_linker
+    ; call try_parse_linker_char
+    ims ra <try_parse_linker_char
+    ims ra >try_parse_linker_char
     sub rsp rsp '04     ; push return address
     add rb rip '08
     stw rb '00 rsp
@@ -1397,10 +1432,125 @@
     ; if false, return false
     jz r0 &try_parse_and_emit_linker_false
 
-    ; call emit_linker()
-    ; (control character is already in r0)
-    ims ra <emit_linker
-    ims ra >emit_linker
+    ; emit the linker char, call emit_byte
+    ims ra <emit_byte
+    ims ra >emit_byte
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+
+
+    ; Emit bytes until we see a leading identifier char. This basically means
+    ; we're forwarding anything that might be a flag; we're not actually
+    ; checking the proper flag syntax. We add a couple error checks to improve
+    ; error messages for bad linker directives.
+
+:try_parse_and_emit_linker_loop
+
+    ; check if we have whitespace, try_parse_whitespace()
+    ims ra <try_parse_whitespace
+    ims ra >try_parse_whitespace
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; if we have whitespace, the identifier is malformed.
+    jz r0 &try_parse_and_emit_linker_not_whitespace
+    jz 0 &try_parse_and_emit_linker_malformed
+:try_parse_and_emit_linker_not_whitespace
+
+    ; get the current char
+    ims ra <current_char
+    ims ra >current_char
+    ldw r0 rpp ra
+
+    ; if it's end-of-file, a comment or debug info, the identifier is malformed
+    jz r0 &try_parse_and_emit_linker_malformed
+    sub ra r0 ";"
+    jz ra &try_parse_and_emit_linker_malformed
+    sub ra r0 "#"
+    jz ra &try_parse_and_emit_linker_malformed
+
+    ; check if it's a leading identifier char, call is_identifier_char
+    add r1 '00 '01
+    ims ra <is_identifier_char
+    ims ra >is_identifier_char
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; if it is, break out of the loop
+    jz r0 &try_parse_and_emit_linker_not_identifier
+    jz '00 &try_parse_and_emit_linker_identifier
+:try_parse_and_emit_linker_not_identifier
+
+    ; get the current char again
+    ims ra <current_char
+    ims ra >current_char
+    ldw r0 rpp ra
+
+    ; emit it, call emit_byte
+    ims ra <emit_byte
+    ims ra >emit_byte
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; consume it, call next_char()
+    ims ra <next_char
+    ims ra >next_char
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; loop
+    jz 0 &try_parse_and_emit_linker_loop
+
+
+
+:try_parse_and_emit_linker_identifier
+
+    ; call try_parse_identifier()
+    ims ra <try_parse_identifier
+    ims ra >try_parse_identifier
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; if we don't have an identifier, the linker directive is malformed
+    jz r0 &try_parse_and_emit_linker_malformed
+
+    ; get the identifier
+    ims ra <identifier
+    ims ra >identifier
+    add r0 rpp ra
+
+    ; emit it, call emit_string()
+    ims ra <emit_string
+    ims ra >emit_string
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; emit a space, call emit_byte(' ')
+    add r0 '00 " "
+    ims ra <emit_byte
+    ims ra >emit_byte
     sub rsp rsp '04     ; push return address
     add rb rip '08
     stw rb '00 rsp
@@ -1415,6 +1565,14 @@
     ; not a linker directive, return false
     ; (zero is already in r0)
     ldw rip '00 rsp        ; ret
+
+:try_parse_and_emit_linker_malformed
+    ims r0 <error_linker_malformed
+    ims r0 >error_linker_malformed
+    add r0 rpp r0
+    ims ra <fatal
+    ims ra >fatal
+    add rip rpp ra
 
 
 
@@ -1704,7 +1862,7 @@
     ims ra >current_char
     ldw r0 rpp ra
 
-    ; check if it's a first identifier char
+    ; check if it's a first identifier char, call is_identifier_char(1)
     add r1 '00 '01
     ims ra <is_identifier_char
     ims ra >is_identifier_char

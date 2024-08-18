@@ -13,6 +13,12 @@
 =c
 =d
 
+@{50constructor
+    ret
+
+@+?weak_zero
+    4
+
 =main
     zero r0
     ret

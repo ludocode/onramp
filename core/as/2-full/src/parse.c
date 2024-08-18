@@ -46,6 +46,8 @@ char current_char;
 
 int label_flags;
 label_type_t label_type;
+int label_constructor_priority;
+int label_destructor_priority;
 
 
 
@@ -196,8 +198,33 @@ bool try_parse_label(void) {
     // collect flags
     label_flags = 0;
     while (NULL != strchr("?+{}", current_char)) {
-        label_flags |= label_flag_from_char(current_char);
+        // TODO check what flags are allowed on this label type. For now we
+        // just forward all flags to the linker.
+        // (There's probably no point in even doing this flags parsing. We
+        // could just accumulate flags in another buffer and forward everything
+        // to the linker just like as/1 does.)
+
+        int flag = label_flag_from_char(current_char);
+        label_flags |= flag;
         read_char();
+
+        if (flag == LABEL_FLAG_CONSTRUCTOR || flag == LABEL_FLAG_DESTRUCTOR) {
+            int* priority = (flag == LABEL_FLAG_CONSTRUCTOR ?
+                    &label_constructor_priority : &label_destructor_priority);
+            if (isdigit(current_char)) {
+                *priority = 0;
+                do {
+                    *priority *= 10;
+                    *priority += current_char - '0';
+                    read_char();
+                    if (*priority > 65535) {
+                        fatal("The maximum constructor/destructor priority is 65535.");
+                    }
+                } while (isdigit(current_char));
+            } else {
+                *priority = -1;
+            }
+        }
     }
 
     // collect identifier
@@ -715,7 +742,8 @@ bool parse(void) {
 
     // label
     if (try_parse_label()) {
-        emit_label(identifier, label_type, label_flags);
+        emit_label(identifier, label_type, label_flags,
+                label_constructor_priority, label_destructor_priority);
         return true;
     }
 

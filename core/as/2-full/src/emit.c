@@ -42,8 +42,15 @@ static char label_type_to_char(label_type_t type) {
     fatal("Internal error: invalid label type");
 }
 
-void emit_label(const char* name, label_type_t type, int flags) {
+static void emit_priority(int priority) {
+    if (priority != -1) {
+        fprintf(output_file, "%d", priority);
+    }
+}
 
+void emit_label(const char* name, label_type_t type, int flags,
+        int constructor_priority, int destructor_priority)
+{
     // track alignment
     switch (type) {
         case label_type_invocation_high: // fallthrouh
@@ -65,10 +72,14 @@ void emit_label(const char* name, label_type_t type, int flags) {
         emit_char('?');
     if (flags & LABEL_FLAG_ZERO)
         emit_char('+');
-    if (flags & LABEL_FLAG_CONSTRUCTOR)
+    if (flags & LABEL_FLAG_CONSTRUCTOR) {
         emit_char('{');
-    if (flags & LABEL_FLAG_DESTRUCTOR)
+        emit_priority(constructor_priority);
+    }
+    if (flags & LABEL_FLAG_DESTRUCTOR) {
         emit_char('}');
+        emit_priority(destructor_priority);
+    }
     fputs(name, output_file);
 
     // Always follow a label with a space to ensure we aren't concatenating
@@ -79,10 +90,10 @@ void emit_label(const char* name, label_type_t type, int flags) {
 void emit_imw_absolute(uint8_t reg) {
     emit_hex_byte(0x7C); // ims
     emit_hex_byte(reg);
-    emit_label(identifier, label_type_invocation_high, label_flags);
+    emit_label(identifier, label_type_invocation_high, label_flags, -1, -1);
     emit_hex_byte(0x7C); // ims
     emit_hex_byte(reg);
-    emit_label(identifier, label_type_invocation_low, label_flags);
+    emit_label(identifier, label_type_invocation_low, label_flags, -1, -1);
 }
 
 static char int_to_hex(unsigned value) {

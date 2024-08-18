@@ -13,6 +13,12 @@ ABCD&d
 =c 
 =d 
 
+@{50constructor 
+788F008C
+
+@+?weak_zero 
+04000000
+
 =main 
 70800000
 788F008C

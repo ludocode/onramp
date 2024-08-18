@@ -34,7 +34,8 @@
 extern FILE* output_file;
 extern size_t output_alignment;
 
-void emit_label(const char* name, label_type_t type, int flags);
+void emit_label(const char* name, label_type_t type, int flags,
+        int constructor_priority, int destructor_priority);
 
 void emit_imw_absolute(uint8_t reg);
 

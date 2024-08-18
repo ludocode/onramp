@@ -74,6 +74,9 @@
 =error_linker_control_must_have_identifier
     "A linker control character must be followed by a label or symbol name." '00
 
+=error_linker_malformed
+    "A linker directive is malformed." '00
+
 =error_short_value
     "Expected a 16-bit invocation, a number, or two bytes." '00
 

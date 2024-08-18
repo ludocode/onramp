@@ -14,4 +14,4 @@ The Onramp assembler is implemented in the following stages:
 
 - [`1-compound`](1-compound/): The compound assembler adds compound instructions, e.g. `push`/`pop`, `call`/`ret`. These are assembled into multiple primitive instructions in bytecode. It also adds decimal numbers which expand contextually to the appropriate number of bytes. It greatly improves error-checking over the previous stage as it verifies that opcodes are used correctly.
 
-- [`2-full`](2-full/): The full assembler adds support for linker flags (e.g. weak symbols) and debug info. It provides optimizations for some compound instructions. It further improves error checking and gives better error messages.
+- [`2-full`](2-full/): The full assembler adds debug info and optimizations for some compound instructions. It further improves error checking and gives better error messages.

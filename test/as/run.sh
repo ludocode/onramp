@@ -29,6 +29,8 @@
 # - If a corresponding .stdout file exists, the program's output must match the
 # file's contents.
 #
+# - If a corresponding .skip file exists, the test is skipped.
+#
 # Pass --other-stage as the first argument to run tests with a different stage
 # than the one for which the tests were intended. The assembly output will not
 # be compared and any tests with a .nonstd file will be skipped.
@@ -74,7 +76,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\.os$//')
 
-    if [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ]; then
+    if [ -e $BASENAME.skip ] || ( [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ] ); then
         echo "Skipping $BASENAME"
         continue
     fi
@@ -155,7 +157,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
         echo "    make build && \\"
         echo "    $COMMAND $ARGS && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE && \\"
-        echo "    onrampvm $TEMP_OE >$TEMP_STDOUT"
+        echo "    onrampvm $TEMP_OE >$TEMP_STDOUT && \\"
         echo "    diff -u $BASENAME.oo $TEMP_OO"
         if [ -e $BASENAME.stdout ]; then
             echo "    diff -u $BASENAME.stdout $TEMP_STDOUT"
