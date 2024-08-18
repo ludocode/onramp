@@ -433,7 +433,7 @@ static node_t* parse_array_subscript(node_t* left) {
     } else {
         fatal_token(op->token, "One side of this array subscript expression must be a pointer or an array.");
     }
-    if (!type_is_complete(ptr->type)) {
+    if (!type_is_complete(ptr->type->ref)) {
         fatal_token(op->token, "Cannot subscript a pointer to an incomplete type.");
     }
 
@@ -530,6 +530,15 @@ static node_t* parse_sizeof(void) {
         // sizeof without parens has high precedence. We only consume a unary
         // expression.
         child = parse_unary_expression();
+    }
+
+    if (type_is_function(child->type)) {
+        // TODO GCC and Clang allow this and evaluate to 1, only warning
+        // under -Wpointer-arith. No idea why.
+        fatal_token(node->token, "Cannot take the size of a function.");
+    }
+    if (!type_is_complete(child->type)) {
+        fatal_token(node->token, "Cannot take the size of an incomplete type.");
     }
 
     node_append(node, child);
