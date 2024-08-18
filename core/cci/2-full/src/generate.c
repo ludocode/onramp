@@ -47,6 +47,8 @@ int register_loop_count; // number of times we've looped back to r0 while alloca
 
 static void generate_location_array_subscript(node_t* node, int reg_out);
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
+static void generate_builtin(node_t* node, int reg_out);
+static void generate_builtin_location(node_t* node, int reg_out);
 
 void generate_init(void) {
     register_next = R0;
@@ -951,8 +953,9 @@ void generate_location(node_t* node, int reg_out) {
         case NODE_MEMBER_VAL: generate_location_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_location_member_ptr(node, reg_out); break;
         case NODE_ARRAY_SUBSCRIPT: generate_location_array_subscript(node, reg_out); break;
+        case NODE_BUILTIN: generate_builtin_location(node, reg_out); break;
         default:
-            fatal("Internal error, cannot generate location of non-value.");
+            fatal("Internal error, cannot generate location of non-value node: %s.", node_kind_to_string(node->kind));
             break;
     }
 }
@@ -1030,7 +1033,7 @@ static void generate_builtin_func(node_t* builtin, int reg_out) {
     generate_node(builtin->first_child, reg_out);
 }
 
-void generate_builtin(node_t* node, int reg_out) {
+static void generate_builtin(node_t* node, int reg_out) {
     switch (node->builtin) {
         case BUILTIN_VA_ARG: generate_builtin_va_arg(node, reg_out); return;
         case BUILTIN_VA_START: generate_builtin_va_start(node, reg_out); return;
@@ -1040,4 +1043,12 @@ void generate_builtin(node_t* node, int reg_out) {
     }
 
     fatal("Internal error: cannot generate unrecognized builtin.");
+}
+
+static void generate_builtin_location(node_t* node, int reg_out) {
+    switch (node->builtin) {
+        case BUILTIN_FUNC: generate_builtin_func(node, reg_out); return;
+        default: break;
+    }
+    fatal("Internal error: cannot generate location of this builtin.");
 }

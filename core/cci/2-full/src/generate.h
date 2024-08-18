@@ -113,6 +113,4 @@ void generate_dereference_impl(struct node_t* node, int reg_out, int reg_ptr, in
 
 void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
 
-void generate_builtin(struct node_t* node, int reg_out);
-
 #endif
