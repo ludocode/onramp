@@ -109,5 +109,5 @@ $(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)
 	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
 
 test: build FORCE $(VM)
-	../run.sh .       omc $(OUT)/libc.oa
 	../run.sh ../0-oo omc $(OUT)/libc.oa
+	../run.sh .       omc $(OUT)/libc.oa

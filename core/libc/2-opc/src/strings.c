@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2024 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,16 +22,31 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_STRINGS_H_INCLUDED
-#define __ONRAMP_LIBC_STRINGS_H_INCLUDED
+#include <strings.h>
 
-#ifndef __onramp_libc__
-    #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
-#endif
+#include <ctype.h>
 
-#include <__onramp/__size_t.h>
+int strcasecmp(const char* a, const char* b) {
+    while (tolower(*a) == tolower(*b)) {
+        if (*a == 0)
+            return 0;
+        ++a;
+        ++b;
+    }
+    return (int)(unsigned char)(*a) - (int)(unsigned char)(*b);
+}
 
-int strcasecmp(const char* left, const char* right);
-int strncasecmp(const char* left, const char* right, size_t count);
-
-#endif
+int strncasecmp(const char* a, const char* b, size_t n) {
+    const char* end = a + n;
+    for (;;) {
+        if (a == end)
+            return 0;
+        if (tolower(*a) != tolower(*b))
+            break;
+        if (*a == 0)
+            return 0;
+        ++a;
+        ++b;
+    }
+    return (int)(unsigned char)(*a) - (int)(unsigned char)(*b);
+}

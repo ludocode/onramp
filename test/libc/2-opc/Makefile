@@ -63,6 +63,7 @@ OBJS=\
 		$(OUT)/io.oo \
 		$(OUT)/llong.oo \
 		$(OUT)/string.oo \
+		$(OUT)/strings.oo \
 		$(OUT)/system.oo \
 
 # Arguments for Onramp compiler
@@ -193,6 +194,12 @@ $(OUT)/string.oo: $(SRC2)/string.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/string.c -o $(OUT)/string.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/string.c -o $@
 
+$(OUT)/strings.oo: $(SRC2)/strings.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/strings.c -o $(OUT)/strings.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/strings.c -o $@
+
 $(OUT)/system.oo: $(SRC2)/system.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
@@ -206,6 +213,6 @@ $(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)
 	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
 
 test: build FORCE $(VM)
-	../run.sh .        opc $(OUT)/libc.oa
-	../run.sh ../1-omc opc $(OUT)/libc.oa
 	../run.sh ../0-oo  opc $(OUT)/libc.oa
+	../run.sh ../1-omc opc $(OUT)/libc.oa
+	../run.sh .        opc $(OUT)/libc.oa

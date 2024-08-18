@@ -91,6 +91,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/string.c \
     -o build/intermediate/libc-2-opc/string.oo
 
+echo Compiling libc/2-opc strings.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/strings.c \
+    -o build/intermediate/libc-2-opc/strings.oo
+
 echo Assembling libc/2-opc syscalls.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -128,4 +134,5 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/llong.oo \
     build/intermediate/libc-2-opc/string.oo \
+    build/intermediate/libc-2-opc/strings.oo \
     build/intermediate/libc-2-opc/system.oo \

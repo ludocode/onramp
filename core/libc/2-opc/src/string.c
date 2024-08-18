@@ -392,7 +392,11 @@ char* strncat_impl(char* restrict dest, const char* restrict src, size_t n) {
 
 int strncmp(const char* a, const char* b, size_t n) {
     const char* end = a + n;
-    while (*a == *b && a != end) {
+    for (;;) {
+        if (a == end)
+            return 0;
+        if (*a != *b)
+            break;
         if (*a == 0)
             return 0;
         ++a;
