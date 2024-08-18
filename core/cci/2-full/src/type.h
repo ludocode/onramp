@@ -247,12 +247,6 @@ bool type_compatible_unqual(type_t* left, type_t* right);
  */
 bool type_quals_match(type_t* left, type_t* right);
 
-/**
- * Returns true if the given type is callable (i.e. it is a function or a
- * function pointer.
- */
-bool type_is_callable(type_t* type);
-
 bool type_is_array(type_t* type);
 
 bool type_is_function(type_t* type);

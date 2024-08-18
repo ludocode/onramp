@@ -391,9 +391,19 @@ void generate_function(function_t* function) {
     }
 }
 
+/**
+ * Generates a function call.
+ *
+ * The return value is placed in reg_out, or if passed indirectly, reg_out
+ * contains a pointer to storage for the return value.
+ */
 static void generate_call(node_t* call, int reg_out) {
     node_t* function = call->first_child;
     type_t* function_type = function->type;
+    if (type_is_pointer(function_type))
+        function_type = function_type->ref;
+    if (!type_is_function(function_type))
+        fatal_token(function->token, "Internal error: cannot generate call for non-function");
 
     // push all registers (except for the return register)
     int last_pushed_register = register_loop_count ? R9 : reg_out;
@@ -482,11 +492,12 @@ static void generate_call(node_t* call, int reg_out) {
 
     // call the function
     if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
-        block_append(current_block, call->token, CALL, '^', string_cstr(function->symbol->asm_name));
+        block_append(current_block, call->token, CALL, ARGTYPE_NAME, '^', string_cstr(function->symbol->asm_name));
     } else {
-        // It's a function pointer expression.
-        // TODO compile the expression into r4 and call it
-        fatal("TODO function pointer calling not implemented yet");
+        assert(type_is_pointer(function->type));
+        int reg_func = register_alloc(function->token);
+        generate_node(function, reg_func);
+        block_append(current_block, call->token, CALL, ARGTYPE_REGISTER, reg_func);
     }
 
     // Move the return value where it goes. (This is necessary for both direct

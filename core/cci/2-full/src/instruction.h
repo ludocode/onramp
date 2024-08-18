@@ -117,6 +117,7 @@ typedef enum opcode_t {
 // Some instructions support multiple arg types. In that case they take this
 // enum value first which describes the remaining arguments.
 typedef enum instruction_argtypes_t {
+    ARGTYPE_REGISTER,    // A register
     ARGTYPE_NUMBER,      // An immediate number
     ARGTYPE_NAME,        // A named symbol
     ARGTYPE_GENERATED,   // A generated name (prefix + number)

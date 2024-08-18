@@ -330,11 +330,14 @@ static node_t* parse_primary_expression(void) {
 }
 
 static node_t* parse_function_call(node_t* function) {
-    if (!type_is_callable(function->type))
+    type_t* type = function->type;
+    if (type_is_pointer(type))
+        type = type->ref;
+    if (!type_is_function(type))
         fatal_token(lexer_token, "Expected callable function before `(`.");
 
     node_t* call = node_new_lexer(NODE_CALL);
-    call->type = type_ref(function->type->ref); // return type of function
+    call->type = type_ref(type->ref); // return type of function
     node_append(call, function);
 
     // collect args, checking types
@@ -342,13 +345,13 @@ static node_t* parse_function_call(node_t* function) {
     uint32_t arg_count = 0;
     if (!lexer_accept(STR_PAREN_CLOSE)) {
         for (;;) {
-            if (has_prototype && !function->type->is_variadic && arg_count > function->type->count) {
+            if (has_prototype && !type->is_variadic && arg_count > type->count) {
                 fatal_token(call->token, "Too many arguments in function call.");
             }
 
             node_t* arg = parse_assignment_expression();
-            if (has_prototype && arg_count < function->type->count) {
-                arg = node_cast(arg, function->type->args[arg_count], NULL);
+            if (has_prototype && arg_count < type->count) {
+                arg = node_cast(arg, type->args[arg_count], NULL);
             } else {
                 // TODO node_promote doesn't promote float to double, we need a
                 // separate variadic arg promotion func to do that
@@ -370,7 +373,7 @@ static node_t* parse_function_call(node_t* function) {
         }
     }
 
-    if (has_prototype && arg_count < function->type->count) {
+    if (has_prototype && arg_count < type->count) {
         fatal_token(call->token, "Not enough arguments in function call.");
     }
 

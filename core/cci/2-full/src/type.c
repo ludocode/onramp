@@ -682,16 +682,6 @@ bool type_compatible_unqual(type_t* left, type_t* right) {
     return true;
 }
 
-bool type_is_callable(type_t* type) {
-    if (!type_is_declarator(type))
-        return false;
-    if (type->declarator == DECLARATOR_FUNCTION)
-        return true;
-    // TODO are arrays callable? for now we assume they decay to pointers and
-    // are callable
-    return type_is_function(type->ref);
-}
-
 bool type_is_array(type_t* type) {
     if (!type_is_declarator(type))
         return false;

@@ -1023,7 +1023,7 @@ static void opcode_call(void) {
             SUB, RSP, RSP, 4,  // push return address
             ADD, RB, RIP, 8,   // ^^^
             STW, RB, 0, RSP,   // ^^^
-            ADD, RIP, R0, reg, // jump
+            ADD, RIP, 0, reg,  // jump
             ADD, RSP, RSP, 4,  // pop return address
         };
         emit_hex_bytes(bytes, sizeof(bytes));

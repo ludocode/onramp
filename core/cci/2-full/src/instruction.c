@@ -199,7 +199,7 @@ void instruction_vset(instruction_t* instruction, token_t* token,
                 instruction->invocation_prefix = va_arg(args, const char*);
                 instruction->invocation_number = va_arg(args, int);
             } else {
-                fatal("Internal error: Invalid ARGTYPE for IMW");
+                fatal("Internal error: Invalid ARGTYPE for IMW instruction");
             }
             break;
         }
@@ -224,8 +224,15 @@ void instruction_vset(instruction_t* instruction, token_t* token,
             instruction->invocation_number = va_arg(args, int);
             break;
         case CALL:
-            instruction->invocation_type = (char)va_arg(args, int);
-            instruction->invocation_label = va_arg(args, const char*);
+            instruction->argtypes = va_arg(args, instruction_argtypes_t);
+            if (instruction->argtypes == ARGTYPE_REGISTER) {
+                instruction->arg1 = (int8_t)va_arg(args, int);
+            } else if (instruction->argtypes == ARGTYPE_NAME) {
+                instruction->invocation_type = (char)va_arg(args, int);
+                instruction->invocation_label = va_arg(args, const char*);
+            } else {
+                fatal("Internal error: Invalid ARGTYPE for CALL instruction");
+            }
             break;
 
         default:
@@ -337,7 +344,7 @@ void instruction_emit(instruction_t* instruction) {
                         instruction->invocation_prefix,
                         instruction->invocation_number);
             } else {
-                fatal("Internal error: Invalid ARGTYPE for IMW");
+                fatal("Internal error: Invalid ARGTYPE for IMW instruction");
             }
             break;
 
@@ -363,9 +370,15 @@ void instruction_emit(instruction_t* instruction) {
                     instruction->invocation_number);
             break;
         case CALL:
-            emit_arg_invocation(
-                    instruction->invocation_type,
-                    instruction->invocation_label);
+            if (instruction->argtypes == ARGTYPE_REGISTER) {
+                emit_arg_mix(instruction->arg1);
+            } else if (instruction->argtypes == ARGTYPE_NAME) {
+                emit_arg_invocation(
+                        instruction->invocation_type,
+                        instruction->invocation_label);
+            } else {
+                fatal("Internal error: Invalid ARGTYPE for CALL instruction");
+            }
             break;
 
         default:
