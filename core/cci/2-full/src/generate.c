@@ -959,6 +959,7 @@ void generate_location(node_t* node, int reg_out) {
         case NODE_MEMBER_PTR: generate_location_member_ptr(node, reg_out); break;
         case NODE_ARRAY_SUBSCRIPT: generate_location_array_subscript(node, reg_out); break;
         case NODE_BUILTIN: generate_builtin_location(node, reg_out); break;
+        case NODE_STRING: generate_string(node, reg_out); break;
         default:
             fatal("Internal error, cannot generate location of non-value node: %s.", node_kind_to_string(node->kind));
             break;

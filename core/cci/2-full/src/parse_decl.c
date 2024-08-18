@@ -813,7 +813,8 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
         break;
     }
 
-    return found;
+    // An abstract declarator is always optional.
+    return out_name == NULL || found;
 }
 
 /**
@@ -1067,13 +1068,8 @@ type_t* try_parse_type(void) {
     }
 
     // Parse declarator
-    token_t* name = NULL;
     type_t* type = specifiers_make_type(&specifiers);
-    try_parse_declarator(&type, &name);
-
-    if (name != NULL) {
-        fatal_token(name, "Expected an unnamed type declarator.");
-    }
+    try_parse_declarator(&type, NULL);
 
     specifiers_destroy(&specifiers);
     return type;

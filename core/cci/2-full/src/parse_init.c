@@ -211,7 +211,7 @@ node_t* parse_initializer(type_t* type) {
 
     // TODO we could use some checks to make sure the conversion is valid.
     // For now we just implicitly cast.
-    node = node_cast(node, type, NULL);
+    node = node_cast(node_decay(node), type, NULL);
 
     if (brace)
         lexer_expect(STR_BRACE_CLOSE, "Expected `}` to match `{` around this scalar initializer.");
