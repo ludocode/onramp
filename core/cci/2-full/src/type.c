@@ -710,6 +710,10 @@ bool type_is_function(type_t* type) {
     return type_is_declarator(type) && type->declarator == DECLARATOR_FUNCTION;
 }
 
+bool type_is_pointer(type_t* type) {
+    return type_is_declarator(type) && type->declarator == DECLARATOR_POINTER;
+}
+
 bool type_is_passed_indirectly(type_t* type) {
     if (type_is_declarator(type)) {
         if (type->declarator == DECLARATOR_FUNCTION) {
@@ -731,22 +735,6 @@ bool type_is_passed_indirectly(type_t* type) {
             break;
     }
     return false;
-}
-
-type_t* type_decay(type_t* type) {
-    if (!type_is_declarator(type))
-        return type_ref(type);
-    switch (type->declarator) {
-        case DECLARATOR_POINTER:
-        case DECLARATOR_FUNCTION:
-            return type_ref(type);
-        case DECLARATOR_ARRAY:
-        case DECLARATOR_VLA:
-        case DECLARATOR_INDETERMINATE:
-            break;
-    }
-    return type_new_pointer(type->ref, type->is_const, type->is_volatile,
-            type->is_restrict);
 }
 
 type_t* type_pointed_to(type_t* type) {

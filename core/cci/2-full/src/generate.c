@@ -736,6 +736,11 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     // shift the pointer by the member offset
     block_append_op_imm(current_block, node->token, ADD, reg_ptr, reg_ptr, offset);
 
+    // if this is an array, the pointer to it is already in the register, so
+    // there's nothing to do.
+    if (type_is_array(node->type))
+        return;
+
     if (type_is_passed_indirectly(node->type)) {
         fatal_token(node->token, "TODO dereference indirectly, need function to memcpy struct");
         return;

@@ -737,6 +737,14 @@ static void parse_comparison_conversions(node_t* op, node_t** left, node_t** rig
 }
 
 static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
+
+    // Both sides decay to pointers in all binary expressions.
+    // (We should probably skip this under operators in which pointers aren't
+    // allowed such as `*`, `/`, `%` and probably others. For now we don't
+    // bother.)
+    left = node_decay(left);
+    right = node_decay(right);
+
     switch (op->kind) {
         case NODE_ADD:
             // Binary addition requires that at most one side is a pointer, and
@@ -745,24 +753,24 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
             // integer.
 
             // Left side pointer
-            if (type_is_indirection(left->type)) {
-                if (type_is_indirection(right->type))
+            if (type_is_pointer(left->type)) {
+                if (type_is_pointer(right->type))
                     fatal_token(op->token, "At most one side of a binary addition can be an indirection (i.e. a pointer.)");
                 if (!type_is_arithmetic(right->type))
                     fatal_token(op->token, "A pointer can only be added to an arithmetic type.");
                 type_t* target = type_new_base(BASE_UNSIGNED_INT);
                 right = node_cast(node_promote(right), target, NULL);
                 type_deref(target);
-                op->type = type_decay(left->type);
+                op->type = type_ref(left->type);
 
             // Right side pointer
-            } else if (type_is_indirection(right->type)) {
+            } else if (type_is_pointer(right->type)) {
                 if (!type_is_arithmetic(left->type))
                     fatal_token(op->token, "A pointer can only be added to an arithmetic type.");
                 type_t* target = type_new_base(BASE_UNSIGNED_INT);
                 left = node_cast(node_promote(left), target, NULL);
                 type_deref(target);
-                op->type = type_decay(right->type);
+                op->type = type_ref(right->type);
 
             // Neither side pointer
             } else {
@@ -782,25 +790,23 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
             // a pointer, which moves the pointer; or it allows subtraction of
             // two arithmetic types.
 
-            type_t* left_type = type_decay(left->type);
-            type_t* right_type = type_decay(right->type);
+            type_t* left_type = left->type;
+            type_t* right_type = right->type;
 
             // Both pointers
-            if (type_is_indirection(right_type)) {
-                if (!type_is_indirection(left_type))
+            if (type_is_pointer(right_type)) {
+                if (!type_is_pointer(left_type))
                     fatal_token(op->token, "Cannot subtract a pointer from a non-pointer.");
                 if (!type_compatible_unqual(left_type, right_type))
                     fatal_token(op->token, "Cannot subtract two pointers of incompatible types.");
                 op->type = type_new_base(BASE_SIGNED_INT);
 
             // Left side pointer
-            } else if (type_is_indirection(left_type)) {
+            } else if (type_is_pointer(left_type)) {
                 if (!type_is_arithmetic(right_type))
                     fatal_token(op->token, "Subtracting from a pointer requires a pointer of compatible type or an arithmetic type.");
-                type_t* target = type_new_base(BASE_UNSIGNED_INT);
-                right = node_cast(node_promote(right), target, NULL);
-                type_deref(target);
-                op->type = type_decay(left_type);
+                right = node_cast_base(node_promote(right), BASE_UNSIGNED_INT, NULL);
+                op->type = type_ref(left_type);
 
             // Neither side pointer
             } else {
@@ -813,8 +819,6 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
                 op->type = type_ref(left_type);
             }
 
-            type_deref(right_type);
-            type_deref(left_type);
             break;
         }
 

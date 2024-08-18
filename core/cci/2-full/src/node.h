@@ -106,7 +106,7 @@ typedef enum node_kind_t {
     NODE_BIT_NOT,      // unary ~
     NODE_LOGICAL_NOT,  // unary !
     NODE_DEREFERENCE,  // unary *
-    NODE_ADDRESS_OF,   // unary &
+    NODE_ADDRESS_OF,   // unary & or implicit function/array decay
     NODE_PRE_INC,      // unary prefix ++
     NODE_PRE_DEC,      // unary prefix --
 
@@ -342,10 +342,19 @@ void node_eval_64(node_t* node, u64_t* out);
 bool node_is_null(node_t* node);
 
 /**
- * Decays array types to pointers.
+ * Decays array and function types to pointers.
  *
- * If this is an array, a node that casts it to pointer is returned; otherwise
- * the node is returned unchanged.
+ * If this is a function, it is wrapped in an address-of node with type
+ * pointer-to-function. (This is the same as the address-of operator.)
+ *
+ * If this is an array, it is wrapped in an address-of node with a type of
+ * pointer to its first element. (This is different from the address-of
+ * operator which would have type pointer-to-array.)
+ *
+ * Otherwise, the node is returned unchanged.
+ *
+ * See "Array to pointer conversion" and "Function to pointer conversion":
+ *     https://en.cppreference.com/w/c/language/conversion
  */
 node_t* node_decay(node_t* node);
 

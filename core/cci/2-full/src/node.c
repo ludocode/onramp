@@ -1017,10 +1017,26 @@ bool node_is_null(node_t* node) {
 }
 
 node_t* node_decay(node_t* node) {
-    if (!type_is_array(node->type))
+    type_t* type = node->type;
+    if (!type_is_declarator(type))
         return node;
-    type_t* type = type_decay(node->type);
-    node = node_cast(node, type, NULL);
-    type_deref(type);
-    return node;
+
+    type_t* new_type;
+    switch (type->declarator) {
+        case DECLARATOR_POINTER:
+            return node;
+        case DECLARATOR_FUNCTION:
+            new_type = type_new_pointer(node->type, false, false, false);
+            break;
+        case DECLARATOR_ARRAY:
+        case DECLARATOR_VLA:
+        case DECLARATOR_INDETERMINATE:
+            new_type = type_new_pointer(node->type->ref, false, false, false);
+            break;
+    }
+
+    node_t* parent = node_new(NODE_ADDRESS_OF);
+    parent->type = new_type;
+    node_append(parent, node);
+    return parent;
 }

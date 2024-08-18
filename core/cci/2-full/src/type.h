@@ -257,6 +257,8 @@ bool type_is_array(type_t* type);
 
 bool type_is_function(type_t* type);
 
+bool type_is_pointer(type_t* type);
+
 bool type_is_complete(type_t* type);
 
 /**
@@ -275,14 +277,6 @@ bool type_is_complete(type_t* type);
  * the register contains.
  */
 bool type_is_passed_indirectly(type_t* type);
-
-/**
- * Decays arrays to pointers.
- *
- * Returns a strong reference, which may be the given type or a new type. You
- * must deref it when done.
- */
-type_t* type_decay(type_t* type);
 
 /**
  * Returns the pointed-to type for a pointer or array.

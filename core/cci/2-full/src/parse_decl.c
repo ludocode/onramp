@@ -864,7 +864,14 @@ static void parse_function_definition(symbol_t* symbol, type_t* type, token_t* n
     for (uint32_t i = 0; i < type->count; ++i) {
         token_t* param_name = type->names[i];
         node_t* param = node_new_token(NODE_PARAMETER, param_name);
-        param->type = type_decay(type->args[i]); // decay arrays to pointers
+
+        if (type_is_array(type->args[i])) {
+            // decay arrays to pointers
+            param->type = type_new_pointer(type->args[i]->ref, false, false, false);
+        } else {
+            param->type = type_ref(type->args[i]);
+        }
+
         node_append(root, param);
 
         // TODO warn about unnamed parameters before whatever version of the standard allowed them
