@@ -1016,20 +1016,21 @@ static void opcode_call(void) {
         return;
     }
 
-    // relative
-    // TODO is call relative even used? is it supported by as/1? if not get rid of it
-    uint8_t bytes[] = {
-        SUB, RSP, RSP, 0x04,  // push return address
-        ADD, RB, RIP, 0x08,   // ^^^
-        STW, RB, 0x00, RSP,   // ^^^
-        JZ, 0x00,             // jz 0 label     // jump
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
-    parse_and_emit_jump_offset();
-    uint8_t pop[] = {
-        ADD, RSP, RSP, 0x04,
-    };
-    emit_hex_bytes(pop, sizeof(pop));
+    // indirect register
+    uint8_t reg;
+    if (try_parse_register(&reg)) {
+        uint8_t bytes[] = {
+            SUB, RSP, RSP, 4,  // push return address
+            ADD, RB, RIP, 8,   // ^^^
+            STW, RB, 0, RSP,   // ^^^
+            ADD, RIP, R0, reg, // jump
+            ADD, RSP, RSP, 4,  // pop return address
+        };
+        emit_hex_bytes(bytes, sizeof(bytes));
+        return;
+    }
+
+    fatal("Expected absolute invocation or register as argument to call instruction.");
 }
 
 static void opcode_ret(void) {

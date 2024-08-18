@@ -476,22 +476,33 @@ bool register_name_to_number(const char* name, uint8_t* number) {
     return false;
 }
 
-static const char* register_error = "Expected register name or quoted register byte";
+// TODO char[], not char*
+static const char* register_error = "Expected register name or quoted register byte.";
 
 uint8_t parse_register(void) {
     uint8_t ret;
+    if (!try_parse_register(&ret))
+        fatal(register_error);
+    return ret;
+}
 
-    if (try_parse_quoted_byte(&ret)) {
-        if ((ret & 0xF0) != 0x80)
+bool try_parse_register(uint8_t* out) {
+    if (try_parse_quoted_byte(out)) {
+        if ((*out & 0xF0) != 0x80) {
+            // Can't un-parse it, but if mix were allowed, we'd have called
+            // (and implemented) try_parse_mix() instead.
             fatal(register_error);
-        return ret;
+        }
+        return true;
     }
 
     if (!try_parse_identifier())
+        return false;
+    if (!register_name_to_number(identifier, out)) {
+        // Same again, can't un-parse it
         fatal(register_error);
-    if (!register_name_to_number(identifier, &ret))
-        fatal(register_error);
-    return ret;
+    }
+    return true;
 }
 
 uint8_t parse_mix(void) {

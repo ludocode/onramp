@@ -1275,6 +1275,9 @@
 ; void opcode_call(void)
 ; ==========================================================
 ; Implements the call opcode.
+;
+; This handles an absolute invocation (i.e. a normal call to a named function.)
+; If it's a register instead, we forward to opcode_call_register().
 ; ==========================================================
 
 =opcode_call
@@ -1288,7 +1291,7 @@
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
 
-    ; we must have a linker directive, call try_parse_linker()
+    ; call try_parse_linker()
     ims ra <try_parse_linker
     ims ra >try_parse_linker
     sub rsp rsp '04     ; push return address
@@ -1297,7 +1300,10 @@
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
 
-    ; it must succeed and must be a 32 bit invocation
+    ; if it failed, we must be calling by register
+    jz r0 &opcode_call_forward_register
+
+    ; we have a linker directive. it must be a 32 bit invocation
     cmpu ra r0 "^"
     jz ra &opcode_call_ok
     jz '00 &opcode_call_error
@@ -1372,6 +1378,12 @@
     ims ra >fatal
     add rip rpp ra
 
+:opcode_call_forward_register
+    ; tail-call opcode_call_register
+    ims ra <opcode_call_register
+    ims ra >opcode_call_register
+    add rip rpp ra  ; jump
+
 @opcode_call_template_load
     ; we only use the first two bytes.
     ims ra '00 '00
@@ -1382,6 +1394,48 @@
     add rb rip '08
     stw rb '00 rsp
     add rip rpp ra      ; jump
+    add rsp rsp '04     ; pop return address
+
+
+
+; ==========================================================
+; void opcode_call_register(void)
+; ==========================================================
+; Implements the call opcode for a register (i.e. calling a function pointer.)
+; ==========================================================
+
+=opcode_call_register
+
+    ; call parse_register()
+    ; TODO it would be nice to have try_parse_register() here so we can give a
+    ; better error message (otherwise an incorrect invocation argument to a
+    ; call instruction gives "Expected register".)
+    ims ra <parse_register
+    ims ra >parse_register
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; get the data, put the register in it
+    add r2 r0 '00
+    ims ra <opcode_call_register_template
+    ims ra >opcode_call_register_template
+    add r0 rpp ra
+    add r1 '00 '14   ; template is twenty bytes
+    stb r2 r0 '0F
+
+    ; output it, tail-call emit_bytes_as_hex()
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+@opcode_call_register_template
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip '00 '80     ; jump
     add rsp rsp '04     ; pop return address
 
 

@@ -55,6 +55,7 @@ bool try_parse_quoted_byte(uint8_t* out);
 bool try_parse_character_or_quoted_byte(uint8_t* out);
 bool try_parse_and_emit_short(void);
 bool try_parse_and_emit_string(size_t* out_length);
+bool try_parse_register(uint8_t* out);
 
 void parse_invocation_absolute(void);
 void parse_invocation_relative(void);

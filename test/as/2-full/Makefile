@@ -69,7 +69,7 @@ test-1: build FORCE
 test-2: build FORCE
 	../run.sh . $(OUT)/as
 
-test: test-2 test-1 test-0 FORCE
+test: test-0 test-1 test-2 FORCE
 
 generate: build FORCE $(VM)
 	../generate.sh . $(VM) $(OUT)/as
