@@ -63,3 +63,6 @@ $(OUT)/ld: $(SRCS) Makefile
 
 test: build FORCE
 	../run.sh . $(OUT)/ld
+
+generate: build FORCE
+	../generate.sh . $(OUT)/ld

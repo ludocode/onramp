@@ -1,0 +1,24 @@
+; The MIT License (MIT)
+; Copyright (c) 2024 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+=__start
+    99
+
+={a
+    AA
+
+={50b
+    BB
+
+={75c
+    CC
+
+={50d
+    DD
+
+=}0e
+    EE
+
+=}65535f
+    FF

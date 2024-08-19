@@ -25,6 +25,7 @@
 #include "symbol.h"
 
 #include "common.h"
+#include "emit.h"
 
 
 
@@ -88,6 +89,8 @@ typedef struct symbol_node_t {
 static symbol_node_t* constructors; // constructors in declaration order
 static symbol_node_t* constructors_end; // (constructors are appended to the end)
 static symbol_node_t* destructors; // destructors in reverse declaration order
+static int constructors_count;
+static int destructors_count;
 
 static void symbol_node_walk(symbol_node_t* node) {
     while (node) {
@@ -181,6 +184,9 @@ symbol_t* symbols_define(const char* bytes, size_t length, int file_index) {
     // create the symbol
     symbol = symbol_new(string);
     symbol->file_index = file_index;
+    if (!optimize) {
+        symbol->is_used = true;
+    }
     return symbol;
 }
 
@@ -217,6 +223,7 @@ void symbols_insert(symbol_t* symbol) {
             constructors = node;
         }
         constructors_end = node;
+        ++constructors_count;
     }
 
     // If it's a destructor, insert it at the front of the destructor list
@@ -225,6 +232,7 @@ void symbols_insert(symbol_t* symbol) {
         node->symbol = symbol;
         node->next = destructors;
         destructors = node;
+        ++destructors_count;
     }
 }
 
@@ -251,4 +259,37 @@ void symbols_assign_addresses(void) {
         }
         symbol = symbol->next_all;
     }
+}
+
+static void symbols_create_generated_list(const char* name, size_t count) {
+    symbol_t* symbol = symbols_define(name, strlen(name), -1);
+    symbol->size = 4 * (count + 1);
+    symbols_insert(symbol);
+}
+
+void symbols_create_generated(void) {
+    symbols_create_generated_list("__constructors", constructors_count);
+    symbols_create_generated_list("__destructors", destructors_count);
+}
+
+static void symbols_emit_generated_list(const char* name, symbol_node_t* list) {
+    emit_source_location("<builtin>", 0);
+    emit_symbol(name);
+    for (; list; list = list->next) {
+        emit_int(list->symbol->address);
+    }
+    emit_int(0);
+}
+
+void symbols_emit_generated(void) {
+
+    // align address
+    for (int i = current_address; i & 3; ++i) {
+        emit_byte(0);
+    }
+
+    // TODO lists must be sorted by priority!
+
+    symbols_emit_generated_list("__constructors", constructors);
+    symbols_emit_generated_list("__destructors", destructors);
 }

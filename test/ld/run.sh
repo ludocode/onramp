@@ -65,17 +65,17 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
     if [ -e $BASENAME.oe ]; then
         if [ $RET -ne 0 ]; then
             echo "ERROR: $TESTFILE failed to link; expected success."
-            echo "Command: $COMMAND $ARGS"
+            echo "Command: make build && $COMMAND $ARGS"
             ERROR=1
         elif ! diff -q $BASENAME.oe $TEMP_OE > /dev/null; then
             echo "ERROR: $TESTFILE did not match expected $BASENAME.oe"
-            echo "Command: $COMMAND $ARGS"
+            echo "Command: make build && $COMMAND $ARGS"
             ERROR=1
         fi
     else
         if [ $RET -eq 0 ]; then
             echo "ERROR: $TESTFILE linking succeeded; expected error."
-            echo "Command: $COMMAND $ARGS"
+            echo "Command: make build && $COMMAND $ARGS"
             ERROR=1
         fi
     fi
@@ -84,7 +84,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
         onrampvm $TEMP_OE > $TEMP_STDOUT
         if ! diff $TEMP_STDOUT $BASENAME.stdout > /dev/null; then
             echo "ERROR: $TESTFILE output did not match expected $BASENAME.stdout"
-            echo "Command: $COMMAND $ARGS && onrampvm $TEMP_OE"
+            echo "Command: make build && $COMMAND $ARGS && onrampvm $TEMP_OE"
             ERROR=1
         fi
     fi

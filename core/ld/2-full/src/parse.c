@@ -333,14 +333,70 @@ static void assign_current_symbol_size(void) {
     }
 }
 
+static int parse_priority(void) {
+    next_char();
+    if (!isdigit(current_char))
+        return -1;
+    int priority = 0;
+    do {
+        priority *= 10;
+        priority += current_char - '0';
+        if (priority > 65535) {
+            fatal("The maximum constructor/destructor priority is 65535.");
+        }
+        next_char();
+    } while (isdigit(current_char));
+    return priority;
+}
+
 static bool try_parse_symbol(void) {
     int type = current_char;
     if (type != '=' && type != '@') {
         return false;
     }
+    next_char();
+
+    bool weak = false;
+    bool zero = false;
+    bool constructor = false;
+    bool destructor = false;
+    int constructor_priority;
+    int destructor_priority;
+
+    // parse flags
+    for (;;) {
+        switch (current_char) {
+            case '?':
+                if (weak)
+                    fatal("Duplicate `?` flag on symbol definition.");
+                weak = true;
+                next_char();
+                break;
+            case '+':
+                if (zero)
+                    fatal("Duplicate `+` flag on symbol definition.");
+                zero = true;
+                next_char();
+                break;
+            case '{':
+                if (constructor)
+                    fatal("Duplicate `{` flag on symbol definition.");
+                constructor = true;
+                constructor_priority = parse_priority();
+                break;
+            case '}':
+                if (destructor)
+                    fatal("Duplicate `}` flag on symbol definition.");
+                destructor = true;
+                destructor_priority = parse_priority();
+                break;
+            default:
+                goto done_flags;
+        }
+    }
+done_flags:
 
     // read the symbol name into the buffer
-    next_char();
     read_name();
     //printf("define symbol %c%s %i\n",type,buffer,file_index);
 
@@ -362,16 +418,19 @@ static bool try_parse_symbol(void) {
 
     // define the new symbol
     //printf("symbol %s index %i\n", buffer,(type == '=') ? -1 : file_index);
-    current_symbol = symbols_define(buffer, buffer_length,
+    symbol_t* symbol = symbols_define(buffer, buffer_length,
             (type == '=') ? -1 : file_index);
 
-    // TODO apply flags. constructor/destructor/weak
-    if (!optimize) {
-        current_symbol->is_used = true;
-    }
+    symbol->weak = weak;
+    symbol->zero = zero;
+    symbol->constructor = constructor;
+    symbol->destructor = destructor;
+    symbol->constructor_priority = constructor_priority;
+    symbol->destructor_priority = destructor_priority;
 
-    symbols_insert(current_symbol);
+    symbols_insert(symbol);
 
+    current_symbol = symbol;
     current_address = 0;
     return true;
 }
@@ -521,6 +580,7 @@ static void perform_pass_input(const char* input_filename) {
         parse();
     }
 
+    symbols_emit_generated();
     fclose(input_file);
 }
 

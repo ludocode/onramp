@@ -56,6 +56,8 @@ typedef struct symbol_t {
     bool destructor : 1;
     bool weak : 1;
     bool zero : 1;
+    int constructor_priority;
+    int destructor_priority;
 } symbol_t;
 
 /**
@@ -107,5 +109,17 @@ void symbols_insert(symbol_t* symbol);
 void symbols_walk_use(void);
 
 void symbols_assign_addresses(void);
+
+/**
+ * Creates generated symbols. Called after all symbols are parsed but before
+ * symbol addresses are assigned.
+ */
+void symbols_create_generated(void);
+
+/**
+ * Emits generated symbols. Called after all non-zero user-defined symbols are
+ * emitted.
+ */
+void symbols_emit_generated(void);
 
 #endif
