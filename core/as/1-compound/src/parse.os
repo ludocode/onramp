@@ -1461,7 +1461,7 @@
 
     ; if we have whitespace, the identifier is malformed.
     jz r0 &try_parse_and_emit_linker_not_whitespace
-    jz 0 &try_parse_and_emit_linker_malformed
+    jz '00 &try_parse_and_emit_linker_malformed
 :try_parse_and_emit_linker_not_whitespace
 
     ; get the current char
@@ -1515,7 +1515,7 @@
     add rsp rsp '04     ; pop return address
 
     ; loop
-    jz 0 &try_parse_and_emit_linker_loop
+    jz '00 &try_parse_and_emit_linker_loop
 
 
 
