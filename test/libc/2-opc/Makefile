@@ -52,18 +52,19 @@ OBJS=\
 		$(OUT)/malloc.oo \
 		$(OUT)/strtol.oo \
 		\
-		$(OUT)/setjmp.oo \
-		$(OUT)/syscalls.oo \
-		\
 		$(OUT)/assert.oo \
+		$(OUT)/atexit.oo \
+		$(OUT)/constructors.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/file.oo \
 		$(OUT)/format.oo \
 		$(OUT)/io.oo \
 		$(OUT)/llong.oo \
+		$(OUT)/setjmp.oo \
 		$(OUT)/string.oo \
 		$(OUT)/strings.oo \
+		$(OUT)/syscalls.oo \
 		$(OUT)/system.oo \
 
 # Arguments for Onramp compiler
@@ -116,6 +117,11 @@ $(OUT)/start.oo: $(SRC2)/start.os Makefile
 	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/start.os -o $@
 
+$(OUT)/constructors.oo: $(SRC2)/constructors.os Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/constructors.os -o $@
+
 $(OUT)/setjmp.oo: $(SRC2)/setjmp.os Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
@@ -151,6 +157,12 @@ $(OUT)/assert.oo: $(SRC2)/assert.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/assert.c -o $(OUT)/assert.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/assert.c -o $@
+
+$(OUT)/atexit.oo: $(SRC2)/atexit.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/atexit.c -o $(OUT)/atexit.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/atexit.c -o $@
 
 $(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
 	@rm -f $@

@@ -43,6 +43,18 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/assert.c \
     -o build/intermediate/libc-2-opc/assert.oo
 
+echo Compiling libc/2-opc atexit.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/atexit.c \
+    -o build/intermediate/libc-2-opc/atexit.oo
+
+echo Assembling libc/2-opc constructors.os
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/constructors.os \
+    -o build/intermediate/libc-2-opc/constructors.oo
+
 echo Compiling libc/2-opc ctype.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -123,16 +135,18 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-1-omc/malloc.oo \
     build/intermediate/libc-1-omc/strtol.oo \
     \
-    build/intermediate/libc-2-opc/setjmp.oo \
-    build/intermediate/libc-2-opc/syscalls.oo \
-    \
     build/intermediate/libc-2-opc/assert.oo \
+    build/intermediate/libc-2-opc/atexit.oo \
+    build/intermediate/libc-2-opc/constructors.oo \
     build/intermediate/libc-2-opc/ctype.oo \
     build/intermediate/libc-2-opc/environ.oo \
     build/intermediate/libc-2-opc/file.oo \
     build/intermediate/libc-2-opc/format.oo \
     build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/llong.oo \
+    build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/string.oo \
     build/intermediate/libc-2-opc/strings.oo \
+    build/intermediate/libc-2-opc/syscalls.oo \
     build/intermediate/libc-2-opc/system.oo \
+

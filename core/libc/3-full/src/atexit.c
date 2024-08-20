@@ -23,19 +23,13 @@
  */
 
 /*
- * This file implements:
- *
- * - exit()
- * - quick_exit()
- * - atexit()
- * - at_quick_exit()
+ * This file implements atexit() and at_quick_exit(). They require function
+ * pointers so they are implemented here in libc/3.
  */
 
-#include "constructors.h"
+#include <stdlib.h>
 
-/*
- * atexit() and at_quick_exit() calls are stored in linked lists.
- */
+// callbacks are stored in linked lists.
 typedef struct exit_call_t {
     struct exit_call_t* next;
     void (*func)(void);
@@ -54,6 +48,9 @@ int atexit(void (*func)(void)) {
     return 0;
 }
 
+// TODO implement on_exit() maybe. it's the same as atexit() except with
+// arguments.
+
 int at_quick_exit(void (*func)(void)) {
     exit_call_t* new_call = malloc(sizeof(exit_call_t));
     if (new_call == NULL)
@@ -64,20 +61,14 @@ int at_quick_exit(void (*func)(void)) {
     return 0;
 }
 
-// TODO detect if the user calls exit() or quick_exit() while they are already
-// executing. if so, call _Exit()? or abort?
-
-_Noreturn void exit(int status) {
+static void call_atexit(void) {
     for (exit_call_t* call = exit_calls; call != NULL; call = call->next) {
         call->func();
     }
-    __call_destructors();
-    _Exit(status);
 }
 
-_Noreturn void quick_exit(int status) {
+static void call_at_quick_exit(void) {
     for (exit_call_t* call = quick_exit_calls; call != NULL; call = call->next) {
         call->func();
     }
-    _Exit(status);
 }

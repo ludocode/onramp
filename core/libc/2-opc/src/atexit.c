@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2024 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,14 @@
  * SOFTWARE.
  */
 
-#ifndef INTERNAL_H_INCLUDED
-#define INTERNAL_H_INCLUDED
+// We can't implement atexit() in libc/2 because opC doesn't support function
+// pointers. We still want to implement exit() in libc/2 so these are stubs
+// that get overridden by libc/3.
 
-#include <assert.h>
+void __call_atexit(void) {
+    // nothing
+}
 
-#ifdef __onramp_cpp_omc__
-    #define libc_assert assert
-#endif
-#ifndef __onramp_cpp_omc__
-    #define libc_assert(expression) \
-        ((expression) ? ((void)0) : \
-            __assert_fail(#expression, __FILE__, __LINE__, __func__))
-#endif
-
-_Noreturn void __fatal(const char* message);
-
-int __fd_handle(int fd);
-
-void __call_atexit(void);
-void __call_at_quick_exit(void);
-
-#endif
+void __call_at_quick_exit(void) {
+    // nothing
+}

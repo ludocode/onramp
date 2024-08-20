@@ -22,11 +22,3 @@
  * SOFTWARE.
  */
 
-void __call_constructors(void) {
-    // TODO call  __attribute__((constructor)) functions
-    // TODO make sure to pass argc, argv, environ; same arguments as main()
-}
-
-void __call_destructors(void) {
-    // TODO
-}

@@ -22,12 +22,19 @@
  * SOFTWARE.
  */
 
+/*
+ * Program start, program exit and other system functions.
+ *
+ * Implements __start_c(), exit(), system() and more.
+ */
+
 #include <stdlib.h>
 
 #include "internal.h"
 
 #include <__onramp/__pit.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 int __argc;
 char** __argv;
@@ -44,6 +51,13 @@ static void exit_flush(void);
 extern int main(int argc, char** argv, char** envp);
 
 unsigned* __process_info_table;
+
+extern void* __constructors[];
+extern void* __destructors[];
+extern void __call_constructor(int argc, char** argv, char** envp, void* func);
+extern void __call_destructor(void* func);
+static void call_constructors(void);
+static void call_destructors(void);
 
 #ifdef __onramp__
 _Noreturn
@@ -62,8 +76,9 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     __io_init();
     __file_init();
 
-    // run user code. _Exit() does not return.
-    _Exit(main(__argc, __argv, environ));
+    // run user code. exit() does not return.
+    call_constructors();
+    exit(main(__argc, __argv, environ));
 }
 #endif
 
@@ -81,6 +96,50 @@ _Noreturn void _Exit(int status) {
 
     // we're done. end the process
     __end(status, __process_info_table[__ONRAMP_PIT_EXIT]);
+}
+
+
+
+/*
+ * exit(), quick_exit(), __fatal() and other ways of exiting
+ */
+
+// We keep track of whether we're exiting in case a silly programmer calls an
+// exit function during an atexit(), at_quick_exit() or destructor callback.
+//
+// Calling exit() more than once is undefined behaviour. We translate the
+// second call to _Exit() (thus skipping the remaining callbacks and exiting
+// with the status passed to the second call to exit(), not the first.) The
+// same is true of calling quick_exit() twice. (It is not possible to call any
+// other method of exiting twice because no other methods return control to any
+// user code.)
+//
+// It's not clear whether at_quick_exit() is allowed in a callback from exit()
+// or vice versa (or maybe it is and I just haven't found it in the standard.)
+// We support it because exit() and quick_exit() do not share any callbacks so
+// there is no possibility of callbacks being called twice. Calling
+// quick_exit() during exit() stops performing exit() callbacks and performs
+// quick_exit() callbacks only, and vice versa.
+static bool exiting;
+static bool quick_exiting;
+
+_Noreturn void exit(int status) {
+    if (exiting) {
+        _Exit(status);
+    }
+    exiting = true;
+    __call_atexit();
+    call_destructors();
+    _Exit(status);
+}
+
+_Noreturn void quick_exit(int status) {
+    if (quick_exiting) {
+        _Exit(status);
+    }
+    quick_exiting = true;
+    __call_at_quick_exit();
+    _Exit(status);
 }
 
 _Noreturn void __fatal(const char* string) {
@@ -109,4 +168,23 @@ int system(const char* string) {
     // difference is the shell (/usr/bin/sh or cmd.exe). means it would in
     // theory be easy to port this to arbitrary other platforms as well.
 
+}
+
+static void call_constructors(void) {
+    void** constructors = __constructors;
+    while (*constructors) {
+        __call_constructor(__argc, __argv, environ, *constructors++);
+    }
+}
+
+static void call_destructors(void) {
+    void** destructors = __destructors;
+    while (*destructors) {
+        __call_destructor(*destructors++);
+    }
+
+    #ifndef __onramp__
+    // hack for annoying "unused" warning when testing with a native C compiler
+    (void)call_constructors;
+    #endif
 }
