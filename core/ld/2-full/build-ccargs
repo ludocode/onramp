@@ -4,6 +4,7 @@
 -nostdinc
 -D__onramp_cci_opc__=1
 -D__onramp_libc_opc__=1
+-DONRAMP_LD2_BOOTSTRAPPING=1
 -Icore/libc/common/include
 -Icore/libo/1-opc/include
 -include __onramp/__predef.h
