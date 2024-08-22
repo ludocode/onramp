@@ -57,6 +57,6 @@ void emit_function(struct function_t* function);
  * Emits `#line` directives as needed to set the source location to that of the
  * given token.
  */
-void emit_source_location(struct token_t* token);
+void emit_source_location(struct token_t* /*nullable*/ token);
 
 #endif

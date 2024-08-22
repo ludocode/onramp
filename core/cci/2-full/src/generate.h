@@ -111,6 +111,10 @@ void generate_location(struct node_t* node, int reg_out);
  */
 void generate_dereference_impl(struct node_t* node, int reg_out, int reg_ptr, int offset);
 
-void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
+/**
+ * Generates a variable with static storage duration, i.e. a global variable
+ * not marked `extern` or a local variable marked `static`.
+ */
+void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
 
 #endif

@@ -66,6 +66,13 @@ typedef struct symbol_t {
     bool is_extern : 1;
     bool is_static : 1;
 
+    bool is_weak : 1;
+
+    bool is_constructor : 1;
+    bool is_destructor : 1;
+    int constructor_priority;
+    int destructor_priority;
+
     union {
         uint32_t u32; // float or int/short/char
         u64_t u64;    // double or long long

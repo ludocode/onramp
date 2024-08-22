@@ -221,13 +221,32 @@ void node_append(node_t* parent, node_t* child) {
     assert(parent->kind != NODE_INITIALIZER_LIST); // initializer list children go in a vector
 
     child->parent = parent;
+    child->right_sibling = NULL;
+    child->left_sibling = parent->last_child;
     if (parent->last_child) {
-        child->left_sibling = parent->last_child;
         parent->last_child->right_sibling = child;
     } else {
         parent->first_child = child;
     }
     parent->last_child = child;
+}
+
+void node_detach(node_t* node) {
+    assert(node);
+
+    node_t* parent = node->parent;
+    assert(parent);
+
+    if (node->left_sibling)
+        node->left_sibling->right_sibling = node->right_sibling;
+    if (node->right_sibling)
+        node->right_sibling->left_sibling = node->left_sibling;
+    if (node == parent->first_child)
+        parent->first_child = node->right_sibling;
+    if (node == parent->last_child)
+        parent->last_child = node->left_sibling;
+
+    node->parent = NULL;
 }
 
 char node_print_buffer[512];

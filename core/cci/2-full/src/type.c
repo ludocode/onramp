@@ -118,7 +118,7 @@ type_t* type_new_function(type_t* return_type, type_t** arg_types,
         token_t** arg_names, uint32_t args_count, bool is_variadic)
 {
     type_t* type = type_new_declarator(DECLARATOR_FUNCTION);
-    type->ref = return_type;//type_ref(return_type);
+    type->ref = return_type;//type_ref(return_type); // TODO this needs to be re-enabled
     type->count = args_count;
     type->is_variadic = is_variadic;
 

@@ -65,6 +65,16 @@ token_t* token_new_builtin(const char* cname) {
     return token;
 }
 
+token_t* token_new_at(string_t* name, token_t* source) {
+    if (!source) {
+        return token_new_builtin(name->bytes);
+    }
+
+    string_ref(name); // TODO fix token_new taking ownership
+    return token_new(token_type_alphanumeric, name, token_prefix_none,
+            source->filename, source->line, source->source);
+}
+
 void token_deref(token_t* token) {
     if (--token->refcount != 0) {
         return;

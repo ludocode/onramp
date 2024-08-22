@@ -83,6 +83,11 @@ token_t* token_new(
  */
 token_t* token_new_builtin(const char* name);
 
+/**
+ * Creates a token at the source location of another token.
+ */
+token_t* token_new_at(string_t* name, token_t* source);
+
 static inline token_t* token_ref(token_t* token) {
     ++token->refcount;
     return token;

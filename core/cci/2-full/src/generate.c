@@ -977,7 +977,70 @@ void generate_location(node_t* node, int reg_out) {
     }
 }
 
-void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
+/**
+ * Generates an initializer for a variable with static storage duration (i.e. a
+ * global or static local variable.)
+ *
+ * We emit a static function definition with a unique name and a constructor
+ * of priority 50. This runs before main(), and the minimum priority for
+ * __attribute__((constructor(<priority>))) is 101 so this also runs before any
+ * user constructor functions in GNU C. The variable is therefore initialized
+ * before any user C code.
+ */
+static void generate_static_initializer(struct symbol_t* varsym, struct node_t* /*nullable*/ initializer) {
+
+    // Generate a name for the function. It's static and we use a unique label
+    // for it so the rest of the name doesn't matter; we just append some
+    // characters from the name for debugging.
+    string_t* name_str;
+    {
+        char buf[64];
+        snprintf(buf, sizeof(buf), "%s%x_%s", INITIALIZER_LABEL_PREFIX,
+                next_label++, varsym->asm_name->bytes);
+        buf[sizeof(buf) - 1] = 0;
+        name_str = string_intern_cstr(buf);
+    }
+    token_t* name = token_new_at(name_str, initializer->token);
+
+    // Create the root node
+    type_t* void_t = type_new_base(BASE_VOID);
+    type_t* func_t = type_new_function(type_ref(void_t), NULL, NULL, 0, false); // TODO type_ref should not be necessary here
+    node_t* root = node_new(NODE_FUNCTION);
+    root->type = type_ref(void_t); // return value
+
+    // Create the function
+    function_t* function = function_new(func_t, name, name_str, root);
+    function->symbol = symbol_new(symbol_kind_function, func_t, name, name_str);
+    function->symbol->is_static = true;
+    function->symbol->is_constructor = true;
+    function->symbol->constructor_priority = 50;
+
+    // Add a variable node for the initializer
+    node_t* variable = node_new(NODE_VARIABLE);
+    variable->symbol = symbol_ref(varsym);
+    node_append(root, variable);
+    node_append(variable, initializer);
+
+    // Push the current function (in case we're compiling a local static
+    // variable)
+    function_t* old_function = current_function;
+    current_function = function;
+
+    // Generate it
+    generate_function(function);
+    emit_function(function);
+
+    // Clean up
+    current_function = old_function;
+    symbol_deref(function->symbol);
+    function_delete(function);
+    type_deref(func_t);
+    type_deref(void_t);
+    string_deref(name_str);
+    token_deref(name);
+}
+
+void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
 
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
 
@@ -985,23 +1048,24 @@ void generate_global_variable(struct symbol_t* symbol, struct node_t* /*nullable
     emit_char(symbol->is_static ? '@' : '=');
     emit_string(symbol->asm_name);
 
-    if (initializer) {
-        fatal("TODO emit global variable initializer");
-    } else {
-        // TODO emit a zero symbol. Linker and libc don't support them yet. For
-        // now we just emit a bunch of zeroes.
-        for (size_t count = (type_size(symbol->type) + 3) >> 2; count-- > 0;) {
-            if (!(count & 15)) {
-                emit_newline();
-                emit_cstr(ASM_INDENT);
-            } else {
-                emit_char(' ');
-            }
-            emit_char('0');
+    // TODO emit a zero symbol. Linker and libc don't support them yet. For
+    // now we just emit a bunch of zeroes.
+    for (size_t count = (type_size(symbol->type) + 3) >> 2; count-- > 0;) {
+        if (!(count & 15)) {
+            emit_newline();
+            emit_cstr(ASM_INDENT);
+        } else {
+            emit_char(' ');
         }
+        emit_char('0');
+    }
+    emit_newline();
+
+    if (initializer) {
+        emit_newline();
+        generate_static_initializer(symbol, initializer);
     }
 
-    emit_newline();
     emit_global_divider();
 }
 

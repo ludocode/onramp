@@ -270,7 +270,24 @@ static void emit_blocks(function_t* function, block_t* block) {
 }
 
 void emit_function(function_t* function) {
-    emit_char(function->symbol->is_static ? '@' : '=');
+    symbol_t* symbol = function->symbol;
+
+    // output flags
+    emit_char(symbol->is_static ? '@' : '=');
+    if (symbol->is_weak) {
+        emit_char('?');
+    }
+    if (symbol->is_constructor) {
+        emit_char('{');
+        if (symbol->constructor_priority >= 0)
+            emit_number(symbol->constructor_priority);
+    }
+    if (symbol->is_destructor) {
+        emit_char('{');
+        if (symbol->destructor_priority >= 0)
+            emit_number(symbol->destructor_priority);
+    }
+
     emit_string(function->asm_name);
     emit_newline();
 
@@ -281,8 +298,6 @@ void emit_function(function_t* function) {
             emit_blocks(function, block);
         }
     }
-
-    emit_global_divider();
 }
 
 static void emit_source_location_full(token_t* token) {
@@ -291,7 +306,10 @@ static void emit_source_location_full(token_t* token) {
     emit_char('\n');
 }
 
-void emit_source_location(token_t* token) {
+void emit_source_location(token_t* /*nullable*/ token) {
+    if (!token)
+        return;
+
     if (current_location == NULL) {
         emit_source_location_full(token);
         current_location = token_ref(token);

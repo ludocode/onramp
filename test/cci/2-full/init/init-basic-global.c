@@ -2,10 +2,8 @@
 // Copyright (c) 2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-int x;
-int x = 2;
-int x;
+int x = 3;
 
 int main(void) {
-    if (x != 2) return 1;
+    return 3 - x;
 }

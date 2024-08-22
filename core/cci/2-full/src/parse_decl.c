@@ -890,6 +890,7 @@ static void parse_function_definition(symbol_t* symbol, type_t* type, token_t* n
     // codegen
     generate_function(function);
     emit_function(function);
+    emit_global_divider();
 
     // done
     scope_pop();
@@ -1032,7 +1033,7 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         // Global variable. If it's neither extern nor tentative, we can emit a
         // definition for it now.
         if (!is_extern && !is_tentative) {
-            generate_global_variable(symbol, initializer);
+            generate_static_variable(symbol, initializer);
         }
     }
 

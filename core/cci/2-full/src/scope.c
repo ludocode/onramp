@@ -231,7 +231,7 @@ void scope_emit_tentative_definitions(void) {
             symbol_t* symbol = ((scope_element_t*)entry)->symbol;
             //printf("scope_emit_tentative_definitions() symbol %s is_tentative: %i\n",symbol->name->bytes, symbol->is_tentative);
             if (symbol->is_tentative) {
-                generate_global_variable(symbol, NULL);
+                generate_static_variable(symbol, NULL);
             }
         }
     }
