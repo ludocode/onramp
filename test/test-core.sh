@@ -71,7 +71,7 @@ make -C test/cci/2-full
 #make -C test/cpp/2-full
 
 # full toolchain
-#make -C test/libc/3-full
+make -C test/libc/3-full
 make -C test/ld/2-full
 make -C test/as/2-full
 

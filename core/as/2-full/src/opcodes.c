@@ -1133,7 +1133,8 @@ void opcodes_init(void) {
         while (opcodes_table[i].name != NULL) {
             i = (i + 1) & mask;
         }
-        opcodes_table[i] = *fn;
+        //opcodes_table[i] = *fn; // TODO implement struct assignment in cci/2; in the meantime we fallback to memcpy
+        memcpy(&opcodes_table[i],fn,sizeof(*fn));
     }
 }
 

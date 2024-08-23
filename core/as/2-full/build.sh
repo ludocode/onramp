@@ -63,8 +63,9 @@ onrampvm build/intermediate/cc/cc.oe \
     -o build/intermediate/as-2-full/parse.oo
 
 echo Linking as/2-full
-onrampvm build/intermediate/ld-1-omc/ld.oe \
-    build/intermediate/libc-0-oo/libc.oa \
+onrampvm build/intermediate/ld-2-full/ld.oe \
+    build/intermediate/libc-3-full/libc.oa \
+    build/intermediate/libo-1-opc/libo.oa \
     build/intermediate/as-2-full/common.oo \
     build/intermediate/as-2-full/emit.oo \
     build/intermediate/as-2-full/main.oo \

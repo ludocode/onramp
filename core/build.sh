@@ -70,12 +70,12 @@ sh core/libc/2-opc/build.sh
 sh core/libo/1-opc/build.sh
 sh core/ld/2-full/build.sh
 sh core/cci/2-full/build.sh
-## sh core/cpp/2-full/build.sh
 
-## # Build the rest of the C toolchain
-## sh core/libc/3-full/build.sh
-## sh core/as/2-full/build.sh
-##
+# Build the rest of the C toolchain
+## sh core/cpp/2-full/build.sh
+sh core/libc/3-full/build.sh
+sh core/as/2-full/build.sh
+
 ## # Rebuild our C toolchain with itself
 ## sh core/cc/rebuild.sh
 ## sh core/libc/3-full/rebuild.sh
@@ -98,7 +98,7 @@ sh core/cci/2-full/build.sh
         cp build/intermediate/cc/cc.oe build/output/bin/cc.oe
         cp build/intermediate/cpp-1-omc/cpp.oe build/output/bin/cpp.oe
         cp build/intermediate/cci-2-full/cci.oe build/output/bin/cci.oe
-        cp build/intermediate/as-1-compound/as.oe build/output/bin/as.oe
+        cp build/intermediate/as-2-full/as.oe build/output/bin/as.oe
         cp build/intermediate/ld-2-full/ld.oe build/output/bin/ld.oe
         cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
         cp build/intermediate/hex-0-onramp/hex.oe build/output/bin/hex.oe
@@ -112,6 +112,7 @@ sh core/cci/2-full/build.sh
         mkdir -p build/output/lib
         cp build/intermediate/libc-2-opc/libc.oa build/output/lib/libc.oa
 
+# Copy the libc headers
 sh core/libc/common/build.sh
 
 

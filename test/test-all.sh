@@ -30,7 +30,7 @@ cd "$(dirname "$0")"
 ./test-platform.sh
 
 # Test the normal build
-( cd .. ; scripts/posix/build.sh )
+( cd .. ; scripts/posix/build.sh --dev )
 
 # Test core components with the best available toolchains before testing as
 # bootstrapped since they are more likely to find the real source of bugs.

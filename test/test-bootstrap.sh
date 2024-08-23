@@ -84,21 +84,21 @@ make -C test/ld/2-full build
     ../run.sh --other-stage ../1-opc full onrampvm ../../../build/intermediate/cci-2-full/cci.oe && \
     ../run.sh               .        full onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
 
+# Build the rest of the C toolchain
 # TODO cpp/2 not done yet
 #( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
-
-# Build the rest of the C toolchain
 ( core/libc/3-full/build.sh && cd test/libc/3-full && \
     ../run.sh ../0-oo  full ../../../build/intermediate/libc-3-full/libc.oa && \
     ../run.sh ../1-omc full ../../../build/intermediate/libc-3-full/libc.oa && \
     ../run.sh ../2-opc full ../../../build/intermediate/libc-3-full/libc.oa && \
     ../run.sh .        full ../../../build/intermediate/libc-3-full/libc.oa )
-                # TODO the rest of this is not bootstrappable yet
-                exit 0
 ( core/as/2-full/build.sh && cd test/as/2-full && \
     ../run.sh --other-stage ../0-basic    onrampvm ../../../build/intermediate/as-2-full/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/intermediate/as-2-full/as.oe && \
     ../run.sh               .             onrampvm ../../../build/intermediate/as-2-full/as.oe )
+
+                # TODO the rest of this is not bootstrappable yet
+                exit 0
 
 # Rebuild our C toolchain with itself
 ( core/cc/rebuild.sh && cd test/cc && ../run.sh . onrampvm ../../../build/output/bin/cc.oe )
