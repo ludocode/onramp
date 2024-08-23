@@ -866,7 +866,8 @@ static void handle_conditional(int predicate) {
     }
 
     /* The #ifdef/#ifndef conditional is false. We have to consume everything
-     * until the matching #endif, making sure to track nested #ifdef/#ifndefs. */
+     * until the matching #endif, making sure to track nested #ifdef, #ifndefs
+     * and #ifs. */
     int false_depth;
     false_depth = 0;
     while (1) {
@@ -883,9 +884,12 @@ static void handle_conditional(int predicate) {
                 continue;
             }
 
-            /* We only care about #ifdef/#ifndef and #endif. */
+            /* We only care about #ifdef, #ifndef, #if and #endif. */
             consume_identifier();
-            if ((0 == strcmp(current_string, "ifdef")) | (0 == strcmp(current_string, "ifndef"))) {
+            if (((0 == strcmp(current_string, "ifdef")) |
+                        (0 == strcmp(current_string, "ifndef"))) |
+                        (0 == strcmp(current_string, "if")))
+            {
                 false_depth = (false_depth + 1);
                 continue;
             }

@@ -204,7 +204,6 @@ typedef int64_t int_fast64_t;
     #define UINT32_C(x) x ## U
     #define UINT64_C(x) x ## ULL
     */
-        // TODO cpp/1 also breaks on #if in untaken conditionals, it doesn't pair it with #endif
 #endif
 
 #endif
