@@ -1,0 +1,7 @@
+-with-cpp=build/intermediate/cpp-1-omc/cpp.oe
+-with-cci=build/intermediate/cci-2-full/cci.oe
+-with-as=build/intermediate/as-1-compound/as.oe
+-nostdinc
+-Icore/libc/common/include
+        -Icore/libc/2-opc/src
+-include __onramp/__predef.h

@@ -45,6 +45,16 @@
  * are 32 bits.
  */
 
+
+// TODO we don't build on 64-bit systems currently so we can't build natively
+// for testing. For now we just build on onramp only.
+#ifdef __onramp__
+
+// TODO we also don't build on onramp because cpp/2 is not working yet. This is
+// disabled entirely.
+#ifndef __onramp__
+
+
 /*
  * The allocator is made extra simple because we don't have to worry about
  * getting extra memory with sbrk() or mmap() and we aren't deferring larger
@@ -511,3 +521,7 @@ void* __malloc_largest_unused_region(size_t* out_size) {
     // TODO
     return 0;
 }
+
+
+#endif
+#endif

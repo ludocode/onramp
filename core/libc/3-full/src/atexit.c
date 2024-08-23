@@ -61,13 +61,13 @@ int at_quick_exit(void (*func)(void)) {
     return 0;
 }
 
-static void call_atexit(void) {
+void __call_atexit(void) {
     for (exit_call_t* call = exit_calls; call != NULL; call = call->next) {
         call->func();
     }
 }
 
-static void call_at_quick_exit(void) {
+void __call_at_quick_exit(void) {
     for (exit_call_t* call = quick_exit_calls; call != NULL; call = call->next) {
         call->func();
     }

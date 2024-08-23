@@ -28,6 +28,9 @@
 
 #include <stdbool.h>
 
+// TODO disabled until cci/2 is working, we need function-like macros
+#ifndef __onramp__
+
 /*
  * qsort() and qsort_r()
  *
@@ -136,3 +139,5 @@ void qsort_r(void* first, size_t count, size_t element_size,
     state.user_context = user_context;
     qsort_impl(&state, first, count);
 }
+
+#endif
