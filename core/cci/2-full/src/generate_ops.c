@@ -126,6 +126,8 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     // Figure out the size of the pointed-to type
     bool is_left_ptr = type_is_indirection(node->first_child->type);
     type_t* ptr_type = (is_left_ptr ? node->first_child : node->last_child)->type;
+    if (!type_is_complete(ptr_type->ref))
+        fatal_token(node->token, "Cannot perform pointer arithmetic on a pointer to an incomplete type.");
     size_t size = type_size(ptr_type->ref);
     int reg_int = is_left_ptr ? (reg_right) : reg_left;
 

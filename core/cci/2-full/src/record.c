@@ -95,7 +95,7 @@ void record_delete(record_t* record) {
 
 size_t record_size(const record_t* record) {
     if (!record->is_defined)
-        fatal_token(record->tag, "Cannot take the size of a record that has not been defined.");
+        fatal_token(record->tag, "Internal error: Cannot take the size of a record that has not been defined.");
     return record->size;
 }
 
