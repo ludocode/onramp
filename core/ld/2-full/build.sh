@@ -23,8 +23,6 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build
-mkdir -p build/intermediate
 mkdir -p build/intermediate/ld-2-full
 
 echo

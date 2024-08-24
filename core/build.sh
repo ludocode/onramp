@@ -94,8 +94,6 @@ sh core/cc/rebuild.sh
         # implemented yet. For now we package what we have manually to produce
         # a workable compiler.
 
-        mkdir -p build/output
-        mkdir -p build/output/bin
         cp build/intermediate/cpp-1-omc/cpp.oe build/output/bin/cpp.oe
         cp build/intermediate/cci-2-full/cci.oe build/output/bin/cci.oe
         cp build/intermediate/as-2-full/as.oe build/output/bin/as.oe

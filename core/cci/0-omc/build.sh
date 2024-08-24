@@ -23,8 +23,6 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build
-mkdir -p build/intermediate
 mkdir -p build/intermediate/cci-0-omc
 
 echo

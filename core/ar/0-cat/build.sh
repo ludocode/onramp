@@ -23,8 +23,6 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build
-mkdir -p build/intermediate
 mkdir -p build/intermediate/ar-0-cat
 
 echo

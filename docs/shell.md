@@ -12,7 +12,7 @@ The Onramp shell is as simple as possible: a command is a line of whitespace-sep
 
 - `echo` -- prints the arguments to standard output
 - `set -e` -- exits on error
-- `mkdir -p` -- creates the given directory (non-recursively!) if it does not exist
+- `mkdir -p` -- creates the given directory recursively if it does not exist
 - `cp` -- copies a file
 - `onrampvm` -- runs an Onramp program
 - `sh` -- runs a script in a subshell
@@ -64,9 +64,7 @@ Note that the arguments cannot be quoted. Quotes are not allowed anywhere outsid
 
 ##### `mkdir -p <dirname>`
 
-The `mkdir` command creates a directory if it does not exist. `-p` must be the first argument. The name of the directory to create is the second argument.
-
-WARNING: The current version of the shell does not create directories recursively! The required `-p` option exists only for compatibility with POSIX shells to not fail if the directory already exists.
+The `mkdir` command creates a directory and all parent directories recursively if it does not exist. `-p` must be the first argument. The name of the directory to create is the second argument.
 
 
 ##### `cp <source> <destination>`

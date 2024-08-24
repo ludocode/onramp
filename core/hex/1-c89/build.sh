@@ -32,8 +32,6 @@
 
 
 set -e
-mkdir -p build
-mkdir -p build/intermediate
 mkdir -p build/intermediate/hex-1-c89
 
 # TODO the final stage tools aren't done yet so for now we build with earlier

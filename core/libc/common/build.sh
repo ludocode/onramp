@@ -28,9 +28,6 @@
 # individually.
 
 set -e
-mkdir -p build
-mkdir -p build/output
-mkdir -p build/output/include
 mkdir -p build/output/include/__onramp
 mkdir -p build/output/include/sys
 

@@ -23,10 +23,7 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build
-mkdir -p build/intermediate
 mkdir -p build/intermediate/cc-re
-mkdir -p build/output
 mkdir -p build/output/bin
 
 echo
