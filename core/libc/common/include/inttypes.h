@@ -29,9 +29,8 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-/* The spec doesn't actually say that ptrdiff_t and intmax_t need to be
- * defined. Or any of the stdint.h types for that matter. So we don't include
- * them. TODO check this. */
+// 7.8.1 in C17 spec: <inttypes.h> includes <stdint.h>.
+#include <stdint.h>
 
 
 
