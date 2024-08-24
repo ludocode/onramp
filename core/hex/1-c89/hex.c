@@ -66,7 +66,7 @@ static void flush_output(FILE* file, const char* buffer, size_t count) {
             puts("ERROR: Failed to write output file.");
             exit(EXIT_FAILURE);
         }
-        file += step;
+        buffer += step;
         count -= step;
     }
 }

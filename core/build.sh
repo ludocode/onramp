@@ -76,8 +76,10 @@ sh core/cpp/2-full/build.sh
 sh core/libc/3-full/build.sh
 sh core/as/2-full/build.sh
 
-## # Rebuild our C toolchain with itself
+# Install the libc headers
 sh core/libc/common/build.sh
+
+# Rebuild our C toolchain with itself
 sh core/libc/3-full/rebuild.sh
 sh core/libo/1-opc/rebuild.sh
 sh core/cc/rebuild.sh
@@ -87,20 +89,10 @@ sh core/cci/2-full/rebuild.sh
 sh core/cpp/2-full/rebuild.sh
 
 ## # Build the last few tools we need
-## sh core/hex/1-c89/build.sh
+sh core/hex/1-c89/build.sh
+# TODO: The final stage archive tool does not exist yet. For now we provide the
+# previous stage.
 ## sh core/ar/1-unix/build.sh
-
-        # TODO the final stages of the above bootstrap process are not
-        # implemented yet. For now we package what we have manually to produce
-        # a workable compiler.
-
-        cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
-        cp build/intermediate/hex-0-onramp/hex.oe build/output/bin/hex.oe
-            #cp build/intermediate/cc/cc.oe.od build/output/bin/cc.oe.od
-            #cp build/intermediate/cpp-1-omc/cpp.oe.od build/output/bin/cpp.oe.od
-            #cp build/intermediate/cci-0-omc/cci.oe.od build/output/bin/cci.oe.od
-            #cp build/intermediate/as-1-compound/as.oe.od build/output/bin/as.oe.od
-            #cp build/intermediate/ld-2-full/ld.oe.od build/output/bin/ld.oe.od
-
+cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
 
 echo Done.

@@ -61,7 +61,9 @@ Now that we have a full C compiler, we can build up the last few bits of our too
 - [libc/3-full](../core/libc/3-full), the missing libc components (things that need function pointers for example)
 - [as/2-full](../core/as/2-full), the full assembler (improved error checking, debug output and minor optimizations)
 
-With our full toolchain built, we rebuild everything to take advantage of the (few) optimizations in the final stage compiler, linker, assembler and libc. This step is not really necessary but it creates smaller and faster binaries and it's a good test of compiler self-hosting. (We build libraries first because they are statically linked into the remaining components.)
+With our full toolchain built, we rebuild everything to take advantage of the (few) optimizations in the final stage compiler, linker, assembler and libc. This creates smaller and faster binaries and it's a good test of compiler self-hosting.
+
+We build libraries first because they are statically linked into the remaining components.
 
 - [libc/common](../libc/common), the libc headers
 - [libc/3-full](../core/libc/3-full), the full libc again
@@ -350,7 +352,9 @@ We build libraries first because they're statically linked into the executables.
 - [libc/3-full](../core/libc/3-full), the full libc again
 - [libo/1-opc](../core/libo/1-opc), the utility library again
 
-We can now rebuild our entire toolchain, linked against the optimized libraries we just built. We build the driver first so we can stop using `-nostdinc` and `-nostdlib` during bootstrapping.
+We can now rebuild our entire toolchain, linked against the optimized libraries we just built.
+
+We build the driver first so we can stop using `-nostdinc` and `-nostdlib` during bootstrapping. The driver will be able to find the libc archive and headers in their final locations. As we build each tool, we can omit the `--with-<tool>=` argument from subsequent tools, simplifying the build arguments in each step.
 
 - [cc](../core/cc), the driver again
 - [ld/2-full](../core/ld/2-full), the full linker again
@@ -358,6 +362,7 @@ We can now rebuild our entire toolchain, linked against the optimized libraries 
 - [cci/2-full](../core/cci/2-full), the full C compiler again
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor again
 
+All the above tools, libraries and headers are now installed in their final locations in the build output. (Take a look at `build/output/` to see the result.)
 
 
 ### Additional Tools

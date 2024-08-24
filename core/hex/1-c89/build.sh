@@ -32,20 +32,13 @@
 
 
 set -e
-mkdir -p build/intermediate/hex-1-c89
 
-# TODO the final stage tools aren't done yet so for now we build with earlier
-# stages. This should eventually be built after the final stages have been
-# rebuilt.
+echo
+echo === Building hex/1-c89
+
 echo Compiling hex/1-c89
-onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-1-omc/cpp.oe \
-    -with-cci=build/intermediate/cci-2-full/cci.oe \
-    -with-as=build/intermediate/as-1-compound/as.oe \
-    -with-ld=build/intermediate/ld-2-full/ld.oe \
-    -nostdinc \
-    -D__onramp_libc_omc__=1 \
-    -Icore/libc/common/include \
-    -include __onramp/__predef.h \
-    core/hex/1-c89/src/hex.c \
-    -o build/intermediate/hex-1-c89/hex.oe
+onrampvm build/output/bin/cc.oe \
+    -O \
+    -g \
+    core/hex/1-c89/hex.c \
+    -o build/output/bin/hex.oe

@@ -118,7 +118,8 @@ core/libc/common/build.sh
 # TODO cpp/2 not done yet, only running cpp/1 tests
 ( core/cpp/2-full/rebuild.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 
-                exit 0 # TODO the rest of this is not bootstrappable yet
 # Build the last few tools we need
-platform/hex/c89/build.sh
-core/ar/1-unix/build.sh
+( core/hex/1-c89/build.sh && test/hex/run.sh onrampvm build/output/bin/hex.oe )
+# TODO ar/1 does not exist yet
+## core/ar/1-unix/build.sh
+cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
