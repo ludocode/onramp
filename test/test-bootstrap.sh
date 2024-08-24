@@ -111,8 +111,11 @@ core/libc/common/build.sh
     ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/output/bin/as.oe && \
     ../run.sh . onrampvm ../../../build/output/bin/as.oe )
+( core/cci/2-full/rebuild.sh && cd test/cci/2-full && \
+    ../run.sh --other-stage ../0-omc full onrampvm ../../../build/output/bin/cci.oe && \
+    ../run.sh --other-stage ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
+    ../run.sh               .        full onrampvm ../../../build/output/bin/cci.oe )
                 exit 0 # TODO the rest of this is not bootstrappable yet
-( core/cci/2-full/rebuild.sh && cd test/cci/2-full && ../run.sh . onrampvm ../../../build/output/bin/cci.oe )
 ( core/cpp/2-full/rebuild.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
 
 # Build the last few tools we need

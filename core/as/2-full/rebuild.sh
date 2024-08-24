@@ -61,7 +61,7 @@ onrampvm build/output/bin/cc.oe \
 echo Linking as/2-full
 onrampvm build/output/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
-    build/intermediate/libo-1-opc/libo.oa \
+    build/intermediate/libo-1-opc-re/libo.oa \
     build/intermediate/as-2-full-re/common.oo \
     build/intermediate/as-2-full-re/emit.oo \
     build/intermediate/as-2-full-re/main.oo \

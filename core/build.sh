@@ -83,7 +83,7 @@ sh core/libo/1-opc/rebuild.sh
 sh core/cc/rebuild.sh
 sh core/ld/2-full/rebuild.sh
 sh core/as/2-full/rebuild.sh
-## sh core/cci/2-full/rebuild.sh
+sh core/cci/2-full/rebuild.sh
 ## sh core/cpp/2-full/rebuild.sh
 ##
 ## # Build the last few tools we need
@@ -95,7 +95,6 @@ sh core/as/2-full/rebuild.sh
         # a workable compiler.
 
         cp build/intermediate/cpp-1-omc/cpp.oe build/output/bin/cpp.oe
-        cp build/intermediate/cci-2-full/cci.oe build/output/bin/cci.oe
         cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
         cp build/intermediate/hex-0-onramp/hex.oe build/output/bin/hex.oe
             #cp build/intermediate/cc/cc.oe.od build/output/bin/cc.oe.od
