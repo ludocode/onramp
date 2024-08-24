@@ -1,7 +1,6 @@
 -with-cpp=build/intermediate/cpp-2-full/cpp.oe
 -with-cci=build/intermediate/cci-2-full/cci.oe
--with-as=build/intermediate/as-2-full/as.oe
--with-ld=build/intermediate/ld-2-full/ld.oe
+-with-as=build/intermediate/as-1-compound/as.oe
 -Icore/libo/1-opc/include
 -O
 -g
