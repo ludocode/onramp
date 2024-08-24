@@ -85,8 +85,8 @@ make -C test/ld/2-full build
     ../run.sh               .        full onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
 
 # Build the rest of the C toolchain
-# TODO cpp/2 not done yet
-#( core/cpp/2-full/build.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
+# TODO cpp/2 not done yet, only running cpp/1 tests
+( core/cpp/2-full/build.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 ( core/libc/3-full/build.sh && cd test/libc/3-full && \
     ../run.sh ../0-oo  full ../../../build/intermediate/libc-3-full/libc.oa && \
     ../run.sh ../1-omc full ../../../build/intermediate/libc-3-full/libc.oa && \

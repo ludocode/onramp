@@ -30,8 +30,6 @@ mkdir -p build/intermediate/as-2-full
 echo
 echo === Building as/2-full
 
-# TODO should build with cpp/2, not cpp/1
-
 echo Compiling as/2-full common.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/as/2-full/build-ccargs \

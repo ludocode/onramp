@@ -72,7 +72,7 @@ sh core/ld/2-full/build.sh
 sh core/cci/2-full/build.sh
 
 # Build the rest of the C toolchain
-## sh core/cpp/2-full/build.sh
+sh core/cpp/2-full/build.sh
 sh core/libc/3-full/build.sh
 sh core/as/2-full/build.sh
 

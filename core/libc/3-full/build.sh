@@ -30,8 +30,6 @@ mkdir -p build/intermediate/libc-3-full
 echo
 echo === Building libc/3-full
 
-# TODO use cpp/2
-
 echo Compiling libc/3-full atexit.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
