@@ -28,7 +28,7 @@
 
 #include <stdbool.h>
 
-// TODO disabled until cci/2 is working, we need function-like macros
+// TODO disabled until cpp/2 is working, we need function-like macros
 #ifndef __onramp__
 
 /*

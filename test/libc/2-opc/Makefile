@@ -54,7 +54,6 @@ OBJS=\
 		\
 		$(OUT)/assert.oo \
 		$(OUT)/atexit.oo \
-		$(OUT)/constructors.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/file.oo \
@@ -116,11 +115,6 @@ $(OUT)/start.oo: $(SRC2)/start.os Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/start.os -o $@
-
-$(OUT)/constructors.oo: $(SRC2)/constructors.os Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/constructors.os -o $@
 
 $(OUT)/setjmp.oo: $(SRC2)/setjmp.os Makefile
 	@rm -f $@

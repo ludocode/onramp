@@ -73,3 +73,32 @@
 
 =abort
     'FF 'FF 'FF 'FF
+
+
+
+; ==========================================================
+; void __call_constructor(int argc, char** argv, char** envp, void* func);
+; ==========================================================
+; A helper to call a constructor function.
+;
+; opC doesn't have function pointers so we have to use this hack to call our
+; constructor functions. The program-relative function to call is in r3; we
+; just jump to it.
+; ==========================================================
+
+=__call_constructor
+    add rip rpp r3
+
+
+
+; ==========================================================
+; void __call_destructor(void* func);
+; ==========================================================
+; A helper to call a constructor function.
+;
+; Same as above except we don't have any arguments. The program-relative
+; function to call is in r0.
+; ==========================================================
+
+=__call_destructor
+    add rip rpp r0

@@ -78,7 +78,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-1-omc/strtol.oo \
     \
     build/intermediate/libc-2-opc/assert.oo \
-    build/intermediate/libc-2-opc/constructors.oo \
     build/intermediate/libc-2-opc/ctype.oo \
     build/intermediate/libc-2-opc/environ.oo \
     build/intermediate/libc-2-opc/file.oo \

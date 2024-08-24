@@ -68,7 +68,6 @@ OBJS_ALL=\
 		$(BUILD1)/strtol.oo \
 		\
 		$(BUILD2)/assert.oo \
-		$(BUILD2)/constructors.oo \
 		$(BUILD2)/ctype.oo \
 		$(BUILD2)/environ.oo \
 		$(BUILD2)/file.oo \
