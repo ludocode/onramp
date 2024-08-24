@@ -621,11 +621,11 @@ static void open_output(const char* output_filename) {
         fatal("Failed to open output file.");
     }
 
-    chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
-
     // TODO this can be removed now that we bootstrap ld/2, no reason to
     // support this in an earlier stage
     if (wrap_header != NULL) {
+        chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
+
         FILE* header = fopen(wrap_header, "r");
         if (header == NULL) {
             fatal("Failed to open wrap header file.");

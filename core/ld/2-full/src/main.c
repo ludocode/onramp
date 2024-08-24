@@ -127,9 +127,12 @@ static void open_output_files(void) {
         fatal("Failed to open output file.");
     }
 
-    chmod(output_filename, 0755);
-
     if (wrap_header != NULL) {
+        // We mark the output executable only if it has a wrap header. If we're
+        // not wrapped, a manual VM invocation will be required to run an
+        // Onramp program so the bytecode itself is not standalone executable.
+        chmod(output_filename, 0755);
+
         FILE* header = fopen(wrap_header, "r");
         if (header == NULL) {
             fatal("Failed to open wrap header file.");
