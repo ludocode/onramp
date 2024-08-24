@@ -115,9 +115,10 @@ core/libc/common/build.sh
     ../run.sh --other-stage ../0-omc full onrampvm ../../../build/output/bin/cci.oe && \
     ../run.sh --other-stage ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
     ../run.sh               .        full onrampvm ../../../build/output/bin/cci.oe )
-                exit 0 # TODO the rest of this is not bootstrappable yet
-( core/cpp/2-full/rebuild.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
+# TODO cpp/2 not done yet, only running cpp/1 tests
+( core/cpp/2-full/rebuild.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
 
+                exit 0 # TODO the rest of this is not bootstrappable yet
 # Build the last few tools we need
 platform/hex/c89/build.sh
 core/ar/1-unix/build.sh

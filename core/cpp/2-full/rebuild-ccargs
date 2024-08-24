@@ -1,0 +1,4 @@
+-with-cpp=build/intermediate/cpp-2-full/cpp.oe
+-Icore/libo/1-opc/include
+-O
+-g
