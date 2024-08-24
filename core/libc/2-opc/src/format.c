@@ -624,6 +624,7 @@ static void print(const char* format, output_t* output, va_list args) {
                 break;
             }
 
+            case 'p': // fallthrough
             case 'x': // fallthrough
             case 'X': {
                 uintmax_t value;
