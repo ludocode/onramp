@@ -66,7 +66,7 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libo/1-opc/src/libo-vector.c \
     -o build/intermediate/libo-1-opc/libo-vector.oo
 
-echo Archiving libo/1-opc libo
+echo Archiving libo/1-opc
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libo-1-opc/libo.oa \
         build/intermediate/libo-1-opc/libo-data.oo \
