@@ -106,8 +106,8 @@ core/libc/common/build.sh
     ../run.sh .        full ../../../build/output/lib/libc.oa )
 ( core/libo/1-opc/rebuild.sh && true ) #TODO libo tests don't exist yet
 ( core/cc/rebuild.sh && cd test/cc && ./run.sh . onrampvm ../../../build/output/bin/cc.oe )
-                exit 0 # TODO the rest of this is not bootstrappable yet
 ( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
+                exit 0 # TODO the rest of this is not bootstrappable yet
 ( core/as/2-full/rebuild.sh && cd test/as/2-full && \
     ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../build/output/bin/as.oe && \
