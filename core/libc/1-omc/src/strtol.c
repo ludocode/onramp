@@ -54,14 +54,14 @@ long strtol_impl(const char* restrict p, char** restrict end, int base, bool set
 
     // parse sign
     bool negative = false;
-    if (*p != '-') {
-        if (*p == '+') {
-            p = (p + 1);
-        }
-    }
     if (*p == '-') {
         negative = true;
         p = (p + 1);
+    }
+    if (!negative) {
+        if (*p == '+') {
+            p = (p + 1);
+        }
     }
 
     // skip leading hex 0x/0X
@@ -120,7 +120,7 @@ long strtol_impl(const char* restrict p, char** restrict end, int base, bool set
         // (We don't have unsigned and if we accumulated positive we couldn't
         // parse LONG_MIN.)
         long new_value = ((value * base) - digit);
-        if (new_value >= value) {
+        if (new_value > value) {
             // on overflow we're supposed to continue parsing the whole number
             overflow = true;
         }
