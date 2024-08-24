@@ -63,13 +63,14 @@ Now that we have a full C compiler, we can build up the last few bits of our too
 
 With our full toolchain built, we rebuild everything to take advantage of the (few) optimizations in the final stage compiler, linker, assembler and libc. This step is not really necessary but it creates smaller and faster binaries and it's a good test of compiler self-hosting. (We build libraries first because they are statically linked into the remaining components.)
 
+- [libc/common](../libc/common), the libc headers
 - [libc/3-full](../core/libc/3-full), the full libc again
 - [libo/1-opc](../core/libo/1-opc), the utility library again
+- [cc](../core/cc), the driver again
 - [ld/2-full](../core/ld/2-full), the full linker again
 - [as/2-full](../core/as/2-full), the full assembler again
 - [cci/2-full](../core/cci/2-full), the full C compiler again
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor again
-- [cc](../core/cc), the driver again
 
 We also build a few ancillary tools:
 
@@ -345,16 +346,17 @@ The toolchain will be significantly smaller and faster if we rebuild it.
 
 We build libraries first because they're statically linked into the executables. Since our libc stages are overlaid, we previously only built the additional files in each stage. This time we rebuild all necessary parts from all stages all at once.
 
+- [libc/common](../libc/common), the libc headers
 - [libc/3-full](../core/libc/3-full), the full libc again
 - [libo/1-opc](../core/libo/1-opc), the utility library again
 
-We can now rebuild our entire toolchain, linked against the optimized libraries we just built. The order we build these in doesn't really matter.
+We can now rebuild our entire toolchain, linked against the optimized libraries we just built. We build the driver first so we can stop using `-nostdinc` and `-nostdlib` during bootstrapping.
 
+- [cc](../core/cc), the driver again
 - [ld/2-full](../core/ld/2-full), the full linker again
 - [as/2-full](../core/as/2-full), the full assembler again
 - [cci/2-full](../core/cci/2-full), the full C compiler again
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor again
-- [cc](../core/cc), the driver again
 
 
 

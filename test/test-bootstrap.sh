@@ -98,12 +98,14 @@ make -C test/ld/2-full build
     ../run.sh               .             onrampvm ../../../build/intermediate/as-2-full/as.oe )
 
 # Rebuild our C toolchain with itself
+core/libc/common/build.sh
 ( core/libc/3-full/rebuild.sh && cd test/libc/3-full && \
     ../run.sh ../0-oo  full ../../../build/output/lib/libc.oa && \
     ../run.sh ../1-omc full ../../../build/output/lib/libc.oa && \
     ../run.sh ../2-opc full ../../../build/output/lib/libc.oa && \
     ../run.sh .        full ../../../build/output/lib/libc.oa )
 ( core/libo/1-opc/rebuild.sh && true ) #TODO libo tests don't exist yet
+( core/cc/rebuild.sh && cd test/cc && ./run.sh . onrampvm ../../../build/output/bin/cc.oe )
                 exit 0 # TODO the rest of this is not bootstrappable yet
 ( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
 ( core/as/2-full/rebuild.sh && cd test/as/2-full && \
@@ -112,7 +114,6 @@ make -C test/ld/2-full build
     ../run.sh . onrampvm ../../../build/output/bin/as.oe )
 ( core/cci/2-full/rebuild.sh && cd test/cci/2-full && ../run.sh . onrampvm ../../../build/output/bin/cci.oe )
 ( core/cpp/2-full/rebuild.sh && cd test/cpp/2-full && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
-( core/cc/rebuild.sh && cd test/cc && ../run.sh . onrampvm ../../../build/output/bin/cc.oe )
 
 # Build the last few tools we need
 platform/hex/c89/build.sh
