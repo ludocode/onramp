@@ -61,6 +61,7 @@ CCARGS=\
 		-D__onramp_cci_opc__=1 \
 		-D__onramp_libc_omc__=1 \
 		-I$(ROOT)/core/libc/common/include \
+		-I$(ROOT)/core/libc/common/src \
 		-include __onramp/__predef.h
 
 all: build test FORCE

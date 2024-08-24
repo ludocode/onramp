@@ -93,14 +93,14 @@ CCARGS=\
 		-nostdinc \
 		-nostdlib \
 		-I$(ROOT)/core/libc/common/include \
-		-I$(ROOT)/core/libc/2-opc/src \
+		-I$(ROOT)/core/libc/common/src \
 		-include __onramp/__predef.h
 
 # Arguments for external compiler
 CPPFLAGS += \
 		-nostdinc -nostdlib \
 		-I$(ROOT)/core/libc/common/include \
-		-I$(ROOT)/core/libc/2-opc/src \
+		-I$(ROOT)/core/libc/common/src \
 		-include $(ROOT)/test/portability.h \
 		-include __onramp/__predef.h
 

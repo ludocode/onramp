@@ -1,6 +1,6 @@
 # Onramp C Standard Library -- Headers
 
-This directory contains the libc headers along with a script to copy them to the build output.
+This directory contains the libc headers along with a script to copy them to the build output. It also contains common internal headers used when building the libc.
 
 The libc headers are shared between all stages of Onramp. The preprocessor is used to hide portions of the libc that cannot be compiled on earlier stages.
 

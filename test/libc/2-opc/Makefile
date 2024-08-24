@@ -37,7 +37,7 @@ TOOL_VM=$(BUILD)/vm-c-debugger/vm
 TOOL_AR=$(BUILD)/ar-0-cat/ar.oe    # TODO ar/1
 TOOL_CC=$(BUILD)/cc/cc
 TOOL_CPP=$(BUILD)/cpp-1-omc/cpp    # TODO cpp/2
-TOOL_CCI=$(BUILD)/cci-1-opc/cci    # TODO cci/2
+TOOL_CCI=$(BUILD)/cci-2-full/cci
 TOOL_AS=$(BUILD)/as-2-full/as
 TOOL_LD=$(BUILD)/ld-2-full/ld
 TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
@@ -67,7 +67,6 @@ OBJS=\
 		$(OUT)/system.oo \
 
 # Arguments for Onramp compiler
-# TODO remove -D__onramp_cci_opc__ etc. once we have full cci, full cpp
 CCARGS=\
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
@@ -75,15 +74,16 @@ CCARGS=\
 	    -with-ld=$(TOOL_LD) \
 		-nostdinc \
 		-nostdlib \
-		-D__onramp_cci_opc__=1 \
 		-D__onramp_libc_opc__=1 \
 		-I$(ROOT)/core/libc/common/include \
+		-I$(ROOT)/core/libc/common/src \
 		-include __onramp/__predef.h
 
 # Arguments for external compiler
 CPPFLAGS += \
 		-nostdinc -nostdlib \
 		-I$(ROOT)/core/libc/common/include \
+		-I$(ROOT)/core/libc/common/src \
 		-include $(ROOT)/test/portability.h \
 		-include __onramp/__predef.h
 
@@ -102,7 +102,7 @@ $(TOOL_AR): FORCE
 $(TOOL_CC): FORCE
 	@(make -C ../../cc build)
 $(TOOL_CCI): FORCE
-	@(make -C ../../cci/1-opc build)   # TODO cci/2 build
+	@(make -C ../../cci/2-full build)
 $(TOOL_CPP): FORCE
 	@(make -C ../../cpp/1-omc build)   # TODO cpp/2 build
 $(TOOL_AS): FORCE

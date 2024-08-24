@@ -3,5 +3,5 @@
 -with-as=build/intermediate/as-1-compound/as.oe
 -nostdinc
 -Icore/libc/common/include
-        -Icore/libc/2-opc/src
+-Icore/libc/common/src
 -include __onramp/__predef.h
