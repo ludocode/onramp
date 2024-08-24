@@ -41,6 +41,22 @@ static void test_stdio_format_directive_parse_LS(void) {
     test_directive_parse_match("%LS", &expected);
 }
 
+static void test_stdio_format_directive_parse_li(void) {
+    directive_t expected;
+    memset(&expected, 0, sizeof(expected));
+    expected.conversion = (uint8_t)'i';
+    expected.length_modifier = length_modifier_l;
+    test_directive_parse_match("%li", &expected);
+}
+
+static void test_stdio_format_directive_parse_lli(void) {
+    directive_t expected;
+    memset(&expected, 0, sizeof(expected));
+    expected.conversion = (uint8_t)'i';
+    expected.length_modifier = length_modifier_ll;
+    test_directive_parse_match("%lli", &expected);
+}
+
 static void test_stdio_format_directive_parse_flag_alternate(void) {
     directive_t expected;
     memset(&expected, 0, sizeof(expected));
@@ -250,6 +266,8 @@ int main(void) {
     // directive parsing
     test_stdio_format_directive_parse_s();
     test_stdio_format_directive_parse_LS();
+    test_stdio_format_directive_parse_li();
+    test_stdio_format_directive_parse_lli();
     test_stdio_format_directive_parse_flag_alternate();
     test_stdio_format_directive_parse_flag_zero_padded();
     test_stdio_format_directive_parse_flag_left_adjusted();

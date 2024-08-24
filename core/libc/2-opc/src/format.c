@@ -214,14 +214,17 @@ static void directive_parse_length_modifier(directive_t* directive, const char**
 
         // BSD extension, deprecated
         case 'q':
+            ++*s;
             directive->length_modifier = length_modifier_ll;
             break;
 
         case 'L':
+            ++*s;
             directive->length_modifier = length_modifier_L;
             break;
 
         case 'j':
+            ++*s;
             directive->length_modifier = length_modifier_j;
             break;
 
@@ -229,10 +232,12 @@ static void directive_parse_length_modifier(directive_t* directive, const char**
         case 'Z': // fallthrough
         // standard
         case 'z':
+            ++*s;
             directive->length_modifier = length_modifier_z;
             break;
 
         case 't':
+            ++*s;
             directive->length_modifier = length_modifier_t_;
             break;
 
@@ -241,9 +246,6 @@ static void directive_parse_length_modifier(directive_t* directive, const char**
             // Return to avoid consuming the character
             return;
     }
-
-    // We found a valid length modifier so we consume it.
-    ++*s;
 }
 
 static bool directive_parse_conversion_specifier(directive_t* directive, const char** s, const char* end) {
@@ -527,7 +529,11 @@ static void print(const char* format, output_t* output, va_list args) {
 
         // We've found a directive. Parse it.
         directive_t directive;
-        directive_parse(&directive, &p, NULL);
+        if (!directive_parse(&directive, &p, NULL)) {
+            libc_assert(false);
+            output->error = true;
+            return;
+        }
 
         // Although we parse argument positions, we don't actually support them
         // (yet).
