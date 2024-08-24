@@ -33,6 +33,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+//#ifdef __onramp_cci_opc__
+#define NO_LONG_LONG // TODO temporarily using this until cci/2 supports long long
+//#endif
+
 typedef enum length_modifier_t {
     length_modifier_none = 0,
     length_modifier_h,
@@ -543,10 +547,10 @@ static void print(const char* format, output_t* output, va_list args) {
                 // get argument
                 intmax_t value;
                 if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef __onramp_cci_opc__
+                    #ifndef NO_LONG_LONG
                         value = va_arg(args, long long);
                     #endif
-                    #ifdef __onramp_cci_opc__
+                    #ifdef NO_LONG_LONG
                         output->error = true;
                         return;
                     #endif
@@ -599,10 +603,10 @@ static void print(const char* format, output_t* output, va_list args) {
             case 'u': {
                 uintmax_t value;
                 if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef __onramp_cci_opc__
+                    #ifndef NO_LONG_LONG
                         value = va_arg(args, unsigned long long);
                     #endif
-                    #ifdef __onramp_cci_opc__
+                    #ifdef NO_LONG_LONG
                         output->error = true;
                         return;
                     #endif
@@ -618,10 +622,10 @@ static void print(const char* format, output_t* output, va_list args) {
             case 'X': {
                 uintmax_t value;
                 if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef __onramp_cci_opc__
+                    #ifndef NO_LONG_LONG
                         value = va_arg(args, unsigned long long);
                     #endif
-                    #ifdef __onramp_cci_opc__
+                    #ifdef NO_LONG_LONG
                         output->error = true;
                         return;
                     #endif

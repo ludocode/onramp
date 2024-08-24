@@ -149,6 +149,7 @@ typedef int64_t int_fast64_t;
 // `intmax_t` is normally `long long` which is 64 bits.
 #ifndef __onramp_cci_opc__
 #ifndef __onramp_cci_omc__
+#ifdef INTMAX_64_DISABLED // TODO llong is not supported by cci/2 yet
     typedef int64_t intmax_t;
     #define INTMAX_MIN INT64_MIN
     #define INTMAX_MAX INT64_MAX
@@ -161,9 +162,14 @@ typedef int64_t int_fast64_t;
     #define __INTMAX_IS_64_BITS
 #endif
 #endif
+#endif
 
 // During bootstrapping, opC doesn't have `long long` so when
 // compiling with cci/1, `intmax_t` is 32 bits.
+//
+// (Note that this is an ABI break, so `intmax_t` can't be passed across
+// library boundaries during bootstrapping. That's fine; it's just used
+// internally in cpp/2 and in individual sources in libc/2 and libc/3.)
 #ifndef __INTMAX_IS_64_BITS
     typedef int32_t intmax_t;
     #define INTMAX_MIN INT32_MIN

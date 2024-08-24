@@ -77,12 +77,13 @@ sh core/libc/3-full/build.sh
 sh core/as/2-full/build.sh
 
 ## # Rebuild our C toolchain with itself
-## sh core/cc/rebuild.sh
-## sh core/libc/3-full/rebuild.sh
+sh core/libc/3-full/rebuild.sh
+## sh core/libo/1-opc/rebuild.sh
 ## sh core/ld/2-full/rebuild.sh
 ## sh core/as/2-full/rebuild.sh
 ## sh core/cci/2-full/rebuild.sh
 ## sh core/cpp/2-full/rebuild.sh
+## sh core/cc/rebuild.sh
 ##
 ## # Build the last few tools we need
 ## sh core/hex/1-c89/build.sh
@@ -92,7 +93,6 @@ sh core/as/2-full/build.sh
         # implemented yet. For now we package what we have manually to produce
         # a workable compiler.
 
-        # bin/
         mkdir -p build/output
         mkdir -p build/output/bin
         cp build/intermediate/cc/cc.oe build/output/bin/cc.oe
@@ -107,10 +107,6 @@ sh core/as/2-full/build.sh
             #cp build/intermediate/cci-0-omc/cci.oe.od build/output/bin/cci.oe.od
             #cp build/intermediate/as-1-compound/as.oe.od build/output/bin/as.oe.od
             #cp build/intermediate/ld-2-full/ld.oe.od build/output/bin/ld.oe.od
-
-        # lib/
-        mkdir -p build/output/lib
-        cp build/intermediate/libc-2-opc/libc.oa build/output/lib/libc.oa
 
 # Copy the libc headers
 sh core/libc/common/build.sh
