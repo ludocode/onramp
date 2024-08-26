@@ -37,5 +37,6 @@ struct node_t* parse_assignment_expression(void);
 struct node_t* parse_predicate(void);
 struct node_t* parse_constant_expression(void);
 struct node_t* parse_builtin(builtin_t builtin);
+struct node_t* parse_string(void);
 
 #endif

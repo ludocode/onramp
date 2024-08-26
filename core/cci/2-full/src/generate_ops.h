@@ -29,6 +29,8 @@
  * Code generation for binary and unary operators and other simple expressions
  */
 
+#include <stddef.h>
+
 struct node_t;
 struct type_t;
 struct token_t;
@@ -62,6 +64,10 @@ void generate_store(struct token_t* /*nullable*/ token, struct type_t* type,
 
 void generate_store_offset(struct token_t* /*nullable*/ token, struct type_t* type,
         int register_location, int register_value, int offset);
+
+void generate_store_indirect(struct token_t* token, struct type_t* type, size_t count,
+        int reg_val, int reg_loc);
+void generate_zero(struct token_t* token, struct type_t* type, size_t count, int reg_loc);
 
 void generate_assign(struct node_t* node, int reg_out);
 void generate_add_assign(struct node_t* node, int reg_out);

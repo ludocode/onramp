@@ -953,10 +953,16 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         initializer = parse_initializer(type);
 
         // If we have an array of indetermine size, we can now set its size
-        if (type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE &&
-                initializer->kind == NODE_INITIALIZER_LIST)
-        {
-            type_t* new_type = type_new_array(type->ref, vector_count(&initializer->initializers));
+        if (type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE) {
+            size_t count;
+            if (initializer->kind == NODE_INITIALIZER_LIST) {
+                count = vector_count(&initializer->initializers);
+            } else if (initializer->kind == NODE_STRING) {
+                count = type_size(initializer->type);
+            } else {
+                fatal_token(name, "Invalid initializer for array of indeterminate length.");
+            }
+            type_t* new_type = type_new_array(type->ref, count);
             type_deref(type);
             type = new_type;
         }

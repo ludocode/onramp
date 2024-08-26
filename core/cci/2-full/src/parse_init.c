@@ -123,7 +123,7 @@ static void parse_initializer_list_part(type_t* type, node_t* node, size_t index
                 vector_set(&node->initializers, index, parse_initializer(child_type));
 
             } else if (lexer_token->type == token_type_string && type_is_array(child_type)) {
-                fatal("TODO initialize array with string");
+                vector_set(&node->initializers, index, parse_string());
 
             } else {
                 // Otherwise, we create the initializer list if necessary, and
@@ -209,9 +209,24 @@ node_t* parse_initializer(type_t* type) {
 
     node_t* node = parse_assignment_expression();
 
-    // TODO we could use some checks to make sure the conversion is valid.
-    // For now we just implicitly cast.
-    node = node_cast(node_decay(node), type, NULL);
+    if (type_is_array(type)) {
+        if (node->kind == NODE_STRING) {
+            // TODO make sure this is a string of the correct character type.
+            // For now we just make sure it's an array of char.
+            if (!type_matches_base(type->ref, BASE_CHAR) &&
+                    !type_matches_base(type->ref, BASE_SIGNED_CHAR) &&
+                    !type_matches_base(type->ref, BASE_UNSIGNED_CHAR))
+            {
+                fatal_token(node->token, "Strings can only initialize char arrays.");
+            }
+        } else {
+            fatal_token(node->token, "Cannot initialize array with scalar.");
+        }
+    } else {
+        // TODO we could use some checks to make sure the conversion is valid.
+        // For now we just implicitly cast.
+        node = node_cast(node_decay(node), type, NULL);
+    }
 
     if (brace)
         lexer_expect(STR_BRACE_CLOSE, "Expected `}` to match `{` around this scalar initializer.");

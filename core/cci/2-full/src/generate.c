@@ -672,10 +672,34 @@ void generate_unary_minus(node_t* node, int reg_out) {
     block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
 }
 
-void generate_initializer_scalar(node_t* expr, int reg_loc, size_t offset) {
+void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
     int reg_val = register_alloc(expr->token);
     generate_node(expr, reg_val);
-    generate_store_offset(expr->token, expr->type, reg_loc, reg_val, offset);
+
+    if (type_is_array(target) && expr->kind == NODE_STRING) {
+        // TODO need to handle wide string arrays, currently we assume char
+        size_t array_count = target->count;
+        size_t string_count = expr->type->count;
+
+        // Copy bytes from the string to fill the array
+        size_t copy_count = array_count < string_count ? array_count : string_count;
+        int reg_loc = register_alloc(expr->token);
+        block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
+        block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
+        generate_store_indirect(expr->token, target, copy_count, reg_val, reg_loc);
+
+        // If we're initializing a char array with too short a string, we need
+        // to zero out the rest of the array.
+        if (array_count > string_count) {
+            block_append(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
+            generate_zero(expr->token, target, array_count - string_count, reg_loc);
+        }
+
+        register_free(expr->token, reg_loc);
+    } else {
+        generate_store_offset(expr->token, target, reg_val, reg_base, offset);
+    }
+
     register_free(expr->token, reg_val);
 }
 
@@ -685,10 +709,15 @@ void generate_initializer_scalar(node_t* expr, int reg_loc, size_t offset) {
  * The address of the variable being initialized is (reg_loc + offset).
  */
 void generate_initializer_list(node_t* list, type_t* type, int reg_loc, size_t base_offset) {
+
     for (size_t i = 0; i < vector_count(&list->initializers); ++i) {
         node_t* child = vector_at(&list->initializers, i);
-        if (!child)
+        if (!child) {
+            // TODO we should be looping over the whole length of the
+            // struct/array, not just the length of the initializer list. any
+            // initializers that are missing should be zeroed.
             continue;
+        }
 
         // Get the type of the child we're initializing
         type_t* child_type;
@@ -707,7 +736,7 @@ void generate_initializer_list(node_t* list, type_t* type, int reg_loc, size_t b
         if (child->kind == NODE_INITIALIZER_LIST) {
             generate_initializer_list(child, child_type, reg_loc, offset);
         } else {
-            generate_initializer_scalar(child, reg_loc, offset);
+            generate_initializer_scalar(child, child_type, reg_loc, offset);
         }
     }
 }
@@ -727,8 +756,18 @@ void generate_initializer(node_t* variable, int reg_loc) {
     if (initializer->kind == NODE_INITIALIZER_LIST) {
         generate_initializer_list(variable->first_child, variable->symbol->type, reg_loc, 0);
     } else {
-        assert(type_equal(variable->first_child->type, variable->symbol->type));
-        generate_initializer_scalar(variable->first_child, reg_loc, 0);
+        type_t* init_type = variable->first_child->type;
+        type_t* var_type = variable->symbol->type;
+
+        if (type_is_array(init_type)) {
+            // Array lengths don't have to match in initializers. The string
+            // will be truncated or padded with zeroes.
+            assert(type_is_array(var_type) && type_equal(init_type->ref, var_type->ref));
+        } else {
+            assert(type_equal(init_type, var_type));
+        }
+
+        generate_initializer_scalar(variable->first_child, var_type, reg_loc, 0);
     }
 }
 
@@ -776,7 +815,7 @@ static void generate_dereference(node_t* node, int reg_out) {
 
     // When passing directly, we can use the same register for location and
     // value.
-    if (!type_is_passed_indirectly(node->type)) {
+    if (type_is_array(node->type) || !type_is_passed_indirectly(node->type)) {
         generate_node(node->first_child, reg_out);
         generate_dereference_impl(node, reg_out, reg_out, 0);
         return;
@@ -1082,7 +1121,7 @@ static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
     int reg_size = register_alloc(builtin->token);
     block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_size, type_size(builtin->type));
     block_append(current_block, builtin->token, ADD, reg_val, reg_val, reg_size);
-    generate_store(builtin->token, builtin->first_child->type, reg_loc, reg_val);
+    generate_store(builtin->token, builtin->first_child->type, reg_val, reg_loc);
 
     register_free(builtin->token, reg_size);
     register_free(builtin->token, reg_val);
@@ -1094,7 +1133,7 @@ static void generate_builtin_va_start(node_t* builtin, int reg_out) {
     int reg_val = register_alloc(builtin->token);
     block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_val, current_function->variadic_offset);
     block_append(current_block, builtin->token, ADD, reg_val, RFP, reg_val);
-    generate_store(builtin->token, builtin->first_child->type, reg_out, reg_val);
+    generate_store(builtin->token, builtin->first_child->type, reg_val, reg_out);
     register_free(builtin->token, reg_val);
 }
 
@@ -1106,7 +1145,7 @@ static void generate_builtin_va_copy(node_t* builtin, int reg_out) {
     generate_location(builtin->first_child, reg_out);
     int reg_val = register_alloc(builtin->token);
     generate_node(builtin->last_child, reg_val);
-    generate_store(builtin->token, builtin->first_child->type, reg_out, reg_val);
+    generate_store(builtin->token, builtin->first_child->type, reg_val, reg_out);
     register_free(builtin->token, reg_val);
 }
 

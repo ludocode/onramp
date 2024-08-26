@@ -711,6 +711,7 @@ bool type_is_passed_indirectly(type_t* type) {
         }
         // Note: Arrays are not passed indirectly because they are not passed
         // at all; they decay to pointers before being passed.
+        assert(type->declarator == DECLARATOR_POINTER);
         return false;
     }
     switch (type->base) {

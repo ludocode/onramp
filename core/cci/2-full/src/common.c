@@ -28,6 +28,7 @@
 
 #include "libo-error.h"
 #include "token.h"
+#include "lexer.h"
 
 void fatal_token(struct token_t* token, const char* format, ...) {
     va_list args;
@@ -36,8 +37,16 @@ void fatal_token(struct token_t* token, const char* format, ...) {
 }
 
 void vfatal_token(struct token_t* token, const char* format, va_list args) {
-    current_line = token->line;
-    current_filename = (char*)string_cstr(token->filename);
+    if (token == NULL) {
+        token = lexer_token;
+    }
+    if (token == NULL) {
+        current_line = 0;
+        current_filename = NULL;
+    } else {
+        current_line = token->line;
+        current_filename = (char*)string_cstr(token->filename);
+    }
     vfatal(format, args);
 }
 

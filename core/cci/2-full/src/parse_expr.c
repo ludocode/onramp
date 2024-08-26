@@ -189,7 +189,7 @@ static node_t* parse_character(void) {
     return node;
 }
 
-static node_t* parse_string(void) {
+node_t* parse_string(void) {
     assert(lexer_token->type == token_type_string);
     int label = next_string++;
     token_t* first = token_ref(lexer_token);
@@ -220,6 +220,7 @@ static node_t* parse_string(void) {
     } while (lexer_token->type == token_type_string);
 
     // append null-terminator
+    ++length;
     emit_cstr(ASM_INDENT);
     emit_quoted_byte(0);
     emit_newline();
@@ -350,8 +351,22 @@ static node_t* parse_function_call(node_t* function) {
             }
 
             node_t* arg = parse_assignment_expression();
+            arg = node_decay(arg);
+
             if (has_prototype && arg_count < type->count) {
-                arg = node_cast(arg, type->args[arg_count], NULL);
+                type_t* arg_type = type->args[arg_count];
+
+                // If the function parameter is an array, cast to a pointer.
+                // TODO maybe we should decay function parameter types when
+                // they are parsed?
+                if (type_is_array(arg_type)) {
+                    arg_type = type_new_pointer(arg_type->ref, false, false, false);
+                } else {
+                    type_ref(arg_type);
+                }
+
+                arg = node_cast(arg, arg_type, NULL);
+                type_deref(arg_type);
             } else {
                 // TODO node_promote doesn't promote float to double, we need a
                 // separate variadic arg promotion func to do that

@@ -380,41 +380,180 @@ void generate_not_equal(node_t* node, int reg_out) {
     block_append(current_block, node->token, AND, reg_out, reg_out, 1);
 }
 
-static void generate_store_small_offset(token_t* token, type_t* type, int reg_loc, int reg_val, int offset) {
+/*
+ * Generates code to zero out memory for the given type with the given number
+ * of bytes at the address stored in the given register.
+ *
+ * We check both size and alignment to decide on a step size because this is
+ * used to zero out strings in initializers among other things.
+ */
+void generate_zero(token_t* token, type_t* type, size_t count, int reg_loc) {
+    size_t align = type_alignment(type);
+
+    // choose a step size
+    size_t step;
+    size_t steps;
+    int store;
+    if (0 == (count & 3) && 0 == (align & 3)) {
+        step = 4;
+        steps = count >> 2;
+        store = STW;
+    } else if (0 == (count & 1) && 0 == (align & 1)) {
+        step = 2;
+        steps = count >> 1;
+        store = STS;
+    } else {
+        step = 1;
+        steps = count;
+        store = STB;
+    }
+
+    // If the number of steps is small, unroll it.
+    if (steps <= 8) {
+        for (size_t i = 0; i < count; i += step) {
+            block_append(current_block, token, store, 0, reg_loc, i);
+        }
+
+    // Otherwise insert a loop.
+    } else {
+        int reg_i = register_alloc(token);
+        block_t* loop_block = block_new(next_label++);
+        block_t* end_block = block_new(next_label++);
+        function_add_block(current_function, loop_block);
+        function_add_block(current_function, end_block);
+
+        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, count);
+        block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+
+        current_block = loop_block;
+        block_append(current_block, token, JZ, reg_i, '&', JUMP_LABEL_PREFIX, end_block->label);
+        block_append(current_block, token, SUB, reg_i, reg_i, step);
+        block_append(current_block, token, store, 0, reg_loc, reg_i);
+        block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+
+        current_block = end_block;
+        register_free(token, reg_i);
+    }
+}
+
+/*
+ * Generates a store for a value pointed to by reg_val to the address pointed
+ * to by reg_loc.
+ *
+ * In other words, memcpy count bytes from reg_val to reg_loc. The addresses
+ * must not overlap.
+ *
+ * We check both size and alignment to decide on a step size because this is
+ * used to copy strings in initializers among other things.
+ */
+void generate_store_indirect(token_t* token, type_t* type, size_t count,
+        int reg_val, int reg_loc)
+{
+    int reg_temp = register_alloc(token);
+    size_t align = type_alignment(type);
+
+    // choose a step size
+    int step;
+    int steps;
+    int load;
+    int store;
+    if (0 == (count & 3) && 0 == (align & 3)) {
+        step = 4;
+        steps = count >> 2;
+        load = LDW;
+        store = STW;
+    } else if (0 == (count & 1) && 0 == (align & 1)) {
+        step = 2;
+        steps = count >> 1;
+        load = LDS;
+        store = STS;
+    } else {
+        step = 1;
+        steps = count;
+        load = LDB;
+        store = STB;
+    }
+
+    // If the number of steps is small, unroll it.
+    if (steps <= 4) {
+        for (size_t i = 0; i < count; i += step) {
+            block_append(current_block, token, load, reg_temp, reg_val, step * i);
+            block_append(current_block, token, store, reg_temp, reg_loc, step * i);
+        }
+
+    // Otherwise insert a loop.
+    } else {
+        int reg_i = register_alloc(token);
+        block_t* loop_block = block_new(next_label++);
+        block_t* end_block = block_new(next_label++);
+        function_add_block(current_function, loop_block);
+        function_add_block(current_function, end_block);
+
+        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, count);
+        block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+
+        current_block = loop_block;
+        block_append(current_block, token, JZ, reg_i, '&', JUMP_LABEL_PREFIX, end_block->label);
+        block_append(current_block, token, SUB, reg_i, reg_i, step);
+        block_append(current_block, token, load, reg_temp, reg_val, reg_i);
+        block_append(current_block, token, store, reg_temp, reg_loc, reg_i);
+        block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+
+        current_block = end_block;
+        register_free(token, reg_i);
+    }
+
+    register_free(token, reg_temp);
+}
+
+// Generates a store for a direct value in reg_val into the address in reg_loc
+// plus the given small offset.
+static void generate_store_direct(token_t* token, size_t size, int reg_val, int reg_base, int offset) {
     assert(offset < 128 && offset >= -112);
-    switch (type_size(type)) {
-        case 1:
-            block_append(current_block, token, STB, reg_val, reg_loc, offset);
-            break;
-        case 2:
-            block_append(current_block, token, STS, reg_val, reg_loc, offset);
-            break;
-        case 4:
-            block_append(current_block, token, STW, reg_val, reg_loc, offset);
-            break;
+    int opcode;
+    switch (size) {
+        case 1: opcode = STB; break;
+        case 2: opcode = STS; break;
+        case 4: opcode = STW; break;
         default:
-            // TODO assigning large structures should call memcpy. eventually
-            // we can optimize the case of only memcpy'ing e.g. 8 bytes.
-            fatal("large assign not yet implemented");
+            fatal_token(token, "Internal error: impossible size for direct store: %i", (int)size);
             break;
     }
+    block_append(current_block, token, opcode, reg_val, reg_base, offset);
 }
 
-void generate_store(token_t* token, type_t* type, int reg_loc, int reg_val) {
-    generate_store_offset(token, type, reg_loc, reg_val, 0);
-}
+void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_base, int offset) {
+    assert(!type_is_array(type));
 
-void generate_store_offset(token_t* token, type_t* type, int reg_base, int reg_val, int offset) {
-    if (offset < 128 && offset >= -112) {
-        generate_store_small_offset(token, type, reg_base, reg_val, offset);
-        return;
+    size_t size = type_size(type);
+    bool indirect = type_is_passed_indirectly(type);
+
+    // See if we can do the offset inline
+    if (indirect) {
+        if (offset == 0) {
+            generate_store_indirect(token, type, size, reg_val, reg_base);
+            return;
+        }
+    } else {
+        if (offset < 128 && offset >= -112) {
+            generate_store_direct(token, size, reg_val, reg_base, offset);
+            return;
+        }
     }
 
+    // We have to add the offset and base into a temporary register
     int reg_loc = register_alloc(token);
     block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
-    block_append(current_block, token, ADD, reg_loc, reg_base, reg_loc);
-    generate_store_small_offset(token, type, reg_loc, reg_val, 0);
+    block_append(current_block, token, ADD, reg_loc, reg_loc, reg_base);
+    if (indirect)
+        generate_store_indirect(token, type, size, reg_val, reg_loc);
+    else
+        generate_store_direct(token, size, reg_val, reg_loc, 0);
     register_free(token, reg_loc);
+}
+
+void generate_store(token_t* token, type_t* type, int reg_val, int reg_loc) {
+    generate_store_offset(token, type, reg_val, reg_loc, 0);
 }
 
 void generate_assign(node_t* node, int reg_val) {
@@ -422,7 +561,7 @@ void generate_assign(node_t* node, int reg_val) {
 
     int reg_loc = register_alloc(node->token);
     generate_location(node->first_child, reg_loc);
-    generate_store(node->token, node->type, reg_loc, reg_val);
+    generate_store(node->token, node->type, reg_val, reg_loc);
     register_free(node->token, reg_loc);
 }
 
@@ -445,7 +584,7 @@ void generate_add_sub_assign(node_t* node, int reg_val,
     }
 
     // store the result
-    generate_store(node->token, node->type, reg_loc, reg_val);
+    generate_store(node->token, node->type, reg_val, reg_loc);
     register_free(node->token, reg_loc);
 }
 
@@ -465,7 +604,7 @@ void generate_compound_assign(node_t* node, int reg_val,
     generate_simple_arithmetic(node, reg_val, opcode, llong_func, float_func, double_func);
 
     // store the result
-    generate_store(node->token, node->type, reg_loc, reg_val);
+    generate_store(node->token, node->type, reg_val, reg_loc);
     register_free(node->token, reg_loc);
 }
 
@@ -541,7 +680,7 @@ static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
     }
 
     // store it back again
-    generate_store(node->token, node->type, reg_loc, reg_val);
+    generate_store(node->token, node->type, reg_val, reg_loc);
     register_free(node->token, reg_loc);
 }
 
@@ -567,7 +706,7 @@ static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
     }
 
     // store it back again
-    generate_store(node->token, node->type, reg_loc, reg_temp);
+    generate_store(node->token, node->type, reg_temp, reg_loc);
     register_free(node->token, reg_temp);
     register_free(node->token, reg_loc);
 }
