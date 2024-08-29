@@ -41,7 +41,11 @@ typedef enum symbol_kind_t {
     symbol_kind_builtin,
 } symbol_kind_t;
 
-#define SYMBOL_OFFSET_GLOBAL INT_MAX
+typedef enum symbol_linkage_t {
+    symbol_linkage_none = 0,
+    symbol_linkage_internal,
+    symbol_linkage_external,
+} symbol_linkage_t;
 
 /**
  * A symbol is a variable, a function, a constant, or a builtin.
@@ -56,17 +60,15 @@ typedef struct symbol_t {
     string_t* asm_name; // name in assembly; null if this is not a global
 
     // Offset in the stack frame if this is a local variable. This can be
-    // positive or negative. (Positive values are used for function arguments
-    // that are passed by the caller on the stack.) For local variables this is
-    // 0 until assigned at code generation time. For global variables this is
-    // SYMBOL_OFFSET_GLOBAL.
+    // positive (e.g. function argument) or negative (e.g. normal variable.)
+    // This is ignored for variables with linkage.
     int offset;
 
-    bool is_tentative : 1;
-    bool is_extern : 1;
-    bool is_static : 1;
+    symbol_linkage_t linkage;
 
     bool is_weak : 1;
+    bool is_defined : 1;
+    bool is_tentative : 1;
 
     bool is_constructor : 1;
     bool is_destructor : 1;
@@ -84,7 +86,7 @@ symbol_t* symbol_new(symbol_kind_t kind, struct type_t* type,
         struct token_t* name, string_t* /*nullable*/ asm_name);
 
 static inline bool symbol_is_global(symbol_t* symbol) {
-    return symbol->offset == SYMBOL_OFFSET_GLOBAL;
+    return symbol->linkage != symbol_linkage_none;
 }
 
 static inline symbol_t* symbol_ref(symbol_t* symbol) {

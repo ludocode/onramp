@@ -149,6 +149,7 @@ void scope_remove_symbol(scope_t* scope, symbol_t* symbol) {
         if (symbol == ((scope_element_t*)entry)->symbol) {
             table_remove(&scope->symbols, entry);
             free(entry);
+            symbol_deref(symbol);
             return;
         }
         entry = table_entry_next(entry);

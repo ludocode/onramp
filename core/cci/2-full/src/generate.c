@@ -222,7 +222,7 @@ static void generate_access(node_t* node, int reg_out) {
 }
 
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out) {
-    if (symbol->offset == SYMBOL_OFFSET_GLOBAL) {
+    if (symbol_is_global(symbol)) {
         block_append(current_block, token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
         block_append(current_block, token, ADD, reg_out, RPP, reg_out);
     } else {
@@ -294,7 +294,7 @@ static int generate_parameter_offsets(function_t* function) {
  */
 static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
     for (node_t* child = node->first_child; child; child = child->right_sibling) {
-        if (child->kind == NODE_VARIABLE && child->symbol->offset == 0) {
+        if (child->kind == NODE_VARIABLE && child->symbol->linkage == symbol_linkage_none) {
             int size = (int)type_size(child->symbol->type);
 
             // align the value
@@ -1050,7 +1050,7 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     // Create the function
     function_t* function = function_new(func_t, name, name_str, root);
     function->symbol = symbol_new(symbol_kind_function, func_t, name, name_str);
-    function->symbol->is_static = true;
+    function->symbol->linkage = symbol_linkage_internal;
     function->symbol->is_constructor = true;
     function->symbol->constructor_priority = 50;
 
@@ -1084,7 +1084,7 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
 
     emit_source_location(symbol->token);
-    emit_char(symbol->is_static ? '@' : '=');
+    emit_char(symbol->linkage == symbol_linkage_internal ? '@' : '=');
     emit_string(symbol->asm_name);
 
     // TODO emit a zero symbol. Linker and libc don't support them yet. For

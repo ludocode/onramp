@@ -101,10 +101,11 @@ void scope_add_type(scope_t* scope, namespace_t namespace, struct token_t* name,
 void scope_add_record(scope_t* scope, struct record_t* record);
 
 /**
- * Removes the given symbol from the given scope, relinquishing ownership of
- * it.
+ * Removes the given symbol from the given scope.
  *
- * The symbol must exist in this scope.
+ * The scope releases its reference to the symbol, decrementing its reference
+ * count. The symbol may have been freed before this returns, so unless you
+ * hold a strong reference to it, you must discard it.
  */
 void scope_remove_symbol(scope_t* scope, struct symbol_t* symbol);
 

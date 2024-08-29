@@ -2,9 +2,13 @@
 // Copyright (c) 2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-static int x; // tentative definition of x
-static int x; // another tentative definition of x
+static int x = 3;
+extern int x;
 
 int main(void) {
-    return x;
+    int x = 7;
+    {
+        extern int x; // refers to x at file scope
+        return 3 - x;
+    }
 }

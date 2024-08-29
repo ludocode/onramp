@@ -273,7 +273,7 @@ void emit_function(function_t* function) {
     symbol_t* symbol = function->symbol;
 
     // output flags
-    emit_char(symbol->is_static ? '@' : '=');
+    emit_char(symbol->linkage == symbol_linkage_internal ? '@' : '=');
     if (symbol->is_weak) {
         emit_char('?');
     }

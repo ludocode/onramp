@@ -3,7 +3,7 @@
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
-    extern int cmp(const char*, const char*) __asm__("strcmp");
+    int cmp(const char*, const char*) __asm__("strcmp");
     if (0 != cmp("hello", "hello"))
         return 1;
     if (0 >= cmp("helzo", "hello"))

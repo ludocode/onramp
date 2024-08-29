@@ -1,5 +1,3 @@
-@x
-  0
 =foo
   enter
   imw r0 ^x
@@ -18,3 +16,5 @@
   isz r0 r0
   leave
   ret
+@x
+  0

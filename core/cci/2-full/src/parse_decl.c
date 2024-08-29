@@ -60,12 +60,23 @@ void parse_decl_destroy(void) {
  * Specifiers
  */
 
+// storage specifiers, excluding _Thread_local
+typedef enum storage_specifier_t {
+    storage_specifier_none = 0,
+    storage_specifier_typedef,
+    storage_specifier_extern,
+    storage_specifier_static,
+    storage_specifier_auto,
+    storage_specifier_register,
+} storage_specifier_t;
+
 /*
  * The specifier sequence of a declaration (the part that does not include the
  * declarators.)
  */
 typedef struct specifiers_t {
-    int storage_specifiers;
+    storage_specifier_t storage_specifier;
+
     int type_specifiers;
     int type_qualifiers;
     int function_specifiers;
@@ -92,13 +103,6 @@ static void specifiers_destroy(specifiers_t* specifiers) {
         type_deref(specifiers->type);
 }
 
-#define STORAGE_SPECIFIER_TYPEDEF        (1 << 0)
-#define STORAGE_SPECIFIER_EXTERN         (1 << 1)
-#define STORAGE_SPECIFIER_STATIC         (1 << 2)
-#define STORAGE_SPECIFIER_THREAD_LOCAL   (1 << 3)
-#define STORAGE_SPECIFIER_AUTO           (1 << 4)
-#define STORAGE_SPECIFIER_REGISTER       (1 << 5)
-
 #define TYPE_SPECIFIER_VOID         (1 << 0)
 #define TYPE_SPECIFIER_CHAR         (1 << 1)
 #define TYPE_SPECIFIER_SHORT        (1 << 2)
@@ -121,6 +125,121 @@ static void specifiers_destroy(specifiers_t* specifiers) {
 
 #define FUNCTION_SPECIFIER_INLINE     (1 << 0)
 #define FUNCTION_SPECIFIER_NORETURN   (1 << 1)
+
+/**
+ * Converts a set of type specifiers to a base type.
+ *
+ * The full list of supported combinations is in 6.7.2.2 in the C17 spec. We
+ * reproduce the primitive base types here as a switch.
+ *
+ * We exclude those that specify a user-defined type (struct, union, enum and
+ * typedef name.) In those cases `specifiers->type` will be non-null.
+ */
+static base_t specifiers_convert(specifiers_t* specifiers) {
+    assert(specifiers->type == NULL);
+
+    switch (specifiers->type_specifiers) {
+        case 0:
+            warn(warning_implicit_int, lexer_token,
+                    "Unrecognized type, or no type specifiers for this declaration."); // (Implicit int was removed in C99.)
+            return BASE_SIGNED_INT;
+
+        case TYPE_SPECIFIER_VOID:
+            return BASE_VOID;
+
+        case TYPE_SPECIFIER_CHAR:
+            return BASE_CHAR;
+
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR:
+            return BASE_SIGNED_CHAR;
+
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR:
+            return BASE_UNSIGNED_CHAR;
+
+        case TYPE_SPECIFIER_SHORT:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT:
+        case TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:
+            return BASE_SIGNED_SHORT;
+
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT:
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT | TYPE_SPECIFIER_INT:
+            return BASE_UNSIGNED_SHORT;
+
+        case TYPE_SPECIFIER_INT:
+        case TYPE_SPECIFIER_SIGNED:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT:
+            return BASE_SIGNED_INT;
+
+        case TYPE_SPECIFIER_UNSIGNED:
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT:
+            return BASE_UNSIGNED_INT;
+
+        case TYPE_SPECIFIER_LONG:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG:
+        case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:
+            //return BASE_SIGNED_LONG; // TODO implement this to make _Generic work properly
+            return BASE_SIGNED_INT;
+
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG:
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_INT:
+            //return BASE_UNSIGNED_LONG; // TODO implement this to make _Generic work properly
+            return BASE_UNSIGNED_INT;
+
+        case TYPE_SPECIFIER_LONG_LONG:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG:
+        case TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:
+        case TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:
+            return BASE_SIGNED_LONG_LONG;
+
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG:
+        case TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG | TYPE_SPECIFIER_INT:
+            return BASE_UNSIGNED_LONG_LONG;
+
+        case TYPE_SPECIFIER_FLOAT:
+            return BASE_FLOAT;
+
+        case TYPE_SPECIFIER_DOUBLE:
+            return BASE_DOUBLE;
+
+        case TYPE_SPECIFIER_LONG | TYPE_SPECIFIER_DOUBLE:
+            //return BASE_LONG_DOUBLE; // TODO implement this to make _Generic work properly
+            return BASE_DOUBLE;
+
+        case TYPE_SPECIFIER_BOOL:
+            return BASE_BOOL;
+
+        // _Complex is not supported
+
+        default:
+            break;
+    }
+
+    fatal_token(lexer_token, "Invalid combination of type specifiers.");
+}
+
+static void specifiers_check_type(specifiers_t* specifiers) {
+
+    // If we have a user-defined type, make sure we have no other type specifiers
+    if (specifiers->type != NULL) {
+        if (specifiers->type_specifiers != 0) {
+            fatal_token(lexer_token, "Invalid combination of type specifiers.");
+        }
+        return;
+    }
+
+    // Otherwise, make sure the combination of type specifiers we've
+    // accumulated so far is valid. This places the error message for an
+    // invalid combination on the first incorrect token.
+    //
+    // (There is no valid combination of specifiers where a subset of those
+    // specifiers would be invalid so this check is safe.)
+    //
+    // We ignore the resulting base for now. It will get converted to a type
+    // later once the full specifier list is parsed.
+    (void)specifiers_convert(specifiers);
+}
 
 static bool try_parse_declaration_specifiers(specifiers_t* specifiers);
 static type_t* specifiers_make_type(specifiers_t* specifiers);
@@ -151,26 +270,47 @@ static bool try_parse_type_qualifiers(int* type_qualifiers) {
     return true;
 }
 
+static bool try_parse_storage_specifier(specifiers_t* specifiers, storage_specifier_t specifier, string_t* keyword) {
+    if (!lexer_is(keyword))
+        return false;
+    if (specifiers->storage_specifier != storage_specifier_none)
+        fatal_token(lexer_token, "At most one storage specifier (besides `_Thread_local`) can be provided for a declaration.");
+    specifiers->storage_specifier = specifier;
+    lexer_consume();
+    return true;
+}
+
+static bool try_parse_type_specifier(specifiers_t* specifiers, int specifier, string_t* keyword) {
+    if (!lexer_is(keyword))
+        return false;
+    if (specifiers->type_specifiers & specifier)
+        fatal_token(lexer_token, "Redundant type specifier: %s", keyword->bytes);
+    specifiers->type_specifiers |= specifier;
+    specifiers_check_type(specifiers);
+    lexer_consume();
+    return true;
+}
+
 static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
 
     // storage specifiers
-    if (try_parse_specifier(&specifiers->storage_specifiers, STORAGE_SPECIFIER_TYPEDEF, STR_TYPEDEF)) return true;
-    if (try_parse_specifier(&specifiers->storage_specifiers, STORAGE_SPECIFIER_EXTERN, STR_EXTERN)) return true;
-    if (try_parse_specifier(&specifiers->storage_specifiers, STORAGE_SPECIFIER_STATIC, STR_STATIC)) return true;
-    if (try_parse_specifier(&specifiers->storage_specifiers, STORAGE_SPECIFIER_THREAD_LOCAL, STR_THREAD_LOCAL)) return true;
-    if (try_parse_specifier(&specifiers->storage_specifiers, STORAGE_SPECIFIER_AUTO, STR_AUTO)) return true;
-    if (try_parse_specifier(&specifiers->storage_specifiers, STORAGE_SPECIFIER_REGISTER, STR_REGISTER)) return true;
+    if (try_parse_storage_specifier(specifiers, storage_specifier_typedef, STR_TYPEDEF)) return true;
+    if (try_parse_storage_specifier(specifiers, storage_specifier_extern, STR_EXTERN)) return true;
+    if (try_parse_storage_specifier(specifiers, storage_specifier_static, STR_STATIC)) return true;
+    if (try_parse_storage_specifier(specifiers, storage_specifier_auto, STR_AUTO)) return true;
+    if (try_parse_storage_specifier(specifiers, storage_specifier_register, STR_REGISTER)) return true;
+    if (lexer_is(STR_THREAD_LOCAL)) fatal_token(lexer_token, "_Thread_local is not supported.");
 
     // type specifiers (except `long` and user types)
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_VOID, STR_VOID)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_CHAR, STR_CHAR)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_SHORT, STR_SHORT)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_INT, STR_INT)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_SIGNED, STR_SIGNED)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_UNSIGNED, STR_UNSIGNED)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_FLOAT, STR_FLOAT)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_DOUBLE, STR_DOUBLE)) return true;
-    if (try_parse_specifier(&specifiers->type_specifiers, TYPE_SPECIFIER_BOOL, STR_BOOL_X)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_VOID, STR_VOID)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_CHAR, STR_CHAR)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_SHORT, STR_SHORT)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_INT, STR_INT)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_SIGNED, STR_SIGNED)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_UNSIGNED, STR_UNSIGNED)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_FLOAT, STR_FLOAT)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_DOUBLE, STR_DOUBLE)) return true;
+    if (try_parse_type_specifier(specifiers, TYPE_SPECIFIER_BOOL, STR_BOOL_X)) return true;
 
     // type qualifiers
     if (try_parse_type_qualifier(&specifiers->type_qualifiers)) return true;
@@ -180,16 +320,18 @@ static bool try_parse_declaration_specifier_keywords(specifiers_t* specifiers) {
     if (try_parse_specifier(&specifiers->function_specifiers, FUNCTION_SPECIFIER_NORETURN, STR_NORETURN_X)) return true;
 
     // `long` can appear at most twice.
-    if (lexer_accept(STR_LONG)) {
+    if (lexer_is(STR_LONG)) {
         if (specifiers->type_specifiers & TYPE_SPECIFIER_LONG_LONG) {
             fatal("`long long long` is invalid.");
         }
         if (specifiers->type_specifiers & TYPE_SPECIFIER_LONG) {
             specifiers->type_specifiers &= ~TYPE_SPECIFIER_LONG;
             specifiers->type_specifiers |= TYPE_SPECIFIER_LONG_LONG;
-            return true;
+        } else {
+            specifiers->type_specifiers |= TYPE_SPECIFIER_LONG;
         }
-        specifiers->type_specifiers |= TYPE_SPECIFIER_LONG;
+        specifiers_check_type(specifiers);
+        lexer_consume();
         return true;
     }
 
@@ -220,7 +362,7 @@ static void parse_record_member(record_t* record) {
     type_t* base_type = specifiers_make_type(&specifiers);
 
     // No storage or function specifiers are allowed
-    if (specifiers.storage_specifiers) {
+    if (specifiers.storage_specifier) {
         fatal("Storage specifiers are not allowed in a `struct` or `union` definition.");
     }
     if (specifiers.function_specifiers) {
@@ -336,7 +478,7 @@ static void parse_record(specifiers_t* specifiers) {
     // could potentially implement the same.
     bool is_definition = lexer_is(STR_BRACE_OPEN);
     bool is_forward_declaration = lexer_is(STR_SEMICOLON)
-            && specifiers->type_qualifiers == 0 && specifiers->storage_specifiers == 0;
+            && specifiers->type_qualifiers == 0 && specifiers->storage_specifier == 0;
     bool find_recursive = !is_definition && !is_forward_declaration;
 
     // find the struct if it exists
@@ -556,77 +698,6 @@ static bool try_parse_declaration_specifiers(specifiers_t* specifiers) {
     return found;
 }
 
-static base_t specifiers_convert(specifiers_t* specifiers) {
-    int ts = specifiers->type_specifiers;
-
-    // Check for implicit int
-    if (ts == 0) {
-        warn(warning_implicit_int, lexer_token,
-                "Unrecognized type, or no type specifiers for this declaration."); // (Implicit int was removed in C99.)
-        return BASE_SIGNED_INT;
-    }
-
-    // If we have another integer width, "int" is redundant.
-    if (ts & TYPE_SPECIFIER_INT) {
-        if ((ts & TYPE_SPECIFIER_SHORT) ||
-            (ts & TYPE_SPECIFIER_LONG) ||
-            (ts & TYPE_SPECIFIER_LONG_LONG))
-        {
-            ts &= ~TYPE_SPECIFIER_INT;
-        }
-    }
-
-    // If we have "long double", convert it to "double".
-    // TODO this breaks _Generic, we'll have to retain this base type
-    if ((ts & TYPE_SPECIFIER_LONG) && (ts & TYPE_SPECIFIER_DOUBLE)) {
-        ts &= ~TYPE_SPECIFIER_LONG;
-    }
-
-    // If we have "long", convert it to "int".
-    // TODO this breaks _Generic, we'll have to retain this base type
-    if (ts & TYPE_SPECIFIER_LONG) {
-        ts &= ~TYPE_SPECIFIER_LONG;
-        ts |= TYPE_SPECIFIER_INT;
-    }
-
-    // We check each supported type combination against our type specifier
-    // bitmap (minus our simplifications above.) See C11 6.7.2.2
-
-    if (ts == TYPE_SPECIFIER_VOID) return BASE_VOID;
-    if (ts == TYPE_SPECIFIER_CHAR) return BASE_CHAR;
-    if (ts == TYPE_SPECIFIER_BOOL) return BASE_BOOL;
-
-    if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_CHAR))
-        return BASE_UNSIGNED_CHAR;
-    if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_SHORT))
-        return BASE_UNSIGNED_SHORT;
-    if ((ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_INT)) ||
-            (ts == TYPE_SPECIFIER_UNSIGNED))
-        return BASE_UNSIGNED_INT;
-    if (ts == (TYPE_SPECIFIER_UNSIGNED | TYPE_SPECIFIER_LONG_LONG))
-        return BASE_UNSIGNED_LONG_LONG;
-
-    if (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_CHAR))
-        return BASE_SIGNED_CHAR;
-    if ((ts == TYPE_SPECIFIER_SHORT) ||
-            (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_SHORT)))
-        return BASE_SIGNED_SHORT;
-    if ((ts == TYPE_SPECIFIER_INT) ||
-            (ts == TYPE_SPECIFIER_SIGNED) ||
-            (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_INT)))
-        return BASE_SIGNED_INT;
-    if ((ts == TYPE_SPECIFIER_LONG_LONG) ||
-            (ts == (TYPE_SPECIFIER_SIGNED | TYPE_SPECIFIER_LONG_LONG)))
-        return BASE_SIGNED_LONG_LONG;
-
-    if (ts == TYPE_SPECIFIER_FLOAT)
-        return BASE_FLOAT;
-    if (ts == TYPE_SPECIFIER_DOUBLE)
-        return BASE_DOUBLE;
-
-    fatal("Unsupported combination of type specifiers: 0x%x", ts);
-}
-
 static type_t* specifiers_make_type(specifiers_t* specifiers) {
     type_t* type;
 
@@ -703,8 +774,7 @@ static void parse_function_arguments(type_t** type) {
         // Check for specifier errors
         // TODO error should be on correct token. try_parse_declaration_specifiers()
         // should take an option to forbid invalid specifiers
-        // TODO we should also forbid restrict here
-        if (specifiers.storage_specifiers != 0 || specifiers.function_specifiers != 0) {
+        if (specifiers.storage_specifier != 0 || specifiers.function_specifiers != 0) {
             fatal("Storage and function specifiers are not allowed on function parameters.");
         }
 
@@ -908,8 +978,8 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
     scope_add_symbol(scope_current, symbol);
     symbol_deref(symbol);
 
-    symbol->is_extern = specifiers->storage_specifiers == STORAGE_SPECIFIER_EXTERN;
-    symbol->is_static = specifiers->storage_specifiers == STORAGE_SPECIFIER_STATIC;
+    symbol->linkage = (specifiers->storage_specifier == storage_specifier_static) ?
+            symbol_linkage_internal : symbol_linkage_external;
 
     // check for a function definition
     if (!lexer_is(STR_BRACE_OPEN)) {
@@ -926,6 +996,96 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
     type_deref(type);
 }
 
+static void parse_local_extern_variable_declaration(node_t* parent,
+        specifiers_t* specifiers, symbol_t* symbol)
+{
+    fatal("TODO parse_local_extern_variable_declaration()");
+}
+
+static void parse_local_variable_declaration(node_t* parent, specifiers_t* specifiers,
+        symbol_t* symbol, node_t* initializer)
+{
+    // Check to see if there's already a symbol with this name in this scope.
+    symbol_t* previous = scope_find_symbol(scope_current, symbol->name, false);
+    if (previous) {
+        fatal_token(symbol->token, "Variable re-declared in block scope.");
+    }
+    scope_add_symbol(scope_current, symbol);
+
+    // Handle local automatic variables and other specifiers.
+    switch (specifiers->storage_specifier) {
+        case storage_specifier_none:
+        case storage_specifier_auto:
+        case storage_specifier_register: {
+            node_t* node = node_new_token(NODE_VARIABLE, symbol->token);
+            node->type = type_new_base(BASE_VOID);
+            node->symbol = symbol_ref(symbol);
+            node_append(parent, node);
+            if (initializer) {
+                node_append(node, initializer);
+            }
+            return;
+        }
+
+        case storage_specifier_typedef:
+        case storage_specifier_extern:
+            // these are handled separately
+            fatal("Internal error: invalid storage specifier for local variable declaration");
+
+        case storage_specifier_static:
+            break;
+    }
+
+    // The variable is static. We emit the variable now, as well as a
+    // constructor for the initializer if it has one.
+
+}
+
+static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t* symbol, node_t* initializer) {
+    symbol->linkage = (specifiers->storage_specifier == storage_specifier_static) ?
+            symbol_linkage_internal : symbol_linkage_external;
+    symbol->is_tentative = (initializer == NULL) &&
+        (specifiers->storage_specifier != storage_specifier_extern);
+    symbol->is_defined = initializer != NULL;
+
+    // Check to see if there's already a symbol with this name.
+    assert(scope_global == scope_current);
+    symbol_t* previous = scope_find_symbol(scope_current, symbol->name, false);
+    if (previous) {
+
+        // Types and linkage must match.
+        if (!type_equal(previous->type, symbol->type)) {
+            fatal_token(symbol->token, "Variable re-declared at file scope with a different type.");
+        }
+        if (previous->linkage != symbol->linkage) {
+            fatal_token(symbol->token, "Variable re-declared at file scope with a different linkage.");
+        }
+
+        // Variables can only be defined once.
+        if (previous->is_defined && symbol->is_defined) {
+            fatal_token(symbol->token, "Variable re-defined at file scope.");
+        }
+
+        // Replace the old declaration if:
+        // - This declaration is a definition and the previous one is not; or
+        // - This declaration is tentative and the previous is neither
+        //   tentative nor a definition (i.e. it is extern)
+        if (symbol->is_defined || (symbol->is_tentative && !previous->is_defined && !previous->is_tentative)) {
+            scope_remove_symbol(scope_current, previous);
+        } else {
+            return;
+        }
+    }
+    scope_add_symbol(scope_current, symbol);
+
+    // If it has an initializer, emit it. (If it doesn't, this is either
+    // extern, or it's a tentative definition that will either be replaced or
+    // emitted at the end.)
+    if (initializer) {
+        generate_static_variable(symbol, initializer);
+    }
+}
+
 static void parse_variable_declaration(node_t* /*nullable*/ parent,
         specifiers_t* specifiers, type_t* type, token_t* name, string_t* asm_name)
 {
@@ -933,26 +1093,16 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         fatal("Cannot initialize a variable with `{`.");
     }
 
-    // We only support extern, static and neither.
-    bool is_extern = specifiers->storage_specifiers == STORAGE_SPECIFIER_EXTERN;
-    bool is_static = specifiers->storage_specifiers == STORAGE_SPECIFIER_STATIC;
-    if (!is_extern && !is_static && specifiers->storage_specifiers != 0) {
-        fatal_token(name, "Invalid or unsupported storage specifiers for declaration.");
-    }
-    if (parent && is_extern) {
-        fatal_token(name, "Cannot declare a local variable with `extern` storage.");
-    }
-
     // Collect the initializer
     node_t* initializer = NULL;
     if (lexer_is(STR_ASSIGN)) {
-        if (is_extern) {
-            fatal_token(lexer_token, "Cannot initialize a variable with `extern` storage.");
+        if (specifiers->storage_specifier == storage_specifier_extern) {
+            fatal_token(lexer_token, "Cannot initialize a variable with `extern` storage specifier.");
         }
         lexer_consume();
         initializer = parse_initializer(type);
 
-        // If we have an array of indetermine size, we can now set its size
+        // If we have an array of indeterminate size, we can now set its size
         if (type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE) {
             size_t count;
             if (initializer->kind == NODE_INITIALIZER_LIST) {
@@ -968,83 +1118,20 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         }
     }
 
-    bool is_tentative =
-        (parent == NULL) &&  // global declaration
-        (initializer == NULL) &&  // no initializer
-        specifiers->storage_specifiers == 0;  // no storage specifiers
-
-    // Check to see if there's already a symbol with this name in this scope.
-    symbol_t* previous = scope_find_symbol(scope_current, name->value, false);
-    if (previous) {
-
-        // The types must match.
-        if (!type_equal(previous->type, type)) {
-            fatal_token(name, "Variable re-declared with a different type.");
-        }
-
-        // We can't re-declare local variables.
-        if (!is_extern && !is_static && parent != NULL) {
-            fatal_token(name, "Variable re-declared in the same local scope.");
-        }
-
-        // We replace the declaration if:
-        // - The previous declaration is extern and this one is not; or
-        // - The previous declaration is tentative and this one is neither
-        //   tentative nor extern
-        if ((previous->is_extern && !is_extern) ||
-                (previous->is_tentative && !is_tentative && !is_extern))
-        {
-            scope_remove_symbol(scope_current, previous);
-            symbol_deref(previous);
-        } else {
-            // If we're not replacing the declaration, ignore it.
-            if (initializer) {
-                fatal("Internal error: cannot ignore a declaration with an initializer");
-            }
-            goto ignore_declaration;
-        }
-    }
-
-    // TODO static const variables with constant expression values should be
-    // considered constants. should be a flag in symbol
-
     symbol_t* symbol = symbol_new(symbol_kind_variable, type, name, asm_name);
-    symbol->is_tentative = is_tentative;
-    symbol->is_extern = is_extern;
-    symbol->is_static = is_static;
-    scope_add_symbol(scope_current, symbol);
 
+    // Handle file scope, block scope non-extern, and block scope extern separately
     if (parent) {
-        if (specifiers->storage_specifiers) {
-            // TODO support static
-            if (specifiers->storage_specifiers == STORAGE_SPECIFIER_STATIC) {
-                fatal_token(name, "`static` local variables are not implemented yet.");
-            }
-            fatal_token(name, "Storage specifiers are not allowed on this local variable.");
+        if (specifiers->storage_specifier == storage_specifier_extern) {
+            parse_local_extern_variable_declaration(parent, specifiers, symbol);
+        } else {
+            parse_local_variable_declaration(parent, specifiers, symbol, initializer);
         }
-
-        // It's a local variable. Its offset will be set at code generation time.
-        symbol->offset = 0;
-
-        // Create a node for it
-        node_t* node = node_new_token(NODE_VARIABLE, name);
-        node->type = type_new_base(BASE_VOID);
-        node->symbol = symbol_ref(symbol);
-        node_append(parent, node);
-        if (initializer) {
-            node_append(node, initializer);
-        }
-
     } else {
-        // Global variable. If it's neither extern nor tentative, we can emit a
-        // definition for it now.
-        if (!is_extern && !is_tentative) {
-            generate_static_variable(symbol, initializer);
-        }
+        parse_global_variable_declaration(specifiers, symbol, initializer);
     }
 
     symbol_deref(symbol);
-ignore_declaration:
     string_deref(asm_name);
     token_deref(name);
     type_deref(type);
@@ -1067,7 +1154,7 @@ type_t* try_parse_type(void) {
     }
 
     // Storage and function specifiers are not allowed.
-    if (specifiers.storage_specifiers != 0) {
+    if (specifiers.storage_specifier != 0) {
         fatal("Storage specifiers are not allowed on this type declaration.");
     }
     if (specifiers.function_specifiers != 0) {
@@ -1082,7 +1169,7 @@ type_t* try_parse_type(void) {
     return type;
 }
 
-static string_t* parse_asm_name(node_t* /*nullable*/ parent, specifiers_t* specifiers, token_t* name) {
+static string_t* parse_asm_name(node_t* /*nullable*/ parent, specifiers_t* specifiers, token_t* name, type_t* type) {
 
     // check for keyword
     bool is_asm = lexer_is(STR_ASM);
@@ -1093,7 +1180,9 @@ static string_t* parse_asm_name(node_t* /*nullable*/ parent, specifiers_t* speci
     // do some error checks
     if (is_asm)
         warn(warning_extra_keywords, lexer_token, "`asm` is a GNU extension. (Use `__asm__` or pass `-fasm` or `-fgnu-extensions` or `-std=gnu*`.)");
-    if (parent && !(specifiers->storage_specifiers & STORAGE_SPECIFIER_EXTERN)) {
+    if (parent && specifiers->storage_specifier != storage_specifier_extern &&
+            (!type_is_function(type) || specifiers->storage_specifier != storage_specifier_none))
+    {
         fatal_token(lexer_token, "Cannot provide an asm name for a local symbol.");
     }
 
@@ -1171,10 +1260,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         */
 
         // Check for a typedef
-        if (specifiers.storage_specifiers & STORAGE_SPECIFIER_TYPEDEF) {
-            if (specifiers.storage_specifiers != STORAGE_SPECIFIER_TYPEDEF) {
-                fatal_token(name, "`typedef` cannot be combined with other storage specifiers.");
-            }
+        if (specifiers.storage_specifier == storage_specifier_typedef) {
             scope_add_type(scope_current, NAMESPACE_TYPEDEF, name, type);
             if (lexer_is(STR_ASSIGN) || lexer_is(STR_BRACE_OPEN)) {
                 fatal_token(name, "A definition cannot be provided for a `typedef` declaration.");
@@ -1185,7 +1271,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         }
 
         // Parse an asm name (or default to the declared name)
-        string_t* asm_name = parse_asm_name(parent, &specifiers, name);
+        string_t* asm_name = parse_asm_name(parent, &specifiers, name, type);
 
         // Check for a function
         //printf("asm name %s\n", asm_name->bytes);
@@ -1193,7 +1279,7 @@ bool try_parse_declaration(node_t* /*nullable*/ parent) {
         if (type_is_declarator(type) && type->declarator == DECLARATOR_FUNCTION) {
             if (!first_declarator && lexer_is(STR_BRACE_OPEN)) {
                 fatal_token(lexer_token,
-                        "A function definition can only appear on a sole declarator of a declaration.");
+                        "A function definition cannot appear on a declaration that has multiple declarators.");
             }
             //printf("    is func\n");
             parse_function_declaration(&specifiers, type, name, asm_name, parent == NULL);
