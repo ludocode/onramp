@@ -46,6 +46,19 @@ symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* 
     return symbol;
 }
 
+symbol_t* symbol_clone(const symbol_t* other) {
+    symbol_t* ret = malloc(sizeof(symbol_t));
+    memcpy(ret, other, sizeof(*ret));
+    ret->refcount = 1;
+
+    type_ref(ret->type);
+    token_ref(ret->token);
+    string_ref(ret->name);
+    string_ref(ret->asm_name);
+
+    return ret;
+}
+
 void symbol_deref(symbol_t* symbol) {
     if (--symbol->refcount != 0) {
         return;

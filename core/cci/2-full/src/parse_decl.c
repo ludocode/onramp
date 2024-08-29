@@ -999,7 +999,49 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
 static void parse_local_extern_variable_declaration(node_t* parent,
         specifiers_t* specifiers, symbol_t* symbol)
 {
-    fatal("TODO parse_local_extern_variable_declaration()");
+    // Check to see if there's already a symbol with this name in this scope.
+    symbol_t* previous = scope_find_symbol(scope_current, symbol->name, false);
+    if (previous) {
+
+        // It must also be extern.
+        if (previous->linkage == symbol_linkage_none) {
+            fatal_token(symbol->token, "Variable re-declared in block scope.");
+        }
+
+        // The types must match.
+        if (!type_equal(symbol->type, previous->type)) {
+            fatal_token(symbol->token, "`extern` variable re-declared with different type.");
+        }
+
+        // Ignore the new declaration.
+        return;
+    }
+    scope_add_symbol(scope_current, symbol);
+
+    // Check to see if there's a symbol at file scope.
+    assert(scope_current != scope_global);
+    symbol_t* global = scope_find_symbol(scope_global, symbol->name, false);
+    if (global) {
+
+        // The types must match.
+        if (!type_equal(symbol->type, global->type)) {
+            fatal_token(symbol->token, "`extern` variable re-declared with different type.");
+        }
+
+        // Adopt the linkage of the file scope symbol.
+        symbol->linkage = global->linkage;
+
+    } else {
+        symbol->linkage = symbol_linkage_external;
+
+        // Create a global symbol and mark it hidden. This will ensure that the
+        // type and linkage can be checked if it's re-declared after our
+        // declaration goes out of scope.
+        global = symbol_clone(symbol);
+        global->is_hidden = true;
+        scope_add_symbol(scope_global, global);
+        symbol_deref(global);
+    }
 }
 
 static void parse_local_variable_declaration(node_t* parent, specifiers_t* specifiers,
@@ -1053,11 +1095,16 @@ static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t
     symbol_t* previous = scope_find_symbol(scope_current, symbol->name, false);
     if (previous) {
 
-        // Types and linkage must match.
+        // The type must match.
         if (!type_equal(previous->type, symbol->type)) {
             fatal_token(symbol->token, "Variable re-declared at file scope with a different type.");
         }
-        if (previous->linkage != symbol->linkage) {
+
+        // If this is `extern`, adopt the linkage of the previous declaration;
+        // otherwise, the linkage must match.
+        if (specifiers->storage_specifier == storage_specifier_extern) {
+            symbol->linkage = previous->linkage;
+        } else if (previous->linkage != symbol->linkage) {
             fatal_token(symbol->token, "Variable re-declared at file scope with a different linkage.");
         }
 
@@ -1066,7 +1113,7 @@ static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t
             fatal_token(symbol->token, "Variable re-defined at file scope.");
         }
 
-        // Replace the old declaration if:
+        // Replace the previous declaration if:
         // - This declaration is a definition and the previous one is not; or
         // - This declaration is tentative and the previous is neither
         //   tentative nor a definition (i.e. it is extern)

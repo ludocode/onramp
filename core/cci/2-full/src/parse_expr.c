@@ -270,7 +270,7 @@ static node_t* parse_primary_expression(void) {
     // an alphanumeric is the name of a variable or function
     if (lexer_token->type == token_type_alphanumeric) {
         symbol_t* symbol = scope_find_symbol(scope_current, lexer_token->value, true);
-        if (!symbol) {
+        if (!symbol || symbol->is_hidden) {
             fatal_token(lexer_token, "No such variable or function: %s", lexer_token->value->bytes);
         }
 

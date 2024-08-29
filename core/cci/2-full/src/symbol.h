@@ -69,6 +69,7 @@ typedef struct symbol_t {
     bool is_weak : 1;
     bool is_defined : 1;
     bool is_tentative : 1;
+    bool is_hidden : 1;
 
     bool is_constructor : 1;
     bool is_destructor : 1;
@@ -84,6 +85,8 @@ typedef struct symbol_t {
 
 symbol_t* symbol_new(symbol_kind_t kind, struct type_t* type,
         struct token_t* name, string_t* /*nullable*/ asm_name);
+
+symbol_t* symbol_clone(const symbol_t* symbol);
 
 static inline bool symbol_is_global(symbol_t* symbol) {
     return symbol->linkage != symbol_linkage_none;
