@@ -436,23 +436,14 @@ void generate_zero(token_t* token, type_t* type, size_t count, int reg_loc) {
     }
 }
 
-/*
- * Generates a store for a value pointed to by reg_val to the address pointed
- * to by reg_loc.
- *
- * In other words, memcpy count bytes from reg_val to reg_loc. The addresses
- * must not overlap.
- *
- * We check both size and alignment to decide on a step size because this is
- * used to copy strings in initializers among other things.
- */
-void generate_store_indirect(token_t* token, type_t* type, size_t count,
-        int reg_val, int reg_loc)
+void generate_copy(token_t* token, type_t* type, size_t count,
+        int reg_src, int reg_dest)
 {
     int reg_temp = register_alloc(token);
     size_t align = type_alignment(type);
 
-    // choose a step size
+    // Choose a step size. We check both size and alignment because this is
+    // used to copy strings in initializers among other things.
     int step;
     int steps;
     int load;
@@ -477,8 +468,8 @@ void generate_store_indirect(token_t* token, type_t* type, size_t count,
     // If the number of steps is small, unroll it.
     if (steps <= 4) {
         for (size_t i = 0; i < count; i += step) {
-            block_append(current_block, token, load, reg_temp, reg_val, step * i);
-            block_append(current_block, token, store, reg_temp, reg_loc, step * i);
+            block_append(current_block, token, load, reg_temp, reg_src, step * i);
+            block_append(current_block, token, store, reg_temp, reg_dest, step * i);
         }
 
     // Otherwise insert a loop.
@@ -495,8 +486,8 @@ void generate_store_indirect(token_t* token, type_t* type, size_t count,
         current_block = loop_block;
         block_append(current_block, token, JZ, reg_i, '&', JUMP_LABEL_PREFIX, end_block->label);
         block_append(current_block, token, SUB, reg_i, reg_i, step);
-        block_append(current_block, token, load, reg_temp, reg_val, reg_i);
-        block_append(current_block, token, store, reg_temp, reg_loc, reg_i);
+        block_append(current_block, token, load, reg_temp, reg_src, reg_i);
+        block_append(current_block, token, store, reg_temp, reg_dest, reg_i);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
 
         current_block = end_block;
@@ -531,7 +522,7 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
     // See if we can do the offset inline
     if (indirect) {
         if (offset == 0) {
-            generate_store_indirect(token, type, size, reg_val, reg_base);
+            generate_copy(token, type, size, reg_val, reg_base);
             return;
         }
     } else {
@@ -546,7 +537,7 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
     block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
     block_append(current_block, token, ADD, reg_loc, reg_loc, reg_base);
     if (indirect)
-        generate_store_indirect(token, type, size, reg_val, reg_loc);
+        generate_copy(token, type, size, reg_val, reg_loc);
     else
         generate_store_direct(token, size, reg_val, reg_loc, 0);
     register_free(token, reg_loc);

@@ -686,7 +686,7 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
         int reg_loc = register_alloc(expr->token);
         block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
         block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
-        generate_store_indirect(expr->token, target, copy_count, reg_val, reg_loc);
+        generate_copy(expr->token, target, copy_count, reg_val, reg_loc);
 
         // If we're initializing a char array with too short a string, we need
         // to zero out the rest of the array.

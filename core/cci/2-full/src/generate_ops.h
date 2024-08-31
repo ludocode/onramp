@@ -65,8 +65,16 @@ void generate_store(struct token_t* /*nullable*/ token, struct type_t* type,
 void generate_store_offset(struct token_t* /*nullable*/ token, struct type_t* type,
         int register_location, int register_value, int offset);
 
-void generate_store_indirect(struct token_t* token, struct type_t* type, size_t count,
-        int reg_val, int reg_loc);
+/**
+ * Generates code to copy count values of the given type from reg_src to
+ * reg_dest.
+ *
+ * This is used to generate indirect loads and stores of structs,
+ * initialization of arrays, etc.
+ */
+void generate_copy(struct token_t* token, struct type_t* type, size_t count,
+        int reg_src, int reg_dest);
+
 void generate_zero(struct token_t* token, struct type_t* type, size_t count, int reg_loc);
 
 void generate_assign(struct node_t* node, int reg_out);
