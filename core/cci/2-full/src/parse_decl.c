@@ -1066,7 +1066,7 @@ static void parse_local_variable_declaration(node_t* parent, specifiers_t* speci
             if (initializer) {
                 node_append(node, initializer);
             }
-            return;
+            break;
         }
 
         case storage_specifier_typedef:
@@ -1074,12 +1074,24 @@ static void parse_local_variable_declaration(node_t* parent, specifiers_t* speci
             // these are handled separately
             fatal("Internal error: invalid storage specifier for local variable declaration");
 
-        case storage_specifier_static:
-            break;
-    }
+        case storage_specifier_static: {
+            // Generate a unique asm name
+            {
+                char buf[64];
+                snprintf(buf, sizeof(buf), "%s%x_%s", MISC_LABEL_PREFIX,
+                        next_label++, symbol->asm_name->bytes);
+                buf[sizeof(buf) - 1] = 0;
+                string_deref(symbol->asm_name);
+                symbol->asm_name = string_intern_cstr(buf);
+            }
 
-    // The variable is static. We emit the variable now, as well as a
-    // constructor for the initializer if it has one.
+            // Emit it now, as well as a constructor for the initializer if it
+            // has one.
+            symbol->linkage = symbol_linkage_internal;
+            generate_static_variable(symbol, initializer);
+            break;
+        }
+    }
 
 }
 

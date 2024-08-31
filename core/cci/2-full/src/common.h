@@ -33,7 +33,8 @@
 #define JUMP_LABEL_PREFIX         "_Lx"
 #define STRING_LABEL_PREFIX       "_Sx"
 #define INITIALIZER_LABEL_PREFIX  "_Ix"
-#define USER_LABEL_PREFIX         "_U_"
+#define USER_LABEL_PREFIX         "_U_"  // followed by name, not by hex, so no "x"
+#define MISC_LABEL_PREFIX         "_Mx"
 
 #define ASM_INDENT "  "
 

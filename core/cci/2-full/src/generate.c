@@ -1026,7 +1026,7 @@ void generate_location(node_t* node, int reg_out) {
  * user constructor functions in GNU C. The variable is therefore initialized
  * before any user C code.
  */
-static void generate_static_initializer(struct symbol_t* varsym, struct node_t* /*nullable*/ initializer) {
+static void generate_static_initializer(struct symbol_t* varsym, struct node_t* initializer) {
 
     // Generate a name for the function. It's static and we use a unique label
     // for it so the rest of the name doesn't matter; we just append some
@@ -1035,7 +1035,7 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     {
         char buf[64];
         snprintf(buf, sizeof(buf), "%s%x_%s", INITIALIZER_LABEL_PREFIX,
-                next_label++, varsym->asm_name->bytes);
+                next_label++, varsym->name->bytes);
         buf[sizeof(buf) - 1] = 0;
         name_str = string_intern_cstr(buf);
     }
