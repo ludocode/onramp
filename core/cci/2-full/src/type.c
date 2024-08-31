@@ -363,6 +363,8 @@ bool type_is_arithmetic(type_t* type) {
     if (!type_is_base(type))
         return false;
     switch (type->base) {
+        // C17 6.2.5.18: integer types and floating types are collectively
+        // called arithmetic types.
         case BASE_BOOL:
         case BASE_CHAR:
         case BASE_SIGNED_CHAR:
@@ -374,7 +376,7 @@ bool type_is_arithmetic(type_t* type) {
         case BASE_SIGNED_LONG:
         case BASE_UNSIGNED_LONG:
         case BASE_FLOAT:
-        //case BASE_ENUM: // TODO is enum considered arithmetic? or does it get implicitly cast to int first?
+        case BASE_ENUM:
         case BASE_SIGNED_LONG_LONG:
         case BASE_UNSIGNED_LONG_LONG:
         case BASE_DOUBLE:
@@ -389,7 +391,7 @@ bool type_is_integer(type_t* type) {
     if (!type_is_base(type))
         return false;
     switch (type->base) {
-        case BASE_BOOL:
+        case BASE_BOOL: // C17 6.2.5.6: _Bool is an unsigned integer type.
         case BASE_CHAR:
         case BASE_SIGNED_CHAR:
         case BASE_UNSIGNED_CHAR:
@@ -399,7 +401,7 @@ bool type_is_integer(type_t* type) {
         case BASE_UNSIGNED_INT:
         case BASE_SIGNED_LONG:
         case BASE_UNSIGNED_LONG:
-        //case BASE_ENUM: // TODO as above, is enum considered integer? if yes, then it should also be considered arithmetic
+        case BASE_ENUM: // C17 6.2.5.17: enumerated types are integer types.
         case BASE_SIGNED_LONG_LONG:
         case BASE_UNSIGNED_LONG_LONG:
             return true;
