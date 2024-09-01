@@ -91,12 +91,12 @@ void block_append(block_t* block, token_t* token, opcode_t opcode, ...) {
 }
 
 void block_sub_rsp(block_t* block, token_t* token, size_t offset) {
-    // TODO remove this wrapper function
+    offset = ((offset + 3u) & ~3u);
     block_append_op_imm(block, token, SUB, RSP, RSP, (int)offset);
 }
 
 void block_add_rsp(block_t* block, token_t* token, size_t offset) {
-    // TODO remove this wrapper function
+    offset = ((offset + 3u) & ~3u);
     block_append_op_imm(block, token, ADD, RSP, RSP, (int)offset);
 }
 

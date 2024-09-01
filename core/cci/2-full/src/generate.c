@@ -520,6 +520,60 @@ static void generate_call(node_t* call, int reg_out) {
     }
 }
 
+/**
+ * Generates a cast between integers in a register.
+ *
+ * This uses the "cast base" (see cast_base() below) so we don't need to worry
+ * about long, and long long doesn't fit in a register.
+ *
+ * Note that we don't set the upper bits in a shortening cast. For example
+ * casting an int to a char emits no instructions. The sign extension occurs
+ * only when necessary, for example when promoting to int for arithmetic. If
+ * the result of the cast is just to store a byte in memory for example, we
+ * don't care about the upper bits, so sign extension is unnecessary.
+ */
+void generate_int_cast(token_t* token, int reg, base_t source, base_t target) {
+    if (source == target)
+        return;
+
+    switch (target) {
+        case BASE_BOOL:
+            if (source == BASE_SIGNED_CHAR || source == BASE_UNSIGNED_CHAR) {
+                block_append(current_block, token, TRB, reg, reg);
+            } else if (source == BASE_SIGNED_SHORT || source == BASE_UNSIGNED_SHORT) {
+                block_append(current_block, token, TRS, reg, reg);
+            }
+            block_append(current_block, token, BOOL, reg, reg);
+            break;
+
+        case BASE_SIGNED_INT:
+        case BASE_UNSIGNED_INT:
+            if (source == BASE_SIGNED_SHORT) {
+                block_append(current_block, token, SXS, reg, reg);
+                break;
+            }
+            if (source == BASE_UNSIGNED_SHORT) {
+                block_append(current_block, token, TRS, reg, reg);
+                break;
+            }
+            // fallthrough
+
+        case BASE_SIGNED_SHORT:
+        case BASE_UNSIGNED_SHORT:
+            if (source == BASE_SIGNED_CHAR) {
+                block_append(current_block, token, SXB, reg, reg);
+                break;
+            }
+            if (source == BASE_UNSIGNED_CHAR || source == BASE_BOOL) {
+                block_append(current_block, token, TRB, reg, reg);
+            }
+            break;
+
+        default:
+            break;
+    }
+}
+
 // Returns the "cast base" for the given type, i.e. the underlying type we'll
 // cast to. Pointers decay to unsigned int, enums decay to signed int, etc.
 static base_t cast_base(type_t* type) {
@@ -529,6 +583,8 @@ static base_t cast_base(type_t* type) {
         return BASE_UNSIGNED_INT;
     }
     switch (type->base) {
+        case BASE_CHAR:
+            return BASE_SIGNED_CHAR;
         case BASE_ENUM:
         case BASE_SIGNED_LONG:
             return BASE_SIGNED_INT;
@@ -543,115 +599,147 @@ static base_t cast_base(type_t* type) {
 }
 
 void generate_cast(node_t* node, int reg_out) {
-    base_t target_base = cast_base(node->type);
-    base_t source_base = cast_base(node->first_child->type);
-    if (target_base == source_base) {
+    type_t* source = node->first_child->type;
+    type_t* target = node->type;
+
+    base_t source_base = cast_base(source);
+    base_t target_base = cast_base(target);
+    if (source_base == target_base) {
         generate_node(node->first_child, reg_out);
         return;
     }
 
-    size_t target_size = base_size(target_base);
+    bool source_indirect = type_is_passed_indirectly(source);
+    bool target_indirect = type_is_passed_indirectly(target);
     size_t source_size = base_size(source_base);
+    size_t target_size = base_size(target_base);
 
-    if (source_size > 4) {
-        if (target_size <= 4) {
+    if (source_indirect) {
+        if (target_indirect) {
 
-            // generate the source into stack space. we can re-use the same
-            // register.
-            assert(source_size < 0x80);
-            block_append(current_block, node->token, SUB, RSP, RSP, (uint8_t)source_size);
-            block_append(current_block, node->token, MOV, reg_out, RSP);
-            generate_node(node->first_child, reg_out);
+            // Both the source and target are indirect. Records cannot be cast
+            // so the only possibility is a 64-bit value.
+            assert(source_size == 8);
+            assert(target_size == 8);
 
-            // convert source to target
-            if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
-                // It's a double. we need a function call to cast it.
-                if (target_base == BASE_FLOAT) {
-                    fatal("TODO cast from double to float, emit function call");
-                } else {
-                    fatal("TODO cast from double to int, emit function call");
-                }
-            } else {
-                // It's llong.
-                if (target_base == BASE_FLOAT) {
-                    fatal("TODO cast from long to float, emit function call");
-                } else {
-                    // We're casting from llong to a register-size or smaller
-                    // integer. We can just load the low word.
-                    block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
-                }
-            }
-
-            block_append(current_block, node->token, ADD, RSP, RSP, (uint8_t)source_size);
-
-        } else {
-
-            // Casting from llong or double to llong or double.
             // The register already contains a pointer to 64-bit space. We can
             // use it to generate our source, then convert to target in-place.
             generate_node(node->first_child, reg_out);
 
-            if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
-                fatal("TODO cast from double to llong, emit function call");
-            } else {
-                fatal("TODO cast from llong to double, emit function call");
-            }
-        }
-    } else {
-        if (target_size > 4) {
+            // The only possibility are casting signed to unsigned llong or
+            // vice versa; or casting signed or unsigned llong to double or
+            // vice versa.
 
-            // The register contains a pointer to 64-bit space. We need an
-            // auxiliary register to generate the word-size source.
-            // TODO make a register, generate into it, do manual stores for ints or function call for float/double
-            fatal("TODO casting of large values not implemented yet");
+            if (source_base == BASE_DOUBLE &&
+                    (target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG)) {
+                fatal("TODO cast from double to llong, emit function call");
+            } else if ((source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) &&
+                    target_base == BASE_DOUBLE) {
+                fatal("TODO cast from llong to double, emit function call");
+            } else {
+                // casting between signed and unsigned. nothing to do.
+                assert(source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG);
+                assert(target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG);
+            }
 
         } else {
 
-            // The to and from types both fit in registers. We can use the same
-            // register for both and truncate or sign-extend in place.
+            // The source is indirect but the target is direct. Records cannot
+            // be cast so the only possibility for source is a 64-bit value,
+            // and the target fits in a register.
+            assert(source_size == 8);
+            assert(target_size <= 4);
+
+            // We need to generate the source into stack space. We can re-use
+            // the same register.
+            block_sub_rsp(current_block, node->token, source_size);
             generate_node(node->first_child, reg_out);
 
-            // For simplicity, if the source size is signed and less than register
-            // size, we just sign extend right away. This can lead to some redundant
-            // combinations but we can optimize those out afterwards.
-            switch (source_base) {
-                case BASE_BOOL:
-                    block_append(current_block, node->token, BOOL, reg_out, reg_out);
-                    break;
-                case BASE_CHAR:
-                case BASE_SIGNED_CHAR:
-                    block_append(current_block, node->token, SXB, reg_out, reg_out);
-                    break;
-                case BASE_SIGNED_SHORT:
-                    block_append(current_block, node->token, SXS, reg_out, reg_out);
-                    break;
-                default:
-                    break;
+            // convert source to target
+            if (source_base == BASE_DOUBLE) {
+                // It's a double. We're either casting to float or to an
+                // integer type.
+                if (target_base == BASE_FLOAT) {
+                    fatal("TODO cast from double to float, emit function call");
+                } else if (target_base == BASE_BOOL) {
+                    fatal("TODO cast from double to bool");
+                } else if (type_is_signed_integer(target)) {
+                    fatal("TODO cast from double to signed int, emit function call");
+                } else {
+                    assert(type_is_integer(target));
+                    fatal("TODO cast from double to unsigned int");
+                }
+            } else if (source_base == BASE_SIGNED_LONG_LONG || BASE_UNSIGNED_LONG_LONG) {
+                // It's llong.
+                if (target_base == BASE_FLOAT) {
+                    fatal("TODO cast from long long to float, emit function call");
+                } else {
+                    assert(type_is_integer(source));
+                    fatal("TODO cast from long long to register-size integer");
+                }
+            } else {
+                // The only other possibility is casting a record to void. The
+                // value is ignored.
+                assert(target_base == BASE_VOID);
+                assert(source_base == BASE_RECORD);
             }
 
-            // TODO aren't these target casts redundant? we should only do
-            // these to source casts. no point in doing sxb if we're just going
-            // to follow it up with stb for example. pretty sure these casts
-            // are all wrong
-            switch (target_base) {
-                case BASE_BOOL:
-                    block_append(current_block, node->token, BOOL, reg_out, reg_out);
-                    break;
-                case BASE_CHAR:
-                case BASE_SIGNED_CHAR:
-                    block_append(current_block, node->token, SXB, reg_out, reg_out);
-                    break;
-                case BASE_UNSIGNED_CHAR:
-                    block_append(current_block, node->token, TRB, reg_out, reg_out);
-                    break;
-                case BASE_SIGNED_SHORT:
-                    block_append(current_block, node->token, SXS, reg_out, reg_out);
-                    break;
-                case BASE_UNSIGNED_SHORT:
-                    block_append(current_block, node->token, TRS, reg_out, reg_out);
-                    break;
-                default:
-                    break;
+            block_append(current_block, node->token, ADD, RSP, RSP, (uint8_t)source_size);
+        }
+    } else {
+        if (target_indirect) {
+
+            // The source is direct but the target is indirect. Records cannot
+            // be cast so the source fits in a register and the only
+            // possibility for target is a 64-bit value.
+            assert(source_size <= 4);
+            assert(target_size == 8);
+
+            // The register contains a pointer to 64-bit space. We need an
+            // auxiliary register to generate the word-size source.
+            int reg_src = register_alloc(node->token);
+            generate_node(node->first_child, reg_src);
+
+            if (target_base == BASE_DOUBLE) {
+                if (source_base == BASE_FLOAT) {
+                    fatal("TODO cast from float to double, emit function call");
+                } else {
+                    assert(type_is_integer(source));
+                    fatal("TODO cast from register integer to double, sign-extend and emit function call");
+                }
+            } else {
+                assert(type_is_integer(target));
+                if (source_base == BASE_FLOAT) {
+                    fatal("TODO cast from float to long long, emit function call");
+                } else {
+                    assert(type_is_integer(source));
+                    fatal("TODO cast from register integer to long long, sign extend and store");
+                }
+            }
+
+            register_free(node->token, reg_src);
+
+        } else {
+            // The to and from types both fit in registers. We can use the same
+            // register for both and convert in place.
+            generate_node(node->first_child, reg_out);
+
+            if (target_base == BASE_FLOAT) {
+                if (type_is_signed_integer(source)) {
+                    generate_int_cast(node->token, reg_out, source_base, BASE_SIGNED_INT);
+                    fatal("TODO cast signed integer to float");
+                } else {
+                    generate_int_cast(node->token, reg_out, source_base, BASE_UNSIGNED_INT);
+                    fatal("TODO cast unsigned integer to float");
+                }
+            } else if (source_base == BASE_FLOAT) {
+                if (type_is_signed_integer(target)) {
+                    fatal("TODO cast float to signed integer");
+                } else {
+                    fatal("TODO cast float to unsigned integer");
+                }
+            } else {
+                generate_int_cast(node->token, reg_out, source_base, target_base);
             }
         }
     }
@@ -976,7 +1064,7 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_UNARY_PLUS: generate_unary_plus(node, reg_out); break;
         case NODE_UNARY_MINUS: generate_unary_minus(node, reg_out); break;
         case NODE_BIT_NOT: generate_bit_not(node, reg_out); break;
-        case NODE_LOGICAL_NOT: generate_log_not(node, reg_out); break;
+        case NODE_LOGICAL_NOT: generate_logical_not(node, reg_out); break;
         case NODE_DEREFERENCE: generate_dereference(node, reg_out); break;
         case NODE_ADDRESS_OF: generate_address_of(node, reg_out); break;
         case NODE_PRE_INC: generate_pre_inc(node, reg_out); break;

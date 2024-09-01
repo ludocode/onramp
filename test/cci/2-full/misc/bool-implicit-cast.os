@@ -6,7 +6,7 @@
   bool r1 r1
   stb r1 r0 0
   ldb r0 rfp -1
-  bool r0 r0
+  trb r0 r0
   mov r1 1
   sub r0 r0 r1
   cmpu r0 r0 0
@@ -23,9 +23,8 @@
   bool r0 r0
   add r1 rfp -1
   stb r0 r1 0
-  bool r0 r0
   ldb r0 rfp -1
-  bool r0 r0
+  trb r0 r0
   mov r1 1
   sub r0 r0 r1
   cmpu r0 r0 0
@@ -39,14 +38,12 @@
   jmp &_Lx3
 :_Lx3
   imw r0 512
-  sxb r0 r0
-  sxb r0 r0
+  trb r0 r0
   bool r0 r0
   add r1 rfp -1
   stb r0 r1 0
-  bool r0 r0
   ldb r0 rfp -1
-  bool r0 r0
+  trb r0 r0
   mov r1 0
   sub r0 r0 r1
   cmpu r0 r0 0
@@ -59,6 +56,25 @@
   ret
   jmp &_Lx5
 :_Lx5
+  imw r0 -851968
+  trs r0 r0
+  bool r0 r0
+  add r1 rfp -1
+  stb r0 r1 0
+  ldb r0 rfp -1
+  trb r0 r0
+  mov r1 0
+  sub r0 r0 r1
+  cmpu r0 r0 0
+  and r0 r0 1
+  jnz r0 &_Lx6
+  jmp &_Lx7
+:_Lx6
+  mov r0 4
+  leave
+  ret
+  jmp &_Lx7
+:_Lx7
   mov r0 0
   leave
   ret

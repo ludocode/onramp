@@ -578,7 +578,6 @@ static node_t* parse_sizeof(void) {
 static node_t* parse_unary_operator(node_kind_t kind) {
     node_t* node = node_new_lexer(kind);
     node_t* child = parse_unary_expression();
-    node_append(node, child);
 
     switch (kind) {
         // TODO is the result of any of these operators promoted? It's probably
@@ -588,14 +587,25 @@ static node_t* parse_unary_operator(node_kind_t kind) {
         case NODE_UNARY_PLUS:
         case NODE_UNARY_MINUS:
         case NODE_BIT_NOT:
-            // TODO handle types appropriately, cannot use these on records for
-            // example, enums decay to int, need to promote to int. probably
-            // other rules, check the spec
+            if (type_matches_base(child->type, BASE_RECORD)) {
+                fatal_token(node->token, "Cannot apply a mathematical unary operator to a struct or union value.");
+            }
+            if (type_matches_base(child->type, BASE_VOID)) {
+                fatal_token(node->token, "Cannot apply a mathematical unary operator to void.");
+            }
+            if (!type_is_declarator(child->type)) {
+                child = node_promote(child);
+            }
             node->type = type_ref(child->type);
             break;
 
         case NODE_LOGICAL_NOT:
-            // TODO also handle types appropriately
+            if (type_matches_base(child->type, BASE_RECORD)) {
+                fatal_token(node->token, "Cannot apply logical not operator to a struct or union value.");
+            }
+            if (type_matches_base(child->type, BASE_VOID)) {
+                fatal_token(node->token, "Cannot apply logical not operator to void.");
+            }
             node->type = type_new_base(BASE_SIGNED_INT);
             break;
 
@@ -615,6 +625,7 @@ static node_t* parse_unary_operator(node_kind_t kind) {
             fatal("Internal error: not a unary operator");
     }
 
+    node_append(node, child);
     return node;
 }
 

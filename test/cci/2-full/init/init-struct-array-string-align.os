@@ -8,13 +8,10 @@
   imw r0 ^x
   add r0 rpp r0
   mov r1 1
-  sxb r1 r1
   stb r1 r0 0
   mov r1 2
-  sxb r1 r1
   stb r1 r0 1
   mov r1 3
-  sxb r1 r1
   stb r1 r0 2
   imw r1 ^_Sx0
   add r1 rpp r1
@@ -29,7 +26,6 @@
   ldb r3 r1 3
   stb r3 r2 3
   mov r1 4
-  sxb r1 r1
   stb r1 r0 7
   leave
   ret

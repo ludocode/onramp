@@ -3,7 +3,7 @@
   sub rsp rsp 4
   stw r0 rfp -4
   ldb r0 rfp -4
-  bool r0 r0
+  trb r0 r0
   jnz r0 &_Lx0
   jmp &_Lx1
 :_Lx0

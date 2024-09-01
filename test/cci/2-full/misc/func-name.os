@@ -50,6 +50,7 @@
   enter
   call ^foo
   mov r0 r0
+  trb r0 r0
   isz r0 r0
   jnz r0 &_Lx0
   jmp &_Lx1
@@ -61,6 +62,7 @@
 :_Lx1
   call ^baz
   mov r0 r0
+  trb r0 r0
   isz r0 r0
   jnz r0 &_Lx2
   jmp &_Lx3
@@ -82,7 +84,7 @@
 :_Lx4
   mov r0 0
   bool r0 r0
-  bool r0 r0
+  trb r0 r0
   leave
   ret
   jmp &_Lx5
@@ -99,7 +101,7 @@
 :_Lx6
   mov r0 0
   bool r0 r0
-  bool r0 r0
+  trb r0 r0
   leave
   ret
   jmp &_Lx7
@@ -114,7 +116,7 @@
 :_Lx8
   mov r0 0
   bool r0 r0
-  bool r0 r0
+  trb r0 r0
   leave
   ret
   jmp &_Lx9

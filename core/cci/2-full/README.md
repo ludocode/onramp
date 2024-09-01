@@ -107,6 +107,8 @@ This allows us to share node types for statements and expressions. For example, 
 
 Similarly, `NODE_SEQUENCE` is used for any sequence of statements or expressions. This includes a compound statement (i.e. a block), a comma operator expression, an expression statement (a GNU extension), and for some internal purposes. A compound statement always has type `void`, whereas a comma expression and an expression statement will have the type of their last child node. These are also all compiled identically.
 
+Implicit casts are frequently inserted by the parser, especially around arithmetic operators and statement expression. Type promotions, usual arithmetic conversions and so forth are performed by the parser and the casts are reflected in the parse tree. Whenever an expression's value is ignored, for example in an ordinary assignment expression, an implicit cast to void is inserted. These are necessary to make code generation work properly; see the Code Generation section below.
+
 
 
 ## Labels and Cases
@@ -145,13 +147,24 @@ SWITCH `switch` void
 
 The tree is compiled directly to basic blocks of assembly. We do not (yet) have any kind of low-level intermediate representation.
 
-The most important function is `generate_node()`. This takes a node and a numbered register (`r0`-`r9`) into which the expression should compute its value. If the expression computes a value larger than a register, the register contains a pointer to where the value should be stored (which must be provided or allocated from the stack by the parent expression.)
+The most important function is `generate_node()`. This takes a node and a numbered register (`r0`-`r9`) into which the expression should compute its value. If the expression computes a value that is passed indirectly (such as a struct or a 64-bit value), the register contains the address of where the value should be stored.
+
+Whenever a value is passed indirectly, the parent of the node is responsible for providing storage for it. This usually happens in `generate_cast()`, which is the main reason the parser casts all expression statements to void. For example, a statement that simply assigns one struct to another, like `b = a;`, looks like this:
+
+```
+  └─CAST void
+    └─ASSIGN `=` struct P
+      ├─ACCESS `b` struct P
+      └─ACCESS `a` struct P
+```
+
+The generation of the CAST node allocates the stack space for a `struct P` and passes it the ASSIGN node. The ASSIGN node loads `a` into this stack space, then stores it into `b`, leaving a copy in the stack space. This makes it possible to chain assignments, for example `c = (b = a)`. (The code generator does not copy `a` to `b` directly because it is not smart enough to realize that the result of the `b = a` expression is unused.)
 
 The register allocator is as simple as possible. Registers are allocated sequentially from r0 to r9 and freed in reverse order of allocation. If additional registers are needed, we loop back around to r0 and push the existing value to make room. (This means only the last 10 allocated registers can be used at any time. This is not a problem because operations only use a few registers which are always on top of the register stack.)
 
 All local variables are spilled at all times. We don't (yet) do any kind of register allocation for variables. This has poor performance but the code generation is extremely simple.
 
-(The code generator is by far the weakest part of the compiler, and probably the weakest part of all of the final stage Onramp tools. There isn't much focus on good code generation at this point since it's purely for performance; a more important goal is to get everything working first.)
+The code generator is by far the weakest part of the compiler, and probably the weakest part of all of the final stage Onramp tools. There isn't much focus on good code generation at this point since it's purely for performance; a more important goal is to get everything working first. I hope to one day read a book about compilers to learn how to do this properly.
 
 
 

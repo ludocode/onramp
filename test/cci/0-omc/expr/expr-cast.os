@@ -21,7 +21,7 @@ sxb r1 r1
 sub r0 r1 r0 
 bool r0 r0 
 jz r0 &_Lx1 
-imw r0 1 
+imw r0 2 
 leave 
 ret 
 :_Lx1
@@ -47,7 +47,7 @@ pop r1
 sub r0 r1 r0 
 bool r0 r0 
 jz r0 &_Lx2 
-imw r0 1 
+imw r0 3 
 leave 
 ret 
 :_Lx2
@@ -68,7 +68,7 @@ sxb r0 r0
 sub r0 r1 r0 
 bool r0 r0 
 jz r0 &_Lx3 
-imw r0 1 
+imw r0 4 
 leave 
 ret 
 :_Lx3

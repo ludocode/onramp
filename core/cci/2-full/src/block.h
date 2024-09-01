@@ -68,12 +68,14 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
 void block_append(block_t* block, struct token_t* token, opcode_t opcode, ...);
 
 /**
- * Appends instructions to subtract a value from the stack pointer.
+ * Appends instructions to subtract a value from the stack pointer, keeping the
+ * stack aligned.
  */
 void block_sub_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
 
 /**
- * Appends instructions to add a value to the stack pointer.
+ * Appends instructions to add a value to the stack pointer, keeping the stack
+ * aligned.
  */
 void block_add_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
 

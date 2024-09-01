@@ -19,5 +19,10 @@ int main(void) {
     if (x != 0)
         return 3;
 
+    // test short truncation
+    x = (short)0xfff30000;
+    if (x != 0)
+        return 4;
+
     return 0;
 }

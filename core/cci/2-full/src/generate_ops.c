@@ -255,19 +255,42 @@ void generate_bit_xor(node_t* node, int reg_out) {
 
 void generate_bit_not(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
-    if (type_size(node->type) > 4) {
+    if (type_size(node->first_child->type) > 4) {
         fatal("TODO bit not llong");
-    } else {
-        block_append(current_block, node->token, NOT, reg_out, reg_out);
     }
+
+    // The type was already promoted by the parser.
+    block_append(current_block, node->token, NOT, reg_out, reg_out);
 }
 
-void generate_log_not(node_t* node, int reg_out) {
-    if (type_size(node->type) != 4) {
-        // TODO
-        fatal("TODO log not llong");
+void generate_logical_not(node_t* node, int reg_out) {
+    type_t* source_type = node->first_child->type;
+
+    // TODO if the size is 8, make stack space for it. for llong we can just OR
+    // the two words together then do ISZ. for float/double we may need a
+    // function call.
+
+    if (type_matches_base(source_type, BASE_FLOAT) ||
+            type_matches_base(source_type, BASE_DOUBLE) ||
+            type_matches_base(source_type, BASE_LONG_DOUBLE)) {
+        fatal_token(node->token, "TODO logical not float/double");
     }
+    if (!type_is_integer(source_type) && !type_is_pointer(source_type)) {
+        fatal_token(node->token, "Internal error: unrecognized type for logical not");
+    }
+    if (type_size(source_type) > 4) {
+        fatal_token(node->token, "TODO logical not llong");
+    }
+
     generate_node(node->first_child, reg_out);
+
+    // it's an integer. expand it to register size.
+    if (type_size(source_type) == 1) {
+        block_append(current_block, node->token, TRB, reg_out, reg_out);
+    } else if (type_size(source_type) == 2) {
+        block_append(current_block, node->token, TRS, reg_out, reg_out);
+    }
+
     block_append(current_block, node->token, ISZ, reg_out, reg_out);
 }
 

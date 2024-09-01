@@ -7,7 +7,7 @@
   ldw r0 rfp -8
   ldw r1 rfp -12
   ldb r2 rfp -4
-  bool r2 r2
+  trb r2 r2
   jnz r2 &_Lx0
   jmp &_Lx1
 :_Lx0
