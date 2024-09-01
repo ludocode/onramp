@@ -23,6 +23,7 @@
   bool r0 r0
   add r1 rfp -1
   stb r0 r1 0
+  bool r0 r0
   ldb r0 rfp -1
   bool r0 r0
   mov r1 1
@@ -43,6 +44,7 @@
   bool r0 r0
   add r1 rfp -1
   stb r0 r1 0
+  bool r0 r0
   ldb r0 rfp -1
   bool r0 r0
   mov r1 0

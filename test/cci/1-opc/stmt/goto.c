@@ -7,7 +7,7 @@ int main(void) {
     // simple label test
     goto foo;
     return 1;
-foo:
+foo:;
 
     // jumping into a loop
     int x = 0;

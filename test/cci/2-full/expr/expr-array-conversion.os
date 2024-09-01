@@ -5,18 +5,21 @@
   sxb r0 r0
   add r1 rfp -3
   stb r0 r1 0
+  sxb r0 r0
   mov r0 7
   sxb r0 r0
   add r1 rfp -3
   mov r2 1
   add r1 r1 r2
   stb r0 r1 0
+  sxb r0 r0
   mov r0 11
   sxb r0 r0
   add r1 rfp -3
   mov r2 2
   add r1 r1 r2
   stb r0 r1 0
+  sxb r0 r0
   mov r0 1
   mov r1 1
   sub r0 r0 r1

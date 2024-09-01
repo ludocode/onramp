@@ -42,7 +42,7 @@ static node_t* continue_container;  // the node to restart on a `continue` state
 static node_t* switch_container;    // the node of the containing `switch` statement
 static node_t* switch_list;         // the previous case/default in a `switch`, or the switch itself
 
-static void parse_statement(node_t* parent);
+static void parse_statement(node_t* parent, bool cast_to_void);
 
 void parse_stmt_init(void) {
 }
@@ -93,15 +93,15 @@ static node_t* parse_if(void) {
     node_t* node_true = node_new(NODE_SEQUENCE);
     node_true->type = type_new_base(BASE_VOID);
     node_append(node_if, node_true);
-    parse_statement(node_true);
+    parse_statement(node_true, true);
 
     if (lexer_accept(STR_ELSE)) {
         node_t* node_false = node_new(NODE_SEQUENCE);
         node_false->type = type_new_base(BASE_VOID);
         node_append(node_if, node_false);
-        parse_statement(node_false);
+        parse_statement(node_false, true);
     }
-    
+
     return node_if;
 }
 
@@ -121,7 +121,7 @@ static void parse_loop_body(node_t* loop) {
     node_t* body = node_new(NODE_SEQUENCE);
     body->type = type_new_base(BASE_VOID);
     node_append(loop, body);
-    parse_statement(body);
+    parse_statement(body, true);
 
     break_container = old_break_container;
     continue_container = old_continue_container;
@@ -221,7 +221,7 @@ static node_t* parse_switch(void) {
     node_t* body = node_new(NODE_SEQUENCE);
     body->type = type_new_base(BASE_VOID);
     node_append(node_switch, body);
-    parse_statement(body);
+    parse_statement(body, true);
 
     switch_container = old_switch_container;
     switch_list = old_switch_list;
@@ -347,6 +347,11 @@ static bool parse_labels(node_t* parent) {
         break;
     }
 
+    if (found_label && lexer_is(STR_BRACE_CLOSE)) {
+        // allow labels at the end of a block
+        // TODO this is C2x only, warn otherwise
+    }
+
     return found_label;
 }
 
@@ -365,12 +370,10 @@ static node_t* parse_goto(void) {
 }
 
 /**
- * Parses one statement.
- *
- * A statement can append multiple nodes to the given parent because labels
- * (including `case` and `default` labels) are individual nodes.
+ * Parses a statement, not including any leading labels (which are parsed by
+ * parse_labels().)
  */
-static void parse_statement_no_labels(node_t* parent) {
+static void parse_statement_no_labels(node_t* parent, bool cast_to_void) {
 
     // Empty statement
     if (lexer_accept(STR_SEMICOLON)) {
@@ -397,30 +400,41 @@ static void parse_statement_no_labels(node_t* parent) {
     }
 
     // Expression statement
-    node_append(parent, parse_expression());
+    node_t* expr = parse_expression();
+    if (cast_to_void)
+        expr = node_cast_base(expr, BASE_VOID, NULL);
+    node_append(parent, expr);
     lexer_expect(STR_SEMICOLON, "Expected `;` at end of expression statement.");
 }
 
-static void parse_statement(node_t* parent) {
-    if (parse_labels(parent) && lexer_is(STR_BRACE_CLOSE)) {
-        // allow labels at the end of a block
-        // TODO this is C2x only, warn otherwise
-        return;
-    }
-
-    parse_statement_no_labels(parent);
+/**
+ * Parses one statement.
+ *
+ * A statement can append multiple nodes to the given parent because labels
+ * (including `case` and `default` labels) are individual nodes.
+ *
+ * If `cast_to_void` is true, all added nodes will have type void, which is
+ * the typical case. This is false in a statement expression since the type of
+ * the last statement is the type of the statement expression.
+ */
+static void parse_statement(node_t* parent, bool cast_to_void) {
+    parse_labels(parent);
+    parse_statement_no_labels(parent, cast_to_void);
 }
 
-void parse_declaration_or_statement(node_t* parent) {
-    if (parse_labels(parent) && lexer_is(STR_BRACE_CLOSE)) {
-        // allow labels at the end of a block
-        // TODO this is C2x only, warn otherwise
+void parse_declaration_or_statement(node_t* parent, bool cast_to_void) {
+    bool found_label = parse_labels(parent);
+
+    if (try_parse_declaration(parent)) {
+        if (found_label) {
+            // TODO C2x allows this
+            fatal_token(parent->last_child->token,
+                    "A label cannot be followed by a declaration. (Add `;` after the label.)");
+        }
         return;
     }
 
-    if (!try_parse_declaration(parent)) {
-        parse_statement_no_labels(parent);
-    }
+    parse_statement_no_labels(parent, cast_to_void);
 }
 
 node_t* parse_compound_statement(bool create_scope) {
@@ -433,7 +447,7 @@ node_t* parse_compound_statement(bool create_scope) {
     node_t* node = node_new_lexer(NODE_SEQUENCE);
     node->type = type_new_base(BASE_VOID);
     while (!lexer_is(STR_BRACE_CLOSE)) {
-        parse_declaration_or_statement(node);
+        parse_declaration_or_statement(node, true);
     }
     node->end_token = lexer_take();
 

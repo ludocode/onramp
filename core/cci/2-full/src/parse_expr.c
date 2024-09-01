@@ -253,7 +253,13 @@ static node_t* parse_statement_expression(token_t* paren) {
 
     scope_push();
     while (!lexer_accept(STR_BRACE_CLOSE)) {
-        parse_declaration_or_statement(sequence);
+        // We have another statement. Cast the previous one to void. (Only the
+        // last statement can be non-void.)
+        if (sequence->last_child) {
+            node_t* node = node_detach(sequence->last_child);
+            node_append(sequence, node_cast_base(node, BASE_VOID, NULL));
+        }
+        parse_declaration_or_statement(sequence, false);
     }
     scope_pop();
 

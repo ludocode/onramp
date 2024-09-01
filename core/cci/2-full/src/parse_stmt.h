@@ -33,7 +33,17 @@ void parse_stmt_init(void);
 
 void parse_stmt_destroy(void);
 
-void parse_declaration_or_statement(struct node_t* parent);
+/**
+ * Parse a declaration or a statement.
+ *
+ * A statement can append multiple nodes to the given parent because labels
+ * (including `case` and `default` labels) are individual nodes.
+ *
+ * If `cast_to_void` is true, all added nodes will have type void, which is
+ * the typical case. This is false in a statement expression since the type of
+ * the last statement is the type of the statement expression.
+ */
+void parse_declaration_or_statement(struct node_t* parent, bool cast_to_void);
 
 /**
  * Parses a compound statement.

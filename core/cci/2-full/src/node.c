@@ -231,7 +231,7 @@ void node_append(node_t* parent, node_t* child) {
     parent->last_child = child;
 }
 
-void node_detach(node_t* node) {
+node_t* node_detach(node_t* node) {
     assert(node);
 
     node_t* parent = node->parent;
@@ -247,6 +247,7 @@ void node_detach(node_t* node) {
         parent->last_child = node->left_sibling;
 
     node->parent = NULL;
+    return node;
 }
 
 char node_print_buffer[512];
@@ -615,6 +616,11 @@ static void node_check_cast_type(type_t* type, token_t* token) {
 
 // Check if the cast between these types is valid
 static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* token) {
+
+    // Anything can be cast to void.
+    if (type_matches_base(to, BASE_VOID))
+        return;
+
     node_check_cast_type(to, token);
     node_check_cast_type(from, token);
 

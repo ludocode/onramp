@@ -246,7 +246,7 @@ void node_append(node_t* parent, node_t* child);
 /**
  * Removes the given node from its parent.
  */
-void node_detach(node_t* node);
+node_t* node_detach(node_t* node);
 
 /**
  * Returns the number of child nodes.
