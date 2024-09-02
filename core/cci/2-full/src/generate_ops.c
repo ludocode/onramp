@@ -459,40 +459,41 @@ void generate_zero(token_t* token, type_t* type, size_t count, int reg_loc) {
     }
 }
 
-void generate_copy(token_t* token, type_t* type, size_t count,
+void generate_copy(token_t* token, type_t* type, uint32_t count,
         int reg_src, int reg_dest)
 {
     int reg_temp = register_alloc(token);
-    size_t align = type_alignment(type);
+    uint32_t align = type_alignment(type);
+    uint32_t total = count * type_size(type);
 
     // Choose a step size. We check both size and alignment because this is
     // used to copy strings in initializers among other things.
-    int step;
-    int steps;
+    uint32_t step;
+    uint32_t steps;
     int load;
     int store;
-    if (0 == (count & 3) && 0 == (align & 3)) {
+    if (0 == (total & 3) && 0 == (align & 3)) {
         step = 4;
-        steps = count >> 2;
+        steps = total >> 2;
         load = LDW;
         store = STW;
-    } else if (0 == (count & 1) && 0 == (align & 1)) {
+    } else if (0 == (total & 1) && 0 == (align & 1)) {
         step = 2;
-        steps = count >> 1;
+        steps = total >> 1;
         load = LDS;
         store = STS;
     } else {
         step = 1;
-        steps = count;
+        steps = total;
         load = LDB;
         store = STB;
     }
 
     // If the number of steps is small, unroll it.
     if (steps <= 4) {
-        for (size_t i = 0; i < count; i += step) {
-            block_append(current_block, token, load, reg_temp, reg_src, step * i);
-            block_append(current_block, token, store, reg_temp, reg_dest, step * i);
+        for (uint32_t i = 0; i < total; i += step) {
+            block_append(current_block, token, load, reg_temp, reg_src, i);
+            block_append(current_block, token, store, reg_temp, reg_dest, i);
         }
 
     // Otherwise insert a loop.
@@ -503,7 +504,7 @@ void generate_copy(token_t* token, type_t* type, size_t count,
         function_add_block(current_function, loop_block);
         function_add_block(current_function, end_block);
 
-        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, count);
+        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, total);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
 
         current_block = loop_block;
@@ -545,7 +546,7 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
     // See if we can do the offset inline
     if (indirect) {
         if (offset == 0) {
-            generate_copy(token, type, size, reg_val, reg_base);
+            generate_copy(token, type, 1, reg_val, reg_base);
             return;
         }
     } else {
@@ -560,7 +561,7 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
     block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
     block_append(current_block, token, ADD, reg_loc, reg_loc, reg_base);
     if (indirect)
-        generate_copy(token, type, size, reg_val, reg_loc);
+        generate_copy(token, type, 1, reg_val, reg_loc);
     else
         generate_store_direct(token, size, reg_val, reg_loc, 0);
     register_free(token, reg_loc);

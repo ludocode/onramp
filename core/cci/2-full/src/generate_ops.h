@@ -30,6 +30,7 @@
  */
 
 #include <stddef.h>
+#include <stdint.h>
 
 struct node_t;
 struct type_t;
@@ -72,9 +73,13 @@ void generate_store_offset(struct token_t* /*nullable*/ token, struct type_t* ty
  * This is used to generate indirect loads and stores of structs,
  * initialization of arrays, etc.
  */
-void generate_copy(struct token_t* token, struct type_t* type, size_t count,
+void generate_copy(struct token_t* token, struct type_t* type, uint32_t count,
         int reg_src, int reg_dest);
 
+/**
+ * Generates code to zero out count values of the given type at the address in
+ * the given register.
+ */
 void generate_zero(struct token_t* token, struct type_t* type, size_t count, int reg_loc);
 
 void generate_assign(struct node_t* node, int reg_out);

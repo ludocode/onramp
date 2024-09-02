@@ -27,9 +27,11 @@ int main(void) {
     // other toy compilers either don't handle tag scoping correctly, don't
     // bother to warn about mismatched pointers, or ignore type qualifiers.
     const struct a;
+    struct a const;
 
-    // Call foo. This should *NOT* cause an unmatched type error because this
-    // refers to the outer `struct a`, and there is no inner `struct a` yet.
+    // Call functions. These should *NOT* cause unmatched type errors because
+    // they refer to the outer `struct a`, and there is no inner `struct a`
+    // yet.
     struct a* pa = get_a();
     int ret = decode_a(pa);
 
@@ -42,7 +44,9 @@ int main(void) {
     return ret;
 }
 
-// define outer struct. should be no conflict with inner struct.
+// Define the outer struct and our functions that use it. There should be no
+// conflict with inner struct.
+
 struct a {
     char y;
 } a;

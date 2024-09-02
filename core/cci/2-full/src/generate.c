@@ -153,6 +153,27 @@ static void generate_string(node_t* node, int reg_out) {
     block_append(current_block, node->token, ADD, reg_out, RPP, reg_out);
 }
 
+// Generates access using the given opcode.
+// The opcode can be ADD to generate a location, or LDB/LDS/LDW to generate a load.
+static void generate_access_impl(token_t* token, int opcode, symbol_t* symbol, int reg_out) {
+    assert(opcode == ADD || !type_is_passed_indirectly(symbol->type));
+    if (symbol_is_global(symbol)) {
+        block_append(current_block, token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
+        block_append(current_block, token, opcode, reg_out, RPP, reg_out);
+    } else {
+        if (symbol->offset <= 127 && symbol->offset >= -112) {
+            block_append(current_block, token, opcode, reg_out, RFP, symbol->offset);
+        } else {
+            block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
+            block_append(current_block, token, opcode, reg_out, RFP, reg_out);
+        }
+    }
+}
+
+static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out) {
+    generate_access_impl(token, ADD, symbol, reg_out);
+}
+
 static void generate_access(node_t* node, int reg_out) {
     symbol_t* symbol = node->symbol;
     type_t* type = symbol->type;
@@ -179,6 +200,14 @@ static void generate_access(node_t* node, int reg_out) {
         return;
     }
 
+    if (type_is_passed_indirectly(type)) {
+        int reg_temp = register_alloc(node->token);
+        generate_access_location(node->token, node->symbol, reg_temp);
+        generate_copy(node->token, type, 1, reg_temp, reg_out);
+        register_free(node->token, reg_temp);
+        return;
+    }
+
     // TODO if value is larger than a register, or is a record, need to copy it
     // to where register points. should have a generic copy function in
     // generate that copies of a known size using an extra register.
@@ -191,35 +220,9 @@ static void generate_access(node_t* node, int reg_out) {
     } else if (size == 4) {
         opcode = LDW;
     } else {
-        fatal("TODO load larger than register");
+        fatal("Internal error: generate_access() direct has impossible size");
     }
-
-    // TODO share this code with generate_access_location below
-    if (symbol_is_global(symbol)) {
-        block_append(current_block, node->token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
-        block_append(current_block, node->token, opcode, reg_out, RPP, reg_out);
-    } else {
-        if (symbol->offset <= 127 && symbol->offset >= -112) {
-            block_append(current_block, node->token, opcode, reg_out, RFP, symbol->offset);
-        } else {
-            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
-            block_append(current_block, node->token, opcode, reg_out, RFP, reg_out);
-        }
-    }
-}
-
-static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out) {
-    if (symbol_is_global(symbol)) {
-        block_append(current_block, token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
-        block_append(current_block, token, ADD, reg_out, RPP, reg_out);
-    } else {
-        if (symbol->offset <= 127 && symbol->offset >= -112) {
-            block_append(current_block, token, ADD, reg_out, RFP, symbol->offset);
-        } else {
-            block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
-            block_append(current_block, token, ADD, reg_out, RFP, reg_out);
-        }
-    }
+    generate_access_impl(node->token, opcode, node->symbol, reg_out);
 }
 
 /**
@@ -598,8 +601,8 @@ void generate_cast(node_t* node, int reg_out) {
 
     bool source_indirect = type_is_passed_indirectly(source);
     bool target_indirect = type_is_passed_indirectly(target);
-    size_t source_size = base_size(source_base);
-    size_t target_size = base_size(target_base);
+    size_t source_size = type_size(source);
+    size_t target_size = type_size(target);
 
     if (source_indirect) {
         if (target_indirect) {
@@ -631,15 +634,15 @@ void generate_cast(node_t* node, int reg_out) {
 
         } else {
 
-            // The source is indirect but the target is direct. Records cannot
-            // be cast so the only possibility for source is a 64-bit value,
-            // and the target fits in a register.
-            assert(source_size == 8);
+            // The source is indirect but the target is direct. The source is
+            // either a 64-bit value or a record (being cast to void), and the
+            // target fits in a register.
             assert(target_size <= 4);
 
             // We need to generate the source into stack space. We can re-use
             // the same register.
             block_sub_rsp(current_block, node->token, source_size);
+            block_append(current_block, node->token, MOV, reg_out, RSP);
             generate_node(node->first_child, reg_out);
 
             // convert source to target
@@ -656,7 +659,7 @@ void generate_cast(node_t* node, int reg_out) {
                     assert(type_is_integer(target));
                     fatal("TODO cast from double to unsigned int");
                 }
-            } else if (source_base == BASE_SIGNED_LONG_LONG || BASE_UNSIGNED_LONG_LONG) {
+            } else if (source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) {
                 // It's llong.
                 if (target_base == BASE_FLOAT) {
                     fatal("TODO cast from long long to float, emit function call");
@@ -761,7 +764,7 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
         int reg_loc = register_alloc(expr->token);
         block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
         block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
-        generate_copy(expr->token, target, copy_count, reg_val, reg_loc);
+        generate_copy(expr->token, target->ref, copy_count, reg_val, reg_loc);
 
         // If we're initializing a char array with too short a string, we need
         // to zero out the rest of the array.

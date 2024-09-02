@@ -9,10 +9,12 @@ int main(void) {
         return 1;
     }
 
-    char x = -1;
-    int w = x;
+    char x;
+    x = -1;
+    int w;
+    w = x;
     if (w != -1) {
-        return 1;
+        return 2;
     }
 
     return 0;

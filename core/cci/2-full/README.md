@@ -152,10 +152,10 @@ The most important function is `generate_node()`. This takes a node and a number
 Whenever a value is passed indirectly, the parent of the node is responsible for providing storage for it. This usually happens in `generate_cast()`, which is the main reason the parser casts all expression statements to void. For example, a statement that simply assigns one struct to another, like `b = a;`, looks like this:
 
 ```
-  └─CAST void
-    └─ASSIGN `=` struct P
-      ├─ACCESS `b` struct P
-      └─ACCESS `a` struct P
+CAST void
+└─ASSIGN `=` struct P
+  ├─ACCESS `b` struct P
+  └─ACCESS `a` struct P
 ```
 
 The generation of the CAST node allocates the stack space for a `struct P` and passes it the ASSIGN node. The ASSIGN node loads `a` into this stack space, then stores it into `b`, leaving a copy in the stack space. This makes it possible to chain assignments, for example `c = (b = a)`. (The code generator does not copy `a` to `b` directly because it is not smart enough to realize that the result of the `b = a` expression is unused.)

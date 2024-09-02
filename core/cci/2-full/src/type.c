@@ -516,19 +516,29 @@ size_t type_size(type_t* type) {
 }
 
 size_t type_alignment(type_t* type) {
-    if (type_is_array(type)) {
-        return type_alignment(type_pointed_to(type));
+    if (type_is_declarator(type)) {
+        switch (type->declarator) {
+            case DECLARATOR_POINTER:
+                return 4;
+            case DECLARATOR_ARRAY:
+            case DECLARATOR_VLA:
+            case DECLARATOR_INDETERMINATE:
+                return type_alignment(type_pointed_to(type));
+            case DECLARATOR_FUNCTION:
+                fatal("Internal error: cannot compute alignment of function type.");
+        }
     }
-    size_t size = type_size(type);
 
-    // TODO we'll need to be a bit smarter about this since users can specify
-    // greater alignment. Probably the simplest thing is if we have a manual
-    // alignment, use that; otherwise if we're a record, use its alignment;
-    // otherwise use the alignment of the integer/float (where this basically
-    // works.) Not bothering with any of this now.
+    if (type->base == BASE_RECORD) {
+        return type->record->alignment;
+    }
+
+    // TODO we should check for manual alignment here. _Alignas is not
+    // supported yet.
+
+    size_t size = type_size(type);
     if (size > 4)
         return 4;
-
     assert(size != 3); // internal error, nothing has a size of 3 (except for an array, checked above)
     return size;
 }
