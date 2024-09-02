@@ -53,13 +53,13 @@ void parse_stmt_destroy(void) {
 static node_t* parse_return(void) {
     type_t* expected = current_function->root->type;
     node_t* node_return = node_new_lexer(NODE_RETURN);
+    node_return->type = type_new_base(BASE_VOID);
 
     if (lexer_accept(STR_SEMICOLON)) {
         if (!type_matches_base(expected, BASE_VOID)) {
             fatal_token(node_return->token,
                     "Expected a return value for function with non-`void` return type.");
         }
-        node_return->type = type_new_base(BASE_VOID);
 
     } else {
         if (type_matches_base(expected, BASE_VOID)) {
@@ -75,7 +75,6 @@ static node_t* parse_return(void) {
             expression = node_cast(expression, expected, NULL);
         }
 
-        node_return->type = type_ref(expression->type);
         node_append(node_return, expression);
         lexer_expect(STR_SEMICOLON, "Expected `;` at end of `return` statement.");
     }

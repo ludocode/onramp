@@ -97,47 +97,34 @@ static void generate_sequence(node_t* node, int reg_out) {
     if (node->first_child == NULL)
         return;
 
-    // generate all but last child
-    for (node_t* child = node->first_child; child != node->last_child; child = child->right_sibling) {
-
-        // if both this node and the final node are passed directly, the return
-        // register is free, so we can generate directly into it.
-        if (!type_is_passed_indirectly(child->type) &&
-               !type_is_passed_indirectly(node->last_child->type))
-        {
-            generate_node(child, reg_out);
-            continue;
-        }
-
-        // make temporary storage
-        int child_register = register_alloc(child->token);
-        int size = (int)type_size(child->type);
-        if (size > 0x7F) {
-            int reg_temp = register_alloc(child->token);
-            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, size);
-            block_append(current_block, node->token, SUB, RSP, RSP, reg_temp);
-            register_free(child->token, reg_temp);
-        } else {
-            block_append(current_block, node->token, SUB, RSP, RSP, size);
-        }
-        block_append(current_block, node->token, MOV, child_register, RSP, 0);
-
-        // generate
-        generate_node(child, child_register);
-
-        // discard the storage
-        register_free(child->token, child_register);
-        if (size > 0x7F) {
-            int reg_temp = register_alloc(child->token);
-            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, size);
-            block_append(current_block, node->token, ADD, RSP, RSP, reg_temp);
-            register_free(child->token, reg_temp);
-        } else {
-            block_append(current_block, node->token, ADD, RSP, RSP, size);
-        }
+    // If our return value is passed indirectly, the register contains the
+    // address where it should be stored. We need to preserve it so we'll need
+    // a temporary register. If the return value is passed directly (including
+    // void), we can use the same register for everything.
+    bool indirect = type_is_passed_indirectly(node->type);
+    int reg_val;
+    if (indirect) {
+        reg_val = register_alloc(node->token);
+    } else {
+        reg_val = reg_out;
     }
 
-    // generate the last child into the destination
+    // Generate all but last child using the temporary register
+    for (node_t* child = node->first_child; child != node->last_child; child = child->right_sibling) {
+        assert(type_matches_base(child->type, BASE_VOID));
+        generate_node(child, reg_val);
+    }
+
+    // Free the register
+    if (indirect) {
+        register_free(node->token, reg_val);
+    }
+
+    // Make sure the last child has the same type as this sequence. This
+    // ensures that it's safe to generate into the output register.
+    assert(type_equal(node->type, node->last_child->type));
+
+    // Generate the last child into the destination
     generate_node(node->last_child, reg_out);
 }
 

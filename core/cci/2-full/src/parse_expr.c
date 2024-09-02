@@ -1079,13 +1079,15 @@ static node_t* parse_comma_expression(void) {
         return node;
     }
 
-    node_t* parent = node_new_lexer(NODE_SEQUENCE);
-    node_append(parent, node);
+    node_t* sequence = node_new_lexer(NODE_SEQUENCE);
     do {
-        node_append(parent, parse_assignment_expression());
+        node_append(sequence, node_cast_base(node, BASE_VOID, NULL));
+        node = parse_assignment_expression();
     } while (lexer_accept(STR_COMMA));
-    parent->type = type_ref(parent->last_child->type);
-    return parent;
+
+    sequence->type = type_ref(node->type);
+    node_append(sequence, node);
+    return sequence;
 }
 
 node_t* parse_expression(void) {
