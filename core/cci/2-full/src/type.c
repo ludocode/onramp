@@ -586,10 +586,14 @@ bool type_quals_match(type_t* left, type_t* right) {
 }
 
 bool type_equal(type_t* left, type_t* right) {
+    if (left == right)
+        return true;
     return type_quals_match(left, right) && type_equal_unqual(left, right);
 }
 
 bool type_compatible(type_t* left, type_t* right) {
+    if (left == right)
+        return true;
     return type_quals_match(left, right) && type_compatible_unqual(left, right);
 }
 

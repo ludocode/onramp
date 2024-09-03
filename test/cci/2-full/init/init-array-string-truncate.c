@@ -2,8 +2,6 @@
 // Copyright (c) 2024 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-#include <string.h>
-
 char x[4] = "abcdefgh"; // raises -Wexcess-initializers
 int y = 0x12345678;
 

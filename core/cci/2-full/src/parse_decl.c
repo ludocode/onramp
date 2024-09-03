@@ -996,6 +996,43 @@ static void parse_function_declaration(specifiers_t* specifiers, type_t* type,
     type_deref(type);
 }
 
+// Checks and adjusts the types on a re-declaration of a variable.
+static void parse_redeclaration_types(symbol_t* old, symbol_t* new) {
+
+    // If one of the types is an array of indeterminate length and the other
+    // has a definite length, we can set the length of the indeterminate array.
+    // See:
+    //     - decl/decl-local-extern-indeterminate.c
+    //     - init/init-array-string-indeterminate-extern.c
+    if (type_is_declarator(old->type) && type_is_declarator(new->type)) {
+        if (old->type->declarator == DECLARATOR_ARRAY && new->type->declarator == DECLARATOR_INDETERMINATE) {
+            if (!type_equal(old->type->ref, new->type->ref))
+                goto mismatch;
+            type_ref(old->type);
+            type_deref(new->type);
+            new->type = old->type;
+            return;
+        }
+        if (new->type->declarator == DECLARATOR_ARRAY && old->type->declarator == DECLARATOR_INDETERMINATE) {
+            if (!type_equal(new->type->ref, old->type->ref))
+                goto mismatch;
+            type_ref(new->type);
+            type_deref(old->type);
+            old->type = new->type;
+            return;
+        }
+    }
+
+    // The type must otherwise match.
+    if (!type_equal(old->type, new->type))
+        goto mismatch;
+
+    return;
+
+mismatch:
+    fatal_token(new->token, "Variable re-declared at file scope with a different type.");
+}
+
 static void parse_local_extern_variable_declaration(node_t* parent,
         specifiers_t* specifiers, symbol_t* symbol)
 {
@@ -1008,10 +1045,8 @@ static void parse_local_extern_variable_declaration(node_t* parent,
             fatal_token(symbol->token, "Variable re-declared in block scope.");
         }
 
-        // The types must match.
-        if (!type_equal(symbol->type, previous->type)) {
-            fatal_token(symbol->token, "`extern` variable re-declared with different type.");
-        }
+        // Compare types and adjust if necessary.
+        parse_redeclaration_types(previous, symbol);
 
         // Ignore the new declaration.
         return;
@@ -1107,10 +1142,8 @@ static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t
     symbol_t* previous = scope_find_symbol(scope_current, symbol->name, false);
     if (previous) {
 
-        // The type must match.
-        if (!type_equal(previous->type, symbol->type)) {
-            fatal_token(symbol->token, "Variable re-declared at file scope with a different type.");
-        }
+        // Compare types and adjust if necessary.
+        parse_redeclaration_types(previous, symbol);
 
         // If this is `extern`, adopt the linkage of the previous declaration;
         // otherwise, the linkage must match.
@@ -1136,13 +1169,6 @@ static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t
         }
     }
     scope_add_symbol(scope_current, symbol);
-
-    // If it has an initializer, emit it. (If it doesn't, this is either
-    // extern, or it's a tentative definition that will either be replaced or
-    // emitted at the end.)
-    if (initializer) {
-        generate_static_variable(symbol, initializer);
-    }
 }
 
 static void parse_variable_declaration(node_t* /*nullable*/ parent,
@@ -1160,24 +1186,10 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         }
         lexer_consume();
         initializer = parse_initializer(type);
-
-        // If we have an array of indeterminate size, we can now set its size
-        if (type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE) {
-            size_t count;
-            if (initializer->kind == NODE_INITIALIZER_LIST) {
-                count = vector_count(&initializer->initializers);
-            } else if (initializer->kind == NODE_STRING) {
-                count = type_size(initializer->type);
-            } else {
-                fatal_token(name, "Invalid initializer for array of indeterminate length.");
-            }
-            type_t* new_type = type_new_array(type->ref, count);
-            type_deref(type);
-            type = new_type;
-        }
     }
 
     symbol_t* symbol = symbol_new(symbol_kind_variable, type, name, asm_name);
+    type_deref(type);
 
     // Handle file scope, block scope non-extern, and block scope extern separately
     if (parent) {
@@ -1190,10 +1202,33 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         parse_global_variable_declaration(specifiers, symbol, initializer);
     }
 
+    // If we have an initializer for an array of indeterminate size, we can now
+    // set its size.
+    // (This has to happen after the lookup for a previous symbol since the
+    // previous symbol might declare a size.)
+    type = symbol->type;
+    if (initializer && type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE) {
+        size_t count;
+        if (initializer->kind == NODE_INITIALIZER_LIST) {
+            count = vector_count(&initializer->initializers);
+        } else if (initializer->kind == NODE_STRING) {
+            count = type_size(initializer->type);
+        } else {
+            fatal_token(name, "Invalid initializer for array of indeterminate length.");
+        }
+        type_t* new_type = type_new_array(type->ref, count);
+        type_deref(type);
+        symbol->type = new_type;
+    }
+
+    // And finally, if this is a definition with linkage, emit it.
+    if (symbol->is_defined && symbol->linkage != symbol_linkage_none) {
+        generate_static_variable(symbol, initializer);
+    }
+
     symbol_deref(symbol);
     string_deref(asm_name);
     token_deref(name);
-    type_deref(type);
 }
 
 
