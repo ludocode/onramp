@@ -183,11 +183,13 @@ void emit_quoted_byte(char byte) {
     emit_hex_byte(byte);
 }
 
-void emit_string_literal(const char* str) {
+void emit_string_literal(const string_t* str) {
     bool open = false;
 
-    char c = *str;
-    while (c) {
+    const char* p = str->bytes;
+    const char* end = p + str->length;
+    while (p != end) {
+        char c = *p++;
         bool valid = is_string_char_valid_assembly(c);
         if (valid != open) {
             emit_char('"');
@@ -198,7 +200,6 @@ void emit_string_literal(const char* str) {
         } else {
             emit_quoted_byte(c);
         }
-        c = *++str;
     }
 
     if (open) {
@@ -302,7 +303,7 @@ void emit_function(function_t* function) {
 
 static void emit_source_location_full(token_t* token) {
     fprintf(output_file, "#line %i ", token->line);
-    emit_string_literal(string_cstr(token->filename));
+    emit_string_literal(token->filename);
     emit_char('\n');
 }
 

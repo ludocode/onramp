@@ -44,7 +44,7 @@ void emit_number(int number);
 void emit_hex_number(int number);
 void emit_quoted_byte(char byte);
 
-void emit_string_literal(const char* str);
+void emit_string_literal(const string_t* str);
 
 void emit_arg_mix(int8_t byte);
 void emit_arg_number(int number);

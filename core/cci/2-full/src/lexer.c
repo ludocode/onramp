@@ -144,47 +144,54 @@ void lexer_destroy(void) {
     free(lexer_buffer);
 }
 
-// TODO it's not going to be straightforward to share this.
-//
-// For a string literal we'll just convert it to UTF-8 (maybe?) This might not
-// work because, say in a 16-bit wide string, you should be allowed to define
-// arbitrary 16-bit values (like unpaired surrogates) which don't convert
-// properly to UTF-8 and back. That means our lexer will need to support
-// different string widths instead of keeping/converting everything in UTF-8
-// and letting the compiler convert it back.
-//
-// For a char literal, if we want to support multichar as an extension, it will
-// depend on the width of this. For example you should be able to do \u twice
-// to declare a surrogate pair (I guess? not sure why you'd want to but it
-// probably works with GCC.)
-//
-// Maybe in the full compiler we'll need different string vars for each width.
-// In the opC stage we just don't allow unicode/numerical escape sequences.
-static char lexer_consume_escape_sequence(void) {
-    int c = lexer_read_char();
+static void lexer_consume_literal_char(void) {
+    int c = lexer_char;
+
+    // not escape sequence
+    if (c != '\\') {
+        lexer_buffer_append(c);
+        lexer_read_char();
+        return;
+    }
+
+    // escape sequence
+    c = lexer_read_char();
     switch (c) {
 
         // These definitions look circular but they're not: we're relying on the
         // definition of these escape sequences from the previous stage compiler.
-        case 'a':   return '\a';   // bell
-        case 'b':   return '\b';   // backspace
-        case 't':   return '\t';   // horizontal tab
-        case 'n':   return '\n';   // line feed
-        case 'v':   return '\v';   // vertical tab
-        case 'f':   return '\f';   // form feed
-        case 'r':   return '\r';   // carriage return
-        case 'e':   return 27;     // escape (extension, not standard C)
-        case '"':   return '"';    // double quote
-        case '\'':  return '\'';   // single quote
-        case '?':   return '?';    // question mark
-        case '\\':  return '\\';   // backslash
+        case 'a':   lexer_buffer_append('\a');  break;  // bell
+        case 'b':   lexer_buffer_append('\b');  break;  // backspace
+        case 't':   lexer_buffer_append('\t');  break;  // horizontal tab
+        case 'n':   lexer_buffer_append('\n');  break;  // line feed
+        case 'v':   lexer_buffer_append('\v');  break;  // vertical tab
+        case 'f':   lexer_buffer_append('\f');  break;  // form feed
+        case 'r':   lexer_buffer_append('\r');  break;  // carriage return
+        case 'e':   lexer_buffer_append(27);    break;  // escape (extension, not standard C)
+        case '"':   lexer_buffer_append('"');   break;  // double quote
+        case '\'':  lexer_buffer_append('\'');  break;  // single quote
+        case '?':   lexer_buffer_append('?');   break;  // question mark
+        case '\\':  lexer_buffer_append('\\');  break;  // backslash
 
-        case '0': {
-            // TODO parse octal, this is not supposed to be just null.
-            // IIRC it's supposed to be followed by exactly three octal
-            // digits but GCC allows less, which is why \0 with no
-            // additional digits is zero (I think?)
-            fatal("Octal escape sequences are not yet supported.");
+        case '0': case '1': case '2': case '3':
+        case '4': case '5': case '6': case '7': {
+            unsigned value = c - '0';
+            c = lexer_read_char();
+            if (c >= '0' && c <= '7') {
+                value <<= 3;
+                value += c - '0';
+                c = lexer_read_char();
+                if (c >= '0' && c <= '7') {
+                    value <<= 3;
+                    value += c - '0';
+                    lexer_read_char();
+                }
+            }
+            if (c > 255) {
+                fatal("The maximum octal escape sequence is \\377.");
+            }
+            lexer_buffer_append((char)value);
+            return;
         }
 
         // TODO all of these
@@ -196,19 +203,22 @@ static char lexer_consume_escape_sequence(void) {
             fatal("Unicode escape sequences are not supported in opC.");
 
         default:
-            break;
+            fatal("Unrecognized escape sequence");
     }
 
-    fatal("Unrecognized escape sequence");
+    // Cases that break above don't consume the character themselves; we do it
+    // here.
+    lexer_read_char();
 }
 
 static void lexer_consume_string_literal(void) {
     assert(lexer_char == '"');
     lexer_buffer_length = 0;
+    lexer_read_char();
 
     // Collect characters until the closing quote
     while (true) {
-        int c = lexer_read_char();
+        int c = lexer_char;
         if (c == '"') {
             lexer_read_char();
             break;
@@ -218,16 +228,13 @@ static void lexer_consume_string_literal(void) {
             fatal("Unclosed string literal");
         }
 
-        if (c == '\\') {
-            c = lexer_consume_escape_sequence();
-        }
-
-        lexer_buffer_append(c);
+        lexer_consume_literal_char();
     }
 }
 
 static void lexer_consume_char_literal(void) {
     assert(lexer_char == '\'');
+    lexer_buffer_length = 0;
 
     // read the char
     char c = lexer_read_char();
@@ -237,16 +244,10 @@ static void lexer_consume_char_literal(void) {
     if (lexer_is_end_of_line(c)) {
         fatal("Unclosed character literal.");
     }
-    if (c == '\\') {
-        c = lexer_consume_escape_sequence();
-    }
+    lexer_consume_literal_char();
 
-    // place it in the token buffer
-    lexer_buffer_length = 0;
-    lexer_buffer_append(c);
-
-    // read the closing quote
-    c = lexer_read_char();
+    // consume the closing quote
+    c = lexer_char;
     if (lexer_is_end_of_line(c)) {
         fatal("Unclosed character literal.");
     }

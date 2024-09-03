@@ -214,7 +214,7 @@ node_t* parse_string(void) {
         length += string_length(lexer_token->value);
         emit_source_location(lexer_token);
         emit_cstr(ASM_INDENT);
-        emit_string_literal(string_cstr(lexer_token->value));
+        emit_string_literal(lexer_token->value);
         emit_newline();
         lexer_consume();
     } while (lexer_token->type == token_type_string);
@@ -1187,7 +1187,7 @@ static node_t* parse_builtin_func(node_t* builtin) {
         emit_newline();
 
         emit_cstr(ASM_INDENT);
-        emit_string_literal(string_cstr(string->token->value)); // TODO don't go through cstr, should be able to emit a string_t*
+        emit_string_literal(string->token->value);
         emit_newline();
 
         emit_cstr(ASM_INDENT);
