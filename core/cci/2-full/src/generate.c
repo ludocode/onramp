@@ -870,7 +870,7 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
         return;
 
     if (type_is_passed_indirectly(node->type)) {
-        fatal_token(node->token, "TODO dereference indirectly, need function to memcpy struct");
+        generate_copy(node->token, node->type, 1, reg_ptr, reg_out);
         return;
     }
 

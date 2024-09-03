@@ -4,12 +4,10 @@
 
 struct P {
     int x, y;
-} foo(void) {
-    struct P a = {2, 3};
-    return a;
-}
+} a, b = {2, 3}, *c = &b;
 
 int main(void) {
-    struct P a = foo();
-    if (a.x + a.y != 5) return 1;
+    a = *c;
+    if (a.x != 2) return 1;
+    if (a.y != 3) return 2;
 }
