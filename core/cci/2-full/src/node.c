@@ -610,7 +610,7 @@ static void node_check_cast_type(type_t* type, token_t* token) {
         fatal_token(token, "Cannot cast to or from a struct or union type.");
     }
     if (type_is_declarator(type) && type->declarator == DECLARATOR_FUNCTION) {
-        fatal_token(token, "Cannot cast to or from a function type. (Did you mean to cast to a function pointer type?)");
+        fatal_token(token, "Cannot cast to or from a function type.");
     }
 }
 
