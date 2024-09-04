@@ -43,6 +43,7 @@ SRCS=\
 	$(LIBO)/src/libo-util.c \
 	$(LIBO)/src/libo-vector.c \
 	\
+	$(SRC)/arithmetic.c \
 	$(SRC)/block.c \
 	$(SRC)/common.c \
 	$(SRC)/emit.c \
@@ -66,7 +67,6 @@ SRCS=\
 	$(SRC)/symbol.c \
 	$(SRC)/token.c \
 	$(SRC)/type.c \
-	$(SRC)/u64.c \
 
 all: build test FORCE
 FORCE:

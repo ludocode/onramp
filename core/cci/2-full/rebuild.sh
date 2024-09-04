@@ -28,6 +28,12 @@ mkdir -p build/intermediate/cci-2-full-re
 echo
 echo === Rebuilding cci/2-full
 
+echo Compiling cci/2-full arithmetic.c
+onrampvm build/output/bin/cc.oe \
+    @core/cci/2-full/rebuild-ccargs \
+    -c core/cci/2-full/src/arithmetic.c \
+    -o build/intermediate/cci-2-full-re/arithmetic.oo
+
 echo Compiling cci/2-full block.c
 onrampvm build/output/bin/cc.oe \
     @core/cci/2-full/rebuild-ccargs \
@@ -166,16 +172,11 @@ onrampvm build/output/bin/cc.oe \
     -c core/cci/2-full/src/type.c \
     -o build/intermediate/cci-2-full-re/type.oo
 
-echo Compiling cci/2-full u64.c
-onrampvm build/output/bin/cc.oe \
-    @core/cci/2-full/rebuild-ccargs \
-    -c core/cci/2-full/src/u64.c \
-    -o build/intermediate/cci-2-full-re/u64.oo
-
 echo Linking cci/2-full
 onrampvm build/output/bin/cc.oe \
     @core/cci/2-full/rebuild-ccargs \
     build/intermediate/libo-1-opc-re/libo.oa \
+    build/intermediate/cci-2-full-re/arithmetic.oo \
     build/intermediate/cci-2-full-re/block.oo \
     build/intermediate/cci-2-full-re/common.oo \
     build/intermediate/cci-2-full-re/emit.oo \
@@ -199,5 +200,4 @@ onrampvm build/output/bin/cc.oe \
     build/intermediate/cci-2-full-re/symbol.oo \
     build/intermediate/cci-2-full-re/token.oo \
     build/intermediate/cci-2-full-re/type.oo \
-    build/intermediate/cci-2-full-re/u64.oo \
     -o build/output/bin/cci.oe
