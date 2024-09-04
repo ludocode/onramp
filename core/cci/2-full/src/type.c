@@ -235,13 +235,22 @@ static void type_base_print(const type_t* type) {
             break;
         case BASE_ENUM:
             fputs("enum ", stdout);
-            fputs(type->enum_->tag->value->bytes, stdout);
+            if (type->enum_->tag) {
+                fputs(type->enum_->tag->value->bytes, stdout);
+            } else {
+                fputs("<anonymous>", stdout);
+            }
             break;
         case BASE_VA_LIST: fputs("va_list", stdout); break;
     }
 }
 
 static void type_print_prefix(type_t* type) {
+    if (type == NULL) {
+        fputs("(null)", stdout);
+        return;
+    }
+
     if (!type->is_declarator) {
         type_base_print(type);
         return;

@@ -480,14 +480,22 @@ static void generate_call(node_t* call, int reg_out) {
             break;
     }
 
-    // call the function
+    // call the function directly if we can
     if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
         block_append(current_block, call->token, CALL, ARGTYPE_NAME, '^', string_cstr(function->symbol->asm_name));
+
+    // otherwise call it indirectly
     } else {
-        assert(type_is_pointer(function->type));
         int reg_func = register_alloc(function->token);
-        generate_node(function, reg_func);
+        if (type_is_function(function->type)) {
+            generate_location(function, reg_func);
+        } else if (type_is_pointer(function->type) && type_is_function(function->type->ref)) {
+            generate_node(function, reg_func);
+        } else {
+            fatal("Internal error: call target is neither pointer nor function pointer");
+        }
         block_append(current_block, call->token, CALL, ARGTYPE_REGISTER, reg_func);
+        register_free(function->token, reg_func);
     }
 
     // Move the return value where it goes. (This is necessary for both direct
