@@ -28,7 +28,7 @@
 #include <limits.h>
 
 #include "libo-string.h"
-#include "u64.h"
+#include "arithmetic.h"
 #include "common.h"
 
 struct type_t;

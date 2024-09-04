@@ -40,7 +40,7 @@
 #include "parse_decl.h"
 #include "parse_stmt.h"
 #include "emit.h"
-#include "u64.h"
+#include "arithmetic.h"
 
 static int next_string;
 

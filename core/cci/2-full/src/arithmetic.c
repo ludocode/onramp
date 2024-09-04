@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "u64.h"
+#include "arithmetic.h"
 
 #include "common.h"
 

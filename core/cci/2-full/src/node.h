@@ -28,7 +28,7 @@
 #include "libo-string.h"
 #include "libo-vector.h"
 #include "type.h"
-#include "u64.h"
+#include "arithmetic.h"
 
 struct type_t;
 struct token_t;
