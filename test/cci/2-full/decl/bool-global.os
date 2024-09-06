@@ -6,7 +6,7 @@
   ret
 =main
   enter
-  mov r0 1
+  imw r0 1
   bool r0 r0
   imw r1 ^x
   add r1 rpp r1

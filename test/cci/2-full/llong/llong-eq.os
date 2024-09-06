@@ -19,15 +19,13 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  add r0 r0 1
-  and r0 r0 1
+  isz r0 r0
   jnz r0 &_Lx0
   jmp &_Lx1
 :_Lx0
   jmp &_Lx2
 :_Lx1
-  mov r0 1
+  imw r0 1
   leave
   ret
   jmp &_Lx2
@@ -51,12 +49,11 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx3
   jmp &_Lx4
 :_Lx3
-  mov r0 2
+  imw r0 2
   leave
   ret
   jmp &_Lx4
@@ -80,13 +77,11 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  add r0 r0 1
-  and r0 r0 1
+  isz r0 r0
   jnz r0 &_Lx5
   jmp &_Lx6
 :_Lx5
-  mov r0 3
+  imw r0 3
   leave
   ret
   jmp &_Lx6
@@ -110,14 +105,13 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx7
   jmp &_Lx8
 :_Lx7
   jmp &_Lx9
 :_Lx8
-  mov r0 4
+  imw r0 4
   leave
   ret
   jmp &_Lx9
@@ -141,15 +135,13 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  add r0 r0 1
-  and r0 r0 1
+  isz r0 r0
   jnz r0 &_LxA
   jmp &_LxB
 :_LxA
   jmp &_LxC
 :_LxB
-  mov r0 5
+  imw r0 5
   leave
   ret
   jmp &_LxC
@@ -173,12 +165,11 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxD
   jmp &_LxE
 :_LxD
-  mov r0 6
+  imw r0 6
   leave
   ret
   jmp &_LxE
@@ -202,13 +193,11 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  add r0 r0 1
-  and r0 r0 1
+  isz r0 r0
   jnz r0 &_LxF
   jmp &_Lx10
 :_LxF
-  mov r0 7
+  imw r0 7
   leave
   ret
   jmp &_Lx10
@@ -232,14 +221,13 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx11
   jmp &_Lx12
 :_Lx11
   jmp &_Lx13
 :_Lx12
-  mov r0 8
+  imw r0 8
   leave
   ret
   jmp &_Lx13
@@ -263,15 +251,13 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  add r0 r0 1
-  and r0 r0 1
+  isz r0 r0
   jnz r0 &_Lx14
   jmp &_Lx15
 :_Lx14
   jmp &_Lx16
 :_Lx15
-  mov r0 9
+  imw r0 9
   leave
   ret
   jmp &_Lx16
@@ -295,12 +281,11 @@
   sub r1 r1 r2
   or r0 r0 r1
   add rsp rsp 16
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx17
   jmp &_Lx18
 :_Lx17
-  mov r0 10
+  imw r0 10
   leave
   ret
   jmp &_Lx18

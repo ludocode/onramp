@@ -143,12 +143,7 @@ static void generate_number(node_t* node, int reg_out) {
         block_append(current_block, node->token, STW, reg_temp, reg_out, 4);
         register_free(node->token, reg_temp);
     } else {
-        int value = (int)node->u32;
-        if (value <= 127 && value >= -112) {
-            block_append(current_block, node->token, MOV, reg_out, value);
-        } else {
-            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, value);
-        }
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, node->u32);
     }
 }
 
@@ -982,11 +977,7 @@ static void generate_location_array_subscript(node_t* node, int reg_out) {
 
 static void generate_sizeof(node_t* node, int reg_out) {
     unsigned size = type_size(node->first_child->type);
-    if (size < 0x80) {
-        block_append(current_block, node->token, MOV, reg_out, size);
-    } else {
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, size);
-    }
+    block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, size);
 }
 
 static void generate_address_of(node_t* node, int reg_out) {

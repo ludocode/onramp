@@ -20,54 +20,51 @@
   stb r3 r2 2
   ldb r3 r1 3
   stb r3 r2 3
-  add r2 rfp -4
-  mov r3 0
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -4
+  imw r2 0
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
-  mov r1 0
+  imw r1 0
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx0
   jmp &_Lx1
 :_Lx0
-  mov r0 1
+  imw r0 1
   leave
   ret
   jmp &_Lx1
 :_Lx1
-  add r2 rfp -4
-  mov r3 1
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -4
+  imw r2 1
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
-  mov r1 83
+  imw r1 83
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx2
   jmp &_Lx3
 :_Lx2
-  mov r0 2
+  imw r0 2
   leave
   ret
   jmp &_Lx3
 :_Lx3
-  add r2 rfp -4
-  mov r3 2
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -4
+  imw r2 2
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
-  mov r1 1
+  imw r1 1
   sub r1 0 r1
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx4
   jmp &_Lx5
 :_Lx4
-  mov r0 3
+  imw r0 3
   leave
   ret
   jmp &_Lx5
@@ -86,70 +83,66 @@
   stb r3 r2 r4
   jmp &_Lx6
 :_Lx7
-  add r2 rfp -9
-  mov r3 0
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -9
+  imw r2 0
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
-  mov r1 0
+  imw r1 0
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx8
   jmp &_Lx9
 :_Lx8
-  mov r0 4
+  imw r0 4
   leave
   ret
   jmp &_Lx9
 :_Lx9
-  add r2 rfp -9
-  mov r3 1
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -9
+  imw r2 1
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
-  mov r1 1
+  imw r1 1
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxA
   jmp &_LxB
 :_LxA
-  mov r0 5
+  imw r0 5
   leave
   ret
   jmp &_LxB
 :_LxB
-  add r2 rfp -9
-  mov r3 2
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -9
+  imw r2 2
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
   mov r1 56
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxC
   jmp &_LxD
 :_LxC
-  mov r0 6
+  imw r0 6
   leave
   ret
   jmp &_LxD
 :_LxD
-  add r2 rfp -9
-  mov r3 3
-  add r2 r2 r3
-  ldb r0 0 r2
+  add r1 rfp -9
+  imw r2 3
+  add r1 r1 r2
+  ldb r0 0 r1
   sxb r0 r0
-  mov r1 27
+  imw r1 27
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxE
   jmp &_LxF
 :_LxE
-  mov r0 7
+  imw r0 7
   leave
   ret
   jmp &_LxF

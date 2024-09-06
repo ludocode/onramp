@@ -13,12 +13,12 @@
 :_Lx4
   jmp &_Lx3
 :_Lx3
-  mov r0 1
+  imw r0 1
   leave
   ret
   jmp &_Lx4
 :_Lx5
-  mov r0 1
+  imw r0 1
   leave
   ret
   jmp &_Lx1

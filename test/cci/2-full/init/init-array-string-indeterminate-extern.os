@@ -85,46 +85,43 @@
   '00
 =main
   enter
-  mov r0 6
-  mov r1 6
+  imw r0 6
+  imw r1 6
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx7
   jmp &_Lx8
 :_Lx7
-  mov r0 1
+  imw r0 1
   leave
   ret
   jmp &_Lx8
 :_Lx8
-  mov r0 4
-  mov r1 4
+  imw r0 4
+  imw r1 4
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx9
   jmp &_LxA
 :_Lx9
-  mov r0 2
+  imw r0 2
   leave
   ret
   jmp &_LxA
 :_LxA
-  mov r0 9
-  mov r1 9
+  imw r0 9
+  imw r1 9
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxB
   jmp &_LxC
 :_LxB
-  mov r0 3
+  imw r0 3
   leave
   ret
   jmp &_LxC
 :_LxC
-  mov r0 0
+  imw r0 0
   push r0
   imw r0 ^alice
   add r0 rpp r0
@@ -134,17 +131,16 @@
   mov r1 r0
   pop r0
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxD
   jmp &_LxE
 :_LxD
-  mov r0 4
+  imw r0 4
   leave
   ret
   jmp &_LxE
 :_LxE
-  mov r0 0
+  imw r0 0
   push r0
   imw r0 ^bob
   add r0 rpp r0
@@ -154,17 +150,16 @@
   mov r1 r0
   pop r0
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_LxF
   jmp &_Lx10
 :_LxF
-  mov r0 5
+  imw r0 5
   leave
   ret
   jmp &_Lx10
 :_Lx10
-  mov r0 0
+  imw r0 0
   push r0
   imw r0 ^carl
   add r0 rpp r0
@@ -174,66 +169,62 @@
   mov r1 r0
   pop r0
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx11
   jmp &_Lx12
 :_Lx11
-  mov r0 6
+  imw r0 6
   leave
   ret
   jmp &_Lx12
 :_Lx12
-  mov r0 0
+  imw r0 0
   imw r2 ^carl
   add r2 rpp r2
-  mov r3 6
+  imw r3 6
   add r2 r2 r3
   ldb r1 0 r2
   sxb r1 r1
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx13
   jmp &_Lx14
 :_Lx13
-  mov r0 7
+  imw r0 7
   leave
   ret
   jmp &_Lx14
 :_Lx14
-  mov r0 0
+  imw r0 0
   imw r2 ^carl
   add r2 rpp r2
-  mov r3 7
+  imw r3 7
   add r2 r2 r3
   ldb r1 0 r2
   sxb r1 r1
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx15
   jmp &_Lx16
 :_Lx15
-  mov r0 8
+  imw r0 8
   leave
   ret
   jmp &_Lx16
 :_Lx16
-  mov r0 0
+  imw r0 0
   imw r2 ^carl
   add r2 rpp r2
-  mov r3 8
+  imw r3 8
   add r2 r2 r3
   ldb r1 0 r2
   sxb r1 r1
   sub r0 r0 r1
-  cmpu r0 r0 0
-  and r0 r0 1
+  bool r0 r0
   jnz r0 &_Lx17
   jmp &_Lx18
 :_Lx17
-  mov r0 9
+  imw r0 9
   leave
   ret
   jmp &_Lx18

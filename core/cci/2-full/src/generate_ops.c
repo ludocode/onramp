@@ -412,8 +412,8 @@ static void generate_equality(node_t* node, int reg_left) {
     } else if (type_matches_base(type, BASE_DOUBLE)) {
         generate_binary_function(node, reg_left, "__double_neq");
     } else {
-        int reg_right = register_alloc(node->token);
         generate_node(node->first_child, reg_left);
+        int reg_right = register_alloc(node->token);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, SUB, reg_left, reg_left, reg_right);
         register_free(node->token, reg_right);
@@ -422,15 +422,12 @@ static void generate_equality(node_t* node, int reg_left) {
 
 void generate_equal(node_t* node, int reg_out) {
     generate_equality(node, reg_out);
-    block_append(current_block, node->token, CMPU, reg_out, reg_out, 0);
-    block_append(current_block, node->token, ADD, reg_out, reg_out, 1);
-    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
+    block_append(current_block, node->token, ISZ, reg_out, reg_out);
 }
 
 void generate_not_equal(node_t* node, int reg_out) {
     generate_equality(node, reg_out);
-    block_append(current_block, node->token, CMPU, reg_out, reg_out, 0);
-    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
+    block_append(current_block, node->token, BOOL, reg_out, reg_out);
 }
 
 /*

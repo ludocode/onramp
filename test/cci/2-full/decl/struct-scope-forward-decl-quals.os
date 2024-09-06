@@ -2,7 +2,7 @@
   enter
   sub rsp rsp 4
   stw r0 rfp -4
-  mov r0 0
+  imw r0 0
   leave
   ret
 =main
