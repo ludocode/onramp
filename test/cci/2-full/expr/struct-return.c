@@ -10,6 +10,10 @@ struct P {
 }
 
 int main(void) {
+    // overwrite some registers to make sure the below doesn't
+    // work by coincidence
+    5 * 3 + 4 * 7;
+
     struct P a = foo();
     if (a.x + a.y != 5) return 1;
 }

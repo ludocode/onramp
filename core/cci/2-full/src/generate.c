@@ -766,10 +766,11 @@ void generate_unary_minus(node_t* node, int reg_out) {
 }
 
 void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
-    int reg_val = register_alloc(expr->token);
-    generate_node(expr, reg_val);
 
     if (type_is_array(target) && expr->kind == NODE_STRING) {
+        int reg_val = register_alloc(expr->token);
+        generate_node(expr, reg_val);
+
         // TODO need to handle wide string arrays, currently we assume char
         size_t array_count = target->count;
         size_t string_count = expr->type->count;
@@ -789,11 +790,25 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
         }
 
         register_free(expr->token, reg_loc);
-    } else {
-        generate_store_offset(expr->token, target, reg_val, reg_base, offset);
-    }
+        register_free(expr->token, reg_val);
 
-    register_free(expr->token, reg_val);
+    } else if (type_is_passed_indirectly(target)) {
+        if (offset == 0) {
+            generate_node(expr, reg_base);
+        } else {
+            int reg_loc = register_alloc(expr->token);
+            block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
+            block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
+            generate_node(expr, reg_loc);
+            register_free(expr->token, reg_loc);
+        }
+
+    } else {
+        int reg_val = register_alloc(expr->token);
+        generate_node(expr, reg_val);
+        generate_store_offset(expr->token, target, reg_val, reg_base, offset);
+        register_free(expr->token, reg_val);
+    }
 }
 
 /*
