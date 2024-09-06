@@ -209,3 +209,8 @@ type_t* record_find(record_t* record, const string_t* name, unsigned* out_offset
     }
     return NULL;
 }
+
+struct type_t* record_member_type_at(record_t* record, size_t index) {
+    member_t* member = vector_at(&record->member_list, index);
+    return member->type;
+}

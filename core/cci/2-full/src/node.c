@@ -308,12 +308,12 @@ static void node_print_tree_child(node_t* child, size_t length, bool last);
 // Prints a node and its children. The prefix (graph) to the node has already
 // been printed. The given length is the length of the buffer leading up to but
 // not including this node.
-static void node_print_tree_impl(node_t* node, size_t length, bool root) {
+static void node_print_tree_impl(node_t* node, size_t length, bool root, bool has_right_sibling) {
     node_print(node);
     putchar('\n');
 
     if (!root) {
-        if (node->right_sibling) {
+        if (has_right_sibling) {
             const char* bar = (dump_ast == DUMP_AST_ASCII) ? NODE_PRINT_ASCII_BAR : NODE_PRINT_UNICODE_BAR;
             strcpy(node_print_buffer + length, bar);
             strcat(node_print_buffer + length, " ");
@@ -347,11 +347,11 @@ static void node_print_tree_child(node_t* child, size_t length, bool last) {
     strcpy(node_print_buffer + length, last ? curve : cross);
     strcat(node_print_buffer + length, dash);
     fwrite(node_print_buffer, 1, length + strlen(node_print_buffer + length), stdout);
-    node_print_tree_impl(child, length, false);
+    node_print_tree_impl(child, length, false, !last);
 }
 
 void node_print_tree(node_t* node) {
-    node_print_tree_impl(node, 0, true);
+    node_print_tree_impl(node, 0, true, false);
 }
 
 node_kind_t node_kind_of_binary_operator(token_t* token) {

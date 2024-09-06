@@ -136,6 +136,8 @@ void vector_destroy(vector_t* vector);
  */
 void vector_resize(vector_t* vector, size_t count);
 
+void vector_ensure_size(vector_t* vector, size_t count);
+
 /*
  * Returns the last element. The vector must not be empty.
  */

@@ -18,9 +18,12 @@ int main(void) {
     if (a.x != 2) return 1;
     if (a.y != 3) return 2;
 
-    struct P b;
-    b = foo();
-    if (b.x != 2) return 3;
-    if (b.y != 3) return 4;
+    struct {
+        struct P p1, p2;
+    } q = {foo(), foo()};
+    if (q.p1.x != 2) return 3;
+    if (q.p1.y != 3) return 4;
+    if (q.p2.x != 2) return 5;
+    if (q.p2.y != 3) return 6;
 
 }

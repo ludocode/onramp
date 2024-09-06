@@ -189,7 +189,11 @@ typedef struct node_t {
         u64_t u64;    // 64-bit double or long long
         int string_label; // generated name of symbol for NODE_STRING
         builtin_t builtin;
-        vector_t initializers; // sparse array of non-constant nodes for initializer list
+
+        struct {
+            vector_t initializers; // sparse array of non-constant nodes for initializer list
+            size_t index; // index in parent initializer list
+        };
 
         // Contents of a case label
         struct {

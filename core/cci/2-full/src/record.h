@@ -125,4 +125,13 @@ void record_add(record_t* record, struct token_t* /*nullable*/ token, struct typ
  */
 struct type_t* record_find(record_t* record, const string_t* name, unsigned* out_offset);
 
+/**
+ * Returns the type of the member at the given index.
+ */
+struct type_t* record_member_type_at(record_t* record, size_t index);
+
+static inline size_t record_member_count(record_t* record) {
+    return vector_count(&record->member_list);
+}
+
 #endif

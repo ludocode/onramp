@@ -786,7 +786,7 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
         // to zero out the rest of the array.
         if (array_count > string_count) {
             block_append(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
-            generate_zero(expr->token, target, array_count - string_count, reg_loc);
+            generate_zero_array(expr->token, target, array_count - string_count, reg_loc);
         }
 
         register_free(expr->token, reg_loc);
@@ -814,18 +814,16 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
 /*
  * Generates an initializer list.
  *
- * The address of the variable being initialized is (reg_loc + offset).
+ * The address of the variable being initialized is (reg_base + offset).
  */
-void generate_initializer_list(node_t* list, type_t* type, int reg_loc, size_t base_offset) {
+void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t base_offset) {
+    if (vector_count(&list->initializers) == 0) {
+        generate_zero_scalar(list->token, type, reg_base, base_offset);
+        return;
+    }
 
-    for (size_t i = 0; i < vector_count(&list->initializers); ++i) {
-        node_t* child = vector_at(&list->initializers, i);
-        if (!child) {
-            // TODO we should be looping over the whole length of the
-            // struct/array, not just the length of the initializer list. any
-            // initializers that are missing should be zeroed.
-            continue;
-        }
+    size_t i;
+    for (i = 0; i < vector_count(&list->initializers); ++i) {
 
         // Get the type of the child we're initializing
         type_t* child_type;
@@ -838,13 +836,35 @@ void generate_initializer_list(node_t* list, type_t* type, int reg_loc, size_t b
             child_type = type->ref;
             offset = base_offset + i * type_size(child_type);
         } else {
-            fatal("Internal error: cannot generate initializer list for non-compound type");
+            child_type = type;
+            offset = base_offset;
         }
 
-        if (child->kind == NODE_INITIALIZER_LIST) {
-            generate_initializer_list(child, child_type, reg_loc, offset);
+        node_t* child = vector_at(&list->initializers, i);
+        if (!child) {
+            generate_zero_scalar(list->token, type, reg_base, offset);
+        } else if (child->kind == NODE_INITIALIZER_LIST) {
+            generate_initializer_list(child, child_type, reg_base, offset);
         } else {
-            generate_initializer_scalar(child, child_type, reg_loc, offset);
+            generate_initializer_scalar(child, child_type, reg_base, offset);
+        }
+    }
+
+    // Zero out the rest of the array
+    if (type_is_array(type) && i < type->count) {
+        int reg_loc = register_alloc(list->token);
+        block_append(current_block, list->token, IMW, ARGTYPE_NUMBER, reg_loc,
+                base_offset + i * type_size(type->ref));
+        block_append(current_block, list->token, ADD, reg_loc, reg_loc, reg_base);
+        generate_zero_array(list->token, type->ref, type->count - i, reg_loc);
+        register_free(list->token, reg_loc);
+
+    // Zero out the rest of the struct
+    } else if (type_matches_base(type, BASE_RECORD) && type->record->is_struct) {
+        for (; i < record_member_count(type->record); ++i) {
+            member_t* member = vector_at(&type->record->member_list, i);
+            size_t offset = base_offset + member->offset;
+            generate_zero_scalar(list->token, member->type, reg_base, offset);
         }
     }
 }

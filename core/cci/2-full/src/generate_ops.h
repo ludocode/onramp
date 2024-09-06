@@ -80,7 +80,13 @@ void generate_copy(struct token_t* token, struct type_t* type, uint32_t count,
  * Generates code to zero out count values of the given type at the address in
  * the given register.
  */
-void generate_zero(struct token_t* token, struct type_t* type, size_t count, int reg_loc);
+void generate_zero_array(struct token_t* token, struct type_t* type, size_t count, int reg_loc);
+
+/**
+ * Generates code to zero out a value of the given type at the given location
+ * with the given offset.
+ */
+void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_base, int offset);
 
 void generate_assign(struct node_t* node, int reg_out);
 void generate_add_assign(struct node_t* node, int reg_out);

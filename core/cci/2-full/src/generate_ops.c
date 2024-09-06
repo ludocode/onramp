@@ -437,7 +437,7 @@ void generate_not_equal(node_t* node, int reg_out) {
  * We check both size and alignment to decide on a step size because this is
  * used to zero out strings in initializers among other things.
  */
-void generate_zero(token_t* token, type_t* type, size_t count, int reg_loc) {
+void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc) {
     size_t align = type_alignment(type);
 
     // choose a step size
@@ -483,6 +483,18 @@ void generate_zero(token_t* token, type_t* type, size_t count, int reg_loc) {
 
         current_block = end_block;
         register_free(token, reg_i);
+    }
+}
+
+void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_base, int offset) {
+    if (offset == 0) {
+        generate_zero_array(token, type, 1, reg_base);
+    } else {
+        int reg_loc = register_alloc(token);
+        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
+        block_append(current_block, token, ADD, reg_loc, reg_loc, reg_base);
+        generate_zero_array(token, type, 1, reg_loc);
+        register_free(token, reg_loc);
     }
 }
 

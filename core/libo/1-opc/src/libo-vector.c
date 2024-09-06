@@ -71,6 +71,12 @@ void vector_resize(vector_t* vector, size_t new_count) {
     }
 }
 
+void vector_ensure_size(vector_t* vector, size_t count) {
+    if (vector->count < count) {
+        vector_resize(vector, count);
+    }
+}
+
 void vector_append(vector_t* vector, void* element) {
     vector_resize_impl(vector, vector->count + 1);
     vector->elements[vector->count - 1] = element;

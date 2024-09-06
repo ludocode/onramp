@@ -337,7 +337,7 @@ static node_t* parse_primary_expression(void) {
     }
 
     // TODO
-    fatal_token(lexer_token, "Unrecognized token.");
+    fatal_token(lexer_token, "Unrecognized token: `%s`.", lexer_token->value->bytes);
     return NULL;
 }
 

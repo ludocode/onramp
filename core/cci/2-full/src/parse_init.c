@@ -51,119 +51,190 @@ static void parse_init_clear(node_t* node, size_t index) {
 }
 
 /**
- * Parses part of an initializer list, filling the given struct or array
- * starting at the given index.
- *
- * If we reach a nested struct or array, we recurse (whether or not it has
- * braces.)
- *
- * If root is true, this is the root object of a possibly nested initializer
- * list (i.e. this object is the most recent `{`, but not necessarily the
- * outer-most `{`). In this case we can accept designators because they are
- * relative to this object.
- *
- * If root if false, we're a nested object without a `{`. We can start with a
- * designator (since we might be continuing a designator from the parent, and
- * it would have handled it otherwise), but if we hit a designator after the
- * first element we'll back out and let the parent handle it.
+ * Returns true if the given expression is a valid string literal initializer
+ * for the given array type.
  */
-static void parse_initializer_list_part(type_t* type, node_t* node, size_t index, bool is_object) {
-    bool first = true;
+static bool valid_string_array_initializer(type_t* array, node_t* scalar) {
+    assert(type_is_array(array));
+
+    if (scalar->kind != NODE_STRING)
+        return false;
+
+    // TODO check matching type of string literal. For now
+    // we just check if it's a char type.
+    type_t* element_type = array->ref;
+    if (type_matches_base(element_type, BASE_CHAR) ||
+            type_matches_base(element_type, BASE_SIGNED_CHAR) ||
+            type_matches_base(element_type, BASE_UNSIGNED_CHAR))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Returns the type of the child at the given index for nested structs and
+ * arrays.
+ */
+static type_t* initializer_child_type(type_t* type, size_t index) {
+    if (type_is_array(type))
+        return type->ref;
+    if (type_matches_base(type, BASE_RECORD))
+        return record_member_type_at(type->record, index);
+    return type;
+}
+
+/**
+ * Parses an initializer list.
+ *
+ * This is used to parse a braced initializer for a struct, union, array or
+ * scalar.
+ *
+ * We accept designators for structs, unions and arrays, which changes the
+ * next subobject to be initialized within the initializer list.
+ *
+ * We accept multiple elements for structs and arrays. Unions and scalars allow
+ * only one element.
+ *
+ * (A braced scalar is still wrapped in an initializer list. This matches the
+ * grammar and it's the easiest way to parse it.)
+ *
+ * We only recurse if we hit a nested brace. Otherwise the parsing is entirely
+ * in this closed loop, even for nested objects.
+ */
+node_t* parse_initializer_list(type_t* root_type) {
+    assert(lexer_is(STR_BRACE_OPEN));
+
+    // The root initializer list is what the spec calls the "current object".
+    // It is fixed throughout parsing this list. When we see a nested brace, we
+    // get a new "current object" by recursing.
+    node_t* const root = node_new_lexer(NODE_INITIALIZER_LIST);
+    root->type = type_ref(root_type);
+    root->index = SIZE_MAX;
+
+    // The current initialization position consists of an index into a
+    // particular initialization list which is nested somewhere in the tree of
+    // our "current object". We use this to walk around the tree.
+    node_t* node = root;
+    size_t index = 0;
+
+    if (lexer_accept(STR_BRACE_CLOSE)) {
+        // TODO warn, {} is C23
+        return root;
+    }
 
     for (;;) {
 
+
         // check for designators
-
-        if (lexer_is(STR_SQUARE_OPEN)) {
-            if (!is_object && !first)
-                break;
-            if (!type_is_array(type)) {
-                fatal_token(lexer_token, "Cannot use an array designator on something that isn't an array.");
-            }
-            fatal_token(lexer_token, "TODO array designator not yet implemented.");
-
-        } else if (lexer_is(STR_DOT)) {
-            if (!is_object && !first)
-                break;
-            if (!type_matches_base(type, BASE_RECORD))
-                fatal_token(lexer_token, "Cannot use a member designator on something that isn't a struct or union.");
-            fatal_token(lexer_token, "TODO member designator not yet implemented.");
-        }
-
-
-
-        // TODO check if the current position is valid. in bounds of array,
-        // etc. For now we accept any number of objects.
-
-
-        // Make room for our object
-        if (vector_count(&node->initializers) <= index + 1) {
-            vector_resize(&node->initializers, index + 1);
-        }
-
-        // Get the type of child we're initializing next
-        type_t* child_type;
-        if (type_matches_base(type, BASE_RECORD)) {
-            member_t* member = vector_at(&type->record->member_list, index);
-            child_type = member->type;
-        } else if (type_is_array(type)) {
-            child_type = type->ref;
-        } else {
-            fatal("Internal error: cannot parse initializer part for non-compound type");
-        }
-
-        // If it's a struct or array, we recurse.
-        if (type_matches_base(child_type, BASE_RECORD) || type_is_array(child_type)) {
-            if (lexer_is(STR_BRACE_OPEN)) {
-                // In the case of a nested brace, we replace the child object
-                // entirely, overriding any previous initializers for it even
-                // if they will be empty-initialized by this.
-                //     see test: init/init-overrides-zeroing.c
-                parse_init_clear(node, index);
-                vector_set(&node->initializers, index, parse_initializer(child_type));
-
-            } else if (lexer_token->type == token_type_string && type_is_array(child_type)) {
-                vector_set(&node->initializers, index, parse_string());
-
-            } else {
-                // Otherwise, we create the initializer list if necessary, and
-                // if it already exists, we keep it, because we are *not*
-                // necessarily overriding parts of it that have already been
-                // initialized by other designators.
-                //     see test: init/init-partial-out-of-order.c
-                if (vector_at(&node->initializers, index) == NULL) {
-                    vector_set(&node->initializers, index, node_new(NODE_INITIALIZER_LIST));
-                }
-                parse_initializer_list_part(child_type, vector_at(&node->initializers, index), 0, false);
-            }
-
-        } else {
-            // It's a scalar.
-            parse_init_clear(node, index);
-            node_t* child = parse_initializer(child_type);
-            // TODO it would be nice to evaluate constant expressions, or at
-            // least number nodes, right away and free the nodes to minimize
-            // memory usage. Constant expression values could be written
-            // directly into a block of memory at this point. This could
-            // drastically reduce memory usage in parsing char arrays
-            // especially anywhere #embed is used (a node per char multiplies
-            // memory usage by sizeof(node_t) which is like 70x.) For now we
-            // don't bother.
-            vector_set(&node->initializers, index, child);
-        }
-
-        // Move to the next member.
-        ++index;
-        // TODO if index is out of bounds, break
-
-
-        // TODO trailing comma is C99
         /*
-        if (lexer_accept(STR_BRACE_CLOSE))
-            break;
-        lexer_expect(STR_COMMA, "Expected `,` or `}` after initializer list expression.");
+        for (;;) {
+
+            if (lexer_is(STR_SQUARE_OPEN)) {
+                if (!is_object && !first)
+                    break;
+                if (!type_is_array(type)) {
+                    fatal_token(lexer_token, "Cannot use an array designator on something that isn't an array.");
+                }
+                fatal_token(lexer_token, "TODO array designator not yet implemented.");
+
+            } else if (lexer_is(STR_DOT)) {
+                if (!is_object && !first)
+                    break;
+                if (!type_matches_base(type, BASE_RECORD))
+                    fatal_token(lexer_token, "Cannot use a member designator on something that isn't a struct or union.");
+                fatal_token(lexer_token, "TODO member designator not yet implemented.");
+            }
+        }
         */
 
+
+        type_t* child_type = initializer_child_type(node->type, index);
+
+        if (lexer_is(STR_BRACE_OPEN)) {
+            // In the case of a nested brace, we replace the child object
+            // entirely, overriding any previous initializers for it even if
+            // they will be empty-initialized by this.
+            //     See test: init/init-overrides-zeroing.c
+            // This handles nested compound objects and nested braced scalars.
+
+            // Note: If we're already in a scalar initializer, this is
+            // *another* set of braces, but the grammar suggests it is allowed.
+            // Popular compilers (except MSVC) accept it but Clang warns
+            // -Wmany-braces-around-scalar-init. We don't bother warning.
+
+            vector_ensure_size(&node->initializers, index + 1);
+            parse_init_clear(node, index);
+            node_t* list = parse_initializer_list(child_type);
+            list->index = index;
+            list->parent = node;
+            vector_set(&node->initializers, index, list);
+
+        } else {
+
+            // It's an unbraced scalar. Parse it
+            node_t* scalar = parse_assignment_expression();
+
+            // Walk down the type tree to find what this scalar is
+            // initializing. We break out of this loop once we've found the
+            // correct position to insert this scalar.
+            for (;;) {
+                vector_ensure_size(&node->initializers, index + 1);
+
+                if (type_matches_base(child_type, BASE_RECORD)) {
+                    if (type_equal(child_type, scalar->type)) {
+                        // This record member is being initialized by a record
+                        // of matching type.
+                        break;
+                    }
+                    goto walk_down;
+                }
+
+                if (type_is_array(child_type)) {
+                    if (valid_string_array_initializer(child_type, scalar)) {
+                        // We're initializing a character array with a string literal.
+                        break;
+                    }
+                    goto walk_down;
+                }
+
+                // We've found the position.
+                break;
+
+            walk_down:;
+                // This record member or array element is itself a record or
+                // array and is being initialized by its first element
+                // (potentially recursively.) Create the child initializer list
+                // if necessary, and if it already exists, we keep it, because
+                // we are *not* necessarily overriding parts of it that have
+                // already been initialized by other designators.
+                //     See test: init/init-partial-out-of-order.c
+                node_t* child_node = vector_at(&node->initializers, index);
+                if (child_node == NULL) {
+                    child_node = node_new(NODE_INITIALIZER_LIST);
+                    child_node->type = type_ref(child_type);
+                    child_node->index = index;
+                    child_node->parent = node;
+                    vector_set(&node->initializers, index, child_node);
+                }
+
+                // Move down and keep walking
+                node = child_node;
+                index = 0;
+                child_type = initializer_child_type(node->type, index);
+                continue;
+            }
+
+            // Assign the scalar, replacing any existing initializer in case
+            // designators have caused overlap.
+            parse_init_clear(node, index);
+            scalar->parent = node;
+            vector_set(&node->initializers, index, scalar);
+
+        }
+
+        // Check for the end of the initializer list
         if (!lexer_accept(STR_COMMA)) {
             lexer_expect(STR_BRACE_CLOSE, "Expected `,` or `}` after initializer list expression.");
             break;
@@ -171,64 +242,50 @@ static void parse_initializer_list_part(type_t* type, node_t* node, size_t index
         if (lexer_accept(STR_BRACE_CLOSE)) {
             break;
         }
+
+        // Walk to the next element, up the tree if necessary
+        for (;;) {
+            if (type_is_array(node->type)) {
+                // We allow unlimited elements in an array even if there are
+                // too many. The excess are ignored. We could probably optimize
+                // this by discarding the excess without putting them in the
+                // tree but right now we don't bother.
+                ++index;
+                break;
+            }
+
+            if (type_matches_base(node->type, BASE_RECORD)) {
+                ++index;
+                record_t* record = node->type->record;
+                if (record->is_struct && index < record_member_count(record)) {
+                    // Found the next struct member to initialize
+                    break;
+                }
+            }
+
+            // No more elements in this subobject. Walk up
+            if (node == root) {
+                fatal_token(lexer_token, "Too many initializers in this initializer list.");
+            }
+            index = node->index;
+            node = node->parent;
+            assert(index != SIZE_MAX);
+        }
     }
-
-}
-
-node_t* parse_initializer_list(type_t* type) {
-    node_t* root = node_new_lexer(NODE_INITIALIZER_LIST);
-
-    // Constant initializer data
-    // TODO this should only be allocated for the root initializer, we need to
-    // pass it around (or just store it in global vars?)
-    //uint8_t* bytes = 0;
-    //size_t bytes_count = 0;
-    //size_t bytes_capacity = 0;
-
-    parse_initializer_list_part(type, root, 0, true);
-
-    // TODO empty initializer list is C23, should check that it's not empty
-    // here in earlier language standards
 
     return root;
 }
 
 node_t* parse_initializer(type_t* type) {
-    bool brace = false;
     if (lexer_is(STR_BRACE_OPEN)) {
-
-        // braces for a struct or array are an initializer list.
-        if (type_matches_base(type, BASE_RECORD) || type_is_array(type)) {
-            return parse_initializer_list(type);
-        }
-
-        // braced scalars are otherwise allowed.
-        brace = true;
-        lexer_consume();
+        return parse_initializer_list(type);
     }
 
-    node_t* node = parse_assignment_expression();
+    node_t* scalar = parse_assignment_expression();
 
-    if (type_is_array(type)) {
-        if (node->kind == NODE_STRING) {
-            // TODO make sure this is a string of the correct character type.
-            // For now we just make sure it's an array of char.
-            if (!type_matches_base(type->ref, BASE_CHAR) &&
-                    !type_matches_base(type->ref, BASE_SIGNED_CHAR) &&
-                    !type_matches_base(type->ref, BASE_UNSIGNED_CHAR))
-            {
-                fatal_token(node->token, "Strings can only initialize char arrays.");
-            }
-        } else {
-            fatal_token(node->token, "Cannot initialize array with scalar.");
-        }
-    } else {
-        // TODO we could use some checks to make sure the conversion is valid.
-        // For now we just implicitly cast.
-        node = node_cast(node_decay(node), type, NULL);
+    if (type_is_array(type) && valid_string_array_initializer(type, scalar)) {
+        return scalar;
     }
 
-    if (brace)
-        lexer_expect(STR_BRACE_CLOSE, "Expected `}` to match `{` around this scalar initializer.");
-    return node;
+    return node_cast(node_decay(scalar), type, NULL);
 }
