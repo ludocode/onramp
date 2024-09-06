@@ -24,6 +24,8 @@
 
 #include "generate.h"
 
+#include <stdlib.h>
+
 #include "common.h"
 #include "record.h"
 #include "node.h"
@@ -131,12 +133,22 @@ static void generate_sequence(node_t* node, int reg_out) {
 static void generate_number(node_t* node, int reg_out) {
     assert(node->kind == NODE_NUMBER);
     assert(node->first_child == NULL);
-    // TODO for now assume it's int
-    int value = (int)node->u32;
-    if (value <= 127 && value >= -112) {
-        block_append(current_block, node->token, MOV, reg_out, value);
+
+    if (type_is_long_long(node->type)) {
+        u64_t* llong = &node->u64;
+        int reg_temp = register_alloc(node->token);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, u64_low(llong));
+        block_append(current_block, node->token, STW, reg_temp, reg_out, 0);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, u64_high(llong));
+        block_append(current_block, node->token, STW, reg_temp, reg_out, 4);
+        register_free(node->token, reg_temp);
     } else {
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, value);
+        int value = (int)node->u32;
+        if (value <= 127 && value >= -112) {
+            block_append(current_block, node->token, MOV, reg_out, value);
+        } else {
+            block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, value);
+        }
     }
 }
 

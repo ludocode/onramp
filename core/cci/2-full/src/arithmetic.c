@@ -44,16 +44,6 @@ extern void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
 extern void __llong_bit_not(unsigned* out, unsigned* src);
 #endif
 
-uint32_t llong_to_u32(const u64_t* llong) {
-    #ifdef ONRAMP_U64_NATIVE
-    return (uint32_t)llong->value;
-    #endif
-
-    #ifndef ONRAMP_U64_NATIVE
-    return llong->words[0];
-    #endif
-}
-
 void llong_clear(u64_t* llong) {
     #ifdef ONRAMP_U64_NATIVE
     llong->value = 0;

@@ -838,7 +838,7 @@ uint32_t node_eval_32(node_t* node) {
                 if (type_size(child->type) == 8) {
                     u64_t llong;
                     node_eval_64(child, &llong);
-                    return llong_to_u32(&llong);
+                    return u64_low(&llong);
                 }
             }
 

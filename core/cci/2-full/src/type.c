@@ -438,8 +438,10 @@ int type_integer_rank(type_t* type) {
             return 4;
         case BASE_SIGNED_LONG:
         case BASE_UNSIGNED_LONG:
-        case BASE_SIGNED_LONG_LONG:
             return 5;
+        case BASE_SIGNED_LONG_LONG:
+        case BASE_UNSIGNED_LONG_LONG:
+            return 6;
         default: break;
     }
     fatal("Internal error: non-integer type does not have an integer rank.");

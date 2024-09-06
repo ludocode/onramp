@@ -59,6 +59,24 @@ typedef struct u64_t {
     #endif
 } u64_t;
 
+static inline uint32_t u64_low(u64_t* u64) {
+    #ifdef ONRAMP_U64_NATIVE
+    return (uint32_t)u64->value;
+    #endif
+    #ifndef ONRAMP_U64_NATIVE
+    return u64->words[0];
+    #endif
+}
+
+static inline uint32_t u64_high(u64_t* u64) {
+    #ifdef ONRAMP_U64_NATIVE
+    return (uint32_t)(u64->value >> 32);
+    #endif
+    #ifndef ONRAMP_U64_NATIVE
+    return u64->words[1];
+    #endif
+}
+
 // These functions modify the argument in place.
 void llong_clear(u64_t* llong);
 void llong_set(u64_t* llong, const u64_t* other);
@@ -82,7 +100,6 @@ void llong_bit_not(u64_t* llong);
 void llong_negate(u64_t* llong);
 
 // These functions do not modify the argument.
-uint32_t llong_to_u32(const u64_t* llong);
 bool llong_eq(const u64_t* left, const u64_t* right);
 bool llong_ltu(const u64_t* left, const u64_t* right);
 bool llong_lts(const u64_t* left, const u64_t* right);

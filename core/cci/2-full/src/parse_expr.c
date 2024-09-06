@@ -168,12 +168,17 @@ static node_t* parse_number(void) {
         fatal("Malformed number literal.");
     }
 
-    // TODO for now we just ignore the suffix and truncate it down to an int.
-    // we're just trying to match the functionality of cci/1 right now. we'll
-    // need to store the full llong value in the node
-    node->u32 = llong_to_u32(&value);
-
-    node->type = type_new_base(suffix_unsigned ? BASE_UNSIGNED_INT : BASE_SIGNED_INT);
+    if (suffix_long_long) {
+        memcpy(&node->u64, &value, sizeof(node->u64));
+        node->type = type_new_base(suffix_unsigned ? BASE_UNSIGNED_LONG_LONG : BASE_SIGNED_LONG_LONG);
+    } else {
+        // TODO check to make sure the number isn't too big
+        node->u32 = u64_low(&value);
+        node->type = type_new_base(
+                suffix_long ?
+                    (suffix_unsigned ? BASE_UNSIGNED_LONG : BASE_SIGNED_LONG) :
+                    (suffix_unsigned ? BASE_UNSIGNED_INT : BASE_SIGNED_INT));
+    }
     return node;
 
 out_of_range:

@@ -374,20 +374,50 @@ void generate_greater_or_equal(node_t* node, int reg_out) {
  * match and non-zero otherwise.
  */
 static void generate_equality(node_t* node, int reg_left) {
-    int reg_right = register_alloc(node->token);
     type_t* type = node->first_child->type;
 
-    generate_node(node->first_child, reg_left);
     if (type_is_long_long(type)) {
-        generate_binary_function(node, reg_left, "__llong_neq");
+
+        // this is a lot of code to compare llongs but maybe less instructions
+        // than generating a function call. (we'd still have to generate into
+        // stack space and we'd have to push registers.)
+
+        // make stack space for both llongs
+        block_append(current_block, node->token, SUB, RSP, RSP, 16);
+
+        // generate left
+        block_append(current_block, node->token, MOV, reg_left, RSP);
+        generate_node(node->first_child, reg_left);
+
+        // generate right
+        int reg_right = register_alloc(node->token);
+        block_append(current_block, node->token, ADD, reg_right, RSP, 8);
+        generate_node(node->last_child, reg_right);
+
+        // 'or' differences together
+        int reg_temp = register_alloc(node->token);
+        block_append(current_block, node->token, LDW, reg_left, RSP, 0);
+        block_append(current_block, node->token, LDW, reg_temp, RSP, 8);
+        block_append(current_block, node->token, SUB, reg_left, reg_left, reg_temp);
+        block_append(current_block, node->token, LDW, reg_right, RSP, 4);
+        block_append(current_block, node->token, LDW, reg_temp, RSP, 12);
+        block_append(current_block, node->token, SUB, reg_right, reg_right, reg_temp);
+        block_append(current_block, node->token, OR, reg_left, reg_left, reg_right);
+
+        // clean up
+        register_free(node->token, reg_temp);
+        register_free(node->token, reg_right);
+        block_append(current_block, node->token, ADD, RSP, RSP, 16);
+
     } else if (type_matches_base(type, BASE_DOUBLE)) {
         generate_binary_function(node, reg_left, "__double_neq");
     } else {
+        int reg_right = register_alloc(node->token);
+        generate_node(node->first_child, reg_left);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, SUB, reg_left, reg_left, reg_right);
+        register_free(node->token, reg_right);
     }
-
-    register_free(node->token, reg_right);
 }
 
 void generate_equal(node_t* node, int reg_out) {
