@@ -680,7 +680,20 @@ void generate_cast(node_t* node, int reg_out) {
                     fatal("TODO cast from long long to float, emit function call");
                 } else {
                     assert(type_is_integer(source));
-                    fatal("TODO cast from long long to register-size integer");
+                    // Cast from llong to a register-size or smaller integer
+
+                    if (target_base == BASE_BOOL) {
+                        // For bool we need to load both words and 'or' them together.
+                        int reg_temp = register_alloc(node->token);
+                        block_append(current_block, node->token, LDW, reg_temp, reg_out, 4);
+                        block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
+                        block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
+                        block_append(current_block, node->token, BOOL, reg_out, reg_out);
+                        register_free(node->token, reg_temp);
+                    } else {
+                        // Otherwise we can just load the low word.
+                        block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
+                    }
                 }
             } else {
                 // The only other possibility is casting a record to void. The
@@ -717,8 +730,16 @@ void generate_cast(node_t* node, int reg_out) {
                 if (source_base == BASE_FLOAT) {
                     fatal("TODO cast from float to long long, emit function call");
                 } else {
+                    // Cast from register integer to long long.
+                    // TODO we could optimize this a bit if we're casting
+                    // unsigned to unsigned since we wouldn't need to copy the
+                    // sign bit. for now we don't bother.
                     assert(type_is_integer(source));
-                    fatal("TODO cast from register integer to long long, sign extend and store");
+                    generate_int_cast(node->token, reg_src, source_base, BASE_UNSIGNED_INT); // set the upper bits (if necessary)
+                    block_append(current_block, node->token, STW, reg_src, reg_out, 0); // store the low word
+                    block_append(current_block, node->token, SHRU, reg_src, reg_src, 31); // get the sign bit
+                    block_append(current_block, node->token, SUB, reg_src, 0, reg_src); // fill the register with the sign bit
+                    block_append(current_block, node->token, STW, reg_src, reg_out, 4); // store the high word
                 }
             }
 

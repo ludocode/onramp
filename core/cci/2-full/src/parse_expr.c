@@ -168,6 +168,10 @@ static node_t* parse_number(void) {
         fatal("Malformed number literal.");
     }
 
+    // TODO this is not right, type should be at least the size of the suffixes
+    // and otherwise large enough to hold the full number, and type can be
+    // unsigned by default for hex and octal if it doesn't fit in signed. see
+    // the chart in C17 6.4.4.1.5 and see test llong/llong-number.c
     if (suffix_long_long) {
         memcpy(&node->u64, &value, sizeof(node->u64));
         node->type = type_new_base(suffix_unsigned ? BASE_UNSIGNED_LONG_LONG : BASE_SIGNED_LONG_LONG);
