@@ -235,9 +235,14 @@ node_t* parse_string(void) {
     emit_newline();
     emit_newline();
 
+    // The type of a string literal is `char[]`. It is not const even though
+    // modifying it is undefined behaviour. (On Onramp, modifying string
+    // literals works because there is no memory protection so we should try to
+    // improve warnings around this.)
     type_t* base = type_new_base(BASE_CHAR);
     node_t* node = node_new_token(NODE_STRING, first);
     node->type = type_new_array(base, length);
+
     node->string_label = label;
     type_deref(base);
     token_deref(first);

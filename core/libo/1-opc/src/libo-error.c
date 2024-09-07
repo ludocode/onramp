@@ -97,13 +97,13 @@ void vfatal(const char* format, va_list args) {
     _Exit(1);
 }
 
-void warning(const char* format, ...) {
+void print_warning(const char* format, ...) {
     va_list args;
     va_start(args, format);
-    vwarning(format, args);
+    vprint_warning(format, args);
     va_end(args);
 }
 
-void vwarning(const char* format, va_list args) {
+void vprint_warning(const char* format, va_list args) {
     print_error("WARNING", format, args);
 }

@@ -22,6 +22,8 @@
  * SOFTWARE.
  */
 
+#define _GNU_SOURCE
+
 #include "options.h"
 
 #include <stdarg.h>
@@ -184,6 +186,11 @@ static warning_spec_t* warning_specs;
 static warning_level_t* warning_levels;
 
 /*
+ * The argument string of all warnings.
+ */
+static const char** warning_args;
+
+/*
  * We implement `#pragma GCC diagnostic push` by copying the levels array and
  * pushing it onto this stack.
  *
@@ -235,10 +242,31 @@ static void warning_add(const char* arg, warning_t warning, warning_level_t defa
     warning_table_args[bucket] = arg;
     warning_table_enums[bucket] = warning;
 
+    warning_args[warning] = arg;
     warning_levels[warning] = default_level;
 }
 
+/*
+ * Finds the warning for the given arg.
+ *
+ * Returns warning_invalid if not found.
+ */
+static warning_t warning_find(const char* arg) {
+    uint32_t bucket = fnv1a_cstr(arg) & warning_table_mask;
+    for (;;) {
+        if (!warning_table_args[bucket])
+            return warning_invalid;
+        if (0 == strcmp(arg, warning_table_args[bucket])) {
+            return warning_table_enums[bucket];
+        }
+        bucket = (bucket + 1) & warning_table_mask;
+    }
+    // unreachable
+    return warning_invalid;
+}
+
 static void warnings_init(void) {
+    warning_args = calloc(warning_count, sizeof(const char*));
     warning_specs = calloc(warning_count, sizeof(warning_spec_t));
     warning_levels = calloc(warning_count, sizeof(warning_level_t));
 
@@ -254,8 +282,10 @@ static void warnings_init(void) {
     // as -Werror=pedantic. For now we treat them as the same.
     //warning_table_add(NULL, "-pedantic-errors", warning_pedantic, warning_spec_error);
 
-    // deprecated
+    // incorrect code
     warning_add("implicit-int", warning_implicit_int, warning_level_warn);
+    warning_add("zero-length-array", warning_zero_length_array, warning_level_warn);
+    warning_add("discarded-qualifiers", warning_discarded_qualifiers, warning_level_warn);
 
     // extension usage
     warning_add("statement-expressions", warning_statement_expressions, warning_level_error);
@@ -291,17 +321,10 @@ static bool warning_parse(const char* arg) {
     }
 
     // lookup the option
-    uint32_t bucket = fnv1a_cstr(arg) & warning_table_mask;
-    for (;;) {
-        if (!warning_table_args[bucket])
-            return false; // unrecognized option
-        if (0 == strcmp(arg, warning_table_args[bucket])) {
-            warning_specs[warning_table_enums[bucket]] = spec;
-            break;
-        }
-        bucket = (bucket + 1) & warning_table_mask;
-    }
-
+    warning_t warning = warning_find(arg);
+    if (warning == warning_invalid)
+        return false; // unrecognized option
+    warning_specs[warning] = spec;
     return true;
 }
 
@@ -403,17 +426,34 @@ void warn(warning_t warning, struct token_t* token, const char* message, ...) {
     if (level == warning_level_off)
         return;
 
-    // TODO include arg. probably should just call asprintf twice, this doesn't
-    // need to be fast
     va_list args;
     va_start(args, message);
     if (level == warning_level_error)
         vfatal_token(token, message, args);
+
+    // the libo warning/error code uses these current_line/current_filename
+    // globals. for now we just push and set them. later we should stop using
+    // the libo error handling entirely and do this ourselves (especially when
+    // we get to the point of print nice error messages with context from the
+    // original source.)
+    int old_line = current_line;
+    char* old_filename = current_filename;
     current_line = token->line;
     current_filename = (char*)string_cstr(token->filename);
-    vwarning(message, args);
-    current_filename = NULL;
+
+    char* formatted;
+    if (-1 == vasprintf(&formatted, message, args))
+        fatal("Out of memory.");
     va_end(args);
+
+    const char* arg = warning_args[warning];
+    if (!arg)
+        fatal("Internal error: missing warning string for warning %i", (int)warning);
+    print_warning("%s (-W%s)", formatted, arg);
+
+    free(formatted);
+    current_line = old_line;
+    current_filename = old_filename;
 }
 
 static bool options_parse_dump_ast(const char* arg) {

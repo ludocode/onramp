@@ -8,8 +8,8 @@ int main(void) {
     char buf[128];
     const char* str = "The quick brown fox jumps over the lazy dog.";
 
-    char* to = buf;
-    char* from = str;
+    const char* to = buf;
+    const char* from = str;
     size_t count = (strlen(str) + 1);
 
     // duff's device

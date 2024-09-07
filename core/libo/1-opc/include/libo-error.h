@@ -52,8 +52,8 @@ void fatal(const char* format, ...);
 _Noreturn
 void vfatal(const char* format, va_list args);
 
-void warning(const char* format, ...);
+void print_warning(const char* format, ...);
 
-void vwarning(const char* format, va_list args);
+void vprint_warning(const char* format, va_list args);
 
 #endif

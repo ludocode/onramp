@@ -50,6 +50,7 @@ typedef enum warning_t {
     // incorrect code
     warning_implicit_int,       // -Wimplicit-int
     warning_zero_length_array,  // -Wzero-length-array
+    warning_discarded_qualifiers,  // -Wdiscarded-qualifiers
 
     // probably incorrect code
     warning_initializer_overrides, // -Winitializer-overrides
@@ -62,6 +63,7 @@ typedef enum warning_t {
     warning_gnu_case_range,           // -Wgnu-case-range
 
     warning_count,
+    warning_invalid = -1,
 } warning_t;
 
 void warn(warning_t option, struct token_t* token, const char* message, ...);

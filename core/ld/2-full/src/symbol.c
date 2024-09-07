@@ -198,7 +198,7 @@ void symbols_insert(symbol_t* symbol) {
     if (all_symbols == NULL) {
         // This is the first symbol. Make sure its name is __start.
         if (!string_equal_cstr(symbol->name, "__start")) {
-            warning("The first symbol is not named `__start`!");
+            print_warning("The first symbol is not named `__start`!");
         }
         all_symbols = symbol;
     } else {

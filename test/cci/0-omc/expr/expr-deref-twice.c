@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 int main(void) {
-    char* s = "Hello";
-    char** p = &s;
+    const char* s = "Hello";
+    const char** p = &s;
     putchar(**p);
 }

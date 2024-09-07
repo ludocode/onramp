@@ -1,0 +1,1 @@
+-o $OUTPUT $INPUT -Werror=discarded-qualifiers
