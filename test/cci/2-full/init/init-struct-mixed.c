@@ -20,8 +20,8 @@ int main(void) {
         {5, 6,},
         foo(7, 8),
         9, {10},
-        11, {},
-        {},
+        11, {0},
+        {0},
         15,
     };
     if (q.p[0].x != 1) return 1;
@@ -34,4 +34,10 @@ int main(void) {
     if (q.p[3].y != 8) return 8;
     if (q.p[4].x != 9) return 9;
     if (q.p[4].y != 10) return 10;
+    if (q.p[5].x != 11) return 11;
+    if (q.p[5].y != 0) return 12;
+    if (q.p[6].x != 0) return 13;
+    if (q.p[6].y != 0) return 14;
+    if (q.p[7].x != 15) return 15;
+    if (q.p[7].y != 0) return 16;
 }

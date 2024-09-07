@@ -54,6 +54,7 @@ void set_current_filename(const char* filename) {
 }
 
 static void error_prefix(const char* type) {
+    fflush(stdout);
     fputs(type, stderr);
     if (current_filename != NULL) {
         fputs(" at ", stderr);

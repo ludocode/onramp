@@ -438,17 +438,19 @@ void generate_not_equal(node_t* node, int reg_out) {
  * used to zero out strings in initializers among other things.
  */
 void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc) {
+    size_t size = type_size(type);
+    size_t total = count * size;
     size_t align = type_alignment(type);
 
     // choose a step size
     size_t step;
     size_t steps;
     int store;
-    if (0 == (count & 3) && 0 == (align & 3)) {
+    if (0 == (total & 3) && 0 == (align & 3)) {
         step = 4;
         steps = count >> 2;
         store = STW;
-    } else if (0 == (count & 1) && 0 == (align & 1)) {
+    } else if (0 == (total & 1) && 0 == (align & 1)) {
         step = 2;
         steps = count >> 1;
         store = STS;

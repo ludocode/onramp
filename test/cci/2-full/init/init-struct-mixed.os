@@ -56,17 +56,18 @@
   stw r1 r0 36
   imw r1 11
   stw r1 r0 40
-  imw r1 44
+  imw r1 0
+  stw r1 r0 44
+  imw r1 0
+  stw r1 r0 48
+  imw r1 52
   add r1 r1 r0
-  stb 0 r1 0
-  imw r1 48
-  add r1 r1 r0
-  stb 0 r1 0
+  stw 0 r1 0
   imw r1 15
   stw r1 r0 56
   imw r1 60
   add r1 r1 r0
-  stb 0 r1 0
+  stw 0 r1 0
   add r1 rfp -64
   imw r2 0
   shl r2 r2 3
@@ -232,6 +233,105 @@
   ret
   jmp &_Lx13
 :_Lx13
+  add r1 rfp -64
+  imw r2 5
+  shl r2 r2 3
+  add r1 r1 r2
+  ldw r0 0 r1
+  imw r1 11
+  sub r0 r0 r1
+  bool r0 r0
+  jnz r0 &_Lx14
+  jmp &_Lx15
+:_Lx14
+  imw r0 11
+  leave
+  ret
+  jmp &_Lx15
+:_Lx15
+  add r1 rfp -64
+  imw r2 5
+  shl r2 r2 3
+  add r1 r1 r2
+  add r1 r1 4
+  ldw r0 0 r1
+  imw r1 0
+  sub r0 r0 r1
+  bool r0 r0
+  jnz r0 &_Lx16
+  jmp &_Lx17
+:_Lx16
+  imw r0 12
+  leave
+  ret
+  jmp &_Lx17
+:_Lx17
+  add r1 rfp -64
+  imw r2 6
+  shl r2 r2 3
+  add r1 r1 r2
+  ldw r0 0 r1
+  imw r1 0
+  sub r0 r0 r1
+  bool r0 r0
+  jnz r0 &_Lx18
+  jmp &_Lx19
+:_Lx18
+  imw r0 13
+  leave
+  ret
+  jmp &_Lx19
+:_Lx19
+  add r1 rfp -64
+  imw r2 6
+  shl r2 r2 3
+  add r1 r1 r2
+  add r1 r1 4
+  ldw r0 0 r1
+  imw r1 0
+  sub r0 r0 r1
+  bool r0 r0
+  jnz r0 &_Lx1A
+  jmp &_Lx1B
+:_Lx1A
+  imw r0 14
+  leave
+  ret
+  jmp &_Lx1B
+:_Lx1B
+  add r1 rfp -64
+  imw r2 7
+  shl r2 r2 3
+  add r1 r1 r2
+  ldw r0 0 r1
+  imw r1 15
+  sub r0 r0 r1
+  bool r0 r0
+  jnz r0 &_Lx1C
+  jmp &_Lx1D
+:_Lx1C
+  imw r0 15
+  leave
+  ret
+  jmp &_Lx1D
+:_Lx1D
+  add r1 rfp -64
+  imw r2 7
+  shl r2 r2 3
+  add r1 r1 r2
+  add r1 r1 4
+  ldw r0 0 r1
+  imw r1 0
+  sub r0 r0 r1
+  bool r0 r0
+  jnz r0 &_Lx1E
+  jmp &_Lx1F
+:_Lx1E
+  imw r0 16
+  leave
+  ret
+  jmp &_Lx1F
+:_Lx1F
   zero r0
   leave
   ret

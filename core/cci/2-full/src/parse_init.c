@@ -151,6 +151,7 @@ node_t* parse_initializer_list(type_t* root_type) {
 
 
         type_t* child_type = initializer_child_type(node->type, index);
+        bool is_string_init = false;
 
         if (lexer_is(STR_BRACE_OPEN)) {
             // In the case of a nested brace, we replace the child object
@@ -194,6 +195,7 @@ node_t* parse_initializer_list(type_t* root_type) {
                 if (type_is_array(child_type)) {
                     if (valid_string_array_initializer(child_type, scalar)) {
                         // We're initializing a character array with a string literal.
+                        is_string_init = true;
                         break;
                     }
                     goto walk_down;
@@ -224,6 +226,11 @@ node_t* parse_initializer_list(type_t* root_type) {
                 index = 0;
                 child_type = initializer_child_type(node->type, index);
                 continue;
+            }
+
+            if (!is_string_init) {
+                // Convert functions to function pointers
+                scalar = node_decay(scalar);
             }
 
             // Assign the scalar, replacing any existing initializer in case

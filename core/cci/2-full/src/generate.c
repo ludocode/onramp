@@ -788,7 +788,10 @@ void generate_unary_minus(node_t* node, int reg_out) {
 
 void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
 
-    if (type_is_array(target) && expr->kind == NODE_STRING) {
+    if (type_is_array(target)) {
+        if (expr->kind != NODE_STRING) {
+            fatal("Internal error: Cannot initialize an array with a non-string scalar");
+        }
         int reg_val = register_alloc(expr->token);
         generate_node(expr, reg_val);
 
