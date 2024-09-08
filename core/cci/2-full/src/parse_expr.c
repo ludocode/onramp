@@ -53,6 +53,83 @@ void parse_expr_destroy(void) {
 }
 
 /**
+ * Choose a type for a parsed number.
+ *
+ * This implements the table in C17 6.4.4.1.5 .
+ */
+static base_t parse_number_type(token_t* token, u64_t* number, int base,
+        bool suffix_unsigned, bool suffix_long, bool suffix_long_long)
+{
+    // ull suffix
+    if (suffix_unsigned && suffix_long_long) {
+        return BASE_UNSIGNED_LONG_LONG;
+    }
+
+    // number > INT64_MAX
+    u64_t ref;
+    llong_set_u(&ref, 1);
+    llong_shl(&ref, 63);
+    if (llong_geu(number, &ref)) {
+        if (base == 10 && !suffix_unsigned) {
+            // The spec allows us to upgrade this to an "extended integer
+            // type". We do the same as GCC and Clang: upgrade to unsigned and
+            // warn.
+            warn(warning_implicitly_unsigned_literal, token,
+                    "This base 10 integer literal does not fit in `signed long long` so its type is `unsigned long long`. (Explicit `u` suffix is recommended.)");
+        }
+        return BASE_UNSIGNED_LONG_LONG;
+    }
+
+    // ll suffix
+    if (suffix_long_long) {
+        return BASE_SIGNED_LONG_LONG;
+    }
+
+    // number > UINT32_MAX
+    llong_set_u(&ref, 1);
+    llong_shl(&ref, 32);
+    if (llong_geu(number, &ref)) {
+        return suffix_unsigned ? BASE_UNSIGNED_LONG_LONG : BASE_SIGNED_LONG_LONG;
+    }
+
+    // base-10 signed number > INT32_MAX
+    if (base == 10 && !suffix_unsigned) {
+        llong_set_u(&ref, 1);
+        llong_shl(&ref, 31);
+        if (llong_geu(number, &ref)) {
+            return BASE_SIGNED_LONG_LONG;
+        }
+    }
+
+    // ul suffix
+    if (suffix_unsigned && suffix_long) {
+        return BASE_UNSIGNED_LONG;
+    }
+
+    // non-base-10 number > INT32_MAX
+    if (base != 10) {
+        llong_set_u(&ref, 1);
+        llong_shl(&ref, 31);
+        if (llong_geu(number, &ref)) {
+            return suffix_long ? BASE_UNSIGNED_LONG : BASE_UNSIGNED_INT;
+        }
+    }
+
+    // l suffix
+    if (suffix_long) {
+        return BASE_SIGNED_LONG;
+    }
+
+    // u suffix
+    if (suffix_unsigned) {
+        return BASE_UNSIGNED_INT;
+    }
+
+    // default int
+    return BASE_SIGNED_INT;
+}
+
+/**
  * Parses a number.
  */
 static node_t* parse_number(void) {
@@ -163,6 +240,7 @@ static node_t* parse_number(void) {
                 fatal("`long long long` integer suffix is not supported.");
             }
             if (suffix_long) {
+                suffix_long = false;
                 suffix_long_long = true;
             } else {
                 suffix_long = true;
@@ -190,20 +268,14 @@ static node_t* parse_number(void) {
         fatal("Malformed number literal.");
     }
 
-    // TODO this is not right, type should be at least the size of the suffixes
-    // and otherwise large enough to hold the full number, and type can be
-    // unsigned by default for hex and octal if it doesn't fit in signed. see
-    // the chart in C17 6.4.4.1.5 and see test llong/llong-number.c
-    if (suffix_long_long) {
+    // Choose a type.
+    node->type = type_new_base(parse_number_type(node->token, &value, base,
+            suffix_unsigned, suffix_long, suffix_long_long));
+
+    if (type_is_long_long(node->type)) {
         memcpy(&node->u64, &value, sizeof(node->u64));
-        node->type = type_new_base(suffix_unsigned ? BASE_UNSIGNED_LONG_LONG : BASE_SIGNED_LONG_LONG);
     } else {
-        // TODO check to make sure the number isn't too big
         node->u32 = u64_low(&value);
-        node->type = type_new_base(
-                suffix_long ?
-                    (suffix_unsigned ? BASE_UNSIGNED_LONG : BASE_SIGNED_LONG) :
-                    (suffix_unsigned ? BASE_UNSIGNED_INT : BASE_SIGNED_INT));
     }
     return node;
 

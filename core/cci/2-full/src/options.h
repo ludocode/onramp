@@ -51,6 +51,7 @@ typedef enum warning_t {
     warning_implicit_int,       // -Wimplicit-int
     warning_zero_length_array,  // -Wzero-length-array
     warning_discarded_qualifiers,  // -Wdiscarded-qualifiers
+    warning_implicitly_unsigned_literal, // -Wimplicitly-unsigned-literal
 
     // probably incorrect code
     warning_initializer_overrides, // -Winitializer-overrides
