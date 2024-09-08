@@ -5,22 +5,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-
-// TODO tests currently disabled until cci/2 can compile this
-#ifdef DISABLED
-void __llong_add(unsigned* out, unsigned* a, unsigned* b);
-void __llong_sub(unsigned* out, unsigned* a, unsigned* b);
-void __llong_mul(unsigned* out, unsigned* a, unsigned* b);
-void __llong_divs(unsigned* out, unsigned* a, unsigned* b);
-void __llong_divu(unsigned* out, unsigned* a, unsigned* b);
-bool __llong_ltu(unsigned* a, unsigned* b);
-void __llong_shl(unsigned* out, unsigned* a, int bits);
-void __llong_shru(unsigned* out, unsigned* a, int bits);
-void __llong_shrs(unsigned* out, unsigned* a, int bits);
-void __llong_and(unsigned* out, unsigned* a, unsigned* b);
-void __llong_or(unsigned* out, unsigned* a, unsigned* b);
-void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
-void __llong_bit_not(unsigned* out, unsigned* src);
+#include <__onramp/__arithmetic.h>
 
 static void test_add(void) {
     unsigned long long a = 0x0123456789abcdefULL;
@@ -50,15 +35,19 @@ static void test_mul(void) {
 }
 
 static void test_divs(void) {
+    // TODO
 }
 
 static void test_divu(void) {
+    // TODO
 }
 
 static void test_mods(void) {
+    // TODO
 }
 
 static void test_modu(void) {
+    // TODO
 }
 
 static void test_ltu(void) {
@@ -129,15 +118,15 @@ static void test_shrs(void) {
         }
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 4);
         if (a != 0x34567890abcdef1ULL) {
-            exit(1);
+            exit(2);
         }
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 32);
         if (a != 0x34567890ULL) {
-            exit(1);
+            exit(3);
         }
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 52);
         if (a != 0x345ULL) {
-            exit(1);
+            exit(4);
         }
     }
 
@@ -147,19 +136,19 @@ static void test_shrs(void) {
         unsigned long long b = 0x9abcdef012345678ULL;
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 0);
         if (a != b) {
-            exit(1);
+            exit(5);
         }
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 4);
         if (a != 0xf9abcdef01234567ULL) {
-            exit(1);
+            exit(6);
         }
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 32);
         if (a != 0xffffffff9abcdef0ULL) {
-            exit(1);
+            exit(7);
         }
         __llong_shrs((unsigned*)&a, (unsigned*)&b, 52);
         if (a != 0xfffffffffffff9abULL) {
-            exit(1);
+            exit(8);
         }
     }
 }
@@ -198,12 +187,8 @@ static void test_not(void) {
         exit(1);
     }
 }
-#endif
-
-// printf("%llx\n",a);
 
 int main(void) {
-    #ifdef DISABLED
     test_add();
     test_sub();
     test_mul();
@@ -219,6 +204,4 @@ int main(void) {
     test_or();
     test_xor();
     test_not();
-    return 0;
-    #endif
 }

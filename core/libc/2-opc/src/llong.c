@@ -28,11 +28,16 @@
  * For all functions, the source pointers are allowed to match the destination
  * and each other, but they cannot overlap only partially.
  *
+ * Most functions that take an `out` parameter return the same pointer
+ * afterwards. This makes codegen easier in cci/2.
+ *
  * TODO: Most of this code was written in omC and originally compiled with
  * cci/0 so it avoids array defererencing, `else`, etc. We actually have cci/1
  * and opC available so this code should be cleaned up to look more like modern
  * C.
  */
+
+#include <__onramp/__arithmetic.h>
 
 #include <stdbool.h>
 
@@ -50,7 +55,7 @@
     }
 #endif
 
-void __llong_add(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_add(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
     unsigned b0 = *b;
@@ -62,9 +67,10 @@ void __llong_add(unsigned* out, const unsigned* a, const unsigned* b) {
     }
     *(out) = o0;
     *(out + 1) = o1;
+    return out;
 }
 
-void __llong_sub(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_sub(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
     unsigned b0 = *b;
@@ -76,9 +82,10 @@ void __llong_sub(unsigned* out, const unsigned* a, const unsigned* b) {
     }
     *(out) = o0;
     *(out + 1) = o1;
+    return out;
 }
 
-void __llong_mul(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_mul(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
     unsigned b0 = *b;
@@ -143,22 +150,27 @@ void __llong_mul(unsigned* out, const unsigned* a, const unsigned* b) {
 
     *(out) = o0;
     *(out + 1) = o1;
+    return out;
 }
 
-void __llong_divs(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_divs(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit divide is not yet implemented.");
+    return out;
 }
 
-void __llong_divu(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_divu(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit divide is not yet implemented.");
+    return out;
 }
 
-void __llong_mods(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_mods(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit modulus is not yet implemented.");
+    return out;
 }
 
-void __llong_modu(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_modu(unsigned* out, const unsigned* a, const unsigned* b) {
     __fatal("64-bit modulus is not yet implemented.");
+    return out;
 }
 
 bool __llong_ltu(const unsigned* a, const unsigned* b) {
@@ -174,8 +186,7 @@ bool __llong_ltu(const unsigned* a, const unsigned* b) {
 }
 
 bool __llong_lts(const unsigned* a, const unsigned* b) {
-    int a1 = (int)*(a + 1);
-    int b1 = (int)*(b + 1);
+    int a1 = (int)*(a + 1); int b1 = (int)*(b + 1);
     if (a1 < b1) {
         return true;
     }
@@ -185,17 +196,17 @@ bool __llong_lts(const unsigned* a, const unsigned* b) {
     return *a < *b;
 }
 
-void __llong_shl(unsigned* out, const unsigned* a, int bits) {
+unsigned* __llong_shl(unsigned* out, const unsigned* a, int bits) {
     if (bits >= 32) {
         if (bits == 32) {
             *out = 0;
             *(out + 1) = *a;
-            return;
+            return out;
         }
 
         *out = 0;
         *(out + 1) = (*a << (bits - 32));
-        return;
+        return out;
     }
 
     unsigned a0 = *a;
@@ -204,24 +215,25 @@ void __llong_shl(unsigned* out, const unsigned* a, int bits) {
     if (bits == 0) {
         *out = a0;
         *(out + 1) = a1;
-        return;
+        return out;
     }
 
     *out = (a0 << bits);
     *(out + 1) = ((a1 << bits) | (a0 >> (32 - bits)));
+    return out;
 }
 
-void __llong_shru(unsigned* out, const unsigned* a, int bits) {
+unsigned* __llong_shru(unsigned* out, const unsigned* a, int bits) {
     if (bits >= 32) {
         if (bits == 32) {
             *(out + 1) = 0;
             *out = *(a + 1);
-            return;
+            return out;
         }
 
         *(out + 1) = 0;
         *out = (*(a + 1) >> (bits - 32));
-        return;
+        return out;
     }
 
     unsigned a0 = *a;
@@ -230,59 +242,63 @@ void __llong_shru(unsigned* out, const unsigned* a, int bits) {
     if (bits == 0) {
         *out = a0;
         *(out + 1) = a1;
-        return;
+        return out;
     }
 
     *(out + 1) = (a1 >> bits);
     *out = ((a1 << (32 - bits)) | (a0 >> bits));
+    return out;
 }
 
-void __llong_shrs(int* out, int* a, int bits) {
-    int a0 = *a;
-    int a1 = *(a + 1);
+unsigned* __llong_shrs(unsigned* out, const unsigned* a, int bits) {
+    unsigned a0 = *a;
+    unsigned a1 = *(a + 1);
 
     if (bits < 32) {
         if (bits == 0) {
             *out = a0;
             *(out + 1) = a1;
-            return;
+            return out;
         }
 
-        *(out + 1) = (a1 >> bits);
-        *out = (((unsigned)a1 << (32 - bits)) | ((unsigned)a0 >> bits));
-        return;
+        *(out + 1) = ((signed)a1 >> bits);
+        *out = ((a1 << (32 - bits)) | (a0 >> bits));
+        return out;
     }
 
-    // Rather than trying to figure out the sign, we just shift twice to fill
-    // with the sign bit. This is probably slower than it needs to be.
-    int sign = ((a1 >> 16) >> 16);
+    unsigned sign = -(a1 >> 31);
 
     if (bits == 32) {
         *(out + 1) = sign;
         *out = a1;
-        return;
+        return out;
     }
 
     *(out + 1) = sign;
-    *out = (a1 >> (bits - 32));
+    *out = ((signed)a1 >> (bits - 32));
+    return out;
 }
 
-void __llong_and(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_and(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a & *b);
     *(out + 1) = (*(a + 1) & *(b + 1));
+    return out;
 }
 
-void __llong_or(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_or(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a | *b);
     *(out + 1) = (*(a + 1) | *(b + 1));
+    return out;
 }
 
-void __llong_xor(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_xor(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a ^ *b);
     *(out + 1) = (*(a + 1) ^ *(b + 1));
+    return out;
 }
 
-void __llong_bit_not(unsigned* out, const unsigned* src) {
+unsigned* __llong_bit_not(unsigned* out, const unsigned* src) {
     *out = ~*src;
     *(out + 1) = ~*(src + 1);
+    return out;
 }
