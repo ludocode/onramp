@@ -479,11 +479,14 @@ void lexer_consume(void) {
     // Number
     if (isdigit(c)) {
         // TODO for now we just glob all alphanum characters plus the dot for
-        // floats.
+        // floats and quote for digit separator.
+        // Note that a number is not supposed to end in a digit separator, but
+        // there is no situation where a quote is valid after a number so we
+        // include it in the token and let the number parser detect the error.
         do {
             lexer_buffer_append(c);
             c = lexer_read_char();
-        } while (isalnum(c) || c == '.');
+        } while (isalnum(c) || c == '.' || c == '\'');
         lexer_token = token_new(token_type_number,
                 string_intern_bytes(lexer_buffer, lexer_buffer_length),
                 token_prefix_none, lexer_filename, line, include_token);

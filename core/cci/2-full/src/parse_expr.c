@@ -76,6 +76,7 @@ static node_t* parse_number(void) {
         if (*p == '0') {
             char b = *(p + 1);
             if ((b == 'b') | (b == 'B')) {
+                // TODO binary number literals are C23 only
                 base = 2;
                 p = (p + 2);
             }
@@ -94,10 +95,25 @@ static node_t* parse_number(void) {
         base = 10;
     }
 
+    // an octal constant is allowed to have a digit separator after the 0
+    // prefix. other prefixes are not.
+    if (base != 8 && *p == '\'') {
+        // TODO this should probably be a warning
+        fatal("A digit separator is not allowed between an 0x/0b prefix and the first digit.");
+    }
+
     // accumulate digits
+    bool was_separator;
     u64_t value;
     llong_clear(&value);
     while (1) {
+        if (*p == '\'') {
+            // TODO digit separators are C23 only
+            p = (p + 1);
+            was_separator = true;
+            continue;
+        }
+
         // TODO hex_to_int in libo
         unsigned digit = 99;
         if ((*p >= '0') & (*p <= '9')) {
@@ -112,6 +128,7 @@ static node_t* parse_number(void) {
         if (digit >= base) {
             break;
         }
+        was_separator = false;
 
         // Add the digit, checking for overflow
         u64_t temp;
@@ -127,6 +144,11 @@ static node_t* parse_number(void) {
         llong_set(&value, &temp);
 
         p = (p + 1);
+    }
+
+    if (was_separator) {
+        // TODO this should probably be a warning
+        fatal("A digit separator is not allowed at the end of a number.");
     }
 
     // parse out the suffix

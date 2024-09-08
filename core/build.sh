@@ -94,5 +94,3 @@ sh core/hex/1-c89/build.sh
 # previous stage.
 ## sh core/ar/1-unix/build.sh
 cp build/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
-
-echo Done.

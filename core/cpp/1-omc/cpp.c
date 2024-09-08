@@ -1010,7 +1010,8 @@ static void expand_macro(void** macro) {
 
         /* Emit numbers as-is */
         if (isdigit(c)) {
-            while (isalnum(c)) {
+            // TODO we support digit separators for now, remove once cpp/2 is done
+            while (isalnum(c) || c == '\'') {
                 emit_char(c);
                 i = (i + 1);
                 c = *(expansion + i);
@@ -1109,7 +1110,8 @@ static void preprocess(const char* new_filename, FILE* new_file) {
 
         /* Emit numbers as-is */
         if (isdigit(current_char)) {
-            while (isalnum(current_char)) {
+            // TODO we support digit separators for now, remove once cpp/2 is done
+            while (isalnum(current_char) || current_char == '\'') {
                 emit_char(current_char);
                 next_char();
             }
