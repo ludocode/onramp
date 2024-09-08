@@ -27,7 +27,7 @@ mkdir -p build/intermediate/cc-re
 mkdir -p build/output/bin
 
 echo
-echo === Building cc
+echo === Rebuilding cc
 
 echo Compiling cc
 onrampvm build/intermediate/cc/cc.oe \

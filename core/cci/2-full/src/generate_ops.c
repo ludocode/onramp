@@ -36,12 +36,14 @@
  * Generates an arithmetic or other binary calculation that must be done with a
  * libc function. This is used for long long, float and double.
  *
- * The reg_out register must already contain (or point to) the value for the
- * left node. We only need to generate the right node.
+ * If the return value is 32 bits (i.e. float), it is placed in reg_out. If the
+ * return value is 64 bits, reg_out must contain the address of storage for the
+ * return value.
  */
 static void generate_binary_function(node_t* node, int reg_out, const char* function_name) {
-    size_t size = type_size(node->type);
-    assert(size >= 4); // should already be promoted
+    bool ret_indirect = type_is_passed_indirectly(node->type);
+    bool left_indirect = type_is_passed_indirectly(node->first_child->type);
+    bool right_indirect = type_is_passed_indirectly(node->last_child->type);
 
     // push all registers (except for the return register)
     int last_pushed_register = register_loop_count ? R9 : reg_out;
@@ -51,30 +53,53 @@ static void generate_binary_function(node_t* node, int reg_out, const char* func
         }
     }
 
-    // the left value goes in r0
-    block_append(current_block, node->token, MOV, R0, reg_out);
+    // clear register allocator
+    int old_register_next = register_next;
+    int old_register_loop_count = register_loop_count;
+    register_next = R0;
+    register_loop_count = 0;
 
-    // for 64-bit math, arguments must point to storage space. make room for a
-    // temporary
-    if (size != 4) {
-        assert(size == 8);
-        block_append(current_block, node->token, SUB, RSP, RSP, size);
-        block_append(current_block, node->token, MOV, R1, RSP);
+    // if the return value is indirect, make it the first argument
+    int reg_ret = 0;
+    if (ret_indirect) {
+        reg_ret = register_alloc(node->token);
+        assert(reg_ret == R0);
+        block_append(current_block, node->token, MOV, reg_ret, reg_out);
     }
 
-    // generate right node into r1
-    generate_node(node->last_child, R1);
+    // if args are indirect, we need to make room for temporaries.
+
+    // generate the left arguments
+    int reg_left = register_alloc(node->token);
+    if (left_indirect) {
+        block_append(current_block, node->token, SUB, RSP, RSP, 8);
+        block_append(current_block, node->token, MOV, reg_left, RSP);
+    }
+    generate_node(node->first_child, reg_left);
+
+    // generate the right argument
+    int reg_right = register_alloc(node->token);
+    if (right_indirect) {
+        block_append(current_block, node->token, SUB, RSP, RSP, 8);
+        block_append(current_block, node->token, MOV, reg_right, RSP);
+    }
+    generate_node(node->last_child, reg_right);
 
     // generate function call
-    block_append(current_block, node->token, CALL, '^', function_name);
+    block_append(current_block, node->token, CALL, ARGTYPE_NAME, '^', function_name);
 
-    // move return value into output register
+    // Move return value into output register
     block_append(current_block, node->token, MOV, reg_out, R0);
 
-    // pop stack space used for temporary
-    if (size != 4) {
-        block_append(current_block, node->token, ADD, RSP, RSP, 8);
+    // pop stack space used for temporaries
+    if (left_indirect || right_indirect) {
+        block_append(current_block, node->token, ADD, RSP, RSP,
+                (left_indirect ? 8 : 0) + (right_indirect ? 8 : 0));
     }
+
+    // restore the register allocator (we don't bother to free the argument registers first)
+    register_next = old_register_next;
+    register_loop_count = old_register_loop_count;
 
     // pop registers
     for (int i = last_pushed_register; i-- != R0;) {
@@ -94,15 +119,15 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
     type_t* type = node->type;
 
     const char* function =
-            type_is_long_long(type)              ? "__llong_add" :
-            type_matches_base(type, BASE_FLOAT)  ? "__float_add" :
-            type_matches_base(type, BASE_DOUBLE) ? "__double_add" :
+            type_is_long_long(type)              ? llong_func :
+            type_matches_base(type, BASE_FLOAT)  ? float_func :
+            type_matches_base(type, BASE_DOUBLE) ? double_func :
             NULL;
 
-    generate_node(node->first_child, reg_left);
     if (function) {
         generate_binary_function(node, reg_left, function);
     } else {
+        generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, opcode, reg_left, reg_left, reg_right);
@@ -242,15 +267,15 @@ void generate_shr(node_t* node, int reg_out) {
 }
 
 void generate_bit_or(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, OR, "__llong_bit_or", NULL, NULL);
+    generate_simple_arithmetic(node, reg_out, OR, "__llong_or", NULL, NULL);
 }
 
 void generate_bit_and(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, AND, "__llong_bit_and", NULL, NULL);
+    generate_simple_arithmetic(node, reg_out, AND, "__llong_and", NULL, NULL);
 }
 
 void generate_bit_xor(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, XOR, "__llong_bit_xor", NULL, NULL);
+    generate_simple_arithmetic(node, reg_out, XOR, "__llong_xor", NULL, NULL);
 }
 
 void generate_bit_not(node_t* node, int reg_out) {

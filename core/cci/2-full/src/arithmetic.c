@@ -24,25 +24,11 @@
 
 #include "arithmetic.h"
 
-#include "common.h"
-
 #ifndef ONRAMP_U64_NATIVE
-// libc/2 functions
-extern void __llong_add(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_sub(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_mul(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_divs(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_divu(unsigned* out, unsigned* a, unsigned* b);
-extern bool __llong_ltu(unsigned* a, unsigned* b);
-extern bool __llong_lts(unsigned* a, unsigned* b);
-extern void __llong_shl(unsigned* out, unsigned* a, int bits);
-extern void __llong_shru(unsigned* out, unsigned* a, int bits);
-extern void __llong_shrs(unsigned* out, unsigned* a, int bits);
-extern void __llong_and(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_or(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_xor(unsigned* out, unsigned* a, unsigned* b);
-extern void __llong_bit_not(unsigned* out, unsigned* src);
+#include <__onramp/__arithmetic.h>
 #endif
+
+#include "common.h"
 
 void llong_clear(u64_t* llong) {
     #ifdef ONRAMP_U64_NATIVE

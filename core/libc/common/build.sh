@@ -31,6 +31,7 @@ set -e
 mkdir -p build/output/include/__onramp
 mkdir -p build/output/include/sys
 
+cp core/libc/common/include/__onramp/__arithmetic.h build/output/include/__onramp/__arithmetic.h
 cp core/libc/common/include/__onramp/__bool.h build/output/include/__onramp/__bool.h
 cp core/libc/common/include/__onramp/__mode_t.h build/output/include/__onramp/__mode_t.h
 cp core/libc/common/include/__onramp/__null.h build/output/include/__onramp/__null.h
