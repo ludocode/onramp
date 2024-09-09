@@ -271,33 +271,33 @@ void llong_shrs(u64_t* llong, int bits) {
     #endif
 }
 
-void llong_and(u64_t* llong, const u64_t* other) {
+void llong_bit_and(u64_t* llong, const u64_t* other) {
     #ifdef ONRAMP_U64_NATIVE
     llong->value &= other->value;
     #endif
 
     #ifndef ONRAMP_U64_NATIVE
-    __llong_and(llong->words, llong->words, other->words);
+    __llong_bit_and(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_or(u64_t* llong, const u64_t* other) {
+void llong_bit_or(u64_t* llong, const u64_t* other) {
     #ifdef ONRAMP_U64_NATIVE
     llong->value |= other->value;
     #endif
 
     #ifndef ONRAMP_U64_NATIVE
-    __llong_or(llong->words, llong->words, other->words);
+    __llong_bit_or(llong->words, llong->words, other->words);
     #endif
 }
 
-void llong_xor(u64_t* llong, const u64_t* other) {
+void llong_bit_xor(u64_t* llong, const u64_t* other) {
     #ifdef ONRAMP_U64_NATIVE
     llong->value ^= other->value;
     #endif
 
     #ifndef ONRAMP_U64_NATIVE
-    __llong_xor(llong->words, llong->words, other->words);
+    __llong_bit_xor(llong->words, llong->words, other->words);
     #endif
 }
 

@@ -93,9 +93,9 @@ void llong_mods(u64_t* llong, const u64_t* other);
 void llong_shl(u64_t* llong, int bits);
 void llong_shru(u64_t* llong, int bits);
 void llong_shrs(u64_t* llong, int bits);
-void llong_and(u64_t* llong, const u64_t* other);
-void llong_or(u64_t* llong, const u64_t* other);
-void llong_xor(u64_t* llong, const u64_t* other);
+void llong_bit_and(u64_t* llong, const u64_t* other);
+void llong_bit_or(u64_t* llong, const u64_t* other);
+void llong_bit_xor(u64_t* llong, const u64_t* other);
 void llong_bit_not(u64_t* llong);
 void llong_negate(u64_t* llong);
 

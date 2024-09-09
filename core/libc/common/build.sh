@@ -52,6 +52,7 @@ cp core/libc/common/include/setjmp.h build/output/include/setjmp.h
 cp core/libc/common/include/spawn.h build/output/include/spawn.h
 cp core/libc/common/include/stdalign.h build/output/include/stdalign.h
 cp core/libc/common/include/stdarg.h build/output/include/stdarg.h
+cp core/libc/common/include/stdbit.h build/output/include/stdbit.h
 cp core/libc/common/include/stdbool.h build/output/include/stdbool.h
 cp core/libc/common/include/stddef.h build/output/include/stddef.h
 cp core/libc/common/include/stdint.h build/output/include/stdint.h

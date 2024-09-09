@@ -5,7 +5,20 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <__onramp/__arithmetic.h>
+#include <stdio.h>
+
+#ifdef __onramp__
+    #include <__onramp/__arithmetic.h>
+#endif
+#ifndef __onramp__
+    // this test case can be compiled standalone with a native C compiler or onrampcc:
+    // gcc -DTEST_DIV_LOOP -Wall -Wextra -Wpedantic -fsanitize=address -g test/test_llong.c -o /tmp/a && /tmp/a
+    #include "../../../../core/libc/2-opc/src/llong.c"
+    #include <time.h>
+#endif
+
+void __llong_divmodu(unsigned* quotient_out, unsigned* /*nullable*/ remainder_out,
+        const unsigned* dividend, const unsigned* divisor);
 
 static void test_add(void) {
     unsigned long long a = 0x0123456789abcdefULL;
@@ -159,40 +172,113 @@ static void test_shrs(void) {
     }
 }
 
-static void test_and(void) {
+static void test_bit_and(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     unsigned long long b = 0x9abcdef012345678ULL;
-    __llong_and((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    __llong_bit_and((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
     if (a != 0x1014589002044610ULL) {
         exit(1);
     }
 }
 
-static void test_or(void) {
+static void test_bit_or(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     unsigned long long b = 0x9abcdef012345678ULL;
-    __llong_or((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    __llong_bit_or((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
     if (a != 0xbefefef0bbfdff7aULL) {
         exit(1);
     }
 }
 
-static void test_xor(void) {
+static void test_bit_xor(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     unsigned long long b = 0x9abcdef012345678ULL;
-    __llong_xor((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    __llong_bit_xor((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
     if (a != 0xaeeaa660b9f9b96aULL) {
         exit(1);
     }
 }
 
-static void test_not(void) {
+static void test_bit_not(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     __llong_bit_not((unsigned*)&a, (unsigned*)&a);
     if (a != 0xcba9876f543210edULL) {
         exit(1);
     }
 }
+
+#ifdef TEST_DIV_LOOP
+static unsigned long long random_number(unsigned digits) {
+    unsigned long long ret = 0;
+    for (unsigned i = 0; i < digits; ++i) {
+        ret <<= 16;
+        ret |= (((unsigned)rand() & 0xff) << 8) | ((unsigned)rand() & 0xff);
+    }
+    return ret;
+}
+
+static void test_div_loop(void) {
+    #ifdef __onramp__
+    // TODO onramp doesn't have time() yet
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f) {
+        unsigned x;
+        (void)fread(&x, 1, sizeof(x), f);
+        (void)fclose(f);
+        srand(x);
+    }
+    #else
+    srand(time(NULL));
+    #endif
+
+    // test short
+    for (size_t i = 0;; ++i) {
+if (i != 0 && (i % 100000) == 0) printf("testing long long division: %zi...\n",i);
+        unsigned long long dividend = random_number(1+rand()%4);
+        unsigned long long divisor = random_number(1+rand()%4);
+//divisor|=0x8000000000000000ull;
+        if (divisor == 0)
+            continue;
+//dividend = 15514892400080185975u;
+//divisor =  981662014;
+
+        /*
+        printf("__llong_divmodu() testing:\n");
+        printf("    dividend: %llu\n", dividend);
+        printf("    divisor: %llu\n", divisor);
+        fflush(stdout);
+        */
+
+        unsigned long long quotient, remainder;
+        __llong_divmodu(
+                (unsigned*)&quotient,
+                (unsigned*)&remainder,
+                (unsigned*)&dividend,
+                (unsigned*)&divisor);
+
+        #ifdef __onramp__
+        long long expected_remainder = (long long)(dividend - quotient * divisor);
+        if (expected_remainder < 0 || expected_remainder >= divisor)
+        #else
+        if (quotient != dividend / divisor || remainder != dividend % divisor)
+        #endif
+        {
+            printf("__llong_divmodu() FAILED:\n");
+            printf("    dividend: %llu\n", dividend);
+            printf("    divisor: %llu\n", divisor);
+            #ifndef __onramp__
+            printf("    expected quotient: %llu\n", dividend / divisor);
+            printf("    expected remainder: %llu\n", dividend % divisor);
+            #endif
+            printf("    incorrect quotient: %llu\n", quotient);
+            printf("    incorrect remainder: %llu\n", remainder);
+            exit(1);
+        }
+//break;
+    }
+
+}
+#endif
 
 int main(void) {
     test_add();
@@ -206,8 +292,12 @@ int main(void) {
     test_shl();
     test_shru();
     test_shrs();
-    test_and();
-    test_or();
-    test_xor();
-    test_not();
+    test_bit_and();
+    test_bit_or();
+    test_bit_xor();
+    test_bit_not();
+
+    #ifdef TEST_DIV_LOOP
+    test_div_loop();
+    #endif
 }
