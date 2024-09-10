@@ -40,16 +40,19 @@
  * return value is 64 bits, reg_out must contain the address of storage for the
  * return value.
  */
-static void generate_binary_function(node_t* node, int reg_out, const char* function_name) {
-    bool ret_indirect = type_is_passed_indirectly(node->type);
-    bool left_indirect = type_is_passed_indirectly(node->first_child->type);
-    bool right_indirect = type_is_passed_indirectly(node->last_child->type);
+static void generate_arithmetic_function(node_t* parent,
+        node_t* first, node_t* /*nullable*/ second,
+        int reg_out, const char* function_name)
+{
+    bool ret_indirect = type_is_passed_indirectly(parent->type);
+    bool left_indirect = type_is_passed_indirectly(first->type);
+    bool right_indirect = second ? type_is_passed_indirectly(second->type) : false;
 
     // push all registers (except for the return register)
     int last_pushed_register = register_loop_count ? R9 : reg_out;
     for (int i = R0; i != last_pushed_register; ++i) {
         if (i != reg_out) {
-            block_append(current_block, node->token, PUSH, i);
+            block_append(current_block, parent->token, PUSH, i);
         }
     }
 
@@ -62,38 +65,41 @@ static void generate_binary_function(node_t* node, int reg_out, const char* func
     // if the return value is indirect, make it the first argument
     int reg_ret = 0;
     if (ret_indirect) {
-        reg_ret = register_alloc(node->token);
+        reg_ret = register_alloc(parent->token);
         assert(reg_ret == R0);
-        block_append(current_block, node->token, MOV, reg_ret, reg_out);
+        block_append(current_block, parent->token, MOV, reg_ret, reg_out);
     }
 
     // if args are indirect, we need to make room for temporaries.
 
     // generate the left arguments
-    int reg_left = register_alloc(node->token);
+    int reg_left = register_alloc(parent->token);
     if (left_indirect) {
-        block_append(current_block, node->token, SUB, RSP, RSP, 8);
-        block_append(current_block, node->token, MOV, reg_left, RSP);
+        block_append(current_block, parent->token, SUB, RSP, RSP, 8);
+        block_append(current_block, parent->token, MOV, reg_left, RSP);
     }
-    generate_node(node->first_child, reg_left);
+    generate_node(first, reg_left);
 
     // generate the right argument
-    int reg_right = register_alloc(node->token);
-    if (right_indirect) {
-        block_append(current_block, node->token, SUB, RSP, RSP, 8);
-        block_append(current_block, node->token, MOV, reg_right, RSP);
+    int reg_right;
+    if (second) {
+        reg_right = register_alloc(parent->token);
+        if (right_indirect) {
+            block_append(current_block, parent->token, SUB, RSP, RSP, 8);
+            block_append(current_block, parent->token, MOV, reg_right, RSP);
+        }
+        generate_node(second, reg_right);
     }
-    generate_node(node->last_child, reg_right);
 
     // generate function call
-    block_append(current_block, node->token, CALL, ARGTYPE_NAME, '^', function_name);
+    block_append(current_block, parent->token, CALL, ARGTYPE_NAME, '^', function_name);
 
     // Move return value into output register
-    block_append(current_block, node->token, MOV, reg_out, R0);
+    block_append(current_block, parent->token, MOV, reg_out, R0);
 
     // pop stack space used for temporaries
     if (left_indirect || right_indirect) {
-        block_append(current_block, node->token, ADD, RSP, RSP,
+        block_append(current_block, parent->token, ADD, RSP, RSP,
                 (left_indirect ? 8 : 0) + (right_indirect ? 8 : 0));
     }
 
@@ -104,7 +110,7 @@ static void generate_binary_function(node_t* node, int reg_out, const char* func
     // pop registers
     for (int i = last_pushed_register; i-- != R0;) {
         if (i != reg_out) {
-            block_append(current_block, node->token, POP, i);
+            block_append(current_block, parent->token, POP, i);
         }
     }
 }
@@ -125,7 +131,7 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
             NULL;
 
     if (function) {
-        generate_binary_function(node, reg_left, function);
+        generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, function);
     } else {
         generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
@@ -280,12 +286,24 @@ void generate_bit_xor(node_t* node, int reg_out) {
 
 void generate_bit_not(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
-    if (type_size(node->first_child->type) > 4) {
-        fatal("TODO bit not llong");
-    }
 
-    // The type was already promoted by the parser.
-    block_append(current_block, node->token, NOT, reg_out, reg_out);
+    type_t* type = node->type;
+    if (type_is_long_long(type)) {
+        int reg_temp = register_alloc(node->token);
+        block_append(current_block, node->token, LDW, reg_temp, reg_out, 0);
+        block_append(current_block, node->token, NOT, reg_temp, reg_temp);
+        block_append(current_block, node->token, STW, reg_temp, reg_out, 0);
+        block_append(current_block, node->token, LDW, reg_temp, reg_out, 4);
+        block_append(current_block, node->token, NOT, reg_temp, reg_temp);
+        block_append(current_block, node->token, STW, reg_temp, reg_out, 4);
+        register_free(node->token, reg_temp);
+    } else if (type_matches_base(type, BASE_FLOAT)) {
+        fatal("Internal error: Cannot use 'bitwise not' on a float");
+    } else if (type_matches_base(type, BASE_DOUBLE) || type_matches_base(type, BASE_LONG_DOUBLE)) {
+        fatal("Internal error: Cannot use 'bitwise not' on a double");
+    } else {
+        block_append(current_block, node->token, NOT, reg_out, reg_out);
+    }
 }
 
 void generate_logical_not(node_t* node, int reg_out) {
@@ -300,22 +318,39 @@ void generate_logical_not(node_t* node, int reg_out) {
             type_matches_base(source_type, BASE_LONG_DOUBLE)) {
         fatal_token(node->token, "TODO logical not float/double");
     }
+
     if (!type_is_integer(source_type) && !type_is_pointer(source_type)) {
         fatal_token(node->token, "Internal error: unrecognized type for logical not");
     }
-    if (type_size(source_type) > 4) {
-        fatal_token(node->token, "TODO logical not llong");
+
+    if (type_is_long_long(source_type)) {
+
+        // generate the value
+        block_append(current_block, node->token, SUB, RSP, RSP, 8);
+        block_append(current_block, node->token, MOV, reg_out, RSP);
+        generate_node(node->first_child, reg_out);
+
+        // or the bytes together
+        int reg_temp = register_alloc(node->token);
+        block_append(current_block, node->token, LDW, reg_temp, reg_out, 0);
+        block_append(current_block, node->token, LDW, reg_out, reg_out, 4);
+        block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
+        register_free(node->token, reg_temp);
+        block_append(current_block, node->token, ADD, RSP, RSP, 8);
+
+    } else {
+        generate_node(node->first_child, reg_out);
+
+        // it's an integer. expand it to register size.
+        // TODO is this necessary? don't we put in a promotion cast on the argument?
+        if (type_size(source_type) == 1) {
+            block_append(current_block, node->token, TRB, reg_out, reg_out);
+        } else if (type_size(source_type) == 2) {
+            block_append(current_block, node->token, TRS, reg_out, reg_out);
+        }
     }
 
-    generate_node(node->first_child, reg_out);
-
-    // it's an integer. expand it to register size.
-    if (type_size(source_type) == 1) {
-        block_append(current_block, node->token, TRB, reg_out, reg_out);
-    } else if (type_size(source_type) == 2) {
-        block_append(current_block, node->token, TRS, reg_out, reg_out);
-    }
-
+    // Apply isz (is zero) to the value. This is the logical not instruction.
     block_append(current_block, node->token, ISZ, reg_out, reg_out);
 }
 
@@ -351,13 +386,9 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
         // TODO
         fatal("TODO generate_less_impl() long long");
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        // TODO pass left/right
-        //generate_binary_function(node, reg_left, "__float_lt");
-        fatal("TODO generate_less_impl() float");
+        generate_arithmetic_function(node, left, right, reg_left, "__float_lt");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        // TODO pass left/right
-        //generate_binary_function(node, reg_left, "__double_lt");
-        fatal("TODO generate_less_impl() double");
+        generate_arithmetic_function(node, left, right, reg_left, "__double_lt");
     } else {
         generate_node(left, reg_left);
         int reg_right = register_alloc(node->token);
@@ -428,9 +459,9 @@ static void generate_equality(node_t* node, int reg_left) {
         block_append(current_block, node->token, ADD, RSP, RSP, 16);
 
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        generate_binary_function(node, reg_left, "__float_ne");
+        generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__float_ne");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        generate_binary_function(node, reg_left, "__double_ne");
+        generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__double_ne");
     } else {
         generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
@@ -801,4 +832,38 @@ void generate_post_inc(node_t* node, int reg_out) {
 
 void generate_post_dec(node_t* node, int reg_out) {
     generate_post_inc_dec(node, reg_out, false);
+}
+
+void generate_unary_plus(node_t* node, int reg_out) {
+    // We don't need to do anything besides generate. Probably unary plus
+    // should be an implicit cast, but we should actually insert this cast into
+    // the tree, not do it in codegen.
+    generate_node(node->first_child, reg_out);
+}
+
+void generate_unary_minus(node_t* node, int reg_out) {
+    type_t* type = node->type;
+
+    char* func;
+    if (type_is_long_long(type)) {
+        // TODO we could probably do this one inline pretty easily, just use
+        // ltu to get borrow bit
+        func = "__llong_negate";
+    } else if (type_matches_base(type, BASE_FLOAT)) {
+        // TODO this could be done inline, just flip sign bit (maybe? or do we
+        // need to signal on negating a NaN?)
+        func = "__float_negate";
+    } else if (type_matches_base(type, BASE_DOUBLE)) {
+        // TODO this could be done inline, or not, same as float
+        func = "__double_negate";
+    } else {
+        func = NULL;
+    }
+
+    if (func) {
+        generate_arithmetic_function(node, node->first_child, NULL, reg_out, func);
+    } else {
+        generate_node(node->first_child, reg_out);
+        block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
+    }
 }

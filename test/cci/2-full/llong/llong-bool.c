@@ -3,7 +3,7 @@
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
-    long long x = 0x100000000;
+    long long x = 0x100000000ll;
 
     // the low word is zero
     if ((int)x != 0) return 1;

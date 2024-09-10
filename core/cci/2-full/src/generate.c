@@ -771,21 +771,6 @@ void generate_cast(node_t* node, int reg_out) {
     }
 }
 
-void generate_unary_plus(node_t* node, int reg_out) {
-    // We don't need to do anything besides generate. Probably unary plus
-    // should be an implicit cast, but we should actually insert this cast into
-    // the tree, not do it in codegen.
-    generate_node(node->first_child, reg_out);
-}
-
-void generate_unary_minus(node_t* node, int reg_out) {
-    generate_node(node->first_child, reg_out);
-    if (type_size(node->type) > 4) {
-        fatal("TODO codegen negate long long, float, etc.");
-    }
-    block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
-}
-
 void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
 
     if (type_is_array(target)) {

@@ -302,3 +302,10 @@ unsigned* __llong_bit_not(unsigned* out, const unsigned* src) {
     *(out + 1) = ~*(src + 1);
     return out;
 }
+
+unsigned* __llong_negate(unsigned* out, const unsigned* src) {
+    unsigned zero[2];
+    zero[0] = 0;
+    zero[1] = 0;
+    return __llong_sub(out, zero, src);
+}

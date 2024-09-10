@@ -306,9 +306,8 @@ bool node_is_location(node_t* node);
 node_t* node_promote(node_t* node);
 
 /**
- * Ensures this node is usable as a conditional expression and casts it down to
- * register size if necessary so it can be used as the predicate of a
- * conditional jump.
+ * Ensures this node is usable as a conditional expression and casts it to
+ * bool.
  */
 node_t* node_make_predicate(node_t* node);
 

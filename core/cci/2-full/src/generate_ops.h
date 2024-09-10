@@ -117,4 +117,7 @@ void generate_post_dec(struct node_t* node, int reg_out);
  */
 void generate_pointer_add_sub(struct node_t* node, int reg_out);
 
+void generate_unary_plus(struct node_t* node, int reg_out);
+void generate_unary_minus(struct node_t* node, int reg_out);
+
 #endif

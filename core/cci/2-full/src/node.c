@@ -565,9 +565,8 @@ node_t* node_promote(node_t* node) {
 node_t* node_make_predicate(node_t* node) {
     type_t* type = node->type;
 
-    // TODO get rid of all of this, use node_cast(BOOL)
-
     // make sure the value is a valid predicate
+    // (the below bool cast also does these checks; this just gives a nicer error message)
     if (type_is_base(type)) {
         if (type->base == BASE_RECORD) {
             fatal_token(node->token, "Cannot use a struct or union value as a conditional expression.");
@@ -578,23 +577,21 @@ node_t* node_make_predicate(node_t* node) {
         }
     }
 
-    // down-cast it to register size if necessary
-    type_t* signed_int = type_new_base(BASE_SIGNED_INT);
-    node = node_cast(node, signed_int, NULL);
-    type_deref(signed_int);
-    /*
-    if (type_size(type) > 4) {
-        // TODO need a cast function that makes sure casting is possible.
-        // probably just call it node_cast(). then we wouldn't need to do the
-        // above checks
-        node_t* cast = node_new(NODE_CAST);
-        cast->type = type_new_base(BASE_SIGNED_INT);
-        node_append(cast, node);
-        node = cast;
+    if (type_matches_base(type, BASE_FLOAT) ||
+            type_matches_base(type, BASE_DOUBLE) ||
+            type_matches_base(type, BASE_LONG_DOUBLE)) {
+        fatal_token(node->token, "TODO node_make_predicate() float/double");
     }
-    */
 
-    return node;
+    // Down-cast to register size if necessary. If it's long long we need to do
+    // a bool cast to not truncate the upper bits.
+    if (type_is_long_long(type)) {
+        return node_cast_base(node, BASE_BOOL, NULL);
+    }
+
+    // Otherwise we can skip the bool cast but we still need to zero the upper
+    // bits because it's going to be the argument to a jz/jnz instruction.
+    return node_cast_base(node, BASE_UNSIGNED_INT, NULL);
 }
 
 size_t node_child_count(node_t* node) {
