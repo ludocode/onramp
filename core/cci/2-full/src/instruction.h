@@ -80,8 +80,8 @@ typedef enum opcode_t {
     // control
     //IMS, // TODO probably can remove this, we never generate it
     IMW,
-    CMPU,
-    CMPS,
+    LTU,
+    LTS,
     JZ,
     JNZ,
     JL,

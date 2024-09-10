@@ -51,7 +51,7 @@ unsigned* __llong_xor(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __llong_bit_not(unsigned* out, const unsigned* src);
 _Bool __llong_ltu(const unsigned* a, const unsigned* b);
 _Bool __llong_lts(const unsigned* a, const unsigned* b);
-_Bool __llong_neq(const unsigned* a, const unsigned* b);
+_Bool __llong_ne(const unsigned* a, const unsigned* b);
 
 unsigned __float_add(unsigned a, unsigned b);
 unsigned __float_sub(unsigned a, unsigned b);
@@ -60,8 +60,8 @@ unsigned __float_divu(unsigned a, unsigned b);
 unsigned __float_divs(unsigned a, unsigned b);
 unsigned __float_modu(unsigned a, unsigned b);
 unsigned __float_mods(unsigned a, unsigned b);
-_Bool __float_ltu(unsigned a, unsigned b);
-_Bool __float_lts(unsigned a, unsigned b);
+_Bool __float_lt(unsigned a, unsigned b);
+_Bool __float_ne(unsigned a, unsigned b);
 
 unsigned* __double_add(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_sub(unsigned* out, const unsigned* a, const unsigned* b);
@@ -70,7 +70,7 @@ unsigned* __double_divu(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_divs(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_modu(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_mods(unsigned* out, const unsigned* a, const unsigned* b);
-_Bool __double_ltu(const unsigned* a, const unsigned* b);
-_Bool __double_lts(const unsigned* a, const unsigned* b);
+_Bool __double_lt(const unsigned* a, const unsigned* b);
+_Bool __double_ne(const unsigned* a, const unsigned* b);
 
 #endif

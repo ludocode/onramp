@@ -80,8 +80,8 @@ static const char* opcode_to_string(opcode_t opcode) {
 
         // control
         case IMW: return "imw";
-        case CMPU: return "cmpu";
-        case CMPS: return "cmps";
+        case LTU: return "ltu";
+        case LTS: return "lts";
         case JZ: return "jz";
         case JNZ: return "jnz";
         case JL: return "jl";
@@ -148,8 +148,8 @@ void instruction_vset(instruction_t* instruction, token_t* token,
         case STW:
         case STS:
         case STB:
-        case CMPU:
-        case CMPS:
+        case LTU:
+        case LTS:
         case SYS:
             // TODO might be a bug in cci1 here, check it
             instruction->arg1 = (int8_t)va_arg(args, int);
@@ -292,8 +292,8 @@ void instruction_emit(instruction_t* instruction) {
         case STW:
         case STS:
         case STB:
-        case CMPU:
-        case CMPS:
+        case LTU:
+        case LTS:
         case SYS:
             emit_arg_mix(instruction->arg1);
             emit_arg_mix(instruction->arg2);

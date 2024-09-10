@@ -46,9 +46,8 @@
   call ^strcmp
   mov r1 r0
   pop r0
-  cmps r0 r0 r1
-  cmpu r0 r0 -1
-  and r0 r0 1
+  lts r0 r0 r1
+  sub r0 1 r0
   jnz r0 &_Lx2
   jmp &_Lx3
 :_Lx2
@@ -57,18 +56,15 @@
   ret
   jmp &_Lx3
 :_Lx3
-  imw r0 0
-  push r0
   imw r0 ^_Sx4
   add r0 rpp r0
   imw r1 ^_Sx5
   add r1 rpp r1
   call ^strcmp
-  mov r1 r0
-  pop r0
-  cmps r0 r0 r1
-  cmpu r0 r0 1
-  and r0 r0 1
+  mov r0 r0
+  imw r1 0
+  lts r0 r0 r1
+  sub r0 1 r0
   jnz r0 &_Lx4
   jmp &_Lx5
 :_Lx4

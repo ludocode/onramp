@@ -340,58 +340,51 @@ void generate_logical_and(node_t* node, int reg_out) {
 
 
 
-
 /**
- * Generates an ordered comparison.
+ * Generates (left < right).
  */
-static void generate_ordering(node_t* node, int reg_left) {
-    int reg_right = register_alloc(node->token);
-    type_t* type = node->first_child->type;
+static void generate_less_impl(node_t* node, node_t* left, node_t* right, int reg_left) {
+    assert(type_equal(left->type, right->type));
+    type_t* type = left->type;
 
-    const char* function =
-            type_matches_base(type, BASE_SIGNED_LONG_LONG)    ? "__llong_cmps" :
-            type_matches_base(type, BASE_UNSIGNED_LONG_LONG)  ? "__llong_cmpu" :
-            type_matches_base(type, BASE_FLOAT)               ? "__float_cmp" :
-            type_matches_base(type, BASE_DOUBLE)              ? "__double_cmp" :
-            NULL;
-
-    generate_node(node->first_child, reg_left);
-    if (function) {
-        generate_binary_function(node, reg_left, function);
+    if (type_is_long_long(type)) {
+        // TODO
+        fatal("TODO generate_less_impl() long long");
+    } else if (type_matches_base(type, BASE_FLOAT)) {
+        // TODO pass left/right
+        //generate_binary_function(node, reg_left, "__float_lt");
+        fatal("TODO generate_less_impl() float");
+    } else if (type_matches_base(type, BASE_DOUBLE)) {
+        // TODO pass left/right
+        //generate_binary_function(node, reg_left, "__double_lt");
+        fatal("TODO generate_less_impl() double");
     } else {
-        generate_node(node->last_child, reg_right);
+        generate_node(left, reg_left);
+        int reg_right = register_alloc(node->token);
+        generate_node(right, reg_right);
         block_append(current_block, node->token,
-                type_matches_base(type, BASE_SIGNED_INT) ? CMPS : CMPU,
+                type_matches_base(type, BASE_SIGNED_INT) ? LTS : LTU,
                 reg_left, reg_left, reg_right);
+        register_free(node->token, reg_right);
     }
-
-    register_free(node->token, reg_right);
 }
 
 void generate_less(node_t* node, int reg_out) {
-    generate_ordering(node, reg_out);
-    block_append(current_block, node->token, CMPU, reg_out, reg_out, -1);
-    block_append(current_block, node->token, ADD, reg_out, reg_out, 1);
-    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
+    generate_less_impl(node, node->first_child, node->last_child, reg_out);
 }
 
 void generate_greater(node_t* node, int reg_out) {
-    generate_ordering(node, reg_out);
-    block_append(current_block, node->token, CMPU, reg_out, reg_out, 1);
-    block_append(current_block, node->token, ADD, reg_out, reg_out, 1);
-    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
+    generate_less_impl(node, node->last_child, node->first_child, reg_out);
 }
 
 void generate_less_or_equal(node_t* node, int reg_out) {
-    generate_ordering(node, reg_out);
-    block_append(current_block, node->token, CMPU, reg_out, reg_out, 1);
-    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
+    generate_less_impl(node, node->last_child, node->first_child, reg_out);
+    block_append(current_block, node->token, SUB, reg_out, 1, reg_out);
 }
 
 void generate_greater_or_equal(node_t* node, int reg_out) {
-    generate_ordering(node, reg_out);
-    block_append(current_block, node->token, CMPU, reg_out, reg_out, -1);
-    block_append(current_block, node->token, AND, reg_out, reg_out, 1);
+    generate_less_impl(node, node->first_child, node->last_child, reg_out);
+    block_append(current_block, node->token, SUB, reg_out, 1, reg_out);
 }
 
 /**
@@ -434,8 +427,10 @@ static void generate_equality(node_t* node, int reg_left) {
         register_free(node->token, reg_right);
         block_append(current_block, node->token, ADD, RSP, RSP, 16);
 
+    } else if (type_matches_base(type, BASE_FLOAT)) {
+        generate_binary_function(node, reg_left, "__float_ne");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        generate_binary_function(node, reg_left, "__double_neq");
+        generate_binary_function(node, reg_left, "__double_ne");
     } else {
         generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
