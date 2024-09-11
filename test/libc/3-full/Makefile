@@ -83,8 +83,6 @@ OBJS_ALL=\
 		$(OBJS3)
 
 # Arguments for Onramp compiler
-# TODO figure out a better place to put internal.h. For now we're including
-# libc/2 src/ to access it. Same problem in build-ccargs
 CCARGS=\
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \

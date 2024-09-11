@@ -383,8 +383,49 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
     type_t* type = left->type;
 
     if (type_is_long_long(type)) {
-        // TODO
-        fatal("TODO generate_less_impl() long long");
+        opcode_t opcode = type_is_signed_integer(type) ? LTS : LTU;
+
+        // This is similar to generate_equality() below. We do the comparison
+        // inline without a function call. This might be a bad idea; maybe it
+        // would be simpler or shorter to move this to a function.
+
+        // make stack space for both llongs
+        block_append(current_block, node->token, SUB, RSP, RSP, 16);
+
+        // generate left
+        block_append(current_block, node->token, MOV, reg_left, RSP);
+        generate_node(left, reg_left);
+
+        // generate right
+        int reg_right = register_alloc(node->token);
+        block_append(current_block, node->token, ADD, reg_right, RSP, 8);
+        generate_node(right, reg_right);
+
+        // compare the low bytes in reg_left
+        int reg_temp1 = register_alloc(node->token);
+        block_append(current_block, node->token, LDW, reg_left, RSP, 0);
+        block_append(current_block, node->token, LDW, reg_temp1, RSP, 8);
+        block_append(current_block, node->token, opcode, reg_left, reg_left, reg_temp1);
+
+        // keep it only if the top bytes match
+        int reg_temp2 = register_alloc(node->token);
+        block_append(current_block, node->token, LDW, reg_right, RSP, 4);
+        block_append(current_block, node->token, LDW, reg_temp2, RSP, 12);
+        block_append(current_block, node->token, SUB, reg_temp1, reg_right, reg_temp2);
+        block_append(current_block, node->token, ISZ, reg_temp1, reg_temp1);
+        block_append(current_block, node->token, AND, reg_left, reg_left, reg_temp1);
+
+        // compare the high bytes in reg_right
+        block_append(current_block, node->token, opcode, reg_right, reg_right, reg_temp2);
+
+        // combine it with the result in reg_left
+        block_append(current_block, node->token, OR, reg_left, reg_left, reg_right);
+
+        // clean up
+        register_free(node->token, reg_temp2);
+        register_free(node->token, reg_temp1);
+        register_free(node->token, reg_right);
+        block_append(current_block, node->token, ADD, RSP, RSP, 16);
     } else if (type_matches_base(type, BASE_FLOAT)) {
         generate_arithmetic_function(node, left, right, reg_left, "__float_lt");
     } else if (type_matches_base(type, BASE_DOUBLE)) {

@@ -181,6 +181,66 @@ bool llong_lts(const u64_t* left, const u64_t* right) {
     #endif
 }
 
+bool llong_gtu(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return left->value > right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return __llong_ltu(right->words, left->words);
+    #endif
+}
+
+bool llong_gts(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return (long long)left->value > (long long)right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return __llong_lts(right->words, left->words);
+    #endif
+}
+
+bool llong_leu(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return left->value <= right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return !__llong_ltu(right->words, left->words);
+    #endif
+}
+
+bool llong_les(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return (long long)left->value <= (long long)right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return !__llong_lts(right->words, left->words);
+    #endif
+}
+
+bool llong_geu(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return left->value >= right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return !__llong_ltu(left->words, right->words);
+    #endif
+}
+
+bool llong_ges(const u64_t* left, const u64_t* right) {
+    #ifdef ONRAMP_U64_NATIVE
+    return (long long)left->value >= (long long)right->value;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    return !__llong_lts(left->words, right->words);
+    #endif
+}
+
 void llong_shl(u64_t* llong, int bits) {
     #ifdef ONRAMP_U64_NATIVE
     llong->value <<= bits;

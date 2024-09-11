@@ -101,8 +101,14 @@ void llong_negate(u64_t* llong);
 
 // These functions do not modify the argument.
 bool llong_eq(const u64_t* left, const u64_t* right);
-bool llong_ltu(const u64_t* left, const u64_t* right);
-bool llong_lts(const u64_t* left, const u64_t* right);
+bool llong_ltu(const u64_t* left, const u64_t* right); // < unsigned
+bool llong_lts(const u64_t* left, const u64_t* right); // < signed
+bool llong_gtu(const u64_t* left, const u64_t* right); // > unsigned
+bool llong_gts(const u64_t* left, const u64_t* right); // > signed
+bool llong_leu(const u64_t* left, const u64_t* right); // <= unsigned
+bool llong_les(const u64_t* left, const u64_t* right); // <= signed
+bool llong_geu(const u64_t* left, const u64_t* right); // >= unsigned
+bool llong_ges(const u64_t* left, const u64_t* right); // >= signed
 bool llong_bool(const u64_t* llong);
 void llong_print(const u64_t* llong, FILE* stream);
 
