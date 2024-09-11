@@ -4,7 +4,6 @@
 
 int main(void) {
 
-    /*
     // ull to unsigned
     unsigned a = 0x12345678abcdef12llu;
     if (a != 0xabcdef12u) return 1;
@@ -41,12 +40,10 @@ int main(void) {
     if (k != 1) return 11;
     _Bool l = 0xffffffff00000000ll;
     if (l != 1) return 12;
-    */
 
     // bool to ll
     long long m = (_Bool)0;
     if (m != 0ll) return 13;
-    /*
     long long n = (_Bool)2;
     if (n != 1ll) return 14;
 
@@ -72,6 +69,5 @@ int main(void) {
     // signed to ull
     unsigned long long t = (signed)0xf2345678;
     if (t != 0xfffffffff2345678ll) return 20;
-    */
 
 }

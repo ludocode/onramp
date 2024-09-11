@@ -731,15 +731,17 @@ void generate_cast(node_t* node, int reg_out) {
                     fatal("TODO cast from float to long long, emit function call");
                 } else {
                     // Cast from register integer to long long.
-                    // TODO we could optimize this a bit if we're casting
-                    // unsigned to unsigned since we wouldn't need to copy the
-                    // sign bit. for now we don't bother.
                     assert(type_is_integer(source));
                     generate_int_cast(node->token, reg_src, source_base, BASE_UNSIGNED_INT); // set the upper bits (if necessary)
                     block_append(current_block, node->token, STW, reg_src, reg_out, 0); // store the low word
-                    block_append(current_block, node->token, SHRU, reg_src, reg_src, 31); // get the sign bit
-                    block_append(current_block, node->token, SUB, reg_src, 0, reg_src); // fill the register with the sign bit
-                    block_append(current_block, node->token, STW, reg_src, reg_out, 4); // store the high word
+                    if (type_is_signed_integer(source)) {
+                        // sign extend
+                        block_append(current_block, node->token, SHRU, reg_src, reg_src, 31); // get the sign bit
+                        block_append(current_block, node->token, SUB, reg_src, 0, reg_src); // fill the register with the sign bit
+                        block_append(current_block, node->token, STW, reg_src, reg_out, 4); // store the high word
+                    } else {
+                        block_append(current_block, node->token, STW, 0, reg_out, 4); // clear the high word
+                    }
                 }
             }
 
