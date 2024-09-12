@@ -128,6 +128,8 @@ static free_alloc_t* free_list[32];
 /**
  * Simple function to get the position of the highest set bit in a number. This
  * is used to determine which free list an allocation goes in.
+ *
+ * TODO use stdc_leading_zeros()
  */
 static int highest_bit(unsigned v) {
     int r = 0;

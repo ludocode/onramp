@@ -55,6 +55,7 @@ OBJS3=\
 		$(BUILD3)/malloc.oo \
 		$(BUILD3)/qsort.oo \
 		$(BUILD3)/rand.oo \
+		$(BUILD3)/stdbit_llong.oo \
 
 # TODO remove libc/1 malloc.oo when libc/3 builds
 OBJS_ALL=\
@@ -75,6 +76,7 @@ OBJS_ALL=\
 		$(BUILD2)/io.oo \
 		$(BUILD2)/llong.oo \
 		$(BUILD2)/setjmp.oo \
+		$(BUILD2)/stdbit.oo \
 		$(BUILD2)/string.oo \
 		$(BUILD2)/strings.oo \
 		$(BUILD2)/syscalls.oo \
@@ -165,6 +167,12 @@ $(BUILD3)/rand.oo: $(SRC3)/rand.c Makefile
 	@mkdir -p $(BUILD3)
 	$(CC) $(CPPFLAGS) -c $(SRC3)/rand.c -o $(BUILD3)/rand.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC3)/rand.c -o $@
+
+$(BUILD3)/stdbit_llong.oo: $(SRC3)/stdbit_llong.c Makefile
+	@rm -f $@
+	@mkdir -p $(BUILD3)
+	$(CC) $(CPPFLAGS) -c $(SRC3)/stdbit_llong.c -o $(BUILD3)/stdbit_llong.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC3)/stdbit_llong.c -o $@
 
 
 $(BUILD3)/libc.oa: Makefile $(TOOLS) $(LIBC1) $(LIBC2) $(OBJS3)
