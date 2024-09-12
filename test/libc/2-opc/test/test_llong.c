@@ -83,6 +83,12 @@ static void test_shl(void) {
     if (a != 0x6780000000000000ULL) {
         exit(1);
     }
+
+    a = 1;
+    __llong_shl((unsigned*)&a, (unsigned*)&a, 63);
+    if (a != 0x8000000000000000ULL) {
+        exit(1);
+    }
 }
 
 static void test_shru(void) {

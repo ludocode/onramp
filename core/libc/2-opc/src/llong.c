@@ -186,7 +186,8 @@ bool __llong_ltu(const unsigned* a, const unsigned* b) {
 }
 
 bool __llong_lts(const unsigned* a, const unsigned* b) {
-    int a1 = (int)*(a + 1); int b1 = (int)*(b + 1);
+    int a1 = (int)*(a + 1);
+    int b1 = (int)*(b + 1);
     if (a1 < b1) {
         return true;
     }
@@ -199,13 +200,13 @@ bool __llong_lts(const unsigned* a, const unsigned* b) {
 unsigned* __llong_shl(unsigned* out, const unsigned* a, int bits) {
     if (bits >= 32) {
         if (bits == 32) {
-            *out = 0;
             *(out + 1) = *a;
+            *out = 0;
             return out;
         }
 
-        *out = 0;
         *(out + 1) = (*a << (bits - 32));
+        *out = 0;
         return out;
     }
 
