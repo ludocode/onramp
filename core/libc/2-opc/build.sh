@@ -95,6 +95,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/stdbit.c \
     -o build/intermediate/libc-2-opc/stdbit.oo
 
+echo Compiling libc/2-opc stdlib.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/stdlib.c \
+    -o build/intermediate/libc-2-opc/stdlib.oo
+
 echo Compiling libc/2-opc string.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -143,6 +149,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/llong.oo \
     build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/stdbit.oo \
+    build/intermediate/libc-2-opc/stdlib.oo \
     build/intermediate/libc-2-opc/string.oo \
     build/intermediate/libc-2-opc/strings.oo \
     build/intermediate/libc-2-opc/syscalls.oo \

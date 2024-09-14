@@ -117,11 +117,11 @@ int rand_r(unsigned* seed);
 
 
 // Integer arithmetic functions
-int abs(int j);
 #ifndef __onramp_cci_omc__
-long int labs(long int j);
+int abs(int x);
 #ifndef __onramp_cci_opc__
-long long int llabs(long long int j);
+long labs(long x) __asm__("abs");
+long long llabs(long long x);
 #endif
 #endif
 //div_t div(int numer, int denom);

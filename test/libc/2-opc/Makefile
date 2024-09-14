@@ -62,6 +62,7 @@ OBJS=\
 		$(OUT)/llong.oo \
 		$(OUT)/setjmp.oo \
 		$(OUT)/stdbit.oo \
+		$(OUT)/stdlib.oo \
 		$(OUT)/string.oo \
 		$(OUT)/strings.oo \
 		$(OUT)/syscalls.oo \
@@ -200,6 +201,12 @@ $(OUT)/stdbit.oo: $(SRC2)/stdbit.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/stdbit.c -o $(OUT)/stdbit.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stdbit.c -o $@
+
+$(OUT)/stdlib.oo: $(SRC2)/stdlib.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/stdlib.c -o $(OUT)/stdlib.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stdlib.c -o $@
 
 $(OUT)/string.oo: $(SRC2)/string.c Makefile
 	@rm -f $@

@@ -64,6 +64,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/stdbit_llong.c \
     -o build/intermediate/libc-3-full/stdbit_llong.oo
 
+echo Compiling libc/3-full stdlib_3.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/build-ccargs \
+    -c core/libc/3-full/src/stdlib_3.c \
+    -o build/intermediate/libc-3-full/stdlib_3.oo
+
 # Note: start.oo must come first!
 # TODO remove libc/1 malloc.oo when libc/3 malloc builds
 echo Archiving libc/3-full
@@ -99,4 +105,5 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full/qsort.oo \
     build/intermediate/libc-3-full/rand.oo \
     build/intermediate/libc-3-full/stdbit_llong.oo \
+    build/intermediate/libc-3-full/stdlib_3.oo \
 
