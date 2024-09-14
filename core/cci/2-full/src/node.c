@@ -673,6 +673,7 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
 }
 
 node_t* node_cast(node_t* node, type_t* type, token_t* /*nullable*/ token) {
+    node = node_decay(node);
 
     // If the types are equal and the cast is implicit, we skip it. We keep
     // explicit casts in the AST for clarity. (They have no impact on codegen,
