@@ -405,7 +405,7 @@ int strncmp(const char* a, const char* b, size_t n) {
     return (int)(unsigned char)(*a) - (int)(unsigned char)(*b);
 }
 
-char* strncpy_impl(char* restrict to, const char* restrict from, size_t count) {
+char* strncpy(char* restrict to, const char* restrict from, size_t count) {
     char* ret = to;
     char* end = to + count;
     while (to != end && *from != 0) {
