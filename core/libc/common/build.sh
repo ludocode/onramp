@@ -48,6 +48,7 @@ cp core/libc/common/include/inttypes.h build/output/include/inttypes.h
 cp core/libc/common/include/iso646.h build/output/include/iso646.h
 cp core/libc/common/include/limits.h build/output/include/limits.h
 cp core/libc/common/include/malloc.h build/output/include/malloc.h
+cp core/libc/common/include/math.h build/output/include/math.h
 cp core/libc/common/include/setjmp.h build/output/include/setjmp.h
 cp core/libc/common/include/spawn.h build/output/include/spawn.h
 cp core/libc/common/include/stdalign.h build/output/include/stdalign.h
