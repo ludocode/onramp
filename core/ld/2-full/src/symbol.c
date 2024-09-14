@@ -143,46 +143,41 @@ void symbols_destroy(void) {
 symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
     uint32_t hash = fnv1a_bytes(bytes, length);
     //printf("%s %i %x\n", bytes, (int)(hash & SYMBOLS_MASK), (int)hash);
+    symbol_t* global = NULL;
+
     symbol_t* symbol = symbols[hash & SYMBOLS_MASK];
     while (symbol) {
-        if (string_equal_bytes(symbol->name, bytes, length) &&
-                (symbol->file_index == -1 || symbol->file_index == file_index)) {
-            return symbol;
+        if (string_equal_bytes(symbol->name, bytes, length)) {
+            // Prefer a matching static symbol to a global symbol.
+            if (symbol->file_index == file_index)
+                return symbol;
+            if (symbol->file_index == -1) {
+                assert(!global);
+                global = symbol;
+            }
         }
         symbol = symbol->next_bucket;
     }
-    return NULL;
+    // If no static symbol was found, return the global if any.
+    return global;
 }
 
 symbol_t* symbols_define(const char* bytes, size_t length, int file_index) {
+    string_t* name = string_intern_bytes(bytes, length);
     uint32_t hash = fnv1a_bytes(bytes, length);
-    string_t* string = NULL;
-
-    // TODO this can be simplified now that our strings are intern, we can just
-    // intern the string right away, then search for a duplicate symbol
 
     // walk through symbols looking for a match
     symbol_t* symbol = symbols[hash & SYMBOLS_MASK];
     while (symbol) {
-        if (string_equal_bytes(symbol->name, bytes, length)) {
-            if (file_index == symbol->file_index || file_index == -1 || symbol->file_index == -1) {
-                fatal("Duplicate symbol: %s", symbol->name->bytes);
-            }
-            if (string == NULL) {
-                string = string_ref(symbol->name);
-                break;
-            }
+        if (string_equal(symbol->name, name) && symbol->file_index == file_index) {
+            fatal("Duplicate %s symbol: %s", file_index == -1 ? "global" : "static",
+                    symbol->name->bytes);
         }
         symbol = symbol->next_bucket;
     }
 
-    // no shared string found; create a new one
-    if (string == NULL) {
-        string = string_intern_bytes(bytes, length);
-    }
-
     // create the symbol
-    symbol = symbol_new(string);
+    symbol = symbol_new(name);
     symbol->file_index = file_index;
     if (!optimize) {
         symbol->is_used = true;
