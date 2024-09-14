@@ -702,13 +702,21 @@ static int file_type(const char* name) {
             return TYPE_I;
         }
 
-        if ((0 == strcmp(extension, "os")) | (0 == strcmp(extension, "OS"))) {
+        // We support `.o` and `.s` file extensions to be compatible with a
+        // typical UNIX buildsystem. The files of course must contain Onramp
+        // bytecode or assembly.
+
+        if (((0 == strcmp(extension, "os")) | (0 == strcmp(extension, "OS"))) |
+            ((0 == strcmp(extension, "s")) | (0 == strcmp(extension, "S"))))
+        {
             return TYPE_OS;
         }
 
         // We don't differentiate between .oo and .oa files.
-        if (((0 == strcmp(extension, "oo")) | (0 == strcmp(extension, "OO"))) |
-            ((0 == strcmp(extension, "oa")) | (0 == strcmp(extension, "OA"))))
+        if ((((0 == strcmp(extension, "oo")) | (0 == strcmp(extension, "OO"))) |
+            ((0 == strcmp(extension, "oa")) | (0 == strcmp(extension, "OA")))) |
+            (((0 == strcmp(extension, "o")) | (0 == strcmp(extension, "O")))) |
+            ((0 == strcmp(extension, "a")) | (0 == strcmp(extension, "A"))))
         {
             return TYPE_OO;
         }
