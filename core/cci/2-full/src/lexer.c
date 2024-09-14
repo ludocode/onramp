@@ -56,6 +56,17 @@ static FILE* lexer_file;
 // have to intern it again for each token.) They should always match.
 static string_t* lexer_filename;
 
+// TODO move to libo
+int hex_to_int(char c) {
+    if (c >= '0' && c <= '9')
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    fatal("Expected hexadecimal character");
+}
+
 static void lexer_buffer_append(char c) {
     if (lexer_buffer_length == lexer_buffer_capacity) {
 
@@ -196,11 +207,23 @@ static void lexer_consume_literal_char(void) {
 
         // TODO all of these
         case 'x':
-        case 'X':
-            fatal("Hexadecimal escape sequences are not supported in opC.");
+        case 'X': {
+            unsigned value = 0;
+            c = lexer_read_char();
+            while (isxdigit(c)) {
+                value <<= 4;
+                value += hex_to_int(c);
+                c = lexer_read_char();
+            }
+            if (value > 0xff) {
+                fatal("Hexadecimal unicode escape sequences are not yet supported.");
+            }
+            lexer_buffer_append((char)value);
+            return;
+        }
         case 'u':
         case 'U':
-            fatal("Unicode escape sequences are not supported in opC.");
+            fatal("Unicode escape sequences are not yet supported.");
 
         default:
             fatal("Unrecognized escape sequence");
