@@ -808,24 +808,69 @@ void generate_shr_assign(struct node_t* node, int reg_out) {
     }
 }
 
+static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
+    if (type_is_long_long(node->type)) {
+        // long long increment/decrement is done branchless. we modify the low
+        // byte, then create a mask on overflow and use it to conditionally
+        // modify the high byte.
+        // we would probably produce faster code if we made this branch on
+        // overflow. could be worth revisiting at some point.
+        int reg_temp1 = register_alloc(node->token);
+        int reg_temp2 = register_alloc(node->token);
+        if (inc) {
+            // increment low byte
+            block_append(current_block, node->token, LDW, reg_temp1, reg_in, 0);
+            block_append(current_block, node->token, INC, reg_temp1, reg_temp1);
+            block_append(current_block, node->token, STW, reg_temp1, reg_out, 0);
+            // check for overflow
+            block_append(current_block, node->token, ISZ, reg_temp1, reg_temp1);
+            // increment high byte if overflow
+            block_append(current_block, node->token, LDW, reg_temp2, reg_in, 4);
+            block_append(current_block, node->token, ADD, reg_temp2, reg_temp2, reg_temp1);
+            block_append(current_block, node->token, STW, reg_temp2, reg_out, 4);
+        } else {
+            // decrement low byte
+            block_append(current_block, node->token, LDW, reg_temp1, reg_in, 0);
+            block_append(current_block, node->token, DEC, reg_temp1, reg_temp1);
+            block_append(current_block, node->token, STW, reg_temp1, reg_out, 0);
+            // check for overflow
+            block_append(current_block, node->token, SUB, reg_temp1, reg_temp1, 0xFF);
+            block_append(current_block, node->token, ISZ, reg_temp1, reg_temp1);
+            // decrement high byte if overflow
+            block_append(current_block, node->token, LDW, reg_temp2, reg_in, 4);
+            block_append(current_block, node->token, SUB, reg_temp2, reg_temp2, reg_temp1);
+            block_append(current_block, node->token, STW, reg_temp2, reg_out, 4);
+        }
+        register_free(node->token, reg_temp2);
+        register_free(node->token, reg_temp1);
+
+    } else if (type_is_integer(node->type) || type_matches_base(node->type, BASE_ENUM)) {
+        // Note: We don't need to do anything special to handle wrapping for
+        // char or short. Only the byte or short will be stored, and the
+        // register will be truncated or sign extended if and when it is cast
+        // to int.
+        block_append_op_imm(current_block, node->token, inc ? ADD : SUB, reg_out, reg_in, 1);
+
+    } else if (type_is_indirection(node->type)) {
+        block_append_op_imm(current_block, node->token, inc ? ADD : SUB,
+                reg_out, reg_in, type_size(node->type->ref));
+
+    } else {
+        fatal("Internal error: cannot generate pre/post increment on non-integer non-pointer type.");
+    }
+}
+
 static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
 
     // generate the storage location
     int reg_loc = register_alloc(node->token);
     generate_location(node->first_child, reg_loc);
 
-    // load it into the output register
+    // load it into the output
     generate_dereference_impl(node, reg_val, reg_loc, 0);
 
     // increment/decrement it
-    if (type_size(node->type) == 4) {
-        block_append_op_imm(current_block, node->token, inc ? ADD : SUB, reg_val, reg_val,
-            type_is_indirection(node->type) ? type_size(node->type->ref) : 1);
-    } else if (type_size(node->type) == 8) {
-        // TODO we should be able to just inline `inc jz inc` or equivalent.
-        // need to create a block, use a temporary register, etc.
-        fatal("TODO pre/post inc/dec llong");
-    }
+    generate_inc_dec(node, reg_val, reg_val, inc);
 
     // store it back again
     generate_store(node->token, node->type, reg_val, reg_loc);
@@ -843,18 +888,20 @@ static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
 
     // increment/decrement it into a temporary reister
     int reg_temp = register_alloc(node->token);
-    if (type_size(node->type) == 4) {
-        block_append_op_imm(current_block, node->token, inc ? ADD : SUB, reg_temp, reg_val,
-            type_is_indirection(node->type) ? type_size(node->type->ref) : 1);
-    } else if (type_size(node->type) == 8) {
-        // TODO need to allocate stack space and copy
-        // TODO we should be able to just inline `inc jz inc` or equivalent.
-        // need to create a block, use a temporary register, etc.
-        fatal("TODO pre/post inc/dec llong");
+    bool indirect = type_is_passed_indirectly(node->type);
+    if (indirect) {
+        block_append(current_block, node->token, SUB, RSP, RSP, 8);
+        block_append(current_block, node->token, MOV, reg_temp, RSP);
     }
+    generate_inc_dec(node, reg_val, reg_temp, inc);
 
     // store it back again
     generate_store(node->token, node->type, reg_temp, reg_loc);
+
+    // clean up
+    if (indirect) {
+        block_append(current_block, node->token, ADD, RSP, RSP, 8);
+    }
     register_free(node->token, reg_temp);
     register_free(node->token, reg_loc);
 }

@@ -583,11 +583,10 @@ static node_t* parse_array_subscript(node_t* left) {
 }
 
 static node_t* parse_post_incdec(node_t* child, node_kind_t kind) {
-    node_t* op = node_new_lexer(kind);
-    node_append(op, child);
-    // TODO is the result of this operator promoted? It's probably supposed to be
-    op->type = type_ref(child->type);
-    return op;
+    node_t* node = node_new_lexer(kind);
+    node_append(node, child);
+    node->type = type_ref(child->type);
+    return node;
 }
 
 static node_t* parse_postfix_expression(void) {
@@ -683,37 +682,42 @@ static node_t* parse_sizeof(void) {
     return node;
 }
 
+// Checks that the given child node type is valid for a unary math operator
+static void parse_unary_math_check_type(type_t* type, token_t* token) {
+    if (type_matches_base(type, BASE_RECORD)) {
+        fatal_token(token, "Cannot apply unary operator `%s` to a struct or union value.", token->value->bytes);
+    }
+    if (type_matches_base(type, BASE_VOID)) {
+        fatal_token(token, "Cannot apply unary operator `%s` to void.", token->value->bytes);
+    }
+}
+
 static node_t* parse_unary_operator(node_kind_t kind) {
     node_t* node = node_new_lexer(kind);
     node_t* child = parse_unary_expression();
 
     switch (kind) {
-        // TODO is the result of any of these operators promoted? It's probably
-        // supposed to be in all cases
         case NODE_PRE_INC:
         case NODE_PRE_DEC:
+            parse_unary_math_check_type(child->type, node->token);
+            node_append(node, child);
+            node->type = type_ref(child->type);
+            break;
+
         case NODE_UNARY_PLUS:
         case NODE_UNARY_MINUS:
         case NODE_BIT_NOT:
-            if (type_matches_base(child->type, BASE_RECORD)) {
-                fatal_token(node->token, "Cannot apply a mathematical unary operator to a struct or union value.");
-            }
-            if (type_matches_base(child->type, BASE_VOID)) {
-                fatal_token(node->token, "Cannot apply a mathematical unary operator to void.");
-            }
+            parse_unary_math_check_type(child->type, node->token);
             if (!type_is_declarator(child->type)) {
                 child = node_promote(child);
             }
+            node_append(node, child);
             node->type = type_ref(child->type);
             break;
 
         case NODE_LOGICAL_NOT:
-            if (type_matches_base(child->type, BASE_RECORD)) {
-                fatal_token(node->token, "Cannot apply logical not operator to a struct or union value.");
-            }
-            if (type_matches_base(child->type, BASE_VOID)) {
-                fatal_token(node->token, "Cannot apply logical not operator to void.");
-            }
+            parse_unary_math_check_type(child->type, node->token);
+            node_append(node, child);
             node->type = type_new_base(BASE_SIGNED_INT);
             break;
 
@@ -721,11 +725,13 @@ static node_t* parse_unary_operator(node_kind_t kind) {
             if (!type_is_indirection(child->type)) {
                 fatal_token(node->token, "Cannot dereference non-pointer type");
             }
+            node_append(node, child);
             node->type = type_ref(child->type->ref);
             break;
 
         case NODE_ADDRESS_OF:
             // TODO child node must be a location
+            node_append(node, child);
             node->type = type_new_pointer(child->type, false, false, false);
             break;
 
@@ -733,7 +739,6 @@ static node_t* parse_unary_operator(node_kind_t kind) {
             fatal("Internal error: not a unary operator");
     }
 
-    node_append(node, child);
     return node;
 }
 
