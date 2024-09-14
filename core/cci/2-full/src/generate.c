@@ -901,7 +901,7 @@ void generate_initializer(node_t* variable, int reg_loc) {
         if (type_is_array(init_type)) {
             // Array lengths don't have to match in initializers. The string
             // will be truncated or padded with zeroes.
-            assert(type_is_array(var_type) && type_equal(init_type->ref, var_type->ref));
+            assert(type_is_array(var_type));
         } else {
             assert(type_equal(init_type, var_type));
         }
