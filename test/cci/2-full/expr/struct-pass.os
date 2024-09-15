@@ -1,10 +1,10 @@
 =foo
   enter
+  add r0 rfp 8
+  ldw r0 0 r0
   add r1 rfp 8
-  ldw r0 0 r1
-  add r2 rfp 8
-  add r2 r2 4
-  ldw r1 0 r2
+  add r1 r1 4
+  ldw r1 0 r1
   add r0 r0 r1
   leave
   ret

@@ -43,9 +43,9 @@
   ret
   jmp &_Lx2
 :_Lx2
-  imw r1 ^x
-  add r1 rpp r1
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  ldb r0 0 r0
   sxb r0 r0
   imw r1 1
   sub r0 r0 r1
@@ -58,10 +58,10 @@
   ret
   jmp &_Lx4
 :_Lx4
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 1
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 1
+  ldb r0 0 r0
   sxb r0 r0
   imw r1 2
   sub r0 r0 r1
@@ -74,10 +74,10 @@
   ret
   jmp &_Lx6
 :_Lx6
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 2
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 2
+  ldb r0 0 r0
   sxb r0 r0
   imw r1 3
   sub r0 r0 r1
@@ -90,12 +90,13 @@
   ret
   jmp &_Lx8
 :_Lx8
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 3
-  imw r2 0
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 3
+  mov r0 r0
+  imw r1 0
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 97
   sub r0 r0 r1
@@ -108,12 +109,13 @@
   ret
   jmp &_LxA
 :_LxA
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 3
-  imw r2 1
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 3
+  mov r0 r0
+  imw r1 1
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 98
   sub r0 r0 r1
@@ -126,12 +128,13 @@
   ret
   jmp &_LxC
 :_LxC
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 3
-  imw r2 2
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 3
+  mov r0 r0
+  imw r1 2
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 99
   sub r0 r0 r1
@@ -144,12 +147,13 @@
   ret
   jmp &_LxE
 :_LxE
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 3
-  imw r2 3
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 3
+  mov r0 r0
+  imw r1 3
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 100
   sub r0 r0 r1
@@ -162,10 +166,10 @@
   ret
   jmp &_Lx10
 :_Lx10
-  imw r1 ^x
-  add r1 rpp r1
-  add r1 r1 7
-  ldb r0 0 r1
+  imw r0 ^x
+  add r0 rpp r0
+  add r0 r0 7
+  ldb r0 0 r0
   sxb r0 r0
   imw r1 4
   sub r0 r0 r1

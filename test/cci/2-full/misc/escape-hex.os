@@ -18,10 +18,10 @@
   stb r3 r2 r4
   jmp &_Lx0
 :_Lx1
-  add r1 rfp -6
-  imw r2 0
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -6
+  imw r1 0
+  add r0 r0 r1
+  ldb r0 0 r0
   trb r0 r0
   imw r1 0
   sub r0 r0 r1
@@ -34,10 +34,10 @@
   ret
   jmp &_Lx3
 :_Lx3
-  add r1 rfp -6
-  imw r2 1
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -6
+  imw r1 1
+  add r0 r0 r1
+  ldb r0 0 r0
   trb r0 r0
   imw r1 1
   sub r0 r0 r1
@@ -50,10 +50,10 @@
   ret
   jmp &_Lx5
 :_Lx5
-  add r1 rfp -6
-  imw r2 2
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -6
+  imw r1 2
+  add r0 r0 r1
+  ldb r0 0 r0
   trb r0 r0
   imw r1 32
   sub r0 r0 r1
@@ -66,10 +66,10 @@
   ret
   jmp &_Lx7
 :_Lx7
-  add r1 rfp -6
-  imw r2 3
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -6
+  imw r1 3
+  add r0 r0 r1
+  ldb r0 0 r0
   trb r0 r0
   imw r1 144
   sub r0 r0 r1
@@ -82,10 +82,10 @@
   ret
   jmp &_Lx9
 :_Lx9
-  add r1 rfp -6
-  imw r2 4
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -6
+  imw r1 4
+  add r0 r0 r1
+  ldb r0 0 r0
   trb r0 r0
   imw r1 255
   sub r0 r0 r1
@@ -98,10 +98,10 @@
   ret
   jmp &_LxB
 :_LxB
-  add r1 rfp -6
-  imw r2 5
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -6
+  imw r1 5
+  add r0 r0 r1
+  ldb r0 0 r0
   trb r0 r0
   imw r1 0
   sub r0 r0 r1

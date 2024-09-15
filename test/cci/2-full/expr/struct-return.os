@@ -30,8 +30,8 @@
   call ^foo
   mov r0 r0
   add rsp rsp 4
-  add r1 rfp -8
-  ldw r0 0 r1
+  add r0 rfp -8
+  ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
   bool r0 r0
@@ -43,9 +43,9 @@
   ret
   jmp &_Lx1
 :_Lx1
-  add r1 rfp -8
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -8
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 3
   sub r0 r0 r1
   bool r0 r0
@@ -70,8 +70,8 @@
   ldw r2 r0 4
   stw r2 r1 4
   add rsp rsp 8
-  add r1 rfp -16
-  ldw r0 0 r1
+  add r0 rfp -16
+  ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
   bool r0 r0
@@ -83,9 +83,9 @@
   ret
   jmp &_Lx5
 :_Lx5
-  add r1 rfp -16
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -16
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 3
   sub r0 r0 r1
   bool r0 r0

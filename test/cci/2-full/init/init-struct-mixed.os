@@ -68,11 +68,12 @@
   imw r1 60
   add r1 r1 r0
   stw 0 r1 0
-  add r1 rfp -64
-  imw r2 0
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 0
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 1
   sub r0 r0 r1
   bool r0 r0
@@ -84,12 +85,13 @@
   ret
   jmp &_Lx1
 :_Lx1
-  add r1 rfp -64
-  imw r2 0
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 0
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
   bool r0 r0
@@ -101,11 +103,12 @@
   ret
   jmp &_Lx3
 :_Lx3
-  add r1 rfp -64
-  imw r2 1
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 1
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 3
   sub r0 r0 r1
   bool r0 r0
@@ -117,12 +120,13 @@
   ret
   jmp &_Lx5
 :_Lx5
-  add r1 rfp -64
-  imw r2 1
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 1
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 4
   sub r0 r0 r1
   bool r0 r0
@@ -134,11 +138,12 @@
   ret
   jmp &_Lx7
 :_Lx7
-  add r1 rfp -64
-  imw r2 2
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 2
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 5
   sub r0 r0 r1
   bool r0 r0
@@ -150,12 +155,13 @@
   ret
   jmp &_Lx9
 :_Lx9
-  add r1 rfp -64
-  imw r2 2
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 2
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 6
   sub r0 r0 r1
   bool r0 r0
@@ -167,11 +173,12 @@
   ret
   jmp &_LxB
 :_LxB
-  add r1 rfp -64
-  imw r2 3
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 3
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 7
   sub r0 r0 r1
   bool r0 r0
@@ -183,12 +190,13 @@
   ret
   jmp &_LxD
 :_LxD
-  add r1 rfp -64
-  imw r2 3
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 3
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 8
   sub r0 r0 r1
   bool r0 r0
@@ -200,11 +208,12 @@
   ret
   jmp &_LxF
 :_LxF
-  add r1 rfp -64
-  imw r2 4
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 4
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 9
   sub r0 r0 r1
   bool r0 r0
@@ -216,12 +225,13 @@
   ret
   jmp &_Lx11
 :_Lx11
-  add r1 rfp -64
-  imw r2 4
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 4
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 10
   sub r0 r0 r1
   bool r0 r0
@@ -233,11 +243,12 @@
   ret
   jmp &_Lx13
 :_Lx13
-  add r1 rfp -64
-  imw r2 5
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 5
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 11
   sub r0 r0 r1
   bool r0 r0
@@ -249,12 +260,13 @@
   ret
   jmp &_Lx15
 :_Lx15
-  add r1 rfp -64
-  imw r2 5
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 5
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 0
   sub r0 r0 r1
   bool r0 r0
@@ -266,11 +278,12 @@
   ret
   jmp &_Lx17
 :_Lx17
-  add r1 rfp -64
-  imw r2 6
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 6
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 0
   sub r0 r0 r1
   bool r0 r0
@@ -282,12 +295,13 @@
   ret
   jmp &_Lx19
 :_Lx19
-  add r1 rfp -64
-  imw r2 6
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 6
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 0
   sub r0 r0 r1
   bool r0 r0
@@ -299,11 +313,12 @@
   ret
   jmp &_Lx1B
 :_Lx1B
-  add r1 rfp -64
-  imw r2 7
-  shl r2 r2 3
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 7
+  shl r1 r1 3
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 15
   sub r0 r0 r1
   bool r0 r0
@@ -315,12 +330,13 @@
   ret
   jmp &_Lx1D
 :_Lx1D
-  add r1 rfp -64
-  imw r2 7
-  shl r2 r2 3
-  add r1 r1 r2
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -64
+  mov r0 r0
+  imw r1 7
+  shl r1 r1 3
+  add r0 r0 r1
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 0
   sub r0 r0 r1
   bool r0 r0

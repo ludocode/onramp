@@ -43,8 +43,8 @@
   imw r1 ^main
   add r1 rpp r1
   stw r1 r0 0
-  add r1 rfp -12
-  ldw r0 0 r1
+  add r0 rfp -12
+  ldw r0 0 r0
   imw r1 ^main
   add r1 rpp r1
   sub r0 r0 r1
@@ -57,8 +57,8 @@
   ret
   jmp &_Lx5
 :_Lx5
-  add r1 rfp -16
-  ldw r0 0 r1
+  add r0 rfp -16
+  ldw r0 0 r0
   imw r1 ^main
   add r1 rpp r1
   sub r0 r0 r1
@@ -84,11 +84,12 @@
   imw r1 ^main
   add r1 rpp r1
   stw r1 r0 12
-  add r1 rfp -32
-  imw r2 0
-  shl r2 r2 2
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -32
+  mov r0 r0
+  imw r1 0
+  shl r1 r1 2
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 ^main
   add r1 rpp r1
   sub r0 r0 r1
@@ -101,11 +102,12 @@
   ret
   jmp &_Lx9
 :_Lx9
-  add r1 rfp -32
-  imw r2 1
-  shl r2 r2 2
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -32
+  mov r0 r0
+  imw r1 1
+  shl r1 r1 2
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 ^main
   add r1 rpp r1
   sub r0 r0 r1
@@ -118,11 +120,12 @@
   ret
   jmp &_LxB
 :_LxB
-  add r1 rfp -32
-  imw r2 2
-  shl r2 r2 2
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -32
+  mov r0 r0
+  imw r1 2
+  shl r1 r1 2
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 ^main
   add r1 rpp r1
   sub r0 r0 r1
@@ -135,11 +138,12 @@
   ret
   jmp &_LxD
 :_LxD
-  add r1 rfp -32
-  imw r2 3
-  shl r2 r2 2
-  add r1 r1 r2
-  ldw r0 0 r1
+  add r0 rfp -32
+  mov r0 r0
+  imw r1 3
+  shl r1 r1 2
+  add r0 r0 r1
+  ldw r0 0 r0
   imw r1 ^main
   add r1 rpp r1
   sub r0 r0 r1

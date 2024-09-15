@@ -21,8 +21,8 @@
   stw r1 r0 0
   imw r1 9
   stw r1 r0 4
-  add r1 rfp -12
-  ldw r0 0 r1
+  add r0 rfp -12
+  ldw r0 0 r0
   imw r1 7
   sub r0 r0 r1
   bool r0 r0
@@ -34,9 +34,9 @@
   ret
   jmp &_Lx3
 :_Lx3
-  add r1 rfp -12
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -12
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 9
   sub r0 r0 r1
   bool r0 r0

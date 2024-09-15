@@ -19,11 +19,11 @@
   ldw r2 r0 4
   stw r2 r1 4
   add rsp rsp 8
+  add r0 rfp -16
+  ldw r0 0 r0
   add r1 rfp -16
-  ldw r0 0 r1
-  add r2 rfp -16
-  add r2 r2 4
-  ldw r1 0 r2
+  add r1 r1 4
+  ldw r1 0 r1
   add r0 r0 r1
   imw r1 5
   sub r0 r0 r1

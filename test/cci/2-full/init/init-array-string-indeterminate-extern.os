@@ -179,11 +179,11 @@
   jmp &_Lx12
 :_Lx12
   imw r0 0
-  imw r2 ^carl
-  add r2 rpp r2
-  imw r3 6
-  add r2 r2 r3
-  ldb r1 0 r2
+  imw r1 ^carl
+  add r1 rpp r1
+  imw r2 6
+  add r1 r1 r2
+  ldb r1 0 r1
   sxb r1 r1
   sub r0 r0 r1
   bool r0 r0
@@ -196,11 +196,11 @@
   jmp &_Lx14
 :_Lx14
   imw r0 0
-  imw r2 ^carl
-  add r2 rpp r2
-  imw r3 7
-  add r2 r2 r3
-  ldb r1 0 r2
+  imw r1 ^carl
+  add r1 rpp r1
+  imw r2 7
+  add r1 r1 r2
+  ldb r1 0 r1
   sxb r1 r1
   sub r0 r0 r1
   bool r0 r0
@@ -213,11 +213,11 @@
   jmp &_Lx16
 :_Lx16
   imw r0 0
-  imw r2 ^carl
-  add r2 rpp r2
-  imw r3 8
-  add r2 r2 r3
-  ldb r1 0 r2
+  imw r1 ^carl
+  add r1 rpp r1
+  imw r2 8
+  add r1 r1 r2
+  ldb r1 0 r1
   sxb r1 r1
   sub r0 r0 r1
   bool r0 r0

@@ -38,9 +38,9 @@
   ldw r2 r0 4
   stw r2 r1 4
   add rsp rsp 8
-  imw r1 ^a
-  add r1 rpp r1
-  ldw r0 0 r1
+  imw r0 ^a
+  add r0 rpp r0
+  ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
   bool r0 r0
@@ -52,10 +52,10 @@
   ret
   jmp &_Lx3
 :_Lx3
-  imw r1 ^a
-  add r1 rpp r1
-  add r1 r1 4
-  ldw r0 0 r1
+  imw r0 ^a
+  add r0 rpp r0
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 3
   sub r0 r0 r1
   bool r0 r0

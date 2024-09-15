@@ -155,6 +155,7 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
  */
 static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_left) {
     int reg_right = register_alloc(node->token);
+    assert(!type_is_passed_indirectly(node->last_child->type));
     generate_node(node->last_child, reg_right);
 
     // One side is a pointer and the other side is an int offset. The offset

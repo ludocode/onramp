@@ -25,8 +25,8 @@
 :_Lx1
   imw r1 2
   stw r1 r0 12
-  add r1 rfp -16
-  ldw r0 0 r1
+  add r0 rfp -16
+  ldw r0 0 r0
   imw r1 1
   sub r0 r0 r1
   bool r0 r0
@@ -58,9 +58,9 @@
   ret
   jmp &_Lx5
 :_Lx5
-  add r1 rfp -16
-  add r1 r1 12
-  ldw r0 0 r1
+  add r0 rfp -16
+  add r0 r0 12
+  ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
   bool r0 r0

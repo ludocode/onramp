@@ -22,8 +22,8 @@
   ret
   jmp &_Lx1
 :_Lx1
-  ldw r1 rfp -4
-  ldw r0 0 r1
+  ldw r0 rfp -4
+  ldw r0 0 r0
   leave
   ret
 =main

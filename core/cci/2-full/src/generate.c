@@ -971,43 +971,63 @@ static void generate_dereference(node_t* node, int reg_out) {
 }
 
 static void generate_array_subscript(node_t* node, int reg_out) {
-    // TODO we don't always need to alloc a register, see generate_dereference above
-    int reg_loc = register_alloc(node->token);
+
+    // When passing directly, we can use the same register for location and
+    // value; otherwise we need to generate in a temporary register.
+    int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
+    if (indirect) {
+        reg_loc = register_alloc(node->token);
+    } else {
+        reg_loc = reg_out;
+    }
+
     generate_location_array_subscript(node, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, 0);
-    register_free(node->token, reg_loc);
+
+    if (indirect) {
+        register_free(node->token, reg_loc);
+    }
 }
 
 static void generate_member_val(node_t* node, int reg_out) {
-    // Arrays decay to pointers. TODO this is probably the wrong way to go
-    // about this. We should probably be inserting & operators into the parse
-    // tree. & will generate location and can skip the dereference for arrays.
-    if (type_is_array(node->type)) {
-        generate_location(node->first_child, reg_out);
-        block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
-        return;
+
+    // When passing directly, we can use the same register for location and
+    // value; otherwise we need to generate in a temporary register.
+    int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
+    if (indirect) {
+        reg_loc = register_alloc(node->token);
+    } else {
+        reg_loc = reg_out;
     }
 
-    // TODO we don't always need to alloc a register, see generate_dereference above
-    int reg_loc = register_alloc(node->token);
     generate_location(node->first_child, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, node->member_offset);
-    register_free(node->token, reg_loc);
+
+    if (indirect) {
+        register_free(node->token, reg_loc);
+    }
 }
 
 static void generate_member_ptr(node_t* node, int reg_out) {
-    // Arrays decay to pointers. TODO see above
-    if (type_is_array(node->type)) {
-        generate_node(node->first_child, reg_out);
-        block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
-        return;
+
+    // When passing directly, we can use the same register for location and
+    // value; otherwise we need to generate in a temporary register.
+    int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
+    if (indirect) {
+        reg_loc = register_alloc(node->token);
+    } else {
+        reg_loc = reg_out;
     }
 
-    // TODO we don't always need to alloc a register, see generate_dereference above
-    int reg_loc = register_alloc(node->token);
     generate_node(node->first_child, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, node->member_offset);
-    register_free(node->token, reg_loc);
+
+    if (indirect) {
+        register_free(node->token, reg_loc);
+    }
 }
 
 static void generate_location_member_val(node_t* node, int reg_out) {

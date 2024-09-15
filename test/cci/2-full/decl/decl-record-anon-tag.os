@@ -6,9 +6,9 @@
   add r1 rpp r1
   add r1 r1 0
   stw r0 r1 0
-  imw r1 ^b
-  add r1 rpp r1
-  ldw r0 0 r1
+  imw r0 ^b
+  add r0 rpp r0
+  ldw r0 0 r0
   imw r1 1
   sub r0 r0 r1
   bool r0 r0
@@ -36,8 +36,8 @@
   add r1 rfp -8
   add r1 r1 0
   stw r0 r1 0
-  add r1 rfp -8
-  ldw r0 0 r1
+  add r0 rfp -8
+  ldw r0 0 r0
   imw r1 4
   sub r0 r0 r1
   bool r0 r0
@@ -49,9 +49,9 @@
   ret
   jmp &_Lx3
 :_Lx3
-  add r1 rfp -8
-  add r1 r1 4
-  ldw r0 0 r1
+  add r0 rfp -8
+  add r0 r0 4
+  ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
   bool r0 r0
@@ -63,8 +63,8 @@
   ret
   jmp &_Lx5
 :_Lx5
-  add r1 rfp -8
-  ldw r0 0 r1
+  add r0 rfp -8
+  ldw r0 0 r0
   imw r1 4
   sub r0 r0 r1
   bool r0 r0
@@ -76,8 +76,8 @@
   ret
   jmp &_Lx7
 :_Lx7
-  add r1 rfp -8
-  ldw r0 0 r1
+  add r0 rfp -8
+  ldw r0 0 r0
   imw r1 4
   sub r0 r0 r1
   bool r0 r0

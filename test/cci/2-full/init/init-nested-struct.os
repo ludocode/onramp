@@ -11,21 +11,21 @@
   imw r1 8
   stw r1 r0 12
   imw r0 15
-  add r2 rfp -16
-  ldw r1 0 r2
+  add r1 rfp -16
+  ldw r1 0 r1
   sub r0 r0 r1
-  add r2 rfp -16
-  add r2 r2 4
-  ldw r1 0 r2
+  add r1 rfp -16
+  add r1 r1 4
+  ldw r1 0 r1
   sub r0 r0 r1
-  add r2 rfp -16
-  add r2 r2 4
-  add r2 r2 4
-  ldw r1 0 r2
+  add r1 rfp -16
+  add r1 r1 4
+  add r1 r1 4
+  ldw r1 0 r1
   sub r0 r0 r1
-  add r2 rfp -16
-  add r2 r2 12
-  ldw r1 0 r2
+  add r1 rfp -16
+  add r1 r1 12
+  ldw r1 0 r1
   sub r0 r0 r1
   leave
   ret

@@ -28,8 +28,8 @@
   enter
   sub rsp rsp 4
   stw r0 rfp -4
-  ldw r1 rfp -4
-  ldb r0 0 r1
+  ldw r0 rfp -4
+  ldb r0 0 r0
   sxb r0 r0
   leave
   ret

@@ -191,11 +191,11 @@
   ret
   jmp &_Lx1B
 :_Lx1B
-  add r1 rfp -3
-  mov r1 r1
-  imw r2 1
-  add r1 r1 r2
-  ldb r0 0 r1
+  add r0 rfp -3
+  mov r0 r0
+  imw r1 1
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   imw r1 7
   sub r0 r0 r1

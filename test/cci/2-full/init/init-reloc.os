@@ -37,12 +37,12 @@
   ret
 =main
   enter
-  imw r1 ^y
-  ldw r1 rpp r1
-  imw r2 2
-  sub r2 0 r2
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^y
+  ldw r0 rpp r0
+  imw r1 2
+  sub r1 0 r1
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 72
   sub r0 r0 r1
@@ -55,12 +55,12 @@
   ret
   jmp &_Lx5
 :_Lx5
-  imw r1 ^y
-  ldw r1 rpp r1
-  imw r2 1
-  sub r2 0 r2
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^y
+  ldw r0 rpp r0
+  imw r1 1
+  sub r1 0 r1
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 101
   sub r0 r0 r1
@@ -73,11 +73,11 @@
   ret
   jmp &_Lx7
 :_Lx7
-  imw r1 ^y
-  ldw r1 rpp r1
-  imw r2 0
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^y
+  ldw r0 rpp r0
+  imw r1 0
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 108
   sub r0 r0 r1
@@ -90,11 +90,11 @@
   ret
   jmp &_Lx9
 :_Lx9
-  imw r1 ^y
-  ldw r1 rpp r1
-  imw r2 1
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^y
+  ldw r0 rpp r0
+  imw r1 1
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 108
   sub r0 r0 r1
@@ -107,11 +107,11 @@
   ret
   jmp &_LxB
 :_LxB
-  imw r1 ^y
-  ldw r1 rpp r1
-  imw r2 2
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^y
+  ldw r0 rpp r0
+  imw r1 2
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   mov r1 111
   sub r0 r0 r1
@@ -124,11 +124,11 @@
   ret
   jmp &_LxD
 :_LxD
-  imw r1 ^y
-  ldw r1 rpp r1
-  imw r2 3
-  add r1 r1 r2
-  ldb r0 0 r1
+  imw r0 ^y
+  ldw r0 rpp r0
+  imw r1 3
+  add r0 r0 r1
+  ldb r0 0 r0
   sxb r0 r0
   imw r1 0
   sub r0 r0 r1
