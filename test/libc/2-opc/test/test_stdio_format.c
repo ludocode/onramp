@@ -251,8 +251,10 @@ static void test_stdio_format_printf() {
     printf("%u\n", 10);
     printf("%i\n", 10);
     printf("%i\n", -10);
+    printf("%d %d %d %d\n", 1, 2, 3, 4);
 
     printf("%.3d\n", 33);
+
 
     // another bug at one point
     char* f;

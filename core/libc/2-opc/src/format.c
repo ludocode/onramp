@@ -507,20 +507,20 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
     }
 }
 
-static void print_d(output_t* output, directive_t* directive, va_list args, char* number_buffer) {
+static void print_d(output_t* output, directive_t* directive, va_list* args, char* number_buffer) {
 
     // get argument
     intmax_t value;
     if (directive->length_modifier == length_modifier_ll) {
         #ifndef NO_LONG_LONG
-            value = va_arg(args, long long);
+            value = va_arg(*args, long long);
         #endif
         #ifdef NO_LONG_LONG
             output->error = true;
             return;
         #endif
     } else {
-        value = va_arg(args, int);
+        value = va_arg(*args, int);
     }
 
     // convert negative to positive
@@ -591,7 +591,7 @@ static void print(const char* format, output_t* output, va_list args) {
 
             case 'd':
             case 'i':
-                print_d(output, &directive, args, number_buffer);
+                print_d(output, &directive, (va_list*)&args, number_buffer);
                 break;
 
             case 's': {
