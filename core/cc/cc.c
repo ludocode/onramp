@@ -694,32 +694,30 @@ static int file_type(const char* name) {
 
         // We assume .C is a C file on a platform that uses uppercase filenames
         // (as opposed to, say, GCC which treats it as a C++ file.)
-        if ((0 == strcmp(extension, "c")) | (0 == strcmp(extension, "C"))) {
-            return TYPE_C;
-        }
+        if (0 == strcmp(extension, "c")) { return TYPE_C; }
+        if (0 == strcmp(extension, "C")) { return TYPE_C; }
 
-        if ((0 == strcmp(extension, "i")) | (0 == strcmp(extension, "I"))) {
-            return TYPE_I;
-        }
+        if (0 == strcmp(extension, "i")) { return TYPE_I; }
+        if (0 == strcmp(extension, "I")) { return TYPE_I; }
 
         // We support `.o` and `.s` file extensions to be compatible with a
         // typical UNIX buildsystem. The files of course must contain Onramp
         // bytecode or assembly.
 
-        if (((0 == strcmp(extension, "os")) | (0 == strcmp(extension, "OS"))) |
-            ((0 == strcmp(extension, "s")) | (0 == strcmp(extension, "S"))))
-        {
-            return TYPE_OS;
-        }
+        if (0 == strcmp(extension, "os")) { return TYPE_OS; }
+        if (0 == strcmp(extension, "OS")) { return TYPE_OS; }
+        if (0 == strcmp(extension, "s")) { return TYPE_OS; }
+        if (0 == strcmp(extension, "S")) { return TYPE_OS; }
 
         // We don't differentiate between .oo and .oa files.
-        if ((((0 == strcmp(extension, "oo")) | (0 == strcmp(extension, "OO"))) |
-            ((0 == strcmp(extension, "oa")) | (0 == strcmp(extension, "OA")))) |
-            (((0 == strcmp(extension, "o")) | (0 == strcmp(extension, "O")))) |
-            ((0 == strcmp(extension, "a")) | (0 == strcmp(extension, "A"))))
-        {
-            return TYPE_OO;
-        }
+        if (0 == strcmp(extension, "oo")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "OO")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "o")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "O")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "oa")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "OA")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "a")) { return TYPE_OO; }
+        if (0 == strcmp(extension, "A")) { return TYPE_OO; }
     }
 
     fputs("In file: ", stderr);
