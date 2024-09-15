@@ -507,6 +507,47 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
     }
 }
 
+static void print_d(output_t* output, directive_t* directive, va_list args, char* number_buffer) {
+
+    // get argument
+    intmax_t value;
+    if (directive->length_modifier == length_modifier_ll) {
+        #ifndef NO_LONG_LONG
+            value = va_arg(args, long long);
+        #endif
+        #ifdef NO_LONG_LONG
+            output->error = true;
+            return;
+        #endif
+    } else {
+        value = va_arg(args, int);
+    }
+
+    // convert negative to positive
+    uintmax_t uvalue;
+    if (value >= 0)
+        uvalue = (uintmax_t)value;
+    else if (value == INTMAX_MIN)
+        uvalue = (uintmax_t)INTMAX_MAX + 1u;
+    else
+        uvalue = -(uintmax_t)value;
+
+    // format it
+    size_t length = utod(uvalue, number_buffer);
+    if (value < 0)
+        print_output(output, "-", 1);
+
+    // TODO the rest of the modifiers. For now we only handle precision.
+    assert(!directive->argument_positions); // TODO not yet implemented
+    if (length < (size_t)directive->precision) {
+        for (size_t i = (size_t)directive->precision - length; i-- > 0;) {
+            print_output(output, "0", 1);
+        }
+    }
+
+    print_output(output, number_buffer, length);
+}
+
 /**
  * Main print function.
  */
@@ -548,38 +589,10 @@ static void print(const char* format, output_t* output, va_list args) {
                 print_output(output, "%", 1);
                 break;
 
-            case 'd': // fallthrough
-            case 'i': {
-                // get argument
-                intmax_t value;
-                if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef NO_LONG_LONG
-                        value = va_arg(args, long long);
-                    #endif
-                    #ifdef NO_LONG_LONG
-                        output->error = true;
-                        return;
-                    #endif
-                } else {
-                    value = va_arg(args, int);
-                }
-
-                // convert negative to positive
-                uintmax_t uvalue;
-                if (value >= 0)
-                    uvalue = (uintmax_t)value;
-                else if (value == INTMAX_MIN)
-                    uvalue = (uintmax_t)INTMAX_MAX + 1u;
-                else
-                    uvalue = -(uintmax_t)value;
-
-                // format it
-                size_t length = utod(uvalue, number_buffer);
-                if (value < 0)
-                    print_output(output, "-", 1);
-                print_output(output, number_buffer, length);
+            case 'd':
+            case 'i':
+                print_d(output, &directive, args, number_buffer);
                 break;
-            }
 
             case 's': {
                 // TODO length modifier

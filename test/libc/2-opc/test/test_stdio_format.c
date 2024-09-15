@@ -252,6 +252,8 @@ static void test_stdio_format_printf() {
     printf("%i\n", 10);
     printf("%i\n", -10);
 
+    printf("%.3d\n", 33);
+
     // another bug at one point
     char* f;
     if (0 > asprintf(&f, "%s.od", "foo")) {_Exit(1);}
