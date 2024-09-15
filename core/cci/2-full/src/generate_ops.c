@@ -135,6 +135,7 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
     } else {
         generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
+        assert(!type_is_passed_indirectly(node->last_child->type));
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, opcode, reg_left, reg_left, reg_right);
         register_free(node->token, reg_right);
@@ -142,10 +143,15 @@ static void generate_simple_arithmetic(node_t* node, int reg_left,
 }
 
 /**
- * Same as generate_pointer_add_sub() except the left value has already been
- * generated.
+ * Adds two values where one side is a pointer or array and the other is an
+ * integer.
  *
- * This is called directly by the compound assignment operators.
+ * The left value has already been generated in the given register and the
+ * result is placed in the same register.
+ *
+ * (Generating the left value is separate because we may have generated a
+ * location for compound assignment. If so, it's already been dereferenced into
+ * the given register.)
  */
 static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_left) {
     int reg_right = register_alloc(node->token);
@@ -163,7 +169,9 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     int reg_int = is_left_ptr ? (reg_right) : reg_left;
 
     // Shift or multiply the offset
-    // TODO there's a GCC extension for a zero-size struct. should figure out if/how pointer arithmetic works with it
+    if (size == 0) {
+        fatal("Internal error: cannot perform arithmetic on pointer to zero-size element");
+    }
     if (size != 1) {
         if (is_pow2(size)) {
             // TODO use fls() or clz() or similar function
@@ -184,13 +192,13 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     register_free(node->token, reg_right);
 }
 
-void generate_pointer_add_sub(node_t* node, int reg_left) {
-    generate_node(node->first_child, reg_left);
+void generate_indirection_add_sub(node_t* node, int reg_out) {
+    generate_node(node->first_child, reg_out);
 
     // This is used for NODE_ADD, NODE_SUB and NODE_ARRAY_SUBSCRIPT (which is
     // also ADD.)
     opcode_t op = node->kind == NODE_SUB ? SUB : ADD;
-    generate_pointer_add_sub_impl(node, op, reg_left);
+    generate_pointer_add_sub_impl(node, op, reg_out);
 }
 
 static void generate_pointers_sub(node_t* node, int reg_left) {
@@ -205,6 +213,9 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
 
     // Shift or divide the result
     size_t size = type_size(node->first_child->type->ref);
+    if (size == 0) {
+        fatal("Internal error: cannot perform arithmetic on pointer to zero-size element");
+    }
     if (size != 1) {
         if (is_pow2(size)) {
             // TODO use fls() or clz() or similar function
@@ -224,7 +235,7 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
 
 void generate_add(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
-        generate_pointer_add_sub(node, reg_out);
+        generate_indirection_add_sub(node, reg_out);
     } else {
         generate_simple_arithmetic(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
     }
@@ -232,7 +243,7 @@ void generate_add(node_t* node, int reg_out) {
 
 void generate_sub(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
-        generate_pointer_add_sub(node, reg_out);
+        generate_indirection_add_sub(node, reg_out);
     } else if (type_is_indirection(node->first_child->type)) {
         generate_pointers_sub(node, reg_out);
     } else {

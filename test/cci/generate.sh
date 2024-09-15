@@ -71,6 +71,12 @@ FILES="$(find $SOURCE_FOLDER/* -name '*.c') $(find $SOURCE_FOLDER/* -name '*.i')
 
 for TESTFILE in $FILES; do
     BASENAME=$(echo $TESTFILE|sed 's/\..$//')
+
+    if [ -e $BASENAME.skip ]; then
+        echo "Skipping $BASENAME"
+        continue
+    fi
+
     echo -n "Generating $BASENAME... "
 
     # preprocess

@@ -111,6 +111,13 @@ void instruction_destroy(instruction_t* instruction) {
 void instruction_vset(instruction_t* instruction, token_t* token,
         opcode_t opcode, va_list args)
 {
+    #ifdef GENERATE_DEBUG
+    extern int debug_depth;
+    for (int i = 0; i < debug_depth; ++i)
+        fputs("  ", stdout);
+    printf("%s\n", opcode_to_string(opcode));
+    #endif
+
     if (token)
         token_ref(token);
     if (instruction->token)

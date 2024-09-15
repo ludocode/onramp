@@ -106,16 +106,14 @@ void generate_post_inc(struct node_t* node, int reg_out);
 void generate_post_dec(struct node_t* node, int reg_out);
 
 /**
- * Generates an add or subtract of a pointer and an integer. The integer is
- * multiplied by the size of the pointed-to type.
+ * Generates an add, subtract, or array subscript operation on a pointer or
+ * array and an integer. The integer is multiplied by the size of the
+ * pointed-to type.
  *
- * This is also used for calculating the location of an array subscript
- * operation.
- *
- * One child of the node must be a pointer and the other side must be a (signed
- * or unsigned) 32-bit integer.
+ * One child of the node must be a pointer or array and the other side must be
+ * a (signed or unsigned) 32-bit integer.
  */
-void generate_pointer_add_sub(struct node_t* node, int reg_out);
+void generate_indirection_add_sub(struct node_t* node, int reg_out);
 
 void generate_unary_plus(struct node_t* node, int reg_out);
 void generate_unary_minus(struct node_t* node, int reg_out);

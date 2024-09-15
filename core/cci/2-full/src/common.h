@@ -38,6 +38,8 @@
 
 #define ASM_INDENT "  "
 
+//#define GENERATE_DEBUG
+
 struct token_t;
 
 /**

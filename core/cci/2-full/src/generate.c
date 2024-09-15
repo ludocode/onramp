@@ -201,8 +201,7 @@ static void generate_access(node_t* node, int reg_out) {
     }
 
     if (type_is_array(type)) {
-        // arrays decay to pointers.
-        // TODO this is probably the wrong way to do this, see generate_member_val()
+        // An array access is a pointer to the first element.
         generate_access_location(node->token, node->symbol, reg_out);
         return;
     }
@@ -215,9 +214,6 @@ static void generate_access(node_t* node, int reg_out) {
         return;
     }
 
-    // TODO if value is larger than a register, or is a record, need to copy it
-    // to where register points. should have a generic copy function in
-    // generate that copies of a known size using an extra register.
     opcode_t opcode;
     size_t size = type_size(type);
     if (size == 1) {
@@ -227,6 +223,8 @@ static void generate_access(node_t* node, int reg_out) {
     } else if (size == 4) {
         opcode = LDW;
     } else {
+        // Larger types are passed indirectly. This should have been handled
+        // above.
         fatal("Internal error: generate_access() direct has impossible size");
     }
     generate_access_impl(node->token, opcode, node->symbol, reg_out);
@@ -925,10 +923,12 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     // shift the pointer by the member offset
     block_append_op_imm(current_block, node->token, ADD, reg_ptr, reg_ptr, offset);
 
-    // if this is an array, the pointer to it is already in the register, so
-    // there's nothing to do.
-    if (type_is_array(node->type))
+    // if this is an array, the pointer to it is already in the source
+    // register, so we just need to move it to the destination.
+    if (type_is_array(node->type)) {
+        block_append(current_block, node->token, MOV, reg_out, reg_ptr);
         return;
+    }
 
     if (type_is_passed_indirectly(node->type)) {
         generate_copy(node->token, node->type, 1, reg_ptr, reg_out);
@@ -953,18 +953,21 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
 static void generate_dereference(node_t* node, int reg_out) {
 
     // When passing directly, we can use the same register for location and
-    // value.
-    if (type_is_array(node->type) || !type_is_passed_indirectly(node->type)) {
-        generate_node(node->first_child, reg_out);
-        generate_dereference_impl(node, reg_out, reg_out, 0);
-        return;
+    // value; otherwise we need to generate in a temporary register.
+    int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
+    if (indirect) {
+        reg_loc = register_alloc(node->token);
+    } else {
+        reg_loc = reg_out;
     }
 
-    // Otherwise we need to generate in a temporary register.
-    int reg_loc = register_alloc(node->token);
     generate_node(node->first_child, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, 0);
-    register_free(node->token, reg_loc);
+
+    if (indirect) {
+        register_free(node->token, reg_loc);
+    }
 }
 
 static void generate_array_subscript(node_t* node, int reg_out) {
@@ -1018,7 +1021,7 @@ static void generate_location_member_ptr(node_t* node, int reg_out) {
 }
 
 static void generate_location_array_subscript(node_t* node, int reg_out) {
-    generate_pointer_add_sub(node, reg_out);
+    generate_indirection_add_sub(node, reg_out);
 }
 
 static void generate_sizeof(node_t* node, int reg_out) {
@@ -1030,7 +1033,18 @@ static void generate_address_of(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
 }
 
+#ifdef GENERATE_DEBUG
+int debug_depth;
+#endif
+
 void generate_node(node_t* node, int reg_out) {
+    #ifdef GENERATE_DEBUG
+    for (int i = 0; i < debug_depth; ++i)
+        fputs("  ", stdout);
+    printf("%s() %s %x\n", __func__, node_kind_to_string(node->kind), reg_out);
+    ++debug_depth;
+    #endif
+
     switch (node->kind) {
         case NODE_INVALID:
             fatal("Internal error: cannot generate unrecognized node.");
@@ -1134,9 +1148,20 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_CALL: generate_call(node, reg_out); break;
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
     }
+
+    #ifdef GENERATE_DEBUG
+    --debug_depth;
+    #endif
 }
 
 void generate_location(node_t* node, int reg_out) {
+    #ifdef GENERATE_DEBUG
+    for (int i = 0; i < debug_depth; ++i)
+        fputs("  ", stdout);
+    printf("%s() %s %x\n", __func__, node_kind_to_string(node->kind), reg_out);
+    ++debug_depth;
+    #endif
+
     switch (node->kind) {
         case NODE_ACCESS: generate_access_location(node->token, node->symbol, reg_out); break;
         case NODE_DEREFERENCE: generate_node(node->first_child, reg_out); break;
@@ -1149,6 +1174,10 @@ void generate_location(node_t* node, int reg_out) {
             fatal("Internal error, cannot generate location of non-value node: %s.", node_kind_to_string(node->kind));
             break;
     }
+
+    #ifdef GENERATE_DEBUG
+    --debug_depth;
+    #endif
 }
 
 /**

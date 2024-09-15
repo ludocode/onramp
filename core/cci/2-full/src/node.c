@@ -289,7 +289,7 @@ void node_print(node_t* node) {
         type_print(node->type);
         //putchar('`');
     }
-    
+
     switch (node->kind) {
         case NODE_VARIABLE:
             fputs(" : ", stdout);
