@@ -965,10 +965,15 @@ static void vm_step(vm_t* vm) {
             vm->registers[vm_parse_register(vm, arg1)] =
                     vm_parse_mix(vm, arg2) * vm_parse_mix(vm, arg3);
             break;
-        case VM_DIV:
+        case VM_DIV: {
+            uint32_t divisor = vm_parse_mix(vm, arg3);
+            if (divisor == 0) {
+                panic("Divide by zero");
+            }
             vm->registers[vm_parse_register(vm, arg1)] =
-                    vm_parse_mix(vm, arg2) / vm_parse_mix(vm, arg3);
+                    vm_parse_mix(vm, arg2) / divisor;
             break;
+        }
         case VM_AND:
             vm->registers[vm_parse_register(vm, arg1)] =
                     vm_parse_mix(vm, arg2) & vm_parse_mix(vm, arg3);
