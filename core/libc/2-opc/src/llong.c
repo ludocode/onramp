@@ -193,14 +193,18 @@ void __llong_divmodu(unsigned* quotient_out, unsigned* /*nullable*/ remainder_ou
             // divisor is larger than dividend
             quotient_out[0] = 0;
             quotient_out[1] = 0;
-            remainder_out[0] = dividend[0];
-            remainder_out[1] = dividend[1];
+            if (remainder_out) {
+                remainder_out[0] = dividend[0];
+                remainder_out[1] = dividend[1];
+            }
         } else {
             // both numbers are 32 bits
             quotient_out[0] = dividend[0] / divisor[0];
             quotient_out[1] = 0;
-            remainder_out[0] = dividend[0] % divisor[0];
-            remainder_out[1] = 0;
+            if (remainder_out) {
+                remainder_out[0] = dividend[0] % divisor[0];
+                remainder_out[1] = 0;
+            }
         }
         return;
     }
