@@ -305,20 +305,22 @@
     ims ra <opcode_shrs_template
     ims ra >opcode_shrs_template
     add r0 rpp ra
-    add r1 '00 '2C
+    add r1 '00 '38
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
-    stb r2 r0 '1D
-    stb r2 r0 '29
+    stb r2 r0 '21
+    stb r2 r0 '2D
+    stb r2 r0 '35
     ldb r2 rsp '01    ; load src
-    stb r2 r0 '0F
-    stb r2 r0 '16
-    stb r2 r0 '26
+    stb r2 r0 '13
+    stb r2 r0 '1A
+    stb r2 r0 '2A
+    stb r2 r0 '36
     ldb r2 rsp '02    ; load bits
     stb r2 r0 '03
-    stb r2 r0 '17
-    stb r2 r0 '27
+    stb r2 r0 '1B
+    stb r2 r0 '2B
 
     ; pop the arguments
     add rsp rsp '04   ; popd
@@ -333,6 +335,9 @@
     ; generate a mask
     ror rb '01 '82   ; ror rb 1 bits
     sub rb rb '01    ; sub rb rb 1
+
+    ; if zero, jump to end
+    jz rb &opcode_shrs_template_zero
 
     ; test the sign bit
     ror ra '01 '01   ; ror ra 1 1      ; mov ra 0x80000000
@@ -349,6 +354,11 @@
 :opcode_shrs_template_nonnegative
     ror ra '81 '82   ; ror ra src bits
     and '80 ra rb    ; and dest ra rb
+    jz '00 &opcode_shrs_template_done
+
+:opcode_shrs_template_zero
+    ; zero. just copy
+    add '80 '81 '00
 
 :opcode_shrs_template_done
 
@@ -379,16 +389,18 @@
     ims ra <opcode_shru_template
     ims ra >opcode_shru_template
     add r0 rpp ra
-    add r1 '00 '10
+    add r1 '00 '1C
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
-    stb r2 r0 '0D
+    stb r2 r0 '11
+    stb r2 r0 '19
     ldb r2 rsp '01    ; load src
-    stb r2 r0 '0A
+    stb r2 r0 '0E
+    stb r2 r0 '1A
     ldb r2 rsp '02    ; load bits
     stb r2 r0 '03
-    stb r2 r0 '0B
+    stb r2 r0 '0F
 
     ; pop the arguments
     add rsp rsp '04   ; popd
@@ -404,11 +416,21 @@
     ror rb '01 '82    ; ror rb 1 bits
     sub rb rb '01     ; sub rb rb 1
 
+    ; if zero, jump to end
+    jz rb &opcode_shru_template_zero
+
     ; do the shift
     ror ra '81 '82   ; ror ra src bits
 
     ; apply the mask
     and '80 ra rb    ; and dest ra rb
+    jz '00 &opcode_shru_template_end
+
+:opcode_shru_template_zero
+    ; shift was zero. just copy
+    add '80 '81 '00
+
+:opcode_shru_template_end
 
 
 

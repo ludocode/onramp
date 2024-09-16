@@ -568,6 +568,8 @@ static void opcode_shrs(void) {
         // generate a mask
         ROR, RB, 1, bits,
         SUB, RB, RB, 1,
+        // if zero, jump to end
+        JZ, RB, 10, 0,
         // test the sign bit
         ROR, RA, 1, 1,  // mov ra 0x80000000
         AND, RA, RA, src,
@@ -576,10 +578,13 @@ static void opcode_shrs(void) {
         ROR, RA, src, bits,
         SUB, RB, 0xFF, RB,  // not rb
         OR, dest, RA, RB,
-        JZ, 0, 2, 0,
+        JZ, 0, 4, 0,
         // non-negative. shift and apply mask
         ROR, RA, src, bits,
         AND, dest, RA, RB,
+        JZ, 0, 1, 0,
+        // zero. just copy
+        ADD, dest, src, 0,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
@@ -592,10 +597,15 @@ static void opcode_shru(void) {
         // generate a mask
         ROR, RB, 1, bits,
         SUB, RB, RB, 1,
+        // if zero, jump to end
+        JZ, RB, 3, 0,
         // do the shift
         ROR, RA, src, bits,
         // apply the mask
         AND, dest, RA, RB,
+        JZ, 0, 1, 0,
+        // shift was zero. just copy
+        ADD, dest, src, 0,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
