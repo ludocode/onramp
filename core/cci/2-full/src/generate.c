@@ -700,7 +700,7 @@ void generate_cast(node_t* node, int reg_out) {
                 assert(source_base == BASE_RECORD);
             }
 
-            block_append(current_block, node->token, ADD, RSP, RSP, (uint8_t)source_size);
+            block_add_rsp(current_block, node->token, source_size);
         }
     } else {
         if (target_indirect) {
