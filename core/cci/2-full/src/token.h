@@ -53,7 +53,7 @@ typedef enum token_prefix_t {
  * Tokens are immutable once created.
  */
 typedef struct token_t {
-    int refcount;
+    unsigned refcount;
 
     token_type_t type;
     string_t* value;

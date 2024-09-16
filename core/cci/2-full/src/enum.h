@@ -36,7 +36,7 @@ struct token_t;
  * Eventually we also aim to support C23 enums with fixed underlying types.
  */
 typedef struct enum_t {
-    int refcount;
+    unsigned refcount;
     struct token_t* tag; // null if anonymous
 
     // TODO underlying type

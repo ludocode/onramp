@@ -51,7 +51,7 @@ typedef enum symbol_linkage_t {
  * A symbol is a variable, a function, a constant, or a builtin.
  */
 typedef struct symbol_t {
-    int refcount;
+    unsigned refcount;
 
     symbol_kind_t kind;
     struct type_t* type; // null for builtins; parser fills in the type
