@@ -4,7 +4,6 @@
   imw r0 1
   imw r1 ^b
   add r1 rpp r1
-  add r1 r1 0
   stw r0 r1 0
   imw r0 ^b
   add r0 rpp r0
@@ -22,7 +21,6 @@
 :_Lx1
   imw r0 1
   add r1 rfp -8
-  add r1 r1 0
   stw r0 r1 0
   imw r0 2
   add r1 rfp -8
@@ -30,11 +28,9 @@
   stw r0 r1 0
   imw r0 3
   add r1 rfp -8
-  add r1 r1 0
   stw r0 r1 0
   imw r0 4
   add r1 rfp -8
-  add r1 r1 0
   stw r0 r1 0
   add r0 rfp -8
   ldw r0 0 r0

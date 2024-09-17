@@ -12,7 +12,6 @@
 :_Lx0
   imw r0 2
   add r1 rfp -12
-  add r1 r1 0
   stw r0 r1 0
   add r0 rfp -12
   imw r1 0

@@ -73,7 +73,6 @@
   add rsp rsp 4
   pop r0
   add r0 rfp -24
-  add r0 r0 0
   ldw r0 0 r0
   imw r1 2
   sub r0 r0 r1
@@ -87,7 +86,6 @@
   jmp &_Lx5
 :_Lx5
   add r0 rfp -24
-  add r0 r0 0
   add r0 r0 4
   ldw r0 0 r0
   imw r1 3

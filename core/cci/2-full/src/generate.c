@@ -794,7 +794,7 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
         // If we're initializing a char array with too short a string, we need
         // to zero out the rest of the array.
         if (array_count > string_count) {
-            block_append(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
+            block_append_op_imm(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
             generate_zero_array(expr->token, target, array_count - string_count, reg_loc);
         }
 
@@ -1032,12 +1032,12 @@ static void generate_member_ptr(node_t* node, int reg_out) {
 
 static void generate_location_member_val(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
-    block_append(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
+    block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
 }
 
 static void generate_location_member_ptr(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
-    block_append(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
+    block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
 }
 
 static void generate_location_array_subscript(node_t* node, int reg_out) {
