@@ -46,5 +46,37 @@
     #endif
 #endif
 
+/**
+ * We need stdc_leading_zeros() but it's a C23 function. We still want to be
+ * able to test with earlier compilers and libcs so we work around it here.
+ * Note that we don't fallback to __builtin_clz() because its behaviour is
+ * undefined on 0.
+ */
+#ifndef __onramp_libc__
+    #ifdef __has_include
+        #if __has_include(<stdbit.h>)
+            #include <stdbit.h>
+        #endif
+    #else
+        #include <stdbit.h>
+    #endif
+    #ifdef __has_builtin
+        #if __has_builtin(__builtin_stdc_leading_zeros)
+            #define stdc_leading_zerosus __builtin_stdc_leading_zeros
+        #endif
+    #endif
+    #ifndef stdc_leading_zeros
+        #define stdc_leading_zerosus __onramp_test_stdc_leading_zerosus
+        static inline int __onramp_test_stdc_leading_zerosus(unsigned x) {
+            int ret = CHAR_BIT * sizeof(x);
+            while (x) {
+                --ret;
+                x >>= 1;
+            }
+            return ret;
+        }
+    #endif
+#endif
+
 
 #endif

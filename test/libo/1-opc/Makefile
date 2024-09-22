@@ -73,8 +73,8 @@ CPPFLAGS += \
 		-nostdinc -nostdlib \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libo/1-opc/include \
-		-include $(ROOT)/test/portability.h \
-		-include __onramp/__predef.h
+		-include __onramp/__predef.h \
+		-include $(ROOT)/test/portability.h
 
 all: build test FORCE
 FORCE:

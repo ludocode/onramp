@@ -50,8 +50,6 @@
     // TODO for now we support compiling this with an ordinary C compiler, this
     // way we can test against a native 64-bit divide among other things
     unsigned* __llong_negate(unsigned* out, const unsigned* src);
-    #include <stdbit.h>
-    #define stdc_leading_zerosus __builtin_stdc_leading_zeros
 #endif
 
 #include <stdbool.h>

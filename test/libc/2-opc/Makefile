@@ -85,6 +85,8 @@ CCARGS=\
 # Arguments for external compiler
 CPPFLAGS += \
 		-nostdinc -nostdlib \
+		-D__onramp_libc__=1 \
+		-D__onramp_libc_opc__=1 \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libc/common/src \
 		-include $(ROOT)/test/portability.h \
