@@ -60,6 +60,7 @@ OBJS=\
 		$(OUT)/format.oo \
 		$(OUT)/io.oo \
 		$(OUT)/llong.oo \
+		$(OUT)/multibyte.oo \
 		$(OUT)/setjmp.oo \
 		$(OUT)/stdbit.oo \
 		$(OUT)/stdlib.oo \
@@ -195,6 +196,12 @@ $(OUT)/llong.oo: $(SRC2)/llong.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/llong.c -o $(OUT)/llong.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/llong.c -o $@
+
+$(OUT)/multibyte.oo: $(SRC2)/multibyte.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/multibyte.c -o $(OUT)/multibyte.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/multibyte.c -o $@
 
 $(OUT)/stdbit.oo: $(SRC2)/stdbit.c Makefile
 	@rm -f $@

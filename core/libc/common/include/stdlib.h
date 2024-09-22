@@ -129,8 +129,16 @@ long long llabs(long long x);
 //lldiv_t lldiv(long long int numer, long long int denom
 
 
-/* Multibyte/wide character conversion functions */
-// TODO
+
+// Multibyte/wide character conversion functions
+#ifndef __onramp_cci_omc__
+int mbtowc(wchar_t* /*nullable*/ restrict __out_wchar, const char* /*nullable*/ restrict __bytes, size_t __count);
+int wctomb(char* /*nullable*/ __out_bytes, wchar_t __wchar);
+int mblen(const char* /*nullable*/ __bytes, size_t __count);
+//TODO size_t mbstowcs(wchar_t* restrict out_wchars, const char* restrict bytes, size_t len)
+//TODO size_t wcstombs(char* restrict out_bytes, const wchar_t* restrict wchars, size_t len);
+// TODO other functions: https://en.cppreference.com/w/c/string/multibyte
+#endif
 
 
 

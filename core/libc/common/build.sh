@@ -38,7 +38,9 @@ cp core/libc/common/include/__onramp/__null.h build/output/include/__onramp/__nu
 cp core/libc/common/include/__onramp/__predef.h build/output/include/__onramp/__predef.h
 cp core/libc/common/include/__onramp/__size_t.h build/output/include/__onramp/__size_t.h
 cp core/libc/common/include/__onramp/__va_list.h build/output/include/__onramp/__va_list.h
+cp core/libc/common/include/__onramp/__wchar_limits.h build/output/include/__onramp/__wchar_limits.h
 cp core/libc/common/include/__onramp/__wchar_t.h build/output/include/__onramp/__wchar_t.h
+cp core/libc/common/include/__onramp/__wint_t.h build/output/include/__onramp/__wint_t.h
 cp core/libc/common/include/assert.h build/output/include/assert.h
 cp core/libc/common/include/ctype.h build/output/include/ctype.h
 cp core/libc/common/include/errno.h build/output/include/errno.h
@@ -66,4 +68,7 @@ cp core/libc/common/include/sys/stat.h build/output/include/sys/stat.h
 cp core/libc/common/include/sys/time.h build/output/include/sys/time.h
 cp core/libc/common/include/sys/types.h build/output/include/sys/types.h
 cp core/libc/common/include/time.h build/output/include/time.h
+cp core/libc/common/include/uchar.h build/output/include/uchar.h
 cp core/libc/common/include/unistd.h build/output/include/unistd.h
+cp core/libc/common/include/wchar.h build/output/include/wchar.h
+cp core/libc/common/include/wctype.h build/output/include/wctype.h

@@ -29,6 +29,9 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__wchar_t.h>
+#include <__onramp/__wchar_limits.h>
+
 
 
 // these types exist in omC under cci/0
@@ -189,15 +192,14 @@ typedef int64_t int_fast64_t;
 
 
 
-// Apparently this file doesn't actually need to define size_t or ptrdiff_t so
-// we don't include <stddef.h> or whatever.
+// Apparently this file doesn't actually need to define size_t or ptrdiff_t.
+#define PTRDIFF_WIDTH 32
 #define PTRDIFF_MIN INT32_MIN
 #define PTRDIFF_MAX INT32_MAX
+#define SIZE_WIDTH 32
 #define SIZE_MAX UINT32_MAX
 
 // TODO: SIG_ATOMIC_MIN and SIG_ATOMIC_MAX
-// TODO: WCHAR_MIN and WCHAR_MAX
-// TODO: WINT_MIN and WINT_MAX
 
 #ifndef __onramp_cpp_omc__
     #define INT8_C(x) x
@@ -211,5 +213,11 @@ typedef int64_t int_fast64_t;
     #define UINT64_C(x) x ## ULL
     */
 #endif
+
+
+
+#define WINT_WIDTH 32
+#define WINT_MIN INT32_MIN
+#define WINT_MAX INT32_MAX
 
 #endif

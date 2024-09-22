@@ -96,6 +96,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/llong.c \
     -o build/intermediate/libc-3-full-re/llong.oo
 
+echo Compiling libc/2-opc multibyte.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/multibyte.c \
+    -o build/intermediate/libc-3-full-re/multibyte.oo
+
 echo Assembling libc/2-opc setjmp.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -203,6 +209,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full-re/format.oo \
     build/intermediate/libc-3-full-re/io.oo \
     build/intermediate/libc-3-full-re/llong.oo \
+    build/intermediate/libc-3-full-re/multibyte.oo \
     build/intermediate/libc-3-full-re/setjmp.oo \
     build/intermediate/libc-3-full-re/stdbit.oo \
     build/intermediate/libc-3-full-re/string.oo \

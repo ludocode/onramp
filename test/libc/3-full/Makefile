@@ -76,6 +76,7 @@ OBJS_ALL=\
 		$(BUILD2)/format.oo \
 		$(BUILD2)/io.oo \
 		$(BUILD2)/llong.oo \
+		$(BUILD2)/multibyte.oo \
 		$(BUILD2)/setjmp.oo \
 		$(BUILD2)/stdbit.oo \
 		$(BUILD2)/stdlib.oo \

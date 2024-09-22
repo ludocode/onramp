@@ -92,6 +92,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/format.oo \
     build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/llong.oo \
+    build/intermediate/libc-2-opc/multibyte.oo \
     build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/stdbit.oo \
     build/intermediate/libc-2-opc/string.oo \
