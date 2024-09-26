@@ -299,7 +299,7 @@ setup_vm_detect_machine_code() {
 setup_vm_python() {
     echo "Checking python/ VM"
     if [ "$(platform/vm/python/vm.py $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
-        echo "WARNING: The Python VM is very slow. It may take tens of minutes to"
+        echo "WARNING: The Python VM is very slow. It will take hours to"
         echo "         complete the bootstrap process."
         echo "Using python/ VM"
         cp platform/vm/python/vm.py build/posix/share/onramp/platform/vm.py
@@ -338,7 +338,7 @@ autodetect_vm() {
     # compilers.
     #
     # We prefer the debugger even though it's a bit slower because it provides
-    # annotated stack traces on crashes.
+    # better error checking and annotated stack traces on crashes.
     if ! [ -e $VM_PATH ]; then
         setup_vm_c_debugger
     fi
@@ -349,15 +349,16 @@ autodetect_vm() {
     # As a last resort we use an interpreted VM. These are sorted roughly in
     # decreasing order of performance.
     # TODO implement a VM in something faster than Python
-    if ! [ -e $VM_PATH ]; then
-        setup_vm_python
-    fi
+    # TODO the Python bootstrap takes several hours. Auto-detection is disabled.
+#    if ! [ -e $VM_PATH ]; then
+#        setup_vm_python
+#    fi
 
     # We don't use the sh/ VM ever. It's so slow that it would take months to
     # complete the bootstrap.
 
     if ! [ -e $VM_PATH ]; then
-        echo "ERROR: No VM was found for this platform."
+        echo "ERROR: No suitable VM was found for this platform."
         exit 1
     fi
 }
@@ -414,7 +415,7 @@ usage() {
     echo "    --dev            Use preferred tools for developing Onramp"
     echo "    --min            Use only tools with no additional dependencies (i.e. a shell"
     echo "                         hex tool and machine code VM), fail otherwise"
-    echo "    --skip-core      Skip the core bootstrap; just do the POSIX setup"
+    echo "    --setup          Skip the core bootstrap; setup the VM, hex and shell only"
     echo
     echo "Look in platform/hex/ and platform/vm/ for the names of tools. Only those tools"
     echo "that support POSIX platforms can be built by this script."
@@ -423,7 +424,7 @@ usage() {
 # parse arguments
 DEV=0
 MIN=0
-SKIP_CORE=0
+SETUP_ONLY=0
 HEX_CHOICE=
 VM_CHOICE=
 while [ "x$1" != "x" ]; do
@@ -454,8 +455,8 @@ while [ "x$1" != "x" ]; do
         HEX_CHOICE=$1
         shift
 
-    elif [ "$1" = "--skip-core" ]; then
-        SKIP_CORE=1
+    elif [ "$1" = "--setup" ]; then
+        SETUP_ONLY=1
         shift
 
     elif [ "$1" = "--help" ] || [ "$1" = "-h" ] || [ "$1" = "-?" ]; then
@@ -464,6 +465,7 @@ while [ "x$1" != "x" ]; do
 
     else
         echo "ERROR: Unrecognized option: $1"
+        usage
         exit 1
     fi
 done
@@ -552,7 +554,7 @@ onrampvm build/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o build/inter
 
 # Now that we have everything we need we can jump inside the VM for the rest
 # of the bootstrap process.
-if [ $SKIP_CORE -eq 0 ]; then
+if [ $SETUP_ONLY -eq 0 ]; then
     echo
     echo "Entering Onramp virtual machine..."
     # TODO since our sh tool is incomplete we run this script directly.
@@ -567,7 +569,7 @@ cp platform/cc/posix/onramphex build/posix/bin
 cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
 
 echo
-if [ $SKIP_CORE -eq 0 ]; then
+if [ $SETUP_ONLY -eq 0 ]; then
     echo "POSIX build complete."
 else
     echo "POSIX setup complete."

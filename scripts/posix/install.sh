@@ -48,17 +48,21 @@ if [ "x$1" != "x" ]; then
 fi
 
 # Check that a bunch of files exist to make sure the bootstrap process worked
-check_path build/posix/bin/onrampvm
-check_path build/posix/bin/onrampcc
-check_path build/posix/bin/onrampar
-check_path build/posix/bin/onramphex
-check_path build/posix/share/onramp
-check_path build/output/bin/cc.oe
-check_path build/output/bin/cci.oe
-check_path build/output/bin/ar.oe
-check_path build/output/bin/hex.oe
-check_path build/output/include/stdlib.h
-check_path build/output/lib/libc.oa
+# (Unless --dev is specified, in which case we allow installing links even if
+# the compiler is not built yet)
+if [ $DEV -eq 1 ]; then
+    check_path build/posix/bin/onrampvm
+    check_path build/posix/bin/onrampcc
+    check_path build/posix/bin/onrampar
+    check_path build/posix/bin/onramphex
+    check_path build/posix/share/onramp
+    check_path build/output/bin/cc.oe
+    check_path build/output/bin/cci.oe
+    check_path build/output/bin/ar.oe
+    check_path build/output/bin/hex.oe
+    check_path build/output/include/stdlib.h
+    check_path build/output/lib/libc.oa
+fi
 
 # Remove old installation (if any)
 rm -rf $HOME/.local/share/onramp

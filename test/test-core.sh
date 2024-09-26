@@ -22,14 +22,17 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 # This script compiles each core component with the best available toolchain
 # and runs its test suite.
 #
 # This does not test anything in platform/ (although the test scripts for the
-# core hex stages are in platform/.)
+# core hex stages are in platform/.) See `test/test-platform.sh` to test
+# platform-specific tools.
 #
 # The POSIX build script (scripts/posix/build.sh) must already have been run
 # (but only the setup is required, not the actual build.)
+
 
 set -e
 cd "$(dirname "$0")/.."

@@ -22,19 +22,34 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
+# This script attempts to run all tests that can be run on the local machine.
+# It approximates what the Github CI does, but none of it is in parallel so it
+# takes a while to run.
+
+
 set -e
-cd "$(dirname "$0")"
+cd "$(dirname "$0")/.."
+scripts/posix/clean.sh
 
-# We run platform-specific tests first to make sure there are no VM bugs before
-# we test stuff that depends on a VM.
-./test-platform.sh
+# Run platform-specific tests first to make sure there are no VM bugs before we
+# test stuff that depends on a VM.
+test/test-platform.sh
 
-# Test the normal build
-( cd .. ; scripts/posix/build.sh --dev )
+# Test a normal build, preferring machine code if available.
+# (Unlike the CI we don't specify --min here because we want what we have to be
+# testable on platforms that don't have a machine code VM yet.)
+scripts/posix/clean.sh
+scripts/posix/build.sh
+test/test-final.sh
 
 # Test core components with the best available toolchains before testing as
 # bootstrapped since they are more likely to find the real source of bugs.
-./test-core.sh
+scripts/posix/clean.sh
+scripts/posix/build.sh --setup --dev
+test/test-core.sh
 
 # Finally we test everything as bootstrapped.
-./test-bootstrap.sh
+scripts/posix/clean.sh
+scripts/posix/build.sh --setup --dev
+test/test-bootstrap.sh

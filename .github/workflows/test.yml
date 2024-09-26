@@ -3,20 +3,33 @@ name: Tests
 on: [push, pull_request]
 
 jobs:
-  tests:
-    name: "Tests"
+  linux-x86_64:
+    name: "Linux x86_64 Machine Code Build"
+    runs-on: ubuntu-latest   # this should force x86_64 when it becomes an option
+    steps:
+      - uses: actions/checkout@main
+      - run: scripts/posix/build.sh --min
+      - run: test/test-final.sh
+
+  test-platform:
+    name: "Linux Platform-Specific Tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
+      - run: test/test-platform.sh
 
-      - name: Build
-        run: scripts/posix/build.sh
+  test-core:
+    name: "Core Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - run: scripts/posix/build.sh --setup --dev
+      - run: test/test-core.sh
 
-      - name: Test platform-specific
-        run: test/test-platform.sh
-
-      - name: Test core
-        run: test/test-core.sh
-
-      - name: Test core as bootstrapped
-        run: test/test-bootstrap.sh
+  test-bootstrapped:
+    name: "Bootstrapped Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - run: scripts/posix/build.sh --setup --dev
+      - run: test/test-bootstrap.sh

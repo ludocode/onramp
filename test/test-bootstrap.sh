@@ -22,10 +22,16 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
+
 # Performs the Onramp bootstrap process, testing each core component as it is
 # bootstrapped.
 #
-# This script matches core/build.sh except that we run tests after each step.
+# This script should match `core/build.sh` except that we run tests after each
+# step.
+#
+# The POSIX build script (scripts/posix/build.sh) must already have been run
+# (but only the setup is required, not the actual build.)
+
 
 set -e
 cd "$(dirname "$0")/.."
@@ -116,7 +122,7 @@ core/libc/common/build.sh
     ../run.sh --other-stage ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
     ../run.sh               .        full onrampvm ../../../build/output/bin/cci.oe )
 # TODO cpp/2 not done yet, only running cpp/1 tests
-( core/cpp/2-full/rebuild.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
+( core/cpp/2-full/rebuild.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
 
 # Build the last few tools we need
 ( core/hex/1-c89/build.sh && test/hex/run.sh onrampvm build/output/bin/hex.oe )

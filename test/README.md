@@ -23,8 +23,15 @@ scripts/posix/clean.sh
 You'll need to have a VM and hex tool on your PATH. The simplest way to do that is:
 
 ```sh
-scripts/posix/build.sh --dev --skip-core
+scripts/posix/build.sh --dev --setup
 . scripts/posix/env.sh
+```
+
+A better option if you plan to do Onramp development is to install developer symlinks. This will place symlinks in `~/.local/bin` for `onrampvm`, `onrampcc` and so on that point directly into your build folder. This allows you to easily test local changes without having to reinstall Onramp.
+
+```sh
+scripts/posix/build.sh --dev
+scripts/posix/install.sh --dev
 ```
 
 The file `test/local.mk.sample` can be copied to `test/local.mk` to set variables for all test Makefiles. By default it adds `-Werror` and Address Sanitizer.
@@ -42,6 +49,8 @@ If you just want to run all tests that can be run on your system, do the above s
 ```sh
 test/test-all.sh
 ```
+
+This approximates everything the GitHub CI does. None of it is parallelized (yet) so it will take tens of minutes to complete.
 
 
 
@@ -94,8 +103,10 @@ test/test-bootstrap.sh
 
 This builds Onramp using the normal bootstrap process, testing each stage of each tool after it is built.
 
-This is a more "real" test of how the tools will actually be built when Onramp is bootstrapped: it can detect errors in the bootstrap process that the normal `make`-based tests may not. It can also detect the use of later-stage features that are not available in earlier stages.
+This is a more "real" test of how the tools will actually be built when Onramp is bootstrapped: it can detect errors in the bootstrap process that the normal `make`-based tests may not. It can also detect the use of later-stage features that are not available in earlier stages. However, it cannot detect many errors that the final stage tools, modern compilers, and tools like Address Sanitizer can detect.
 
-However, it cannot detect many errors that the final stage tools, modern compilers, and tools like Address Sanitizer can detect.
+If you want to test only a single stage as bootstrapped, you can copy-paste the corresponding line from this script. If you want to test only the final toolchain after the bootstrap process is complete, you can test it like this:
 
-If you want to test only a single stage as bootstrapped, you can setup your environment and then copy-paste the corresponding line from this script.
+```sh
+test/test-final.sh
+```
