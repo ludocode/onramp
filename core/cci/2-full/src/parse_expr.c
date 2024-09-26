@@ -947,33 +947,30 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
             // a pointer, which moves the pointer; or it allows subtraction of
             // two arithmetic types.
 
-            type_t* left_type = left->type;
-            type_t* right_type = right->type;
-
             // Both pointers
-            if (type_is_pointer(right_type)) {
-                if (!type_is_pointer(left_type))
+            if (type_is_pointer(right->type)) {
+                if (!type_is_pointer(left->type))
                     fatal_token(op->token, "Cannot subtract a pointer from a non-pointer.");
-                if (!type_compatible_unqual(left_type, right_type))
+                if (!type_compatible_unqual(left->type, right->type))
                     fatal_token(op->token, "Cannot subtract two pointers of incompatible types.");
                 op->type = type_new_base(BASE_SIGNED_INT);
 
             // Left side pointer
-            } else if (type_is_pointer(left_type)) {
-                if (!type_is_arithmetic(right_type))
+            } else if (type_is_pointer(left->type)) {
+                if (!type_is_arithmetic(right->type))
                     fatal_token(op->token, "Subtracting from a pointer requires a pointer of compatible type or an arithmetic type.");
                 right = node_cast_base(node_promote(right), BASE_UNSIGNED_INT, NULL);
-                op->type = type_ref(left_type);
+                op->type = type_ref(left->type);
 
             // Neither side pointer
             } else {
-                if (!type_is_arithmetic(left_type))
+                if (!type_is_arithmetic(left->type))
                     fatal_token(op->token, "The left side of binary subtraction must be a pointer or an arithmetic type.");
-                if (!type_is_arithmetic(right_type))
+                if (!type_is_arithmetic(right->type))
                     fatal_token(op->token, "The right side of binary subtraction must be a pointer or an arithmetic type.");
 
                 parse_usual_arithmetic_conversions(&left, &right);
-                op->type = type_ref(left_type);
+                op->type = type_ref(left->type);
             }
 
             break;
