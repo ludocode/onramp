@@ -65,9 +65,10 @@
             #define stdc_leading_zerosus __builtin_stdc_leading_zeros
         #endif
     #endif
-    #ifndef stdc_leading_zeros
-        #define stdc_leading_zerosus __onramp_test_stdc_leading_zerosus
-        static inline int __onramp_test_stdc_leading_zerosus(unsigned x) {
+    #if !defined(stdc_leading_zeros) && !defined(stdc_leading_zerosus)
+        #include <limits.h>
+        #define stdc_leading_zerosus onramp_test_stdc_leading_zerosus
+        static inline int onramp_test_stdc_leading_zerosus(unsigned x) {
             int ret = CHAR_BIT * sizeof(x);
             while (x) {
                 --ret;
