@@ -231,6 +231,8 @@ node_t* parse_initializer_list(type_t* root_type) {
             if (!is_string_init) {
                 // Convert functions to function pointers
                 scalar = node_decay(scalar);
+                // Cast to target type
+                scalar = node_cast(scalar, child_type, NULL);
             }
 
             // Assign the scalar, replacing any existing initializer in case
