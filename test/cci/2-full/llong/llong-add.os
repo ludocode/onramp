@@ -18,7 +18,6 @@
   call ^__llong_add
   mov r0 r0
   add rsp rsp 16
-  ldw r0 r0 0
   add rsp rsp 8
   sub rsp rsp 16
   mov r0 rsp

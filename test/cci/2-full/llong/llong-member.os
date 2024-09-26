@@ -54,7 +54,6 @@
   stw r2 r1 0
   ldw r2 r0 4
   stw r2 r1 4
-  ldw r0 r0 0
   add rsp rsp 8
   sub rsp rsp 16
   mov r0 rsp

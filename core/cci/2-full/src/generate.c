@@ -659,7 +659,9 @@ void generate_cast(node_t* node, int reg_out) {
             generate_node(node->first_child, reg_out);
 
             // convert source to target
-            if (source_base == BASE_DOUBLE) {
+            if (target_base == BASE_VOID) {
+                // nothing to do.
+            } else if (source_base == BASE_DOUBLE) {
                 // It's a double. We're either casting to float or to an
                 // integer type.
                 if (target_base == BASE_FLOAT) {
@@ -694,10 +696,7 @@ void generate_cast(node_t* node, int reg_out) {
                     }
                 }
             } else {
-                // The only other possibility is casting a record to void. The
-                // value is ignored.
-                assert(target_base == BASE_VOID);
-                assert(source_base == BASE_RECORD);
+                fatal("Internal error: unrecognized indirect to direct cast.");
             }
 
             block_add_rsp(current_block, node->token, source_size);
