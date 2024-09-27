@@ -1172,8 +1172,18 @@ node_t* parse_assignment_expression(void) {
     }
 
     token_t* token = lexer_take();
+    node_t* right = parse_assignment_expression();
 
-    node_t* right = node_cast(parse_assignment_expression(), left->type, NULL);
+    if (type_is_pointer(left->type) && kind != NODE_ASSIGN) {
+        // In a compound assignment to a pointer, the value should be treated
+        // as an pointer-size integer (i.e. we are shifting or masking a
+        // pointer.)
+        right = node_cast_base(right, BASE_UNSIGNED_INT, NULL);
+    } else {
+        // In all other cases the value must be convertible to the target. This
+        // is an implicit cast so it'll warn or error if the types don't match.
+        right = node_cast(right, left->type, NULL);
+    }
 
     node_t* assign = node_new_token(kind, token);
     token_deref(token);
