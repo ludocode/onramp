@@ -49,8 +49,8 @@ static void generate_arithmetic_function(node_t* parent,
     bool right_indirect = second ? type_is_passed_indirectly(second->type) : false;
 
     // push all registers (except for the return register)
-    int last_pushed_register = register_loop_count ? R9 : reg_out;
-    for (int i = R0; i != last_pushed_register; ++i) {
+    int last_pushed_register = register_loop_count ? R9 : register_next - 1;
+    for (int i = R0; i <= last_pushed_register; ++i) {
         if (i != reg_out) {
             block_append(current_block, parent->token, PUSH, i);
         }
@@ -108,7 +108,7 @@ static void generate_arithmetic_function(node_t* parent,
     register_loop_count = old_register_loop_count;
 
     // pop registers
-    for (int i = last_pushed_register; i-- != R0;) {
+    for (int i = last_pushed_register; i >= R0; --i) {
         if (i != reg_out) {
             block_append(current_block, parent->token, POP, i);
         }
