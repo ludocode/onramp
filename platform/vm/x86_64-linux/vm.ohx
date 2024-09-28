@@ -137,7 +137,8 @@
 ; 0x4010A0 syscall_ftell
 ; 0x401130 syscall_ftrunc
 ; 0x4011A0 syscall_chmod
-; 0x401120 syscall_time
+; 0x401200 syscall_time
+; 0x401270 skip_wrap_header
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -915,13 +916,13 @@
     B8 03 00 00 00           ; mov eax, 3         ; syscall: close (3)
     0F 05                    ; syscall
 
-    ; TODO check for shebang #! or REM to see if this program is wrapped. If so
-    ; we should increment rpp by 1024 or whatever. Could do this here or in
-    ; caller.
-
     ; set the break
     B8 04 00 00 01    ; mov eax, program break (0x1000004)
     89 30             ; mov [rax], esi
+
+    ; check for a wrap header to skip
+    B8 70 12 40 00    ; mov eax, skip_wrap_header (0x401270)
+    FF D0             ; call rax
 
     ; return
     48 89 EC                       ; mov rsp, rbp
@@ -932,8 +933,7 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90
+    90 90 90 90 90 90
 @0x800
 
 
@@ -1133,7 +1133,7 @@
 
     ; we will load the program next, set the break into rip and rpp
     BF 04 00 00 01   ; mov edi, program break (0x1000004)
-    89 38            ; mov [rax], edi
+    8B 07            ; mov eax, [rdi]
     BF 38 00 60 00   ; mov edi, rpp (0x600038)
     89 07            ; mov [rdi], eax
     BF 3C 00 60 00   ; mov edi, rip (0x60003C)
@@ -1144,6 +1144,9 @@
     488B7F10          ; mov rdi, [rdi + 16]    ; program path from command line
     B8 70 07 40 00    ; mov eax, load_program (0x400770)
     FF D0             ; call rax
+
+
+    ; check for a wrap header
 
 
     ; load the remaining data into the process info table
@@ -2526,3 +2529,67 @@
     90 90 90 90 90 90 90 90
     90 90 90
 @0x1270
+
+
+
+; ==========================================================
+; void skip_wrap_header(void)
+; ==========================================================
+; Checks for `#!` or `REM` at the start of the program and, if found, skips the
+; first 128 bytes.
+;
+; registers:
+; - edi: address of rpp/rip registers
+; - esi: value of rpp/rip registers, i.e. address of first word of program
+; - edx: first word of rpogram
+; - eax: temporary register for comparisons
+; ==========================================================
+
+@0x1270 skip_wrap_header
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; get the first word of the program into esi
+    BF 38 00 60 00   ; mov edi, rpp (0x600038)
+    8B 37            ; mov esi, [rdi]           ; load rpp
+    8B 16            ; mov edx, [rsi]           ; get word at rpp
+
+    ; compare it to #!
+    B8 FF FF 00 00   ; mov eax, 0xFFFF   ; mask on the low two bytes
+    21 D0            ; and eax, edx
+    3D 23 21 00 00   ; cmp eax, 0x2123   ; compare to '#!' (in little-endian)
+    74 10            ; je skip_wrap_header_found (+16)
+
+    ; compare it to REM
+    B8 FF FF FF 00   ; mov eax, 0xFFFFFF   ; mask on the low three bytes
+    21 D0            ; and eax, edx
+    3D 52 45 4D 00   ; cmp eax, 0x4D4552   ; compare to 'REM' (in little-endian)
+    74 02            ; je skip_wrap_header_found (+2)
+
+    ; none match
+    EB 11             ; jmp skip_wrap_header_done (+17)
+
+;skip_wrap_header_found:
+    ; increment rpp and rip by 128
+    81 C6 80 00 00 00   ; add esi, 128
+    67 89 37            ; mov [edi], esi   ; store rpp
+    BF 3C 00 60 00      ; mov edi, rip (0x60003C)
+    67 89 37            ; mov [edi], esi   ; store rip
+
+;skip_wrap_header_done:
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x12F0

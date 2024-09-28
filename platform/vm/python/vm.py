@@ -364,6 +364,12 @@ def start():
             storeByte(pos, b)
             pos += 1
 
+    # Skip any #! or REM wrap header
+    programIndex = programAddress - BASE_ADDR
+    if memory[programIndex:programIndex + 2] == b"#!" or \
+            memory[programIndex:programIndex + 3] == b"REM":
+        programAddress += 128
+
     # Initialize registers
     registers[RPP] = programAddress
     registers[RIP] = programAddress
