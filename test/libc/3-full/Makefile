@@ -57,6 +57,7 @@ OBJS3=\
 		$(BUILD3)/rand.oo \
 		$(BUILD3)/stdbit_llong.oo \
 		$(BUILD3)/stdlib_3.oo \
+		$(BUILD3)/time.oo \
 
 # TODO remove libc/1 malloc.oo when libc/3 builds
 OBJS_ALL=\
@@ -184,6 +185,12 @@ $(BUILD3)/stdlib_3.oo: $(SRC3)/stdlib_3.c Makefile
 	@mkdir -p $(BUILD3)
 	$(CC) $(CPPFLAGS) -c $(SRC3)/stdlib_3.c -o $(BUILD3)/stdlib_3.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC3)/stdlib_3.c -o $@
+
+$(BUILD3)/time.oo: $(SRC3)/time.c Makefile
+	@rm -f $@
+	@mkdir -p $(BUILD3)
+	$(CC) $(CPPFLAGS) -c $(SRC3)/time.c -o $(BUILD3)/time.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC3)/time.c -o $@
 
 
 $(BUILD3)/libc.oa: Makefile $(TOOLS) $(LIBC1) $(LIBC2) $(OBJS3)

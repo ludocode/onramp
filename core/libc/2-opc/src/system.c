@@ -68,13 +68,14 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     __argv = process_info[__ONRAMP_PIT_ARGS];
     environ = process_info[__ONRAMP_PIT_ENVIRON];
 
-    // count command-line args
-    for (__argc = 0; __argv[__argc]; ++__argc) {}
-
     // initialize the libc
+    __time_setup();
     __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __io_init();
     __file_init();
+
+    // count command-line args
+    for (__argc = 0; __argv[__argc]; ++__argc) {}
 
     // run user code. exit() does not return.
     call_constructors();

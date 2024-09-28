@@ -184,6 +184,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/stdlib_3.c \
     -o build/intermediate/libc-3-full-re/stdlib_3.oo
 
+echo Compiling libc/3-full time.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/3-full/src/time.c \
+    -o build/intermediate/libc-3-full-re/time.oo
+
 
 # link
 
@@ -224,4 +230,5 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full-re/rand.oo \
     build/intermediate/libc-3-full-re/stdbit_llong.oo \
     build/intermediate/libc-3-full-re/stdlib_3.oo \
+    build/intermediate/libc-3-full-re/time.oo \
 

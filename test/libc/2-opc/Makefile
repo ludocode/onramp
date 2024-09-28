@@ -53,7 +53,6 @@ OBJS=\
 		$(OUT)/strtol.oo \
 		\
 		$(OUT)/assert.oo \
-		$(OUT)/atexit.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/file.oo \
@@ -66,6 +65,7 @@ OBJS=\
 		$(OUT)/stdlib.oo \
 		$(OUT)/string.oo \
 		$(OUT)/strings.oo \
+		$(OUT)/stubs.oo \
 		$(OUT)/syscalls.oo \
 		$(OUT)/system.oo \
 
@@ -157,12 +157,6 @@ $(OUT)/assert.oo: $(SRC2)/assert.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/assert.c -o $(OUT)/assert.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/assert.c -o $@
 
-$(OUT)/atexit.oo: $(SRC2)/atexit.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/atexit.c -o $(OUT)/atexit.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/atexit.c -o $@
-
 $(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
@@ -228,6 +222,12 @@ $(OUT)/strings.oo: $(SRC2)/strings.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/strings.c -o $(OUT)/strings.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/strings.c -o $@
+
+$(OUT)/stubs.oo: $(SRC2)/stubs.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/stubs.c -o $(OUT)/stubs.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stubs.c -o $@
 
 $(OUT)/system.oo: $(SRC2)/system.c Makefile
 	@rm -f $@

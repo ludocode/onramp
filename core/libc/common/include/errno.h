@@ -43,6 +43,7 @@
 #define EIO 12
 #define ESPIPE 13
 #define EOVERFLOW 14
+#define ENOTSUP 15
 
 extern int errno;
 

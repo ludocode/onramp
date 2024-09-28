@@ -22,14 +22,18 @@
  * SOFTWARE.
  */
 
-// We can't implement atexit() in libc/2 because opC doesn't support function
-// pointers. We still want to implement exit() in libc/2 so these are stubs
-// that get overridden by libc/3.
+// This file contains stubs for anything we can't implement in libc/2. For
+// example atexit() requires function pointers and clock_gettime() requires
+// long long. These functions are implemented properly in libc/3.
 
 void __call_atexit(void) {
     // nothing
 }
 
 void __call_at_quick_exit(void) {
+    // nothing
+}
+
+void __time_setup(void) {
     // nothing
 }

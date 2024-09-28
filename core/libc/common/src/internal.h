@@ -42,5 +42,6 @@ int __fd_handle(int fd);
 
 void __call_atexit(void);
 void __call_at_quick_exit(void);
+void __time_setup(void);
 
 #endif
