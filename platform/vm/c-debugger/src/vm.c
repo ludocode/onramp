@@ -591,8 +591,8 @@ static uint32_t vm_time(vm_t* vm) {
 
     uint32_t addr = vm->registers[0];
     vm_store_u32(vm, addr, (uint32_t)time.tv_sec);
-    vm_store_u32(vm, addr, (uint32_t)((uint64_t)time.tv_nsec >> 32));
-    vm_store_u32(vm, addr, time.tv_nsec);
+    vm_store_u32(vm, addr + 4, (uint32_t)((uint64_t)time.tv_sec >> 32));
+    vm_store_u32(vm, addr + 8, time.tv_nsec);
     return 0;
 }
 

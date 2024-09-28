@@ -116,8 +116,8 @@ def syscall(number):
         addr = registers[0]
         curtime = time.time()
         storeWord(addr, int(curtime) & 0xFFFFFFFF)
-        storeWord(addr + 1, (int(curtime) >> 32) & 0xFFFFFFFF)
-        storeWord(addr, (curtime * 1000000000) % 1000000000)
+        storeWord(addr + 4, (int(curtime) >> 32) & 0xFFFFFFFF)
+        storeWord(addr + 8, int((curtime * 1000000000) % 1000000000))
         registers[0] = 0
         return
 
