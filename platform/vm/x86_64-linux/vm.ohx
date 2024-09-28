@@ -133,6 +133,11 @@
 ; 0x400E60 syscall_fwrite
 ; 0x400ED0 syscall_fread
 ; 0x400F40 syscall_fclose
+; 0x401010 syscall_fseek
+; 0x4010A0 syscall_ftell
+; 0x401130 syscall_ftrunc
+; 0x4011A0 syscall_chmod
+; 0x401120 syscall_time
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -384,7 +389,7 @@
 @0x480 syscall_table
 ; system
     20 0E  ; 0x00 halt (0xE20)
-    00 00  ; 0x01 time (not yet implemented)
+    00 12  ; 0x01 time (0x1200)
     00 00  ; 0x02 spawn (not yet implemented)
 ; files
     90 0F  ; 0x03 fopen (0xF90)
@@ -1953,7 +1958,7 @@
 
     ; if the io handle is bad, bail out
 ;parse_io_handle_bad:
-    BF E0 02 50 00   ; mov edi, "ERROR: Invalid instruction" (0x5002E0)
+    BF A0 03 50 00   ; mov edi, "ERROR: Invalid I/O handle." (0x5003A0)
     B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
     FF D0            ; call rax
 ;parse_io_handle_ok:
@@ -2463,3 +2468,61 @@
     90 90 90 90 90 90 90 90
     90
 @0x1200
+
+
+
+; ==========================================================
+; void syscall_time(unsigned words[3])
+; ==========================================================
+; Writes the current UNIX timestamp as 64-bit seconds plus 32-bit nanoseconds
+; into the given address.
+;
+; params:
+;    - r0: the address to write the timestamp
+; ==========================================================
+
+@0x1200 syscall_time
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; the kernel clock_gettime() function writes sixteen bytes on x86_64 but we
+    ; only want twelve. we get the time onto the stack and then copy.
+
+    ; call clock_gettime()
+    48 83 EC 10        ; sub rsp, 16
+    48 89 E6           ; mov rsi, rsp
+    BF 00 00 00 00     ; mov edi, 0
+    B8 E4 00 00 00     ; mov eax, 0xE4   ; syscall: clock_gettime (228)
+    0F 05              ; syscall
+
+    ; get the input and output addresses
+    ; TODO call check_buffer() on the argument
+    BF 00 00 60 00    ; mov rdi, r0 (0x600000)
+    8B 3F             ; mov edi, [rdi]
+    48 89 E6          ; mov rsi, rsp
+
+    ; copy the time
+    48 8B 06          ; mov rax, [rsi]
+    48 89 07          ; mov [rdi], rax
+    8B 46 08          ; mov eax, [rsi+8]
+    89 47 08          ; mov [rdi+8], eax
+
+    ; set return value 0 in r0
+    BF 00 00 60 00       ; mov rdi, r0 (0x600000)
+    C7 07 00 00 00 00    ; mov dword [rdi], 0
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+@0x1270
