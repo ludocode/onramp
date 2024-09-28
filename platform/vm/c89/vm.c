@@ -46,7 +46,8 @@
  */
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
-    /* We currently rely on ftruncate() on POSIX systems. */
+    /* We currently rely on ftruncate(), clock_gettime() and environ on POSIX
+     * systems. */
     #define VM_POSIX
     #define _POSIX_C_SOURCE 200809L
     #include <unistd.h>
@@ -61,6 +62,7 @@
     extern char** _environ;
 #endif
 
+#include <time.h>
 #include <limits.h>
 #include <stddef.h>
 #include <string.h>
@@ -92,7 +94,7 @@
 
 #ifdef _WIN32
     #define getcwd _getcwd
-    #define envrion _environ
+    #define environ _environ
 #endif
 
 
@@ -444,7 +446,67 @@ static void vm_init(int argc, char** argv) {
  */
 
 static void vm_halt(void) {
-    exit(vm_parse_mix(vm_registers[0]));
+    exit(vm_registers[0]);
+}
+
+static void vm_time(void) {
+    uint32_t addr = vm_registers[0];
+
+    /* We can get a timespec under POSIX systems or C11. This matches what
+     * Onramp expects. (We assume TIME_UTC is relative to the UNIX timestamp.) */
+    #if defined(VM_POSIX) || __STDC_VERSION__ >= 201112L
+    struct timespec ts;
+    if (
+        #if defined(VM_POSIX)
+        0 == clock_gettime(CLOCK_REALTIME, &ts)
+        #else
+        TIME_UTC == timespec_get(&ts, TIME_UTC)
+        #endif
+    ) {
+        vm_store_u32(addr, (uint32_t)ts.tv_sec);
+        vm_store_u32(addr + 4, sizeof(ts.tv_sec) > 4 ? (uint32_t)(ts.tv_sec >> 32) : 0);
+        vm_store_u32(addr + 8, (uint32_t)ts.tv_nsec);
+    }
+    #else
+
+    /* If we have only C89 and not POSIX, we have to approximate it using
+     * time() and clock(). We start with time() and then add the clock() delta
+     * to it on each call. We're careful to avoid 64-bit integer math here in
+     * case we only have 32 bits. */
+    static int initialized = 0;
+    static time_t secs;
+    static clock_t nanos = 0;
+    static clock_t last_clock;
+
+    clock_t current_clock = clock();
+    clock_t delta = current_clock - last_clock;
+    clock_t delta_secs = delta / CLOCKS_PER_SEC;
+    clock_t delta_remainder = delta % CLOCKS_PER_SEC;
+
+    if (!initialized) {
+        initialized = 1;
+        secs = time(NULL);
+        last_clock = current_clock;
+    }
+
+    secs += delta_secs;
+    nanos += (uint32_t)(delta_remainder * (1000000000 / CLOCKS_PER_SEC));
+    if (nanos > 1000000000) {
+        nanos -= 1000000000;
+        ++secs;
+    }
+    last_clock = current_clock;
+
+    /* time_t is allowed to be a floating point type on non-POSIX systems. The
+     * implementation might have only 64-bit doubles or only 64-bit integer
+     * math, not both. We need to do this somewhat roundabout calculation to
+     * divide by 2^32 that works in both cases. */
+    vm_store_u32(addr, (uint32_t)secs);
+    vm_store_u32(addr + 4, sizeof(secs) > 4 ? (uint32_t)(secs / (2 * (time_t)((uint32_t)1 << 31))) : 0);
+    vm_store_u32(addr + 8, (uint32_t)nanos);
+    #endif
+
+    vm_registers[0] = 0;
 }
 
 static void vm_fopen(void) {
@@ -628,6 +690,9 @@ static void vm_sys(uint8_t syscall) {
     switch (syscall) {
         case 0x00: /* halt */
             vm_halt();
+            return;
+        case 0x01: /* time */
+            vm_time();
             return;
         case 0x03: /* fopen */
             vm_fopen();
