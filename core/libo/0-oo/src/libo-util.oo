@@ -69,8 +69,7 @@
     75 8A 80 82     ; or ra r0 r2    ; xor r0 r0 r2
     74 8B 80 82     ; and rb r0 r2   ; ^^^
     71 80 8A 8B     ; sub r0 ra rb   ; ^^^
-        ;76 80 80 82    ; xor r0 r0 r2   ; TODO we're removing xor
-    72 80 80 83    ; mul r0 r0 r3
+    72 80 80 83     ; mul r0 r0 r3
 
     ; loop
     7E 00 &fnv1a_cstr_loop    ; jz 0 &fnv1a_cstr_loop
@@ -109,7 +108,7 @@
     70 83 00 00                ; add r3 0 0
 
     ; check sign
-    77 8B 01 01                  ; ror rb 1 1    ; rb = 0x80000000
+    76 8B 01 1F                  ; shl rb 1 31   ; rb = 0x80000000
     70 8A 8B 80                  ; add ra rb r0
     7D 8A 8A 8B                  ; cmpu ra ra rb
     7D 8A 8A 01                  ; cmpu ra ra 1
@@ -149,9 +148,7 @@
     7B 00 81 82     ; stb 0 r1 r2
 
     ; calculate half the string length into r4
-    ; TODO replace these two lines with shru
-    77 84 82 01     ; ror r4 r2 1
-    74 84 84 7F     ; and r4 r4 127
+    77 84 82 01     ; shru r4 r2 31    ; divide by 2
 
     ; prepare to reverse the string
     70 85 00 00     ; add r5 0 0       ; zero r5

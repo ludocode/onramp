@@ -158,10 +158,10 @@
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
 
-    ; pop the number, rotate it down
+    ; pop the number, shift it down
     ldw r0 rsp '00    ; pop r0
     add rsp rsp '04
-    ror r0 r0 '08
+    shru r0 r0 '08
 
     ; emit the high byte, call emit_byte_as_hex()
     ims ra <emit_byte_as_hex
@@ -536,11 +536,11 @@
 
     ; rotate and place the bytes into the data
     stb r0 r1 '06   ; address of <value_0>
-    ror r0 r0 '08
+    shru r0 r0 '08
     stb r0 r1 '07   ; address of <value_1>
-    ror r0 r0 '08
+    shru r0 r0 '08
     stb r0 r1 '02   ; address of <value_2>
-    ror r0 r0 '08
+    shru r0 r0 '08
     stb r0 r1 '03   ; address of <value_3>
 
     ; output the data, tail-call emit_bytes_as_hex()
@@ -791,7 +791,7 @@
     add rip rpp ra    ; jump
 
 =opcode_cmps_template
-    ror rb '01 '01   ; ror rb 1 1       ; rb = 0x80000000
+    shl rb '01 '1F   ; shl rb 1 31       ; rb = 0x80000000
     add ra '81 rb    ; add ra src1 rb
     add rb '82 rb    ; add rb src2 rb
     cmpu '80 ra rb   ; cmpu dest ra rb
@@ -846,7 +846,7 @@
 
 =opcode_ltu_template
     cmpu ra '81 '82  ; cmpu ra src1 src2
-    ror ra ra '01    ; ror ra ra 1
+    shru ra ra '01   ; shru ra ra 1
     and '80 ra '01   ; and r0 ra 1
 
 
@@ -895,12 +895,12 @@
     add rip rpp ra    ; jump
 
 =opcode_lts_template
-    ror rb '01 '01   ; ror rb 1 1       ; rb = 0x80000000
+    shl rb '01 '1F   ; shl rb 1 31       ; rb = 0x80000000
     add ra '81 rb    ; add ra src1 rb
     add rb '82 rb    ; add rb src2 rb
     ; This is temporary; the rest of this should become ltu.
     cmpu ra ra rb    ; cmpu ra ra rb
-    ror ra ra '01    ; ror ra ra 1
+    shru ra ra '01   ; shru ra ra 1
     and '80 ra '01   ; and r0 ra 1
 
 

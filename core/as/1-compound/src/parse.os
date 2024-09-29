@@ -879,7 +879,7 @@
 
     ; add its value to the current total
     ldw r1 rsp '00
-    ror r1 r1 '1C    ; rotate left by 4, i.e. shift up
+    shl r1 r1 '04
     add r1 r1 r0
     stw r1 rsp '00
 
@@ -1702,7 +1702,7 @@
     jz ra &try_parse_quoted_byte_error
 
     ; shift it up and store it
-    ror r0 r0 '1C    ; rol r0 r0 4
+    shl r0 r0 '04
     stw r0 rfp 'FC
 
     ; consume the hex char, call next_char()

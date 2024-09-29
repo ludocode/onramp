@@ -338,8 +338,7 @@
     7F 03 00 00          ; sys fopen 0 0
 
     ; high bit indicates error
-    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
-    74 8A 8A 01    ; and ra ra 1
+    77 8A 80 1F    ; shru ra r0 31
     7E 8A &__fopen_syscall_ok     ; jz ra &__fopen_syscall_ok
     7E 00 &__fopen_syscall_failed ; jz ra &__fopen_syscall_failed
 :__fopen_syscall_ok

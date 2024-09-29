@@ -1596,8 +1596,8 @@
     90 90 90 90 90 90 90 90
     90 90 90
 
-@0xC00 xor
-    31 CA   ; or edx, ecx
+@0xC00 shl
+    D3 E2   ; shl edx, cl
     89 16   ; mov [rsi], edx
     C3      ; ret
     90 90 90 90 90 90 90 90
@@ -1605,8 +1605,8 @@
     90 90 90 90 90 90 90 90
     90 90 90
 
-@0xC20 ror
-    D3 CA   ; ror edx, cl
+@0xC20 shru
+    D3 EA   ; shr edx, cl
     89 16   ; mov [rsi], edx
     C3      ; ret
     90 90 90 90 90 90 90 90

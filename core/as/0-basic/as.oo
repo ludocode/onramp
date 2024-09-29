@@ -87,8 +87,8 @@
     64 69 76 75   00      73    ; divu
     61 6e 64      00      74    ; and
     6f 72         00      75    ; or
-    78 6f 72      00      76    ; xor
-    72 6f 72      00      77    ; ror
+    73 68 6c      00      76    ; shl
+    73 68 72 75   00      77    ; shru
     6c 64 77      00      78    ; ldw
     73 74 77      00      79    ; stw
     6c 64 62      00      7a    ; ldb
@@ -762,7 +762,7 @@
     79 81 00 8C     ; stw r1 0 rsp
 
     ; collect the high bits and call emit_hex_bits
-    77 80 80 04             ; ror r0 r0 4
+    77 80 80 04             ; shru r0 r0 4
     74 80 80 0F             ; and r0 r0 15
     7C 8A <emit_hex_bits    ; ims ra <emit_hex_bits
     7C 8A >emit_hex_bits    ; ims ra >emit_hex_bits

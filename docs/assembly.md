@@ -23,7 +23,7 @@ You can think of compound instructions as macros, except they are not defined in
 The first stage Onramp assembler recognizes only the following primitive instructions:
 
 - Arithmetic: `add`, `sub`, `mul`, `div`
-- Logic: `and`, `or`, `xor`, `ror`
+- Logic: `and`, `or`, `shl`, `shru`
 - Memory: `ldw`, `stw`, `ldb`, `stb`
 - Control: `ims`, `cmpu`, `jz`, `sys`
 
@@ -183,13 +183,13 @@ Logic:
 |-----|--------|------------------------------|------------------------------------------------------|
 |  x  |`and`   | `<r:dest> <m:src1> <m:src2>` | Bitwise and                                          |
 |  x  |`or`    | `<r:dest> <m:src1> <m:src2>` | Bitwise or                                           |
-|x \* |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
+|     |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
 |     |`not`   | `<r:dest> <m:src>`           | Bitwise not (inverts all bits)                       |
-| \*  |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
-| \*  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right (unsigned, high to low)  |
+|  x  |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
+|  x  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right (unsigned, high to low)  |
 |     |`shrs`  | `<r:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right (signed, high to low) |
 |     |`rol`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate left (low to high)                    |
-|x \* |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
+|     |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
 |     |`mov`   | `<r:dest> <m:src>`           | Copies src to dest                                   |
 |     |`bool`  | `<r:dest> <m:src>`           | Sets dest to 1 if src is non-zero, 0 otherwise       |
 |     |`isz`   | `<r:dest> <m:src>`           | Sets dest to 0 if src is non-zero, 1 otherwise       |
@@ -233,4 +233,4 @@ Control:
 |     |`leave` | none                          | Destroys the current stack frame                                  |
 |  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                            |
 
-\* WARNING: The above tables will change significantly. `xor`, `ror` and `cmpu` are currently primitive instructions but they will be replaced with `shl`, `shru` and `ltu` at some point. The comparison conditional jump instructions (`je`, `jne`, `jl`, `jg`, `jle`, `jge`) are currently designed to take the result of a comparison (`cmpu`, `cmps`) as predicate; they will be changed to take two source arguments and compare them internally. `sys`, `cmpu` and `cmps` may be removed entirely.
+\* WARNING: `cmpu` is currently a primitive instructions but will be replaced with `ltu` soon. The comparison conditional jump instructions (`je`, `jne`, `jl`, `jg`, `jle`, `jge`) are currently designed to take the result of a comparison (`cmpu`, `cmps`) as predicate; they will be changed or removed. `sys`, `cmpu` and `cmps` may be removed entirely.

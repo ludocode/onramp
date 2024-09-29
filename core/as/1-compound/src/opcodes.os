@@ -89,8 +89,8 @@
     ^opcode_str_shl ^opcode_shl
     ^opcode_str_shru ^opcode_shru
     ^opcode_str_shrs ^opcode_shrs
-    ^opcode_str_rol ^opcode_rol
-    ^opcode_str_ror ^opcode_ror
+    ;^opcode_str_rol ^opcode_rol
+    ;^opcode_str_ror ^opcode_ror
     ^opcode_str_mov ^opcode_mov
     ^opcode_str_bool ^opcode_bool
     ^opcode_str_isz ^opcode_isz
@@ -149,10 +149,10 @@
 :opcode_str_and "and" '00
 :opcode_str_or "or" '00
 :opcode_str_xor "xor" '00
-:opcode_str_ror "ror" '00
+;:opcode_str_ror "ror" '00
 :opcode_str_mov "mov" '00
 :opcode_str_not "not" '00
-:opcode_str_rol "rol" '00
+;:opcode_str_rol "rol" '00
 :opcode_str_shrs "shrs" '00
 :opcode_str_shru "shru" '00
 :opcode_str_shl "shl" '00

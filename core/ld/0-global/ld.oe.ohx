@@ -336,10 +336,9 @@
     7E 8A 05 00    ; jz ra &fnv1a_done (+5)
 
     ; update the hash
-    75 8A 80 82     ; or ra r0 r2    ; xor r0 r0 r2
-    74 8B 80 82     ; and rb r0 r2   ; ^^^
-    71 80 8A 8B     ; sub r0 ra rb   ; ^^^
-        ;76 80 80 82    ; xor r0 r0 r2   ; TODO we're removing xor
+    75 8A 80 82    ; or ra r0 r2    ; xor r0 r0 r2
+    74 8B 80 82    ; and rb r0 r2   ; ^^^
+    71 80 8A 8B    ; sub r0 ra rb   ; ^^^
     72 80 80 83    ; mul r0 r0 r3
 
     ; loop
@@ -406,7 +405,7 @@
     70 81 89 24   ; add r1 r9 36
 
     ; allocate our hashtable (1<<16 is 64 kB for 8196 two-word entries.)
-    77 84 01 10   ; ror r4 1 16   ; r4 = 1 << 16   (32-16=16)
+    76 84 01 10   ; shl r4 1 16
     70 82 81 84   ; add r2 r1 r4
 
     ; fill out our global variables
@@ -784,8 +783,7 @@
     7F 03 00 00    ; sys fopen 0 0
 
     ; high bit indicates error
-    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
-    74 8A 8A 01    ; and ra ra 1
+    77 8A 80 1F    ; shru ra r0 31
     7E 8A 06 00    ; jz ra &open_output_file_ok (+6)
 
     ; failed to open output file. fatal
@@ -814,6 +812,7 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x5A0
 
 
@@ -1300,7 +1299,7 @@
 ;:parse_hex_found
 
     ; shift up the high hex bits
-    77 80 80 1C    ; ror r0 r0 28    ; rol r0 r0 4
+    76 80 80 04    ; shl r0 r0 4
 
     ; put it on the stack
     71 8C 8C 04    ; sub rsp rsp 4     ; push r0
@@ -1641,13 +1640,13 @@
 ;find_symbol_loop:
 
     ; mask off bucket index (1<<13 is 8k entries.)
-    77 8A 01 13   ; ror ra 1 19    ; r2 = 1 << 13   (32-13=19)
+    76 8A 01 0D   ; shl ra 1 13
     71 8A 8A 01   ; sub ra ra 1
     74 80 80 8A   ; and r0 r0 ra   ; index &= 1023
 
     ; check if bucket is empty
-    77 83 80 1D    ; ror r3 r0 29    ; rol r3 r0 3   ; hashtable buckets are 8 bytes
-    78 82 89 04    ; ldw r2 r9 4     ; symbol_hashtable
+    76 83 80 03    ; shl r3 r0 3     ; hashtable buckets are 8 bytes
+    78 82 89 04    ; ldw r2 r9 4     ; get symbol_hashtable
     78 81 82 83    ; ldw r1 r2 r3    ; get bucket string name into r1
     7E 81 01 00    ; jz r1 &find_symbol_empty (+1)
     7E 00 03 00    ; jz 0 &find_symbol_not_empty (+3)
@@ -1686,8 +1685,8 @@
 
     ; name matches. return the bucket
 ;:find_symbol_found
-    77 83 81 1D    ; ror r3 r1 29    ; rol r3 r1 3   ; hashtable buckets are 8 bytes
-    78 82 89 04    ; ldw r2 r9 4     ; symbol_hashtable
+    76 83 81 03    ; shl r3 r1 3     ; hashtable buckets are 8 bytes
+    78 82 89 04    ; ldw r2 r9 4     ; get symbol_hashtable
     70 80 82 83    ; add r0 r2 r3
     70 8C 8C 04    ; add rsp rsp 4   ; pop symbol
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
@@ -1738,7 +1737,7 @@
     ; make sure there aren't already 4096 symbols
     ; TODO this should be moved down below to pass 1 only
     78 80 89 08   ; ldw r0 r9 8    ; symbol_count
-    77 8A 01 14   ; ror ra 1 20    ; ra = 1 << 12   (32-12=20)
+    76 8A 01 0C   ; shl ra 1 12
     7D 8A 8A 80   ; cmpu ra ra r0
     7E 8A 01 00   ; jz ra &try_parse_define_too_many (+1)
     7E 00 06 00   ; jz 00 &try_parse_define_not_too_many (+6)
@@ -1990,13 +1989,14 @@
 
     ; symbol is <, rotate high bytes to low
 ;:try_parse_invoke_high
-    77 80 80 10   ; ror r0 r0 16
+    77 80 80 10   ; shru r0 r0 16
+    ;7E 00 0E 00   ; jz 0 &try_parse_invoke_not_rel (+14)
 ;:try_parse_invoke_not_high
 
     ; check if symbol is &
     7D 8A 81 26    ; cmp ra r1 "&"  (relative)
     7E 8A 01 00    ; jz ra &try_parse_invoke_rel (+1)
-    7E 00 0B 00    ; jz ra &try_parse_invoke_not_rel (+11)
+    7E 00 0B 00    ; jz 0 &try_parse_invoke_not_rel (+11)
 
     ; symbol is &, calculate difference from current address
 ;:try_parse_invoke_rel
@@ -2018,10 +2018,10 @@
     ; TODO make sure we didn't overflow the range of a relative address
 
     ; shift it down into words
-    77 80 80 02    ; ror r0 r0 2
+    77 80 80 02    ; shru r0 r0 2
 ;:try_parse_invoke_not_rel
 
-    ; otherwise symbol is >, address is already correct
+    ; otherwise symbol is < or >, address is already correct
 
     ; emit the low two bytes
     7C 8A 00 00    ; ims ra <emit_two_bytes
@@ -2069,7 +2069,7 @@
     78 80 00 8C    ; ldw r0 0 rsp       ; pop r0
 
     ; shift it down
-    77 80 80 08   ; ror r0 r0 8
+    77 80 80 08   ; shru r0 r0 8
 
     ; call emit_byte
     7C 8A 00 00    ; ims ra <emit_byte
@@ -2084,7 +2084,7 @@
     78 80 00 8C    ; ldw r0 0 rsp       ; pop r0
 
     ; shift it down
-    77 80 80 10   ; ror r0 r0 16
+    77 80 80 10   ; shru r0 r0 16
 
     ; call emit_byte
     7C 8A 00 00    ; ims ra <emit_byte
@@ -2100,7 +2100,7 @@
     70 8C 8C 04    ; add rsp rsp 4      ; ...
 
     ; shift it down
-    77 80 80 18   ; ror r0 r0 24
+    77 80 80 18   ; shru r0 r0 24
 
     ; tail-call emit_byte
     7C 8A 00 00    ; ims ra <emit_byte
@@ -2141,7 +2141,7 @@
     70 8C 8C 04    ; add rsp rsp 4      ; ...
 
     ; shift it down
-    77 80 80 08   ; ror r0 r0 8
+    77 80 80 08   ; shru r0 r0 8
 
     ; tail-call emit_byte
     7C 8A 00 00    ; ims ra <emit_byte

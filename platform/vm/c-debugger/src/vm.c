@@ -70,22 +70,22 @@ static void panic(const char* e) {
 #define VM_RIP 0xF  /* instruction pointer */
 
 /* opcodes */
-#define VM_ADD 0x70  /* add */
-#define VM_SUB 0x71  /* subtract */
-#define VM_MUL 0x72  /* multiply */
-#define VM_DIV 0x73  /* divide */
-#define VM_AND 0x74  /* bitwise and */
-#define VM_OR  0x75  /* bitwise or */
-#define VM_XOR 0x76  /* bitwise xor */
-#define VM_ROR 0x77  /* rotate bits right */
-#define VM_LDW 0x78  /* load word */
-#define VM_STW 0x79  /* store word */
-#define VM_LDB 0x7A  /* load byte */
-#define VM_STB 0x7B  /* store byte */
-#define VM_IMS 0x7C  /* immediate short */
-#define VM_CMP 0x7D  /* compare */
-#define VM_JZ  0x7E  /* jump if zero */
-#define VM_SYS 0x7F  /* interrupt */
+#define VM_ADD  0x70  /* add */
+#define VM_SUB  0x71  /* subtract */
+#define VM_MUL  0x72  /* multiply */
+#define VM_DIV  0x73  /* divide */
+#define VM_AND  0x74  /* bitwise and */
+#define VM_OR   0x75  /* bitwise or */
+#define VM_SHL  0x76  /* shift left */
+#define VM_SHRU 0x77  /* shift right unsigned */
+#define VM_LDW  0x78  /* load word */
+#define VM_STW  0x79  /* store word */
+#define VM_LDB  0x7A  /* load byte */
+#define VM_STB  0x7B  /* store byte */
+#define VM_IMS  0x7C  /* immediate short */
+#define VM_CMP  0x7D  /* compare */
+#define VM_JZ   0x7E  /* jump if zero */
+#define VM_SYS  0x7F  /* interrupt */
 
 /* syscalls */
 #define VM_HALT      0x00
@@ -982,14 +982,22 @@ static void vm_step(vm_t* vm) {
             vm->registers[vm_parse_register(vm, arg1)] =
                     vm_parse_mix(vm, arg2) | vm_parse_mix(vm, arg3);
             break;
-        case VM_XOR:
-            vm->registers[vm_parse_register(vm, arg1)] =
-                    vm_parse_mix(vm, arg2) ^ vm_parse_mix(vm, arg3);
+        case VM_SHL: {
+            uint32_t shift = vm_parse_mix(vm, arg3);
+            if (shift >= 32) {
+                panic("Left shift by more than 31");
+            }
+            vm->registers[vm_parse_register(vm, arg1)] = vm_parse_mix(vm, arg2) << shift;
             break;
-        case VM_ROR:
-            vm->registers[vm_parse_register(vm, arg1)] =
-                    vm_ghost_rotr_u32(vm_parse_mix(vm, arg2), vm_parse_mix(vm, arg3));
+        }
+        case VM_SHRU: {
+            uint32_t shift = vm_parse_mix(vm, arg3);
+            if (shift >= 32) {
+                panic("Right shift unsigned by more than 31");
+            }
+            vm->registers[vm_parse_register(vm, arg1)] = vm_parse_mix(vm, arg2) >> shift;
             break;
+        }
         case VM_LDW:
             vm->registers[vm_parse_register(vm, arg1)] = vm_load_u32(vm,
                     vm_parse_mix(vm, arg2) + vm_parse_mix(vm, arg3));
@@ -1049,22 +1057,22 @@ static void vm_print_word(uint32_t u) {
 
 static const char* vm_instruction_to_string(uint8_t instruction) {
     switch (instruction) {
-        case VM_ADD: return "add";
-        case VM_SUB: return "sub";
-        case VM_MUL: return "mul";
-        case VM_DIV: return "div";
-        case VM_AND: return "and";
-        case VM_OR:  return "or";
-        case VM_XOR: return "xor";
-        case VM_ROR: return "ror";
-        case VM_LDW: return "ldw";
-        case VM_STW: return "stw";
-        case VM_LDB: return "ldb";
-        case VM_STB: return "stb";
-        case VM_IMS: return "ims";
-        case VM_CMP: return "cmp";
-        case VM_JZ:  return "jz";
-        case VM_SYS: return "sys";
+        case VM_ADD:  return "add";
+        case VM_SUB:  return "sub";
+        case VM_MUL:  return "mul";
+        case VM_DIV:  return "div";
+        case VM_AND:  return "and";
+        case VM_OR:   return "or";
+        case VM_SHL:  return "shl";
+        case VM_SHRU: return "shru";
+        case VM_LDW:  return "ldw";
+        case VM_STW:  return "stw";
+        case VM_LDB:  return "ldb";
+        case VM_STB:  return "stb";
+        case VM_IMS:  return "ims";
+        case VM_CMP:  return "cmp";
+        case VM_JZ:   return "jz";
+        case VM_SYS:  return "sys";
         default: break;
     }
     return "?";
@@ -1146,17 +1154,18 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
     putchar(' ');
 
     switch (bytes[0]) {
-        // math-like, i.e. <reg> <mix> <mix>
-        case VM_ADD: //fallthrough
-        case VM_SUB: //fallthrough
-        case VM_MUL: //fallthrough
-        case VM_DIV: //fallthrough
-        case VM_AND: //fallthrough
-        case VM_OR:  //fallthrough
-        case VM_XOR: //fallthrough
-        case VM_ROR: //fallthrough
-        case VM_LDW: //fallthrough
-        case VM_LDB: //fallthrough
+
+        // <reg> <mix> <mix>
+        case VM_ADD:
+        case VM_SUB:
+        case VM_MUL:
+        case VM_DIV:
+        case VM_AND:
+        case VM_OR:
+        case VM_SHL:
+        case VM_SHRU:
+        case VM_LDW:
+        case VM_LDB:
         case VM_CMP:
             fputs(vm_register_to_string(bytes[1]), stdout);
             putchar(' ');
@@ -1165,7 +1174,8 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
             vm_print_mix(bytes[3]);
             break;
 
-        case VM_STW: //fallthrough
+        // <mix> <mix> <mix>
+        case VM_STW:
         case VM_STB:
             vm_print_mix(bytes[1]);
             putchar(' ');

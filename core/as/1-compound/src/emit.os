@@ -156,7 +156,7 @@
     stw r1 '00 rsp
 
     ; collect the high bits and call emit_hex_char
-    ror r0 r0 '04
+    shru r0 r0 '04
     and r0 r0 '0F
     ims ra <emit_hex_char
     ims ra >emit_hex_char

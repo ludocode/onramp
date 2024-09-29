@@ -10,7 +10,7 @@ r8 r9 ra rb
 rsp rfp rpp rip
 ; opcodes
 add sub mul divu
-and or xor ror
+and or shl shru
 ldw stw ldb stb
 ims cmpu jz sys
 ; syscalls

@@ -218,7 +218,7 @@
     add rb r1 r2     ; add rb <base> <offset>
     ldb ra rb '00    ; ldb ra rb 0
     ldb rb rb '01    ; ldb rb rb 1
-    ror rb rb '18    ; ror rb rb 24
+    shl rb rb '08    ; shl rb rb 8
     or r0 ra rb      ; or <dest> ra rb
 
 
@@ -287,7 +287,7 @@
 =opcode_sts_template
     add rb r1 r2     ; add rb <base> <offset>
     stb r0 rb '00    ; stb <dest> rb 0
-    ror ra r0 '08    ; ror ra <dest> 8
+    shru ra r0 '08   ; shru ra <dest> 8
     stb ra rb '01    ; stb ra rb 1
 
 

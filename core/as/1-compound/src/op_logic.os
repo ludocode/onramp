@@ -63,14 +63,6 @@
 ; ==========================================================
 
 =opcode_xor
-    add r0 '00 '76   ; xor
-    ims ra <opcode_standard
-    ims ra >opcode_standard
-    add rip rpp ra
-
-; TODO xor is being removed, will be implemented like this:
-
-=opcode_xor_DISABLED
 
     ; push space to parse arguments
     sub rsp rsp '04
@@ -116,17 +108,17 @@
 
 
 
-; ==========================================================
-; void opcode_ror(void)
-; ==========================================================
-; Implements the ror opcode.
-; ==========================================================
-
-=opcode_ror
-    add r0 '00 '77   ; ror
-    ims ra <opcode_standard
-    ims ra >opcode_standard
-    add rip rpp ra
+;; ==========================================================
+;; void opcode_ror(void)
+;; ==========================================================
+;; Implements the ror opcode.
+;; ==========================================================
+;
+;=opcode_ror
+;    add r0 '00 '77   ; ror
+;    ims ra <opcode_standard
+;    ims ra >opcode_standard
+;    add rip rpp ra
 
 
 
@@ -231,52 +223,52 @@
 
 
 
-; ==========================================================
-; void opcode_rol(void)
-; ==========================================================
-; Implements the rol opcode.
-; ==========================================================
-
-=opcode_rol
-
-    ; push space to parse arguments
-    sub rsp rsp '04
-    add r0 rsp '00
-
-    ; call parse_register_mix_mix()
-    ims ra <parse_register_mix_mix
-    ims ra >parse_register_mix_mix
-    sub rsp rsp '04     ; push return address
-    add rb rip '08
-    stw rb '00 rsp
-    add rip rpp ra    ; jump
-    add rsp rsp '04     ; pop return address
-
-    ; get the template
-    ims ra <opcode_rol_template
-    ims ra >opcode_rol_template
-    add r0 rpp ra
-    add r1 '00 '08
-
-    ; fill it in
-    ldb r2 rsp '00    ; load dest
-    stb r2 r0 '05
-    ldb r2 rsp '01    ; load src
-    stb r2 r0 '06
-    ldb r2 rsp '02    ; load bits
-    stb r2 r0 '03
-
-    ; pop the arguments
-    add rsp rsp '04   ; popd
-
-    ; output it, tail-call emit_bytes_as_hex()
-    ims ra <emit_bytes_as_hex
-    ims ra >emit_bytes_as_hex
-    add rip rpp ra    ; jump
-
-=opcode_rol_template
-    sub ra '20 '82   ; sub ra 32 bits
-    ror '80 '81 ra   ; ror dest src ra
+;; ==========================================================
+;; void opcode_rol(void)
+;; ==========================================================
+;; Implements the rol opcode.
+;; ==========================================================
+;
+;=opcode_rol
+;
+;    ; push space to parse arguments
+;    sub rsp rsp '04
+;    add r0 rsp '00
+;
+;    ; call parse_register_mix_mix()
+;    ims ra <parse_register_mix_mix
+;    ims ra >parse_register_mix_mix
+;    sub rsp rsp '04     ; push return address
+;    add rb rip '08
+;    stw rb '00 rsp
+;    add rip rpp ra    ; jump
+;    add rsp rsp '04     ; pop return address
+;
+;    ; get the template
+;    ims ra <opcode_rol_template
+;    ims ra >opcode_rol_template
+;    add r0 rpp ra
+;    add r1 '00 '08
+;
+;    ; fill it in
+;    ldb r2 rsp '00    ; load dest
+;    stb r2 r0 '05
+;    ldb r2 rsp '01    ; load src
+;    stb r2 r0 '06
+;    ldb r2 rsp '02    ; load bits
+;    stb r2 r0 '03
+;
+;    ; pop the arguments
+;    add rsp rsp '04   ; popd
+;
+;    ; output it, tail-call emit_bytes_as_hex()
+;    ims ra <emit_bytes_as_hex
+;    ims ra >emit_bytes_as_hex
+;    add rip rpp ra    ; jump
+;
+;=opcode_rol_template
+;    sub ra '20 '82   ; sub ra 32 bits
+;    ror '80 '81 ra   ; ror dest src ra
 
 
 
@@ -305,22 +297,21 @@
     ims ra <opcode_shrs_template
     ims ra >opcode_shrs_template
     add r0 rpp ra
-    add r1 '00 '38
+    add r1 '00 '28
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
-    stb r2 r0 '21
-    stb r2 r0 '2D
-    stb r2 r0 '35
+    stb r2 r0 '1D
+    stb r2 r0 '25
     ldb r2 rsp '01    ; load src
-    stb r2 r0 '13
+    stb r2 r0 '02
     stb r2 r0 '1A
-    stb r2 r0 '2A
-    stb r2 r0 '36
+    stb r2 r0 '26
     ldb r2 rsp '02    ; load bits
-    stb r2 r0 '03
+    stb r2 r0 '09
+    stb r2 r0 '0F
     stb r2 r0 '1B
-    stb r2 r0 '2B
+    stb r2 r0 '27
 
     ; pop the arguments
     add rsp rsp '04   ; popd
@@ -332,33 +323,23 @@
 
 =opcode_shrs_template
 
-    ; generate a mask
-    ror rb '01 '82   ; ror rb 1 bits
-    sub rb rb '01    ; sub rb rb 1
-
-    ; if zero, jump to end
-    jz rb &opcode_shrs_template_zero
-
     ; test the sign bit
-    ror ra '01 '01   ; ror ra 1 1      ; mov ra 0x80000000
-    and ra ra '81    ; and ra ra src
+    shru ra r1 '1F
     jz ra &opcode_shrs_template_nonnegative
 
-    ; negative. shift and apply inverted mask
-    ror ra '81 '82   ; ror ra src bits
-    xor rb rb 'ff    ; xor rb rb -1   ; not rb
-    or '80 ra rb     ; or dest ra rb
+    ; negative. if bits is zero, jump to unsigned shift (to copy to dest)
+    jz r2 &opcode_shrs_template_nonnegative
+    ; generate a mask
+    sub rb '20 r2
+    shl rb '01 rb
+    sub rb '00 rb
+    ; shift and apply inverted mask
+    shru ra r1 r2
+    or r0 ra rb
     jz '00 &opcode_shrs_template_done
 
-    ; non-negative. shift and apply mask
 :opcode_shrs_template_nonnegative
-    ror ra '81 '82   ; ror ra src bits
-    and '80 ra rb    ; and dest ra rb
-    jz '00 &opcode_shrs_template_done
-
-:opcode_shrs_template_zero
-    ; zero. just copy
-    add '80 '81 '00
+    shru r0 r1 r2
 
 :opcode_shrs_template_done
 
@@ -371,66 +352,10 @@
 ; ==========================================================
 
 =opcode_shru
-
-    ; push space to parse arguments
-    sub rsp rsp '04
-    add r0 rsp '00
-
-    ; call parse_register_mix_mix()
-    ims ra <parse_register_mix_mix
-    ims ra >parse_register_mix_mix
-    sub rsp rsp '04     ; push return address
-    add rb rip '08
-    stw rb '00 rsp
-    add rip rpp ra    ; jump
-    add rsp rsp '04     ; pop return address
-
-    ; get the template
-    ims ra <opcode_shru_template
-    ims ra >opcode_shru_template
-    add r0 rpp ra
-    add r1 '00 '1C
-
-    ; fill it in
-    ldb r2 rsp '00    ; load dest
-    stb r2 r0 '11
-    stb r2 r0 '19
-    ldb r2 rsp '01    ; load src
-    stb r2 r0 '0E
-    stb r2 r0 '1A
-    ldb r2 rsp '02    ; load bits
-    stb r2 r0 '03
-    stb r2 r0 '0F
-
-    ; pop the arguments
-    add rsp rsp '04   ; popd
-
-    ; output it, tail-call emit_bytes_as_hex()
-    ims ra <emit_bytes_as_hex
-    ims ra >emit_bytes_as_hex
-    add rip rpp ra    ; jump
-
-=opcode_shru_template
-
-    ; generate a mask
-    ror rb '01 '82    ; ror rb 1 bits
-    sub rb rb '01     ; sub rb rb 1
-
-    ; if zero, jump to end
-    jz rb &opcode_shru_template_zero
-
-    ; do the shift
-    ror ra '81 '82   ; ror ra src bits
-
-    ; apply the mask
-    and '80 ra rb    ; and dest ra rb
-    jz '00 &opcode_shru_template_end
-
-:opcode_shru_template_zero
-    ; shift was zero. just copy
-    add '80 '81 '00
-
-:opcode_shru_template_end
+    add r0 '00 '77   ; shru
+    ims ra <opcode_standard
+    ims ra >opcode_standard
+    add rip rpp ra
 
 
 
@@ -441,57 +366,10 @@
 ; ==========================================================
 
 =opcode_shl
-
-    ; push space to parse arguments
-    sub rsp rsp '04
-    add r0 rsp '00
-
-    ; call parse_register_mix_mix()
-    ims ra <parse_register_mix_mix
-    ims ra >parse_register_mix_mix
-    sub rsp rsp '04     ; push return address
-    add rb rip '08
-    stw rb '00 rsp
-    add rip rpp ra    ; jump
-    add rsp rsp '04     ; pop return address
-
-    ; get the template
-    ims ra <opcode_shl_template
-    ims ra >opcode_shl_template
-    add r0 rpp ra
-    add r1 '00 '18
-
-    ; fill it in
-    ldb r2 rsp '00    ; load dest
-    stb r2 r0 '15
-    ldb r2 rsp '01    ; load src
-    stb r2 r0 '12
-    ldb r2 rsp '02    ; load bits
-    stb r2 r0 '03
-
-    ; pop the arguments
-    add rsp rsp '04   ; popd
-
-    ; output it, tail-call emit_bytes_as_hex()
-    ims ra <emit_bytes_as_hex
-    ims ra >emit_bytes_as_hex
-    add rip rpp ra    ; jump
-
-=opcode_shl_template
-
-    ; flip the bits (since we're shifting left, not right)
-    sub ra '20 '82 ; sub ra 32 bits
-
-    ; generate a mask
-    ror rb '01 ra  ; ror rb 1 ra
-    sub rb rb '01  ; sub rb rb 1
-    sub rb 'FF rb  ; sub rb -1 rb   ; not rb
-
-    ; do the shift
-    ror ra '81 ra   ; ror ra src ra
-
-    ; apply the mask
-    and '80 ra rb  ; and dest ra rb
+    add r0 '00 '76   ; shl
+    ims ra <opcode_standard
+    ims ra >opcode_standard
+    add rip rpp ra
 
 
 

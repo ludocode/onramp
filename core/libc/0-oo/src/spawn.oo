@@ -77,7 +77,7 @@
     ; at a rip-relative address within this symbol.
     70 8A 00 00                 ; add ra 0 0
     7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
-    77 8A 8A 1E                 ; ror ra ra 30   (convert words to bytes)
+    76 8A 8A 02                 ; shl ra ra 2   (convert words to bytes)
     70 8A 8A 8F                 ; add ra ra rip
     79 8C 8A F4                 ; stw rsp ra -12
 
@@ -91,7 +91,7 @@
     ; hack to recover rsp
     70 8A 00 00                 ; add ra 0 0
     7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
-    77 8A 8A 1E                 ; ror ra ra 30   (convert words to bytes)
+    76 8A 8A 02                 ; shl ra ra 2   (convert words to bytes)
     70 8A 8A 8F                 ; add ra ra rip
     78 8C 8A F4                 ; ldw rsp ra -12
 

@@ -1,0 +1,54 @@
+; The MIT License (MIT)
+; Copyright (c) 2024 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+; format indicator `~Onr~amp~   `
+7E 4F 6E 72   ; jz 79 29294
+7E 61 6D 70   ; jz 97 28781
+7E 20 20 20   ; jz 32 8224
+
+; move process info table to r9
+70 89 00 80   ; add r9 0 r0
+
+; put 1 into r0 now, we'll exit if an error occurs
+70 80 00 01   ; add r0 0 1
+
+; 1 << 1 == 2
+76 81 01 01   ; shl r1 1 1
+71 81 81 02   ; sub r1 r1 2
+7E 81 01 00   ; jz r1 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; 1 << 31 == 0x80000000
+76 81 01 1F   ; shl r1 1 31
+7C 82 00 80   ; ims r2 0x8000
+7C 82 00 00   ; ims r2 0x0000
+71 81 81 82   ; sub r1 r1 r2
+7E 81 01 00   ; jz r1 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; 0x80000000 << 1 == 0
+7C 81 00 80   ; ims r1 0x8000    ; imw r1 0x80000000
+7C 81 00 00   ; ims r1 0x0000    ; ^^^
+76 81 81 01   ; shl r1 r1 1
+7E 81 01 00   ; jz r1 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; 3 << 3 == 24 (using same register)
+70 81 03 00   ; add r1 3 0   ; mov r0 3
+76 81 81 81   ; shl r1 r1 r1
+71 81 81 18   ; sub r1 r1 24
+7E 81 01 00   ; jz r1 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; 7 << 4 == 112 (using different registers)
+70 87 07 00   ; add r7 7 0   ; mov r7 7
+70 84 04 00   ; add r4 4 0   ; mov r4 4
+76 82 87 84   ; shl r2 r7 r4
+71 83 82 70   ; sub r3 r2 112
+7E 83 01 00   ; jz r3 1
+78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+; success. exit 0
+70 80 00 00   ; add r0 0 0
+78 8F 89 08   ; ldw rip r9 8  (exit address)

@@ -274,21 +274,21 @@ Arithmetic:
 
 Logic:
 
-| Opcode         | Name          | Arguments                       | Operation                                     |
-|----------------|---------------|---------------------------------|-----------------------------------------------|
-| `0x74` `and`   | Bitwise And   | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 & arg2`                          |
-| `0x75` `or`    | Bitwise Or    | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 \| arg2`                         |
-| `0x76` `xor` \*| Bitwise Xor   | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 ^ arg2`                          |
-| `0x77` `ror` \*| Rotate Right  | `<r:dest> <m:src> <m:bits>`     | `dest = src >>> bits \| src << (32 - bits)`   |
+| Opcode         | Name                 | Arguments                       | Operation                                     |
+|----------------|----------------------|---------------------------------|-----------------------------------------------|
+| `0x74` `and`   | Bitwise And          | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 & arg2`                          |
+| `0x75` `or`    | Bitwise Or           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 \| arg2`                         |
+| `0x76` `shl`   | Shift Left           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 << arg2`                         |
+| `0x77` `shru`  | Shift Right Unsigned | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 >> arg2` (unsigned)              |
 
 Memory:
 
 | Opcode        | Name          | Arguments                       | Operation                                  |
 |---------------|---------------|---------------------------------|--------------------------------------------|
-| `0x78` `ldw`  | Load Word     | `<r:dest> <m:base> <m:offset>`  | `dest = *(base + offset)`                  |
-| `0x79` `stw`  | Store Word    | `<m:src> <m:base> <m:offset>`   | `*(base + offset) <- src`                  |
-| `0x7A` `ldb`  | Load Byte     | `<r:dest> <m:base> <m:offset>`  | `dest = *(byte*)(base + offset)`           |
-| `0x7B` `stb`  | Store Byte    | `<m:src> <m:base> <m:offset>`   | `*(byte*)(base + offset) <- src & 0xFF`    |
+| `0x78` `ldw`  | Load Word     | `<r:dest> <m:base> <m:offset>`  | `dest = *(int*)(base + offset)`            |
+| `0x79` `stw`  | Store Word    | `<m:src> <m:base> <m:offset>`   | `*(int*)(base + offset) = src`             |
+| `0x7A` `ldb`  | Load Byte     | `<r:dest> <m:base> <m:offset>`  | `dest = *(char*)(base + offset)`           |
+| `0x7B` `stb`  | Store Byte    | `<m:src> <m:base> <m:offset>`   | `*(char*)(base + offset) = src & 0xFF`     |
 
 Control:
 
@@ -299,10 +299,9 @@ Control:
 | `0x7E` `jz`   | Jump If Zero  | `<m:pred> <i:low> <i:high>`     | `if !pred: rip = rip + 4 * signext((high << 8) \| low)`  |
 | `0x7F` `sys`  | System Call   | `<i:syscall> 00 00`             | system call                                              |
 
-
 All arithmetic and logic opcodes have the same format. They take a destination register and two mix-type arguments. They perform a mathematical operation on the arguments and place the result in the given register. All operations are unsigned.
 
-\* WARNING: The above opcode table will change significantly. In particular: `xor` and `ror` will be replaced by `shl` and `shru`; `cmpu` will be removed; `sys` will probably be removed; and possibly other changes will be made as well. This will require changing all the VMs and bytecode programs. If you implement a VM now be aware that you will need to update it later.
+WARNING: `cmpu` will be replaced by `ltu` soon, `sys` will probably be removed, and possibly other changes will be made as well. This will require changing all the VMs and bytecode programs. If you implement a VM now be aware that you will need to update it later.
 
 
 

@@ -364,8 +364,7 @@
     7F 03 00 00    ; sys fopen 0 0
 
     ; high bit indicates error
-    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
-    74 8A 8A 01    ; and ra ra 1
+    77 8A 80 1F    ; shru ra r0 31
     7E 00 06 00    ; jz 0 &open_input_file_ok (+6)
 
     ; failed to open input file. fatal
@@ -386,7 +385,7 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x280
 
 
@@ -405,8 +404,7 @@
     7F 03 00 00    ; sys fopen 0 0
 
     ; return value must not be -1
-    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
-    74 8A 8A 01    ; and ra ra 1
+    77 8A 80 1F    ; shru ra r0 31
     7E 00 06 00    ; jz ra &open_output_file_ok (+6)
 
     ; failed to open output file. fatal
@@ -430,7 +428,8 @@
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
-    ; we're out of padding!
+    ; padding
+    00 00 00 00
 @0x2C0
 
 
@@ -942,7 +941,7 @@
 ;:parse_hex_found
 
     ; shift up the high hex bits
-    77 80 80 1C    ; ror r0 r0 28    ; rol r0 r0 4
+    76 80 80 04    ; shl r0 r0 4
 
     ; put it on the stack
     71 8C 8C 04    ; sub rsp rsp 4     ; push r0
@@ -1318,7 +1317,7 @@
 
     ; shift up the address and add the new digit
     78 8A 8D FC    ; ldw ra rfp -4   ; load address
-    77 8A 8A 1C    ; ror ra ra 28    ; rol ra ra 4
+    76 8A 8A 04    ; shl r0 r0 4
     70 80 8A 80    ; add r0 ra r0
     79 80 8D FC    ; stw r0 rfp -4   ; store address
 

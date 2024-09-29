@@ -38,8 +38,8 @@
 #define DIVU  0x73
 #define AND   0x74
 #define OR    0x75
-#define XOR   0x76
-#define ROR   0x77
+#define SHL   0x76
+#define SHRU  0x77
 #define LDW   0x78
 #define STW   0x79
 #define LDB   0x7A
@@ -262,8 +262,7 @@ static void opcode_divs(void) {
         uint8_t bytes[] = {
 
             // collect sign of src1 in dest
-            ROR, dest, src1, 31,
-            AND, dest, dest, 1,
+            SHRU, dest, src1, 31,
 
             // place absolute value of src1 in ra
             JZ, dest, 2, 0,
@@ -272,9 +271,8 @@ static void opcode_divs(void) {
             ADD, RA, src1, 0,
 
             // xor sign of src2 into dest
-            ROR, RB, src2, 31,
-            AND, RB, RB, 1,
-            ADD, dest, dest, RB,    // not using XOR because it's going to disappear soon
+            SHRU, RB, src2, 31,
+            ADD, dest, dest, RB,
             AND, dest, dest, 1,
 
             // place absolute value of src2 in rb
@@ -301,8 +299,7 @@ static void opcode_divs(void) {
             SUB, RSP, RSP, 8,
 
             // collect sign of src1 in ra, store it on the stack
-            ROR, RA, src1, 31,
-            AND, RA, RA, 1,
+            SHRU, RA, src1, 31,
             STW, RA, RSP, 0,
 
             // place absolute value of src1 in ra
@@ -312,8 +309,7 @@ static void opcode_divs(void) {
             ADD, RA, src1, 0,
 
             // collect sign of src2 in rb, store it on the stack
-            ROR, RB, src2, 31,
-            AND, RB, RB, 1,
+            SHRU, RB, src2, 31,
             STW, RB, RSP, 4,
 
             // place absolute value of src2 in rb
@@ -374,8 +370,7 @@ static void opcode_mods(void) {
         SUB, RSP, RSP, 4,
 
         // store sign of src1 on the stack
-        ROR, RA, src1, 31,
-        AND, RA, RA, 1,
+        SHRU, RA, src1, 31,
         STW, RA, RSP, 0,
 
         // place absolute value of src1 in ra
@@ -385,8 +380,7 @@ static void opcode_mods(void) {
         ADD, RA, src1, 0,
 
         // place absolute value of src2 in rb
-        ROR, RB, src2, 31,
-        AND, RB, RB, 1,
+        SHRU, RB, src2, 31,
         JZ, RB, 2, 0,
         SUB, RB, 0, src2,
         JZ, 0, 1, 0,
@@ -438,19 +432,19 @@ static void opcode_sxs(void) {
     uint8_t bytes[] = {
 
         // branch on the high bit
-        ROR, RA, src, 15,
+        SHRU, RA, src, 15,
         AND, RA, RA, 1,
         JZ, RA, 5, 0,
 
         // negative, set high bits
-        ROR, RA, 1, 16,
+        SHL, RA, 1, 16,
         SUB, RA, RA, 1,
-        ROR, RA, RA, 16,
+        SHL, RA, RA, 16,
         OR, dest, RA, src,
         JZ, 0, 3, 0,
 
         // positive, clear high bits
-        ROR, RA, 1, 16,
+        SHL, RA, 1, 16,
         SUB, RA, RA, 1,
         AND, dest, src, RA,
 
@@ -464,19 +458,19 @@ static void opcode_sxb(void) {
     uint8_t bytes[] = {
 
         // branch on the high bit
-        ROR, RA, src, 7,
+        SHRU, RA, src, 7,
         AND, RA, RA, 1,
         JZ, RA, 5, 0,
 
         // negative, set high bits
-        ROR, RA, 1, 8,
+        SHL, RA, 1, 24,
         SUB, RA, RA, 1,
-        ROR, RA, RA, 24,
+        SHL, RA, RA, 8,
         OR, dest, RA, src,
         JZ, 0, 3, 0,
 
         // positive, clear high bits
-        ROR, RA, 1, 24,
+        SHL, RA, 1, 8,
         SUB, RA, RA, 1,
         AND, dest, src, RA,
 
@@ -488,7 +482,7 @@ static void opcode_trs(void) {
     uint8_t dest = parse_register_non_scratch();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        ROR, RA, 1, 16,
+        SHL, RA, 1, 16,
         SUB, RA, RA, 1,
         AND, dest, src, RA,
     };
@@ -499,7 +493,7 @@ static void opcode_trb(void) {
     uint8_t dest = parse_register_non_scratch();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        ROR, RA, 1, 24,
+        SHL, RA, 1, 8,
         SUB, RA, RA, 1,
         AND, dest, src, RA,
     };
@@ -521,12 +515,22 @@ static void opcode_or(void) {
 }
 
 static void opcode_xor(void) {
-    opcode_reg_mix_mix(XOR);
+    uint8_t dest = parse_register();
+    uint8_t arg1 = parse_mix_non_scratch();
+    uint8_t arg2 = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        OR, RA, arg1, arg2,    // or ra arg1 arg2
+        AND, RB, arg1, arg2,   // and rb arg2 arg2
+        SUB, dest, RA, RB,     // sub dest ra rb
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
 }
 
+/*
 static void opcode_ror(void) {
     opcode_reg_mix_mix(ROR);
 }
+*/
 
 static void opcode_mov(void) {
     uint8_t dest = parse_register();
@@ -546,6 +550,7 @@ static void opcode_not(void) {
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
+/*
 static void opcode_rol(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix_non_scratch();
@@ -559,74 +564,41 @@ static void opcode_rol(void) {
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
+*/
 
 static void opcode_shrs(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix_non_scratch();
     uint8_t bits = parse_mix_non_scratch();
     uint8_t bytes[] = {
-        // generate a mask
-        ROR, RB, 1, bits,
-        SUB, RB, RB, 1,
-        // if zero, jump to end
-        JZ, RB, 10, 0,
+
         // test the sign bit
-        ROR, RA, 1, 1,  // mov ra 0x80000000
-        AND, RA, RA, src,
-        JZ, RA, 4, 0,
-        // negative. shift and apply inverted mask
-        ROR, RA, src, bits,
-        SUB, RB, 0xFF, RB,  // not rb
+        SHRU, RA, src, 31,
+        JZ, RA, 7, 0,
+
+        // negative. if bits is zero, jump to unsigned shift (to copy to dest)
+        JZ, bits, 6, 0,
+        // generate a mask
+        SUB, RB, 32, bits,
+        SHL, RB, 1, RB,
+        SUB, RB, 0, RB,
+        // shift and apply inverted mask
+        SHRU, RA, src, bits,
         OR, dest, RA, RB,
-        JZ, 0, 4, 0,
-        // non-negative. shift and apply mask
-        ROR, RA, src, bits,
-        AND, dest, RA, RB,
         JZ, 0, 1, 0,
-        // zero. just copy
-        ADD, dest, src, 0,
+
+        // non-negative. do unsigned shift
+        SHRU, dest, src, bits,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_shru(void) {
-    uint8_t dest = parse_register();
-    uint8_t src = parse_mix_non_scratch();
-    uint8_t bits = parse_mix_non_scratch();
-    uint8_t bytes[] = {
-        // generate a mask
-        ROR, RB, 1, bits,
-        SUB, RB, RB, 1,
-        // if zero, jump to end
-        JZ, RB, 3, 0,
-        // do the shift
-        ROR, RA, src, bits,
-        // apply the mask
-        AND, dest, RA, RB,
-        JZ, 0, 1, 0,
-        // shift was zero. just copy
-        ADD, dest, src, 0,
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    opcode_reg_mix_mix(SHRU);
 }
 
 static void opcode_shl(void) {
-    uint8_t dest = parse_register();
-    uint8_t src = parse_mix_non_scratch();
-    uint8_t bits = parse_mix_non_scratch();
-    uint8_t bytes[] = {
-        // flip the bits (since we're shifting left, not right)
-        SUB, RA, 32, bits,
-        // generate a mask
-        ROR, RB, 1, RA,
-        SUB, RB, RB, 1,
-        XOR, RB, RB, 0xFF,
-        // do the shift
-        ROR, RA, src, RA,
-        // apply the mask
-        AND, dest, RA, RB,
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    opcode_reg_mix_mix(SHL);
 }
 
 static void opcode_bool(void) {
@@ -711,11 +683,11 @@ static void opcode_lds(void) {
     // we have to add them beforehand.
 
     if (base == 0 || offset == 0) {
-        uint8_t src = (base != 0) ? base : offset;
+        uint8_t addr = (base != 0) ? base : offset;
         uint8_t bytes[] = {
-            LDB, RA, src, 0,
-            LDB, RB, src, 1,
-            ROR, RB, RB, 24,
+            LDB, RA, addr, 0,
+            LDB, RB, addr, 1,
+            SHL, RB, RB, 8,
             OR, dest, RA, RB,
         };
         emit_hex_bytes(bytes, sizeof(bytes));
@@ -725,7 +697,7 @@ static void opcode_lds(void) {
             ADD, RB, base, offset,
             LDB, RA, RB, 0,
             LDB, RB, RB, 1,
-            ROR, RB, RB, 24,
+            SHL, RB, RB, 8,
             OR, dest, RA, RB,
         };
         emit_hex_bytes(bytes, sizeof(bytes));
@@ -741,18 +713,18 @@ static void opcode_sts(void) {
     // we have to add them beforehand.
 
     if (base == 0 || offset == 0) {
-        uint8_t src = (base != 0) ? base : offset;
+        uint8_t addr = (base != 0) ? base : offset;
         uint8_t bytes[] = {
-            STB, value, src, 0,
-            ROR, RA, value, 8,
-            STB, RA, src, 1,
+            STB, value, addr, 0,
+            SHRU, RA, value, 8,
+            STB, RA, addr, 1,
         };
         emit_hex_bytes(bytes, sizeof(bytes));
     } else {
         uint8_t bytes[] = {
             ADD, RB, base, offset,
             STB, value, RB, 0,
-            ROR, RA, value, 8,
+            SHRU, RA, value, 8,
             STB, RA, RB, 1,
         };
         emit_hex_bytes(bytes, sizeof(bytes));
@@ -904,7 +876,7 @@ static void opcode_cmps(void) {
     uint8_t arg1 = parse_mix_non_scratch();
     uint8_t arg2 = parse_mix_non_scratch();
     uint8_t bytes[] = {
-        ROR, RB, 0x01, 0x01,  // ror rb 1 1       // rb = 0x80000000
+        SHL, RB, 0x01, 0x1F,  // shl rb 1 31       // rb = 0x80000000
         ADD, RA, arg1, RB,    // add ra arg1 rb
         ADD, RB, arg2, RB,    // add rb arg2 rb
         CMPU, dest, RA, RB,   // cmpu dest ra rb
@@ -920,7 +892,7 @@ static void opcode_ltu(void) {
     uint8_t arg2 = parse_mix_non_scratch();
     uint8_t bytes[] = {
         CMPU, RA, arg1, arg2,  // cmpu ra arg1 arg2
-        ROR, RA, RA, 0x01,     // ror ra ra 1
+        SHRU, RA, RA, 0x01,    // shru ra ra 1
         AND, dest, RA, 0x01,   // and dest ra 1
     };
     emit_hex_bytes(bytes, sizeof(bytes));
@@ -931,12 +903,12 @@ static void opcode_lts(void) {
     uint8_t arg1 = parse_mix_non_scratch();
     uint8_t arg2 = parse_mix_non_scratch();
     uint8_t bytes[] = {
-        ROR, RB, 0x01, 0x01,  // ror rb 1 1       // rb = 0x80000000
+        SHL, RB, 0x01, 0x1F,  // shl rb 1 31       // rb = 0x80000000
         ADD, RA, arg1, RB,    // add ra arg1 rb
         ADD, RB, arg2, RB,    // add rb arg2 rb
         // This is temporary; the rest of this should become LTU.
         CMPU, RA, RA, RB,     // cmpu ra ra rb
-        ROR, RA, RA, 0x01,    // ror ra ra 1
+        SHRU, RA, RA, 0x01,   // shru ra ra 1
         AND, dest, RA, 0x01,  // and dest ra 1
     };
     emit_hex_bytes(bytes, sizeof(bytes));
@@ -1087,8 +1059,8 @@ static opcode_fn_t opcodes_list[] = {
     {"shl", opcode_shl},
     {"shru", opcode_shru},
     {"shrs", opcode_shrs},
-    {"rol", opcode_rol},
-    {"ror", opcode_ror},
+    //{"rol", opcode_rol},
+    //{"ror", opcode_ror},
     {"mov", opcode_mov},
     {"bool", opcode_bool},
     {"isz", opcode_isz},

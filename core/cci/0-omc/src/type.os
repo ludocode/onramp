@@ -212,8 +212,7 @@
     ; check that the table isn't full (the limit is half the size)
     imw r9 ^type_buckets
     ldw r9 r9 rpp
-    ; TODO replace with shru
-    ror r9 r9 1    ; divide by two
+    shru r9 r9 1    ; divide by two
     imw r1 ^type_count
     ldw r1 r1 rpp
     cmpu r0 r1 r9

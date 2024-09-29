@@ -790,12 +790,8 @@ next:
         case 0x73:   *reg = mix1 / mix2;   goto next;  /* div */
         case 0x74:   *reg = mix1 & mix2;   goto next;  /* and */
         case 0x75:   *reg = mix1 | mix2;   goto next;  /* or */
-        case 0x76:   *reg = mix1 ^ mix2;   goto next;  /* xor */
-        case 0x77: {                                   /* ror */
-            mix2 &= 0x1Fu;
-            *reg = (mix1 >> mix2) | (mix1 << ((-mix2) & 0x1Fu));
-            goto next;
-        }
+        case 0x76:   *reg = mix1 << mix2;  goto next;  /* shl */
+        case 0x77:   *reg = mix1 >> mix2;  goto next;  /* shru */
         case 0x78:   *reg = vm_load_u32(mix1 + mix2);   goto next;  /* ldw */
         case 0x7A:   *reg = vm_load_u8 (mix1 + mix2);   goto next;  /* ldb */
         case 0x7D:                                                  /* cmpu */

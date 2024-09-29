@@ -250,17 +250,15 @@ def run():
             elif opcode == 2: # mul
                 registers[dest] = (left * right) & 0xFFFFFFFF
             elif opcode == 3: # divu
-                registers[dest] = int(left / right)
+                registers[dest] = left // right
             elif opcode == 4: # and
                 registers[dest] = left & right
             elif opcode == 5: # or
                 registers[dest] = left | right
-            elif opcode == 6: # xor
-                registers[dest] = left ^ right
-            elif opcode == 7: # ror
-                right &= 0x1F
-                registers[dest] = (0xFFFFFFFF &
-                        ((left >> right) | (left << ((-right) & 0x1F))))
+            elif opcode == 6: # shl
+                registers[dest] = (left << right) & 0xFFFFFFFF
+            elif opcode == 7: # shru
+                registers[dest] = left >> right
             elif opcode == 8: # ldw
                 registers[dest] = loadWord(left + right)
             elif opcode == 0xA: # ldb
