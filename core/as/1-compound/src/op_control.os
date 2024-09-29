@@ -41,6 +41,11 @@
 ; Note that this allows 16-bit absolute invocations for jumps which doesn't
 ; make sense. This isn't allowed; we just don't bother to check. The final
 ; assembler checks.
+;
+; TODO the assembly language no longer supports jumps by value; only jumps to
+; relative labels are allowed. We need to use this only for the ims instruction
+; and have jump instructions parse only a relative label. as/2 has the proper
+; restrictions so for now we don't bother with as/1.
 ; ==========================================================
 
 =opcode_short

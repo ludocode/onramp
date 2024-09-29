@@ -65,80 +65,22 @@
 
 // Parses and emits the offset (destination) of a jz instruction.
 static void parse_and_emit_jump_offset(void) {
-
-    // relative label
     if (try_parse_invocation_relative()) {
         emit_label(identifier, label_type_invocation_relative, label_flags, -1, -1);
         return;
     }
-
-    // number
-    if (try_parse_and_emit_short()) {
-        return;
-    }
-
-    // two quoted bytes
-    uint8_t a, b;
-    if (try_parse_quoted_byte(&a) &&
-            try_parse_quoted_byte(&b))
-    {
-        emit_hex_byte(a);
-        emit_hex_byte(b);
-        return;
-    }
-
-    fatal("Expected jump destination: relative label, number or two quoted bytes.");
+    fatal("Expected relative label as jump destination.");
 }
 
 // TODO these jump instructions are slow, the ones in as/1 are better
 
 static void opcode_jz_je(uint8_t pred) {
-
-    // absolute
-    if (try_parse_invocation_absolute()) {
-        if (pred == RA) {
-            // We're clobbering ra.
-            fatal("Cannot perform absolute conditional jump using register ra.");
-        }
-
-        emit_imw_absolute(RA);  // imw ra ^label
-        uint8_t bytes[] = {
-            JZ, pred, 0x01, 0x00,  // jz pred +1
-            JZ, 0x00, 0x01, 0x00,  // jz 0 +1
-            ADD, SYS, JZ, LDB   // add rip rpp ra
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-        return;
-    }
-
-    // relative
     emit_hex_byte(JZ);  // jz
     emit_hex_byte(pred);  // pred
     parse_and_emit_jump_offset();
 }
 
 static void opcode_jnz_jne(uint8_t pred) {
-
-    // absolute
-    if (try_parse_invocation_absolute()) {
-        if (pred == RA) {
-            // We're clobbering ra.
-            fatal("Cannot perform absolute conditional jump using register ra.");
-        }
-
-        // TODO drop support for absolute jumps except for jmp, too much of a
-        // pain to implement in as/1
-
-        emit_imw_absolute(RA);  // imw ra ^label
-        uint8_t bytes[] = {
-            JZ, pred, 0x01, 0x00,  // jz pred +1
-            ADD, SYS, JZ, LDB   // add rip rpp ra
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-        return;
-    }
-
-    // relative
     uint8_t bytes[] = {
         JZ, pred, 0x01, 0x00,  // jz pred +1
         JZ, 0x00,              // jz 0 label
@@ -150,26 +92,6 @@ static void opcode_jnz_jne(uint8_t pred) {
 // Jumps if the value matches
 static void opcode_jg_jl(uint8_t value) {
     uint8_t reg = parse_register_non_scratch();
-
-    // absolute
-    if (try_parse_invocation_absolute()) {
-        if (reg == RA) {
-            // We're clobbering ra.
-            fatal("Cannot perform absolute conditional jump using register ra.");
-        }
-
-        emit_imw_absolute(RA);  // imw ra ^label
-        uint8_t bytes[] = {
-            CMPU, RB, reg, value,  // cmpu rb reg value
-            JZ, RB, 0x01, 0x00,  // jz rb +1
-            JZ, 0x00, 0x01, 0x00,  // jz 0 +1
-            ADD, RIP, RPP, RA,  // add rip rpp ra
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-        return;
-    }
-
-    // relative
     uint8_t bytes[] = {
         CMPU, RB, reg, value,  // cmpu rb reg value
         JZ, RB,              // jz rb label
@@ -181,20 +103,6 @@ static void opcode_jg_jl(uint8_t value) {
 // Jumps if the value *doesn't* match
 static void opcode_jge_jle(uint8_t value) {
     uint8_t reg = parse_register_non_scratch();
-
-    // absolute
-    if (try_parse_invocation_absolute()) {
-        emit_imw_absolute(RA);  // imw ra ^label
-        uint8_t bytes[] = {
-            CMPU, RB, reg, value,  // cmpu rb reg value
-            JZ, RB, 0x01, 0x00,  // jz rb +1
-            ADD, RIP, RPP, RA,  // add rip rpp ra
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-        return;
-    }
-
-    // relative
     uint8_t bytes[] = {
         CMPU, RB, reg, value,  // cmpu rb reg value
         JZ, RB, 0x01, 0x00,    // jz 0 +1

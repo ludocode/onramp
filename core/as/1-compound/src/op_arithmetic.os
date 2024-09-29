@@ -143,20 +143,24 @@
     stw ra rsp '00
 
     ; place absolute value of src1 in ra
-    jz ra '02 '00
+    jz ra &opcode_divs_template_dividend_positive
     sub ra '00 r1
-    jz '00 '01 '00
+    jz '00 &opcode_divs_template_dividend_negative
+:opcode_divs_template_dividend_positive
     add ra r1 '00
+:opcode_divs_template_dividend_negative
 
     ; collect sign of src2 in rb, store it on the stack
     shru rb r2 '1F
     stw rb rsp '04
 
     ; place absolute value of src2 in rb
-    jz rb '02 '00
+    jz rb &opcode_divs_template_divisor_positive
     sub rb '00 r2
-    jz '00 '01 '00
+    jz '00 &opcode_divs_template_divisor_negative
+:opcode_divs_template_divisor_positive
     add rb r2 '00
+:opcode_divs_template_divisor_negative
 
     ; do the unsigned division
     ; (we can write to dest now since we're done reading srcs)
@@ -170,8 +174,9 @@
     and ra ra '01
 
     ; flip sign of dest if exactly one of src1 and src2 was negative
-    jz ra '01 '00
+    jz ra &opcode_divs_template_quotient_positive
     sub r0 '00 r0
+:opcode_divs_template_quotient_positive
 
 
 
@@ -324,17 +329,21 @@
     stw ra rsp '00
 
     ; place absolute value of src1 in ra
-    jz ra '02 '00
+    jz ra &opcode_mods_template_dividend_positive
     sub ra '00 r1
-    jz '00 '01 '00
+    jz '00 &opcode_mods_template_dividend_negative
+:opcode_mods_template_dividend_positive
     add ra r1 '00
+:opcode_mods_template_dividend_negative
 
     ; place absolute value of src2 in rb
     shru rb r2 '1F
-    jz rb '02 '00
+    jz rb &opcode_mods_template_divisor_positive
     sub rb '00 r2
-    jz '00 '01 '00
+    jz '00 &opcode_mods_template_divisor_negative
+:opcode_mods_template_divisor_positive
     add rb r2 '00
+:opcode_mods_template_divisor_negative
 
     ; do the unsigned modulus
     ; (we can write to dest now since we're done reading srcs)
@@ -345,8 +354,9 @@
     ; pop and flip sign of dest if src1 was negative
     ldw ra rsp '00
     add rsp rsp '04
-    jz ra '01 '00
+    jz ra &opcode_mods_template_remainder_positive
     sub r0 '00 r0
+:opcode_mods_template_remainder_positive
 
 
 
