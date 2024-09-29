@@ -225,10 +225,11 @@ FFFFFFFFFFFFFFFF
 
 
 7D8A8108
-7E8A0100
+7E8A&place_queen_done 
 7E00&place_queen_next_y 
 
 
+:place_queen_done 
 708C8D00
 788D008C
 708C8C04
@@ -280,7 +281,7 @@ FFFFFFFFFFFFFFFF
 
 70838301
 7D8A8308
-7E8A&print_board_x_done 
+7E8A&print_board_done_x 
 
 
 70818C02
@@ -288,7 +289,7 @@ FFFFFFFFFFFFFFFF
 
 
 7E00&print_board_next_x 
-:print_board_x_done 
+:print_board_done_x 
 
 
 70818C03
@@ -297,8 +298,9 @@ FFFFFFFFFFFFFFFF
 
 70848401
 7D8A8408
-7E8A0100
+7E8A&print_board_done_y 
 7E00&print_board_next_y 
+:print_board_done_y 
 
 
 70818C03

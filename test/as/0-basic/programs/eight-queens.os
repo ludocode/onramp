@@ -225,10 +225,11 @@ ldw r0 rpp r0
 
     ; next y
     cmpu ra r1 '08
-    jz ra '01 '00
+    jz ra &place_queen_done
     jz '00 &place_queen_next_y
 
     ; done
+:place_queen_done
     add rsp rfp '00     ; mov rsp rfp    ; leave
     ldw rfp '00 rsp     ; pop rfp
     add rsp rsp '04     ; ^^^
@@ -280,7 +281,7 @@ ldw r0 rpp r0
             ; increment x
             add r3 r3 '01   ; inc r3
             cmpu ra r3 '08
-            jz ra &print_board_x_done
+            jz ra &print_board_done_x
 
             ; print a space for alignment
             add r1 rsp '02    ; r1 = string address (rsp+2)
@@ -288,7 +289,7 @@ ldw r0 rpp r0
 
             ; next
             jz '00 &print_board_next_x
-        :print_board_x_done
+        :print_board_done_x
 
         ; print newline
         add r1 rsp '03    ; r1 = string address (rsp+3)
@@ -297,8 +298,9 @@ ldw r0 rpp r0
         ; next y
         add r4 r4 '01   ; inc r4
         cmpu ra r4 '08
-        jz ra '01 '00
+        jz ra &print_board_done_y
         jz '00 &print_board_next_y
+:print_board_done_y
 
     ; print two newlines
     add r1 rsp '03    ; r1 = string address (rsp+3)
