@@ -40,6 +40,11 @@ int close(int __fd);
 ssize_t write(int __fd, const void* __buffer, size_t __count);
 ssize_t read(int __fd, void* __buffer, size_t __count);
 
+#ifndef __onramp_cci_omc__
+/**
+ * Sleeps for the given number of microseconds.
+ */
 int usleep(useconds_t usec);
+#endif
 
 #endif

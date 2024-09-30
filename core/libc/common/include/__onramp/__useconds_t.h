@@ -29,6 +29,8 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#ifndef __onramp_cci_omc__
 typedef unsigned useconds_t;
+#endif
 
 #endif
