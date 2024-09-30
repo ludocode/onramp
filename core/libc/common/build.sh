@@ -37,6 +37,7 @@ cp core/libc/common/include/__onramp/__mode_t.h build/output/include/__onramp/__
 cp core/libc/common/include/__onramp/__null.h build/output/include/__onramp/__null.h
 cp core/libc/common/include/__onramp/__predef.h build/output/include/__onramp/__predef.h
 cp core/libc/common/include/__onramp/__size_t.h build/output/include/__onramp/__size_t.h
+cp core/libc/common/include/__onramp/__useconds_t.h build/output/include/__onramp/__useconds_t.h
 cp core/libc/common/include/__onramp/__va_list.h build/output/include/__onramp/__va_list.h
 cp core/libc/common/include/__onramp/__wchar_limits.h build/output/include/__onramp/__wchar_limits.h
 cp core/libc/common/include/__onramp/__wchar_t.h build/output/include/__onramp/__wchar_t.h

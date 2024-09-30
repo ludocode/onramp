@@ -31,6 +31,7 @@
 
 #include <__onramp/__size_t.h>
 #include <__onramp/__null.h>
+#include <__onramp/__useconds_t.h>
 
 /**
  * The number of virtual clock ticks per second of real time.
@@ -74,7 +75,6 @@ clock_t clock(void);
 typedef long long time_t;
 
 typedef int suseconds_t;
-typedef unsigned useconds_t; // TODO this is also defined in <unistd.h>
 
 /**
  * Gets the current UNIX timestamp in seconds.

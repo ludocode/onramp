@@ -150,3 +150,17 @@ int gettimeofday(struct timeval* timeval, struct timezone* ignored) {
     timeval->tv_usec = timespec.tv_nsec / 1000;
     return 0;
 }
+
+int usleep(useconds_t usec) {
+    // TODO: onramp doesn't current have a sleep or yield syscall. (It also
+    // doesn't have any kind of multitasking.) For now this is just a busy
+    // wait.
+    clock_t start = clock();
+    clock_t end = start + usec;
+    if (end < start) {
+        errno = EINVAL;
+        return -1;
+    }
+    while (clock() < end) {}
+    return 0;
+}
