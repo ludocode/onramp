@@ -1212,7 +1212,7 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
     if (initializer && type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE) {
         size_t count;
         if (initializer->kind == NODE_INITIALIZER_LIST) {
-            count = vector_count(&initializer->initializers);
+            count = vector_count(&initializer->children);
         } else if (initializer->kind == NODE_STRING) {
             count = type_size(initializer->type);
         } else {

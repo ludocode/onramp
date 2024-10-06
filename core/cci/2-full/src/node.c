@@ -126,12 +126,8 @@ node_t* node_new(node_kind_t kind) {
     }
     node->kind = kind;
 
-    switch (kind) {
-        case NODE_INITIALIZER_LIST:
-            vector_init(&node->initializers);
-            break;
-        default:
-            break;
+    if (node_children_is_vector(node)) {
+        vector_init(&node->children);
     }
 
     return node;
@@ -158,11 +154,23 @@ node_t* node_new_lexer(node_kind_t kind) {
 }
 
 void node_delete(node_t* node) {
+
+    // delete linked list children
     node_t* child = node->first_child;
     while (child) {
         node_t* next = child->right_sibling;
         node_delete(child);
         child = next;
+    }
+
+    // delete vector children
+    if (node_children_is_vector(node)) {
+        for (size_t i = 0; i < vector_count(&node->children); ++i) {
+            node_t* child = vector_at(&node->children, i);
+            if (child)
+                node_delete(child);
+        }
+        vector_destroy(&node->children);
     }
 
     if (node->token) {
@@ -198,14 +206,6 @@ void node_delete(node_t* node) {
         case NODE_MEMBER_VAL:
         case NODE_MEMBER_PTR:
             token_deref(node->member);
-            break;
-        case NODE_INITIALIZER_LIST:
-            for (size_t i = 0; i < vector_count(&node->initializers); ++i) {
-                node_t* child = vector_at(&node->initializers, i);
-                if (child)
-                    node_delete(child);
-            }
-            vector_destroy(&node->initializers);
             break;
         default:
             break;
@@ -331,10 +331,10 @@ static void node_print_tree_impl(node_t* node, size_t length, bool root, bool ha
     for (node_t* child = node->first_child; child; child = child->right_sibling) {
         node_print_tree_child(child, length, !child->right_sibling);
     }
-    if (node->kind == NODE_INITIALIZER_LIST) {
-        for (size_t i = 0; i < vector_count(&node->initializers); ++i) {
-            node_print_tree_child(vector_at(&node->initializers, i), length,
-                    i == vector_count(&node->initializers) - 1);
+    if (node_children_is_vector(node)) {
+        for (size_t i = 0; i < vector_count(&node->children); ++i) {
+            node_print_tree_child(vector_at(&node->children, i), length,
+                    i == vector_count(&node->children) - 1);
         }
     }
 }

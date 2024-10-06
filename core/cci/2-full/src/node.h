@@ -191,7 +191,7 @@ typedef struct node_t {
         builtin_t builtin;
 
         struct {
-            vector_t initializers; // sparse array of non-constant nodes for initializer list
+            vector_t children; // sparse array of non-constant nodes for initializer list
             size_t index; // index in parent initializer list
         };
 
@@ -365,5 +365,16 @@ bool node_is_null(node_t* node);
  *     https://en.cppreference.com/w/c/language/conversion
  */
 node_t* node_decay(node_t* node);
+
+/**
+ * Returns true if the node's children are stored in a vector rather than a
+ * doubly-linked list.
+ *
+ * Currently only the initializer list stores its children in a vector.
+ * Eventually it would be nice to migrate everything to vectors.
+ */
+static inline bool node_children_is_vector(node_t* node) {
+    return node->kind == NODE_INITIALIZER_LIST;
+}
 
 #endif

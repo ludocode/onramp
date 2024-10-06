@@ -825,13 +825,13 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
  * The address of the variable being initialized is (reg_base + offset).
  */
 void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t base_offset) {
-    if (vector_count(&list->initializers) == 0) {
+    if (vector_count(&list->children) == 0) {
         generate_zero_scalar(list->token, type, reg_base, base_offset);
         return;
     }
 
     size_t i;
-    for (i = 0; i < vector_count(&list->initializers); ++i) {
+    for (i = 0; i < vector_count(&list->children); ++i) {
 
         // Get the type of the child we're initializing
         type_t* child_type;
@@ -848,7 +848,7 @@ void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t 
             offset = base_offset;
         }
 
-        node_t* child = vector_at(&list->initializers, i);
+        node_t* child = vector_at(&list->children, i);
         if (!child) {
             generate_zero_scalar(list->token, type, reg_base, offset);
         } else if (child->kind == NODE_INITIALIZER_LIST) {

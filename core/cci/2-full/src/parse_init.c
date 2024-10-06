@@ -38,10 +38,10 @@
  * warning at the current token that an initializer is being overridden.
  */
 static void parse_init_clear(node_t* node, size_t index) {
-    if (index >= vector_count(&node->initializers))
+    if (index >= vector_count(&node->children))
         return;
 
-    void** old_initializer = vector_address(&node->initializers, index);
+    void** old_initializer = vector_address(&node->children, index);
     if (*old_initializer) {
         warn(warning_initializer_overrides, lexer_token,
                 "An initializer overrides a previous initializer for the same location.");
@@ -165,12 +165,12 @@ node_t* parse_initializer_list(type_t* root_type) {
             // Popular compilers (except MSVC) accept it but Clang warns
             // -Wmany-braces-around-scalar-init. We don't bother warning.
 
-            vector_ensure_size(&node->initializers, index + 1);
+            vector_ensure_size(&node->children, index + 1);
             parse_init_clear(node, index);
             node_t* list = parse_initializer_list(child_type);
             list->index = index;
             list->parent = node;
-            vector_set(&node->initializers, index, list);
+            vector_set(&node->children, index, list);
 
         } else {
 
@@ -181,7 +181,7 @@ node_t* parse_initializer_list(type_t* root_type) {
             // initializing. We break out of this loop once we've found the
             // correct position to insert this scalar.
             for (;;) {
-                vector_ensure_size(&node->initializers, index + 1);
+                vector_ensure_size(&node->children, index + 1);
 
                 if (type_matches_base(child_type, BASE_RECORD)) {
                     if (type_equal(child_type, scalar->type)) {
@@ -212,13 +212,13 @@ node_t* parse_initializer_list(type_t* root_type) {
                 // we are *not* necessarily overriding parts of it that have
                 // already been initialized by other designators.
                 //     See test: init/init-partial-out-of-order.c
-                node_t* child_node = vector_at(&node->initializers, index);
+                node_t* child_node = vector_at(&node->children, index);
                 if (child_node == NULL) {
                     child_node = node_new(NODE_INITIALIZER_LIST);
                     child_node->type = type_ref(child_type);
                     child_node->index = index;
                     child_node->parent = node;
-                    vector_set(&node->initializers, index, child_node);
+                    vector_set(&node->children, index, child_node);
                 }
 
                 // Move down and keep walking
@@ -239,7 +239,7 @@ node_t* parse_initializer_list(type_t* root_type) {
             // designators have caused overlap.
             parse_init_clear(node, index);
             scalar->parent = node;
-            vector_set(&node->initializers, index, scalar);
+            vector_set(&node->children, index, scalar);
 
         }
 
