@@ -48,11 +48,25 @@ static void test_mul(void) {
 }
 
 static void test_divs(void) {
-    // TODO
+    long long a = -0x0c760000LL;
+    long long b = 0x0a00000LL;
+    __llong_divs((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    if (a != -0x13) {
+        exit(1);
+    }
+
+    // TODO, other numbers were tested with test_div_loop() below
 }
 
 static void test_divu(void) {
-    // TODO
+    unsigned long long a = 0x0c760000ULL;
+    unsigned long long b = 0x0a00000ULL;
+    __llong_divu((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    if (a != 0x13ULL) {
+        exit(1);
+    }
+
+    // TODO, other numbers were tested with test_div_loop() below
 }
 
 static void test_mods(void) {
@@ -207,6 +221,12 @@ static void test_bit_not(void) {
     }
 }
 
+static void test_negate(void) {
+    unsigned long long a = 13;
+    __llong_negate((unsigned*)&a, (unsigned*)&a);
+    if (a != -13) exit(1);
+}
+
 #ifdef TEST_DIV_LOOP
 static unsigned long long random_number(unsigned digits) {
     unsigned long long ret = 0;
@@ -296,6 +316,7 @@ int main(void) {
     test_bit_or();
     test_bit_xor();
     test_bit_not();
+    test_negate();
 
     #ifdef TEST_DIV_LOOP
     test_div_loop();
