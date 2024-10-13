@@ -106,6 +106,18 @@ onrampvm build/output/bin/cc.oe \
     -c core/cci/2-full/src/node.c \
     -o build/intermediate/cci-2-full-re/node.oo
 
+echo Compiling cci/2-full optimize_asm.c
+onrampvm build/output/bin/cc.oe \
+    @core/cci/2-full/rebuild-ccargs \
+    -c core/cci/2-full/src/optimize_asm.c \
+    -o build/intermediate/cci-2-full-re/optimize_asm.oo
+
+echo Compiling cci/2-full optimize_tree.c
+onrampvm build/output/bin/cc.oe \
+    @core/cci/2-full/rebuild-ccargs \
+    -c core/cci/2-full/src/optimize_tree.c \
+    -o build/intermediate/cci-2-full-re/optimize_tree.oo
+
 echo Compiling cci/2-full options.c
 onrampvm build/output/bin/cc.oe \
     @core/cci/2-full/rebuild-ccargs \
@@ -189,6 +201,8 @@ onrampvm build/output/bin/cc.oe \
     build/intermediate/cci-2-full-re/lexer.oo \
     build/intermediate/cci-2-full-re/main.oo \
     build/intermediate/cci-2-full-re/node.oo \
+    build/intermediate/cci-2-full-re/optimize_asm.oo \
+    build/intermediate/cci-2-full-re/optimize_tree.oo \
     build/intermediate/cci-2-full-re/options.oo \
     build/intermediate/cci-2-full-re/parse_decl.oo \
     build/intermediate/cci-2-full-re/parse_expr.oo \

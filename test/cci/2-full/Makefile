@@ -56,6 +56,8 @@ SRCS=\
 	$(SRC)/lexer.c \
 	$(SRC)/main.c \
 	$(SRC)/node.c \
+	$(SRC)/optimize_asm.c \
+	$(SRC)/optimize_tree.c \
 	$(SRC)/options.c \
 	$(SRC)/parse_decl.c \
 	$(SRC)/parse_expr.c \

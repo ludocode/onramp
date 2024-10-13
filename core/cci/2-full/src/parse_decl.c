@@ -45,6 +45,8 @@
 #include "function.h"
 #include "emit.h"
 #include "symbol.h"
+#include "optimize_tree.h"
+#include "optimize_asm.h"
 
 extern struct function_t* current_function;
 
@@ -956,9 +958,20 @@ static void parse_function_definition(symbol_t* symbol, type_t* type, token_t* n
 
     // parse
     node_append(root, parse_compound_statement(false));
+    if (dump_ast) {
+        putchar('\n');
+        node_print_tree(root);
+        putchar('\n');
+    }
 
-    // codegen
+    // optimization and codegen
+    if (optimization)
+        optimize_tree(function->root);
     generate_function(function);
+    if (optimization)
+        optimize_asm(function);
+
+    // write
     emit_function(function);
     emit_global_divider();
 

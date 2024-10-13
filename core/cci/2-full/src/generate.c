@@ -319,12 +319,6 @@ void generate_function(function_t* function) {
     node_t* root = function->root;
     emit_source_location(root->token);
 
-    if (dump_ast) {
-        putchar('\n');
-        node_print_tree(root);
-        putchar('\n');
-    }
-
     // walk the tree, genererating frame offsets for each variable
     int frame_size = generate_parameter_offsets(function);
     frame_size = generate_variable_offsets(root, -frame_size, frame_size);
