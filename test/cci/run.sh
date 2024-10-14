@@ -9,36 +9,35 @@
 #
 #     test/cci/run.sh test/cci/0-omc omc onrampvm build/intermediate/cci-0-omc/cci.oe
 #
-# If a .c file exists, the preprocessor is run on it first with the libc/1
-# headers, then the compiler is run on the output. If a .i file exists, the
-# compiler is run on it directly.
+# If a .c file exists, the preprocessor is run on it first, then the compiler
+# is run on the output. If a .i file exists, the compiler is run on it
+# directly.
 #
-# The program is then assembled and linked against libc/0
-# TODO libc/1
-# and run. If assembly, linking or execution fails, the test fails.
+# The program is then assembled and linked against libc/3 and run. If assembly,
+# linking or execution fails, the test fails.
 #
-# - If a corresponding .os file exists, the compiler must succeed and its output
-# must match the file's contents.
+# - If a corresponding .fail file exists, the compiler must fail. Otherwise,
+#   the compiler must succeed.
 #
-# - If no corresponding .os file exists, the compiler must return an error. Its
-# output is ignored.
+# - If a corresponding .os file exists (and the --other-stage argument is not
+#   given), the compiler's output must match the file's contents. (This is
+#   deprecated; TODO remove this.)
 #
 # - If a corresponding .args file exists, the contents are passed as
-# command-line arguments to the compiler instead of the default arguments. Use
-# $INPUT for the input filename and $OUTPUT for the output filename.
+#   command-line arguments to the compiler instead of the default arguments.
+#   Use $INPUT for the input filename and $OUTPUT for the output filename.
 #
 # - If a corresponding .stdout file exists, the program's output must match the
-# contents.
+#   contents.
 #
 # - If a corresponding .status file exists, the program must return with the
-# given status code. Otherwise, the program must return with status 0
-# (success.)
+#   given status code. Otherwise, the program must return with status 0
+#   (success.) (TODO this is deprecated; remove this.)
 #
 # - If a corresponding .skip file exists, the test is skipped.
 #
-# Pass --other-stage as the first argument to run tests with a different stage
-# than the one for which the tests were intended. The assembly output will not
-# be compared and any tests with a .nonstd file will be skipped.
+# - If a corresponding .nonstd file exists and the --other-stage argument is
+#   given, the test is skipped.
 
 set -e
 ROOT=$(dirname $0)/../..
@@ -84,13 +83,10 @@ export ASAN_OPTIONS="$ASAN_OPTIONS:exitcode=125"
 
 # determine macros and libc to use for this compiler
 if [ "$COMPILER_ID" = "omc" ]; then
-    LIBC=1-omc
     MACROS="-D__onramp_cci_omc__=1"
 elif [ "$COMPILER_ID" = "opc" ]; then
-    LIBC=2-opc
     MACROS="-D__onramp_cci_opc__=1"
 elif [ "$COMPILER_ID" = "full" ]; then
-    LIBC=2-opc  # TODO 3-full
     MACROS=
 else
     echo "ERROR: Unknown compiler: $COMPILER_ID"
@@ -107,7 +103,7 @@ MACROS="$MACROS -include __onramp/__predef.h"
 make -C $ROOT/test/cpp/1-omc/ build  # TODO cpp/2
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
-make -C $ROOT/test/libc/$LIBC/ build
+make -C $ROOT/test/libc/3-full/ build
 if ! command -v onrampvm > /dev/null; then
     echo "ERROR: onrampvm is required on PATH."
     exit 1
@@ -165,7 +161,7 @@ for TESTFILE in $FILES; do
         echo "ERROR: compiler crashed on $BASENAME; expected success or error message."
         cat $TEMP_STDERR
         THIS_ERROR=1
-    elif [ -e $BASENAME.os ]; then
+    elif ! [ -e $BASENAME.fail ]; then
         if [ $RET -ne 0 ]; then
             echo "ERROR: $BASENAME failed to compile; expected success."
             cat $TEMP_STDERR
@@ -190,7 +186,7 @@ for TESTFILE in $FILES; do
         fi
     fi
 
-    if [ -e $BASENAME.os ]; then
+    if ! [ -e $BASENAME.fail ]; then
 
         # assemble, link and run
         if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null; then
@@ -198,7 +194,7 @@ for TESTFILE in $FILES; do
             THIS_ERROR=1
         fi
         if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld \
-                -g $ROOT/build/test/libc-$LIBC/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
+                -g $ROOT/build/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
             echo "ERROR: $BASENAME failed to link."
             THIS_ERROR=1
         fi
@@ -242,7 +238,7 @@ for TESTFILE in $FILES; do
         echo "    $COMMAND $ARGS && \\"
         echo "    sed -e '/^ *$/d' -e '/^#/d' $TEMP_OS > $TEMP_OS_CLEAN && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
-        echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-$LIBC/libc.oa $TEMP_OO -o $TEMP_OE && \\"
+        echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE"
         TOTAL_ERRORS=$(( $TOTAL_ERRORS + 1 ))
     fi
