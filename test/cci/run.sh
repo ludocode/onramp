@@ -19,10 +19,6 @@
 # - If a corresponding .fail file exists, the compiler must fail. Otherwise,
 #   the compiler must succeed.
 #
-# - If a corresponding .os file exists (and the --other-stage argument is not
-#   given), the compiler's output must match the file's contents. (This is
-#   deprecated; TODO remove this.)
-#
 # - If a corresponding .args file exists, the contents are passed as
 #   command-line arguments to the compiler instead of the default arguments.
 #   Use $INPUT for the input filename and $OUTPUT for the output filename.
@@ -69,7 +65,6 @@ shift
 COMMAND="$@"
 TEMP_I=/tmp/onramp-test.i
 TEMP_OS=/tmp/onramp-test.os
-TEMP_OS_CLEAN=/tmp/onramp-test-clean.os
 TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
@@ -168,16 +163,6 @@ for TESTFILE in $FILES; do
             THIS_ERROR=1
         elif [ $OTHER_STAGE -eq 1 ]; then
             true # don't compare assembly
-        else
-            # we clean out blank lines and debug info to prevent test cases
-            # from failing due to insignificant changes to the headers
-            # (otherwise every time we change a libc header file all test cases
-            # would have to be regenerated)
-            sed -e '/^ *$/d' -e '/^#/d' $TEMP_OS > $TEMP_OS_CLEAN
-            if ! diff -q $BASENAME.os $TEMP_OS_CLEAN > /dev/null; then
-                echo "ERROR: $BASENAME did not match expected $BASENAME.os"
-                THIS_ERROR=1
-            fi
         fi
     else
         if [ $RET -eq 0 ]; then
@@ -236,7 +221,6 @@ for TESTFILE in $FILES; do
             echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS $BASENAME.c -o $TEMP_I && \\"
         fi
         echo "    $COMMAND $ARGS && \\"
-        echo "    sed -e '/^ *$/d' -e '/^#/d' $TEMP_OS > $TEMP_OS_CLEAN && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE"
