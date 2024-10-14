@@ -59,9 +59,9 @@ true #TODO libo tests don't exist yet
 
 # Test cci
 ( cd test/cci/2-full && \
-    ../run.sh --other-stage ../0-omc full onrampvm ../../../build/output/bin/cci.oe && \
-    ../run.sh --other-stage ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
-    ../run.sh               .        full onrampvm ../../../build/output/bin/cci.oe )
+    ../run.sh          ../0-omc full onrampvm ../../../build/output/bin/cci.oe && \
+    ../run.sh          ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
+    ../run.sh --nonstd .        full onrampvm ../../../build/output/bin/cci.oe )
 
 # test cpp
 # TODO cpp/2 not done yet, only running cpp/1 tests
