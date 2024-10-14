@@ -83,13 +83,13 @@ $(OUT)/cci: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test-0: build FORCE
-	../run.sh --other-stage ../0-omc full $(OUT)/cci
+	../run.sh ../0-omc full $(OUT)/cci
 
 test-1: build FORCE
-	../run.sh --other-stage ../1-opc full $(OUT)/cci
+	../run.sh ../1-opc full $(OUT)/cci
 
 test-2: build FORCE
-	../run.sh . full $(OUT)/cci
+	../run.sh --nonstd . full $(OUT)/cci
 
 test: test-0 test-1 test-2 FORCE
 

@@ -5,6 +5,11 @@
 #
 #     Usage: run.sh <test_folder> <compiler_id> <run_commands...>
 #
+# Options (must come before other args):
+#
+#     --nonstd           Run non-standard tests (with .nonstd extension)
+#     --output <path>    Output assembly to given path (for comparison purposes)
+#
 # e.g.
 #
 #     test/cci/run.sh test/cci/0-omc omc onrampvm build/intermediate/cci-0-omc/cci.oe
@@ -32,17 +37,28 @@
 #
 # - If a corresponding .skip file exists, the test is skipped.
 #
-# - If a corresponding .nonstd file exists and the --other-stage argument is
-#   given, the test is skipped.
+# - If a corresponding .nonstd file exists and the --nonstd argument is not
+#   provided, the test is skipped.
 
 set -e
 ROOT=$(dirname $0)/../..
 
-OTHER_STAGE=0
-if [ "$1" == "--other-stage" ]; then
-    OTHER_STAGE=1
-    shift
-fi
+NONSTD=0
+OUTPUT_PATH=
+
+# parse command-line options
+while true; do
+    if [ "$1" == "--nonstd" ]; then
+        NONSTD=1
+        shift
+    elif [ "$1" == "--output" ]; then
+        OUTPUT_PATH="$2"
+        shift
+        shift
+    else
+        break
+    fi
+done
 
 if [ "$1" == "" ]; then
     echo "Need folder to test."
@@ -121,7 +137,7 @@ for TESTFILE in $FILES; do
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\..$//')
 
-    if [ -e $BASENAME.skip ] || ( [ $OTHER_STAGE -eq 1 ] && [ -e $BASENAME.nonstd ] ); then
+    if [ -e $BASENAME.skip ] || ( [ $NONSTD -eq 0 ] && [ -e $BASENAME.nonstd ] ); then
         echo "Skipping $BASENAME"
         continue
     fi
@@ -135,7 +151,14 @@ for TESTFILE in $FILES; do
     else
         INPUT=$BASENAME.i
     fi
-    OUTPUT=$TEMP_OS
+
+    # output file
+    if [ "$OUTPUT_PATH" = "" ]; then
+        OUTPUT=$TEMP_OS
+    else
+        OUTPUT=$(echo $OUTPUT_PATH/$BASENAME.os | sed 's@\.\.@.@g')
+        mkdir -p "$(dirname "$OUTPUT")"
+    fi
 
     # collect or generate the args
     if [ -e $BASENAME.args ]; then
@@ -161,8 +184,6 @@ for TESTFILE in $FILES; do
             echo "ERROR: $BASENAME failed to compile; expected success."
             cat $TEMP_STDERR
             THIS_ERROR=1
-        elif [ $OTHER_STAGE -eq 1 ]; then
-            true # don't compare assembly
         fi
     else
         if [ $RET -eq 0 ]; then
@@ -174,7 +195,7 @@ for TESTFILE in $FILES; do
     if ! [ -e $BASENAME.fail ]; then
 
         # assemble, link and run
-        if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null; then
+        if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/as-2-full/as $OUTPUT -o $TEMP_OO &> /dev/null; then
             echo "ERROR: $BASENAME failed to assemble."
             THIS_ERROR=1
         fi
@@ -221,7 +242,7 @@ for TESTFILE in $FILES; do
             echo "    $ROOT/build/test/cpp-1-omc/cpp $MACROS $BASENAME.c -o $TEMP_I && \\"
         fi
         echo "    $COMMAND $ARGS && \\"
-        echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
+        echo "    $ROOT/build/test/as-2-full/as $OUTPUT -o $TEMP_OO && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE"
         TOTAL_ERRORS=$(( $TOTAL_ERRORS + 1 ))

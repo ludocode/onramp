@@ -106,7 +106,7 @@ $(OUT)/cci.oe: $(OBJS) Makefile $(LD) $(LIBC) $(LIBO)
 	$(LD) -g $(LIBC) $(LIBO) $(OBJS) -o $@
 
 test: build FORCE $(VM)
-	../run.sh . omc $(VM) $(OUT)/cci.oe
+	../run.sh --nonstd . omc $(VM) $(OUT)/cci.oe
 
 generate: build FORCE $(VM)
 	../generate.sh . omc $(VM) $(OUT)/cci.oe
