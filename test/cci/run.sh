@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # This script tests the given cci compiler by running it against all .i and .c
-# files in all subfolders of this test folder.
+# files in all subfolders of a given test folder.
 #
 #     Usage: run.sh <test_folder> <compiler_id> <run_commands...>
 #
@@ -18,11 +18,11 @@
 # is run on the output. If a .i file exists, the compiler is run on it
 # directly.
 #
-# The program is then assembled and linked against libc/3 and run. If assembly,
-# linking or execution fails, the test fails.
+# The program is then assembled and linked against libc/3 and run. If
+# preprocessing, assembly or linking fails, the test fails.
 #
-# - If a corresponding .fail file exists, the compiler must fail. Otherwise,
-#   the compiler must succeed.
+# - If a corresponding .fail file exists, the compiler must exit with an error
+#   (and without crashing.) Otherwise, the compiler must succeed.
 #
 # - If a corresponding .args file exists, the contents are passed as
 #   command-line arguments to the compiler instead of the default arguments.
@@ -32,7 +32,7 @@
 #   contents.
 #
 # - If a corresponding .status file exists, the program must return with the
-#   given status code. Otherwise, the program must return with status 0
+#   given status code. Otherwise, the program must exit with status 0
 #   (success.) (TODO this is deprecated; remove this.)
 #
 # - If a corresponding .skip file exists, the test is skipped.
@@ -115,10 +115,6 @@ make -C $ROOT/test/cpp/1-omc/ build  # TODO cpp/2
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
 make -C $ROOT/test/libc/3-full/ build
-if ! command -v onrampvm > /dev/null; then
-    echo "ERROR: onrampvm is required on PATH."
-    exit 1
-fi
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -174,7 +170,7 @@ for TESTFILE in $FILES; do
     RET=$?
     set -e
 
-    # check compile status and assembly
+    # check compile status
     if [ $RET -eq 125 ]; then
         echo "ERROR: compiler crashed on $BASENAME; expected success or error message."
         cat $TEMP_STDERR
