@@ -57,7 +57,7 @@ $(OUT)/cpp: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test: build FORCE
-	../run.sh . $(OUT)/cpp
+	../run.sh --strict --nonstd . $(OUT)/cpp
 
 generate: build FORCE
 	../generate.sh . $(OUT)/cpp

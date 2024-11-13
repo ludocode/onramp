@@ -9,8 +9,8 @@
 #   error (and without crashing.) Otherwise, the preprocessor must succeed.
 #
 # - If a corresponding .i file exists, the preprocessor's output must match the
-#   file's contents. Otherwise, the program is compiled and run. If compilation
-#   fails, the test fails.
+#   file's contents (including linemarkers if --strict is passed.) Otherwise,
+#   the program is compiled and run. If compilation fails, the test fails.
 #
 # - If a corresponding .stdout file exists, the program's output must match the
 #   contents.
@@ -32,7 +32,8 @@
 # want to store generated output in the repository for security reasons. (The
 # .i output also uses deprecated GNU-style linemarkers.) Instead, all (or
 # almost all) of the tests should be converted to be runnable programs and
-# should exit with status 0 on success.
+# should exit with status 0 on success. In the meantime we can compare the
+# output stripped.
 #
 # TODO we should have a special exit code so that we can differentiate between
 # the preprocessor crashing as opposed to printing an error and exiting.
@@ -42,7 +43,20 @@
 
 set -e
 ROOT=$(dirname $0)/../..
+
 NONSTD=0
+STRICT=0
+while true; do
+    if [ "$1" == "--strict" ]; then
+        STRICT=1
+        shift
+    elif [ "$1" == "--nonstd" ]; then
+        NONSTD=1
+        shift
+    else
+        break
+    fi
+done
 
 # TODO the source folder needs to be the current folder to make paths in #line
 # match, but we can't really switch to it because the command is in multiple
@@ -67,6 +81,8 @@ SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
 TEMP_I=/tmp/onramp-test.i
+TEMP_I_EXPECTED=/tmp/onramp-test-expected.i
+TEMP_I_ACTUAL=/tmp/onramp-test-actual.i
 TEMP_OS=/tmp/onramp-test.os
 TEMP_OO=/tmp/onramp-test.oo
 TEMP_OE=/tmp/onramp-test.oe
@@ -87,6 +103,21 @@ export ASAN_OPTIONS="$ASAN_OPTIONS:exitcode=125"
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
+
+function clean() {
+    IN=$1
+    OUT=$2
+    if [ $STRICT -eq 1 ]; then
+        cp $IN $OUT
+    else
+        sed \
+            -e '/^#/d' \
+            -e '/^ *$/d' \
+            -e 's/.*/ & /' \
+            -e 's/  */ /' \
+            $IN > $OUT
+    fi
+}
 
 # Collect and sort file list
 find $SOURCE_FOLDER/* -name '*.c' > $TEMP_FILES
@@ -140,13 +171,17 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
     fi
 
     if ! [ -e $BASENAME.fail ]; then
-
-        # compare output
         if [ -e $BASENAME.i ]; then
-            if ! diff -q $BASENAME.i $TEMP_I > /dev/null; then
+
+            # compare output
+            clean $BASENAME.i $TEMP_I_EXPECTED
+            clean $TEMP_I $TEMP_I_ACTUAL
+            if ! diff -q $TEMP_I_EXPECTED $TEMP_I_ACTUAL > /dev/null; then
                 echo "ERROR: $BASENAME did not match expected $BASENAME.i"
                 THIS_ERROR=1
+                exit 1
             fi
+
         else
             # compile, assemble, link and run
             if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/cci-2-full/cci $OUTPUT -o $TEMP_OS &> /dev/null; then
@@ -198,7 +233,9 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
         echo "Commands:"
         echo "    make build && \\"
         echo "    $COMMAND $ARGS && \\"
-        if [ -e $BASENAME.i ]; then
+        if [ -e $BASENAME.fail ]; then
+            echo "    cat $TEMP_I"
+        elif [ -e $BASENAME.i ]; then
             echo "    diff -u $BASENAME.i $TEMP_I"
         else
             echo "    $ROOT/build/test/cci-2-full/cci $OUTPUT -o $TEMP_OS && \\"
@@ -211,6 +248,8 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
 
     # clean up
     rm -f $TEMP_I
+    rm -f $TEMP_I_ACTUAL
+    rm -f $TEMP_I_EXPECTED
     rm -f $TEMP_OS
     rm -f $TEMP_OO
     rm -f $TEMP_OE
