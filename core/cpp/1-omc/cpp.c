@@ -1235,7 +1235,7 @@ static void parse_command_line(int argc, char** argv) {
             }
             if (expansion == 0) {
                 name = strdup(name);
-                expansion = "";
+                expansion = "1";
             }
 
             macro_new(name, strdup(expansion));
