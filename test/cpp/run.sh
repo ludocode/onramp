@@ -170,7 +170,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
         fi
     fi
 
-    if ! [ -e $BASENAME.fail ]; then
+    if [ $THIS_ERROR -ne 1 ] && ! [ -e $BASENAME.fail ]; then
         if [ -e $BASENAME.i ]; then
 
             # compare output
@@ -179,7 +179,6 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
             if ! diff -q $TEMP_I_EXPECTED $TEMP_I_ACTUAL > /dev/null; then
                 echo "ERROR: $BASENAME did not match expected $BASENAME.i"
                 THIS_ERROR=1
-                exit 1
             fi
 
         else
@@ -257,8 +256,8 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
     rm -f $TEMP_STDERR
 done
 
-if [ $TOTAL_ERRORS -eq 1 ]; then
-    echo "Errors occurred."
+if [ $TOTAL_ERRORS -ne 0 ]; then
+    echo "$TOTAL_ERRORS tests failed."
     exit 1
 fi
 

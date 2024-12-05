@@ -866,10 +866,8 @@ static void handle_conditional(int predicate) {
     }
 
     /* The #ifdef/#ifndef conditional is false. We have to consume everything
-     * until the matching #endif, making sure to track nested #ifdef, #ifndefs
-     * and #ifs. */
-    int false_depth;
-    false_depth = 0;
+     * until the matching #endif, making sure to track nested #if directives. */
+    int false_depth = 0;
     while (1) {
         if (current_char == '#') {
             next_char();
@@ -884,7 +882,7 @@ static void handle_conditional(int predicate) {
                 continue;
             }
 
-            /* We only care about #ifdef, #ifndef, #if and #endif. */
+            /* Nested #if directives push our stack. */
             consume_identifier();
             if (((0 == strcmp(current_string, "ifdef")) |
                         (0 == strcmp(current_string, "ifndef"))) |
@@ -893,6 +891,8 @@ static void handle_conditional(int predicate) {
                 false_depth = (false_depth + 1);
                 continue;
             }
+
+            /* An #endif directive pops the stack. If it's empty, we're done. */
             if (0 == strcmp(current_string, "endif")) {
                 if (false_depth == 0) {
                     /* Done. */
@@ -900,6 +900,19 @@ static void handle_conditional(int predicate) {
                 }
                 false_depth = (false_depth - 1);
                 continue;
+            }
+
+            /* Matching #else directives are not supported. We check for them
+             * explicitly because ignoring them would silently produce
+             * different output from a full C compiler. We only care if they
+             * are at the top level; nested #else directives can be safely
+             * ignored. See test: ifdef/ifdef-false-else.c */
+            if ((false_depth == 0) & (((0 == strcmp(current_string, "else")) |
+                        (0 == strcmp(current_string, "elif"))) |
+                    ((0 == strcmp(current_string, "elifdef")) |
+                        (0 == strcmp(current_string, "elifndef")))))
+            {
+                fatal("`#else` and `#elif` are not supported.");
             }
 
             /* No other directives matter. (In fact the C spec requires that we
