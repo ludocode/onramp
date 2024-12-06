@@ -46,6 +46,7 @@ OBJS=\
 		$(OUT)/libo-error.oo \
 		$(OUT)/libo-string.oo \
 		$(OUT)/libo-table.oo \
+		$(OUT)/libo-unicode.oo \
 		$(OUT)/libo-util.oo \
 		$(OUT)/libo-vector.oo \
 
@@ -53,6 +54,7 @@ SRCS=\
 		$(SRC)/libo-error.c \
 		$(SRC)/libo-string.c \
 		$(SRC)/libo-table.c \
+		$(SRC)/libo-unicode.c \
 		$(SRC)/libo-util.c \
 		$(SRC)/libo-vector.c \
 
@@ -134,6 +136,12 @@ $(OUT)/libo-table.oo: $(SRC)/libo-table.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC)/libo-table.c -o $(OUT)/libo-table.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-table.c -o $@
+
+$(OUT)/libo-unicode.oo: $(SRC)/libo-unicode.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-unicode.c -o $(OUT)/libo-unicode.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-unicode.c -o $@
 
 $(OUT)/libo-util.oo: $(SRC)/libo-util.c Makefile
 	@rm -f $@
