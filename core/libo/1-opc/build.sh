@@ -40,6 +40,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libo/1-opc/src/libo-error.c \
     -o build/intermediate/libo-1-opc/libo-error.oo
 
+echo Compiling libo/1-opc libo-reader.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libo/1-opc/build-ccargs \
+    -c core/libo/1-opc/src/libo-reader.c \
+    -o build/intermediate/libo-1-opc/libo-reader.oo
+
 echo Compiling libo/1-opc libo-string.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
@@ -75,6 +81,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libo-1-opc/libo.oa \
         build/intermediate/libo-1-opc/libo-data.oo \
         build/intermediate/libo-1-opc/libo-error.oo \
+        build/intermediate/libo-1-opc/libo-reader.oo \
         build/intermediate/libo-1-opc/libo-string.oo \
         build/intermediate/libo-1-opc/libo-table.oo \
         build/intermediate/libo-1-opc/libo-unicode.oo \

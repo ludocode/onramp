@@ -44,6 +44,7 @@ TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL
 OBJS=\
 		$(OUT)/libo-data.oo \
 		$(OUT)/libo-error.oo \
+		$(OUT)/libo-reader.oo \
 		$(OUT)/libo-string.oo \
 		$(OUT)/libo-table.oo \
 		$(OUT)/libo-unicode.oo \
@@ -52,6 +53,7 @@ OBJS=\
 
 SRCS=\
 		$(SRC)/libo-error.c \
+		$(SRC)/libo-reader.c \
 		$(SRC)/libo-string.c \
 		$(SRC)/libo-table.c \
 		$(SRC)/libo-unicode.c \
@@ -124,6 +126,12 @@ $(OUT)/libo-error.oo: $(SRC)/libo-error.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC)/libo-error.c -o $(OUT)/libo-error.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-error.c -o $@
+
+$(OUT)/libo-reader.oo: $(SRC)/libo-reader.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-reader.c -o $(OUT)/libo-reader.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-reader.c -o $@
 
 $(OUT)/libo-string.oo: $(SRC)/libo-string.c Makefile
 	@rm -f $@
