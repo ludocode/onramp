@@ -39,8 +39,10 @@ typedef struct vector_t {
 } vector_t;
 
 void vector_init(vector_t* vector);
-
 void vector_destroy(vector_t* vector);
+
+vector_t* vector_new(void);
+void vector_delete(vector_t* vector);
 
 // TODO implement function inlining in cci/2. It would be nice to get rid of
 // all of these ugly macros.
@@ -51,7 +53,7 @@ void vector_destroy(vector_t* vector);
     #endif
 #endif
 #ifndef vector_count
-    static inline size_t vector_count(vector_t* vector) {
+    static inline size_t vector_count(const vector_t* vector) {
         return vector->count;
     }
 #endif
@@ -62,7 +64,7 @@ void vector_destroy(vector_t* vector);
     #endif
 #endif
 #ifndef vector_is_empty
-    static inline bool vector_is_empty(vector_t* vector) {
+    static inline bool vector_is_empty(const vector_t* vector) {
         return vector->count == 0;
     }
 #endif
@@ -76,7 +78,7 @@ void vector_destroy(vector_t* vector);
     /**
      * Gets the address of the element at the given index.
      */
-    static inline void** vector_address(vector_t* vector, size_t index) {
+    static inline void** vector_address(const vector_t* vector, size_t index) {
         assert(index < vector->count);
         return vector->elements + index;
     }
@@ -91,7 +93,7 @@ void vector_destroy(vector_t* vector);
     /**
      * Gets the element at the given index.
      */
-    static inline void* vector_at(vector_t* vector, size_t index) {
+    static inline void* vector_at(const vector_t* vector, size_t index) {
         assert(index < vector->count);
         return vector->elements[index];
     }
@@ -136,6 +138,8 @@ void vector_destroy(vector_t* vector);
  */
 void vector_resize(vector_t* vector, size_t count);
 
+void vector_reserve(vector_t* vector, size_t capacity);
+
 void vector_ensure_size(vector_t* vector, size_t count);
 
 /*
@@ -153,5 +157,25 @@ void vector_insert(vector_t* vector, size_t index, void* element);
 void* vector_remove(vector_t* vector, size_t index);
 
 void* vector_remove_last(vector_t* vector);
+
+/**
+ * Returns a pointer to the start of the vector.
+ *
+ * If the vector is empty, the returned pointer will be equal to the return
+ * value of vector_end(), and may be null.
+ */
+static inline void** vector_start(vector_t* vector) {
+    return vector->elements;
+}
+
+/**
+ * Returns a pointer to one past the last element of the vector.
+ *
+ * If the vector is empty, the returned pointer will be equal to the return
+ * value of vector_start(), and may be null.
+ */
+static inline void** vector_end(vector_t* vector) {
+    return vector->elements + vector->count;
+}
 
 #endif

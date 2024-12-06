@@ -28,18 +28,92 @@ mkdir -p build/intermediate/cpp-2-full-re
 echo
 echo === Rebuilding cpp/2-full
 
-# TODO cpp/2 doesn't exist yet. for now we just build cpp/1 and call it cpp/2
-# in order to complete the full bootstrap.
-
-echo Compiling cpp/1 as cpp/2
+echo Compiling cpp/2-full common.c
 onrampvm build/output/bin/cc.oe \
     @core/cpp/2-full/rebuild-ccargs \
-    -c core/cpp/1-omc/cpp.c \
-    -o build/intermediate/cpp-2-full-re/cpp.oo
+    -c core/cpp/2-full/src/common.c \
+    -o build/intermediate/cpp-2-full-re/common.oo
+
+echo Compiling cpp/2-full directive.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/directive.c \
+    -o build/intermediate/cpp-2-full-re/directive.oo
+
+echo Compiling cpp/2-full emit.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/emit.c \
+    -o build/intermediate/cpp-2-full-re/emit.oo
+
+echo Compiling cpp/2-full expression.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/expression.c \
+    -o build/intermediate/cpp-2-full-re/expression.oo
+
+echo Compiling cpp/2-full hideset.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/hideset.c \
+    -o build/intermediate/cpp-2-full-re/hideset.oo
+
+echo Compiling cpp/2-full lexer.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/lexer.c \
+    -o build/intermediate/cpp-2-full-re/lexer.oo
+
+echo Compiling cpp/2-full macro.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/macro.c \
+    -o build/intermediate/cpp-2-full-re/macro.oo
+
+echo Compiling cpp/2-full main.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/main.c \
+    -o build/intermediate/cpp-2-full-re/main.oo
+
+echo Compiling cpp/2-full preprocess.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/preprocess.c \
+    -o build/intermediate/cpp-2-full-re/preprocess.oo
+
+echo Compiling cpp/2-full stream.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/stream.c \
+    -o build/intermediate/cpp-2-full-re/stream.oo
+
+echo Compiling cpp/2-full strings.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/strings.c \
+    -o build/intermediate/cpp-2-full-re/strings.oo
+
+echo Compiling cpp/2-full token.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/token.c \
+    -o build/intermediate/cpp-2-full-re/token.oo
 
 echo Linking cpp/2-full
 onrampvm build/output/bin/cc.oe \
     @core/cpp/2-full/rebuild-ccargs \
     build/intermediate/libo-1-opc-re/libo.oa \
-    build/intermediate/cpp-2-full-re/cpp.oo \
+    build/intermediate/cpp-2-full-re/common.oo \
+    build/intermediate/cpp-2-full-re/directive.oo \
+    build/intermediate/cpp-2-full-re/emit.oo \
+    build/intermediate/cpp-2-full-re/expression.oo \
+    build/intermediate/cpp-2-full-re/hideset.oo \
+    build/intermediate/cpp-2-full-re/lexer.oo \
+    build/intermediate/cpp-2-full-re/macro.oo \
+    build/intermediate/cpp-2-full-re/main.oo \
+    build/intermediate/cpp-2-full-re/preprocess.oo \
+    build/intermediate/cpp-2-full-re/stream.oo \
+    build/intermediate/cpp-2-full-re/strings.oo \
+    build/intermediate/cpp-2-full-re/token.oo \
     -o build/output/bin/cpp.oe

@@ -1,0 +1,253 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2024 Fraser Heavy Software
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
+#include "preprocess.h"
+
+#include <stdlib.h>
+#include <assert.h>
+
+#include "libo-vector.h"
+#include "emit.h"
+#include "lexer.h"
+#include "token.h"
+#include "macro.h"
+#include "stream.h"
+#include "directive.h"
+#include "strings.h"
+
+/**
+ * Maximum number of input files to keep open at a time.
+ *
+ * The preprocessor will close least-recently-used files and re-open them as
+ * needed in order to limit the total number of open files.
+ *
+ * This can't be less than 2 because we never close the original input file
+ * (since in a hosted environment it may be a stream.)
+ */
+#define MAX_OPEN_INPUT_FILES 5
+// TODO make sure we never unload the input file in case it's a stream.
+
+/**
+ * The lexer for the file currently being parsed.
+ */
+static lexer_t* current_lexer;
+
+/**
+ * Stack of lexers currently waiting on `#include` directives. Each time we
+ * reach an `#include`, the current lexer is pushed onto this stack and a new
+ * lexer is created for the new file. Whenever we reach the end of the current
+ * file, we pop the top lexer off the stack and continue parsing.
+ */
+static vector_t lexers;
+
+/**
+ * The stream that takes tokens from the current lexer. It gets redirected
+ * whenever a file is included or an include file ends.
+ */
+static stream_t main_stream;
+
+/**
+ * A list of string_t* include paths added by `-I` from command-line.
+ */
+static vector_t include_paths;
+
+/**
+ * A list of string_t* force-include filenames added by `-include` from
+ * command-line.
+ */
+static vector_t force_includes;
+
+static void preprocess_destroy_string_vector(vector_t* vector) {
+    for (size_t i = vector_count(vector); i-- > 0;) {
+        string_deref(vector_at(vector, i));
+    }
+    vector_destroy(vector);
+}
+
+void preprocess_setup(void) {
+    vector_init(&lexers);
+    vector_init(&include_paths);
+    vector_init(&force_includes);
+}
+
+void preprocess_teardown(void) {
+    preprocess_destroy_string_vector(&force_includes);
+    preprocess_destroy_string_vector(&include_paths);
+    assert(vector_is_empty(&lexers));
+    vector_destroy(&lexers);
+}
+
+void preprocess_add_include_path(const char* path) {
+    vector_append(&include_paths, string_intern_cstr(path));
+}
+
+void preprocess_add_force_include(const char* filename) {
+    vector_append(&force_includes, string_intern_cstr(filename));
+}
+
+void preprocess_prepare_include(void) {
+    // TODO if this is > MAX_OPEN_INPUT_FILES, unload n - max + 1 (the +1 keeps the initial file)
+    // TODO actually need to do the unload before including the file
+}
+
+/**
+ * Performs an include of the given file.
+ *
+ * Note that includes are not recursive. This makes points the stream to the
+ * new file and then returns.
+ */
+static void preprocess_include_file(struct string_t* filename, FILE* file, struct token_t* source) {
+    //printf("pushing file %s\n", filename->bytes);
+    if (current_lexer != NULL) {
+        vector_append(&lexers, current_lexer);
+    }
+    current_lexer = lexer_new_file(filename, file, source);
+    main_stream.lexer = current_lexer;
+}
+
+/*
+ * Tries to include the given file.
+ */
+static bool preprocess_try_include(string_t* path, string_t* filename, token_t* source) {
+    char* full_path_cstr = path_join(path, filename);
+    FILE* file = fopen(full_path_cstr, "rb");
+
+    if (!file) {
+        free(full_path_cstr);
+        return false;
+    }
+
+    // TODO if this is `#include_next`, walk the lexer stack to make sure we
+    // aren't already including this file.
+
+    string_t* full_path_str = string_intern_cstr(full_path_cstr);
+    free(full_path_cstr);
+    preprocess_include_file(full_path_str, file, source);
+    string_deref(full_path_str);
+    return true;
+}
+
+static bool preprocess_include_search_paths(token_t* source, vector_t* paths) {
+    size_t count = vector_count(paths);
+    for (size_t i = 0; i < count; ++i) {
+        if (preprocess_try_include(vector_at(paths, i), source->value, source)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void preprocess_include_search(stream_t* stream, token_t* token) {
+    string_t* filename = token->value;
+    bool is_quoted = token->type == token_type_string;
+
+    //printf("#include searching for file: %s\n", filename->bytes);
+
+    // same directory and -iquote are only searched for quoted filenames (GCC's
+    // docs for #include_next say it doesn't distinguish between angle brackets
+    // and quotes. It's not clear whether we should search for -iquote paths.)
+    if (is_quoted) {
+        string_t* dir = path_dirname(stream->lexer->reader.filename);
+        bool found = preprocess_try_include(dir, filename, token);
+        string_deref(dir);
+        if (found)
+            return;
+    }
+
+    if (preprocess_include_search_paths(token, &include_paths)) return;
+    if (preprocess_try_include(STR_DOT, token->value, token)) return;
+
+    fatal_token(token, "Include file not found: %s\n", filename->bytes);
+}
+
+/**
+ * Runs until the lexer stack is empty.
+ */
+static void preprocess_run(void) {
+    stream_t* stream = &main_stream;
+
+    for (;;) {
+        token_t* token = stream_take(stream);
+        if (token->type == token_type_end) {
+            token_deref(token);
+            //printf("popping file %s\n", current_lexer->reader.filename->bytes);
+            lexer_delete(current_lexer);
+
+            // If there are no more files, we're done
+            if (vector_is_empty(&lexers)) {
+                break;
+            }
+
+            current_lexer = vector_remove_last(&lexers);
+            main_stream.lexer = current_lexer;
+            continue;
+        }
+
+        if (token->type == token_type_directive) {
+            // It's a directive. Parse and handle it
+            directive_parse(stream, token);
+        } else if (token->type == token_type_alphanumeric) {
+            // It might be a macro. Expand it
+            macro_expand(stream, NULL, token);
+        } else {
+            // Just a plain non-alphanumeric token. Output it.
+            output_token(NULL, token);
+        }
+        token_deref(token);
+    }
+}
+
+void preprocess(const char* root_filename) {
+    // TODO emit a linemarker for root filename before doing anything
+
+    stream_t* stream = &main_stream;
+    // TODO this is pretty hackish at the moment. The lexer stream should just
+    // use current_lexer; there's no situation where we'd ever want a token
+    // from a file that isn't current.
+    stream_init_lexer(stream, NULL);
+
+    // Parse all force-includes
+    for (size_t i = 0; i < vector_count(&force_includes); ++i) {
+        location_t location;
+        location_init_command_line(&location);
+        token_t* token = token_new(token_type_alphanumeric, vector_at(&force_includes, i), &location);
+        preprocess_include_search(&main_stream, token);
+        token_deref(token);
+        location_destroy(&location);
+        preprocess_run();
+    }
+
+    //printf("pushing root file %s\n", root_filename);
+    string_t* infile = string_intern_cstr(root_filename);
+    current_lexer = lexer_new_file(infile, NULL, NULL);
+    stream->lexer = current_lexer;
+    string_deref(infile);
+
+//stream_dump_tokens(stream);
+    preprocess_run();
+
+    assert(vector_is_empty(&lexers));
+
+    stream_destroy(stream);
+}

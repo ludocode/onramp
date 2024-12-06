@@ -39,6 +39,20 @@ void vector_destroy(vector_t* vector) {
     free(vector->elements);
 }
 
+vector_t* vector_new(void) {
+    vector_t* vector = malloc(sizeof(vector_t));
+    if (vector == NULL) {
+        fatal("Out of memory.");
+    }
+    vector_init(vector);
+    return vector;
+}
+
+void vector_delete(vector_t* vector) {
+    vector_destroy(vector);
+    free(vector);
+}
+
 // Resizes without zeroing.
 static void vector_resize_impl(vector_t* vector, size_t count) {
     vector->count = count;
@@ -75,6 +89,10 @@ void vector_ensure_size(vector_t* vector, size_t count) {
     if (vector->count < count) {
         vector_resize(vector, count);
     }
+}
+
+void vector_reserve(vector_t* vector, size_t capacity) {
+    // TODO
 }
 
 void vector_append(vector_t* vector, void* element) {
