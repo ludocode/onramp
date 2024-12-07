@@ -11,43 +11,12 @@
 #include "emit.h"
 #include "lexer.h"
 #include "preprocess.h"
-
-/*
- * A conditional branch (`#if`, `#ifdef` or `#ifndef`.)
- *
- * We use a global conditional stack, not a per-file stack. Each conditional
- * points to the lexer that contained it so we can make sure conditionals don't
- * cross file boundaries.
- */
-typedef struct conditional_t {
-    token_t* token;
-    bool taken;
-    //lexer_t* lexer; // TODO make sure conditionals don't cross file boundaries
-} conditional_t;
-
-static conditional_t* conditionals;
-static size_t conditionals_capacity;
-static size_t conditionals_count;
+#include "file.h"
 
 void directive_setup(void) {
-    #ifdef DEBUG
-    // start small to test growth
-    conditionals_capacity = 1;
-    #endif
-    #ifndef DEBUG
-    conditionals_capacity = 8;
-    #endif
-
-    conditionals = malloc(conditionals_capacity * sizeof(conditional_t));
-    if (conditionals == NULL) {
-        fatal("Out of memory.");
-    }
 }
 
 void directive_teardown(void) {
-    //assert(conditionals_count == 0); // TODO turn this on
-if (conditionals_count != 0) fatal("Unclosed #if"); // TODO this is temporary, unclosed conditionals should be checked when each file is closed
-    free(conditionals);
 }
 
 static bool directive_command_is_conditional(string_t* command) {
@@ -63,31 +32,6 @@ static bool directive_command_is_conditional(string_t* command) {
         return true;
     }
     return false;
-}
-
-static void directive_conditional_push(token_t* token) {
-    if (conditionals_count == conditionals_capacity) {
-        size_t new_capacity = conditionals_capacity * 2;
-//printf("previous cap %zi new cap %zi\n",conditionals_capacity,new_capacity);
-        if (new_capacity <= conditionals_capacity) {
-            fatal("Out of memory.");
-        }
-        conditionals = realloc(conditionals, new_capacity * sizeof(conditional_t));
-        if (conditionals == NULL) {
-            fatal("Out of memory.");
-        }
-        conditionals_capacity = new_capacity;
-    }
-
-    conditionals[conditionals_count].token = token_ref(token);
-    conditionals[conditionals_count].taken = false;
-    ++conditionals_count;
-}
-
-static void directive_conditional_pop(token_t* endif) {
-    assert(conditionals_count != 0); // this was checked already
-    token_deref(conditionals[conditionals_count - 1].token);
-    --conditionals_count;
 }
 
 /**
@@ -183,20 +127,23 @@ static token_t* directive_skip_branch(stream_t* stream, token_t* src) {
 }
 
 /**
- * Handles a conditional that isn't in a skipped branch.
+ * Handles a conditional directive that isn't in a skipped branch.
  *
- * Nested conditionals in skipped branches are handled in directive_skip_branch().
+ * This evaluates the condition and updates the conditional stack. If the
+ * condition is false, this also consumes all tokens until the end of the
+ * branch.
  */
 static void directive_conditional(stream_t* stream, token_t* command) {
     token_ref(command);
+    file_t* file = file_current;
 
     // Loop for skipping false sections
     for (;;) {
         string_t* command_str = command->value;
         //printf("handling conditional %s\n", command_str->bytes);
 
-        // TODO we're doing this here because directive_parse() does it before
-        // calling us
+        // TODO check for whitespace before calling this and warn if missing,
+        // as of C99 (I think) it's required after `#if`
         stream_skip_horizontal_space(stream);
 
         // Manage conditional stack.
@@ -204,19 +151,20 @@ static void directive_conditional(stream_t* stream, token_t* command) {
                 string_equal(command_str, STR_IFDEF) ||
                 string_equal(command_str, STR_IFNDEF))
         {
-            directive_conditional_push(command);
-        } else if (conditionals_count == 0) {
-            fatal_token(command, "`#%s` without a matching #if, #ifdef or #ifndef.", command->value->bytes);
+            file_conditional_push(file, command);
+        } else if (file->conditionals_count == 0) {
+            fatal_token(command, "#%s without a matching #if, #ifdef or #ifndef.", command->value->bytes);
         }
 
         // If this is `#endif`, we're done.
         if (command_str == STR_ENDIF) {
-            directive_conditional_pop(command);
+            file_conditional_pop(file, command);
             break;
         }
 
         // Parse the rest of the directive and decide whether to take the branch.
-        conditional_t* conditional = &conditionals[conditionals_count - 1];
+        // TODO need correct end-of-line handling for all of these conditionals, we're not checking properly that there isn't extra tokens before the line ending
+        conditional_t* conditional = &file->conditionals[file->conditionals_count - 1];
         bool take_branch = false;
         if (string_equal(command_str, STR_IF)) {
             take_branch = directive_parse_if(stream, command);

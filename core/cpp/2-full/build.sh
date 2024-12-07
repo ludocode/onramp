@@ -52,6 +52,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/cpp/2-full/src/expression.c \
     -o build/intermediate/cpp-2-full/expression.oo
 
+echo Compiling cpp/2-full file.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/cpp/2-full/build-ccargs \
+    -c core/cpp/2-full/src/file.c \
+    -o build/intermediate/cpp-2-full/file.oo
+
 echo Compiling cpp/2-full hideset.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
@@ -108,6 +114,7 @@ onrampvm build/intermediate/ld-2-full/ld.oe \
     build/intermediate/cpp-2-full/directive.oo \
     build/intermediate/cpp-2-full/emit.oo \
     build/intermediate/cpp-2-full/expression.oo \
+    build/intermediate/cpp-2-full/file.oo \
     build/intermediate/cpp-2-full/hideset.oo \
     build/intermediate/cpp-2-full/lexer.oo \
     build/intermediate/cpp-2-full/macro.oo \

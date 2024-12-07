@@ -29,6 +29,7 @@
 
 #include "libo-vector.h"
 #include "emit.h"
+#include "file.h"
 #include "lexer.h"
 #include "token.h"
 #include "macro.h"
@@ -49,17 +50,12 @@
 // TODO make sure we never unload the input file in case it's a stream.
 
 /**
- * The lexer for the file currently being parsed.
+ * Stack of files currently waiting on `#include` directives. Each time we
+ * reach an `#include`, the current file is pushed onto this stack and a new
+ * file is created. Whenever we reach the end of the current file, we pop the
+ * top file off the stack and continue parsing.
  */
-static lexer_t* current_lexer;
-
-/**
- * Stack of lexers currently waiting on `#include` directives. Each time we
- * reach an `#include`, the current lexer is pushed onto this stack and a new
- * lexer is created for the new file. Whenever we reach the end of the current
- * file, we pop the top lexer off the stack and continue parsing.
- */
-static vector_t lexers;
+static vector_t files;
 
 /**
  * The stream that takes tokens from the current lexer. It gets redirected
@@ -69,6 +65,8 @@ static stream_t main_stream;
 
 /**
  * A list of string_t* include paths added by `-I` from command-line.
+ *
+ * TODO move these to options.c
  */
 static vector_t include_paths;
 
@@ -86,7 +84,7 @@ static void preprocess_destroy_string_vector(vector_t* vector) {
 }
 
 void preprocess_setup(void) {
-    vector_init(&lexers);
+    vector_init(&files);
     vector_init(&include_paths);
     vector_init(&force_includes);
 }
@@ -94,8 +92,8 @@ void preprocess_setup(void) {
 void preprocess_teardown(void) {
     preprocess_destroy_string_vector(&force_includes);
     preprocess_destroy_string_vector(&include_paths);
-    assert(vector_is_empty(&lexers));
-    vector_destroy(&lexers);
+    assert(vector_is_empty(&files));
+    vector_destroy(&files);
 }
 
 void preprocess_add_include_path(const char* path) {
@@ -114,16 +112,16 @@ void preprocess_prepare_include(void) {
 /**
  * Performs an include of the given file.
  *
- * Note that includes are not recursive. This makes points the stream to the
+ * Note that includes are not recursive. This points the stream to the
  * new file and then returns.
  */
 static void preprocess_include_file(struct string_t* filename, FILE* file, struct token_t* source) {
     //printf("pushing file %s\n", filename->bytes);
-    if (current_lexer != NULL) {
-        vector_append(&lexers, current_lexer);
+    if (file_current != NULL) {
+        vector_append(&files, file_current);
     }
-    current_lexer = lexer_new_file(filename, file, source);
-    main_stream.lexer = current_lexer;
+    file_current = file_new(filename, file, source);
+    main_stream.lexer = file_current->lexer;
 }
 
 /*
@@ -191,16 +189,16 @@ static void preprocess_run(void) {
         token_t* token = stream_take(stream);
         if (token->type == token_type_end) {
             token_deref(token);
-            //printf("popping file %s\n", current_lexer->reader.filename->bytes);
-            lexer_delete(current_lexer);
+            //printf("popping file %s\n", file_current->lexer->reader.filename->bytes);
+            file_delete(file_current);
 
             // If there are no more files, we're done
-            if (vector_is_empty(&lexers)) {
+            if (vector_is_empty(&files)) {
                 break;
             }
 
-            current_lexer = vector_remove_last(&lexers);
-            main_stream.lexer = current_lexer;
+            file_current = vector_remove_last(&files);
+            main_stream.lexer = file_current->lexer;
             continue;
         }
 
@@ -240,14 +238,14 @@ void preprocess(const char* root_filename) {
 
     //printf("pushing root file %s\n", root_filename);
     string_t* infile = string_intern_cstr(root_filename);
-    current_lexer = lexer_new_file(infile, NULL, NULL);
-    stream->lexer = current_lexer;
+    file_current = file_new(infile, NULL, NULL);
+    stream->lexer = file_current->lexer;
     string_deref(infile);
 
 //stream_dump_tokens(stream);
     preprocess_run();
 
-    assert(vector_is_empty(&lexers));
+    assert(vector_is_empty(&files));
 
     stream_destroy(stream);
 }

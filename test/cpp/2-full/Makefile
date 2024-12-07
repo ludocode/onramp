@@ -49,6 +49,7 @@ SRCS=\
 	$(SRC)/directive.c \
 	$(SRC)/emit.c \
 	$(SRC)/expression.c \
+	$(SRC)/file.c \
 	$(SRC)/hideset.c \
 	$(SRC)/lexer.c \
 	$(SRC)/macro.c \
