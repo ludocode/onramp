@@ -54,6 +54,7 @@ SRCS=\
 	$(SRC)/lexer.c \
 	$(SRC)/macro.c \
 	$(SRC)/main.c \
+	$(SRC)/options.c \
 	$(SRC)/preprocess.c \
 	$(SRC)/stream.c \
 	$(SRC)/strings.c \

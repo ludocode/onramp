@@ -36,6 +36,7 @@
 #include "stream.h"
 #include "directive.h"
 #include "strings.h"
+#include "options.h"
 
 /**
  * Maximum number of input files to keep open at a time.
@@ -63,48 +64,21 @@ static vector_t files;
  */
 static stream_t main_stream;
 
-/**
- * A list of string_t* include paths added by `-I` from command-line.
- *
- * TODO move these to options.c
- */
-static vector_t include_paths;
-
-/**
- * A list of string_t* force-include filenames added by `-include` from
- * command-line.
- */
-static vector_t force_includes;
-
-static void preprocess_destroy_string_vector(vector_t* vector) {
-    for (size_t i = vector_count(vector); i-- > 0;) {
-        string_deref(vector_at(vector, i));
-    }
-    vector_destroy(vector);
-}
-
 void preprocess_setup(void) {
     vector_init(&files);
-    vector_init(&include_paths);
-    vector_init(&force_includes);
 }
 
 void preprocess_teardown(void) {
-    preprocess_destroy_string_vector(&force_includes);
-    preprocess_destroy_string_vector(&include_paths);
     assert(vector_is_empty(&files));
     vector_destroy(&files);
 }
 
-void preprocess_add_include_path(const char* path) {
-    vector_append(&include_paths, string_intern_cstr(path));
-}
-
-void preprocess_add_force_include(const char* filename) {
-    vector_append(&force_includes, string_intern_cstr(filename));
-}
-
-void preprocess_prepare_include(void) {
+/**
+ * Prepare to include a new file.
+ *
+ * This may unload an open file to make room.
+ */
+static void preprocess_prepare_include(void) {
     // TODO if this is > MAX_OPEN_INPUT_FILES, unload n - max + 1 (the +1 keeps the initial file)
     // TODO actually need to do the unload before including the file
 }
@@ -157,6 +131,7 @@ static bool preprocess_include_search_paths(token_t* source, vector_t* paths) {
 }
 
 void preprocess_include_search(stream_t* stream, token_t* token) {
+    preprocess_prepare_include();
     string_t* filename = token->value;
     bool is_quoted = token->type == token_type_string;
 
@@ -173,7 +148,7 @@ void preprocess_include_search(stream_t* stream, token_t* token) {
             return;
     }
 
-    if (preprocess_include_search_paths(token, &include_paths)) return;
+    if (preprocess_include_search_paths(token, &options_include_paths)) return;
     if (preprocess_try_include(STR_DOT, token->value, token)) return;
 
     fatal_token(token, "Include file not found: %s\n", filename->bytes);
@@ -216,7 +191,7 @@ static void preprocess_run(void) {
     }
 }
 
-void preprocess(const char* root_filename) {
+void preprocess(void) {
     // TODO emit a linemarker for root filename before doing anything
 
     stream_t* stream = &main_stream;
@@ -226,18 +201,19 @@ void preprocess(const char* root_filename) {
     stream_init_lexer(stream, NULL);
 
     // Parse all force-includes
-    for (size_t i = 0; i < vector_count(&force_includes); ++i) {
+    for (size_t i = 0; i < vector_count(&options_force_includes); ++i) {
         location_t location;
         location_init_command_line(&location);
-        token_t* token = token_new(token_type_alphanumeric, vector_at(&force_includes, i), &location);
+        token_t* token = token_new(token_type_alphanumeric,
+                vector_at(&options_force_includes, i), &location);
         preprocess_include_search(&main_stream, token);
         token_deref(token);
         location_destroy(&location);
         preprocess_run();
     }
 
-    //printf("pushing root file %s\n", root_filename);
-    string_t* infile = string_intern_cstr(root_filename);
+    //printf("pushing root file %s\n", options_input_filename);
+    string_t* infile = string_intern_cstr(options_input_filename);
     file_current = file_new(infile, NULL, NULL);
     stream->lexer = file_current->lexer;
     string_deref(infile);

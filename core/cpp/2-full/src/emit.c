@@ -27,6 +27,7 @@
 #include <assert.h>
 
 #include "token.h"
+#include "options.h"
 #include "libo-error.h"
 
 // Maximum number of newlines to emit instead of emitting a #line directive.
@@ -63,9 +64,10 @@ void emit_setup(void) {
     location_init_builtin(&last_location);
 }
 
-void emit_open(const char* output_filename) {
+void emit_open(void) {
     assert(output_file == NULL);
-    output_file = fopen(output_filename, "wb");
+    assert(options_output_filename != NULL);
+    output_file = fopen(options_output_filename, "wb");
     if (output_file == NULL) {
         fatal("Failed to open output file: %s", output_file);
     }

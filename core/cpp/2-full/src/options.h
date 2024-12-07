@@ -22,37 +22,32 @@
  * SOFTWARE.
  */
 
-#ifndef EMIT_H_INCLUDED
-#define EMIT_H_INCLUDED
+#ifndef OPTIONS_H_INCLUDED
+#define OPTIONS_H_INCLUDED
 
-#include "token.h"
+#include "libo-vector.h"
 
-void emit_setup(void);
-void emit_teardown(void);
+extern const char* options_executable_name;
+extern const char* options_output_filename;
+extern const char* options_input_filename;
 
-void emit_open(void);
-
-/**
- * Emits linemarkers or newlines as needed to position the next token at the
- * given location.
- */
-void emit_location(location_t* location);
-
-void emit_pragma_file_push(void);
-void emit_pragma_file_pop(void);
+extern bool options_nostddef;
+extern bool options_nostdinc;
 
 /**
- * Emits a token at a particular location.
- *
- * TODO I don't think this is actually called except by emit_token(), this is probably useless
+ * A list of string_t* include paths added by `-I` from command-line.
  */
-void emit_token_at(token_t* token, location_t* location);
+extern vector_t options_include_paths;
 
 /**
- * Emits a token at its original location.
+ * A list of string_t* force-include filenames added by `-include` from
+ * command-line.
  */
-static inline void emit_token(token_t* token) {
-    emit_token_at(token, &token->location);
-}
+extern vector_t options_force_includes;
+
+void options_setup(void);
+void options_teardown(void);
+
+void options_parse(char** argv);
 
 #endif

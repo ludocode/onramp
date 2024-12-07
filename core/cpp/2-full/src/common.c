@@ -30,6 +30,7 @@
 #include "emit.h"
 #include "strings.h"
 #include "libo-vector.h"
+#include "libo-string.h"
 #include "lexer.h"
 #include "strings.h"
 
@@ -133,4 +134,11 @@ char* path_join(string_t* path, string_t* filename) {
     //free(cstr);
     //return str;
     return cstr;
+}
+
+void destroy_string_vector(vector_t* vector) {
+    for (size_t i = vector_count(vector); i-- > 0;) {
+        string_deref(vector_at(vector, i));
+    }
+    vector_destroy(vector);
 }

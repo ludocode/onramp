@@ -90,4 +90,6 @@ string_t* path_dirname(string_t* filename);
  */
 char* path_join(string_t* path, string_t* filename);
 
+void destroy_string_vector(struct vector_t* vector);
+
 #endif

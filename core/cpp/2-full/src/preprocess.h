@@ -38,17 +38,6 @@ struct token_t;
 void preprocess_setup(void);
 void preprocess_teardown(void);
 
-void preprocess_add_include_path(const char* path);
-
-void preprocess_add_force_include(const char* filename);
-
-/**
- * Prepare to include a new file.
- *
- * This may unload an open file to make room.
- */
-void preprocess_prepare_include(void);
-
 /**
  * Performs an `#include` search for the given file and includes it.
  */
@@ -56,6 +45,6 @@ void preprocess_include_search(stream_t* stream, struct token_t* token);
 
 void preprocess_output(struct preprocessor_t* preprocessor, struct token_t* token);
 
-void preprocess(const char* root_filename);
+void preprocess(void);
 
 #endif

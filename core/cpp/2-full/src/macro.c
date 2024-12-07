@@ -31,6 +31,7 @@
 #include "strings.h"
 #include "preprocess.h"
 #include "hideset.h"
+#include "options.h"
 
 static table_t macros;
 
@@ -75,12 +76,13 @@ static void macro_define_int(const char* cname, int value) {
 }
 
 void macro_define_builtins(void) {
-    // TODO check -nostddef
-    // TODO for now we're pretending to be cpp/1 until object-like macros and #if expressions are fully implemented
-    // TODO define __LINE__, __FILE__, etc.
+    if (!options_nostddef) {
+        macro_define_int("__onramp_cpp__", 1);
+        // TODO for now we're pretending to be cpp/1 until object-like macros and #if expressions are fully implemented
+        macro_define_int("__onramp_cpp_omc__", 1);
+    }
 
-    macro_define_int("__onramp_cpp__", 1);
-    macro_define_int("__onramp_cpp_omc__", 1);
+    // TODO define __LINE__, __FILE__, etc.
 }
 
 void macro_undef(string_t* name) {

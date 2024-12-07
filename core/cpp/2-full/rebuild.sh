@@ -82,6 +82,12 @@ onrampvm build/output/bin/cc.oe \
     -c core/cpp/2-full/src/main.c \
     -o build/intermediate/cpp-2-full-re/main.oo
 
+echo Compiling cpp/2-full options.c
+onrampvm build/output/bin/cc.oe \
+    @core/cpp/2-full/rebuild-ccargs \
+    -c core/cpp/2-full/src/options.c \
+    -o build/intermediate/cpp-2-full-re/options.oo
+
 echo Compiling cpp/2-full preprocess.c
 onrampvm build/output/bin/cc.oe \
     @core/cpp/2-full/rebuild-ccargs \
@@ -119,6 +125,7 @@ onrampvm build/output/bin/cc.oe \
     build/intermediate/cpp-2-full-re/lexer.oo \
     build/intermediate/cpp-2-full-re/macro.oo \
     build/intermediate/cpp-2-full-re/main.oo \
+    build/intermediate/cpp-2-full-re/options.oo \
     build/intermediate/cpp-2-full-re/preprocess.oo \
     build/intermediate/cpp-2-full-re/stream.oo \
     build/intermediate/cpp-2-full-re/strings.oo \
