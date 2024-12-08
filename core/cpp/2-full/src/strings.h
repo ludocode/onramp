@@ -52,8 +52,11 @@ extern string_t* STR_PAREN_OPEN;              // (
 extern string_t* STR_DOT;                     // .
 extern string_t* STR_COMMA;                   // ,
 extern string_t* STR_ELLIPSIS;                // ...
+extern string_t* STR_HASH;                    // #
+extern string_t* STR_HASH_HASH;               // ##
 
 // miscellaneous
+extern string_t* STR_SPACE;          // " "
 extern string_t* STR_BUILT_IN;       // <built-in>
 extern string_t* STR_COMMAND_LINE;   // <command line>
 

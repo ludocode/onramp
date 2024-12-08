@@ -80,13 +80,13 @@ test-1: build FORCE
 	( cd ../1-omc ; ../run.sh . $(OUT)/cpp )
 
 test-2: build FORCE
-	@# TODO final stage tests are not passing yet. For now they're disabled here
-	@# and in test-bootstrap.sh.
-	@true
-	@# TODO add --nonstd --strict
-	@#../run.sh . full $(OUT)/cpp
+	@# TODO add --strict
+	../run.sh --nonstd . $(OUT)/cpp
 
-test: test-0 test-1 test-2 FORCE
+# TODO final stage tests are not passing yet. For now they're disabled here
+# and in test-bootstrap.sh.
+#test: test-0 test-1 test-2 FORCE
+test: test-0 test-1 FORCE
 
 generate: build FORCE $(VM)
 	../generate.sh . full $(VM) $(OUT)/cpp

@@ -34,6 +34,19 @@
 #include "lexer.h"
 #include "strings.h"
 
+location_t location_builtin;
+location_t location_command_line;
+
+void location_setup(void) {
+    location_init(&location_builtin, STR_BUILT_IN, 1, 1, NULL);
+    location_init(&location_command_line, STR_COMMAND_LINE, 1, 1, NULL);
+}
+
+void location_teardown(void) {
+    location_destroy(&location_command_line);
+    location_destroy(&location_builtin);
+}
+
 void location_init(location_t* location, string_t* filename, int line,
         int column, token_t* source)
 {

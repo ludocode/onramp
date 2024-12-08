@@ -93,8 +93,10 @@ void emit_string(const string_t* string) {
 }
 
 static void emit_token_string(token_t* token, char delimiter) {
+    // The value already contains escaped quotes and other escape sequences; we
+    // never unescaped it. We just need to put quotes around it.
     emit_char(delimiter);
-    emit_string(token->value); // TODO escape sequences
+    emit_string(token->value);
     emit_char(delimiter);
 }
 

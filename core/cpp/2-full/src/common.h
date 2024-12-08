@@ -40,11 +40,19 @@ typedef struct location_t {
     struct token_t* source;
 } location_t;
 
+extern location_t location_builtin;
+extern location_t location_command_line;
+
+void location_setup(void);
+void location_teardown(void);
+
 void location_init(location_t* location, string_t* filename, int line,
         int column, struct token_t* source);
+void location_init_copy(location_t* location, location_t* source);
+
+// TODO these are deprecated
 void location_init_builtin(location_t* location);
 void location_init_command_line(location_t* location);
-void location_init_copy(location_t* location, location_t* source);
 
 void location_set_copy(location_t* dest, location_t* src);
 

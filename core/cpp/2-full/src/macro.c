@@ -26,7 +26,6 @@
 
 #include <stdlib.h>
 
-#include "token.h"
 #include "stream.h"
 #include "strings.h"
 #include "preprocess.h"
@@ -104,6 +103,8 @@ macro_t* macro_new(token_t* name) {
     vector_init(&macro->expansion);
     macro->function = NULL;
 
+    // TODO this should happen after the expansion string is set, need to
+    // implement macro_check() to ensure # and ## are used correctly
     table_put(&macros, &macro->entry, macro_hash(macro));
     return macro;
 }
@@ -248,38 +249,94 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
         }
 
         // Expand tokens, pushing them in reverse order onto the stack.
-        // TODO we need to add token pasting and stringify somewhere in here
-        void** p = vector_end(&macro->expansion);
+        //printf("Expanding macro %s\n", token->value->bytes);
+        void** end = vector_end(&macro->expansion);
         void** start = vector_start(&macro->expansion);
-        do {
+        void** p = end;
+
+        while (p != start) {
             --p;
-            token_t* t = *p;
-            //printf("pushing token: ");
-            //token_print(t);
+            token_t* current = *p;
+            int param = macro_param(macro, current);
+            //printf("Expanding token %s\n", current->value->bytes);
 
-            // Check if it's a parameter
-            if (macro->params && t->type == token_type_alphanumeric) {
-                for (size_t i = 0; i < vector_count(macro->params); ++i) {
-                    if (string_equal(t->value, vector_at(macro->params, i))) {
+            /*
+        token_t* next = token_end;
+        token_t* current = (p == start) ? token_end : *--p;
+        while (current != token_end) {
+            token_t* previous = (p == start) ? token_end : *--p;
+            */
 
-                        // It's a parameter. Push the argument token list in its place, also in reverse order.
-                        // TODO if token pasting, don't push; just output
-                        // TODO if stringify, stringify
-                        vector_t* arg = vector_at(args, i);
-                        for (size_t j = vector_count(arg); j-- > 0;) {
-                            vector_append(&stack, token_new_expansion(vector_at(arg, j), &token->location, hideset));
-                        }
+            if (token_is_punctuation(current, STR_HASH)) {
+                // Stringify was handled by the token (see below). There's
+                // nothing to do here.
+                // TODO a macro check step should ensure that this is always followed by a parameter.
+                //printf("Skipping stringify operator, already handled\n");
 
-                        // break and continue
-                        goto continue_expand;
+            } else if (token_is_punctuation(current, STR_HASH_HASH)) {
+                // Token paste.
+                //printf("Token pasting.\n");
+                fatal_token(current, "TODO implement token pasting");
+                //(void)next;
+
+            } else if (param == -1) {
+                // Not a parameter; just push it
+                //printf("Pushing %s to stack with new hideset.\n", current->value->bytes);
+                vector_append(&stack, token_new_expansion(current, &token->location, hideset));
+
+            } else {
+                // It's a parameter.
+
+                // Find the previous and next non-whitespace tokens. We need to
+                // know if they're # or ##.
+                // TODO move to function
+                token_t* previous = token_end;
+                for (void** q = p; q-- != start;) {
+                    token_t* t = *q;
+                    if (t->type != token_type_space) {
+                        previous = t;
+                        break;
+                    }
+                }
+                token_t* next = token_end;
+                for (void** q = p + 1; q != end; ++q) {
+                    token_t* t = *q;
+                    if (t->type != token_type_space) {
+                        next = t;
+                        break;
+                    }
+                }
+
+                //printf("Token %s is a parameter.\n", current->value->bytes);
+                //printf("    Next is "); token_print(next);
+                //printf("    Previous is "); token_print(previous);
+
+                vector_t* arg = vector_at(args, param);
+                if (token_is_punctuation(previous, STR_HASH)) {
+                    // It's preceded by #. Stringify.
+                    //printf("Stringifying %s\n", current->value->bytes);
+                    vector_append(&stack, token_new_stringify(arg, hideset));
+                } else if (token_is_punctuation(next, STR_HASH_HASH)) {
+                    // It's followed by ##. Token paste was handled by the ##
+                    // operator (see above); there's nothing to do here.
+                } else {
+                    // Push the argument token list in its place, also in reverse order.
+                    //printf("Pushing argument replacement list\n");
+                    for (size_t j = vector_count(arg); j-- > 0;) {
+                        vector_append(&stack, token_new_expansion(vector_at(arg, j),
+                                    &token->location, hideset));
+                    }
+
+                    // If we're preceded by ## and the argument list is empty,
+                    // we need to push a placeholder token.
+                    if (token_is_punctuation(previous, STR_HASH_HASH) && vector_is_empty(arg)) {
+                        //printf("Argument is empty and will be token-pasted. Pushing a placeholder token\n");
+                        vector_append(&stack, token_new_bytes(token_type_alphanumeric,
+                                    NULL, 0, &location_builtin));
                     }
                 }
             }
-
-            // Not a parameter; push it
-            vector_append(&stack, token_new_expansion(*p, &token->location, hideset));
-        continue_expand:;
-        } while (p != start);
+        }
 
         // Clean up
         hideset_deref(hideset);
@@ -384,4 +441,19 @@ void macro_define(stream_t* stream) {
         token_print(vector_at(&macro->expansion, i));
     }
     */
+}
+
+int macro_param(macro_t* macro, token_t* token) {
+    if (!macro->params) {
+        return -1;
+    }
+    if (token->type != token_type_alphanumeric) {
+        return -1;
+    }
+    for (size_t i = 0; i < vector_count(macro->params); ++i) {
+        if (string_equal(token->value, vector_at(macro->params, i))) {
+            return (int)i;
+        }
+    }
+    return -1;
 }

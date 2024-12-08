@@ -29,7 +29,9 @@
 #include <stdio.h>
 
 #include "libo-error.h"
+#include "libo-vector.h"
 #include "hideset.h"
+#include "strings.h"
 
 token_t* token_end;
 
@@ -146,4 +148,128 @@ bool token_is_punctuation(token_t* token, string_t* punctuation) {
 
 bool token_is_keyword(token_t* token, string_t* keyword) {
     return token->type == token_type_alphanumeric && string_equal(token->value, keyword);
+}
+
+string_t* stringify_string(token_t* token) {
+    //printf("Stringifying token: ");
+    token_print(token);
+
+    bool is_str = token->type == token_type_string;
+
+    char* old_str = token->value->bytes;
+    size_t old_len = token->value->length;
+    size_t new_len = old_len + (is_str ? 4 : 2);
+
+    // count quotes and backslashes
+    for (size_t i = 0; i < old_len; ++i) {
+        if (old_str[i] == '\\' || old_str[i] == '"')
+            ++new_len;
+    }
+
+    // allocate a new string
+    char* new_str = malloc(new_len);
+    if (new_str == NULL) {
+        fatal("Out of memory.");
+    }
+
+    // append start and end quotes
+    size_t new_i;
+    if (is_str) {
+        new_str[0] = '\\';
+        new_str[1] = '"';
+        new_str[new_len - 2] = '\\';
+        new_str[new_len - 1] = '"';
+        new_i = 2;
+    } else {
+        new_str[0] = '\'';
+        new_str[new_len - 1] = '\'';
+        new_i = 1;
+    }
+
+    // copy characters, escaping quotes and backslashes
+    for (size_t old_i = 0; old_i < old_len; ++old_i) {
+        if (old_str[old_i] == '\\' || old_str[old_i] == '"')
+            new_str[new_i++] = '\\';
+        new_str[new_i++] = old_str[old_i];
+    }
+
+    // intern it
+    // TODO the extra copy is unnecessary here, we should just return the buffer
+    string_t* string = string_intern_bytes(new_str, new_len);
+    free(new_str);
+    return string;
+}
+
+token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
+    //printf("Stringified vector with %zi tokens\n", vector_count(tokens));
+
+    // TODO we could really use a byte buffer in libo.
+    size_t result_length = 0;
+    char8_t* result = malloc(1);
+    if (result == NULL) {
+        fatal("Out of memory.");
+    }
+
+    location_t* location = &location_builtin;
+    bool last_space = false;
+
+    for (size_t i = 0; i < vector_count(tokens); ++i) {
+        token_t* token = vector_at(tokens, i);
+        string_t* append;
+
+        switch (token->type) {
+
+            // Our lexer creates space tokens for comments and doesn't coalesce
+            // them so we need to do so here.
+            case token_type_space:
+                if (last_space)
+                    continue;
+                last_space = true;
+                append = string_ref(STR_SPACE);
+                break;
+
+            case token_type_alphanumeric:
+            case token_type_punctuation:
+            case token_type_number:
+            case token_type_string:
+            case token_type_character:
+                last_space = false;
+
+                if (token->type == token_type_string || token->type == token_type_character) {
+                    append = stringify_string(token);
+                } else {
+                    append = string_ref(token->value);
+                }
+
+                //printf("Appending token \"%s\"\n", append->bytes);
+
+                // We use the location of the first non-whitespace non-empty
+                // token as the stringified token's location.
+                if (location == &location_builtin) {
+                    location = &token->location;
+                }
+                break;
+
+
+            default:
+                fatal_token(token, "Internal error: cannot stringify token type '%c'.", token->type);
+        }
+
+        size_t new_length = result_length + string_length(append);
+        result = realloc(result, new_length);
+        if (result == NULL) {
+            fatal("Out of memory.");
+        }
+        memcpy(result + result_length, append->bytes, string_length(append));
+        result_length = new_length;
+        string_deref(append);
+    }
+
+    token_t* token = token_new_bytes(token_type_string, result, result_length, location);
+    free(result);
+    token->hideset = hideset_ref(hideset);
+
+    //printf("Generated stringified token: ");
+    token_print(token);
+    return token;
 }

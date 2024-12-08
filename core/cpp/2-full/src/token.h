@@ -33,6 +33,7 @@ typedef unsigned char char8_t;
 #include "common.h"
 
 struct hideset_t;
+struct vector_t;
 
 typedef enum token_type_t {
     token_type_directive = 'd',      // `#` at the start of a line
@@ -117,5 +118,10 @@ void token_deref(token_t* token);
 
 // debugging
 void token_print(token_t* token);
+
+/**
+ * Stringifies the given token list.
+ */
+token_t* token_new_stringify(struct vector_t* tokens, struct hideset_t* hideset);
 
 #endif

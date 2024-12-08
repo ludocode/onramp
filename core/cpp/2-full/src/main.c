@@ -49,6 +49,7 @@ int main(int argc, char** argv) {
 
     string_table_init();
     strings_setup();
+    location_setup();
     options_setup();
     lexer_setup();
     token_setup();
@@ -69,6 +70,7 @@ int main(int argc, char** argv) {
     token_teardown();
     lexer_teardown();
     options_teardown();
+    location_teardown();
     strings_teardown();
     string_table_destroy();
 }

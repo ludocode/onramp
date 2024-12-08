@@ -49,8 +49,11 @@ string_t* STR_PAREN_OPEN;              // (
 string_t* STR_DOT;                     // .
 string_t* STR_COMMA;                   // ,
 string_t* STR_ELLIPSIS;                // ...
+string_t* STR_HASH;                    // #
+string_t* STR_HASH_HASH;               // ##
 
 // miscellaneous
+string_t* STR_SPACE;          // " "
 string_t* STR_BUILT_IN;       // <built-in>
 string_t* STR_COMMAND_LINE;   // <command line>
 
@@ -81,8 +84,11 @@ void strings_setup(void) {
     STR_DOT                         = string_intern_cstr(".");
     STR_COMMA                       = string_intern_cstr(",");
     STR_ELLIPSIS                    = string_intern_cstr("...");
+    STR_HASH                        = string_intern_cstr("#");
+    STR_HASH_HASH                   = string_intern_cstr("##");
 
     // miscellaneous
+    STR_SPACE = string_intern_cstr(" ");
     STR_BUILT_IN = string_intern_cstr("<built-in>");
     STR_COMMAND_LINE = string_intern_cstr("<command line>");
 }
@@ -114,8 +120,11 @@ void strings_teardown(void) {
     string_deref(STR_DOT);
     string_deref(STR_COMMA);
     string_deref(STR_ELLIPSIS);
+    string_deref(STR_HASH);
+    string_deref(STR_HASH_HASH);
 
     // miscellaneous
+    string_deref(STR_SPACE);
     string_deref(STR_BUILT_IN);
     string_deref(STR_COMMAND_LINE);
 }

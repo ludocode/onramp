@@ -116,4 +116,10 @@ void macro_expand(struct stream_t* stream,
 
 macro_t* macro_find(string_t* name);
 
+/**
+ * Finds the index of the given parameter, or returns -1 if it is not a
+ * parameter.
+ */
+int macro_param(macro_t* macro, token_t* token);
+
 #endif
