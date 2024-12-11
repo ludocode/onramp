@@ -34,6 +34,9 @@
 
 static table_t macros;
 
+static macro_t* macro_new(token_t* name);
+static void macro_define(macro_t* macro);
+
 void macro_setup(void) {
     //printf("macro_setup\n");
     table_init(&macros);
@@ -72,6 +75,9 @@ static void macro_define_int(const char* cname, int value) {
     vector_append(&macro->expansion, token_new(token_type_number, numstr, &location));
     string_deref(numstr);
     location_destroy(&location);
+
+    macro_define(macro);
+    macro_deref(macro);
 }
 
 void macro_define_builtins(void) {
@@ -92,8 +98,13 @@ void macro_undef(string_t* name) {
     }
 }
 
-macro_t* macro_new(token_t* name) {
-    macro_undef(name->value);
+/**
+ * Creates a new macro, returning a strong reference to it.
+ *
+ * This does not actually add it to the macros table. You must call
+ * macro_define() (and then deref it.)
+ */
+static macro_t* macro_new(token_t* name) {
     //printf("new macro %s\n", name->value->bytes);
 
     macro_t* macro = malloc(sizeof(macro_t));
@@ -103,10 +114,18 @@ macro_t* macro_new(token_t* name) {
     vector_init(&macro->expansion);
     macro->function = NULL;
 
-    // TODO this should happen after the expansion string is set, need to
-    // implement macro_check() to ensure # and ## are used correctly
-    table_put(&macros, &macro->entry, macro_hash(macro));
     return macro;
+}
+
+static void macro_define(macro_t* macro) {
+
+    // We don't handle the case of duplicate define because it should not be
+    // possible. A redefinition with the same name is a different macro.
+    assert(macro != macro_find(macro->name->value));
+
+    macro_undef(macro->name->value);
+    macro_ref(macro);
+    table_put(&macros, &macro->entry, macro_hash(macro));
 }
 
 void macro_deref(macro_t* macro) {
@@ -356,7 +375,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
     vector_destroy(&stack);
 }
 
-void macro_define(stream_t* stream) {
+void macro_parse(stream_t* stream) {
     stream_skip_horizontal_space(stream);
 
     // Get the name
@@ -441,6 +460,9 @@ void macro_define(stream_t* stream) {
         token_print(vector_at(&macro->expansion, i));
     }
     */
+
+    macro_define(macro);
+    macro_deref(macro);
 }
 
 int macro_param(macro_t* macro, token_t* token) {

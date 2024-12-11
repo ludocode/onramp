@@ -46,7 +46,7 @@ typedef struct macro_t {
     unsigned refcount;
     token_t* name;
     vector_t* params; // contains string_t*. null if object-like macro. does not include variadic param.
-    bool is_variadic;
+    bool is_variadic; // only valid if params is non-null
 
     // A macro can expand to either an expansion list (for macros defined with
     // #define) or a builtin function (e.g. __COUNTER__, has_include(), etc.)
@@ -62,21 +62,16 @@ void macro_teardown(void);
 void macro_define_builtins(void);
 
 /**
- * TODO hide this
- *
- * TODO this does not return a strong reference right now, the macro is held by
- * the table. It shouldn't be called "new".
- */
-macro_t* macro_new(token_t* name);
-
-/**
- * Defines a new macro, parsing its arguments and expansion from the given
- * lexer.
+ * Defines a new macro, parsing its name, arguments and expansion from the
+ * given token stream.
  *
  * This is called on a `#define` directive as well as from the `-D` option on
  * the command-line.
+ *
+ * If a macro with the same name is already defined, it is replaced, and a
+ * warning is printed if enabled.
  */
-void macro_define(struct stream_t* stream);
+void macro_parse(struct stream_t* stream);
 
 static inline macro_t* macro_ref(macro_t* macro) {
     //printf("ref'ing macro %s\n",macro->name->value->bytes);

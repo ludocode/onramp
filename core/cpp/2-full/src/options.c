@@ -141,7 +141,7 @@ static void options_define(char* original) {
     lexer_t* lexer = lexer_new_bytes(STR_COMMAND_LINE, modified, length);
     stream_t stream;
     stream_init_lexer(&stream, lexer);
-    macro_define(&stream);
+    macro_parse(&stream);
     stream_destroy(&stream);
     lexer_delete(lexer);
 

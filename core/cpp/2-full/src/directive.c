@@ -211,6 +211,7 @@ static void directive_undef(stream_t* stream, token_t* command) {
         fatal_token(name, "Expected an identifier after `#undef`.");
     }
     macro_undef(name->value);
+    token_deref(name);
     directive_parse_end_of_line(stream, command);
 }
 
@@ -272,7 +273,7 @@ void directive_parse(stream_t* stream, token_t* token) {
 
     string_t* command_str = command->value;
     if (string_equal(command_str, STR_DEFINE)) {
-        macro_define(stream);
+        macro_parse(stream);
         directive_parse_end_of_line(stream, command);
     } else if (string_equal(command_str, STR_UNDEF)) {
         directive_undef(stream, command);
