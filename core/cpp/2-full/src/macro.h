@@ -119,4 +119,6 @@ int macro_param(macro_t* macro, token_t* token);
 
 macro_t* macro_find(string_t* name);
 
+void macro_print(macro_t* macro);
+
 #endif
