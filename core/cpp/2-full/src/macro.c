@@ -36,6 +36,7 @@ static table_t macros;
 
 static macro_t* macro_new(token_t* name);
 static void macro_define(macro_t* macro);
+static void macro_check(macro_t* macro);
 
 void macro_setup(void) {
     //printf("macro_setup\n");
@@ -118,13 +119,14 @@ static macro_t* macro_new(token_t* name) {
 }
 
 static void macro_define(macro_t* macro) {
+    macro_check(macro);
 
-    // We don't handle the case of duplicate define because it should not be
-    // possible. A redefinition with the same name is a different macro.
+    // Duplicate define should not be possible. A redefinition with the same
+    // name is a different macro.
     assert(macro != macro_find(macro->name->value));
 
-    macro_undef(macro->name->value);
     macro_ref(macro);
+    macro_undef(macro->name->value);
     table_put(&macros, &macro->entry, macro_hash(macro));
 }
 
@@ -478,4 +480,91 @@ int macro_param(macro_t* macro, token_t* token) {
         }
     }
     return -1;
+}
+
+/*
+ * Checks that the macro's expansion sequence is valid (e.g. that # and ## are
+ * used correctly.)
+ *
+ * Most preprocessors diagnose these errors even if the macro is not used so
+ * we do as well. It is also easier to do these checks beforehand rather than
+ * doing them in the macro expansion algorithm.
+ */
+static void macro_check(macro_t* macro) {
+    if (macro->function)
+        return;
+
+    vector_t* expansion = &macro->expansion;
+    size_t count = vector_count(expansion);
+
+    // Find the first non-whitespace token
+    // TODO probably we should just strip leading and trailing whitespace from the expansion sequence.
+    token_t* first = token_end;
+    for (size_t i = 0; i < count; ++i) {
+        token_t* token = vector_at(expansion, i);
+        if (token->type != token_type_space) {
+            first = token;
+            break;
+        }
+    }
+
+    // Find the last non-whitespace token
+    token_t* last = token_end;
+    for (size_t i = count; i-- > 0;) {
+        token_t* token = vector_at(expansion, i);
+        if (token->type != token_type_space) {
+            last = token;
+            break;
+        }
+    }
+
+    // Check that ## has a non-whitespace token on both sides
+    if (token_is_punctuation(first, STR_HASH_HASH)) {
+        fatal_token(first, "A macro expansion sequence cannot start with `##`.");
+    }
+    if (token_is_punctuation(last, STR_HASH_HASH)) {
+        fatal_token(last, "A macro expansion sequence cannot end with `##`.");
+    }
+
+    // Check that ## does not appear twice in a row
+    for (size_t i = 0; i < count; ++i) {
+        token_t* token = vector_at(expansion, i);
+        if (token_is_punctuation(token, STR_HASH_HASH)) {
+
+            // We've found a ##. Skip to the next non-whitespace token
+            do {
+                if (++i == count) {
+                    // this is already checked above
+                    fatal("Internal error: A macro expansion sequence cannot end with `##`.");
+                }
+                token = vector_at(expansion, i);
+            } while (token->type == token_type_space);
+
+            // Make sure it's not ##
+            if (token_is_punctuation(token, STR_HASH_HASH)) {
+                fatal_token(token, "The `##` macro operator cannot appear twice in a row.");
+            }
+        }
+    }
+
+    // Check that # is always followed by a parameter
+    for (size_t i = 0; i < count; ++i) {
+        token_t* token = vector_at(expansion, i);
+        if (token_is_punctuation(token, STR_HASH)) {
+
+            // We've found a #. Skip to the next non-whitespace token
+            do {
+                if (++i == count) {
+                    fatal_token(token, "A macro expansion sequence cannot end with `#`.");
+                }
+                token = vector_at(expansion, i);
+            } while (token->type == token_type_space);
+
+            // Make sure it's a parameter
+            int param = macro_param(macro, token);
+            if (param == -1) {
+                fatal_token(token, "The `#` operator in a macro must be followed by a parameter.");
+            }
+        }
+    }
 }
