@@ -138,12 +138,13 @@ void macro_print(macro_t* macro) {
         fputs(" with params ", stdout);
         for (size_t i = 0; i < vector_count(macro->params); ++i) {
             if (i != 0)
-                //printf(", ");
+                printf(", ");
             fputs(((string_t*)vector_at(macro->params, i))->bytes, stdout);
         }
     }
-    printf(":");
+    printf(":\n");
     for (size_t i = 0; i < vector_count(&macro->expansion); ++i) {
+        printf("    ");
         token_print(vector_at(&macro->expansion, i));
     }
 }
@@ -276,7 +277,7 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
         --p;
         token_t* current = *p;
         int param = macro_param(macro, current);
-        //printf("Expanding token %s\n", current->value->bytes);
+        //printf("Expanding macro token %s\n", current->value->bytes);
 
         if (token_is_punctuation(current, STR_HASH)) {
             // Stringify was handled by the token (see below). There's
@@ -350,6 +351,8 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
 }
 
 void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* token) {
+    //printf("Starting macro expansion at token %s\n", token->value->bytes);
+
     vector_t stack;
     vector_init(&stack);
     token_ref(token);
@@ -370,7 +373,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
         }
 
         // Find the macro. If it's not a macro, just output it.
-        macro_t* macro = macro_find(token->value);
+        macro_t* macro = (token->type == token_type_alphanumeric) ? macro_find(token->value) : NULL;
         if (macro == NULL) {
             output_token(output, token);
             token_deref(token);
