@@ -286,6 +286,7 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
 
         } else if (token_is_punctuation(current, STR_HASH_HASH)) {
             // Token paste.
+
             //printf("Token pasting.\n");
             fatal_token(current, "TODO implement token pasting");
             //(void)next;
@@ -300,23 +301,8 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
 
             // Find the previous and next non-whitespace tokens. We need to
             // know if they're # or ##.
-            // TODO move to function, also use in macro_check
-            token_t* previous = token_end;
-            for (void** q = p; q-- != start;) {
-                token_t* t = *q;
-                if (t->type != token_type_space) {
-                    previous = t;
-                    break;
-                }
-            }
-            token_t* next = token_end;
-            for (void** q = p + 1; q != end; ++q) {
-                token_t* t = *q;
-                if (t->type != token_type_space) {
-                    next = t;
-                    break;
-                }
-            }
+            token_t* previous = token_previous(p, start);
+            token_t* next = token_next(p, end);
 
             //printf("Token %s is a parameter.\n", current->value->bytes);
             //printf("    Next is "); token_print(next);
@@ -545,27 +531,19 @@ static void macro_check(macro_t* macro) {
         return;
 
     vector_t* expansion = &macro->expansion;
-    size_t count = vector_count(expansion);
+    void** start = vector_start(expansion);
+    void** end = vector_end(expansion);
+    if (start == end)
+        return;
 
-    // Find the first non-whitespace token
-    // TODO probably we should just strip leading and trailing whitespace from the expansion sequence.
-    token_t* first = token_end;
-    for (size_t i = 0; i < count; ++i) {
-        token_t* token = vector_at(expansion, i);
-        if (token->type != token_type_space) {
-            first = token;
-            break;
-        }
+    // Find the first and last non-whitespace tokens
+    token_t* first = *start;
+    token_t* last = *(end - 1);
+    if (first->type == token_type_space) {
+        first = token_next(start, end);
     }
-
-    // Find the last non-whitespace token
-    token_t* last = token_end;
-    for (size_t i = count; i-- > 0;) {
-        token_t* token = vector_at(expansion, i);
-        if (token->type != token_type_space) {
-            last = token;
-            break;
-        }
+    if (last->type == token_type_space) {
+        last = token_previous(end - 1, start);
     }
 
     // Check that ## has a non-whitespace token on both sides
@@ -576,45 +554,25 @@ static void macro_check(macro_t* macro) {
         fatal_token(last, "A macro expansion sequence cannot end with `##`.");
     }
 
-    // Check that ## does not appear twice in a row
-    for (size_t i = 0; i < count; ++i) {
-        token_t* token = vector_at(expansion, i);
-        if (token_is_punctuation(token, STR_HASH_HASH)) {
+    for (void** p = start; p != end; ++p) {
 
-            // We've found a ##. Skip to the next non-whitespace token
-            do {
-                if (++i == count) {
-                    // this is already checked above
-                    fatal("Internal error: A macro expansion sequence cannot end with `##`.");
-                }
-                token = vector_at(expansion, i);
-            } while (token->type == token_type_space);
-
-            // Make sure it's not ##
+        // Check that ## does not appear twice in a row
+        if (token_is_punctuation(*p, STR_HASH_HASH)) {
+            token_t* token = token_next(p, end);
             if (token_is_punctuation(token, STR_HASH_HASH)) {
                 fatal_token(token, "The `##` macro operator cannot appear twice in a row.");
             }
         }
-    }
 
-    // Check that # is always followed by a parameter
-    for (size_t i = 0; i < count; ++i) {
-        token_t* token = vector_at(expansion, i);
-        if (token_is_punctuation(token, STR_HASH)) {
-
-            // We've found a #. Skip to the next non-whitespace token
-            do {
-                if (++i == count) {
-                    fatal_token(token, "A macro expansion sequence cannot end with `#`.");
-                }
-                token = vector_at(expansion, i);
-            } while (token->type == token_type_space);
-
-            // Make sure it's a parameter
+        // Check that # is always followed by a parameter
+        if (token_is_punctuation(*p, STR_HASH)) {
+            token_t* token = token_next(p, end);
             int param = macro_param(macro, token);
             if (param == -1) {
-                fatal_token(token, "The `#` operator in a macro must be followed by a parameter.");
+                fatal_token((token->type != token_type_end) ? token : *p,
+                        "The `#` operator in a macro must be followed by a parameter.");
             }
         }
+
     }
 }
