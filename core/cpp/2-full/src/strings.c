@@ -51,6 +51,26 @@ string_t* STR_COMMA;                   // ,
 string_t* STR_ELLIPSIS;                // ...
 string_t* STR_HASH;                    // #
 string_t* STR_HASH_HASH;               // ##
+string_t* STR_QUESTION;                // ?
+string_t* STR_COLON;                   // :
+string_t* STR_PIPE_PIPE;               // ||
+string_t* STR_AMPERSAND_AMPERSAND;     // &&
+string_t* STR_PIPE;                    // |
+string_t* STR_CARET;                   // ^
+string_t* STR_AMPERSAND;               // &
+string_t* STR_EQUAL_EQUAL;             // ==
+string_t* STR_NOT_EQUAL;               // !=
+string_t* STR_LESS;                    // <
+string_t* STR_GREATER;                 // >
+string_t* STR_LESS_EQUAL;              // <=
+string_t* STR_GREATER_EQUAL;           // >=
+string_t* STR_LESS_LESS;               // <<
+string_t* STR_GREATER_GREATER;         // >>
+string_t* STR_PLUS;                    // +
+string_t* STR_MINUS;                   // -
+string_t* STR_ASTERISK;                // *
+string_t* STR_SLASH;                   // /
+string_t* STR_PERCENT;                 // %
 
 // miscellaneous
 string_t* STR_SPACE;          // " "
@@ -86,6 +106,26 @@ void strings_setup(void) {
     STR_ELLIPSIS                    = string_intern_cstr("...");
     STR_HASH                        = string_intern_cstr("#");
     STR_HASH_HASH                   = string_intern_cstr("##");
+    STR_QUESTION                    = string_intern_cstr("?");
+    STR_COLON                       = string_intern_cstr(":");
+    STR_PIPE_PIPE                   = string_intern_cstr("||");
+    STR_AMPERSAND_AMPERSAND         = string_intern_cstr("&&");
+    STR_PIPE                        = string_intern_cstr("|");
+    STR_CARET                       = string_intern_cstr("^");
+    STR_AMPERSAND                   = string_intern_cstr("&");
+    STR_EQUAL_EQUAL                 = string_intern_cstr("==");
+    STR_NOT_EQUAL                   = string_intern_cstr("!=");
+    STR_LESS                        = string_intern_cstr("<");
+    STR_GREATER                     = string_intern_cstr(">");
+    STR_LESS_EQUAL                  = string_intern_cstr("<=");
+    STR_GREATER_EQUAL               = string_intern_cstr(">=");
+    STR_LESS_LESS                   = string_intern_cstr("<<");
+    STR_GREATER_GREATER             = string_intern_cstr(">>");
+    STR_PLUS                        = string_intern_cstr("+");
+    STR_MINUS                       = string_intern_cstr("-");
+    STR_ASTERISK                    = string_intern_cstr("*");
+    STR_SLASH                       = string_intern_cstr("/");
+    STR_PERCENT                     = string_intern_cstr("%");
 
     // miscellaneous
     STR_SPACE = string_intern_cstr(" ");
@@ -122,6 +162,26 @@ void strings_teardown(void) {
     string_deref(STR_ELLIPSIS);
     string_deref(STR_HASH);
     string_deref(STR_HASH_HASH);
+    string_deref(STR_QUESTION);
+    string_deref(STR_COLON);
+    string_deref(STR_PIPE_PIPE);
+    string_deref(STR_AMPERSAND_AMPERSAND);
+    string_deref(STR_PIPE);
+    string_deref(STR_CARET);
+    string_deref(STR_AMPERSAND);
+    string_deref(STR_EQUAL_EQUAL);
+    string_deref(STR_NOT_EQUAL);
+    string_deref(STR_LESS);
+    string_deref(STR_GREATER);
+    string_deref(STR_LESS_EQUAL);
+    string_deref(STR_GREATER_EQUAL);
+    string_deref(STR_LESS_LESS);
+    string_deref(STR_GREATER_GREATER);
+    string_deref(STR_PLUS);
+    string_deref(STR_MINUS);
+    string_deref(STR_ASTERISK);
+    string_deref(STR_SLASH);
+    string_deref(STR_PERCENT);
 
     // miscellaneous
     string_deref(STR_SPACE);

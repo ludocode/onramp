@@ -54,6 +54,26 @@ extern string_t* STR_COMMA;                   // ,
 extern string_t* STR_ELLIPSIS;                // ...
 extern string_t* STR_HASH;                    // #
 extern string_t* STR_HASH_HASH;               // ##
+extern string_t* STR_QUESTION;                // ?
+extern string_t* STR_COLON;                   // :
+extern string_t* STR_PIPE_PIPE;               // ||
+extern string_t* STR_AMPERSAND_AMPERSAND;     // &&
+extern string_t* STR_PIPE;                    // |
+extern string_t* STR_CARET;                   // ^
+extern string_t* STR_AMPERSAND;               // &
+extern string_t* STR_EQUAL_EQUAL;             // ==
+extern string_t* STR_NOT_EQUAL;               // !=
+extern string_t* STR_LESS;                    // <
+extern string_t* STR_GREATER;                 // >
+extern string_t* STR_LESS_EQUAL;              // <=
+extern string_t* STR_GREATER_EQUAL;           // >=
+extern string_t* STR_LESS_LESS;               // <<
+extern string_t* STR_GREATER_GREATER;         // >>
+extern string_t* STR_PLUS;                    // +
+extern string_t* STR_MINUS;                   // -
+extern string_t* STR_ASTERISK;                // *
+extern string_t* STR_SLASH;                   // /
+extern string_t* STR_PERCENT;                 // %
 
 // miscellaneous
 extern string_t* STR_SPACE;          // " "

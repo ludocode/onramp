@@ -1,3 +1,27 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2024 Fraser Heavy Software
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #include "directive.h"
 
 #include <stdlib.h>
@@ -12,6 +36,7 @@
 #include "lexer.h"
 #include "preprocess.h"
 #include "file.h"
+#include "expression.h"
 
 void directive_setup(void) {
 }
@@ -51,9 +76,35 @@ static void directive_parse_end_of_line(stream_t* stream, token_t* command) {
  * Checks the expression of an `#if` or `#elif` directive, returning its value.
  */
 static bool directive_parse_if(stream_t* stream, token_t* command) {
-    fatal("TODO #if/#elif");
+    vector_t buffer;
+    vector_init(&buffer);
 
-    directive_parse_end_of_line(stream, command);
+    for (;;) {
+        token_t* token = stream_take(stream);
+        if (token->type == token_type_newline) {
+            token_deref(token);
+            break;
+        }
+        if (token->type == token_type_end) {
+            // Our lexer always synthesizes a line ending at the end of the
+            // file so this shouldn't be possible.
+            fatal("Internal error: end of stream parsing #%s directive", command);
+        }
+        macro_expand(stream, &buffer, token);
+        token_deref(token);
+    }
+
+    stream_t expr_stream;
+    stream_init(&expr_stream, false, &buffer);
+    bool result = expression_evaluate(&expr_stream);
+    stream_destroy(&expr_stream);
+
+    for (size_t i = 0; i < vector_count(&buffer); ++i) {
+        token_deref(vector_at(&buffer, i));
+    }
+    vector_destroy(&buffer);
+
+    return result;
 }
 
 /**

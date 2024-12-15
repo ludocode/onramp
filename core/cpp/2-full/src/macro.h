@@ -96,6 +96,10 @@ static inline size_t macro_hash(macro_t* macro) {
 }
 
 /**
+ * TODO this description is now wrong, it only does one expansion pass and
+ * leaves stuff in the stack. Need to either fix the loop or take it out and
+ * fix the docs.
+ *
  * Performs macro expansion on the given token and all tokens it expands to
  * recursively, outputting the fully expanded tokens.
  *
