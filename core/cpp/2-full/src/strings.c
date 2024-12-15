@@ -71,6 +71,8 @@ string_t* STR_MINUS;                   // -
 string_t* STR_ASTERISK;                // *
 string_t* STR_SLASH;                   // /
 string_t* STR_PERCENT;                 // %
+string_t* STR_TILDE;                   // ~
+string_t* STR_EXCLAMATION;             // ~
 
 // miscellaneous
 string_t* STR_SPACE;          // " "
@@ -126,6 +128,8 @@ void strings_setup(void) {
     STR_ASTERISK                    = string_intern_cstr("*");
     STR_SLASH                       = string_intern_cstr("/");
     STR_PERCENT                     = string_intern_cstr("%");
+    STR_TILDE                       = string_intern_cstr("~");
+    STR_EXCLAMATION                 = string_intern_cstr("!");
 
     // miscellaneous
     STR_SPACE = string_intern_cstr(" ");
@@ -182,6 +186,8 @@ void strings_teardown(void) {
     string_deref(STR_ASTERISK);
     string_deref(STR_SLASH);
     string_deref(STR_PERCENT);
+    string_deref(STR_TILDE);
+    string_deref(STR_EXCLAMATION);
 
     // miscellaneous
     string_deref(STR_SPACE);

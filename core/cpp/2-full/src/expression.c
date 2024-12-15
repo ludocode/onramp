@@ -261,8 +261,38 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
 }
 
 static void expression_parse_unary(stream_t* stream, number_t* out) {
+    stream_skip_horizontal_space(stream);
 
-    // TODO check for unary operators
+    // Parse unary +
+    if (stream_accept(stream, STR_PLUS)) {
+        expression_parse_unary(stream, out);
+        return;
+    }
+
+    // Parse unary -
+    if (stream_accept(stream, STR_MINUS)) {
+        expression_parse_unary(stream, out);
+        if (out->is_signed) {
+            out->s = -out->s;
+        } else {
+            out->u = -out->u;
+        }
+        return;
+    }
+
+    // Parse unary ~
+    if (stream_accept(stream, STR_TILDE)) {
+        expression_parse_unary(stream, out);
+        out->u = -out->u;
+        return;
+    }
+
+    // Parse unary !
+    if (stream_accept(stream, STR_EXCLAMATION)) {
+        expression_parse_unary(stream, out);
+        out->u = !out->u;
+        return;
+    }
 
     expression_parse_primary(stream, out);
 }

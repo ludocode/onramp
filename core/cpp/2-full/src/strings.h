@@ -74,6 +74,8 @@ extern string_t* STR_MINUS;                   // -
 extern string_t* STR_ASTERISK;                // *
 extern string_t* STR_SLASH;                   // /
 extern string_t* STR_PERCENT;                 // %
+extern string_t* STR_TILDE;                   // ~
+extern string_t* STR_EXCLAMATION;             // ~
 
 // miscellaneous
 extern string_t* STR_SPACE;          // " "
