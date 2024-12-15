@@ -210,7 +210,7 @@ static void expression_binary_evaluate(token_t* operator, number_t* left, const 
             return;
         }
     }
-    
+
     fatal("Internal error: cannot evaluate unrecognized binary operator");
 }
 
@@ -231,6 +231,9 @@ static void expression_parse_number(token_t* token, number_t* out) {
 }
 
 static void expression_parse_primary(stream_t* stream, number_t* out) {
+    stream_skip_horizontal_space(stream);
+    token_t* token = stream_peek(stream);
+
     // defined, parens, literal number, literal char.
 
 
@@ -238,11 +241,19 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
     // TODO for now assume number
 
     // Parse a number
-    stream_skip_horizontal_space(stream);
-    token_t* token = stream_peek(stream);
     if (token->type == token_type_number) {
         expression_parse_number(token, out);
         stream_consume(stream);
+        return;
+    }
+
+    // Parse parens
+    if (token_is_punctuation(token, STR_PAREN_OPEN)) {
+        trace("Found open paren");
+        stream_consume(stream);
+        expression_parse(stream, out);
+        stream_expect(stream, STR_PAREN_CLOSE,
+                "Expected closing parenthesis in expression of #if/#elif directive.");
         return;
     }
 
