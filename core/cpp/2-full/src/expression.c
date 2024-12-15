@@ -249,7 +249,7 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
 
     // Parse parens
     if (token_is_punctuation(token, STR_PAREN_OPEN)) {
-        trace("Found open paren");
+        //trace("Found open paren");
         stream_consume(stream);
         expression_parse(stream, out);
         stream_expect(stream, STR_PAREN_CLOSE,
@@ -331,10 +331,9 @@ static void expression_parse_conditional(stream_t* stream, number_t* out) {
 
     // Collect '?'
     stream_skip_horizontal_space(stream);
-    token_t* question = stream_peek(stream);
-    if (!token_is_punctuation(question, STR_QUESTION))
+    if (!stream_accept(stream, STR_QUESTION))
         return;
-    stream_consume(stream);
+    //trace("found ?\n");
 
     // Parse true expression
     bool predicate = number_is_true(out);
@@ -343,14 +342,11 @@ static void expression_parse_conditional(stream_t* stream, number_t* out) {
 
     // Collect ':'
     stream_skip_horizontal_space(stream);
-    token_t* colon = stream_peek(stream);
-    if (!token_is_punctuation(question, STR_COLON)) {
-        fatal_token(colon, "Expected : after ? expression in #if/#elif directive");
-    }
-    stream_consume(stream);
+    stream_expect(stream, STR_COLON,
+        "Expected : after ? expression in #if/#elif directive");
 
     // Parse false expression
-    expression_parse_conditional(stream, predicate ? out : &temp);
+    expression_parse_conditional(stream, predicate ? &temp : out);
 }
 
 static void expression_parse(stream_t* stream, number_t* out) {
