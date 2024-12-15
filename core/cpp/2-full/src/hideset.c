@@ -84,14 +84,14 @@ hideset_t* hideset_new(hideset_t* /*nullable*/ old, string_t* string) {
 }
 
 hideset_t* hideset_new_intersection(hideset_t* /*nullable*/ old, hideset_t*
-        /*nullable*/ closing_paren, string_t* string)
+        /*nullable*/ closing_paren, string_t* current)
 {
     hideset_t* hideset = malloc(sizeof(hideset_t));
     hideset->refcount = 1;
     table_init(&hideset->table);
 
     // add the current macro to the hideset
-    hideset_add(hideset, string);
+    hideset_add(hideset, current);
 
     // if either hideset is null, the intersection is empty, so we're done
     if (!old || !closing_paren) {
@@ -106,16 +106,16 @@ hideset_t* hideset_new_intersection(hideset_t* /*nullable*/ old, hideset_t*
     {
         for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
             string_t* string = ((hideset_entry_t*)entry)->string;
-            bool skip = false;
+            bool found = false;
             for (table_entry_t* paren_entry = table_bucket(&closing_paren->table, string_hash(string));
-                    entry; entry = table_entry_next(entry))
+                    paren_entry; paren_entry = table_entry_next(paren_entry))
             {
-                if (((hideset_entry_t*)paren_entry)->string == string) {
-                    skip = true;
+                if (string_equal(((hideset_entry_t*)paren_entry)->string, string)) {
+                    found = true;
                     break;
                 }
             }
-            if (!skip) {
+            if (found) {
                 hideset_add(hideset, string);
             }
         }
