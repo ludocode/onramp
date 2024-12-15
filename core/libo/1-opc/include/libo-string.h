@@ -98,6 +98,13 @@ string_t* string_ref(string_t* string);
 void string_deref(string_t* string);
 
 /**
+ * Returns a string containing the concatenation of the two given strings.
+ *
+ * You must dereference the string when done with it.
+ */
+string_t* string_concat(string_t* left, string_t* right);
+
+/**
  * Returns true if the two given strings are equal.
  *
  * The strings are interned so we just compare pointers with operator ==. We

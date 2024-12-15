@@ -32,6 +32,12 @@
 #include "hideset.h"
 #include "options.h"
 
+// trace() is used to wrap log statements to debug this code. We can't use an
+// object-like macro because we need to be compilable with the previous stage
+// preprocessor so we keep trace() calls commented out and uncomment them when
+// we want debug output.
+#define trace printf
+
 static table_t macros;
 
 static macro_t* macro_new(token_t* name);
@@ -39,19 +45,19 @@ static void macro_define(macro_t* macro);
 static void macro_check(macro_t* macro);
 
 void macro_setup(void) {
-    //printf("macro_setup\n");
+    //trace("macro_setup\n");
     table_init(&macros);
 }
 
 void macro_teardown(void) {
-    //printf("macro_teardown\n");
+    //trace("macro_teardown\n");
 
     // clear macros
     for (table_entry_t** bucket = table_first_bucket(&macros); bucket;
             bucket = table_next_bucket(&macros, bucket))
     {
         for (table_entry_t* entry = *bucket; entry;) {
-//printf("  clearing found an entry\n");
+////trace("  clearing found an entry\n");
             table_entry_t* next = table_entry_next(entry);
             macro_deref((macro_t*)entry);
             entry = next;
@@ -106,7 +112,7 @@ void macro_undef(string_t* name) {
  * macro_define() (and then deref it.)
  */
 static macro_t* macro_new(token_t* name) {
-    //printf("new macro %s\n", name->value->bytes);
+    //trace("new macro %s\n", name->value->bytes);
 
     macro_t* macro = malloc(sizeof(macro_t));
     macro->refcount = 1;
@@ -150,10 +156,10 @@ void macro_print(macro_t* macro) {
 }
 
 void macro_deref(macro_t* macro) {
-    //printf("deref'ing macro %s\n",macro->name->value->bytes);
+    //trace("deref'ing macro %s\n",macro->name->value->bytes);
     if (--macro->refcount != 0)
         return;
-    //printf("deleting macro %s\n",macro->name->value->bytes);
+    //trace("deleting macro %s\n",macro->name->value->bytes);
 
     token_deref(macro->name);
 
@@ -198,6 +204,7 @@ macro_t* macro_find(string_t* name) {
  * Returns the closing parenthesis.
  */
 static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* args) {
+    //trace("Collecting args for macro %s\n", macro->name->value->bytes);
     vector_t* arg = vector_new();
     int depth = 0;
     for (;;) {
@@ -216,6 +223,8 @@ static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* a
 
             // Handle end of argument list
             if (is_paren_close) {
+                //trace("Collected args:\n"); for (size_t i = 0; i < vector_count(args); ++i) {
+                    //trace("  Arg:\n"); for (size_t j = 0; j < vector_count(vector_at(args, i)); ++j) {trace("    "); token_print(vector_at(vector_at(args, i), j));}}
                 return token;
             }
 
@@ -268,7 +277,7 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
     assert((args == NULL) == (macro->params == NULL));
 
     // Expand tokens, pushing them in reverse order onto the stack.
-    //printf("Expanding macro %s\n", macro->name->value->bytes);
+    //trace("Expanding macro %s\n", macro->name->value->bytes);
     void** end = vector_end(&macro->expansion);
     void** start = vector_start(&macro->expansion);
     void** p = end;
@@ -277,48 +286,93 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
         --p;
         token_t* current = *p;
         int param = macro_param(macro, current);
-        //printf("Expanding macro token %s\n", current->value->bytes);
+        //trace("Expanding macro token %s\n", current->value->bytes);
+        //trace("  Stack is:\n"); for (size_t i = vector_count(stack); i-- > 0;) {trace("    "); token_print(vector_at(stack, i));}
+
+        // Find the previous and next non-whitespace tokens. We need to
+        // know if they're # or ##.
+        token_t* previous = token_previous(p, start);
+        token_t* next = token_next(p, end);
 
         if (token_is_punctuation(current, STR_HASH)) {
-            // Stringify was handled by the token (see below). There's
-            // nothing to do here.
-            //printf("Skipping stringify operator, already handled\n");
+            // Stringify was handled by the stringified token (see below).
+            // There's nothing to do here.
+            //trace("Skipping stringify operator, already handled\n");
 
         } else if (token_is_punctuation(current, STR_HASH_HASH)) {
-            // Token paste.
+            // Token pasting will be handled by the left token.
+            // There's nothing to do here.
+            //trace("Skipping paste operator, to be handled\n");
 
-            //printf("Token pasting.\n");
-            fatal_token(current, "TODO implement token pasting");
-            //(void)next;
+        } else if (token_is_punctuation(next, STR_HASH_HASH)) {
+            // It's followed by ##. Token paste.
+            //trace("Token is followed by ##, doing token paste\n");
+
+            // The right token to paste (or a placeholder) has already been
+            // pushed to the stack. The left token must be expanded. We've
+            // ensured that both exist in macro_check().
+            token_t* right = vector_remove_last(stack);
+            //trace("Right token is: "); token_print(right);
+
+            // If this is a parameter, the left token to paste is the
+            // right-most parameter of the expansion. Otherwise it's just this.
+            token_t* left;
+            if (param == -1) {
+                left = current;
+            } else {
+                vector_t* arg = vector_at(args, param);
+                if (vector_is_empty(arg)) {
+                    left = NULL;
+                } else {
+                    left = vector_at(arg, vector_count(arg) - 1);
+
+                    // Push the rest of the argument to the stack
+                    for (size_t j = vector_count(arg) - 1; j-- > 0;) {
+                        vector_append(stack, token_new_expansion(vector_at(arg, j),
+                                    location, hideset));
+                    }
+                }
+            }
+
+            // We keep the type of the left token, unless we don't have one, in
+            // which case it's the right token. (And if we have neither, we end
+            // up with a placeholder, which is an empty token of type
+            // alphanumeric.)
+            if (left == NULL) {
+                //trace("Left token is NULL");
+                vector_append(stack, token_new_expansion(right, location, hideset));
+            } else {
+                //trace("Left token is: "); token_print(left);
+                token_t* token = token_new_expansion(left, location, hideset);
+                string_deref(token->value);
+                token->value = string_concat(left->value, right->value);
+                vector_append(stack, token);
+            }
+
+            token_deref(right);
+            //trace("Pasted token is: "); token_print(vector_last(stack));
 
         } else if (param == -1) {
             // Not a parameter; just push it
-            //printf("Pushing %s to stack with new hideset.\n", current->value->bytes);
+            //trace("Pushing %s to stack with new hideset.\n", current->value->bytes);
             vector_append(stack, token_new_expansion(current, location, hideset));
 
         } else {
             // It's a parameter.
 
-            // Find the previous and next non-whitespace tokens. We need to
-            // know if they're # or ##.
-            token_t* previous = token_previous(p, start);
-            token_t* next = token_next(p, end);
-
-            //printf("Token %s is a parameter.\n", current->value->bytes);
-            //printf("    Next is "); token_print(next);
-            //printf("    Previous is "); token_print(previous);
+            //trace("Token %s is a parameter.\n", current->value->bytes);
+            //trace("    Next is "); token_print(next);
+            //trace("    Previous is "); token_print(previous);
 
             vector_t* arg = vector_at(args, param);
             if (token_is_punctuation(previous, STR_HASH)) {
                 // It's preceded by #. Stringify.
-                //printf("Stringifying %s\n", current->value->bytes);
+                //trace("Stringifying %s\n", current->value->bytes);
                 vector_append(stack, token_new_stringify(arg, hideset));
-            } else if (token_is_punctuation(next, STR_HASH_HASH)) {
-                // It's followed by ##. Token paste was handled by the ##
-                // operator (see above); there's nothing to do here.
+
             } else {
                 // Push the argument token list in its place, also in reverse order.
-                //printf("Pushing argument replacement list\n");
+                //trace("Pushing argument replacement list\n");
                 for (size_t j = vector_count(arg); j-- > 0;) {
                     vector_append(stack, token_new_expansion(vector_at(arg, j),
                                 location, hideset));
@@ -327,17 +381,18 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
                 // If we're preceded by ## and the argument list is empty,
                 // we need to push a placeholder token.
                 if (token_is_punctuation(previous, STR_HASH_HASH) && vector_is_empty(arg)) {
-                    //printf("Argument is empty and will be token-pasted. Pushing a placeholder token\n");
+                    //trace("Argument is empty and will be token-pasted. Pushing a placeholder token\n");
                     vector_append(stack, token_new_bytes(token_type_alphanumeric,
                                 NULL, 0, &location_builtin));
                 }
             }
         }
     }
+    //trace("Done expanding macro %s\n", macro->name->value->bytes);
 }
 
 void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* token) {
-    //printf("Starting macro expansion at token %s\n", token->value->bytes);
+    //trace("Starting macro expansion at token %s\n", token->value->bytes);
 
     vector_t stack;
     vector_init(&stack);
@@ -347,12 +402,14 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
     while (!vector_is_empty(&stack)) {
         token = vector_remove_last(&stack);
     start:
+        //trace("  Macro expansion token is: "); token_print(token);
+        //trace("  Stack is:\n"); for (size_t i = vector_count(&stack); i-- > 0;) {trace("    "); token_print(vector_at(&stack, i));}
 
         // If the token is in its hideset, skip expansion and output it.
         // (We do this before checking if it's a macro because the hideset is
         // usually empty and probably always smaller than the set of all macros.)
         if (token->hideset && hideset_contains(token->hideset, token->value)) {
-            //printf("Token %s is in its own hideset. Outputting.\n", token->value->bytes);
+            //trace("Token %s is in its own hideset. Outputting.\n", token->value->bytes);
             output_token(output, token);
             token_deref(token);
             continue;
@@ -365,7 +422,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
             token_deref(token);
             continue;
         }
-        //printf("Found macro %s\n", token->value->bytes);
+        //trace("Found macro %s\n", token->value->bytes);
 
         vector_t* args = NULL; // vector of vectors of tokens
         hideset_t* hideset;
@@ -376,7 +433,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
             hideset = hideset_new(token->hideset, macro->name->value);
 
         } else {
-            //printf("Macro %s takes args\n", token->value->bytes);
+            //trace("Macro %s takes args\n", token->value->bytes);
 
             // A macro with parameters is only expanded if it is followed
             // directly by an open parenthesis (with only whitespace allowed;
@@ -385,6 +442,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
             stream_skip_whitespace(stream);
             if (!stream_accept(stream, STR_PAREN_OPEN)) {
                 // No parenthesis; just output it.
+                //trace("Object-like macro %s is not followed by an open paren. Outputting as-is\n", token->value->bytes);
                 output_token(output, token);
                 token_deref(token);
                 continue;
@@ -411,6 +469,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
     }
 
     vector_destroy(&stack);
+    //trace("Done token macro expansion\n");
 }
 
 void macro_parse(stream_t* stream) {
@@ -492,9 +551,9 @@ void macro_parse(stream_t* stream) {
     }
 
     /*
-    //printf("defined macro %s:\n", name->value->bytes);
+    //trace("defined macro %s:\n", name->value->bytes);
     for (size_t i = 0; i < vector_count(&macro->expansion); ++i) {
-        //printf("    ");
+        //trace("    ");
         token_print(vector_at(&macro->expansion, i));
     }
     */

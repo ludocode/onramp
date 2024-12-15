@@ -115,3 +115,16 @@ bool string_equal_bytes(const string_t* string, const char* bytes, size_t length
 void string_print(const string_t* string, FILE* file) {
     fwrite(string->bytes, 1, string->length, file);
 }
+
+string_t* string_concat(string_t* left, string_t* right) {
+    size_t length = left->length + right->length;
+    char* concat = malloc(length);
+    if (concat == NULL) {
+        fatal("Out of memory.");
+    }
+    memcpy(concat, left->bytes, left->length);
+    memcpy(concat + left->length, right->bytes, right->length);
+    string_t* ret = string_intern_bytes(concat, length);
+    free(concat);
+    return ret;
+}
