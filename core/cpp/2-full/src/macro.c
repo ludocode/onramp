@@ -32,12 +32,6 @@
 #include "hideset.h"
 #include "options.h"
 
-// trace() is used to wrap log statements to debug this code. We can't use an
-// object-like macro because we need to be compilable with the previous stage
-// preprocessor so we keep trace() calls commented out and uncomment them when
-// we want debug output.
-#define trace printf
-
 static table_t macros;
 
 static macro_t* macro_new(token_t* name);
@@ -57,7 +51,7 @@ void macro_teardown(void) {
             bucket = table_next_bucket(&macros, bucket))
     {
         for (table_entry_t* entry = *bucket; entry;) {
-////trace("  clearing found an entry\n");
+//trace("  clearing found an entry\n");
             table_entry_t* next = table_entry_next(entry);
             macro_deref((macro_t*)entry);
             entry = next;
@@ -272,11 +266,11 @@ static void macro_destroy_args(vector_t* /*nullable*/ args) {
  * Expands the given macro the given arguments onto the given stack.
  */
 static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
-        vector_t* stack, hideset_t* hideset, location_t* location)
+        stream_t* stream, hideset_t* hideset, location_t* location)
 {
     assert((args == NULL) == (macro->params == NULL));
 
-    // Expand tokens, pushing them in reverse order onto the stack.
+    // Expand tokens, pushing them in reverse order into the stream.
     //trace("Expanding macro %s\n", macro->name->value->bytes);
     void** end = vector_end(&macro->expansion);
     void** start = vector_start(&macro->expansion);
@@ -287,12 +281,13 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
         token_t* current = *p;
         int param = macro_param(macro, current);
         //trace("Expanding macro token %s\n", current->value->bytes);
-        //trace("  Stack is:\n"); for (size_t i = vector_count(stack); i-- > 0;) {trace("    "); token_print(vector_at(stack, i));}
 
         // Find the previous and next non-whitespace tokens. We need to
         // know if they're # or ##.
         token_t* previous = token_previous(p, start);
         token_t* next = token_next(p, end);
+        //trace(" Next is "); token_print(next);
+        //trace(" Previous is "); token_print(previous);
 
         if (token_is_punctuation(current, STR_HASH)) {
             // Stringify was handled by the stringified token (see below).
@@ -306,16 +301,22 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
 
         } else if (token_is_punctuation(next, STR_HASH_HASH)) {
             // It's followed by ##. Token paste.
+            if (current->type == token_type_space)
+                continue;
             //trace("Token is followed by ##, doing token paste\n");
 
             // The right token to paste (or a placeholder) has already been
-            // pushed to the stack. The left token must be expanded. We've
+            // pushed to the stream. The left token must be expanded. We've
             // ensured that both exist in macro_check().
-            token_t* right = vector_remove_last(stack);
+            while (stream_peek(stream)->type == token_type_space) {
+                stream_consume(stream);
+            }
+            token_t* right = stream_take(stream);
             //trace("Right token is: "); token_print(right);
 
             // If this is a parameter, the left token to paste is the
-            // right-most parameter of the expansion. Otherwise it's just this.
+            // right-most non-space parameter of the expansion. Otherwise it's
+            // just this.
             token_t* left;
             if (param == -1) {
                 left = current;
@@ -324,12 +325,15 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
                 if (vector_is_empty(arg)) {
                     left = NULL;
                 } else {
-                    left = vector_at(arg, vector_count(arg) - 1);
+                    size_t j = vector_count(arg);
+                    do {
+                        left = vector_at(arg, --j);
+                    } while (left->type == token_type_space);
 
-                    // Push the rest of the argument to the stack
-                    for (size_t j = vector_count(arg) - 1; j-- > 0;) {
-                        vector_append(stack, token_new_expansion(vector_at(arg, j),
-                                    location, hideset));
+                    // Push the rest of the argument to the stream
+                    for (; j-- > 0;) {
+                        stream_push(stream,
+                                token_new_expansion(vector_at(arg, j), location, hideset));
                     }
                 }
             }
@@ -340,53 +344,81 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
             // alphanumeric.)
             if (left == NULL) {
                 //trace("Left token is NULL");
-                vector_append(stack, token_new_expansion(right, location, hideset));
+                stream_push(stream, token_new_expansion(right, location, hideset));
             } else {
                 //trace("Left token is: "); token_print(left);
                 token_t* token = token_new_expansion(left, location, hideset);
                 string_deref(token->value);
                 token->value = string_concat(left->value, right->value);
-                vector_append(stack, token);
+                stream_push(stream, token);
             }
 
             token_deref(right);
-            //trace("Pasted token is: "); token_print(vector_last(stack));
+            //trace("Pasted token is: "); token_print(stream_peek(stream));
 
         } else if (param == -1) {
             // Not a parameter; just push it
+            // TODO do we recursively expand object-like macros here? I'm
+            // pretty sure we don't but this might be wrong.
             //trace("Pushing %s to stack with new hideset.\n", current->value->bytes);
-            vector_append(stack, token_new_expansion(current, location, hideset));
+            stream_push(stream, token_new_expansion(current, location, hideset));
 
-        } else {
-            // It's a parameter.
+        } else if (token_is_punctuation(previous, STR_HASH)) {
+            // It's a parameter preceded by #. Stringify the expansion.
+            //trace("Stringifying %s\n", current->value->bytes);
+            vector_t* arg = vector_at(args, param);
+            stream_push(stream, token_new_stringify(arg, hideset));
 
-            //trace("Token %s is a parameter.\n", current->value->bytes);
-            //trace("    Next is "); token_print(next);
-            //trace("    Previous is "); token_print(previous);
+        } else if (token_is_punctuation(previous, STR_HASH_HASH)) {
+            // It's a parameter preceded by ##. Push the argument without macro
+            // expansion; the first token will be pasted.
+            //trace("Parameter to be token pasted; pushing arg without expansion\n");
+
+            bool empty = true;
 
             vector_t* arg = vector_at(args, param);
-            if (token_is_punctuation(previous, STR_HASH)) {
-                // It's preceded by #. Stringify.
-                //trace("Stringifying %s\n", current->value->bytes);
-                vector_append(stack, token_new_stringify(arg, hideset));
-
-            } else {
-                // Push the argument token list in its place, also in reverse order.
-                //trace("Pushing argument replacement list\n");
-                for (size_t j = vector_count(arg); j-- > 0;) {
-                    vector_append(stack, token_new_expansion(vector_at(arg, j),
-                                location, hideset));
-                }
-
-                // If we're preceded by ## and the argument list is empty,
-                // we need to push a placeholder token.
-                if (token_is_punctuation(previous, STR_HASH_HASH) && vector_is_empty(arg)) {
-                    //trace("Argument is empty and will be token-pasted. Pushing a placeholder token\n");
-                    vector_append(stack, token_new_bytes(token_type_alphanumeric,
-                                NULL, 0, &location_builtin));
-                }
+            for (size_t j = vector_count(arg); j-- > 0;) {
+                token_t* t = vector_at(arg, j);
+                stream_push(stream, token_new_expansion(t, location, hideset));
+                if (t->type != token_type_space)
+                    empty = false;
             }
+            if (empty) {
+                // The argument list is empty. We need to push a placeholder token.
+                stream_push(stream, token_new_bytes(token_type_alphanumeric,
+                            NULL, 0, &location_builtin));
+            }
+
+        } else {
+            // The parameter is not stringified or token pasted. We need to
+            // recursively expand it before pushing it into the stream.
+            //trace("Token %s is a parameter with no # or ##.\n", current->value->bytes);
+
+            vector_t* arg = vector_at(args, param);
+            stream_t arg_stream;
+            stream_init(&arg_stream, false, arg);
+            vector_t arg_buffer;
+            vector_init(&arg_buffer);
+
+            // TODO loop shouldn't be necessary, need to fix macro_expand() loop
+            while (stream_peek(&arg_stream)->type != token_type_end) {
+                token_t* t = stream_take(&arg_stream);
+                macro_expand(&arg_stream, &arg_buffer, t); 
+                token_deref(t);
+            }
+
+            // Push the resulting token list in reverse order.
+            //trace("Pushing argument replacement list\n");
+            for (size_t j = vector_count(&arg_buffer); j-- > 0;) {
+                token_t* t = vector_at(&arg_buffer, j);
+                stream_push(stream, token_new_expansion(t, location, hideset));
+                token_deref(t);
+            }
+            vector_destroy(&arg_buffer);
+            stream_destroy(&arg_stream);
         }
+
+        //trace("Stack is now:\n"); stream_print_stack(stream);
     }
     //trace("Done expanding macro %s\n", macro->name->value->bytes);
 }
@@ -394,14 +426,14 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
 void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* token) {
     //trace("Starting macro expansion at token %s\n", token->value->bytes);
 
-    vector_t stack;
-    vector_init(&stack);
     token_ref(token);
+    /*
     goto start;
 
     while (!vector_is_empty(&stack)) {
         token = vector_remove_last(&stack);
     start:
+    */
         //trace("  Macro expansion token is: "); token_print(token);
         //trace("  Stack is:\n"); for (size_t i = vector_count(&stack); i-- > 0;) {trace("    "); token_print(vector_at(&stack, i));}
 
@@ -412,7 +444,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
             //trace("Token %s is in its own hideset. Outputting.\n", token->value->bytes);
             output_token(output, token);
             token_deref(token);
-            continue;
+            return;//continue;
         }
 
         // Find the macro. If it's not a macro, just output it.
@@ -420,7 +452,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
         if (macro == NULL) {
             output_token(output, token);
             token_deref(token);
-            continue;
+            return;//continue;
         }
         //trace("Found macro %s\n", token->value->bytes);
 
@@ -445,7 +477,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
                 //trace("Object-like macro %s is not followed by an open paren. Outputting as-is\n", token->value->bytes);
                 output_token(output, token);
                 token_deref(token);
-                continue;
+                return;//continue;
             }
 
             // Collect the arguments
@@ -460,16 +492,17 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
         }
 
         // Perform the expansion
-        macro_expand_impl(macro, args, &stack, hideset, &token->location);
+        macro_expand_impl(macro, args, stream, hideset, &token->location);
 
         // Clean up
         hideset_deref(hideset);
         macro_destroy_args(args);
         token_deref(token);
+        /*
     }
 
-    vector_destroy(&stack);
     //trace("Done token macro expansion\n");
+    */
 }
 
 void macro_parse(stream_t* stream) {

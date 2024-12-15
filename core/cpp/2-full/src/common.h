@@ -30,6 +30,12 @@
 #include "libo-string.h"
 #include "libo-error.h"
 
+// trace() is used to wrap log statements to debug the preprocessor. We can't
+// use an object-like macro because we need to be compilable with the previous
+// stage preprocessor. Instead we just temporarily uncomment trace() calls
+// wherever we want debug output.
+#define trace printf
+
 struct token_t;
 struct vector_t;
 

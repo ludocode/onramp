@@ -58,12 +58,6 @@
  */
 static vector_t files;
 
-/**
- * The stream that takes tokens from the current lexer. It gets redirected
- * whenever a file is included or an include file ends.
- */
-static stream_t main_stream;
-
 void preprocess_setup(void) {
     vector_init(&files);
 }
@@ -90,12 +84,12 @@ static void preprocess_prepare_include(void) {
  * new file and then returns.
  */
 static void preprocess_include_file(struct string_t* filename, FILE* file, struct token_t* source) {
-    //printf("pushing file %s\n", filename->bytes);
+    //trace("pushing file %s\n", filename->bytes);
     if (file_current != NULL) {
         vector_append(&files, file_current);
     }
     file_current = file_new(filename, file, source);
-    main_stream.lexer = file_current->lexer;
+    lexer_current = file_current->lexer;
 }
 
 /*
@@ -135,13 +129,13 @@ void preprocess_include_search(stream_t* stream, token_t* token) {
     string_t* filename = token->value;
     bool is_quoted = token->type == token_type_string;
 
-    //printf("#include searching for file: %s\n", filename->bytes);
+    //trace("#include searching for file: %s\n", filename->bytes);
 
     // same directory and -iquote are only searched for quoted filenames (GCC's
     // docs for #include_next say it doesn't distinguish between angle brackets
     // and quotes. It's not clear whether we should search for -iquote paths.)
     if (is_quoted) {
-        string_t* dir = path_dirname(stream->lexer->reader.filename);
+        string_t* dir = path_dirname(lexer_current->reader.filename);
         bool found = preprocess_try_include(dir, filename, token);
         string_deref(dir);
         if (found)
@@ -157,14 +151,13 @@ void preprocess_include_search(stream_t* stream, token_t* token) {
 /**
  * Runs until the lexer stack is empty.
  */
-static void preprocess_run(void) {
-    stream_t* stream = &main_stream;
-
+static void preprocess_run(stream_t* stream) {
     for (;;) {
         token_t* token = stream_take(stream);
+        //trace("\npreprocessing token: "); token_print(token);
         if (token->type == token_type_end) {
             token_deref(token);
-            //printf("popping file %s\n", file_current->lexer->reader.filename->bytes);
+            //trace("popping file %s\n", file_current->lexer->reader.filename->bytes);
             file_delete(file_current);
 
             // If there are no more files, we're done
@@ -173,7 +166,7 @@ static void preprocess_run(void) {
             }
 
             file_current = vector_remove_last(&files);
-            main_stream.lexer = file_current->lexer;
+            lexer_current = file_current->lexer;
             continue;
         }
 
@@ -194,11 +187,8 @@ static void preprocess_run(void) {
 void preprocess(void) {
     // TODO emit a linemarker for root filename before doing anything
 
-    stream_t* stream = &main_stream;
-    // TODO this is pretty hackish at the moment. The lexer stream should just
-    // use current_lexer; there's no situation where we'd ever want a token
-    // from a file that isn't current.
-    stream_init_lexer(stream, NULL);
+    stream_t stream;
+    stream_init(&stream, true, NULL);
 
     // Parse all force-includes
     for (size_t i = 0; i < vector_count(&options_force_includes); ++i) {
@@ -206,22 +196,22 @@ void preprocess(void) {
         location_init_command_line(&location);
         token_t* token = token_new(token_type_alphanumeric,
                 vector_at(&options_force_includes, i), &location);
-        preprocess_include_search(&main_stream, token);
+        preprocess_include_search(&stream, token);
         token_deref(token);
         location_destroy(&location);
-        preprocess_run();
+        preprocess_run(&stream);
     }
 
-    //printf("pushing root file %s\n", options_input_filename);
+    //trace("pushing root file %s\n", options_input_filename);
     string_t* infile = string_intern_cstr(options_input_filename);
     file_current = file_new(infile, NULL, NULL);
-    stream->lexer = file_current->lexer;
+    lexer_current = file_current->lexer;
     string_deref(infile);
 
 //stream_dump_tokens(stream);
-    preprocess_run();
+    preprocess_run(&stream);
 
     assert(vector_is_empty(&files));
 
-    stream_destroy(stream);
+    stream_destroy(&stream);
 }

@@ -34,40 +34,50 @@ struct token_t;
 struct vector_t;
 
 /**
- * A helper to semantically parse a stream of tokens, either from the current
- * lexer or from a token buffer.
+ * A helper to semantically parse and buffer a stream of tokens.
  *
- * This just provides helper functions such as accepting matching tokens,
- * skipping whitespace, dumping tokens for debugging, etc.
+ * The stream has three sources of tokens, served in this order:
+ *
+ * - An internal stack onto which tokens can be pushed;
+ * - An external buffer of tokens, for example the expansion string of a macro;
+ * - The current lexer.
+ *
+ * All of these are optional. Once all sources are exhausted, the stream
+ * returns tokens of type end.
  *
  * A stream around a lexer is used for almost all purposes, such as parsing the
  * input files normally, parsing directives, etc. A stream around a token
  * buffer is used when evaluating an `#if` expression after it has been
- * macro-expanded.
+ * macro-expanded. The stream stack is used to store tokens during macro
+ * expansion.
  */
 typedef struct stream_t {
-    struct lexer_t* lexer;
-    struct token_t** start;
-    struct token_t** end;
+    bool use_lexer;
+    vector_t stack;
+    void** buffer_start;
+    void** buffer_end;
 } stream_t;
 
-void stream_init_lexer(stream_t* stream, struct lexer_t* lexer);
+/**
+ * Initializes a stream.
+ *
+ * If use_lexer is true, the stream will serve tokens from the current lexer
+ * (when the stack and buffer are empty.)
+ *
+ * If a buffer is given, tokens will be served from it (when the stack is
+ * empty.) The stream does not take ownership of the buffer or its contents;
+ * the buffer must not be modified while the stream exists.
+ */
+void stream_init(stream_t* stream, bool use_lexer, vector_t* /*nullable*/ buffer);
 
-void stream_init_buffer(stream_t* stream, struct vector_t* buffer);
+void stream_set_buffer(stream_t* stream, vector_t* vector);
 
-static inline void stream_destroy(stream_t* stream) {
-    // nothing
-}
+void stream_destroy(stream_t* stream);
 
-// TODO move inline in macro expansion
-#ifdef DISABLED___
 /**
  * Reserve space for the given number of tokens to be pushed into the buffer.
  */
-static inline void stream_reserve_extra(stream_t* stream, size_t count) {
-    vector_reserve(&stream->buffer, vector_count(&stream->buffer) + count);
-}
-#endif
+void stream_reserve(stream_t* stream, size_t count);
 
 /**
  * Peeks the next token.
@@ -96,6 +106,7 @@ struct token_t* stream_take(stream_t* stream);
 void stream_delete(stream_t* stream);
 
 void stream_dump_tokens(stream_t* stream);
+void stream_print_stack(stream_t* stream);
 
 /**
  * Skips all horizontal whitespace tokens.

@@ -28,6 +28,11 @@
 #include "libo-table.h"
 #include "libo-string.h"
 
+typedef struct hideset_entry_t {
+    table_entry_t entry;
+    string_t* string;
+} hideset_entry_t;
+
 /**
  * A hideset.
  *

@@ -74,7 +74,7 @@ typedef struct token_t {
     token_prefix_t prefix;
 
     // macro expansion
-    struct hideset_t* hideset;
+    struct hideset_t* /*nullable*/ hideset;
 } token_t;
 
 /**

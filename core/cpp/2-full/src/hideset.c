@@ -34,11 +34,6 @@
 // entries. It would probably be a lot faster if we just made this an open
 // hashtable.
 
-typedef struct hideset_entry_t {
-    table_entry_t entry;
-    string_t* string;
-} hideset_entry_t;
-
 void hideset_deref(hideset_t* hideset) {
     assert(hideset);
     if (--hideset->refcount)

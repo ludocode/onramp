@@ -133,13 +133,32 @@ token_t* token_new_as_expansion(token_t* token, token_t* macro) {
 void token_print(token_t* token) {
     char prefix[2] = {token->prefix, 0};
 
-    printf("<token: %s:%i:%i %s %s\"%s\">\n",
+    printf("<token: %s:%i:%i %s %s\"%s\"",
             token->location.filename->bytes,
             token->location.line,
             token->location.column,
             token_type_to_string(token->type),
             prefix,
             string_cstr(token->value));
+
+    if (token->hideset) {
+        fputs(" hideset:", stdout);
+        for (table_entry_t** bucket = table_first_bucket(&token->hideset->table); bucket;
+                bucket = table_next_bucket(&token->hideset->table, bucket))
+        {
+            bool first = true;
+            for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
+                if (first) {
+                    first = false;
+                } else {
+                    putchar(',');
+                }
+                fputs(((hideset_entry_t*)entry)->string->bytes, stdout);
+            }
+        }
+    }
+
+    fputs(">\n", stdout);
 }
 
 bool token_is_punctuation(token_t* token, string_t* punctuation) {

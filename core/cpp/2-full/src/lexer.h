@@ -76,8 +76,6 @@ typedef struct lexer_t {
 
 /**
  * The current lexer (and, by the parent member, the stack of lexers.)
- *
- * TODO is this right? or should it be a stack of streams instead of a stack of lexers?
  */
 extern lexer_t* lexer_current;
 

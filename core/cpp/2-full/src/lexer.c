@@ -31,6 +31,8 @@
 #include "libo-error.h"
 #include "libo-unicode.h"
 
+lexer_t* lexer_current;
+
 static void lexer_consume_char(lexer_t* lexer);
 static void lexer_parse(lexer_t* lexer);
 static void lexer_complete_token(lexer_t* lexer, token_type_t type);

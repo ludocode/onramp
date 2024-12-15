@@ -29,79 +29,110 @@
 #include "lexer.h"
 #include "macro.h"
 
-void stream_init_lexer(stream_t* stream, struct lexer_t* lexer) {
-    stream->lexer = lexer;
-    stream->start = NULL;
-    stream->end = NULL;
+void stream_init(stream_t* stream, bool use_lexer, vector_t* /*nullable*/ buffer) {
+    vector_init(&stream->stack);
+    if (buffer) {
+        stream->buffer_start = vector_start(buffer);
+        stream->buffer_end = vector_end(buffer);
+    } else {
+        stream->buffer_start = NULL;
+        stream->buffer_end = NULL;
+    }
+    stream->use_lexer = use_lexer;
 }
 
-void stream_init_buffer(stream_t* stream, vector_t* buffer) {
-    stream->lexer = NULL;
-    stream->start = (token_t**)vector_start(buffer);
-    stream->end = (token_t**)vector_end(buffer);
+void stream_destroy(stream_t* stream) {
+    // It probably doesn't make sense to ever destroy a stack that still has
+    // tokens in it.
+    if (!vector_is_empty(&stream->stack)) {
+        fatal("Internal error: cannot destroy stream with non-empty stack");
+    }
+    /*
+    for (size_t i = vector_count(&stream->stack); i-- > 0;) {
+        token_deref(vector_at(&stream->stack, i));
+    }
+    */
+    vector_destroy(&stream->stack);
 }
-
-#ifdef DISABLED__
-stream_t* stream_new_file(string_t* filename, token_t* /*nullable*/ source) {
-    stream_t* stream = malloc(sizeof(stream_t));
-    stream_init_file(stream, filename, source);
-    return stream;
-}
-
-stream_t* stream_new_macro(macro_t* macro) {
-    stream_t* stream = malloc(sizeof(stream_t));
-    stream_init_macro(stream, macro);
-    return stream;
-}
-
-void stream_delete(stream_t* stream) {
-    stream_destroy(stream);
-    free(stream);
-}
-#endif
 
 token_t* stream_peek(stream_t* stream) {
-    if (stream->lexer) {
-        //printf("peek returning lexer %p\n", (void*)lexer_peek(stream->lexer));
-        return lexer_peek(stream->lexer);
+    if (!vector_is_empty(&stream->stack)) {
+        return vector_last(&stream->stack);
     }
-    if (stream->start != stream->end) {
-        //printf("peek returning buffer %p\n", vector_last(&stream->buffer));
-        return *stream->start;
+    if (stream->buffer_start != stream->buffer_end) {
+        return *stream->buffer_start;
     }
-    //printf("peek returning end %p\n", (void*)token_end);
+    if (stream->use_lexer) {
+        return lexer_peek(lexer_current);
+    }
     return token_end;
 }
 
 void stream_consume(stream_t* stream) {
-    if (stream->lexer) {
-        lexer_consume(stream->lexer);
-    } else if (stream->start != stream->end) {
-        // TODO do we deref tokens as we walk?
-        ++stream->start;
+    if (!vector_is_empty(&stream->stack)) {
+        token_deref(vector_remove_last(&stream->stack));
+        return;
     }
+    if (stream->buffer_start != stream->buffer_end) {
+        ++stream->buffer_start;
+        return;
+    }
+    if (stream->use_lexer) {
+        lexer_consume(lexer_current);
+        return;
+    }
+    fatal("Internal error: Stream cannot consume end token.");
 }
 
 token_t* stream_take(stream_t* stream) {
-    if (stream->lexer) {
-        return lexer_take(stream->lexer);
+    if (!vector_is_empty(&stream->stack)) {
+        return vector_remove_last(&stream->stack);
     }
-    if (stream->start != stream->end) {
-        // TODO do we deref tokens as we walk?
-        return token_ref(*stream->start++);
+    if (stream->buffer_start != stream->buffer_end) {
+        return token_ref(*stream->buffer_start++);
     }
-    return token_ref(token_end);
+    if (stream->use_lexer) {
+        return lexer_take(lexer_current);
+    }
+    fatal("Internal error: Stream cannot take end token.");
+}
+
+void stream_print_stack(stream_t* stream) {
+    if (vector_is_empty(&stream->stack)) {
+        printf("    stack is empty.\n");
+    } else for (size_t i = 0; i < vector_count(&stream->stack); ++i) {
+        printf("    ");
+        token_print(vector_at(&stream->stack, i));
+    }
 }
 
 void stream_dump_tokens(stream_t* stream) {
-    printf("dumping %s stream tokens:\n", stream->lexer ? "lexer" : "buffer");
+    printf("dumping stream tokens:\n");
 
-    if (stream_peek(stream)->type == token_type_end) {
-        printf("    stream empty\n");
-        return;
+    printf("  stack:\n");
+    if (vector_is_empty(&stream->stack)) {
+        printf("    stack is empty.\n");
+    } else while (!vector_is_empty(&stream->stack)) {
+        printf("    ");
+        token_print(stream_peek(stream));
+        stream_consume(stream);
     }
 
-    do {
+    printf("  buffer:\n");
+    if (stream->buffer_start == stream->buffer_end) {
+        printf("    buffer is empty.\n");
+    } else while (stream->buffer_start != stream->buffer_end) {
+        printf("    ");
+        token_print(stream_peek(stream));
+        stream_consume(stream);
+    }
+
+    printf("  lexer:\n");
+    if (!stream->use_lexer) {
+        printf("    lexer is disabled.\n");
+    } else if (stream_peek(stream)->type == token_type_end) {
+        printf("    lexer is empty.\n");
+    } else do {
         printf("    ");
         token_print(stream_peek(stream));
         stream_consume(stream);
@@ -165,4 +196,13 @@ bool stream_accept_newline(stream_t* stream) {
     }
     stream_consume(stream);
     return true;
+}
+
+void stream_push(stream_t* stream, struct token_t* token) {
+    //trace("STREAM PUSH "); token_print(token);
+    vector_append(&stream->stack, token);
+}
+
+void stream_reserve(stream_t* stream, size_t count) {
+    vector_reserve(&stream->stack, vector_count(&stream->stack) + count);
 }
