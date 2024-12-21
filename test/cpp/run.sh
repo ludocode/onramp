@@ -114,6 +114,7 @@ function clean() {
             -e '/^#/d' \
             -e '/^ *$/d' \
             -e 's/.*/ & /' \
+            -e 's/[()]/ & /g' \
             -e 's/  */ /g' \
             $IN > $OUT
     fi

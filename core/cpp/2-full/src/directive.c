@@ -78,7 +78,9 @@ static void directive_parse_end_of_line(stream_t* stream, token_t* command) {
 static bool directive_parse_if(stream_t* stream, token_t* command) {
     vector_t buffer;
     vector_init(&buffer);
+    macro_expand_stream(stream, &buffer, true, true);
 
+    #if 0
     for (;;) {
         token_t* token = stream_take(stream);
         if (token->type == token_type_newline) {
@@ -90,9 +92,10 @@ static bool directive_parse_if(stream_t* stream, token_t* command) {
             // file so this shouldn't be possible.
             fatal("Internal error: end of stream parsing #%s directive", command);
         }
-        macro_expand(stream, &buffer, token);
+        macro_expand(stream, &buffer, token, true);
         token_deref(token);
     }
+    #endif
 
     stream_t expr_stream;
     stream_init(&expr_stream, false, &buffer);
@@ -139,6 +142,7 @@ static void directive_parse_else(stream_t* stream, token_t* command) {
  * The new directive command is consumed and returned as a strong reference.
  */
 static token_t* directive_skip_branch(stream_t* stream, token_t* src) {
+    //trace("Skipping branch\n");
     int depth = 0;
     for (;;) {
 
@@ -168,10 +172,13 @@ static token_t* directive_skip_branch(stream_t* stream, token_t* src) {
                 string_equal(command_str, STR_IFDEF) ||
                 string_equal(command_str, STR_IFNDEF))
         {
+            //trace("  skip push\n");
             ++depth;
         } else if (string_equal(command_str, STR_ENDIF) && depth > 0) {
+            //trace("  skip pop\n");
             --depth;
         } else if (depth == 0) {
+            //trace("  done skipping\n");
             return stream_take(stream);
         }
     }
@@ -300,9 +307,11 @@ static void directive_include(stream_t* stream, token_t* command) {
     token_deref(token);
 }
 
-void directive_parse(stream_t* stream, token_t* token) {
+void directive_parse(stream_t* stream, token_t* directive) {
+    assert(directive->type == token_type_directive);
     stream_skip_horizontal_space(stream);
     token_t* command = stream_take(stream);
+    //trace("Parsing directive #%s\n", command->value->bytes);
 
     // ignore blank preprocessor directives
     if (command->type == token_type_newline) {

@@ -37,6 +37,6 @@ void directive_teardown(void);
  * Note that this does not handle directives in untaken conditional branches.
  * See directive_skip_branch().
  */
-void directive_parse(struct stream_t* stream, struct token_t* token);
+void directive_parse(struct stream_t* stream, struct token_t* directive);
 
 #endif

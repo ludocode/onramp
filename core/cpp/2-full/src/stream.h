@@ -124,6 +124,11 @@ bool stream_accept(stream_t* stream, string_t* string);
 bool stream_accept_newline(stream_t* stream);
 
 /**
+ * Forwards all horizontal whitespace to the given output.
+ */
+void stream_forward_spaces(stream_t* stream, vector_t* /*nullable*/ output);
+
+/**
  * Returns true if the current token is alphanumeric or punctuation and matches
  * the given string.
  */

@@ -293,22 +293,22 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
     return token;
 }
 
-token_t* token_next(void** p, void** end) {
+void** token_next(void** p, void** end) {
     for (void** q = p + 1; q != end; ++q) {
         token_t* token = *q;
         if (token->type != token_type_space) {
-            return token;
+            return q;
         }
     }
-    return token_end;
+    return NULL;
 }
 
-token_t* token_previous(void** p, void** start) {
+void** token_previous(void** p, void** start) {
     for (void** q = p; q-- != start;) {
         token_t* token = *q;
         if (token->type != token_type_space) {
-            return token;
+            return q;
         }
     }
-    return token_end;
+    return NULL;
 }

@@ -31,6 +31,7 @@
 #include "preprocess.h"
 #include "hideset.h"
 #include "options.h"
+#include "directive.h"
 
 static table_t macros;
 
@@ -51,7 +52,7 @@ void macro_teardown(void) {
             bucket = table_next_bucket(&macros, bucket))
     {
         for (table_entry_t* entry = *bucket; entry;) {
-//trace("  clearing found an entry\n");
+            //trace("  clearing found an entry\n");
             table_entry_t* next = table_entry_next(entry);
             macro_deref((macro_t*)entry);
             entry = next;
@@ -196,6 +197,9 @@ macro_t* macro_find(string_t* name) {
  * the args vector.
  *
  * Returns the closing parenthesis.
+ *
+ * If the arguments contain preprocessor directives, the directives will be
+ * parsed inline before this returns.
  */
 static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* args) {
     //trace("Collecting args for macro %s\n", macro->name->value->bytes);
@@ -205,6 +209,13 @@ static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* a
         token_t* token = stream_take(stream);
         if (token->type == token_type_end) {
             fatal_token(token, "Unclosed macro argument list: expected `)` at end of macro invocation.");
+        }
+
+        if (token->type == token_type_directive) {
+            // TODO this should require -fgnu-extensions.
+            directive_parse(stream, token);
+            token_deref(token);
+            continue;
         }
 
         bool is_comma = token_is_punctuation(token, STR_COMMA);
@@ -263,10 +274,12 @@ static void macro_destroy_args(vector_t* /*nullable*/ args) {
 }
 
 /*
- * Expands the given macro the given arguments onto the given stack.
+ * Expands the given macro with the given arguments, pushing the tokens into
+ * the given stream.
  */
-static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
-        stream_t* stream, hideset_t* hideset, location_t* location)
+static void macro_expand(macro_t* macro, vector_t* /*nullable*/ args,
+        stream_t* stream, hideset_t* hideset, location_t* location,
+        bool handle_defined)
 {
     assert((args == NULL) == (macro->params == NULL));
 
@@ -284,10 +297,37 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
 
         // Find the previous and next non-whitespace tokens. We need to
         // know if they're # or ##.
-        token_t* previous = token_previous(p, start);
-        token_t* next = token_next(p, end);
+        void** previous_p = token_previous(p, start);
+        void** next_p = token_next(p, end);
+        token_t* previous = previous_p ? (token_t*)*previous_p : token_end;  // TODO cast should not be necessary, need to implement compatible ptr types in cci/2
+        token_t* next = next_p ? (token_t*)*next_p : token_end;
         //trace(" Next is "); token_print(next);
         //trace(" Previous is "); token_print(previous);
+
+        // Check for `defined`. We have to look backwards for `defined` or `defined` `(`.
+        // TODO defined in a macro expansion is a GNU extension. We should warn if not -fgnu-extensions. clang calls it -Wexpansion-to-defined
+        bool defined_is_enabled = true; // TODO defined should only be enabled in an #if/#elif directive
+        if (defined_is_enabled) {
+            bool is_defined = false;
+            if (token_is_keyword(previous, STR_DEFINED)) {
+                //trace("Token %s preceded by `defined`; not expanding\n", current->value->bytes);
+                is_defined = true;
+            } else if (token_is_punctuation(previous, STR_PAREN_OPEN)) {
+                void** prev_prev = token_previous(previous_p, start);
+                if (prev_prev && token_is_keyword(*prev_prev, STR_DEFINED)) {
+                    //trace("Token %s preceded by `defined` `(`; not expanding\n", current->value->bytes);
+                    is_defined = true;
+                }
+            }
+            if (is_defined) {
+                if (current->type != token_type_alphanumeric) {
+                    fatal_token(current, "`defined` must be followed by a macro name.");
+                }
+                // We're preceded by `defined` or `defined` `(`. Don't expand this.
+                stream_push(stream, token_new_expansion(current, location, hideset));
+                continue;
+            }
+        }
 
         if (token_is_punctuation(current, STR_HASH)) {
             // Stringify was handled by the stringified token (see below).
@@ -400,12 +440,7 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
             vector_t arg_buffer;
             vector_init(&arg_buffer);
 
-            // TODO loop shouldn't be necessary, need to fix macro_expand() loop
-            while (stream_peek(&arg_stream)->type != token_type_end) {
-                token_t* t = stream_take(&arg_stream);
-                macro_expand(&arg_stream, &arg_buffer, t); 
-                token_deref(t);
-            }
+            macro_expand_stream(&arg_stream, &arg_buffer, handle_defined, false);
 
             // Push the resulting token list in reverse order.
             //trace("Pushing argument replacement list\n");
@@ -423,19 +458,45 @@ static void macro_expand_impl(macro_t* macro, vector_t* /*nullable*/ args,
     //trace("Done expanding macro %s\n", macro->name->value->bytes);
 }
 
-void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* token) {
-    //trace("Starting macro expansion at token %s\n", token->value->bytes);
+void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool handle_defined, bool stop_on_newline) {
+    //trace("Starting stream expansion at token: "); token_print(stream_peek(stream));
 
-    token_ref(token);
-    /*
-    goto start;
+    for (;;) {
+        token_t* token = stream_peek(stream);
+        // TODO for now we back out on directives, need to replace preprocess_run() with this
+        if (token->type == token_type_directive || token->type == token_type_end) {
+            break;
+        }
+        if (stop_on_newline && token->type == token_type_newline) {
+            break;
+        }
 
-    while (!vector_is_empty(&stack)) {
-        token = vector_remove_last(&stack);
-    start:
-    */
+        token_ref(token);
+        stream_consume(stream);
         //trace("  Macro expansion token is: "); token_print(token);
-        //trace("  Stack is:\n"); for (size_t i = vector_count(&stack); i-- > 0;) {trace("    "); token_print(vector_at(&stack, i));}
+        //trace("  Stack is:\n"); stream_print_stack(stream);
+
+        // Special handling for `defined`
+        if (handle_defined && token_is_keyword(token, STR_DEFINED)) {
+            output_token(output, token);
+            token_deref(token);
+            stream_forward_spaces(stream, output);
+
+            // A `(` is allowed after `defined`
+            if (stream_is(stream, STR_PAREN_OPEN)) {
+                output_token(output, stream_peek(stream));
+                stream_consume(stream);
+            }
+            stream_forward_spaces(stream, output);
+
+            // If it's followed by an identifier, don't macro-expand it
+            if (stream_peek(stream)->type == token_type_alphanumeric) {
+                output_token(output, stream_peek(stream));
+                stream_consume(stream);
+            }
+
+            continue;
+        }
 
         // If the token is in its hideset, skip expansion and output it.
         // (We do this before checking if it's a macro because the hideset is
@@ -444,7 +505,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
             //trace("Token %s is in its own hideset. Outputting.\n", token->value->bytes);
             output_token(output, token);
             token_deref(token);
-            return;//continue;
+            continue;
         }
 
         // Find the macro. If it's not a macro, just output it.
@@ -452,7 +513,7 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
         if (macro == NULL) {
             output_token(output, token);
             token_deref(token);
-            return;//continue;
+            continue;
         }
         //trace("Found macro %s\n", token->value->bytes);
 
@@ -477,10 +538,10 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
                 //trace("Object-like macro %s is not followed by an open paren. Outputting as-is\n", token->value->bytes);
                 output_token(output, token);
                 token_deref(token);
-                return;//continue;
+                continue;
             }
 
-            // Collect the arguments
+            // Collect the arguments, running any embedded directives
             args = vector_new();
             token_t* paren_close = macro_collect_args(macro, stream, args);
 
@@ -492,17 +553,15 @@ void macro_expand(stream_t* stream, vector_t* /*nullable*/ output, token_t* toke
         }
 
         // Perform the expansion
-        macro_expand_impl(macro, args, stream, hideset, &token->location);
+        macro_expand(macro, args, stream, hideset, &token->location, handle_defined);
 
         // Clean up
         hideset_deref(hideset);
         macro_destroy_args(args);
         token_deref(token);
-        /*
     }
 
-    //trace("Done token macro expansion\n");
-    */
+    //trace("Done stream expansion\n");
 }
 
 void macro_parse(stream_t* stream) {
@@ -619,8 +678,11 @@ int macro_param(macro_t* macro, token_t* token) {
  * doing them in the macro expansion algorithm.
  */
 static void macro_check(macro_t* macro) {
-    if (macro->function)
+    if (macro->function) {
+        //trace("macro_check() function, nothing to do\n");
         return;
+    }
+    //trace("macro_check() %s\n", macro->name->value->bytes);
 
     vector_t* expansion = &macro->expansion;
     void** start = vector_start(expansion);
@@ -629,38 +691,40 @@ static void macro_check(macro_t* macro) {
         return;
 
     // Find the first and last non-whitespace tokens
-    token_t* first = *start;
-    token_t* last = *(end - 1);
-    if (first->type == token_type_space) {
-        first = token_next(start, end);
+    if (((token_t*)*start)->type == token_type_space) {
+        start = token_next(start, end);
     }
-    if (last->type == token_type_space) {
-        last = token_previous(end - 1, start);
+    void** last = end - 1;
+    if (((token_t*)*last)->type == token_type_space) {
+        last = token_previous(last, start);
     }
 
     // Check that ## has a non-whitespace token on both sides
-    if (token_is_punctuation(first, STR_HASH_HASH)) {
-        fatal_token(first, "A macro expansion sequence cannot start with `##`.");
+    if (start && token_is_punctuation(*start, STR_HASH_HASH)) {
+        fatal_token(*start, "A macro expansion sequence cannot start with `##`.");
     }
-    if (token_is_punctuation(last, STR_HASH_HASH)) {
-        fatal_token(last, "A macro expansion sequence cannot end with `##`.");
+    if (last && token_is_punctuation(*last, STR_HASH_HASH)) {
+        fatal_token(*last, "A macro expansion sequence cannot end with `##`.");
     }
+    end = last + 1;
 
     for (void** p = start; p != end; ++p) {
+        //trace("  checking token: "); token_print(*p);
 
         // Check that ## does not appear twice in a row
         if (token_is_punctuation(*p, STR_HASH_HASH)) {
-            token_t* token = token_next(p, end);
-            if (token_is_punctuation(token, STR_HASH_HASH)) {
-                fatal_token(token, "The `##` macro operator cannot appear twice in a row.");
+            void** token_loc = token_next(p, end);
+            assert(token_loc); // checked above
+            if (token_is_punctuation(*token_loc, STR_HASH_HASH)) {
+                fatal_token(*token_loc, "The `##` macro operator cannot appear twice in a row.");
             }
         }
 
         // Check that # is always followed by a parameter
         if (token_is_punctuation(*p, STR_HASH)) {
-            token_t* token = token_next(p, end);
-            int param = macro_param(macro, token);
-            if (param == -1) {
+            void** token_loc = token_next(p, end);
+            if (token_loc == NULL || macro_param(macro, *token_loc) == -1) {
+                token_t* token = token_loc ? *token_loc : token_end;
                 fatal_token((token->type != token_type_end) ? token : *p,
                         "The `#` operator in a macro must be followed by a parameter.");
             }

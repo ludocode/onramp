@@ -153,10 +153,9 @@ void preprocess_include_search(stream_t* stream, token_t* token) {
  */
 static void preprocess_run(stream_t* stream) {
     for (;;) {
-        token_t* token = stream_take(stream);
+        token_t* token = stream_peek(stream);
         //trace("\npreprocessing token: "); token_print(token);
         if (token->type == token_type_end) {
-            token_deref(token);
             //trace("popping file %s\n", file_current->lexer->reader.filename->bytes);
             file_delete(file_current);
 
@@ -170,17 +169,20 @@ static void preprocess_run(stream_t* stream) {
             continue;
         }
 
-        if (token->type == token_type_directive) {
+        if (token->type == token_type_newline) {
+            // Newlines are ignored. The emit code adds newlines where needed.
+            stream_consume(stream);
+        } else if (token->type == token_type_directive) {
             // It's a directive. Parse and handle it
+            // TODO let directive parse do this token memory management
+            token_ref(token);
+            stream_consume(stream);
             directive_parse(stream, token);
-        } else if (token->type == token_type_alphanumeric) {
-            // It might be a macro. Expand it
-            macro_expand(stream, NULL, token);
+            token_deref(token);
         } else {
-            // Just a plain non-alphanumeric token. Output it.
-            output_token(NULL, token);
+            // Macro-expand until the next directive.
+            macro_expand_stream(stream, NULL, false, false);
         }
-        token_deref(token);
     }
 }
 

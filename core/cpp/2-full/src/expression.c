@@ -30,6 +30,7 @@
 #include "stream.h"
 #include "token.h"
 #include "strings.h"
+#include "macro.h"
 
 typedef struct number_t {
     bool is_signed;
@@ -214,7 +215,40 @@ static void expression_binary_evaluate(token_t* operator, number_t* left, const 
     fatal("Internal error: cannot evaluate unrecognized binary operator");
 }
 
-static void expression_parse_number(token_t* token, number_t* out) {
+static void expression_parse_defined(stream_t* stream, number_t* out) {
+    stream_skip_horizontal_space(stream);
+    trace("Parsing defined. Next token: "); token_print(stream_peek(stream));
+
+    token_t* identifier;
+    if (stream_peek(stream)->type == token_type_alphanumeric) {
+        identifier = stream_take(stream);
+        trace("Defined found non-paren identifier: "); token_print(identifier);
+    } else if (stream_accept(stream, STR_PAREN_OPEN)) {
+        stream_skip_horizontal_space(stream);
+        identifier = stream_take(stream);
+        trace("Found paren identifier: "); token_print(identifier);
+        stream_skip_horizontal_space(stream);
+        stream_expect(stream, STR_PAREN_CLOSE,
+                "Expected closing parenthesis after macro name in `defined(`.");
+    } else {
+        trace("Defined paren identifier not found!\n");
+        identifier = token_end;
+    }
+
+    if (identifier->type != token_type_alphanumeric) {
+        fatal_token(identifier, "Expected macro name after `defined` in expression of #if/#elif directive.");
+    }
+
+    out->is_signed = true;
+    out->s = NULL != macro_find(identifier->value);
+    token_deref(identifier);
+}
+
+static bool expression_try_parse_number(stream_t* stream, number_t* out) {
+    token_t* token = stream_peek(stream);
+    if (token->type != token_type_number)
+        return false;
+
     const char* p = string_cstr(token->value);
     //trace("expression parsing number token %s\n", p);
     unsigned base = 0;
@@ -228,36 +262,36 @@ static void expression_parse_number(token_t* token, number_t* out) {
     }
 
     //trace("expression parsed %" PRIi64 "\n", out->s);
+    stream_consume(stream);
+    return true;
 }
 
 static void expression_parse_primary(stream_t* stream, number_t* out) {
     stream_skip_horizontal_space(stream);
-    token_t* token = stream_peek(stream);
 
-    // defined, parens, literal number, literal char.
-
-
-
-    // TODO for now assume number
+    // Parse `defined`
+    if (stream_accept(stream, STR_DEFINED)) {
+        expression_parse_defined(stream, out);
+        return;
+    }
 
     // Parse a number
-    if (token->type == token_type_number) {
-        expression_parse_number(token, out);
-        stream_consume(stream);
+    if (expression_try_parse_number(stream, out)) {
         return;
     }
 
     // Parse parens
-    if (token_is_punctuation(token, STR_PAREN_OPEN)) {
-        //trace("Found open paren");
-        stream_consume(stream);
+    if (stream_accept(stream, STR_PAREN_OPEN)) {
+        trace("Found open paren");
         expression_parse(stream, out);
         stream_expect(stream, STR_PAREN_CLOSE,
                 "Expected closing parenthesis in expression of #if/#elif directive.");
         return;
     }
 
-    fatal_token(token, "Expected primary expression in #if/#elif directive.");
+    // TODO literal number, literal char.
+
+    fatal_token(stream_peek(stream), "Expected primary expression in #if/#elif directive.");
 }
 
 static void expression_parse_unary(stream_t* stream, number_t* out) {

@@ -26,6 +26,7 @@
 
 // keywords
 string_t* STR_DEFINE;
+string_t* STR_DEFINED;
 string_t* STR_ELIF;
 string_t* STR_ELIFDEF;
 string_t* STR_ELIFNDEF;
@@ -83,6 +84,7 @@ void strings_setup(void) {
 
     // keywords
     STR_DEFINE = string_intern_cstr("define");
+    STR_DEFINED = string_intern_cstr("defined");
     STR_ELIF = string_intern_cstr("elif");
     STR_ELIFDEF = string_intern_cstr("elifdef");
     STR_ELIFNDEF = string_intern_cstr("elifndef");
@@ -141,6 +143,7 @@ void strings_teardown(void) {
 
     // keywords
     string_deref(STR_DEFINE);
+    string_deref(STR_DEFINED);
     string_deref(STR_ELIF);
     string_deref(STR_ELIFDEF);
     string_deref(STR_ELIFNDEF);

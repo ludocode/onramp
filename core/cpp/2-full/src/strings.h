@@ -29,6 +29,7 @@
 
 // keywords
 extern string_t* STR_DEFINE;
+extern string_t* STR_DEFINED;
 extern string_t* STR_ELIF;
 extern string_t* STR_ELIFDEF;
 extern string_t* STR_ELIFNDEF;

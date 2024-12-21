@@ -96,22 +96,29 @@ static inline size_t macro_hash(macro_t* macro) {
 }
 
 /**
- * TODO this description is now wrong, it only does one expansion pass and
- * leaves stuff in the stack. Need to either fix the loop or take it out and
- * fix the docs.
+ * Performs macro expansion on the given stream, outputting the fully expanded
+ * tokens.
  *
- * Performs macro expansion on the given token and all tokens it expands to
- * recursively, outputting the fully expanded tokens.
+ * Macro expansion stops at the first directive, or at the end of the stream (in
+ * the case of macro-expanding arguments for example), or on a newline (when
+ * expanding the tokens of an `#if` directive for example.)
+ * If the line contains a macro with arguments that contain preprocessor
+ * directives, the directives will be parsed before the macro is expanded.
+    * TODO should fix this to parse all directives internally, preprocess_run() should be replaced by this
  *
  * Tokens can be outputted to the output file or, in the case of an `#if` or
  * `#include`, to an output buffer for furthur processing (e.g. for expression
  * evaluation.)
  *
- * If the given token is a macro with arguments that contain preprocessor
- * directives, the directives will be parsed before the macro is expanded.
+ * If handle_defined is true, defined will be treated as a keyword and a
+ * subsequent macro name will not be expanded. This is used when
+ * macro-expanding the expression in an #if/#elif directive.
  */
-void macro_expand(struct stream_t* stream,
-        vector_t* /*nullable*/ output, token_t* token);
+void macro_expand_stream(
+        struct stream_t* stream,
+        vector_t* /*nullable*/ output,
+        bool handle_defined,
+        bool stop_on_newline);
 
 macro_t* macro_find(string_t* name);
 

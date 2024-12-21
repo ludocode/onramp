@@ -127,15 +127,15 @@ token_t* token_new_stringify(struct vector_t* tokens, struct hideset_t* hideset)
 /**
  * Finds the next non-whitespace token in the given vector of tokens.
  *
- * Returns token_end if no token is found.
+ * Returns NULL if no token is found.
  */
-token_t* token_next(void** p, void** end);
+void** token_next(void** p, void** end);
 
 /**
  * Finds the previous non-whitespace token in the given vector of tokens.
  *
- * Returns token_end if no token is found.
+ * Returns NULL if no token is found.
  */
-token_t* token_previous(void** p, void** start);
+void** token_previous(void** p, void** start);
 
 #endif

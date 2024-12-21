@@ -206,3 +206,10 @@ void stream_push(stream_t* stream, struct token_t* token) {
 void stream_reserve(stream_t* stream, size_t count) {
     vector_reserve(&stream->stack, vector_count(&stream->stack) + count);
 }
+
+void stream_forward_spaces(stream_t* stream, vector_t* /*nullable*/ output) {
+    while (stream_peek(stream)->type == token_type_space) {
+        output_token(output, stream_peek(stream));
+        stream_consume(stream);
+    }
+}
