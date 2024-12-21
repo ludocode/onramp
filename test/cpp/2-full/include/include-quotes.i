@@ -1,4 +1,4 @@
-# 1 "./include/include-quotes.c"
-# 1 "./include/include-hello.h" 1
+#line 1 "./include/include-quotes.c"
+#line 1 "./include/include-hello.h"
 hello
-# 6 "./include/include-quotes.c" 2
+#line 6 "./include/include-quotes.c"

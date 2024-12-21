@@ -1,4 +1,4 @@
-# 1 "./include/include-extra-tokens-macro.c"
-# 1 "./include/include-hello.h" 1
+#line 1 "./include/include-extra-tokens-macro.c"
+#line 1 "./include/include-hello.h"
 hello
-# 7 "./include/include-extra-tokens-macro.c" 2
+#line 7 "./include/include-extra-tokens-macro.c"

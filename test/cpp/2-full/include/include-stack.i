@@ -1,19 +1,19 @@
-# 1 "./include/include-stack.c"
-# 5 "./include/include-stack.c"
+#line 1 "./include/include-stack.c"
+#line 5 "./include/include-stack.c"
 0
-# 1 "./include/include-stack-a.h" 1
+#line 1 "./include/include-stack-a.h"
 a
-# 1 "./include/include-stack-b.h" 1
+#line 1 "./include/include-stack-b.h"
 b
-# 1 "./include/include-stack-c.h" 1
+#line 1 "./include/include-stack-c.h"
 c
-# 1 "./include/include-stack-d.h" 1
+#line 1 "./include/include-stack-d.h"
 d
-# 3 "./include/include-stack-c.h" 2
+#line 3 "./include/include-stack-c.h"
 c
-# 3 "./include/include-stack-b.h" 2
+#line 3 "./include/include-stack-b.h"
 b
-# 3 "./include/include-stack-a.h" 2
+#line 3 "./include/include-stack-a.h"
 a
-# 7 "./include/include-stack.c" 2
+#line 7 "./include/include-stack.c"
 0

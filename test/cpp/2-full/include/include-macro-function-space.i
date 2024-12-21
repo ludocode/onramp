@@ -1,4 +1,4 @@
-# 1 "./include/include-macro-function-space.c"
-# 1 "./include/include-hello.h" 1
+#line 1 "./include/include-macro-function-space.c"
+#line 1 "./include/include-hello.h"
 hello
-# 7 "./include/include-macro-function-space.c" 2
+#line 7 "./include/include-macro-function-space.c"

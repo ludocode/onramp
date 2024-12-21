@@ -1,3 +1,3 @@
-# 1 "./if/if-hex-negation.c"
-# 9 "./if/if-hex-negation.c"
+#line 1 "./if/if-hex-negation.c"
+#line 9 "./if/if-hex-negation.c"
 a

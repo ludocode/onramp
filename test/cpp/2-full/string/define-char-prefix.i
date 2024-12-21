@@ -1,9 +1,9 @@
-# 1 "./string/define-char-prefix.c"
-# 8 "./string/define-char-prefix.c"
+#line 1 "./string/define-char-prefix.c"
+#line 8 "./string/define-char-prefix.c"
 static int l = L'l';
 
  
-# 13 "./string/define-char-prefix.c"
+#line 13 "./string/define-char-prefix.c"
 static int x ='x';
 
 int main(void) {

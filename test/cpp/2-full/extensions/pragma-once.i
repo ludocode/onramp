@@ -1,5 +1,5 @@
-# 1 "./extensions/pragma-once.c"
-# 1 "./extensions/pragma-once.h" 1
+#line 1 "./extensions/pragma-once.c"
+#line 1 "./extensions/pragma-once.h"
 
 hello
-# 6 "./extensions/pragma-once.c" 2
+#line 6 "./extensions/pragma-once.c"

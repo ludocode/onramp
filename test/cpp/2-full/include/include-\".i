@@ -1,4 +1,4 @@
-# 1 "./include/include-\".c"
-# 1 "./include/include-\".h" 1
+#line 1 "./include/include-\".c"
+#line 1 "./include/include-\".h"
 hello
-# 9 "./include/include-\".c" 2
+#line 9 "./include/include-\".c"

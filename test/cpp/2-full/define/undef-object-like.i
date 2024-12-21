@@ -1,3 +1,3 @@
-# 1 "./define/undef-object-like.c"
-# 8 "./define/undef-object-like.c"
+#line 1 "./define/undef-object-like.c"
+#line 8 "./define/undef-object-like.c"
 FOO

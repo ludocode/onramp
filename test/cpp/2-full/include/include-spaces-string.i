@@ -1,4 +1,4 @@
-# 1 "./include/include-spaces-string.c"
-# 1 "./include/include  spaces.h" 1
+#line 1 "./include/include-spaces-string.c"
+#line 1 "./include/include  spaces.h"
 two spaces
-# 6 "./include/include-spaces-string.c" 2
+#line 6 "./include/include-spaces-string.c"

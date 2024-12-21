@@ -1,5 +1,5 @@
-# 1 "./if/if-conditional-precedence.c"
-# 11 "./if/if-conditional-precedence.c"
+#line 1 "./if/if-conditional-precedence.c"
+#line 11 "./if/if-conditional-precedence.c"
 yup
-# 14 "./if/if-conditional-precedence.c"
+#line 14 "./if/if-conditional-precedence.c"
  

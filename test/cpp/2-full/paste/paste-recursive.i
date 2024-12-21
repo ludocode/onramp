@@ -1,7 +1,7 @@
-# 1 "./paste/paste-recursive.c"
-# 9 "./paste/paste-recursive.c"
+#line 1 "./paste/paste-recursive.c"
+#line 9 "./paste/paste-recursive.c"
 badCONCAT( con, cat)
 
  
-# 14 "./paste/paste-recursive.c"
+#line 14 "./paste/paste-recursive.c"
 good

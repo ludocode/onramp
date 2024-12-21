@@ -1,3 +1,3 @@
-# 1 "./define/define-recursive.c"
-# 7 "./define/define-recursive.c"
+#line 1 "./define/define-recursive.c"
+#line 7 "./define/define-recursive.c"
 x

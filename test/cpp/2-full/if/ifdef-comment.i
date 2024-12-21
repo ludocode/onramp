@@ -1,1 +1,1 @@
-# 1 "./if/ifdef-comment.c"
+#line 1 "./if/ifdef-comment.c"

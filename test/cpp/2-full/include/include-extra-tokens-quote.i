@@ -1,4 +1,4 @@
-# 1 "./include/include-extra-tokens-quote.c"
-# 1 "./include/include-hello.h" 1
+#line 1 "./include/include-extra-tokens-quote.c"
+#line 1 "./include/include-hello.h"
 hello
-# 6 "./include/include-extra-tokens-quote.c" 2
+#line 6 "./include/include-extra-tokens-quote.c"
