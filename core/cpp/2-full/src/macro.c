@@ -215,12 +215,16 @@ macro_t* macro_find(string_t* name) {
  * If the arguments contain preprocessor directives, the directives will be
  * parsed inline before this returns.
  */
-static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* args) {
+static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t* stream, vector_t* args) {
     //trace("Collecting args for macro %s\n", macro->name->value->bytes);
     vector_t* arg = vector_new();
     int depth = 0;
+    size_t param_count = vector_count(macro->params);
+    bool in_variadic_arg = macro->is_variadic && param_count == 1;
+
+    token_t* token;
     for (;;) {
-        token_t* token = stream_take(stream);
+        token = stream_take(stream);
         if (token->type == token_type_end) {
             fatal_token(token, "Unclosed macro argument list: expected `)` at end of macro invocation.");
         }
@@ -236,25 +240,26 @@ static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* a
         bool is_paren_open = token_is_punctuation(token, STR_PAREN_OPEN);
         bool is_paren_close = token_is_punctuation(token, STR_PAREN_CLOSE);
 
-        // Check for end of argument
-        if (depth == 0 && (is_comma || is_paren_close)) {
+        // Check for end of argument. A comma ends the argument unless we are
+        // parsing the variadic argument.
+        if (depth == 0 && ((is_comma && !in_variadic_arg) || is_paren_close)) {
             vector_append(args, arg);
 
             // Handle end of argument list
             if (is_paren_close) {
                 //trace("Collected args:\n"); for (size_t i = 0; i < vector_count(args); ++i) {
                     //trace("  Arg:\n"); for (size_t j = 0; j < vector_count(vector_at(args, i)); ++j) {trace("    "); token_print(vector_at(vector_at(args, i), j));}}
-                return token;
-            }
-
-            // It's a comma. Check for too many arguments
-            if (!macro->is_variadic && vector_count(args) == vector_count(macro->params)) {
-                fatal_token(token, "Too many arguments for non-variadic macro.");
+                break;
             }
 
             // Start a new argument.
             arg = vector_new();
             token_deref(token);
+
+            // If this is the variadic argument, we'll collect any remaining commas into it.
+            if (macro->is_variadic && vector_count(args) == param_count - 1) {
+                in_variadic_arg = true;
+            }
             continue;
         }
 
@@ -268,6 +273,22 @@ static token_t* macro_collect_args(macro_t* macro, stream_t* stream, vector_t* a
         // Add the token to the current argument
         vector_append(arg, token);
     }
+
+    size_t arg_count = vector_count(args);
+    //trace("collected %zi args for %zi params variadic:%i\n", arg_count, param_count, macro->is_variadic);
+    if (arg_count == 1 && param_count == 0) {
+        // make sure the expansion contains only whitespace
+        vector_t* arg = vector_at(args, 0);
+        for (size_t i = 0; i < vector_count(arg); ++i) {
+            if (!token_is_whitespace(vector_at(arg, i))) {
+                fatal_token(vector_at(arg, i), "The argument list to a function-like macro with no parameters must be empty.");
+            }
+        }
+    } else if (arg_count != param_count) {
+        fatal_token(invocation, "Wrong number of macro arguments.");
+    }
+
+    return token;
 }
 
 /*
@@ -287,40 +308,6 @@ static void macro_destroy_args(vector_t* /*nullable*/ args) {
     }
 }
 
-/**
- * Ensures that the given macro is called with the correct number of arguments.
- */
-static void macro_check_arg_count(token_t* token, macro_t* macro, vector_t* /*nullable*/ args) {
-    if ((args == NULL) != (macro->params == NULL)) {
-        // This shouldn't be possible.
-        fatal_token(token, "Internal error: A macro without parameters was given arguments or vice versa.");
-    }
-
-    if (!macro->params)
-        return;
-
-    size_t arg_count = vector_count(args);
-    size_t param_count = vector_count(macro->params);
-
-    if (macro->is_variadic) {
-        if (arg_count < param_count) {
-            fatal_token(token, "Not enough arguments for variadic macro.");
-        }
-    } else {
-        if (arg_count == 1 && param_count == 0) {
-            // make sure the expansion contains only whitespace
-            vector_t* arg = vector_at(args, 0);
-            for (size_t i = 0; i < vector_count(arg); ++i) {
-                if (!token_is_whitespace(vector_at(arg, i))) {
-                    fatal_token(token, "The argument list to a function-like macro with no parameters must be empty.");
-                }
-            }
-        } else if (arg_count != param_count) {
-            fatal_token(token, "Wrong number of macro arguments.");
-        }
-    }
-}
-
 /*
  * Expands the given macro with the given arguments, pushing the tokens into
  * the given stream.
@@ -332,15 +319,11 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
     //trace("Expanding macro %s\n", macro->name->value->bytes);
 
     // If this is a builtin macro (e.g. __FILE__, __LINE__), delegate to the
-    // function that implements it. We do this before checking for validity of
-    // args so builtins can do whatever they want.
+    // function that implements it.
     if (macro->function) {
         macro->function(macro, args, stream, hideset, location);
         return;
     }
-
-    // Make sure we have the correct number of parameters.
-    macro_check_arg_count(token, macro, args);
 
     // Expand tokens, pushing them in reverse order into the stream.
     void** end = vector_end(&macro->expansion);
@@ -601,7 +584,7 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
 
             // Collect the arguments, running any embedded directives
             args = vector_new();
-            token_t* paren_close = macro_collect_args(macro, stream, args);
+            token_t* paren_close = macro_collect_args(token, macro, stream, args);
 
             // Generate the hideset. Dave Prosser's algorithm is to intersect
             // the hideset with that of the closing parenthesis.
@@ -626,15 +609,15 @@ void macro_parse(stream_t* stream) {
     stream_skip_horizontal_space(stream);
 
     // Get the name
-    token_t* name = stream_take(stream);
-    if (name->type != token_type_alphanumeric) {
+    token_t* macro_name = stream_take(stream);
+    if (macro_name->type != token_type_alphanumeric) {
         //token_print(name);
-        fatal_token(name, "Expected an identifier after `#define`.");
+        fatal_token(macro_name, "Expected an identifier after `#define`.");
     }
 
     // Create the macro
-    macro_t* macro = macro_new(name);
-    token_deref(name);
+    macro_t* macro = macro_new(macro_name);
+    token_deref(macro_name);
 
     // Parse parameter list
     if (stream_accept(stream, STR_PAREN_OPEN)) {
@@ -642,21 +625,31 @@ void macro_parse(stream_t* stream) {
         stream_skip_horizontal_space(stream);
         if (!stream_accept(stream, STR_PAREN_CLOSE)) {
             for (;;) {
+                token_t* param_name = stream_peek(stream);
 
                 // Check for variadic macro
-                if (token_is_punctuation(name, STR_ELLIPSIS)) {
+                if (token_is_punctuation(param_name, STR_ELLIPSIS)) {
                     macro->is_variadic = true;
+                    vector_append(macro->params, string_ref(STR_VA_ARGS));
+                    stream_consume(stream);
                     stream_skip_horizontal_space(stream);
                     stream_expect(stream, STR_PAREN_CLOSE, "Expected `)` after `...` in macro parameter list.");
                     break;
                 }
 
                 // Found a named parameter
-                token_t* name = stream_peek(stream);
-                if (name->type != token_type_alphanumeric) {
-                    fatal_token(name, "Expected a parameter name or `)` or `...` in macro parameter list.");
+                if (param_name->type != token_type_alphanumeric) {
+                    fatal_token(param_name, "Expected a parameter name or `)` or `...` in macro parameter list.");
                 }
-                vector_append(macro->params, string_ref(name->value));
+                vector_append(macro->params, string_ref(param_name->value));
+
+                // Interesting behaviour from compilers if an argument is named
+                // __VA_ARGS__. GCC forbids it; Clang and chibicc expand it to
+                // the named argument; TinyCC expands it to the variadic
+                // arguments. We forbid it as well.
+                if (string_equal(param_name->value, STR_VA_ARGS)) {
+                    fatal_token(param_name, "A macro parameter cannot be named __VA_ARGS__.");
+                }
                 stream_consume(stream);
 
                 // Check for end of parameter list

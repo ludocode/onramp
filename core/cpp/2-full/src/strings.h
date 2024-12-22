@@ -46,6 +46,7 @@ extern string_t* STR_LINE;
 extern string_t* STR_PRAGMA;
 extern string_t* STR_UNDEF;
 extern string_t* STR_WARNING;
+extern string_t* STR_VA_ARGS;
 
 // punctuation
 extern string_t* STR_PAREN_CLOSE;             // )

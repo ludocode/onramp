@@ -43,6 +43,7 @@ string_t* STR_LINE;
 string_t* STR_PRAGMA;
 string_t* STR_UNDEF;
 string_t* STR_WARNING;
+string_t* STR_VA_ARGS;
 
 // punctuation
 string_t* STR_PAREN_CLOSE;             // )
@@ -101,6 +102,7 @@ void strings_setup(void) {
     STR_PRAGMA = string_intern_cstr("pragma");
     STR_UNDEF = string_intern_cstr("undef");
     STR_WARNING = string_intern_cstr("warning");
+    STR_VA_ARGS = string_intern_cstr("__VA_ARGS__");
 
     // punctuation
     STR_PAREN_CLOSE                 = string_intern_cstr(")");
@@ -160,6 +162,7 @@ void strings_teardown(void) {
     string_deref(STR_PRAGMA);
     string_deref(STR_UNDEF);
     string_deref(STR_WARNING);
+    string_deref(STR_VA_ARGS);
 
     // punctuation
     string_deref(STR_PAREN_CLOSE);

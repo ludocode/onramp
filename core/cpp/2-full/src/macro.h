@@ -50,8 +50,8 @@ typedef struct macro_t {
     table_entry_t entry;
     unsigned refcount;
     token_t* name;
-    vector_t* params; // contains string_t*. null if object-like macro. does not include variadic param.
-    bool is_variadic; // only valid if params is non-null
+    vector_t* params; // contains string_t*. null if object-like macro. includes __VA_ARGS__ if variadic.
+    bool is_variadic;
 
     // A macro can expand to either an expansion list (for macros defined with
     // #define) or a builtin function (e.g. __COUNTER__, has_include(), etc.)
