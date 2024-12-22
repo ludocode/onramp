@@ -80,23 +80,6 @@ static bool directive_parse_if(stream_t* stream, token_t* command) {
     vector_init(&buffer);
     macro_expand_stream(stream, &buffer, true, true);
 
-    #if 0
-    for (;;) {
-        token_t* token = stream_take(stream);
-        if (token->type == token_type_newline) {
-            token_deref(token);
-            break;
-        }
-        if (token->type == token_type_end) {
-            // Our lexer always synthesizes a line ending at the end of the
-            // file so this shouldn't be possible.
-            fatal("Internal error: end of stream parsing #%s directive", command);
-        }
-        macro_expand(stream, &buffer, token, true);
-        token_deref(token);
-    }
-    #endif
-
     stream_t expr_stream;
     stream_init(&expr_stream, false, &buffer);
     bool result = expression_evaluate(&expr_stream);

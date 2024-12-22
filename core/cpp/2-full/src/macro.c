@@ -724,7 +724,7 @@ static void macro_check(macro_t* macro) {
         if (token_is_punctuation(*p, STR_HASH)) {
             void** token_loc = token_next(p, end);
             if (token_loc == NULL || macro_param(macro, *token_loc) == -1) {
-                token_t* token = token_loc ? *token_loc : token_end;
+                token_t* token = token_loc ? (token_t*)*token_loc : token_end;
                 fatal_token((token->type != token_type_end) ? token : *p,
                         "The `#` operator in a macro must be followed by a parameter.");
             }
