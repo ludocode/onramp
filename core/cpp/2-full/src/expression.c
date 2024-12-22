@@ -289,7 +289,15 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
         return;
     }
 
-    // TODO literal number, literal char.
+    // Any identifier that wasn't expanded as a macro is treated as a zero.
+    // TODO warn -Wundef
+    if (stream_peek(stream)->type == token_type_alphanumeric) {
+        stream_consume(stream);
+        out->u = 0;
+        return;
+    }
+
+    // TODO literal char.
 
     fatal_token(stream_peek(stream), "Expected primary expression in #if/#elif directive.");
 }
