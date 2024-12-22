@@ -100,9 +100,9 @@ static void expression_binary_evaluate(token_t* operator, number_t* left, const 
         left->u = left->u || right->u;
         return;
     }
-    if (token_is_punctuation(operator, STR_PIPE_PIPE)) {
+    if (token_is_punctuation(operator, STR_AMPERSAND_AMPERSAND)) {
         left->is_signed = true;
-        left->u = left->u || right->u;
+        left->u = left->u && right->u;
         return;
     }
 
@@ -212,7 +212,7 @@ static void expression_binary_evaluate(token_t* operator, number_t* left, const 
         }
     }
 
-    fatal("Internal error: cannot evaluate unrecognized binary operator");
+    fatal("Internal error: cannot evaluate unrecognized binary operator %s", operator->value->bytes);
 }
 
 static void expression_parse_defined(stream_t* stream, number_t* out) {
