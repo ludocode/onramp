@@ -101,6 +101,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/multibyte.oo \
     build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/stdbit.oo \
+    build/intermediate/libc-2-opc/stdlib.oo \
     build/intermediate/libc-2-opc/string.oo \
     build/intermediate/libc-2-opc/strings.oo \
     build/intermediate/libc-2-opc/syscalls.oo \
