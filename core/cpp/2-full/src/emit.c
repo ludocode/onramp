@@ -152,8 +152,12 @@ void emit_token_at(token_t* token, location_t* location) {
         case token_type_alphanumeric:
         case token_type_number:
         case token_type_punctuation:
-            emit_location(location);
-            emit_string(token->value);
+            // The string may be empty in the case of a token pasting
+            // placeholder that wasn't concatenated.
+            if (!string_is_empty(token->value)) {
+                emit_location(location);
+                emit_string(token->value);
+            }
             break;
         case token_type_space:
             if (last_char == ' ' || last_char == '\n')

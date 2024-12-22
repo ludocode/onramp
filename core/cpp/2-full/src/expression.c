@@ -217,21 +217,21 @@ static void expression_binary_evaluate(token_t* operator, number_t* left, const 
 
 static void expression_parse_defined(stream_t* stream, number_t* out) {
     stream_skip_horizontal_space(stream);
-    trace("Parsing defined. Next token: "); token_print(stream_peek(stream));
+    //trace("Parsing defined. Next token: "); token_print(stream_peek(stream));
 
     token_t* identifier;
     if (stream_peek(stream)->type == token_type_alphanumeric) {
         identifier = stream_take(stream);
-        trace("Defined found non-paren identifier: "); token_print(identifier);
+        //trace("Defined found non-paren identifier: "); token_print(identifier);
     } else if (stream_accept(stream, STR_PAREN_OPEN)) {
         stream_skip_horizontal_space(stream);
         identifier = stream_take(stream);
-        trace("Found paren identifier: "); token_print(identifier);
+        //trace("Found paren identifier: "); token_print(identifier);
         stream_skip_horizontal_space(stream);
         stream_expect(stream, STR_PAREN_CLOSE,
                 "Expected closing parenthesis after macro name in `defined(`.");
     } else {
-        trace("Defined paren identifier not found!\n");
+        //trace("Defined paren identifier not found!\n");
         identifier = token_end;
     }
 
@@ -282,7 +282,7 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
 
     // Parse parens
     if (stream_accept(stream, STR_PAREN_OPEN)) {
-        trace("Found open paren");
+        //trace("Found open paren");
         expression_parse(stream, out);
         stream_expect(stream, STR_PAREN_CLOSE,
                 "Expected closing parenthesis in expression of #if/#elif directive.");

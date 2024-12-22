@@ -219,8 +219,8 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t
     //trace("Collecting args for macro %s\n", macro->name->value->bytes);
     vector_t* arg = vector_new();
     int depth = 0;
-    size_t param_count = vector_count(macro->params);
-    bool in_variadic_arg = macro->is_variadic && param_count == 1;
+    size_t params_count = vector_count(macro->params);
+    bool in_variadic_arg = macro->is_variadic && params_count == 1;
 
     token_t* token;
     for (;;) {
@@ -248,7 +248,7 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t
             // Handle end of argument list
             if (is_paren_close) {
                 //trace("Collected args:\n"); for (size_t i = 0; i < vector_count(args); ++i) {
-                    //trace("  Arg:\n"); for (size_t j = 0; j < vector_count(vector_at(args, i)); ++j) {trace("    "); token_print(vector_at(vector_at(args, i), j));}}
+                    //trace("  Arg:\n"); for (size_t j = 0; j < vector_count(vector_at(args, i)); ++j) {//trace("    "); token_print(vector_at(vector_at(args, i), j));}}
                 break;
             }
 
@@ -257,7 +257,7 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t
             token_deref(token);
 
             // If this is the variadic argument, we'll collect any remaining commas into it.
-            if (macro->is_variadic && vector_count(args) == param_count - 1) {
+            if (macro->is_variadic && vector_count(args) == params_count - 1) {
                 in_variadic_arg = true;
             }
             continue;
@@ -274,17 +274,24 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t
         vector_append(arg, token);
     }
 
-    size_t arg_count = vector_count(args);
-    //trace("collected %zi args for %zi params variadic:%i\n", arg_count, param_count, macro->is_variadic);
-    if (arg_count == 1 && param_count == 0) {
-        // make sure the expansion contains only whitespace
+    // Check that the given number of arguments is correct
+    size_t args_count = vector_count(args);
+    //trace("collected %zi args for %zi params variadic:%i\n", args_count, params_count, macro->is_variadic);
+    if (args_count == 1 && params_count == 0) {
+        // A function-like macro without parameters can be given only
+        // whitespace.
         vector_t* arg = vector_at(args, 0);
         for (size_t i = 0; i < vector_count(arg); ++i) {
             if (!token_is_whitespace(vector_at(arg, i))) {
                 fatal_token(vector_at(arg, i), "The argument list to a function-like macro with no parameters must be empty.");
             }
         }
-    } else if (arg_count != param_count) {
+
+    } else if (macro->is_variadic && args_count == params_count - 1) {
+        // The variadic argument is allowed to be omitted in newer C standards.
+        // TODO check C version
+
+    } else if (args_count != params_count) {
         fatal_token(invocation, "Wrong number of macro arguments.");
     }
 
@@ -325,12 +332,14 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
         return;
     }
 
-    // Expand tokens, pushing them in reverse order into the stream.
+    size_t args_count = args ? vector_count(args) : 0;
+    size_t params_count = args ? vector_count(macro->params) : 0;
     void** end = vector_end(&macro->expansion);
     void** start = vector_start(&macro->expansion);
-    void** p = end;
 
-    while (p != start) {
+    // Expand tokens, pushing them in reverse order into the stream.
+    for (void** p = end; p != start;) {
+        //trace("Stack is now:\n"); stream_print_stack(stream);
         --p;
         token_t* current = *p;
         int param = macro_param(macro, current);
@@ -374,17 +383,35 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
             // Stringify was handled by the stringified token (see below).
             // There's nothing to do here.
             //trace("Skipping stringify operator, already handled\n");
+            continue;
+        }
 
-        } else if (token_is_punctuation(current, STR_HASH_HASH)) {
+        if (token_is_punctuation(current, STR_HASH_HASH)) {
             // Token pasting will be handled by the left token.
             // There's nothing to do here.
             //trace("Skipping paste operator, to be handled\n");
+            continue;
+        }
 
-        } else if (token_is_punctuation(next, STR_HASH_HASH)) {
+        if (token_is_punctuation(next, STR_HASH_HASH)) {
             // It's followed by ##. Token paste.
             if (current->type == token_type_space)
                 continue;
             //trace("Token is followed by ##, doing token paste\n");
+
+            // We support comma elision with `, ## __VA_ARGS__`.
+            if (token_is_punctuation(current, STR_COMMA)) {
+                void** next_next = token_next(next_p, end);
+                if (next_next && token_is_keyword(*next_next, STR_VA_ARGS)) {
+                    // Only push the comma if a variadic argument was given.
+                    if (args_count < params_count) {
+                        continue;
+                    }
+                }
+                // The right token has already been pushed. Push the comma.
+                stream_push(stream, token_new_expansion(current, location, hideset));
+                continue;
+            }
 
             // The right token to paste (or a placeholder) has already been
             // pushed to the stream. The left token must be expanded. We've
@@ -436,41 +463,56 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
 
             token_deref(right);
             //trace("Pasted token is: "); token_print(stream_peek(stream));
+            continue;
+        }
 
-        } else if (param == -1) {
+        if (param == -1) {
             // Not a parameter; just push it
             // TODO do we recursively expand object-like macros here? I'm
             // pretty sure we don't but this might be wrong.
             //trace("Pushing %s to stack with new hideset.\n", current->value->bytes);
             stream_push(stream, token_new_expansion(current, location, hideset));
+            continue;
+        }
 
-        } else if (token_is_punctuation(previous, STR_HASH)) {
+        if (token_is_punctuation(previous, STR_HASH)) {
             // It's a parameter preceded by #. Stringify the expansion.
             //trace("Stringifying %s\n", current->value->bytes);
             vector_t* arg = vector_at(args, param);
             stream_push(stream, token_new_stringify(arg, hideset));
+            continue;
+        }
 
-        } else if (token_is_punctuation(previous, STR_HASH_HASH)) {
+        if (token_is_punctuation(previous, STR_HASH_HASH)) {
             // It's a parameter preceded by ##. Push the argument without macro
             // expansion; the first token will be pasted.
             //trace("Parameter to be token pasted; pushing arg without expansion\n");
 
             bool empty = true;
 
-            vector_t* arg = vector_at(args, param);
-            for (size_t j = vector_count(arg); j-- > 0;) {
-                token_t* t = vector_at(arg, j);
-                stream_push(stream, token_new_expansion(t, location, hideset));
-                if (t->type != token_type_space)
-                    empty = false;
+            if ((size_t)param != args_count) { // in case the variadic parameter was omitted
+                vector_t* arg = vector_at(args, param);
+                for (size_t j = vector_count(arg); j-- > 0;) {
+                    token_t* t = vector_at(arg, j);
+                    stream_push(stream, token_new_expansion(t, location, hideset));
+                    if (t->type != token_type_space)
+                        empty = false;
+                }
             }
             if (empty) {
                 // The argument list is empty. We need to push a placeholder token.
                 stream_push(stream, token_new_bytes(token_type_alphanumeric,
                             NULL, 0, &location_builtin));
             }
+            continue;
+        }
 
-        } else {
+        if (string_equal(current->value, STR_VA_ARGS) && args_count < params_count) {
+            // __VA_ARGS__ but the variadic argument was omitted. Nothing to do.
+            continue;
+        }
+
+        {
             // The parameter is not stringified or token pasted. We need to
             // recursively expand it before pushing it into the stream.
             //trace("Token %s is a parameter with no # or ##.\n", current->value->bytes);
@@ -492,9 +534,8 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
             }
             vector_destroy(&arg_buffer);
             stream_destroy(&arg_stream);
+            continue;
         }
-
-        //trace("Stack is now:\n"); stream_print_stack(stream);
     }
     //trace("Done expanding macro %s\n", macro->name->value->bytes);
 }
