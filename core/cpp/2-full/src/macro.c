@@ -97,8 +97,6 @@ static void macro_define_function(const char* cname, macro_function_t* function)
 void macro_define_builtins(void) {
     if (!options_nostddef) {
         macro_define_int("__onramp_cpp__", 1);
-        // TODO for now we're pretending to be cpp/1 until object-like macros and #if expressions are fully implemented
-        macro_define_int("__onramp_cpp_omc__", 1);
     }
 
     macro_define_function("__FILE__", macro_builtin_file);

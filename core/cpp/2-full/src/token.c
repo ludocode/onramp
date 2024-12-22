@@ -291,8 +291,7 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
     free(result);
     token->hideset = hideset_ref(hideset);
 
-    //trace("Generated stringified token: ");
-    token_print(token);
+    //trace("Generated stringified token: "); token_print(token);
     return token;
 }
 

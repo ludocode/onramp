@@ -101,7 +101,7 @@ void vector_delete(vector_t* vector);
 
 #ifndef __onramp_cpp_omc__
     #ifndef DEBUG
-        #define vector_set(vector, index) ((vector)->elements[(index)] = (value))
+        #define vector_set(vector, index, value) ((void)((vector)->elements[(index)] = (value)))
     #endif
 #endif
 #ifndef vector_set
@@ -158,9 +158,16 @@ void* vector_remove(vector_t* vector, size_t index);
 
 void* vector_remove_last(vector_t* vector);
 
-static inline void vector_remove_all(vector_t* vector) {
-    vector->count = 0;
-}
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define vector_remove_all(vector) ((void)((vector)->count = 0))
+    #endif
+#endif
+#ifndef vector_remove_all
+    static inline void vector_remove_all(vector_t* vector) {
+        vector->count = 0;
+    }
+#endif
 
 /**
  * Returns a pointer to the start of the vector.
