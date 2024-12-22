@@ -158,6 +158,10 @@ void* vector_remove(vector_t* vector, size_t index);
 
 void* vector_remove_last(vector_t* vector);
 
+static inline void vector_remove_all(vector_t* vector) {
+    vector->count = 0;
+}
+
 /**
  * Returns a pointer to the start of the vector.
  *

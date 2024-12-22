@@ -77,6 +77,7 @@ string_t* STR_TILDE;                   // ~
 string_t* STR_EXCLAMATION;             // ~
 
 // miscellaneous
+string_t* STR_EMPTY;          // ""
 string_t* STR_SPACE;          // " "
 string_t* STR_BUILT_IN;       // <built-in>
 string_t* STR_COMMAND_LINE;   // <command line>
@@ -136,6 +137,7 @@ void strings_setup(void) {
     STR_EXCLAMATION                 = string_intern_cstr("!");
 
     // miscellaneous
+    STR_EMPTY = string_intern_cstr("");
     STR_SPACE = string_intern_cstr(" ");
     STR_BUILT_IN = string_intern_cstr("<built-in>");
     STR_COMMAND_LINE = string_intern_cstr("<command line>");
@@ -196,6 +198,7 @@ void strings_teardown(void) {
     string_deref(STR_EXCLAMATION);
 
     // miscellaneous
+    string_deref(STR_EMPTY);
     string_deref(STR_SPACE);
     string_deref(STR_BUILT_IN);
     string_deref(STR_COMMAND_LINE);

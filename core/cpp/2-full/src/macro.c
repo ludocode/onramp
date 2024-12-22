@@ -38,6 +38,7 @@ static table_t macros;
 static macro_t* macro_new(token_t* name);
 static void macro_define(macro_t* macro);
 static void macro_check(macro_t* macro);
+static void macro_delete_arg(vector_t* arg);
 
 static macro_function_t macro_builtin_file;
 static macro_function_t macro_builtin_line;
@@ -293,23 +294,45 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t
 
     } else if (args_count != params_count) {
         fatal_token(invocation, "Wrong number of macro arguments.");
+
+    } else if (macro->is_variadic && params_count == 1) {
+        // If the single variadic argument contains only whitespace, delete it
+        // so that comma elision and __VA_OPT__ work as expected.
+        bool blank = true;
+        vector_t* arg = vector_at(args, 0);
+        for (size_t i = 0; i < vector_count(arg); ++i) {
+            if (!token_is_whitespace(vector_at(arg, i))) {
+                blank = false;
+                break;
+            }
+        }
+        if (blank) {
+            macro_delete_arg(arg);
+            vector_remove_all(args);
+        }
     }
 
     return token;
 }
 
+/**
+ * Deletes the given argument vector.
+ */
+static void macro_delete_arg(vector_t* arg) {
+    for (size_t j = 0; j < vector_count(arg); ++j) {
+        token_deref(vector_at(arg, j));
+    }
+    vector_delete(arg);
+}
+
 /*
- * Destroys the argument list collected by macro_collect_args() (the vector of
+ * Deletes the argument list collected by macro_collect_args() (the vector of
  * vector of tokens.)
  */
-static void macro_destroy_args(vector_t* /*nullable*/ args) {
+static void macro_delete_args(vector_t* /*nullable*/ args) {
     if (args) {
         for (size_t i = 0; i < vector_count(args); ++i) {
-            vector_t* arg = vector_at(args, i);
-            for (size_t j = 0; j < vector_count(arg); ++j) {
-                token_deref(vector_at(arg, j));
-            }
-            vector_delete(arg);
+            macro_delete_arg(vector_at(args, i));
         }
         vector_delete(args);
     }
@@ -478,6 +501,15 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
         if (token_is_punctuation(previous, STR_HASH)) {
             // It's a parameter preceded by #. Stringify the expansion.
             //trace("Stringifying %s\n", current->value->bytes);
+            if ((size_t)param == args_count) {
+                // The variadic argument is blank or not provided. It
+                // stringifies to the empty string (even if it contained
+                // whitespace.)
+                token_t* token = token_new(token_type_string, STR_EMPTY, location);
+                token->hideset = hideset_ref(hideset);
+                stream_push(stream, token);
+                continue;
+            }
             vector_t* arg = vector_at(args, param);
             stream_push(stream, token_new_stringify(arg, hideset));
             continue;
@@ -639,7 +671,7 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
 
         // Clean up
         hideset_deref(hideset);
-        macro_destroy_args(args);
+        macro_delete_args(args);
         token_deref(token);
     }
 

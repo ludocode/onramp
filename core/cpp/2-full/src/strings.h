@@ -80,6 +80,7 @@ extern string_t* STR_TILDE;                   // ~
 extern string_t* STR_EXCLAMATION;             // ~
 
 // miscellaneous
+extern string_t* STR_EMPTY;          // ""
 extern string_t* STR_SPACE;          // " "
 extern string_t* STR_BUILT_IN;       // <built-in>
 extern string_t* STR_COMMAND_LINE;   // <command line>

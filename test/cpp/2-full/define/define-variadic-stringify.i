@@ -1,6 +1,8 @@
 #line 1 "./define/define-variadic-stringify.c"
 #line 6 "./define/define-variadic-stringify.c"
 before "" after
+before "" after
+before "" after
 before "1" after
 before "1,2" after
 before "1,2,3" after

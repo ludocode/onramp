@@ -174,8 +174,7 @@ bool token_is_whitespace(token_t* token) {
 }
 
 string_t* stringify_string(token_t* token) {
-    //printf("Stringifying token: ");
-    token_print(token);
+    //trace("Stringifying token: "); token_print(token);
 
     bool is_str = token->type == token_type_string;
 
@@ -224,7 +223,7 @@ string_t* stringify_string(token_t* token) {
 }
 
 token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
-    //printf("Stringified vector with %zi tokens\n", vector_count(tokens));
+    //trace("Stringified vector with %zi tokens\n", vector_count(tokens));
 
     // TODO we could really use a byte buffer in libo.
     size_t result_length = 0;
@@ -264,7 +263,7 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
                     append = string_ref(token->value);
                 }
 
-                //printf("Appending token \"%s\"\n", append->bytes);
+                //trace("Appending token \"%s\"\n", append->bytes);
 
                 // We use the location of the first non-whitespace non-empty
                 // token as the stringified token's location.
@@ -292,7 +291,7 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
     free(result);
     token->hideset = hideset_ref(hideset);
 
-    //printf("Generated stringified token: ");
+    //trace("Generated stringified token: ");
     token_print(token);
     return token;
 }
