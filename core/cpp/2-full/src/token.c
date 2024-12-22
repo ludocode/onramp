@@ -169,6 +169,10 @@ bool token_is_keyword(token_t* token, string_t* keyword) {
     return token->type == token_type_alphanumeric && string_equal(token->value, keyword);
 }
 
+bool token_is_whitespace(token_t* token) {
+    return token->type == token_type_space || token->type == token_type_newline;
+}
+
 string_t* stringify_string(token_t* token) {
     //printf("Stringifying token: ");
     token_print(token);

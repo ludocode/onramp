@@ -126,6 +126,7 @@ static macro_t* macro_new(token_t* name) {
     macro->refcount = 1;
     macro->name = token_ref(name);
     macro->params = NULL;
+    macro->is_variadic = false;
     vector_init(&macro->expansion);
     macro->function = NULL;
 
@@ -286,23 +287,62 @@ static void macro_destroy_args(vector_t* /*nullable*/ args) {
     }
 }
 
+/**
+ * Ensures that the given macro is called with the correct number of arguments.
+ */
+static void macro_check_arg_count(token_t* token, macro_t* macro, vector_t* /*nullable*/ args) {
+    if ((args == NULL) != (macro->params == NULL)) {
+        // This shouldn't be possible.
+        fatal_token(token, "Internal error: A macro without parameters was given arguments or vice versa.");
+    }
+
+    if (!macro->params)
+        return;
+
+    size_t arg_count = vector_count(args);
+    size_t param_count = vector_count(macro->params);
+
+    if (macro->is_variadic) {
+        if (arg_count < param_count) {
+            fatal_token(token, "Not enough arguments for variadic macro.");
+        }
+    } else {
+        if (arg_count == 1 && param_count == 0) {
+            // make sure the expansion contains only whitespace
+            vector_t* arg = vector_at(args, 0);
+            for (size_t i = 0; i < vector_count(arg); ++i) {
+                if (!token_is_whitespace(vector_at(arg, i))) {
+                    fatal_token(token, "The argument list to a function-like macro with no parameters must be empty.");
+                }
+            }
+        } else if (arg_count != param_count) {
+            fatal_token(token, "Wrong number of macro arguments.");
+        }
+    }
+}
+
 /*
  * Expands the given macro with the given arguments, pushing the tokens into
  * the given stream.
  */
-static void macro_expand(macro_t* macro, vector_t* /*nullable*/ args,
+static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ args,
         stream_t* stream, hideset_t* hideset, location_t* location,
         bool handle_defined)
 {
-    assert((args == NULL) == (macro->params == NULL));
+    //trace("Expanding macro %s\n", macro->name->value->bytes);
 
+    // If this is a builtin macro (e.g. __FILE__, __LINE__), delegate to the
+    // function that implements it. We do this before checking for validity of
+    // args so builtins can do whatever they want.
     if (macro->function) {
         macro->function(macro, args, stream, hideset, location);
         return;
     }
 
+    // Make sure we have the correct number of parameters.
+    macro_check_arg_count(token, macro, args);
+
     // Expand tokens, pushing them in reverse order into the stream.
-    //trace("Expanding macro %s\n", macro->name->value->bytes);
     void** end = vector_end(&macro->expansion);
     void** start = vector_start(&macro->expansion);
     void** p = end;
@@ -571,7 +611,7 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
         }
 
         // Perform the expansion
-        macro_expand(macro, args, stream, hideset, &token->location, handle_defined);
+        macro_expand(token, macro, args, stream, hideset, &token->location, handle_defined);
 
         // Clean up
         hideset_deref(hideset);

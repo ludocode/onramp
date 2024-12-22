@@ -113,6 +113,11 @@ bool token_is_punctuation(token_t* token, string_t* punctuation);
  */
 bool token_is_keyword(token_t* token, string_t* keyword);
 
+/**
+ * Returns true if the given token is horizontal or vertical whitespace.
+ */
+bool token_is_whitespace(token_t* token);
+
 static inline token_t* token_ref(token_t* token) {
     ++token->refcount;
     return token;
