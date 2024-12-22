@@ -312,3 +312,13 @@ void** token_previous(void** p, void** start) {
     }
     return NULL;
 }
+
+token_t* token_new_int(int value, location_t* location, hideset_t* /*nullable*/ hideset) {
+    char buf[16];
+    sprintf(buf, "%i", value);
+    string_t* numstr = string_intern_cstr(buf);
+    token_t* token = token_new(token_type_number, numstr, location);
+    token->hideset = hideset ? hideset_ref(hideset) : NULL;
+    string_deref(numstr);
+    return token;
+}

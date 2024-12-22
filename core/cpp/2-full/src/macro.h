@@ -31,6 +31,11 @@
 #include "token.h"
 
 struct stream_t;
+struct macro_t;
+struct hideset_t;
+
+typedef void macro_function_t(struct macro_t* macro, vector_t* /*nullable*/ args,
+        struct stream_t* stream, struct hideset_t* hideset, location_t* location);
 
 /**
  * A macro.
@@ -53,7 +58,7 @@ typedef struct macro_t {
     // Only one of these will be used; if the function is non-null, the
     // expansion list is ignored and must be empty.
     vector_t expansion; // a list of strong references to tokens
-    void (*function)(struct stream_t* input, vector_t* /*nullable*/ output);
+    macro_function_t* /*nullable*/ function;
 } macro_t;
 
 void macro_setup(void);

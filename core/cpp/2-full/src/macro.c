@@ -39,6 +39,12 @@ static macro_t* macro_new(token_t* name);
 static void macro_define(macro_t* macro);
 static void macro_check(macro_t* macro);
 
+static macro_function_t macro_builtin_file;
+static macro_function_t macro_builtin_line;
+static macro_function_t macro_builtin_counter;
+
+static int macro_counter = 0;
+
 void macro_setup(void) {
     //trace("macro_setup\n");
     table_init(&macros);
@@ -62,21 +68,26 @@ void macro_teardown(void) {
 }
 
 static void macro_define_int(const char* cname, int value) {
-    location_t location;
-    location_init_builtin(&location);
-
     string_t* name = string_intern_cstr(cname);
-    token_t* name_token = token_new(token_type_alphanumeric, name, &location);
+    token_t* name_token = token_new(token_type_alphanumeric, name, &location_builtin);
     macro_t* macro = macro_new(name_token);
     token_deref(name_token);
     string_deref(name);
 
-    char buf[16];
-    sprintf(buf, "%i", value);
-    string_t* numstr = string_intern_cstr(buf);
-    vector_append(&macro->expansion, token_new(token_type_number, numstr, &location));
-    string_deref(numstr);
-    location_destroy(&location);
+    vector_append(&macro->expansion, token_new_int(value, &location_builtin, NULL));
+
+    macro_define(macro);
+    macro_deref(macro);
+}
+
+static void macro_define_function(const char* cname, macro_function_t* function) {
+    string_t* name = string_intern_cstr(cname);
+    token_t* name_token = token_new(token_type_alphanumeric, name, &location_builtin);
+    macro_t* macro = macro_new(name_token);
+    token_deref(name_token);
+    string_deref(name);
+
+    macro->function = function;
 
     macro_define(macro);
     macro_deref(macro);
@@ -89,7 +100,9 @@ void macro_define_builtins(void) {
         macro_define_int("__onramp_cpp_omc__", 1);
     }
 
-    // TODO define __LINE__, __FILE__, etc.
+    macro_define_function("__FILE__", macro_builtin_file);
+    macro_define_function("__LINE__", macro_builtin_line);
+    macro_define_function("__COUNTER__", macro_builtin_counter);
 }
 
 void macro_undef(string_t* name) {
@@ -282,6 +295,11 @@ static void macro_expand(macro_t* macro, vector_t* /*nullable*/ args,
         bool handle_defined)
 {
     assert((args == NULL) == (macro->params == NULL));
+
+    if (macro->function) {
+        macro->function(macro, args, stream, hideset, location);
+        return;
+    }
 
     // Expand tokens, pushing them in reverse order into the stream.
     //trace("Expanding macro %s\n", macro->name->value->bytes);
@@ -731,4 +749,24 @@ static void macro_check(macro_t* macro) {
         }
 
     }
+}
+
+static void macro_builtin_file(macro_t* macro, vector_t* /*nullable*/ args,
+        stream_t* stream, hideset_t* hideset, location_t* location)
+{
+    token_t* token = token_new(token_type_string, location->filename, location);
+    token->hideset = hideset ? hideset_ref(hideset) : NULL;
+    stream_push(stream, token);
+}
+
+static void macro_builtin_line(macro_t* macro, vector_t* /*nullable*/ args,
+        stream_t* stream, hideset_t* hideset, location_t* location)
+{
+    stream_push(stream, token_new_int(location->line, location, hideset));
+}
+
+static void macro_builtin_counter(macro_t* macro, vector_t* /*nullable*/ args,
+        stream_t* stream, hideset_t* hideset, location_t* location)
+{
+    stream_push(stream, token_new_int(macro_counter++, location, hideset));
 }

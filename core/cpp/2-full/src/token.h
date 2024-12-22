@@ -94,8 +94,12 @@ token_t* token_new_bytes(token_type_t type, const char8_t* bytes, size_t count, 
  *
  * The new token's location and hideset are replaced with those given.
  */
-token_t* token_new_expansion(token_t* token, location_t* location, struct hideset_t* hideset);
+token_t* token_new_expansion(token_t* token, location_t* location, struct hideset_t* /*nullable*/ hideset);
 
+/**
+ * Creates a token representing an integer.
+ */
+token_t* token_new_int(int value, location_t* location, struct hideset_t* /*nullable*/ hideset);
 
 /**
  * Returns true if the given token is of type punctuation and its value matches
