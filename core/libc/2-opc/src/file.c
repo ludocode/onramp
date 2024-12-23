@@ -478,7 +478,26 @@ int fgetc(FILE* file) {
 }
 
 char* fgets(char* restrict s, int n, FILE* restrict file) {
-    // TODO
+    if (n == 0) {
+        // TODO errno? EINVAL?
+        return s;
+    }
+
+    // TODO we have to stop on a newline so we read character by character.
+    // once we fix buffering we can scan forward in the buffer to a newline or
+    // eof.
+    char* p = s;
+    char* end = p + n - 1;
+    while (p != end) {
+        if (fread(p, 1, 1, file) != 1) {
+            break;
+        }
+        if (*p++ == '\n') {
+            break;
+        }
+    }
+
+    *p = 0;
     return s;
 }
 
