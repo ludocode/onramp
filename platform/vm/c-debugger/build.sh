@@ -35,6 +35,17 @@
 set -e
 cd "$(dirname "$0")/../../.."
 
+SRCS="
+    platform/vm/c-debugger/src/vm.c
+    platform/vm/c-debugger/src/debug.c
+    platform/vm/c-debugger/src/vmcommon.c
+    core/libo/1-opc/src/libo-error.c
+    core/libo/1-opc/src/libo-string.c
+    core/libo/1-opc/src/libo-table.c
+    core/libo/1-opc/src/libo-util.c
+    core/libo/1-opc/src/libo-vector.c
+"
+
 # Find a compiler
 if [ "x$CC" = "x" ]; then
     if ! command -v cc > /dev/null; then
@@ -47,10 +58,11 @@ fi
 # Choose compiler flags
 # (set CFLAGS to override the defaults)
 if [ "x$CFLAGS" = "x" ]; then
-    CFLAGS="-O2 -g -Wall -Wextra -Wpedantic"
+    CFLAGS="-O2 -g -Wall -Wextra -Wpedantic -Wno-unused-parameter"
 fi
+CFLAGS="$CFLAGS -Icore/libo/1-opc/include"
 
 # Compile it
 mkdir -p build/test/vm-c-debugger
-$CC $CFLAGS platform/vm/c-debugger/vm.c -o build/test/vm-c-debugger/vm
+$CC $CFLAGS $SRCS -o build/test/vm-c-debugger/vm
 echo "Compiled: build/test/vm-c-debugger/vm"
