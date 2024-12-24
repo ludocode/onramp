@@ -163,6 +163,7 @@ def syscall(number):
     if number == 0x06:  # fwrite
         addr = registers[1] - BASE_ADDR
         handles[registers[0]].write(memory[addr:addr + registers[2]])
+        handles[registers[0]].flush()
         # TODO try to handle errors gracefully. For now a write error takes
         # down the whole VM.
         registers[0] = registers[2]
@@ -384,7 +385,7 @@ def start():
     storeWord(tableAddress + 24, argsAddress)  # command-line args
     storeWord(tableAddress + 28, envAddress)  # environment vars
     storeWord(tableAddress + 32, dirAddress)  # working directory
-    storeWord(tableAddress + 36, 0)  # capabilities
+    storeWord(tableAddress + 36, 7)  # capabilities = echo | blocking | line-oriented
 
     run()
 

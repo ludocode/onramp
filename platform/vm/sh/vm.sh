@@ -852,7 +852,7 @@ copy_strings() {
 process_init() {
     CURRENT_ADDRESS=$MEMORY_START
     PROCESS_INFO_TABLE=$CURRENT_ADDRESS
-    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 36 ))
+    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 40 ))
 
     # Generate the halt code
     EXIT_ADDRESS=$CURRENT_ADDRESS
@@ -867,6 +867,7 @@ process_init() {
     store_word $(( $PROCESS_INFO_TABLE + 16 )) 1               # stdout
     store_word $(( $PROCESS_INFO_TABLE + 20 )) 2               # stderr
     store_word $(( $PROCESS_INFO_TABLE + 32 )) 1               # wrapper style (TODO support it)
+    store_word $(( $PROCESS_INFO_TABLE + 36 )) 7               # capabilities = echo | blocking | line-oriented
 }
 
 args_init() {

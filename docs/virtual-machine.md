@@ -150,9 +150,13 @@ The working directory is the base directory that the program should use for rela
 
 In a freestanding environment, the command-line, environment variables and working directory may all be null.
 
-The capabilities field contains a set of flags describing what features are supported by the VM. (The capabilities bitmap is not yet defined. For now it's just zero.)
+The capabilities field contains a set of flags describing what features are supported by the VM. The following flags exist, with bits numbered from low to high:
 
-Note that the process information table and its associated information must not be written to, except that command-line arguments and environment variables may be modified (for example with `strtok()`.) Any other changes are undefined behaviour, and may crash the VM or corrupt the parent process.
+- bit 0: input echo. 1 if the input stream is echoed to the output; 0 otherwise. If possible the VM should not echo input.
+- bit 1: input blocks. 1 if the read syscall blocks until a byte is available; 0 if it doesn't, instead reading zero bytes successfully when no input data exists. If possible the VM should not block on input.
+- bit 2: input line-oriented (i.e. [POSIX canonical](https://en.wikipedia.org/wiki/POSIX_terminal_interface#Canonical_mode_processing)). 1 if input is only available once a full line has been processed; 0 if input is available immediately on each keystroke. If possible the VM should not line-buffer input.
+
+Note that the process info table and its associated information must not be written to except that command-line arguments and environment variables may be modified (for example with `strtok()`.) Any other changes are undefined behaviour, and may crash the VM or corrupt the parent process.
 
 
 
@@ -490,8 +494,19 @@ int fread(int file_handle, void* buffer, int count);
 
 Reads up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if reading fails.
 
-If bytes are available, the VM must read at least one byte, but may read less than the number of bytes requested. If the end of the file or stream is reached, 0 is returned.
+The **fread** syscall is used to read terminal input, typically user keystrokes, into the program. The input should be in UTF-8 format.
 
+Since platforms implement input differently, Onramp supports considerable variation in the implementation of fread. The behaviour of a VM's fread syscall must be accurately represented by the capabilities bits in the process info table as explained below.
+
+Assuming the capabilities are accurately reported by the VM, the Onramp libc will simulate whatever behaviour is desired by the program where possible. For example, if the VM has non-blocking input and the program requests blocking input, the libc will perform blocking. However, if the VM is blocking and the program requests non-blocking input, the behaviour cannot be simulated so the request will fail. If you are implementing a VM, follow the recommendations below to get maximum compatibility with programs running on Onramp.
+
+If bytes are available, the VM must read at least one byte, but may read less than the number of bytes requested.
+
+If no bytes are available, the VM should not wait for input, and should instead immediately return zero with no error. (Note this is different from POSIX which raises EAGAIN or EWOULDBLOCK.) If non-blocking input is not possible on the VM's platform, the VM may instead block until data is available; in this case it must set bit 2 in the capabilities field of the process info table.
+
+When the user enters input, it should not be echoed to the output by the VM. If this is not possible on the VM's platform, the VM may instead allow input to be echoed to the output; in this case it must set bit 0 in the capabilities field of the process info table.
+
+The VM should make input keystrokes available immediately rather than waiting until the end of a line. If this is not possible on the VM's platform, the VM may instead wait until a full line has been processed before making it available to the fread syscall; in this case it must set bit 1 in the capabilities field of the process info table.
 
 ```c
 int fwrite(int file_handle, void* buffer, int count);

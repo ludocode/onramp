@@ -35,6 +35,10 @@
 #include <time.h>
 #include <inttypes.h>
 
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+
 // TODO put this in ghost
 #ifdef _WIN32
     extern char** _environ;
@@ -119,7 +123,8 @@ static void panic(const char* e) {
 #define VM_ARGS 24
 #define VM_ENVIRON 28
 #define VM_WORKDIR 32
-#define VM_PIT_SIZE 36
+#define VM_CAPABILITIES 36
+#define VM_PIT_SIZE 40
 
 // errors
 #define VM_ERR_GENERIC     0xFFFFFFFF
@@ -520,6 +525,9 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     /* set up the rest of the process info table */
     vm_store_u32(vm, vm->memory_base + VM_VERSION, 0);
     vm_store_u32(vm, vm->memory_base + VM_BREAK, addr);
+    vm_store_u32(vm, vm->memory_base + VM_CAPABILITIES,
+            0 // no echo, non-blocking, non-canonical
+            );
 
     // push the halt syscall as the _start return address
     // TODO halt address is now in the PIT, but we may put it back on the stack later
@@ -661,6 +669,11 @@ static uint32_t vm_fread(vm_t* vm) {
     uint32_t count = vm->registers[2];
     strace("sys fread() handle 0x%x addr 0x%x count %u\n", vm->registers[0], addr, count);
 
+    if (file == stdin) {
+        fflush(stderr);
+        fflush(stdout);
+    }
+
     if (count == 0) {
         // nothing to do, addr does not need to be valid
         return 0;
@@ -668,14 +681,31 @@ static uint32_t vm_fread(vm_t* vm) {
     if (!vm_is_buffer_valid(vm, addr, count)) {
         panic("ERROR: Invalid buffer given to syscall fread.");
     }
+    uint8_t* buffer = vm->memory + (addr - vm->memory_base);
 
-    size_t ret = fread(vm->memory + (addr - vm->memory_base), 1, count, file);
-    if (ret == 0) {
-        if (feof(file))
-            return 0;
-        return VM_ERR_IO;
+    if (file == stdin) {
+        // We have non-blocking input so we don't use fread(). Instead we use
+        // POSIX read().
+        ssize_t ret = read(STDIN_FILENO, buffer, count);
+        if (ret < 0) {
+            if (errno == EWOULDBLOCK) {
+                return 0;
+            }
+            // TODO handle closed input stream gracefully
+            return VM_ERR_IO;
+        }
+        return (uint32_t)ret;
+
+    } else {
+        // On ordinary files we can use fread().
+        size_t ret = fread(buffer, 1, count, file);
+        if (ret == 0) {
+            if (feof(file))
+                return 0;
+            return VM_ERR_IO;
+        }
+        return (uint32_t)ret;
     }
-    return (uint32_t)ret;
 }
 
 static uint32_t vm_fwrite(vm_t* vm) {
@@ -1303,9 +1333,49 @@ static void vm_loop(vm_t* vm) {
     }
 }
 
-int main(int argc, const char* argv[]) {
+struct termios saved_termios;
+bool saved_termios_valid;
+
+static void io_teardown(void) {
+    if (saved_termios_valid) {
+        tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
+    }
+}
+
+static void signal_handler(int signal) {
+    io_teardown();
+    _Exit(128 + signal);
+}
+
+static void io_setup(void) {
+
+    // Set up our signal handlers first so we can restore the terminal state on
+    // exit.
+    atexit(io_teardown);
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
     // We fully buffer output so as not to flicker when animating our debug info.
     setvbuf(stdout, NULL, BUFSIZ, _IOFBF);
+
+    // Unbuffered input
+    setvbuf(stdin, NULL, _IONBF, BUFSIZ);
+
+    // Non-blocking input
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+
+    // Non-canonical input, no input echo
+    struct termios termios;
+    tcgetattr(STDIN_FILENO, &termios);
+    saved_termios = termios;
+    saved_termios_valid = true;
+    termios.c_lflag &= ~(ECHO | ICANON);
+    tcsetattr(STDIN_FILENO, TCSANOW, &termios);
+
+}
+
+int main(int argc, const char* argv[]) {
+    io_setup();
 
     common_init();
     debug_init();

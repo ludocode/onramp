@@ -265,11 +265,35 @@ ssize_t read(int fd, void* buffer, size_t count) {
         return -1;
     }
 
-    int result = __sys_fread(posixfile->handle, buffer, count);
-    if (result < 0) {
-        // TODO parse out the result code
-        errno = EIO; // io error
-        return -1;
+    int result;
+    for (;;) {
+        result = __sys_fread(posixfile->handle, buffer, count);
+        if (result < 0) {
+            // TODO parse out the result code
+            errno = EIO; // io error
+            return -1;
+        }
+
+        // If the VM input is non-blocking but the program wants blocking and
+        // we received no data, we block internally until we get data.
+        // TODO check if program has called fcntl(O_NONBLOCK)
+        if (result == 0 && posixfile->std_stream &&
+                !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_BLOCKING))
+        {
+            usleep(1000);
+            continue;
+        }
+
+        break;
+    }
+
+    // If the VM input doesn't echo but the program wants echo, we echo
+    // ourselves.
+    // TODO check if program has called tcsetattr(~ECHO)
+    if (result > 0 && posixfile->std_stream &&
+                !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_ECHO))
+    {
+        __sys_fwrite(__process_info_table[__ONRAMP_PIT_OUTPUT], buffer, result);
     }
 
     return result;

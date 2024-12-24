@@ -39,5 +39,14 @@ extern unsigned* __process_info_table;
 #define __ONRAMP_PIT_ARGS 6
 #define __ONRAMP_PIT_ENVIRON 7
 #define __ONRAMP_PIT_WORKDIR 8
+#define __ONRAMP_PIT_CAPABILITIES 9
+
+/**
+ * Capabilities flags
+ */
+
+#define __ONRAMP_CAPABILITIES_INPUT_ECHO           (1 << 0)
+#define __ONRAMP_CAPABILITIES_INPUT_BLOCKING       (1 << 1)
+#define __ONRAMP_CAPABILITIES_INPUT_LINE_ORIENTED  (1 << 2)
 
 #endif

@@ -35,6 +35,9 @@
  * you'll need to modify this; in particular, there is currently no
  * implementation of the ftrunc syscall in standard C.
  *
+ * This VM does not support raw input mode. We assume the input echoes,
+ * blocks, and buffers lines. The VM capabilities flags are set accordingly.
+ *
  * TODO there's some Windows portability stuff here but it's incomplete. We
  * still need to translate paths from Windows-style to UNIX style.
  */
@@ -387,7 +390,7 @@ static void vm_init(int argc, char** argv) {
     /* reserve space for process info table */
     address = 4;
     process_info_address = address;
-    address += 36;
+    address += 40;
 
     /* write halt instruction */
     halt_address = address;
@@ -400,6 +403,7 @@ static void vm_init(int argc, char** argv) {
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
     vm_store_u32(process_info_address + 20, 2); /* stderr */
+    vm_store_u32(process_info_address + 36, 7); /* capabilities = echo | blocking | line-oriented */
 
     /* args */
     vm_store_u32(process_info_address + 24, address);

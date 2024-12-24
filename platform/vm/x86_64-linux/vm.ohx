@@ -1116,7 +1116,7 @@
     ; set the program break to after the process info table. other
     ; initialization functions will use this to add stuff to the vm heap.
     BE 04 00 00 01   ; mov esi, program break (0x1000004)
-    B8 24 00 00 01   ; mov eax, end of process info table (0x1000024)
+    B8 28 00 00 01   ; mov eax, end of process info table (0x1000028)
     89 06            ; mov [rsi], eax
 
     ; load command line and environment vars into vm heap
@@ -1168,7 +1168,12 @@
 
     ; error stream handle
     BF 14 00 00 01   ; mov edi, error stream handle (0x1000014)
-    B8 02 00 00 00   ; mov eax, 1
+    B8 02 00 00 00   ; mov eax, 2
+    89 07            ; mov [rdi], eax
+
+    ; capabilities
+    BF 24 00 00 01   ; mov edi, capabilities (0x1000024)
+    B8 07 00 00 00   ; mov eax, 7   ; echo | blocking | line-oriented
     89 07            ; mov [rdi], eax
 
 
@@ -1200,9 +1205,7 @@
 
     ; padding
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90
+    90 90 90 90 90
 @0x980
 
 

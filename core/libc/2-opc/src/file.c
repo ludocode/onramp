@@ -564,6 +564,13 @@ static bool buffer_setup(FILE* file) {
 size_t fread(void* restrict vout, size_t element_size, size_t element_count,
         FILE* restrict file)
 {
+    // We automatically flush standard output streams before reading from
+    // standard input.
+    if (file == stdin) {
+        fflush(stdout);
+        fflush(stderr);
+    }
+
 // TODO all of the below is disabled until buffering works
 int x = read(file->fd, vout, element_size*element_count);
 if (x < (int)element_size) {
