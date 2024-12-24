@@ -280,7 +280,9 @@ ssize_t read(int fd, void* buffer, size_t count) {
         if (result == 0 && posixfile->std_stream &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_BLOCKING))
         {
-            usleep(1000);
+            #ifndef __onramp_libc_opc__
+            usleep(10000);
+            #endif
             continue;
         }
 
