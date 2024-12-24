@@ -1333,8 +1333,8 @@ static void vm_loop(vm_t* vm) {
     }
 }
 
-struct termios saved_termios;
-bool saved_termios_valid;
+static struct termios saved_termios;
+static bool saved_termios_valid;
 
 static void io_teardown(void) {
     if (saved_termios_valid) {

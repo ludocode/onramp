@@ -35,8 +35,9 @@
  * you'll need to modify this; in particular, there is currently no
  * implementation of the ftrunc syscall in standard C.
  *
- * This VM does not support raw input mode. We assume the input echoes,
- * blocks, and buffers lines. The VM capabilities flags are set accordingly.
+ * The VM attempts to enable raw input mode on POSIX platforms. If this is
+ * causing problems on older UNIX you can disable the detection of VM_POSIX
+ * below.
  *
  * TODO there's some Windows portability stuff here but it's incomplete. We
  * still need to translate paths from Windows-style to UNIX style.
@@ -49,28 +50,32 @@
  */
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
-    /* We currently rely on ftruncate(), clock_gettime() and environ on POSIX
-     * systems. */
+    /* We currently rely on ftruncate(), clock_gettime(), environ, and terminal
+     * settings on POSIX systems. */
     #define VM_POSIX
     #define _POSIX_C_SOURCE 200809L
-    #include <unistd.h>
-    #include <sys/types.h>
+    #include <errno.h>
+    #include <fcntl.h>
+    #include <signal.h>
     #include <sys/stat.h>
+    #include <sys/types.h>
+    #include <termios.h>
+    #include <unistd.h>
     extern char** environ;
 #endif
 
 #ifdef _WIN32
-    #include <io.h>
     #include <direct.h>
+    #include <io.h>
     extern char** _environ;
 #endif
 
-#include <time.h>
 #include <limits.h>
 #include <stddef.h>
-#include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 
 /* Onramp requires an 8-bit char and a 32-bit int or long. */
@@ -363,6 +368,50 @@ static uint32_t vm_load_program(uint32_t start, const char* filename) {
     return addr;
 }
 
+#ifdef VM_POSIX
+static struct termios saved_termios;
+
+static void io_teardown(void) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
+}
+
+static void signal_handler(int signal) {
+    io_teardown();
+    _Exit(128 + signal);
+}
+
+static void io_setup(void) {
+    /* Save the terminal state first before setting our cleanup callbacks */
+    tcgetattr(STDIN_FILENO, &saved_termios);
+
+    /* Restore terminal state on exit */
+    atexit(io_teardown);
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
+    /* Set unbuffered, non-blocking input */
+    setvbuf(stdin, NULL, _IONBF, BUFSIZ);
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+
+    /* Set non-canonical input, no input echo */
+    {
+        struct termios termios = saved_termios;
+        termios.c_lflag &= ~(ECHO | ICANON);
+        tcsetattr(STDIN_FILENO, TCSANOW, &termios);
+    }
+}
+#elif defined _WIN32
+static void io_setup(void) {
+    /* TODO set windows to raw input mode */
+}
+#else
+static void io_setup(void) {
+    /* There isn't much we can do in standard C to set up raw input mode. We
+     * can at least ask the libc not to buffer input. */
+    setvbuf(stdin, NULL, _IONBF, BUFSIZ);
+}
+#endif
+
 static void vm_init(int argc, char** argv) {
     const char* filename = NULL;
     int i;
@@ -370,6 +419,8 @@ static void vm_init(int argc, char** argv) {
     char** env = 0;
     char* cwd = 0;
     char cwd_buffer[256];
+
+    io_setup();
 
     for (i = 1; i < argc; ++i) {
         /* TODO parse args */
@@ -403,7 +454,6 @@ static void vm_init(int argc, char** argv) {
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
     vm_store_u32(process_info_address + 20, 2); /* stderr */
-    vm_store_u32(process_info_address + 36, 7); /* capabilities = echo | blocking | line-oriented */
 
     /* args */
     vm_store_u32(process_info_address + 24, address);
@@ -431,6 +481,21 @@ static void vm_init(int argc, char** argv) {
     } else {
         vm_store_u32(process_info_address + 32, 0);
     }
+
+    /* capabilities */
+    vm_store_u32(process_info_address + 36,
+            #ifdef VM_POSIX
+            0 /* no echo, non-blocking, non-canonical */
+            #elif defined _WIN32
+            7 /* TODO set windows to raw input mode */
+            #else
+            /* We're not sure of the platform but we'll assume the terminal
+             * echoes, blocks, and buffers lines. Even if it doesn't, the
+             * Onramp libc will handle it gracefully, except that it will
+             * reject attempts to turn these off. This is the safest option. */
+            7
+            #endif
+            );
 
     /* files */
     vm_files[0] = stdin;
@@ -566,12 +631,30 @@ static void vm_fread(void) {
     size_t ret;
 
     vm_check_buffer(addr, count);
+
+    #ifdef VM_POSIX
+    if (file == stdin) {
+        /* We have non-blocking input so we don't use fread(). Instead we use
+         * POSIX read(). */
+        ssize_t ret = read(STDIN_FILENO, vm_memory + addr, count);
+        if (ret < 0) {
+            if (errno == EWOULDBLOCK) {
+                ret = 0;
+            } else {
+                /* TODO handle closed input stream gracefully */
+                ret = VM_ERR_IO;
+            }
+        }
+        vm_registers[0] = (uint32_t)ret;
+        return;
+    }
+    #endif
+
     ret = fread(vm_memory + addr, 1, count, file);
     if (ret == 0 && !feof(file)) {
         vm_registers[0] = VM_ERR_IO;
         return;
     }
-
     vm_registers[0] = (uint32_t)ret;
 }
 
@@ -592,6 +675,7 @@ static void vm_fwrite(void) {
         addr += ret;
         count -= ret;
     }
+    fflush(file);
 
     vm_registers[0] = addr - start;
 }
