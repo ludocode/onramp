@@ -24,6 +24,7 @@
 
 #include <unistd.h>
 #include <fcntl.h>
+#include <termios.h>
 
 #include <__onramp/__pit.h>
 #include <errno.h>
@@ -40,6 +41,14 @@
  * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
  * file API (e.g. fopen(), fwrite(), etc.) in libc/2 and libc/3 wraps this.
  */
+
+// This is the program's terminal state. These are initialized in __io_init()
+// because opC doesn't have global initializers. They are modified by the user
+// program via fcntl() and tcsetattr(). If these don't match the VM's
+// capabilities, we simulate the necessary behaviour.
+static bool input_echo;
+static bool input_block;
+static bool input_canonical;
 
 /*
  * A POSIX file descriptor.
@@ -83,11 +92,18 @@ static void posixfile_delete(posixfile_t* posixfile) {
 }
 
 void __io_init(void) {
+
+    // By default we match POSIX
+    input_echo = true;
+    input_block = true;
+    input_canonical = true;
+
+    // Create POSIX file descriptors
     posixfiles[0] = posixfile_new(0, __process_info_table[__ONRAMP_PIT_INPUT], O_RDONLY, "/dev/stdin");
     posixfiles[1] = posixfile_new(1, __process_info_table[__ONRAMP_PIT_OUTPUT], O_WRONLY, "/dev/stdout");
     posixfiles[2] = posixfile_new(2, __process_info_table[__ONRAMP_PIT_ERROR], O_WRONLY, "/dev/stderr");
 
-    // mark the standard streams so we don't close them
+    // Mark the standard streams so we don't close them
     posixfiles[0]->std_stream = true;
     posixfiles[1]->std_stream = true;
     posixfiles[2]->std_stream = true;
@@ -277,7 +293,7 @@ ssize_t read(int fd, void* buffer, size_t count) {
         // If the VM input is non-blocking but the program wants blocking and
         // we received no data, we block internally until we get data.
         // TODO check if program has called fcntl(O_NONBLOCK)
-        if (result == 0 && posixfile->std_stream &&
+        if (result == 0 && posixfile->std_stream && input_block &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_BLOCKING))
         {
             #ifndef __onramp_libc_opc__
@@ -291,8 +307,8 @@ ssize_t read(int fd, void* buffer, size_t count) {
 
     // If the VM input doesn't echo but the program wants echo, we echo
     // ourselves.
-    // TODO check if program has called tcsetattr(~ECHO)
-    if (result > 0 && posixfile->std_stream &&
+    // TODO handle escape sequences; backspace, arrow keys in canonical mode
+    if (result > 0 && posixfile->std_stream && input_echo &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_ECHO))
     {
         __sys_fwrite(__process_info_table[__ONRAMP_PIT_OUTPUT], buffer, result);
@@ -348,4 +364,55 @@ int fchmod(int fd, mode_t mode) {
     }
     posixfile_t* posixfile = posixfiles[fd];
     return chmod(posixfile->path, mode);
+}
+
+int fcntl(int fd, int command, ...) {
+    if (fd != STDIN_FILENO) {
+        errno = EBADF; // can only modify terminal state of stdin
+        return -1;
+    }
+
+    if (command == F_GETFL) {
+        // TODO we need to also return the O_ACCMODE flags. for now we don't.
+        // only non-blocking is implemented so far.
+        return (input_block ? 0 : O_NONBLOCK);
+    }
+
+    if (command == F_SETFL) {
+        va_list args;
+        va_start(args, command);
+        int flags = va_arg(args, mode_t);
+        va_end(args);
+        input_block = !(flags & O_NONBLOCK);
+        return 0;
+    }
+
+    // unrecognized command
+    errno = EINVAL;
+    return -1;
+}
+
+int tcgetattr(int fd, struct termios* termios) {
+    if (fd != STDIN_FILENO) {
+        errno = EBADF; // can only modify terminal state of stdin
+        return -1;
+    }
+    termios->c_lflag =
+        (input_echo ? ECHO : 0) |
+        (input_canonical ? ICANON : 0);
+    return 0;
+}
+
+int tcsetattr(int fd, int actions, const struct termios* termios) {
+    if (actions != TCSANOW) {
+        errno = EINVAL; // TODO no other actions are supported
+        return -1;
+    }
+    if (fd != STDIN_FILENO) {
+        errno = EBADF; // can only modify terminal state of stdin
+        return -1;
+    }
+    input_echo = termios->c_lflag & ECHO;
+    input_canonical = termios->c_lflag & ICANON;
+    return 0;
 }

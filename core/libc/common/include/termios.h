@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2024 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,42 +22,37 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_FCNTL_H_INCLUDED
-#define __ONRAMP_LIBC_FCNTL_H_INCLUDED
+#ifndef __ONRAMP_LIBC_TERMIOS_H_INCLUDED
+#define __ONRAMP_LIBC_TERMIOS_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#include <__onramp/__mode_t.h>
+typedef int tcflag_t;
 
-// one of these is required
-#define O_RDONLY     0x1
-#define O_WRONLY     0x2
-#define O_RDWR       0x4
+// TODO this structure is incomplete. We currently only support c_lflag.
+struct termios {
+    tcflag_t c_lflag;
+};
 
-// optional flags
-#define O_APPEND     0x8
-#define O_CREAT      0x10
-#define O_DIRECTORY  0x20
-#define O_TRUNC      0x40
-#define O_NONBLOCK   0x80
+// TODO these are the only flags supported so far. The bits match those of the
+// VM pit capabilities field, not that there's any point in doing that.
+#define ECHO     (1 << 0)
+#define ICANON   (1 << 2)
 
-// ignored flags
-#define O_ASYNC      0
-#define O_DSYNC      0
-#define O_SYNC       0
-#define O_CLOEXEC    0
-#define O_DIRECT     0
-#define O_NOATIME    0
+// TODO we only support TCSANOW.
+// - we should support TCSADRAIN but I haven't decided yet whether the VM
+//   should allow output buffering, and if it does, it will need a flush syscall
+// - we should support TCSAFLUSH which would do the same as TCSADRAIN but, if
+//   input is non-blocking, it should also read and discard all pending input
+// TODO it's not clear whether these are supposed to be bit flags. We allow it
+// just in case.
+#define TCSANOW (1 << 0)
+//#define TCSADRAIN (1 << 1)
+//#define TCSAFLUSH (1 << 2)
 
-int open(const char* __path, int __flags, ...);
-int creat(const char* __path, mode_t __mode);
-
-// TODO only these fcntl() commands are supported so far.
-#define F_GETFL 1
-#define F_SETFL 2
-
-int fcntl(int __fd, int __command, ...);
+int tcgetattr(int __fd, struct termios* __termios);
+int tcsetattr(int __fd, int __actions, const struct termios* __termios);
 
 #endif

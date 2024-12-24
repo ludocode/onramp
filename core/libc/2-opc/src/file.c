@@ -490,6 +490,8 @@ char* fgets(char* restrict s, int n, FILE* restrict file) {
     char* end = p + n - 1;
     while (p != end) {
         if (fread(p, 1, 1, file) != 1) {
+            // TODO we need to report an appropriate error here.
+            // In particular if input is non-blocking this should fail.
             break;
         }
         if (*p++ == '\n') {

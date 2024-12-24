@@ -68,6 +68,7 @@ cp core/libc/common/include/strings.h build/output/include/strings.h
 cp core/libc/common/include/sys/stat.h build/output/include/sys/stat.h
 cp core/libc/common/include/sys/time.h build/output/include/sys/time.h
 cp core/libc/common/include/sys/types.h build/output/include/sys/types.h
+cp core/libc/common/include/termios.h build/output/include/termios.h
 cp core/libc/common/include/time.h build/output/include/time.h
 cp core/libc/common/include/uchar.h build/output/include/uchar.h
 cp core/libc/common/include/unistd.h build/output/include/unistd.h
