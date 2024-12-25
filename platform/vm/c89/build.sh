@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 
-# This script builds the C89 VM. You need a C compiler.
+# This script builds the C89 VM for testing purposes.
 #
 # Set CC to use a specific compiler.
 # Set CFLAGS to override the flags to use.

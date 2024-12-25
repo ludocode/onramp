@@ -115,10 +115,22 @@
 #define VM_MAX_FILES 16
 #define VM_MAX_DIRECTORIES 16
 
-static uint8_t vm_memory[VM_MEMORY_SIZE];
-static FILE* vm_files[VM_MAX_FILES];
-/*static uint32_t vm_directories[VM_MAX_DIRECTORIES];*/
+/* We use platform-specific file APIs where possible. This allows us to provide
+ * features that aren't possible in standard C (such as non-blocking input.) */
+#ifdef VM_POSIX
+    typedef int file_t;
+    #define INVALID_FILE -1
+#elif defined _WIN32
+    #error TODO windows file API
+#else
+    typedef FILE* file_t;
+    #define INVALID_FILE NULL
+#endif
+
 static uint32_t vm_registers[16];
+static uint8_t vm_memory[VM_MEMORY_SIZE];
+static file_t vm_files[VM_MAX_FILES];
+/*static uint32_t vm_directories[VM_MAX_DIRECTORIES];*/
 
 /* array indices of named registers */
 #define VM_RSP 0xC  /* stack pointer */
@@ -190,11 +202,11 @@ static void usage(const char* command) {
     vm_check((addr) >= 4 && (addr) < VM_MEMORY_SIZE, "Address out of bounds")
 
 #define vm_check_file(handle) \
-    vm_check((uint32_t)(handle) < VM_MAX_FILES && vm_files[(handle)] != NULL, \
+    vm_check((uint32_t)(handle) < VM_MAX_FILES && vm_files[(handle)] != INVALID_FILE, \
             "Invalid file descriptor")
 
 #define vm_check_directory(dd) \
-    vm_check((uint32_t)(dd) < VM_MAX_FILES && vm_directories[(dd)] != NULL, \
+    vm_check((uint32_t)(dd) < VM_MAX_FILES && vm_directories[(dd)] != INVALID_FILE, \
             "Invalid directory descriptor")
 
 static void vm_check_string(uint32_t addr) {
@@ -300,7 +312,7 @@ static uint8_t vm_parse_register(uint8_t b) {
     return b & 0x0F;
 }
 
-static FILE* vm_file(uint32_t handle) {
+static file_t vm_file(uint32_t handle) {
     vm_check_file(handle);
     return vm_files[handle];
 }
@@ -498,9 +510,21 @@ static void vm_init(int argc, char** argv) {
             );
 
     /* files */
-    vm_files[0] = stdin;
-    vm_files[1] = stdout;
-    vm_files[2] = stderr;
+    #ifdef VM_POSIX
+        vm_files[0] = STDIN_FILENO;
+        vm_files[1] = STDOUT_FILENO;
+        vm_files[2] = STDERR_FILENO;
+        {
+            size_t i;
+            for (i = 3; i < VM_MAX_FILES; ++i) {
+                vm_files[i] = INVALID_FILE;
+            }
+        }
+    #else
+        vm_files[0] = stdin;
+        vm_files[1] = stdout;
+        vm_files[2] = stderr;
+    #endif
 
     {
         uint32_t break_address = vm_load_program(address, filename);
@@ -593,23 +617,34 @@ static void vm_fopen(void) {
     /* find a free handle (not the standard streams 0,1,2) */
     handle = UINT32_MAX;
     for (i = 3; i < (size_t)VM_MAX_FILES; ++i) {
-        if (vm_files[i] == NULL) {
+        if (vm_files[i] == INVALID_FILE) {
             handle = i;
             break;
         }
     }
-    vm_check(handle != UINT32_MAX, "No free file descriptors");
+    vm_check(handle != UINT32_MAX, "No free file descriptors"); /* TODO this should not be a fatal error */
 
     /* open it */
-    vm_files[handle] = fopen(path, mode ? "a+b" : "rb");
-    if (vm_files[handle] == NULL) {
+    #ifdef VM_POSIX
+        vm_files[handle] = open(path, mode ? (O_CREAT | O_APPEND | O_RDWR) : O_RDONLY, 0644);
+    #elif defined _WIN32
+        #error TODO _WIN32 fopen
+    #else
+        vm_files[handle] = fopen(path, mode ? "a+b" : "rb");
+    #endif
+    if (vm_files[handle] == INVALID_FILE) {
         vm_registers[0] = VM_ERR_PATH;
         return;
     }
 
     /* if writeable, seek to the beginning */
     if (mode) {
-        fseek(vm_files[handle], 0, SEEK_SET);
+        #ifdef VM_POSIX
+        lseek
+        #else
+        fseek
+        #endif
+            (vm_files[handle], 0, SEEK_SET);
     }
 
     vm_registers[0] = handle;
@@ -619,24 +654,29 @@ static void vm_fclose(void) {
     uint32_t handle = vm_registers[0];
     vm_check_file(handle);
     vm_check(handle > 2, "Cannot close standard streams.");
-    fclose(vm_files[handle]);
-    vm_files[handle] = NULL;
+
+    #ifdef VM_POSIX
+        close(vm_files[handle]);
+    #elif defined _WIN32
+        #error TODO _WIN32 fclose
+    #else
+        fclose(vm_files[handle]);
+    #endif
+
+    vm_files[handle] = INVALID_FILE;
     vm_registers[0] = 0;
 }
 
 static void vm_fread(void) {
-    FILE* file = vm_file(vm_registers[0]);
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
-    size_t ret;
 
     vm_check_buffer(addr, count);
 
     #ifdef VM_POSIX
-    if (file == stdin) {
-        /* We have non-blocking input so we don't use fread(). Instead we use
-         * POSIX read(). */
-        ssize_t ret = read(STDIN_FILENO, vm_memory + addr, count);
+    {
+        int fd = vm_file(vm_registers[0]);
+        ssize_t ret = read(fd, vm_memory + addr, count);
         if (ret < 0) {
             if (errno == EWOULDBLOCK) {
                 ret = 0;
@@ -646,85 +686,149 @@ static void vm_fread(void) {
             }
         }
         vm_registers[0] = (uint32_t)ret;
-        return;
     }
-    #endif
 
-    ret = fread(vm_memory + addr, 1, count, file);
-    if (ret == 0 && !feof(file)) {
-        vm_registers[0] = VM_ERR_IO;
-        return;
-    }
-    vm_registers[0] = (uint32_t)ret;
-}
+    #elif defined _WIN32
+        #error TODO _WIN32 fread
 
-static void vm_fwrite(void) {
-    FILE* file = vm_file(vm_registers[0]);
-    uint32_t addr = vm_registers[1];
-    uint32_t count = vm_registers[2];
-    uint32_t start = addr;
-    size_t ret;
-
-    vm_check_buffer(addr, count);
-    while (count > 0) {
-        ret = fwrite(vm_memory + addr, 1, count, file);
-        if (ret == 0) {
+    #else
+    {
+        FILE* file = vm_file(vm_registers[0]);
+        size_t ret = fread(vm_memory + addr, 1, count, file);
+        if (ret == 0 && !feof(file)) {
             vm_registers[0] = VM_ERR_IO;
             return;
         }
-        addr += ret;
-        count -= ret;
+        vm_registers[0] = (uint32_t)ret;
     }
-    fflush(file);
+    #endif
+}
 
-    vm_registers[0] = addr - start;
+static void vm_fwrite(void) {
+    uint32_t addr = vm_registers[1];
+    uint32_t count = vm_registers[2];
+
+    vm_check_buffer(addr, count);
+
+    #ifdef VM_POSIX
+    {
+        int fd = vm_file(vm_registers[0]);
+        ssize_t ret = write(fd, vm_memory + addr, count);
+        if (ret < 0) {
+            if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                ret = 0;
+            } else {
+                ret = VM_ERR_IO;
+            }
+        }
+        vm_registers[0] = (uint32_t)ret;
+    }
+
+    #elif defined _WIN32
+        #error TODO _WIN32 fwrite
+
+    #else
+    {
+        FILE* file = vm_file(vm_registers[0]);
+        size_t ret = fwrite(vm_memory + addr, 1, count, file);
+        if (ret == count) {
+            fflush(file);
+            vm_registers[0] = count;
+        } else {
+            vm_registers[0] = VM_ERR_IO;
+        }
+    }
+    #endif
 }
 
 static void vm_fseek(void) {
-    FILE* file = vm_file(vm_registers[0]);
-    uint32_t base = vm_registers[1];
+    uint32_t base = vm_registers[1]; /* TODO check valid */
 
     /*
-     * We don't know how long `long` is. If it's only 32 bits we won't have
-     * enough space for the high bits. We try anyway; we just won't support
-     * files larger than 2 GB otherwise.
+     * We don't know how long `long` or `off_t` are. If they're only 32 bits we
+     * won't have enough space for the high bits. We try anyway; we just won't
+     * support files larger than 2 GB otherwise.
      *
-     * In case it's only 32 bits, we have to shift twice since a shift by the
-     * word size is undefined behaviour.
-     *
-     * There are platform-specific extensions for 64-bit seek. POSIX 2001 has
-     * fseeko() and ftello() for example. These are not in C89, and they
-     * require `long long` which is not in C89 either.
+     * In case they are only 32 bits, we have to shift twice since a shift by
+     * the word size is undefined behaviour.
      */
 
-    long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
-    int ret = fseek(file, offset, base);
-    vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
+    #ifdef VM_POSIX
+    {
+        /* TODO we should try to detect whether lseek64() and off64_t are available. */
+        int fd = vm_file(vm_registers[0]);
+        off_t offset = (off_t)vm_registers[2] | (((off_t)vm_registers[3] << 16) << 16);
+        offset = lseek(fd, offset, base);
+        vm_registers[0] = (offset == -1) ? VM_ERR_IO : 0;
+    }
+
+    #elif defined _WIN32
+        #error TODO _WIN32 fseek
+
+    #else
+    {
+        /*
+         * There are platform-specific extensions for 64-bit seek. POSIX 2001 has
+         * fseeko() and ftello() for example. These are not in C89, and they
+         * require `long long` which is not in C89 either. If we have POSIX
+         * we'll be using lseek() (or lseek64()) anyway so there's no point in
+         * trying to use them.
+         */
+        FILE* file = vm_file(vm_registers[0]);
+        long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
+        int ret = fseek(file, offset, base);
+        vm_registers[0] = ret ? VM_ERR_IO : 0;
+    }
+    #endif
 }
 
 static void vm_ftell(void) {
-    FILE* file = vm_file(vm_registers[0]);
 
-    /* As above we shift twice in case we're only 32 bits. We convert to
-     * unsigned first to get an unsigned shift. */
-    long pos = ftell(file);
-    if (pos == -1) {
-        vm_registers[0] = VM_ERR_GENERIC;
-        return;
-    }
-
+    #ifdef VM_POSIX
     {
-        unsigned long upos = (unsigned long)pos;
         uint32_t addr = vm_registers[1];
-        vm_store_u32(addr, (uint32_t)upos);
-        vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
+        int fd = vm_file(vm_registers[0]);
+        off_t pos = lseek(fd, 0, SEEK_CUR);
+        if (pos == -1) {
+            vm_registers[0] = VM_ERR_IO;
+            return;
+        }
+
+        vm_store_u32(addr, (uint32_t)pos);
+        vm_store_u32(addr + 4,
+                (sizeof(off_t) >= 8) ?
+                    (uint32_t)(pos >> 32) :
+                    0);
+        vm_registers[0] = 0;
     }
 
-    vm_registers[0] = 0;
+
+    #elif defined _WIN32
+        #error TODO _WIN32 fseek
+
+    #else
+    {
+        FILE* file = vm_file(vm_registers[0]);
+        long pos = ftell(file);
+        if (pos == -1) {
+            vm_registers[0] = VM_ERR_IO;
+            return;
+        }
+
+        {
+            /* As with fseek() we shift twice in case `long` or `off_t` is only
+             * 32 bits. We convert to unsigned first to get an unsigned shift. */
+            unsigned long upos = (unsigned long)pos;
+            uint32_t addr = vm_registers[1];
+            vm_store_u32(addr, (uint32_t)upos);
+            vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
+            vm_registers[0] = 0;
+        }
+    }
+    #endif
 }
 
 static void vm_ftrunc(void) {
-    FILE* file = vm_file(vm_registers[0]);
     uint32_t size_low = vm_registers[1];
     uint32_t size_high = vm_registers[2];
 
@@ -733,22 +837,24 @@ static void vm_ftrunc(void) {
      * platform-specific functions.
      */
 
-    #ifdef _WIN32
+    #ifdef VM_POSIX
+        /* On POSIX systems we call ftruncate(). */
+        int fd = vm_file(vm_registers[0]);
+        off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
+        int ret = ftruncate(fd, upos);
+
+    #elif defined _WIN32
         /* On Windows we have _chsize(). There is also _chsize_s() which is
          * 64-bit but our fseek()/ftell() functions aren't currently using
          * corresponding 64-bit functions so right now there's no point. */
+        FILE* file = vm_file(vm_registers[0]);
         unsigned long upos = (unsigned long)size_low |
                 (((unsigned long)size_high << 16) << 16);
-        int ret = _chsize(fileno(file), upos);
-    #endif
+        int ret;
+        fflush(file);
+        ret = _chsize(fileno(file), upos);
 
-    #if defined(VM_POSIX)
-        /* On POSIX systems we call ftruncate(). */
-        off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
-        int ret = ftruncate(fileno(file), upos);
-    #endif
-
-    #if !defined(_WIN32) && !defined(VM_POSIX)
+    #else
         /* TODO make this work with only standard C. If size is zero, freopen()
          * the file in "wb" mode; otherwise rename the file to a temporary and
          * copy the desired bytes. The Onramp bootstrap process only ever calls
@@ -760,15 +866,20 @@ static void vm_ftrunc(void) {
 }
 
 static void vm_chmod(void) {
+
     /* There is nothing like chmod() in standard C. It's only relevant for
      * better integration into UNIX systems. */
-    #ifdef __unix__
-    uint32_t path_addr = vm_registers[0];
-    uint32_t mode = vm_registers[1];
-    const char* path;
-    vm_check_string(path_addr);
-    path = (const char*)vm_memory + path_addr;
-    vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
+
+    #ifdef VM_POSIX
+        uint32_t path_addr = vm_registers[0];
+        uint32_t mode = vm_registers[1];
+        const char* path;
+        vm_check_string(path_addr);
+        path = (const char*)vm_memory + path_addr;
+        vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
+
+    #else
+        vm_registers[0] = 0;
     #endif
 }
 
