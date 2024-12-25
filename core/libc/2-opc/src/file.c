@@ -522,8 +522,7 @@ int getc(FILE* file) {
 }
 
 int getchar(void) {
-    // TODO
-    return -1;
+    return getc(stdin);
 }
 
 int putc(int c, FILE* file) {
@@ -670,13 +669,35 @@ return x/element_size;
 size_t fwrite(const void* restrict vdata, size_t element_size, size_t element_count,
         FILE* restrict file)
 {
-// TODO all of the below is disabled until buffering works
-write(file->fd, vdata, element_size*element_count);
-return element_count;
-
-
-
     const char* restrict data = (const char*)vdata;
+
+
+    // TODO buffering is not finished yet. In the meantime we loop and write
+    // everything (the C file API does not support non-blocking I/O.)
+
+    size_t written = 0;
+    size_t remaining = element_size*element_count; // TODO check for overflow
+    while (remaining > 0) {
+        ssize_t step = write(file->fd, data, remaining);
+        if (step == 0) {
+            usleep(10000);
+            continue;
+        }
+        if (step < 0) {
+            file->eof = true;
+            break;
+        }
+        remaining -= step;
+        data += step;
+        written += step;
+    }
+    return written / element_size;
+
+
+
+    #if 0
+
+
 
     if (element_size == 0 || element_count == 0)
         return 0;
@@ -772,6 +793,7 @@ return element_count;
     if (element_size == 1)
         return written;
     return written / element_size;
+    #endif
 }
 
 int fgetpos(FILE* restrict file, fpos_t* restrict pos) {

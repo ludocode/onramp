@@ -723,10 +723,32 @@ static uint32_t vm_fwrite(vm_t* vm) {
     }
 
     uint8_t* buffer = vm->memory + (addr - vm->memory_base);
-    size_t ret = fwrite(buffer, 1, count, file);
-    if (ret == 0) {
+
+    size_t ret;
+    if (file == stdout || file == stderr) {
+        // Setting stdin to non-blocking apparently causes stdout to fail on
+        // fwrite() calls.  TODO the debugger pretty much requires POSIX so we
+        // should get rid of the C file API entirely and just use POSIX.
+        ssize_t sret = write(fileno(file), buffer, count);
+        if (sret < 0) {
+            if (errno == EWOULDBLOCK || errno == EAGAIN) {
+                return 0;
+            }
+            return -1;
+        }
+        ret = (size_t)sret;
+    } else {
+        ret = fwrite(buffer, 1, count, file);
+        if (ret == 0) {
+            panic("Error writing file!");
+        }
+    }
+    /*
+    if (ret != count) {
+        printf("\n\n ret %zi count %u\n\n",ret,count);
         panic("Error writing file!");
     }
+    */
 
     // We need to flush to ensure this doesn't interfere with our debugger.
     // TODO only flush when debugger NOT running
@@ -856,9 +878,7 @@ static void vm_sys(vm_t* vm, uint8_t syscall_number, uint8_t arg1, uint8_t arg2)
         case VM_FOPEN:     ret = vm_fopen(vm); break;
         case VM_FCLOSE:    ret = vm_fclose(vm); break;
         case VM_FREAD:     ret = vm_fread(vm); break;
-        case VM_FWRITE:    ret = vm_fwrite(vm); /*break
-                            TODO syscall fwrite currently doesn't set r0, we need to clean up some code first */
-                            return;
+        case VM_FWRITE:    ret = vm_fwrite(vm); break;
         case VM_FSEEK:     ret = vm_fseek(vm); break;
         case VM_FTELL:     ret = vm_ftell(vm); break;
         case VM_FTRUNC:    ret = vm_ftrunc(vm); break;
@@ -1356,7 +1376,7 @@ static void io_setup(void) {
     signal(SIGTERM, signal_handler);
 
     // We fully buffer output so as not to flicker when animating our debug info.
-    setvbuf(stdout, NULL, BUFSIZ, _IOFBF);
+    setvbuf(stdout, NULL, _IOFBF, BUFSIZ);
 
     // Unbuffered input
     setvbuf(stdin, NULL, _IONBF, BUFSIZ);

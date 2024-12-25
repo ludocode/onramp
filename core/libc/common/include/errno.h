@@ -44,6 +44,8 @@
 #define ESPIPE 13
 #define EOVERFLOW 14
 #define ENOTSUP 15
+#define EAGAIN 16
+#define EWOULDBLOCK EAGAIN
 
 extern int errno;
 

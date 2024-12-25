@@ -993,6 +993,8 @@ syscall_write() {
         file_write $HANDLE $LOAD_BYTE_RET
         I=$(( $I + 1 ))
     done
+
+    register_set 0 $I
 }
 
 syscall() {

@@ -330,8 +330,6 @@ ssize_t write(int fd, const void* buffer, size_t count) {
     }
 
     int result = __sys_fwrite(posixfile->handle, buffer, count);
-// TODO syscall fwrite doesn't set r0 yet, need to fix some code, see c-debugger
-result = count;
     if (result < 0) {
         // TODO parse out the result code
         errno = EIO; // io error
