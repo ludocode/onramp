@@ -43,7 +43,7 @@ LIBC2=$(BUILD)/libc-2-opc/libc.oa
 TOOL_VM=$(BUILD)/vm-c-debugger/vm
 TOOL_AR=$(BUILD)/ar-0-cat/ar.oe    # TODO ar/1
 TOOL_CC=$(BUILD)/cc/cc
-TOOL_CPP=$(BUILD)/cpp-1-omc/cpp    # TODO cpp/2
+TOOL_CPP=$(BUILD)/cpp-2-full/cpp
 TOOL_CCI=$(BUILD)/cci-2-full/cci
 TOOL_AS=$(BUILD)/as-2-full/as
 TOOL_LD=$(BUILD)/ld-2-full/ld
@@ -127,7 +127,7 @@ $(TOOL_CC): FORCE
 $(TOOL_CCI): FORCE
 	@(make -C ../../cci/2-full build)
 $(TOOL_CPP): FORCE
-	@(make -C ../../cpp/1-omc build)   # TODO cpp/2 build
+	@(make -C ../../cpp/2-full build)
 $(TOOL_AS): FORCE
 	@(make -C ../../as/2-full build)
 $(TOOL_LD): FORCE
