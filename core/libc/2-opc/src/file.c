@@ -680,7 +680,9 @@ size_t fwrite(const void* restrict vdata, size_t element_size, size_t element_co
     while (remaining > 0) {
         ssize_t step = write(file->fd, data, remaining);
         if (step == 0) {
+            #ifndef __onramp_libc_opc__
             usleep(10000);
+            #endif
             continue;
         }
         if (step < 0) {
@@ -695,7 +697,7 @@ size_t fwrite(const void* restrict vdata, size_t element_size, size_t element_co
 
 
 
-    #if 0
+    #ifdef DISABLED__
 
 
 
