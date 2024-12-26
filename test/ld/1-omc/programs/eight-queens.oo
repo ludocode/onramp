@@ -251,10 +251,6 @@
     7C 8A 51 2E    ; imm ra "Q."
     79 8A 8C 00    ; stw ra rsp 0
 
-    ; prepare syscall args
-    78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
-    70 82 00 01   ; add r2 0 1       ; r2 = string length (1)
-
     ; iterate over y from 0 to 8
     70 84 00 00   ; add r4 0 0
 :print_board_next_y
@@ -269,7 +265,9 @@
             74 8A 8A 01    ; and ra ra 1
 
             ; print the character, syscall write(stdout, rsp+ra, 1)
+            78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
             70 81 8C 8A   ; add r1 rsp ra    ; r1 = string address (rsp+ra)
+            70 82 00 01   ; add r2 0 1       ; r2 = string length (1)
             7F 06 00 00   ; sys write 0 0
 
             ; increment x
@@ -279,6 +277,8 @@
 
             ; print a space for alignment
             70 81 8C 02   ; add r1 rsp 2    ; r1 = string address (rsp+2)
+            78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
+            70 82 00 01   ; add r2 0 1       ; r2 = string length (1)
             7F 06 00 00   ; sys write 0 0
 
             ; next
@@ -286,7 +286,9 @@
         :print_board_x_done
 
         ; print newline
+        78 80 89 10   ; ldw r0 r9 16    ; r0 = stdout
         70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
+        70 82 00 01   ; add r2 0 1      ; r2 = string length (1)
         7F 06 00 00   ; sys write 0 0
 
         ; next y
@@ -296,8 +298,13 @@
         7E 00 &print_board_next_y    ; jz 0 &print_board_next_y
 
     ; print two newlines
+    78 80 89 10   ; ldw r0 r9 16    ; r0 = stdout
     70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
+    70 82 00 01   ; add r2 0 1      ; r2 = string length (1)
     7F 06 00 00   ; sys write 0 0
+    78 80 89 10   ; ldw r0 r9 16    ; r0 = stdout
+    70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
+    70 82 00 01   ; add r2 0 1      ; r2 = string length (1)
     7F 06 00 00   ; sys write 0 0
 
     ; return
