@@ -1,8 +1,8 @@
 This is an implementation of the Onramp Virtual Machine directly in x86\_64 machine code.
 
-The resulting executable is about 4 kB. This includes the ELF header, the string table and other constants, and the code. Much of the code (10%-20%) is padding between functions to give them fixed addresses and make them editable.
+The resulting executable is about 5 kB. This includes the ELF header, the string table and other constants, and the code. Much of the code (10%-20%) is padding between functions to give them fixed addresses and make them editable. A significant portion is spent on getting raw non-blocking input working which is solely for the purpose of running Doom.
 
-Not counting padding, the program code consists of about 800 x86\_64 instructions. That includes full error-checking, bounds-checking, friendly error messages, etc. This is all that is required to implement a complete Onramp VM. A VM that omits error checks could probably reduce this by 25% or more.
+Not counting padding, the program code consists of about 800 x86\_64 instructions. That includes full error-checking, bounds-checking, friendly error messages, non-blocking input, etc. This is all that is required to implement a complete Onramp VM. A VM that omits error checks and raw input could probably reduce this by 30% or more.
 
 The full hexadecimal source code is about 2500 lines including whitespace and comments. It contains more comments than code.
 

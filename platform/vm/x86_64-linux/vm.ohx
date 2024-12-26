@@ -89,6 +89,7 @@
 ; 0x600040 io handles (4x16==64 bytes)
 ;     the index in the array is the I/O handle passed to the program.
 ;     the value in the array is the Linux file descriptor.
+; 0x600080 saved terminal state (struct termios) (60 bytes)
 ;
 ;   vm heap
 ; 0x1000000 start of heap
@@ -139,6 +140,9 @@
 ; 0x4011A0 syscall_chmod
 ; 0x401200 syscall_time
 ; 0x401270 skip_wrap_header
+; 0x4012F0 io_setup
+; 0x4013B0 io_teardown
+; 0x401??? signal_handler
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -220,8 +224,8 @@
     00 05 00 00 00 00 00 00  ; offset within the file: 0x500
     00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
     00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
-    00 00 01 00 00 00 00 00  ; size of the segment in the file: 0x1000 (TODO)
-    00 00 01 00 00 00 00 00  ; size of the segment in memory: 0x1000 (TODO)
+    00 00 02 00 00 00 00 00  ; size of the segment in the file: 0x1000 (TODO)
+    00 00 02 00 00 00 00 00  ; size of the segment in memory: 0x1000 (TODO)
     00 10 00 00 00 00 00 00  ; required alignment: 4 KB
 @0x78
 
@@ -439,6 +443,10 @@
     ; set up stack frame
     48 89 E5                       ; mov rbp, rsp
 
+    ; call io_setup
+    B8 F0 12 40 00    ; mov eax, io_setup (0x4012F0)
+    FF D0             ; call rax
+
     ; call initialize
     48 89 E7          ; mov rdi, rsp
     B8 D0 08 40 00    ; mov eax, initialize (0x4008D0)
@@ -461,8 +469,7 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90
+    90 90 90
 @0x570
 
 
@@ -551,6 +558,8 @@
     ; we don't bother to set up a stack frame.
 
     ; we also don't even bother to close files.
+
+    ; TODO call io_teardown to reset terminal state
 
     ; TODO the ABI says there's an atexit function in a starting register we're
     ; supposed to call.
@@ -1990,6 +1999,7 @@
 ; ==========================================================
 
 @0xE60 syscall_fwrite
+
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2016,6 +2026,12 @@
     5F               ; pop rdi       ; file descriptor
     0F 05            ; syscall
 
+    ; if the return value is EAGAIN/EWOULDBLOCK, change it to 0
+    3D F5 FF FF FF   ; cmp eax, -11   ; EAGAIN (11), kernel returns negative
+    75 05            ; jne syscall_fwrite_ok (+5)
+    B8 00 00 00 00   ; mov eax, 0
+;syscall_fwrite_ok:
+
     ; TODO convert return value to Onramp error codes. Linux syscalls return
     ; negative values on error so for now we just pass it through.
 
@@ -2034,8 +2050,7 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90
+    90 90
 @0xED0
 
 
@@ -2596,3 +2611,125 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90
 @0x12F0
+
+
+
+; ==========================================================
+; void io_setup(void)
+; ==========================================================
+; Sets standard input to non-echo, non-canonical, and non-blocking.
+;
+; Also sets up signal handlers to undo it on exit.
+;
+; This is really just to get Doom playable from command-line. All of this could
+; be deleted to make this VM shorter. In fact an Onramp VM does not need to
+; support input at all.
+; ==========================================================
+
+@0x12F0 io_setup
+
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; call fcntl(F_GETFL) to get input flags
+    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
+    BE 03 00 00 00     ; mov esi, 3    ; command: F_GETFL (3)
+    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
+    0F 05              ; syscall
+
+    ; add non-blocking flag
+    0D 00 08 00 00     ; or eax, O_NONBLOCK (0x800)
+
+    ; call fcntl(F_SETFL) to set input flags
+    89 C2              ; mov edx, eax  ; arg: flags
+    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
+    BE 04 00 00 00     ; mov esi, 4    ; command: F_SETFL (4)
+    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
+    0F 05              ; syscall
+
+    ; call ioctl(TCGETS) to save terminal state
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 01 54 00 00     ; mov esi, 0x5401    ; command: TCGETS (0x5401)
+    BA A4 01 00 00     ; mov edx, 0x600080  ; arg: struct termios to save (0x600080)
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; install signal handlers to restore terminal state
+    ; TODO
+    ; signal(SIGTERM, signal_handler)
+    ; signal(SIGINT, signal_handler)
+
+    ; make stack space for a temporary struct termios (60 bytes)
+    48 83 EC 3C        ; sub rsp, 60
+
+    ; call ioctl(TCGETS) again to get another copy of the terminal state
+    ; (this is simpler than copying the one we saved earlier)
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 01 54 00 00     ; mov esi, 0x5401    ; command: TCGETS (0x5401)
+    48 89 E2           ; mov rdx, rsp       ; arg: struct termios on the stack
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; load c_lflag, the fourth dword in the struct
+    8B 44 24 0C        ; mov eax, [rsp + 12]
+
+    ; turn off ECHO (0b1000) and ICANON (0b0010)
+    BA 0A 00 00 00     ; mov edx, 0b1010
+    F7 D2              ; not edx
+    21 D0              ; and eax, edx
+
+    ; put it back in the struct
+    89 44 24 0C        ; mov [rsp + 12], eax
+
+    ; call ioctl(TCSETS) to change the terminal state
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
+    48 89 E2           ; mov rdx, rsp       ; arg: struct termios on the stack
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90
+
+@0x13B0
+
+
+
+; ==========================================================
+; void io_teardown(void)
+; ==========================================================
+; ==========================================================
+
+;@0x1270 io_teardown
+    ; call tcsetattr() with saved termios
+
+
+
+; ==========================================================
+; void signal_handler(int signal)
+; ==========================================================
+; ==========================================================
+
+;@0x1270 signal_handler
+
+    ; TODO call io_teardown
+    ; TODO exit(128 + signal)
+
+
+
+; Note: When extending the text segment, the sizes in the header at 0x40 must
+; be incremented to include it!
