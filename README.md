@@ -22,7 +22,7 @@ The resulting toolchain can (soon) bootstrap a native C compiler (e.g. TinyCC), 
 
 Only the first two steps are platform-specific. The entire rest of the process operates on a platform-independent bytecode. Onramp bytecode is simple to implement, simple to hand-write, and simple to compile to, making the entire bootstrap process as simple and portable as possible.
 
-The platform-independence of Onramp makes present-day C trivially compilable by future archaeologists, alien civilizations, collapse recovery efforts and more. The goal of Onramp is to maintain a timeless and universal bootstrapping path to C.
+The platform independence of Onramp makes present-day C trivially compilable by future archaeologists, alien civilizations, collapse recovery efforts and more. The goal of Onramp is to maintain a timeless and universal bootstrapping path to C.
 
 
 
@@ -52,7 +52,7 @@ Once you have a VM, Onramp bootstraps itself. Read the [full bootstrapping path]
 
 ## Under Construction!
 
-Onramp is not yet complete. It doesn't compile much besides itself at the moment. My immediate goal is to support enough of C to compile Doom for command-line.
+Onramp is not yet complete. [It can compile Doom](https://ludocode.com/blog/onramp-can-compile-doom), but not much else at the moment. It is missing floating point support and most libc functionality.
 
 A near-term goal is to compile native compilers and tools: [TinyCC](https://en.wikipedia.org/wiki/Tiny_C_Compiler), [cproc](https://sr.ht/~mcf/cproc/)+[QBE](https://c9x.me/compile/), [chibicc](https://github.com/rui314/chibicc)/[Kefir](https://kefir.protopopov.lv/)+[binutils](https://www.gnu.org/software/binutils/), etc. A medium-term goal is to be able to boot a computer directly into a freestanding Onramp VM in order to bootstrap a modern OS kernel from source.
 
@@ -78,7 +78,7 @@ I welcome bug reports but I am not currently accepting contributions. Feel free 
 
 ## Quick Start
 
-WARNING: The final stage compiler and preprocessor are incomplete. There is no support for function pointers, initializer lists, function-like macros, `#if`, `float`, `long long`, and much more. The compiler is not yet ready for real world use.
+WARNING: The libc is incomplete and there is no support for floating point math. Onramp is not yet ready for real world use.
 
 On POSIX systems, run the build script and put the results on your PATH.
 
