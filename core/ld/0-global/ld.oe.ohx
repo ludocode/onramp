@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -332,7 +332,7 @@
     70 81 81 01    ; add r1 r1 1       ; inc r1
 
     ; see if it's the end of the string
-    7D 8A 82 00    ; cmp ra r2 0
+    71 8A 82 00    ; sub ra r2 0
     7E 8A 05 00    ; jz ra &fnv1a_done (+5)
 
     ; update the hash
@@ -424,7 +424,7 @@
 ;:initialize_loop
     79 00 81 83   ; stw 0 r1 r3
     70 83 83 08   ; add r3 r3 8
-    7D 8A 83 84   ; cmp ra r3 r4
+    71 8A 83 84   ; sub ra r3 r4
     7E 8A 01 00   ; jz ra &initialize_done (+1)
     7E 00 FB FF   ; jz 0 &initialize_loop (-5)
 ;:initialize_done
@@ -493,7 +493,7 @@
 
     ; make sure we found an output file
     78 8A 89 10    ; ldw ra r9 16
-    7D 8A 8A FF    ; cmp ra ra -1
+    71 8A 8A FF    ; sub ra ra -1
     7E 8A 01 00    ; jz ra &perform_link_no_output (+1)
     7E 00 06 00    ; jz 0 &perform_link_pass_0_ok (+6)
 
@@ -833,7 +833,7 @@
     7F 03 00 00    ; sys fopen 0 0
 
     ; return value must not be -1
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra &open_input_file_fail (+1)
     7E 00 06 00    ; jz ra &open_input_file_ok (+6)
 
@@ -863,7 +863,7 @@
 
     ; see if the current character is -1, meaning end of file
     78 8A 89 1C    ; ldw ra r9 28
-    7D 8A 8A FF    ; cmp ra ra -1
+    71 8A 8A FF    ; sub ra ra -1
     7E 8A 08 00    ; jz ra &parse_input_file_done (+8)
 
     ; call parse_character
@@ -1075,9 +1075,9 @@
 ;:is_identifier_not_uppercase
 
     ; check if it's a valid symbol
-    7D 8A 80 5F   ; cmpu ra r0 "_"
+    71 8A 80 5F   ; sub ra r0 "_"
     7E 8A 03 00   ; jz ra &is_identifier_symbol (+3)
-    7D 8A 80 24   ; cmpu ra r0 "$"
+    71 8A 80 24   ; sub ra r0 "$"
     7E 8A 01 00   ; jz ra &is_identifier_symbol (+1)
     7E 00 02 00   ; jz 0 &is_identifier_not_symbol (+2)
 
@@ -1286,9 +1286,9 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check if it's actually hex
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra &parse_hex_false (+1)
-    7E 00 02 00    ; jz ra &parse_hex_found (+2)
+    7E 00 02 00    ; jz 0 &parse_hex_found (+2)
 
     ; it's not hex. return false
 ;:parse_hex_false
@@ -1321,7 +1321,7 @@
 
     ; make sure it's not the end of the file
     78 80 89 1C    ; ldw r0 r9 28
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 0A 00    ; jz ra &parse_hex_byte_invalid (+10)
 
     ; convert the second char to its hex value
@@ -1334,9 +1334,9 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; make sure it's actually a hex char
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra &parse_hex_byte_invalid (+1)
-    7E 00 06 00    ; jz ra &parse_hex_byte_valid (+6)
+    7E 00 06 00    ; jz 0 &parse_hex_byte_valid (+6)
 
     ; invalid or eof, fatal error_truncated_hex_byte
 ;:parse_hex_byte_invalid
@@ -1400,11 +1400,11 @@
     7A 80 89 1C     ; ldb r0 r9 28    ; current_char
 
     ; check if comment (we treat debug lines and archive info as comments)
-    7D 8A 80 3B    ; cmp ra r0 ";"
+    71 8A 80 3B    ; sub ra r0 ";"
     7E 8A 06 00    ; jz ra &try_parse_comment_loop (+6)
-    7D 8A 80 23    ; cmp ra r0 "#"
+    71 8A 80 23    ; sub ra r0 "#"
     7E 8A 04 00    ; jz ra &try_parse_comment_loop (+4)
-    7D 8A 80 25    ; cmp ra r0 "%"
+    71 8A 80 25    ; sub ra r0 "%"
     7E 8A 02 00    ; jz ra &try_parse_comment_loop (+2)
 
     ; not a comment. return false
@@ -1428,11 +1428,11 @@
     7A 80 89 1C     ; ldb r0 r9 28    ; &current_char
 
     ; check if newline (\n or \r) or end of file
-    7D 8A 80 0A    ; cmp ra r0 "\n"
+    71 8A 80 0A    ; sub ra r0 "\n"
     7E 8A 05 00    ; jz ra &try_parse_comment_done (+5)
-    7D 8A 80 0D    ; cmp ra r0 "\r"
+    71 8A 80 0D    ; sub ra r0 "\r"
     7E 8A 03 00    ; jz ra &try_parse_comment_done (+3)
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra &try_parse_comment_done (+1)
 
     ; not a newline. loop
@@ -1466,17 +1466,17 @@
     7A 80 89 1C     ; ldb r0 r9 28    ; current_char
 
     ; check for whitespace
-    7D 8A 80 20    ; cmp ra r0 " "   (space)
+    71 8A 80 20    ; sub ra r0 " "   (space)
     7E 8A 0C 00    ; jz ra &try_parse_whitespace_true (+12)
-    7D 8A 80 0A    ; cmp ra r0 "\n"  (line feed)
+    71 8A 80 0A    ; sub ra r0 "\n"  (line feed)
     7E 8A 0A 00    ; jz ra &try_parse_whitespace_true (+10)
-    7D 8A 80 09    ; cmp ra r0 "\t"  (horizontal tab)
+    71 8A 80 09    ; sub ra r0 "\t"  (horizontal tab)
     7E 8A 08 00    ; jz ra &try_parse_whitespace_true (+8)
-    7D 8A 80 0D    ; cmp ra r0 "\r"  (carriage return)
+    71 8A 80 0D    ; sub ra r0 "\r"  (carriage return)
     7E 8A 06 00    ; jz ra &try_parse_whitespace_true (+6)
-    7D 8A 80 0C    ; cmp ra r0 "\f"  (form feed)
+    71 8A 80 0C    ; sub ra r0 "\f"  (form feed)
     7E 8A 04 00    ; jz ra &try_parse_whitespace_true (+4)
-    7D 8A 80 0B    ; cmp ra r0 "\v"  (vertical tab)
+    71 8A 80 0B    ; sub ra r0 "\v"  (vertical tab)
     7E 8A 02 00    ; jz ra &try_parse_whitespace_true (+2)
 
     ; not whitespace. return false
@@ -1720,11 +1720,11 @@
     7A 80 89 1C     ; ldb r0 r9 28    ; current_char
 
     ; check if it's a definition
-    7D 8A 80 3D    ; cmp ra r0 "="  (global symbol)
+    71 8A 80 3D    ; sub ra r0 "="  (global symbol)
     7E 8A 06 00    ; jz ra &try_parse_define_true (+6)
-    7D 8A 80 40    ; cmp ra r0 "@"  (static symbol)
+    71 8A 80 40    ; sub ra r0 "@"  (static symbol)
     7E 8A 04 00    ; jz ra &try_parse_define_true (+4)
-    7D 8A 80 3A    ; cmp ra r0 ":"  (label)
+    71 8A 80 3A    ; sub ra r0 ":"  (label)
     7E 8A 02 00    ; jz ra &try_parse_define_true (+2)
 
     ; not definition. return false
@@ -1738,9 +1738,9 @@
     ; TODO this should be moved down below to pass 1 only
     78 80 89 08   ; ldw r0 r9 8    ; symbol_count
     76 8A 01 0C   ; shl ra 1 12
-    7D 8A 8A 80   ; cmpu ra ra r0
+    71 8A 8A 80   ; sub ra ra r0
     7E 8A 01 00   ; jz ra &try_parse_define_too_many (+1)
-    7E 00 06 00   ; jz 00 &try_parse_define_not_too_many (+6)
+    7E 00 06 00   ; jz 0 &try_parse_define_not_too_many (+6)
 
     ; fatal error_too_many_symbols
 ;:try_parse_define_too_many
@@ -1757,11 +1757,11 @@
 
     ; check if it's a symbol definition (to line up to a word boundary)
     7A 80 89 1C     ; ldb r0 r9 28    ; current_char
-    7D 8A 80 3D     ; cmp ra r0 "="  (global symbol)
+    71 8A 80 3D     ; sub ra r0 "="  (global symbol)
     7E 8A 03 00     ; jz ra &try_parse_define_symbol (+3)
-    7D 8A 80 40     ; cmp ra r0 "@"  (static symbol)
+    71 8A 80 40     ; sub ra r0 "@"  (static symbol)
     7E 8A 01 00     ; jz ra &try_parse_define_symbol (+1)
-    7E 00 0F 00     ; jz ra &try_parse_define_symbol_done (+15)
+    7E 00 0F 00     ; jz 0 &try_parse_define_symbol_done (+15)
 
 ;:try_parse_define_symbol
 
@@ -1878,13 +1878,13 @@
     7A 80 89 1C     ; ldb r0 r9 28    ; current_char
 
     ; check if it's an invocation
-    7D 8A 80 26    ; cmp ra r0 "&"  (relative)
+    71 8A 80 26    ; sub ra r0 "&"  (relative)
     7E 8A 08 00    ; jz ra &try_parse_invoke_true (+8)
-    7D 8A 80 3C    ; cmp ra r0 "<"  (high short)
+    71 8A 80 3C    ; sub ra r0 "<"  (high short)
     7E 8A 06 00    ; jz ra &try_parse_invoke_true (+6)
-    7D 8A 80 3E    ; cmp ra r0 ">"  (low short)
+    71 8A 80 3E    ; sub ra r0 ">"  (low short)
     7E 8A 04 00    ; jz ra &try_parse_invoke_true (+4)
-    7D 8A 80 5E    ; cmp ra r0 "^"  (full int)
+    71 8A 80 5E    ; sub ra r0 "^"  (full int)
     7E 8A 02 00    ; jz ra &try_parse_invoke_true (+2)
 
     ; not invocation. return false
@@ -1896,7 +1896,7 @@
 
     ; increment current address. if ^ it's 4, otherwise it's 2.
     78 8A 89 18    ; ldw ra r9 24   ; current_address
-    7D 8B 80 5E    ; cmp rb r0 "^"  (full int)
+    71 8B 80 5E    ; sub rb r0 "^"  (full int)
     7E 8B 02 00    ; jz rb &try_parse_invoke_four (+2)
     70 8A 8A 02    ; add ra ra 2
     7E 00 01 00    ; jz 0 &try_parse_invoke_two (+1)
@@ -1964,7 +1964,7 @@
     70 8C 8C 04    ; add rsp rsp 4      ; ...
 
     ; check if symbol is ^
-    7D 8A 81 5E    ; cmp ra r1 "^"  (full int)
+    71 8A 81 5E    ; sub ra r1 "^"  (full int)
     7E 8A 01 00    ; jz ra &try_parse_invoke_full (+1)
     7E 00 09 00    ; jz ra &try_parse_invoke_not_full (+9)
 
@@ -1983,7 +1983,7 @@
 ;:try_parse_invoke_not_full
 
     ; check if symbol is <
-    7D 8A 81 3C    ; cmp ra r1 "<"  (high short)
+    71 8A 81 3C    ; sub ra r1 "<"  (high short)
     7E 8A 01 00    ; jz ra &try_parse_invoke_high (+1)
     7E 00 01 00    ; jz ra &try_parse_invoke_not_high (+1)
 
@@ -1994,7 +1994,7 @@
 ;:try_parse_invoke_not_high
 
     ; check if symbol is &
-    7D 8A 81 26    ; cmp ra r1 "&"  (relative)
+    71 8A 81 26    ; sub ra r1 "&"  (relative)
     7E 8A 01 00    ; jz ra &try_parse_invoke_rel (+1)
     7E 00 0B 00    ; jz 0 &try_parse_invoke_not_rel (+11)
 
