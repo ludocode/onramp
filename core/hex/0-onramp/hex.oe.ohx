@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -451,21 +451,21 @@
 
     ; check "-"
     7A 8A 80 00     ; ldw ra r0 0
-    7D 8A 8A 2D     ; cmp ra ra "-"
+    71 8A 8A 2D     ; sub ra ra "-"
     7E 8A 02 00     ; jz ra +2
     70 80 00 00     ; add r0 0 0       ; set return value false
     78 8F 00 8C     ; ldw rip 0 rsp    ; ret
 
     ; check "o"
     7A 8A 80 01     ; ldw ra r0 1
-    7D 8A 8A 6F     ; cmp ra ra "o"
+    71 8A 8A 6F     ; sub ra ra "o"
     7E 8A 02 00     ; jz ra +2
     70 80 00 00     ; add r0 0 0       ; set return value false
     78 8F 00 8C     ; ldw rip 0 rsp    ; ret
 
     ; check null-terminator
     7A 8A 80 02     ; ldw ra r0 2
-    7D 8A 8A 00     ; cmp ra ra 0
+    71 8A 8A 00     ; sub ra ra 0
     7E 8A 02 00     ; jz ra +2
     70 80 00 00     ; add r0 0 0       ; set return value false
     78 8F 00 8C     ; ldw rip 0 rsp    ; ret
@@ -672,7 +672,7 @@
 
     ; check for end of file
     78 80 89 0C    ; ldw r0 r9 12    ; current_char
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra +1
     7E 00 04 00    ; jz 0 &parse_character_no_eof (+4)
 
@@ -762,17 +762,17 @@
     7A 80 89 0C     ; ldb r0 r9 12    ; current_char
 
     ; check for whitespace
-    7D 8A 80 20    ; cmp ra r0 " "   (space)
+    71 8A 80 20    ; sub ra r0 " "   (space)
     7E 8A 0C 00    ; jz ra &try_parse_whitespace_true (+12)
-    7D 8A 80 0A    ; cmp ra r0 "\n"  (line feed)
+    71 8A 80 0A    ; sub ra r0 "\n"  (line feed)
     7E 8A 0A 00    ; jz ra &try_parse_whitespace_true (+10)
-    7D 8A 80 09    ; cmp ra r0 "\t"  (horizontal tab)
+    71 8A 80 09    ; sub ra r0 "\t"  (horizontal tab)
     7E 8A 08 00    ; jz ra &try_parse_whitespace_true (+8)
-    7D 8A 80 0D    ; cmp ra r0 "\r"  (carriage return)
+    71 8A 80 0D    ; sub ra r0 "\r"  (carriage return)
     7E 8A 06 00    ; jz ra &try_parse_whitespace_true (+6)
-    7D 8A 80 0C    ; cmp ra r0 "\f"  (form feed)
+    71 8A 80 0C    ; sub ra r0 "\f"  (form feed)
     7E 8A 04 00    ; jz ra &try_parse_whitespace_true (+4)
-    7D 8A 80 0B    ; cmp ra r0 "\v"  (vertical tab)
+    71 8A 80 0B    ; sub ra r0 "\v"  (vertical tab)
     7E 8A 02 00    ; jz ra &try_parse_whitespace_true (+2)
 
     ; not whitespace. return false
@@ -928,9 +928,9 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check if it's actually hex
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra &parse_hex_false (+1)
-    7E 00 02 00    ; jz ra &parse_hex_found (+2)
+    7E 00 02 00    ; jz 0 &parse_hex_found (+2)
 
     ; it's not hex. return false
 ;:parse_hex_false
@@ -958,7 +958,7 @@
 
     ; make sure it's not the end of the file
     7A 80 89 0C    ; ldb r0 r9 12    ; current_char
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 0A 00    ; jz ra &parse_hex_byte_invalid (+10)
 
     ; convert the second char to its hex value
@@ -971,9 +971,9 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; make sure it's actually a hex char
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra &parse_hex_byte_invalid (+1)
-    7E 00 06 00    ; jz ra &parse_hex_byte_valid (+6)
+    7E 00 06 00    ; jz 0 &parse_hex_byte_valid (+6)
 
     ; invalid or eof, fatal error_truncated_hex_byte
 ;:parse_hex_byte_invalid
@@ -1039,15 +1039,16 @@
     7A 80 89 0C    ; ldb r0 r9 12    ; current_char
 
     ; check if comment (we treat debug lines as comments)
-    7D 8A 80 23    ; cmp ra r0 "#"
-    7E 8A 04 00    ; jz ra &try_parse_comment_loop (+4)
-    7D 8A 80 3B    ; cmp ra r0 ";"
-    7E 8A 02 00    ; jz ra &try_parse_comment_loop (+2)
+    71 8A 80 23    ; sub ra r0 "#"
+    7E 8A 04 00    ; jz ra &try_parse_comment_found (+4)
+    71 8A 80 3B    ; sub ra r0 ";"
+    7E 8A 02 00    ; jz ra &try_parse_comment_found (+2)
 
     ; not a comment. return false
     70 80 00 00    ; add r0 0 0
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
 
+;:try_parse_comment_found
     ; it's a comment. tail-call consume_comment()
     7C 8A 00 00    ; ims ra <consume_comment
     7C 8A 40 08    ; ims ra >consume_comment
@@ -1081,15 +1082,15 @@
     78 80 89 0C    ; ldw r0 r9 12    ; current_char
 
     ; check if newline (\n or \r) or end of file
-    7D 8A 80 0A    ; cmp ra r0 "\n"
+    71 8A 80 0A    ; sub ra r0 "\n"
     7E 8A 11 00    ; jz ra &consume_comment_done (+17)
-    7D 8A 80 0D    ; cmp ra r0 "\r"
+    71 8A 80 0D    ; sub ra r0 "\r"
     7E 8A 0F 00    ; jz ra &consume_comment_done (+15)
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 0D 00    ; jz ra &consume_comment_done (+13)
 
     ; check if backslash
-    7D 8A 80 5C    ; cmp ra r0 "\"
+    71 8A 80 5C    ; sub ra r0 "\"
     7E 8A 02 00    ; jz ra +2
     79 00 8C 00    ; stw 0 rsp 0    ; clear the flag
     7E 00 01 00    ; jz 0 +1
@@ -1180,7 +1181,7 @@
     7A 80 89 0C    ; ldb r0 r9 12    ; current_char
 
     ; check if it's an address assertion
-    7D 8A 80 40    ; cmp ra r0 "@"
+    71 8A 80 40    ; sub ra r0 "@"
     7E 8A 02 00    ; jz ra &try_parse_address_found (+2)
 
     ; not an address assertion, return false
@@ -1210,7 +1211,7 @@
 
     ; make sure the next char is "0", otherwise fatal error
     7A 80 89 0C    ; ldb r0 r9 12    ; current_char
-    7D 8A 80 30    ; cmp ra r0 "0"
+    71 8A 80 30    ; sub ra r0 "0"
     7E 8A 06 00    ; jz ra &try_parse_address_zero (+6)
     7C 80 00 00    ; ims r0 <error_address_assertion
     7C 80 00 09    ; ims r0 >error_address_assertion
@@ -1232,9 +1233,9 @@
     ; make sure the next char is "x" or "X", otherwise fatal error
     7A 80 89 0C    ; ldb r0 r9 12    ; current_char
     70 8B 30 48    ; add rb 48 72    ; put "x" into rb (too big for mix-type)
-    7D 8A 80 8B    ; cmp ra r0 rb
+    71 8A 80 8B    ; sub ra r0 rb
     7E 8A 08 00    ; jz ra &try_parse_address_x (+8)
-    7D 8A 80 58    ; cmp ra r0 "X"
+    71 8A 80 58    ; sub ra r0 "X"
     7E 8A 06 00    ; jz ra &try_parse_address_x (+6)
     7C 80 00 00    ; ims r0 <error_address_assertion
     7C 80 00 09    ; ims r0 >error_address_assertion
@@ -1257,19 +1258,19 @@
 
     ; check if the current char is whitespace or end-of-file
     78 80 89 0C    ; ldw r0 r9 12    ; current_char
-    7D 8A 80 FF    ; cmp ra r0 -1    (end of file)
+    71 8A 80 FF    ; sub ra r0 -1    (end of file)
     7E 8A 0E 00    ; jz ra &try_parse_address_is_space (+12)
-    7D 8A 80 20    ; cmp ra r0 " "   (space)
+    71 8A 80 20    ; sub ra r0 " "   (space)
     7E 8A 0C 00    ; jz ra &try_parse_address_is_space (+12)
-    7D 8A 80 0A    ; cmp ra r0 "\n"  (line feed)
+    71 8A 80 0A    ; sub ra r0 "\n"  (line feed)
     7E 8A 0A 00    ; jz ra &try_parse_address_is_space (+10)
-    7D 8A 80 09    ; cmp ra r0 "\t"  (horizontal tab)
+    71 8A 80 09    ; sub ra r0 "\t"  (horizontal tab)
     7E 8A 08 00    ; jz ra &try_parse_address_is_space (+8)
-    7D 8A 80 0D    ; cmp ra r0 "\r"  (carriage return)
+    71 8A 80 0D    ; sub ra r0 "\r"  (carriage return)
     7E 8A 06 00    ; jz ra &try_parse_address_is_space (+6)
-    7D 8A 80 0C    ; cmp ra r0 "\f"  (form feed)
+    71 8A 80 0C    ; sub ra r0 "\f"  (form feed)
     7E 8A 04 00    ; jz ra &try_parse_address_is_space (+4)
-    7D 8A 80 0B    ; cmp ra r0 "\v"  (vertical tab)
+    71 8A 80 0B    ; sub ra r0 "\v"  (vertical tab)
     7E 8A 02 00    ; jz ra &try_parse_address_is_space (+2)
 
     ; (we jump to this little shunt to make it easier for us to change the
@@ -1290,7 +1291,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; if it's -1, fatal error
-    7D 8A 80 FF    ; cmp ra r0 -1
+    71 8A 80 FF    ; sub ra r0 -1
     7E 8A 01 00    ; jz ra +1
     7E 00 06 00    ; jz 0 &try_parse_address_hex_ok (+6)
     7C 80 00 00    ; ims r0 <error_address_assertion
@@ -1303,7 +1304,7 @@
 
     ; increment digit count. if we already have 8, fatal error
     78 8A 8D F8    ; ldw ra rfp -8    ; load digit count
-    7D 8B 8A 08    ; cmp rb ra 8
+    71 8B 8A 08    ; sub rb ra 8
     7E 8B 01 00    ; jz rb +1
     7E 00 06 00    ; jz 0 +6
         7C 80 00 00    ; ims r0 <error_address_assertion
@@ -1341,7 +1342,7 @@
     7E 8A 04 00    ; jz ra +4
     78 8A 8D FC    ; ldw ra rfp -4   ; load address
     78 8B 89 10    ; ldw ra r9 16    ; load byte count
-    7D 8A 8A 8B    ; cmpu ra ra rb
+    71 8A 8A 8B    ; sub ra ra rb
     7E 8A 06 00    ; jz ra +6
         7C 80 00 00    ; ims r0 <error_address_assertion
         7C 80 00 09    ; ims r0 >error_address_assertion
