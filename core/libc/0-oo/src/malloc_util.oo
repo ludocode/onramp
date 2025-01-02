@@ -55,8 +55,7 @@
     70 8C 8C 04            ; add rsp rsp 4     ; pop return address
 
     ; make sure the return value is non-zero
-    7D 8A 80 00           ; cmp ra r0 0
-    7E 8A &__memdup_ret   ; jz ra &__memdup_ret
+    7E 80 &__memdup_ret   ; jz r0 &__memdup_ret
 
     ; prepare args to call memcpy
     78 81 8C 00            ; ldw r1 rsp 0

@@ -141,7 +141,6 @@
     70 80 00 00   ; add r0 0 0
 :__start_argc_loop
     78 8B 00 8A                   ; ldw rb 0 ra
-    7D 8B 8B 00                   ; cmp rb rb 0
     7E 8B &__start_argc_loop_end  ; jz rb &__start_argc_loop_end
     70 80 80 01                   ; add r0 r0 1
     70 8A 8A 04                   ; add ra ra 4

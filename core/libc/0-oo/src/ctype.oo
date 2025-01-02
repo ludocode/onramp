@@ -241,17 +241,17 @@
 ; ==========================================================
 
 =isspace
-    7D 8A 80 20   ; cmpu ra r0 " "  (space)
+    71 8A 80 20   ; sub ra r0 " "  (space)
     7E 8A &__isspace_true
-    7D 8A 80 09   ; cmpu ra r0 \t   (horizontal tab)
+    71 8A 80 09   ; sub ra r0 \t   (horizontal tab)
     7E 8A &__isspace_true
-    7D 8A 80 0A   ; cmpu ra r0 \n   (line feed)
+    71 8A 80 0A   ; sub ra r0 \n   (line feed)
     7E 8A &__isspace_true
-    7D 8A 80 0B   ; cmpu ra r0 \v   (vertical tab)
+    71 8A 80 0B   ; sub ra r0 \v   (vertical tab)
     7E 8A &__isspace_true
-    7D 8A 80 0C   ; cmpu ra r0 \f   (form feed)
+    71 8A 80 0C   ; sub ra r0 \f   (form feed)
     7E 8A &__isspace_true
-    7D 8A 80 0D   ; cmpu ra r0 \r   (carriage return)
+    71 8A 80 0D   ; sub ra r0 \r   (carriage return)
     7E 8A &__isspace_true
 
     ; return false
@@ -274,9 +274,9 @@
 ; ==========================================================
 
 =isblank
-    7D 8A 80 20   ; cmpu ra r0 " "  (space)
+    71 8A 80 20   ; sub ra r0 " "  (space)
     7E 8A &__isblank_true
-    7D 8A 80 09   ; cmpu ra r0 \t   (horizontal tab)
+    71 8A 80 09   ; sub ra r0 \t   (horizontal tab)
     7E 8A &__isblank_true
 
     ; return false

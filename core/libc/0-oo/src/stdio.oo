@@ -274,7 +274,7 @@
 
 ;    ; if the filename doesn't start with '/', it's a relative path.
 ;    7A 8A 00 80                ; ldb ra 00 r0
-;    7D 8A 8A 5C                ; cmp ra ra "/"
+;    71 8A 8A 5C                ; sub ra ra "/"
 ;    7E 8A &__fopen_filename_ok   ; jz ra &__fopen_filename_ok
 ;
 ;    ; the VM doesn't support relative paths so we need to prepend the working
@@ -307,10 +307,10 @@
     ; find a free file slot
 :__fopen_slot_search
     78 8A 00 82                  ; ldw ra 0 r2
-    7D 8A 8A FF                  ; cmp ra ra -1
+    71 8A 8A FF                  ; sub ra ra -1
     7E 8A &__fopen_slot_found    ; jz ra &__fopen_slot_found
     70 82 82 08                  ; add r2 r2 8
-    7D 8A 82 83                  ; cmp ra r2 r3
+    71 8A 82 83                  ; sub ra r2 r3
     7E 8A &__fopen_no_slot       ; jz ra &__fopen_no_slot
     7E 00 &__fopen_slot_search   ; jz 0 &__fopen_slot_search
 
@@ -319,11 +319,11 @@
 
     ; check the mode to decide whether to open writeable
     7A 8A 00 81            ; ldb ra 0 r1
-    7D 8B 8A 72            ; cmp rb ra "r"
+    71 8B 8A 72            ; sub rb ra "r"
     7E 8B &__fopen_read    ; jz rb &__fopen_read
-    7D 8B 8A 77            ; cmp rb ra "w"
+    71 8B 8A 77            ; sub rb ra "w"
     7E 8B &__fopen_write   ; jz rb &__fopen_write
-    7D 8B 8A 61            ; cmp rb ra "a"
+    71 8B 8A 61            ; sub rb ra "a"
     7E 8B &__fopen_write   ; jz rb &__fopen_write
     7E 00 &__fopen_invalid_mode   ; jz rb &__fopen_invalid_mode
 
@@ -351,7 +351,7 @@
     ; check if mode is append
     78 81 8D F8     ; ldw r1 rfp -8
     7A 8A 00 81     ; ldb ra 0 r1
-    7D 8B 8A 61     ; cmp rb ra "a"
+    71 8B 8A 61     ; sub rb ra "a"
     7E 8B 01 00     ; jz rb +1
     7E 00 &__fopen_not_append   ; jz 0 &__fopen_not_append
 
@@ -367,7 +367,7 @@
     ; check if mode is write
     78 81 8D F8     ; ldw r1 rfp -8
     7A 8A 00 81     ; ldb ra 0 r1
-    7D 8B 8A 77     ; cmp rb ra "w"
+    71 8B 8A 77     ; sub rb ra "w"
     7E 8B 01 00     ; jz rb +1
     7E 00 &__fopen_not_write   ; jz 0 &__fopen_not_write
 
@@ -440,13 +440,13 @@
     ; skip if the file is stdin, stdout or stderr
     7C 88 <__files        ; ims r8 <__files
     7C 88 >__files        ; ims r8 >__files        ; r8 = stdin
-    7D 8A 80 88           ; cmp ra r0 r8
+    71 8A 80 88           ; sub ra r0 r8
     7E 8A &__fclose_done  ; jz ra &__fclose_done
     70 88 88 04           ; add r8 r8 04           ; r8 = stdout
-    7D 8A 80 88           ; cmp ra r0 r8
+    71 8A 80 88           ; sub ra r0 r8
     7E 8A &__fclose_done  ; jz ra &__fclose_done
     70 88 88 04           ; add r8 r8 04           ; r8 = stderr
-    7D 8A 80 88           ; cmp ra r0 r8
+    71 8A 80 88           ; sub ra r0 r8
     7E 8A &__fclose_done  ; jz ra &__fclose_done
 
     ; get the handle
@@ -497,7 +497,7 @@
     7C 8A <__closing_all_files         ; ims r2 <__closing_all_files
     7C 8A >__closing_all_files         ; ims r2 >__closing_all_files
     7A 80 8E 8A                        ; ldb r0 rpp ra
-    7D 80 80 01                        ; cmp r0 r0 1
+    71 80 80 01                        ; sub r0 r0 1
     7E 80 &__close_all_files_recursed  ; jz r0 &__close_all_files_recursed
     7B 01 8E 8A                        ; stb 1 rpp ra
 
@@ -516,7 +516,7 @@
     70 80 82 81      ; add r0 r2 r1
 
     ; if the file handle is -1, skip it
-    7D 8A 80 FF                     ; cmp ra r0 -1
+    71 8A 80 FF                     ; sub ra r0 -1
     7E 8A &__close_all_files_skip   ; jz ra &__close_all_files_skip
 
     ; close it
@@ -535,7 +535,7 @@
     70 81 81 04     ; add r1 r1 04
 
     ; if the iterator is at 64 (16*4), we're done
-    7D 8A 81 40     ; cmpu ra r1 64
+    71 8A 81 40     ; sub ra r1 64
     7E 8A &__close_all_files_done
 
     ; otherwise keep going
@@ -598,7 +598,7 @@
     79 83 00 8C     ; stw r3 0 rsp      ; ...
 
     ; make sure the element size is 1
-    7D 81 81 01     ; cmpu r1 r1 1
+    71 81 81 01     ; sub r1 r1 1
     7E 81 &__fread_size_ok
 
     ; element size is not 1, fatal error
@@ -627,16 +627,14 @@
     7F 05 00 00        ; sys fread 0 0
 
     ; if nothing was returned, we're done
-    7D 8A 80 00          ; cmp ra r0 0
-    7E 8A &__fread_done  ; jz ra &__fread_done
+    7E 80 &__fread_done  ; jz r0 &__fread_done
 
     ; add it to the total
     70 83 83 80        ; add r3 r3 r0
 
     ; adjust the remaining count. if it's zero, we're done
     71 82 82 80          ; sub r2 r2 r0
-    7D 8A 82 00          ; cmp ra r2 0
-    7E 8A &__fread_done  ; jz ra &__fread_done
+    7E 82 &__fread_done  ; jz r2 &__fread_done
 
     ; adjust the read position
     70 81 81 80        ; add r1 r1 r0
@@ -700,7 +698,7 @@
     79 83 00 8C     ; stw r3 0 rsp      ; ...
 
     ; make sure the element size is 1
-    7D 81 81 01     ; cmp r1 r1 1
+    71 81 81 01     ; sub r1 r1 1
     7E 81 &__fwrite_size_ok
 
     ; element size is not 1, fatal error
@@ -906,8 +904,7 @@
 
     ; on error, fwrite() will return 0. fputc() should return EOF, which we
     ; define as -1.
-    7D 8A 80 00            ; cmpu ra r0 0
-    7E 8A &__fputc_error   ; jz ra &__fputc_error
+    7E 80 &__fputc_error   ; jz r0 &__fputc_error
     7E 00 &__fputc_ok      ; jz 0 &__fputc_ok
 :__fputc_error
     70 80 00 FF            ; add r0 0 -1
