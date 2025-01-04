@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024 Fraser Heavy Software
+; Copyright (c) 2024-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -180,7 +180,8 @@
 
     ; see if we need a letter or a number
     cmpu r1 r0 9
-    jg r1 &emit_hex_bits_alpha
+    cmpu r1 r1 1
+    jz r1 &emit_hex_bits_alpha
 
     ; number
     add r0 r0 "0"

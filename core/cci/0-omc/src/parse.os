@@ -1615,7 +1615,8 @@
     imw r2 ^frame_size
     ldw r1 rpp r2
     cmpu r1 r0 r1
-    jle r1 &parse_block_frame_size
+    cmpu r1 r1 1
+    jnz r1 &parse_block_frame_size
     stw r0 rpp r2
 :parse_block_frame_size
 
