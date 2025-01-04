@@ -63,7 +63,6 @@
 ;    F0  error_invalid_character
 ;   110  error_out_of_memory
 ;   130  strlen
-;   150  strcmp
 ;   180  fnv1a
 ;   1C0  error_invalid_arguments
 ;   220  initialize
@@ -92,6 +91,7 @@
 ;   FD0  emit_four_bytes
 ;  1060  emit_two_bytes
 ;  10B0  fatal_symbol
+;  1160  strcmp
 
 
 
@@ -241,53 +241,13 @@
     78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
     ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00
-@0x150
-
-
-
-; ==========================================================
-; int strcmp(const char* left, const char* right)
-; ==========================================================
-; Compares null-terminated strings left to right lexicographically. Returns -1
-; if left comes before right, 1 if left comes after right, 0 if they are equal.
-;
-; This is the standard C strcmp() function.
-;
-; params:
-;     - left: r0
-;     - right: r1
-; vars:
-;     - index: r2
-; ==========================================================
-
-@0x150 =strcmp
-    ; don't bother to set up a stack frame
-
-    ; we use an index because it's faster than incrementing both src and dest
-    70 82 00 00                ; add r2 0 0           ; zero r2
-
-;:strcmp_loop
-    7A 8A 80 82                ; ldb ra r0 r2
-    7A 8B 81 82                ; ldb rb r1 r2
-    7D 8A 8A 8B                ; cmp ra ra rb
-    7E 8A 02 00                ; jz ra &strcmp_byte_match (+2)
-    ; bytes not equal, return the comparison result
-    70 80 00 8A                ; add r0 0 ra          ; mov r0 ra
-    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
-
-;:strcmp_byte_match
-    ; bytes match. if zero, strings are equal, return 0
-    7E 8B 02 00                ; jz rb &strcmp_equal (+2)
-
-    ; otherwise keep looping
-    70 82 82 01                ; add r2 r2 1             ; inc r2
-    7E 00 F7 FF                ; jz 0 &strcmp_loop (-9)  ; jmp &strcmp_loop
-
-;:strcmp_equal
-    ; strings are equal, return 0
-    70 80 00 00                ; add r0 0 0           ; zero r0
-    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
 @0x180
 
 
@@ -653,7 +613,7 @@
     ; compare to "-o" with strcmp
     70 81 8D F8    ; add r1 rfp -8   ; get "-o"
     7C 8A 00 00    ; ims ra <strcmp
-    7C 8A 50 01    ; ims ra >strcmp
+    7C 8A 60 11    ; ims ra >strcmp
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1043,17 +1003,12 @@
 @0x760 is_identifier_char
     ; don't bother to set up a stack frame
 
-    ; TODO we can't do "z" in a mix-type argument so we put it in rb. I intend
-    ; to change the bytecode to allow all of ASCII as mix-type
-    ; TODO mix-type arguments now support "z", this code can be simplified
-    70 8B 40 3A   ; add rb 0x40 0x3A
-
     ; check if it's lowercase a-z
-    7D 8A 80 61   ; cmpu ra r0 "a"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 61   ; ltu ra r0 "a"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 05 00   ; jz ra &is_identifier_not_lowercase (+5)
-    7D 8A 80 8B   ; cmpu ra r0 rb
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 7A 80   ; ltu ra "z" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 02 00   ; jz ra &is_identifier_not_lowercase (+2)
 
     ; it's a-z, return true
@@ -1062,11 +1017,11 @@
 ;:is_identifier_not_lowercase
 
     ; check if it's uppercase A-Z
-    7D 8A 80 41   ; cmpu ra r0 "A"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 41   ; ltu ra r0 "A"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 05 00   ; jz ra &is_identifier_not_uppercase (+5)
-    7D 8A 80 5A   ; cmpu ra r0 "Z"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 5A 80   ; ltu ra "Z" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 02 00   ; jz ra &is_identifier_not_uppercase (+2)
 
     ; it's A-Z, return true
@@ -1096,11 +1051,11 @@
 ;:is_identifier_not_first_char
 
     ; check if it's a number 0-9
-    7D 8A 80 30   ; cmpu ra r0 "0"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 30   ; ltu ra r0 "0"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 05 00   ; jz ra &is_identifier_not_number (+5)
-    7D 8A 80 39   ; cmpu ra r0 "9"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 39 80   ; ltu ra "9" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 02 00   ; jz ra &is_identifier_not_number (+2)
 
     ; it's a number, return true
@@ -1118,7 +1073,7 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x820
 
 
@@ -1169,11 +1124,11 @@
     ; don't bother to set up a stack frame
 
     ; check if it's a number 0-9
-    7D 8A 80 30   ; cmpu ra r0 "0"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 30   ; ltu ra r0 "0"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 05 00   ; jz ra &hex_value_not_number (+5)
-    7D 8A 80 39   ; cmpu ra r0 "9"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 39 80   ; ltu ra "9" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 02 00   ; jz ra &hex_value_not_number (+2)
 
     ; it's 0-9
@@ -1182,11 +1137,11 @@
 ;:hex_value_not_number
 
     ; check if it's uppercase A-F
-    7D 8A 80 41   ; cmpu ra r0 "A"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 41   ; ltu ra r0 "A"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 05 00   ; jz ra &hex_value_not_uppercase (+5)
-    7D 8A 80 46   ; cmpu ra r0 "F"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 46 80   ; ltu ra "F" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 02 00   ; jz ra &hex_value_not_uppercase (+2)
 
     ; it's A-F
@@ -1195,11 +1150,11 @@
 ;:hex_value_not_uppercase
 
     ; check if it's lowercase a-f
-    7D 8A 80 61   ; cmpu ra r0 "a"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 61   ; ltu ra r0 "a"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 05 00   ; jz ra &hex_value_not_lowercase (+5)
-    7D 8A 80 66   ; cmpu ra r0 "f"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 66 80   ; ltu ra "f" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A 02 00   ; jz ra &hex_value_not_lowercase (+2)
 
     ; it's a-f
@@ -1668,7 +1623,7 @@
     78 80 8C 04    ; ldw r0 rsp 4    ; get symbol name
     ; bucket name is already in r1
     7C 8A 00 00    ; ims ra <strcmp
-    7C 8A 50 01    ; ims ra >strcmp
+    7C 8A 60 11    ; ims ra >strcmp
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2213,3 +2168,72 @@
     7C 8A 40 03    ; ims ra >fatal
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+@0x1160
+
+
+
+; ==========================================================
+; int strcmp(const char* left, const char* right)
+; ==========================================================
+; Compares null-terminated strings left to right lexicographically. Returns -1
+; if left comes before right, 1 if left comes after right, 0 if they are equal.
+;
+; This is the standard C strcmp() function.
+;
+; params:
+;     - left: r0
+;     - right: r1
+; vars:
+;     - index: r2
+; ==========================================================
+
+@0x1160 =strcmp
+    ; don't bother to set up a stack frame
+
+    ; we use an index because it's faster than incrementing both src and dest
+    70 82 00 00                ; add r2 0 0           ; zero r2
+
+;:strcmp_loop
+    7A 8A 80 82                ; ldb ra r0 r2
+    7A 8B 81 82                ; ldb rb r1 r2
+    71 83 8A 8B                ; sub r3 ra rb
+    7E 83 06 00                ; jz r3 &strcmp_byte_match (+6)
+
+    ; bytes not equal, return a comparison result
+    ; TODO this would be much simpler if we just used the subtraction result,
+    ; except the rest of Onramp may assume the value is -1 or 1 because that's
+    ; what cmpu did, this needs to be fixed
+    7D 8A 8A 8B                ; ltu ra ra rb
+    7E 8A 01 00                ; jz ra &strcmp_greater (+2)
+;:strcmp_less
+    70 80 00 FF                ; add r0 0 -1          ; mov r0 -1
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+;:strcmp_greater
+    70 80 00 01                ; add r0 0 1           ; mov r0 1
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+
+;:strcmp_byte_match
+    ; bytes match. if the byte is zero, it's the null terminator, which means
+    ; the strings are equal.
+    7E 8B 02 00                ; jz rb &strcmp_equal (+2)
+
+    ; otherwise keep looping
+    70 82 82 01                ; add r2 r2 1             ; inc r2
+    7E 00 F3 FF                ; jz 0 &strcmp_loop (-13) ; jmp &strcmp_loop
+
+;:strcmp_equal
+    70 80 00 00                ; add r0 0 0           ; zero r0
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x11B0

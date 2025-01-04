@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -100,7 +100,7 @@
 :place_queen_next_i
 
     ; if i==x, we've passed all tests, return true.
-    7D 8A 82 80   ; cmpu ra r2 r0
+    71 8A 82 80   ; sub ra r2 r0
     7E 8A 01 00   ; jz ra +1
     7E 00 02 00   ; jz 0 +2
     70 80 00 01   ; add r0 0 1
@@ -113,17 +113,17 @@
     7A 84 88 82   ; ldb r4 r8 r2
 
     ; check if there's a queen in the same row
-    7D 8A 84 81   ; cmp ra r4 r1
+    71 8A 84 81   ; sub ra r4 r1
     7E 8A &is_queen_valid_fail   ; jz ra &is_queen_valid_fail
 
     ; check if there's a queen diagonally up
     70 8A 81 83   ; add ra r1 r3
-    7D 8A 84 8A   ; cmp ra r4 ra
+    71 8A 84 8A   ; sub ra r4 ra
     7E 8A &is_queen_valid_fail   ; jz ra &is_queen_valid_fail
 
     ; check if there's a queen diagonally down
     71 8A 81 83   ; sub ra r1 r3
-    7D 8A 84 8A   ; cmp ra r4 ra
+    71 8A 84 8A   ; sub ra r4 ra
     7E 8A &is_queen_valid_fail   ; jz ra &is_queen_valid_fail
 
     ; next i
@@ -153,7 +153,7 @@
 =place_queen
 
     ; if x is 8, we print the board instead of placing queens.
-    7D 8A 80 08    ; cmpu ra r0 8
+    71 8A 80 08    ; sub ra r0 8
     7E 8A &place_queen_print      ; jz ra &place_queen_print
     7E 00 &place_queen_not_print  ; jz 0 &place_queen_not_print
     
@@ -219,7 +219,7 @@
     79 81 8D F8    ; stw r1 rfp -8    ; store y
 
     ; next y
-    7D 8A 81 08   ; cmpu ra r1 8
+    71 8A 81 08   ; sub ra r1 8
     7E 8A 01 00   ; jz ra +1
     7E 00 &place_queen_next_y   ; jz 0 &place_queen_next_y
 
@@ -261,8 +261,9 @@
 
             ; check whether there is a queen in this position. 0 for "Q", 1 for "."
             7A 8A 88 83    ; ldb ra r8 r3
-            7D 8A 8A 84    ; cmpu ra ra r4
-            74 8A 8A 01    ; and ra ra 1
+            71 8A 8A 84    ; sub ra ra r4
+            7E 8A 01 00    ; jz ra +1
+            70 8A 00 01    ; add ra 0 1
 
             ; print the character, syscall write(stdout, rsp+ra, 1)
             78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
@@ -272,7 +273,7 @@
 
             ; increment x
             70 83 83 01    ; add r3 r3 1   ; inc r3
-            7D 8A 83 08    ; cmp ra r3 8
+            71 8A 83 08    ; sub ra r3 8
             7E 8A &print_board_x_done    ; jz ra &print_board_x_done
 
             ; print a space for alignment
@@ -293,7 +294,7 @@
 
         ; next y
         70 84 84 01    ; add r4 r4 1   ; inc r4
-        7D 8A 84 08    ; cmp ra r4 8
+        71 8A 84 08    ; sub ra r4 8
         7E 8A 01 00    ; jz ra 1
         7E 00 &print_board_next_y    ; jz 0 &print_board_next_y
 
