@@ -94,7 +94,7 @@ FFFFFFFFFFFFFFFF
 :is_queen_valid_loop 
 
 
-7D878280
+71878280
 7E8701007E00&is_queen_valid_not_done 
 70800001
 788F008C
@@ -107,17 +107,17 @@ FFFFFFFFFFFFFFFF
 7A848882
 
 
-7D878481
+71878481
 7E87&is_queen_valid_fail 
 
 
 70878183
-7D878487
+71878487
 7E87&is_queen_valid_fail 
 
 
 71878183
-7D878487
+71878487
 7E87&is_queen_valid_fail 
 
 
@@ -147,7 +147,7 @@ FFFFFFFFFFFFFFFF
 =place_queen 
 
 
-7D878008
+71878008
 7E8701007E00&place_queen_not_print 
 
 
@@ -186,7 +186,7 @@ FFFFFFFFFFFFFFFF
 79818DF8
 
 
-7D878108
+71878108
 7E8701007E00&place_queen_next_y 
 
 
@@ -225,8 +225,10 @@ FFFFFFFFFFFFFFFF
 
 
 7A878883
-7D878784
-74878701
+71878784
+7E87&print_board_queen 
+70870001
+:print_board_queen 
 
 
 78808910
@@ -236,7 +238,7 @@ FFFFFFFFFFFFFFFF
 
 
 70838301
-7D878308
+71878308
 7E87&print_board_x_done 
 
 
@@ -257,7 +259,7 @@ FFFFFFFFFFFFFFFF
 
 
 70848401
-7D878408
+71878408
 7E8701007E00&print_board_next_y 
 
 

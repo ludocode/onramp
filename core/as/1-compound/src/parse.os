@@ -1586,11 +1586,11 @@
     ; don't bother to set up a stack frame
 
     ; check if it's a number 0-9
-    cmpu ra r0 "0"
-    cmpu ra ra 'FF
+    ltu ra r0 "0"
+    sub ra '01 ra
     jz ra &hex_value_not_number
-    cmpu ra r0 "9"
-    cmpu ra ra '01
+    ltu ra "9" r0
+    sub ra '01 ra
     jz ra &hex_value_not_number
 
     ; it's 0-9
@@ -1599,11 +1599,11 @@
 :hex_value_not_number
 
     ; check if it's uppercase A-F
-    cmpu ra r0 "A"
-    cmpu ra ra 'FF
+    ltu ra r0 "A"
+    sub ra '01 ra
     jz ra &hex_value_not_uppercase
-    cmpu ra r0 "F"
-    cmpu ra ra '01
+    ltu ra "F" r0
+    sub ra '01 ra
     jz ra &hex_value_not_uppercase
 
     ; it's A-F
@@ -1612,11 +1612,11 @@
 :hex_value_not_uppercase
 
     ; check if it's lowercase a-f
-    cmpu ra r0 "a"
-    cmpu ra ra 'FF
+    ltu ra r0 "a"
+    sub ra '01 ra
     jz ra &hex_value_not_lowercase
-    cmpu ra r0 "f"
-    cmpu ra ra '01
+    ltu ra "f" r0
+    sub ra '01 ra
     jz ra &hex_value_not_lowercase
 
     ; it's a-f

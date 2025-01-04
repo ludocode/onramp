@@ -691,20 +691,6 @@
 
 
 ; ==========================================================
-; void opcode_cmpu(void)
-; ==========================================================
-; Implements the cmpu opcode.
-; ==========================================================
-
-=opcode_cmpu
-    add r0 '00 '7D  ; cmpu
-    ims ra <opcode_standard
-    ims ra >opcode_standard
-    add rip rpp ra
-
-
-
-; ==========================================================
 ; void opcode_jz(void)
 ; ==========================================================
 ; Implements the jz opcode.
@@ -753,9 +739,78 @@
 
 
 ; ==========================================================
+; void opcode_cmpu(void)
+; ==========================================================
+; Implements the cmpu opcode.
+;
+; TODO this only exists temporarily until we convert the compiler to use
+; ltu/lts.
+; ==========================================================
+
+=opcode_cmpu
+
+    ; push space to parse arguments
+    sub rsp rsp '04
+    add r0 rsp '00
+
+    ; call parse_register_mix_mix()
+    ims ra <parse_register_mix_mix
+    ims ra >parse_register_mix_mix
+    sub rsp rsp '04     ; push return address
+    add rb rip '08
+    stw rb '00 rsp
+    add rip rpp ra    ; jump
+    add rsp rsp '04     ; pop return address
+
+    ; get the template
+    ims ra <opcode_cmpu_template
+    ims ra >opcode_cmpu_template
+    add r0 rpp ra
+    add r1 '00 '24    ; 36 bytes
+
+    ; fill it in
+    ldb r2 rsp '00    ; load dest
+    stb r2 r0 '09
+    stb r2 r0 '19
+    stb r2 r0 '21
+    ldb r2 rsp '01    ; load src1
+    stb r2 r0 '02
+    stb r2 r0 '13
+    ldb r2 rsp '02    ; load src2
+    stb r2 r0 '03
+    stb r2 r0 '12
+
+    ; pop the arguments
+    add rsp rsp '04   ; popd
+
+    ; output it, tail-call emit_bytes_as_hex()
+    ims ra <emit_bytes_as_hex
+    ims ra >emit_bytes_as_hex
+    add rip rpp ra    ; jump
+
+=opcode_cmpu_template
+    ltu ra '81 '82                      ; ltu ra arg1 arg2
+    jz ra &opcode_cmpu_template_ge      ; jz ra &opcode_cmpu_template_ge
+    add '80 '00 'ff                     ; add dest 0 -1                     ; mov dest -1
+    jz '00 &opcode_cmpu_template_end    ; jz 0 &opcode_cmpu_template_end
+:opcode_cmpu_template_ge
+    ltu ra '82 '81                      ; ltu ra arg2 arg1
+    jz ra &opcode_cmpu_template_eq      ; jz ra &opcode_cmpu_template_eq
+    add '80 '00 '01                     ; add dest 0 1                      ; mov dest 1
+    jz '00 &opcode_cmpu_template_end    ; jz 0 +1
+:opcode_cmpu_template_eq
+    add '80 '00 '00                     ; add dest 0 0                      ; zero dest
+:opcode_cmpu_template_end
+
+
+
+; ==========================================================
 ; void opcode_cmps(void)
 ; ==========================================================
 ; Implements the cmps opcode.
+;
+; TODO this only exists temporarily until we convert the compiler to use
+; ltu/lts.
 ; ==========================================================
 
 =opcode_cmps
@@ -777,15 +832,19 @@
     ims ra <opcode_cmps_template
     ims ra >opcode_cmps_template
     add r0 rpp ra
-    add r1 '00 '10
+    add r1 '00 '3C    ; 60 bytes
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
-    stb r2 r0 '0D
+    stb r2 r0 '15
+    stb r2 r0 '31
+    stb r2 r0 '39
     ldb r2 rsp '01    ; load src1
     stb r2 r0 '06
+    stb r2 r0 '22
     ldb r2 rsp '02    ; load src2
     stb r2 r0 '0A
+    stb r2 r0 '26
 
     ; pop the arguments
     add rsp rsp '04   ; popd
@@ -796,10 +855,24 @@
     add rip rpp ra    ; jump
 
 =opcode_cmps_template
-    shl rb '01 '1F   ; shl rb 1 31       ; rb = 0x80000000
-    add ra '81 rb    ; add ra src1 rb
-    add rb '82 rb    ; add rb src2 rb
-    cmpu '80 ra rb   ; cmpu dest ra rb
+    shl rb '01 '1F                      ; shl rb 1 31       ; rb = 0x80000000
+    add ra '81 rb                       ; add ra arg1 rb
+    add rb '82 rb                       ; add rb arg2 rb
+    ltu ra ra rb                        ; ltu ra ra rb
+    jz ra &opcode_cmps_template_ge      ; jz ra &opcode_cmps_template_ge
+    add '80 '00 'ff                     ; add dest 0 -1                     ; mov dest -1
+    jz '00 &opcode_cmps_template_end    ; jz 0 &opcode_cmps_template_end
+:opcode_cmps_template_ge
+    shl rb '01 '1F                      ; shl rb 1 31       ; rb = 0x80000000
+    add ra '81 rb                       ; add ra arg1 rb
+    add rb '82 rb                       ; add rb arg2 rb
+    ltu ra rb ra                        ; ltu ra rb ra
+    jz ra &opcode_cmps_template_eq      ; jz ra &opcode_cmps_template_eq
+    add '80 '00 '01                     ; add dest 0 1                      ; mov dest 1
+    jz '00 &opcode_cmps_template_end    ; jz 0 &opcode_cmps_template_end
+:opcode_cmps_template_eq
+    add '80 '00 '00                     ; add dest 0 0                      ; zero dest
+:opcode_cmps_template_end
 
 
 
@@ -807,52 +880,13 @@
 ; void opcode_ltu(void)
 ; ==========================================================
 ; Implements the ltu opcode.
-;
-; This is a temporary implementation. ltu will eventually become a primitive
-; opcode.
 ; ==========================================================
 
 =opcode_ltu
-
-    ; push space to parse arguments
-    sub rsp rsp '04
-    add r0 rsp '00
-
-    ; call parse_register_mix_mix()
-    ims ra <parse_register_mix_mix
-    ims ra >parse_register_mix_mix
-    sub rsp rsp '04     ; push return address
-    add rb rip '08
-    stw rb '00 rsp
-    add rip rpp ra    ; jump
-    add rsp rsp '04     ; pop return address
-
-    ; get the template
-    ims ra <opcode_ltu_template
-    ims ra >opcode_ltu_template
-    add r0 rpp ra
-    add r1 '00 '0C
-
-    ; fill it in
-    ldb r2 rsp '00    ; load dest
-    stb r2 r0 '09
-    ldb r2 rsp '01    ; load src1
-    stb r2 r0 '02
-    ldb r2 rsp '02    ; load src2
-    stb r2 r0 '03
-
-    ; pop the arguments
-    add rsp rsp '04   ; popd
-
-    ; output it, tail-call emit_bytes_as_hex()
-    ims ra <emit_bytes_as_hex
-    ims ra >emit_bytes_as_hex
-    add rip rpp ra    ; jump
-
-=opcode_ltu_template
-    cmpu ra '81 '82  ; cmpu ra src1 src2
-    shru ra ra '01   ; shru ra ra 1
-    and '80 ra '01   ; and r0 ra 1
+    add r0 '00 '7D  ; ltu
+    ims ra <opcode_standard
+    ims ra >opcode_standard
+    add rip rpp ra
 
 
 
@@ -885,7 +919,7 @@
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
-    stb r2 r0 '15
+    stb r2 r0 '0D
     ldb r2 rsp '01    ; load src1
     stb r2 r0 '06
     ldb r2 rsp '02    ; load src2
@@ -903,10 +937,7 @@
     shl rb '01 '1F   ; shl rb 1 31       ; rb = 0x80000000
     add ra '81 rb    ; add ra src1 rb
     add rb '82 rb    ; add rb src2 rb
-    ; This is temporary; the rest of this should become ltu.
-    cmpu ra ra rb    ; cmpu ra ra rb
-    shru ra ra '01   ; shru ra ra 1
-    and '80 ra '01   ; and r0 ra 1
+    ltu '80 ra rb    ; ltu dest ra rb
 
 
 
