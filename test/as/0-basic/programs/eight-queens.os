@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -103,7 +103,7 @@ ldw r0 rpp r0
 :is_queen_valid_next_i
 
     ; if i==x, we've passed all tests, return true.
-    cmpu ra r2 r0
+    sub ra r2 r0
     jz ra &is_queen_valid_done
     jz '00 &is_queen_valid_not_done
 :is_queen_valid_done
@@ -118,17 +118,17 @@ ldw r0 rpp r0
     ldb r4 r8 r2
 
     ; check if there's a queen in the same row
-    cmpu ra r4 r1
+    sub ra r4 r1
     jz ra &is_queen_valid_fail
 
     ; check if there's a queen diagonally up
     add ra r1 r3
-    cmpu ra r4 ra
+    sub ra r4 ra
     jz ra &is_queen_valid_fail
 
     ; check if there's a queen diagonally down
     sub ra r1 r3
-    cmpu ra r4 ra
+    sub ra r4 ra
     jz ra &is_queen_valid_fail
 
     ; next i
@@ -158,7 +158,7 @@ ldw r0 rpp r0
 =place_queen
 
     ; if x is 8, we print the board instead of placing queens.
-    cmpu ra r0 '08
+    sub ra r0 '08
     jz ra &place_queen_print
     jz '00 &place_queen_not_print
     
@@ -224,12 +224,12 @@ ldw r0 rpp r0
     stw r1 rfp 'F8    ; store y
 
     ; next y
-    cmpu ra r1 '08
+    sub ra r1 '08
     jz ra &place_queen_done
     jz '00 &place_queen_next_y
 
-    ; done
 :place_queen_done
+    ; done
     add rsp rfp '00     ; mov rsp rfp    ; leave
     ldw rfp '00 rsp     ; pop rfp
     add rsp rsp '04     ; ^^^
@@ -267,8 +267,10 @@ ldw r0 rpp r0
 
             ; check whether there is a queen in this position. 0 for "Q", 1 for "."
             ldb ra r8 r3
-            cmpu ra ra r4
-            and ra ra '01
+            sub ra ra r4
+            jz ra &print_board_queen
+            add ra '00 '01
+        :print_board_queen
 
             ; print the character, syscall fwrite(stdout, rsp+ra, 1)
             ldw r0 r9 '10    ; r0 = stdout
@@ -278,7 +280,7 @@ ldw r0 rpp r0
 
             ; increment x
             add r3 r3 '01   ; inc r3
-            cmpu ra r3 '08
+            sub ra r3 '08
             jz ra &print_board_done_x
 
             ; print a space for alignment
@@ -299,7 +301,7 @@ ldw r0 rpp r0
 
         ; next y
         add r4 r4 '01   ; inc r4
-        cmpu ra r4 '08
+        sub ra r4 '08
         jz ra &print_board_done_y
         jz '00 &print_board_next_y
 :print_board_done_y

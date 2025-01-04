@@ -94,7 +94,7 @@
     6c 64 62      00      7a    ; ldb
     73 74 62      00      7b    ; stb
     69 6d 73      00      7c    ; ims
-    63 6d 70 75   00      7d    ; cmpu
+    6c 74 75      00      7d    ; ltu
     6a 7a         00      7e    ; jz
     73 79 73      00      7f    ; sys
 
@@ -717,14 +717,15 @@
 ; void emit_hex_bits(char c);
 ; ==========================================================
 ; Emits the given four bits as one hexadecimal character.
+;
+; TODO rename to emit_hex_char() to match as/1
 ; ==========================================================
 
 =emit_hex_bits
     ; don't bother to set up a stack frame
 
     ; see if we need a letter or a number
-    7D 81 80 09                 ; cmpu r1 r0 9
-    7D 81 81 01                 ; cmpu r1 r1 1
+    7D 81 80 0A                 ; ltu r1 r0 10
     7E 81 &emit_hex_bits_alpha  ; jz r1 &emit_hex_bits_alpha
 
     ; number

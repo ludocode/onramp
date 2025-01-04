@@ -103,7 +103,7 @@ FFFFFFFFFFFFFFFF
 :is_queen_valid_next_i 
 
 
-7D8A8280
+718A8280
 7E8A&is_queen_valid_done 
 7E00&is_queen_valid_not_done 
 :is_queen_valid_done 
@@ -118,17 +118,17 @@ FFFFFFFFFFFFFFFF
 7A848882
 
 
-7D8A8481
+718A8481
 7E8A&is_queen_valid_fail 
 
 
 708A8183
-7D8A848A
+718A848A
 7E8A&is_queen_valid_fail 
 
 
 718A8183
-7D8A848A
+718A848A
 7E8A&is_queen_valid_fail 
 
 
@@ -158,7 +158,7 @@ FFFFFFFFFFFFFFFF
 =place_queen 
 
 
-7D8A8008
+718A8008
 7E8A&place_queen_print 
 7E00&place_queen_not_print 
 
@@ -224,12 +224,12 @@ FFFFFFFFFFFFFFFF
 79818DF8
 
 
-7D8A8108
+718A8108
 7E8A&place_queen_done 
 7E00&place_queen_next_y 
 
-
 :place_queen_done 
+
 708C8D00
 788D008C
 708C8C04
@@ -267,8 +267,10 @@ FFFFFFFFFFFFFFFF
 
 
 7A8A8883
-7D8A8A84
-748A8A01
+718A8A84
+7E8A&print_board_queen 
+708A0001
+:print_board_queen 
 
 
 78808910
@@ -278,7 +280,7 @@ FFFFFFFFFFFFFFFF
 
 
 70838301
-7D8A8308
+718A8308
 7E8A&print_board_done_x 
 
 
@@ -299,7 +301,7 @@ FFFFFFFFFFFFFFFF
 
 
 70848401
-7D8A8408
+718A8408
 7E8A&print_board_done_y 
 7E00&print_board_next_y 
 :print_board_done_y 
