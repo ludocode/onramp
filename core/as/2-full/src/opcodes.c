@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -70,46 +70,6 @@ static void parse_and_emit_jump_offset(void) {
         return;
     }
     fatal("Expected relative label as jump destination.");
-}
-
-// TODO these jump instructions are slow, the ones in as/1 are better
-
-static void opcode_jz_je(uint8_t pred) {
-    emit_hex_byte(JZ);  // jz
-    emit_hex_byte(pred);  // pred
-    parse_and_emit_jump_offset();
-}
-
-static void opcode_jnz_jne(uint8_t pred) {
-    uint8_t bytes[] = {
-        JZ, pred, 0x01, 0x00,  // jz pred +1
-        JZ, 0x00,              // jz 0 label
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
-    parse_and_emit_jump_offset();
-}
-
-// Jumps if the value matches
-static void opcode_jg_jl(uint8_t value) {
-    uint8_t reg = parse_register_non_scratch();
-    uint8_t bytes[] = {
-        CMPU, RB, reg, value,  // cmpu rb reg value
-        JZ, RB,              // jz rb label
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
-    parse_and_emit_jump_offset();
-}
-
-// Jumps if the value *doesn't* match
-static void opcode_jge_jle(uint8_t value) {
-    uint8_t reg = parse_register_non_scratch();
-    uint8_t bytes[] = {
-        CMPU, RB, reg, value,  // cmpu rb reg value
-        JZ, RB, 0x01, 0x00,    // jz 0 +1
-        JZ, 0x00,              // jz rb label
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
-    parse_and_emit_jump_offset();
 }
 
 static void opcode_reg_mix_mix(uint8_t opcode) {
@@ -702,10 +662,6 @@ static void opcode_cmpu(void) {
     opcode_reg_mix_mix(CMPU);
 }
 
-static void opcode_jz(void) {
-    opcode_jz_je(parse_mix());
-}
-
 static void opcode_sys(void) {
     uint8_t number = parse_syscall_number();
 
@@ -822,8 +778,21 @@ static void opcode_lts(void) {
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
+static void opcode_jz(void) {
+    uint8_t pred = parse_mix();
+    emit_hex_byte(JZ);
+    emit_hex_byte(pred);
+    parse_and_emit_jump_offset();
+}
+
 static void opcode_jnz(void) {
-    opcode_jnz_jne(parse_mix());
+    uint8_t pred = parse_mix();
+    uint8_t bytes[] = {
+        JZ, pred, 0x01, 0x00,  // jz pred +1    // TODO replace with isz once we have ltu
+        JZ, 0x00,              // jz 0 label
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+    parse_and_emit_jump_offset();
 }
 
 static void opcode_jmp(void) {
@@ -842,34 +811,6 @@ static void opcode_jmp(void) {
     emit_hex_byte(JZ);  // jz
     emit_hex_byte(0x00);  // 0
     parse_and_emit_jump_offset();
-}
-
-static void opcode_je(void) {
-    // same as jz except we only accept a register as predicate, not a mix-type
-    opcode_jz_je(parse_register());
-}
-
-static void opcode_jne(void) {
-    // same as jnz except we only accept a register as predicate, not a mix-type
-    opcode_jnz_jne(parse_register());
-}
-
-static void opcode_jg(void) {
-    opcode_jg_jl(0x01);
-}
-
-static void opcode_jl(void) {
-    opcode_jg_jl(0xFF);
-}
-
-static void opcode_jge(void) {
-    // The value is what we *don't* want to jump on
-    opcode_jge_jle(0xFF);
-}
-
-static void opcode_jle(void) {
-    // The value is what we *don't* want to jump on
-    opcode_jge_jle(0x01);
 }
 
 static void opcode_enter(void) {
@@ -993,12 +934,6 @@ static opcode_fn_t opcodes_list[] = {
     {"lts", opcode_lts},
     {"jz", opcode_jz},
     {"jnz", opcode_jnz},
-    {"je", opcode_je},
-    {"jne", opcode_jne},
-    {"jl", opcode_jl},
-    {"jg", opcode_jg},
-    {"jle", opcode_jle},
-    {"jge", opcode_jge},
     {"jmp", opcode_jmp},
     {"call", opcode_call},
     {"ret", opcode_ret},

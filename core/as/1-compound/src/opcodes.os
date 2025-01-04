@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -115,12 +115,6 @@
     ^opcode_str_ltu ^opcode_ltu
     ^opcode_str_jz ^opcode_jz
     ^opcode_str_jnz ^opcode_jnz
-    ^opcode_str_je ^opcode_je
-    ^opcode_str_jne ^opcode_jne
-    ^opcode_str_jl ^opcode_jl
-    ^opcode_str_jg ^opcode_jg
-    ^opcode_str_jle ^opcode_jle
-    ^opcode_str_jge ^opcode_jge
     ^opcode_str_jmp ^opcode_jmp
     ^opcode_str_call ^opcode_call
     ^opcode_str_ret ^opcode_ret
@@ -152,7 +146,7 @@
 ;:opcode_str_ror "ror" '00
 :opcode_str_mov "mov" '00
 :opcode_str_not "not" '00
-;:opcode_str_rol "rol" '00
+;:opcode_str_rol "rol" '00    ; TODO remove
 :opcode_str_shrs "shrs" '00
 :opcode_str_shru "shru" '00
 :opcode_str_shl "shl" '00
@@ -183,12 +177,6 @@
 :opcode_str_lts "lts" '00
 :opcode_str_jnz "jnz" '00
 :opcode_str_jmp "jmp" '00
-:opcode_str_je "je" '00
-:opcode_str_jne "jne" '00
-:opcode_str_jg "jg" '00
-:opcode_str_jge "jge" '00
-:opcode_str_jl "jl" '00
-:opcode_str_jle "jle" '00
 :opcode_str_enter "enter" '00
 :opcode_str_leave "leave" '00
 :opcode_str_call "call" '00

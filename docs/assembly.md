@@ -220,12 +220,6 @@ Control:
 |     |`lts`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 signed, 0 otherwise    |
 |  x  |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                                    |
 |     |`jnz`   | `<m:pred> <j:label>`          | Jumps if the predicate is not zero                                |
-|x \* |`je`    | \* `<m:pred> <j:label>`       | Jumps if the predicate is zero                                    |
-|     |`jne`   | \* `<m:pred> <j:label>`       | Jumps if the predicate is not zero                                |
-|     |`jl`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is -1                                      |
-|     |`jg`    | \* `<r:pred> <j:label>`       | Jumps if the predicate is 1                                       |
-|     |`jle`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not 1                                   |
-|     |`jge`   | \* `<r:pred> <j:label>`       | Jumps if the predicate is not -1                                  |
 |     |`jmp`   | `<j:label>` or `<c:function>` | Jumps unconditionally                                             |
 |     |`call`  | `<c:function>`                | Calls a function (pushing the return address to the stack)        |
 |     |`ret`   | none                          | Returns from a function call                                      |
@@ -233,4 +227,4 @@ Control:
 |     |`leave` | none                          | Destroys the current stack frame                                  |
 |  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                            |
 
-\* WARNING: `cmpu` is currently a primitive instructions but will be replaced with `ltu` soon. The comparison conditional jump instructions (`je`, `jne`, `jl`, `jg`, `jle`, `jge`) are currently designed to take the result of a comparison (`cmpu`, `cmps`) as predicate; they will be changed or removed. `sys`, `cmpu` and `cmps` may be removed entirely.
+\* WARNING: `cmpu` is currently a primitive instructions but will be replaced with `ltu` soon. `sys`, `cmpu` and `cmps` will be removed.

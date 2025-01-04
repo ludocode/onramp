@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -95,7 +95,7 @@ ldw r0 rpp r0
 
     ; if i==x, we've passed all tests, return true.
     cmpu r7 r2 r0
-    jne r7 &is_queen_valid_not_done
+    jnz r7 &is_queen_valid_not_done
     mov r0 1
     ret
 :is_queen_valid_not_done
@@ -108,17 +108,17 @@ ldw r0 rpp r0
 
     ; check if there's a queen in the same row
     cmpu r7 r4 r1
-    je r7 &is_queen_valid_fail
+    jz r7 &is_queen_valid_fail
 
     ; check if there's a queen diagonally up
     add r7 r1 r3
     cmpu r7 r4 r7 
-    je r7 &is_queen_valid_fail
+    jz r7 &is_queen_valid_fail
 
     ; check if there's a queen diagonally down
     sub r7 r1 r3
     cmpu r7 r4 r7 
-    je r7 &is_queen_valid_fail
+    jz r7 &is_queen_valid_fail
 
     ; next i
     inc r2
@@ -148,7 +148,7 @@ ldw r0 rpp r0
 
     ; if x is 8, we print the board instead of placing queens.
     cmpu r7 r0 8
-    jne r7 &place_queen_not_print
+    jnz r7 &place_queen_not_print
 
         ; tail-call print_board()
         jmp ^print_board
@@ -171,7 +171,7 @@ ldw r0 rpp r0
     call ^is_queen_valid
 
     ; if not valid, don't recurse
-    je r0 &place_queen_inc_y
+    jz r0 &place_queen_inc_y
 
         ; queen is valid. recurse place_queen(x+1)
         ldw r0 rfp -4    ; load x
@@ -187,7 +187,7 @@ ldw r0 rpp r0
 
     ; next y
     cmpu r7 r1 8
-    jne r7 &place_queen_next_y
+    jnz r7 &place_queen_next_y
 
     ; done
     leave
@@ -237,7 +237,7 @@ ldw r0 rpp r0
             ; increment x
             inc r3
             cmpu r7 r3 8
-            je r7 &print_board_x_done
+            jz r7 &print_board_x_done
 
             ; print a space for alignment
             ldw r0 r9 16    ; r0 = stdout
@@ -258,7 +258,7 @@ ldw r0 rpp r0
         ; next y
         inc r4
         cmpu r7 r4 8
-        jne r7 &print_board_next_y
+        jnz r7 &print_board_next_y
 
     ; print two newlines
     ldw r0 r9 16    ; r0 = stdout

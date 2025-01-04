@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -84,10 +84,6 @@ static const char* opcode_to_string(opcode_t opcode) {
         case LTS: return "lts";
         case JZ: return "jz";
         case JNZ: return "jnz";
-        case JL: return "jl";
-        case JG: return "jg";
-        case JLE: return "jle";
-        case JGE: return "jge";
         case JMP: return "jmp";
         case CALL: return "call";
         case RET: return "ret";
@@ -214,10 +210,6 @@ void instruction_vset(instruction_t* instruction, token_t* token,
         // register/mix and invocation
         case JZ:
         case JNZ:
-        case JL:
-        case JG:
-        case JLE:
-        case JGE:
             instruction->arg1 = (int8_t)va_arg(args, int);
             instruction->invocation_type = (char)va_arg(args, int);
             instruction->invocation_prefix = va_arg(args, const char*);
@@ -358,10 +350,6 @@ void instruction_emit(instruction_t* instruction) {
         // register/mix and invocation
         case JZ:
         case JNZ:
-        case JL:
-        case JG:
-        case JLE:
-        case JGE:
             emit_arg_mix(instruction->arg1);
             emit_arg_invocation_prefix(
                     instruction->invocation_type,
