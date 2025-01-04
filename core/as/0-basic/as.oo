@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@
 ;
 ; (This stage does not verify that keywords make sense in the context in which
 ; they are used. Keywords must still be used correctly, otherwise the program
-; will not be forward-compatible with the higher-level assemblers.)
+; will not be forward-compatible with the later stage assemblers.)
 
 
 
@@ -111,7 +111,7 @@
     66 73 65 65 6b            00   07    ; fseek
     66 74 65 6c 6c            00   08    ; ftell
     66 74 72 75 6e 63         00   09    ; ftrunc
-    ; directories
+    ;  directories
     64 6f 70 65 6e            00   0A    ; dopen
     64 63 6c 6f 73 65         00   0B    ; dclose
     64 72 65 61 64            00   0C    ; dread
@@ -280,7 +280,7 @@
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
     ; check that we have exactly four arguments
-    7D 8A 80 04                      ; cmp ra r0 4
+    71 8A 80 04                      ; sub ra r0 4
     7E 8A &main_four_args            ; jz ra &main_four_args
     7E 00 &main_incorrect_arguments  ; jz 0 &main_incorrect_arguments
 :main_four_args
@@ -407,7 +407,7 @@
     70 8C 8C 04        ; add rsp rsp 4     ; pop return address
 
     ; make sure it's good
-    7D 8A 80 00                    ; cmp ra r0 0
+    71 8A 80 00                    ; sub ra r0 0
     7E 8A &open_files_input_error  ; jz ra &open_files_input_error
     7E 00 &open_files_input_ok     ; jz 0 &open_files_input_ok
 
@@ -439,7 +439,7 @@
     79 80 8D F8        ; stw r0 rfp -8
 
     ; make sure it's good
-    7D 8A 80 00                     ; cmp ra r0 0
+    71 8A 80 00                     ; sub ra r0 0
     7E 8A &open_files_output_error  ; jz ra &open_files_output_error
     7E 00 &open_files_output_ok     ; jz 0 &open_files_output_ok
 
@@ -497,7 +497,7 @@
     7C 8A <current_char   ; ims ra <current_char
     7C 8A >current_char   ; ims ra >current_char
     78 8A 8E 8A           ; ldw ra rpp ra
-    7D 8A 8A FF           ; cmp ra ra -1
+    71 8A 8A FF           ; sub ra ra -1
     7E 8A &run_loop_done  ; jz ra &run_loop_done
 
     ; Each of these "try" functions attempts to parse a construct, consuming as
@@ -512,7 +512,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; try to parse a quoted byte, call try_parse_quoted_byte()
@@ -523,7 +523,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; try to parse a keyword, call try_parse_keyword()
@@ -534,7 +534,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; try to parse a comment, call try_parse_comment()
@@ -545,7 +545,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; try to parse a debug line, call try_parse_debug()
@@ -556,7 +556,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; try to parse a string, call try_parse_string()
@@ -567,7 +567,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; try to parse a linker directive, call try_parse_linker()
@@ -578,7 +578,7 @@
     79 8B 00 8C                    ; stw rb 0 rsp
     70 8F 8E 8A                    ; add rip rpp ra    ; jump
     70 8C 8C 04                    ; add rsp rsp 4     ; pop return address
-    7D 8A 80 01                    ; cmpu ra r0 1
+    71 8A 80 01                    ; sub ra r0 1
     7E 8A &run_loop                ; jz ra run_loop
 
     ; parsing failed. fatal error
@@ -804,7 +804,7 @@
 
     ; check if it's a newline. these are handled separately.
     ; TODO check for carriage returns
-    7D 8A 80 0A   ; cmpu ra r0 \n   (line feed)
+    71 8A 80 0A   ; sub ra r0 \n   (line feed)
     7E 8A &try_parse_whitespace_newline
 
     ; check if it's whitespace, call isspace()
@@ -881,7 +881,7 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check if it's a single quote
-    7D 8A 80 27    ; cmpu ra r0 "'"
+    71 8A 80 27    ; sub ra r0 "'"
     7E 8A &try_parse_byte_found
 
     ; not a quote, return false
@@ -982,7 +982,7 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check if it's the start of a comment
-    7D 8A 80 3B    ; cmpu ra r0 ";"
+    71 8A 80 3B    ; sub ra r0 ";"
     7E 8A &try_parse_comment_loop
 
     ; not a comment, return false
@@ -1006,11 +1006,11 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check if it's the end of a line or the end of the file
-    7D 8A 80 0A                    ; cmpu ra r0 "\n"  (line feed)
+    71 8A 80 0A                    ; sub ra r0 "\n"  (line feed)
     7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
-    7D 8A 80 0D                    ; cmpu ra r0 "\r"  (carriage return)
+    71 8A 80 0D                    ; sub ra r0 "\r"  (carriage return)
     7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
-    7D 8A 80 FF                    ; cmpu ra r0 -1  (end-of-file)
+    71 8A 80 FF                    ; sub ra r0 -1  (end-of-file)
     7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
 
     ; keep looping
@@ -1036,7 +1036,7 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check if it's the start of a debug line
-    7D 8A 80 23    ; cmpu ra r0 "#"
+    71 8A 80 23    ; sub ra r0 "#"
     7E 8A &try_parse_debug_found
 
     ; not a debug line, return false
@@ -1064,7 +1064,7 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check if it's the start of a string
-    7D 8A 80 22    ; cmpu ra r0 \"
+    71 8A 80 22    ; sub ra r0 \"
     7E 8A &try_parse_string_loop
 
     ; not a string, return false
@@ -1088,13 +1088,13 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check for end-of-file or backslash. if so, fatal error
-    7D 8A 80 FF                    ; cmp ra r0 -1
+    71 8A 80 FF                    ; sub ra r0 -1
     7E 8A &try_parse_string_error  ; jz ra &try_parse_string_error
-    7D 8A 80 5C                    ; cmp ra r0 "\"
+    71 8A 80 5C                    ; sub ra r0 "\"
     7E 8A &try_parse_string_error  ; jz ra &try_parse_string_error
 
     ; check for a double quote. if so, it's the end of the string
-    7D 8A 80 22                    ; cmpu ra r0 \"
+    71 8A 80 22                    ; sub ra r0 \"
     7E 8A &try_parse_string_done   ; jz ra &try_parse_string_done
 
     ; check if it's a printable character, call isprint()
@@ -1172,19 +1172,19 @@
     78 80 8E 8A           ; ldw r0 rpp ra
 
     ; check if it's the start of linker directive
-    7D 8A 80 3A                    ; cmpu ra r0 ":"
+    71 8A 80 3A                    ; sub ra r0 ":"
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
-    7D 8A 80 3D                    ; cmpu ra r0 "="
+    71 8A 80 3D                    ; sub ra r0 "="
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
-    7D 8A 80 40                    ; cmpu ra r0 "@"
+    71 8A 80 40                    ; sub ra r0 "@"
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
-    7D 8A 80 5E                    ; cmpu ra r0 "^"
+    71 8A 80 5E                    ; sub ra r0 "^"
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
-    7D 8A 80 3C                    ; cmpu ra r0 "<"
+    71 8A 80 3C                    ; sub ra r0 "<"
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
-    7D 8A 80 3E                    ; cmpu ra r0 ">"
+    71 8A 80 3E                    ; sub ra r0 ">"
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
-    7D 8A 80 26                    ; cmpu ra r0 "&"
+    71 8A 80 26                    ; sub ra r0 "&"
     7E 8A &try_parse_linker_found  ; jz ra &try_parse_linker_found
 
     ; not a linker directive, return false
@@ -1225,9 +1225,9 @@
 
     ; if it's a special identifier char, loop right away (keeping
     ; the char in r0)
-    7D 8A 80 5F                    ; cmpu ra r0 "_"
+    71 8A 80 5F                    ; sub ra r0 "_"
     7E 8A &try_parse_linker_loop   ; jz ra &try_parse_linker_loop
-    7D 8A 80 24                    ; cmpu ra r0 "$"
+    71 8A 80 24                    ; sub ra r0 "$"
     7E 8A &try_parse_linker_loop   ; jz ra &try_parse_linker_loop
 
     ; check if it's alphanumeric, call isalnum()
@@ -1343,7 +1343,7 @@
     79 81 8D FC    ; stw r1 rfp -4
 
     ; check that the length isn't too long
-    7D 8A 81 0A                      ; cmpu ra r1 10
+    71 8A 81 0A                      ; sub ra r1 10
     7E 8A &try_parse_keyword_error   ; jz ra &try_parse_keyword_error
 
     ; consume the character, call read_char()
