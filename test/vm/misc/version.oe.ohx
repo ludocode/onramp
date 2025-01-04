@@ -1,0 +1,29 @@
+; The MIT License (MIT)
+; Copyright (c) 2025 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+@0x00 =__start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info vector in r9
+    70 89 80 00   ; add r9 r0 0
+
+    ; load version
+    78 81 89 00   ; ldw r1 r9 0
+
+    ; make sure the version matches
+    71 81 81 01   ; sub r1 r1 1
+    7E 81 03 00   ; jz r1 +3
+
+    ; wrong version, exit(1)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 01   ; add r0 0 1
+    70 8F 8A 00   ; add rip ra 0
+
+    ; exit(0)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
+    70 8F 8A 00   ; add rip ra 0      ; jump to exit address

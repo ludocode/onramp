@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; format indicator `~Onr~amp~   `
@@ -26,7 +26,7 @@ BC 9A 78 56  ; 0x56789ABC
 70 81 00 12   ; add r1 0 0x12
 7C 81 56 34   ; ims r1 0x3456
 78 82 8E 10   ; ldw r2 rpp 0x10
-7D 8A 81 82   ; cmpu ra r1 r2
+71 8A 81 82   ; sub ra r1 r2
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 
@@ -36,7 +36,7 @@ BC 9A 78 56  ; 0x56789ABC
 7C 81 78 56   ; ims r1 0x5678
 7C 81 BC 9A   ; ims r1 0x9ABC
 78 82 8E 14   ; ldw r2 rpp 0x14
-7D 8A 81 82   ; cmpu ra r1 r2
+71 8A 81 82   ; sub ra r1 r2
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 

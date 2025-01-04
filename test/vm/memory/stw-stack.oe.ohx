@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; format indicator `~Onr~amp~   `
@@ -21,11 +21,11 @@
 
 # make sure we can read them back out again
 78 8A 8C 00   ; ldw ra rsp 0
-7D 8A 8A FD   ; cmpu ra ra -3
+71 8A 8A FD   ; sub ra ra -3
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 78 8A 8C 04   ; ldw ra rsp 4
-7D 8A 8A FF   ; cmpu ra ra -1
+71 8A 8A FF   ; sub ra ra -1
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 
@@ -41,11 +41,11 @@
 
 ; read it back out again
 78 8A 8D F8   ; ldw ra rfp -8
-7D 8A 8A 15   ; cmpu ra ra 21
+71 8A 8A 15   ; sub ra ra 21
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 78 8A 8D FC   ; ldw ra rfp -4
-7D 8A 8A 07   ; cmpu ra ra 7
+71 8A 8A 07   ; sub ra ra 7
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 

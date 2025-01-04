@@ -30,11 +30,11 @@
 ; ==========================================================
 
 =isupper
-    7D 8A 80 41   ; cmpu ra r0 "A"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 41   ; ltu ra r0 "A"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isupper_false
-    7D 8A 80 5A   ; cmpu ra r0 "Z"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 5A 80   ; ltu ra "Z" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isupper_false
 
     ; return true
@@ -57,11 +57,11 @@
 ; ==========================================================
 
 =islower
-    7D 8A 80 61   ; cmpu ra r0 "a"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 61   ; ltu ra r0 "a"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__islower_false
-    7D 8A 80 7A   ; cmpu ra r0 "z"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 7A 80   ; ltu ra "z" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__islower_false
 
     ; return true
@@ -86,11 +86,11 @@
 =isalpha
 
     ; check lowercase
-    7D 8A 80 61   ; cmpu ra r0 "a"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 61   ; ltu ra r0 "a"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isalpha_not_lower
-    7D 8A 80 7A   ; cmpu ra r0 "z"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 7A 80   ; ltu ra "z" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isalpha_not_lower
 
     ; return true
@@ -100,11 +100,11 @@
 :__isalpha_not_lower
 
     ; check uppercase
-    7D 8A 80 41   ; cmpu ra r0 "A"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 41   ; ltu ra r0 "A"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isalpha_not_upper
-    7D 8A 80 5A   ; cmpu ra r0 "Z"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 5A 80   ; ltu ra "Z" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isalpha_not_upper
 
     ; return true
@@ -127,11 +127,11 @@
 ; ==========================================================
 
 =isdigit
-    7D 8A 80 30   ; cmpu ra r0 "0"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 30   ; ltu ra r0 "0"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isdigit_false
-    7D 8A 80 39   ; cmpu ra r0 "9"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 39 80   ; ltu ra "9" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isdigit_false
 
     ; return true
@@ -156,11 +156,11 @@
 =isalnum
 
     ; check digit
-    7D 8A 80 30   ; cmpu ra r0 "0"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 30   ; ltu ra r0 "0"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isalnum_not_digit
-    7D 8A 80 39   ; cmpu ra r0 "9"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 39 80   ; ltu ra "9" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isalnum_not_digit
 
     ; return true
@@ -186,11 +186,11 @@
 =isxdigit
 
     ; check digit
-    7D 8A 80 30   ; cmpu ra r0 "0"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 30   ; ltu ra r0 "0"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isxdigit_not_number
-    7D 8A 80 39   ; cmpu ra r0 "9"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 39 80   ; ltu ra "9" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isxdigit_not_number
 
     ; return true
@@ -200,11 +200,11 @@
 :__isxdigit_not_number
 
     ; check lowercase
-    7D 8A 80 61   ; cmpu ra r0 "a"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 61   ; ltu ra r0 "a"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isxdigit_not_lower
-    7D 8A 80 66   ; cmpu ra r0 "f"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 66 80   ; ltu ra "f" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isxdigit_not_lower
 
     ; return true
@@ -214,11 +214,11 @@
 :__isxdigit_not_lower
 
     ; check uppercase
-    7D 8A 80 41   ; cmpu ra r0 "A"
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 41   ; ltu ra r0 "A"
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isxdigit_not_upper
-    7D 8A 80 46   ; cmpu ra r0 "F"
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 46 80   ; ltu ra "F" r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isxdigit_not_upper
 
     ; return true
@@ -299,11 +299,11 @@
 ; ==========================================================
 
 =isprint
-    7D 8A 80 20   ; cmpu ra r0 0x20
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 20   ; ltu ra r0 0x20
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isprint_false
-    7D 8A 80 7E   ; cmpu ra r0 0x7E
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 7E 80   ; ltu ra 0x7E r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isprint_false
 
     ; return true
@@ -326,11 +326,11 @@
 ; ==========================================================
 
 =isgraph
-    7D 8A 80 21   ; cmpu ra r0 0x21
-    7D 8A 8A FF   ; cmpu ra ra -1
+    7D 8A 80 21   ; ltu ra r0 0x21
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isgraph_false
-    7D 8A 80 7E   ; cmpu ra r0 0x7E
-    7D 8A 8A 01   ; cmpu ra ra 1
+    7D 8A 7E 80   ; ltu ra 0x7E r0
+    71 8A 01 8A   ; sub ra 1 ra
     7E 8A &__isgraph_false
 
     ; return true

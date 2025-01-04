@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -264,13 +264,8 @@ def run():
                 registers[dest] = loadWord(left + right)
             elif opcode == 0xA: # ldb
                 registers[dest] = loadByte(left + right)
-            elif opcode == 0xD: # cmpu
-                if left < right:
-                    registers[dest] = 0xFFFFFFFF
-                elif left > right:
-                    registers[dest] = 1
-                else:
-                    registers[dest] = 0
+            elif opcode == 0xD: # ltu
+                registers[dest] = left < right and 1 or 0
             else:
                 raise Exception("Internal error")
 
@@ -376,7 +371,7 @@ def start():
     registers[RSP] = BASE_ADDR + MEMORY_SIZE
 
     # Fill process info table
-    storeWord(tableAddress, 0) # version
+    storeWord(tableAddress, 1) # version
     storeWord(tableAddress + 4, pos)  # break
     storeWord(tableAddress + 8, haltAddress)  # exit address
     storeWord(tableAddress + 12, 0)  # input stream handle

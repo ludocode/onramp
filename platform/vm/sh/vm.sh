@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -67,7 +67,7 @@
 # 32-bit shells, high values will be negative signed, and on 64-bit shells, all
 # values will be non-negative. Almost all operations give exactly the same
 # results, and those that don't are handled specially (see the implementation
-# of "cmpu" for example) so it works on both. As far as I can tell this is both
+# of "ltu" for example) so it works on both. As far as I can tell this is both
 # the fastest and simplest way to make the shell independent of word size.
 
 
@@ -860,7 +860,7 @@ process_init() {
     store_word $EXIT_ADDRESS 127   # 0x0000007E == sys halt 0 0
 
     # Fill the process info table
-    store_word $PROCESS_INFO_TABLE 0             # version
+    store_word $PROCESS_INFO_TABLE 1             # version
     # break is set in program_init()
     store_word $(( $PROCESS_INFO_TABLE +  8 )) $EXIT_ADDRESS   # exit address
     store_word $(( $PROCESS_INFO_TABLE + 12 )) 0               # stdin
@@ -1032,8 +1032,6 @@ parse_mix() {
     elif [ $PARSE_MIX_RET -ge 128 ]; then
         register_get $(( $PARSE_MIX_RET - 0x80 ))
         PARSE_MIX_RET=$REGISTER_GET_RET
-    elif [ $PARSE_MIX_RET -ge 112 ]; then
-        fatal "A mix-type byte cannot contain an opcode."
     fi
 }
 
@@ -1103,29 +1101,26 @@ run() {
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 | $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
             76)
-                #echo xor >&2
+                #echo shl >&2
                 parse_register $ARG1
                 parse_mix $ARG2
                 ARG2=$PARSE_MIX_RET
                 parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 ^ $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                register_set $PARSE_REGISTER_RET $(( ($ARG2 << $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
             77)
-                #echo ror >&2
+                #echo shru >&2
                 parse_register $ARG1
                 parse_mix $ARG2
                 ARG2=$PARSE_MIX_RET
                 parse_mix $ARG3
-                ARG3=$(( $PARSE_MIX_RET & 0x1F ))
+                ARG3=$PARSE_MIX_RET
                 # We only have a signed shift. We shift down by 1, mask out the
                 # high bit, then shift the rest.
                 if [ $ARG3 -eq 0 ]; then
                     register_set $PARSE_REGISTER_RET $ARG2
                 else
-                    #echo $ARG2 $ARG3 >&2
-                    register_set $PARSE_REGISTER_RET \
-                            $(( ((($ARG2 >> 1) & 0x7FFFFFFF) >> ($ARG3 - 1)) | \
-                                (($ARG2 << (32 - $ARG3)) & 0xFFFFFFFF) ))
+                    register_set $PARSE_REGISTER_RET $(( ((($ARG2 >> 1) & 0x7FFFFFFF) >> ($ARG3 - 1)) ))
                 fi
                 ;;
             78)
@@ -1171,7 +1166,7 @@ run() {
                 register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | 0x$ARG3$ARG2))
                 ;;
             7D)
-                #echo cmpu >&2
+                #echo ltu >&2
                 parse_register $ARG1
                 parse_mix $ARG2
                 ARG2=$PARSE_MIX_RET
@@ -1185,20 +1180,15 @@ run() {
                 # shell because values are 64-bit unsigned.)
                 #echo $ARG2 $ARG3 >&2
                 if [ $ARG2 -ge 0 -a $ARG3 -lt 0 ]; then
-                    CMPU=$(( 0xFFFFFFFF ))
+                    CMPU=0
                 elif [ $ARG2 -lt 0 -a $ARG3 -ge 0 ]; then
                     CMPU=1
-                elif [ $ARG2 -lt $ARG3 ]; then
-                    CMPU=$(( 0xFFFFFFFF ))
-                elif [ $ARG2 -gt $ARG3 ]; then
-                    CMPU=1
                 else
-                    CMPU=0
+                    CMPU=$(( $ARG2 < $ARG3 ))
                 fi
 
                 register_set $PARSE_REGISTER_RET $CMPU
                 ;;
-
             7E)
                 #echo jz >&2
                 parse_mix $ARG1

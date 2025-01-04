@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -461,7 +461,7 @@ static void vm_init(int argc, char** argv) {
     address += 4;
 
     /* configure process info table */
-    vm_store_u32(process_info_address + 0, 0); /* version */
+    vm_store_u32(process_info_address + 0, 1); /* version */
     vm_store_u32(process_info_address + 8, halt_address);
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
@@ -993,9 +993,7 @@ next:
         case 0x77:   *reg = mix1 >> mix2;  goto next;  /* shru */
         case 0x78:   *reg = vm_load_u32(mix1 + mix2);   goto next;  /* ldw */
         case 0x7A:   *reg = vm_load_u8 (mix1 + mix2);   goto next;  /* ldb */
-        case 0x7D:                                                  /* cmpu */
-            *reg = (mix1 < mix2) ? -1 : (mix1 > mix2) ? 1 : 0;
-            goto next;
+        case 0x7D:   *reg = mix1 < mix2;   goto next;  /* ltu */
         default:
             break;
     }

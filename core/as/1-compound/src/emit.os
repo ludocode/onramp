@@ -117,8 +117,7 @@
     ; don't bother to set up a stack frame
 
     ; see if we need a letter or a number
-    cmpu r1 r0 '09
-    cmpu r1 r1 '01
+    ltu r1 r0 '0A
     jz r1 &emit_hex_bits_alpha
 
     ; number

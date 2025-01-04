@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; format indicator `~Onr~amp~   `
@@ -25,7 +25,7 @@
 77 82 82 02   ; ror r2 r2 2   ; divide by 4
 
 ; make sure we have 5 args
-7D 8A 82 05   ; cmpu ra r2 5
+71 8A 82 05   ; sub ra r2 5
 7E 8A 01 00   ; jz ra 1
 78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
 

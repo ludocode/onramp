@@ -1,0 +1,122 @@
+; The MIT License (MIT)
+; Copyright (c) 2023-2025 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+@0x00 =__start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info vector in r9
+    70 89 80 00   ; add r9 r0 0
+
+
+
+    ; compare 1 to 3
+    70 8A 02 02   ; add ra 2 2   ; clear register to make sure ltu writes it
+    7D 8A 01 03   ; ltu ra 1 3
+    71 8A 8A 01   ; sub ra ra 1
+    7E 8A 03 00   ; jz ra +3
+
+    ; compare failed, exit(-1)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 01   ; add r0 0 1
+    70 8F 8A 00   ; add rip ra 0
+
+
+    ; compare 3 to 1
+    70 82 02 02   ; add r2 2 2   ; clear register to make sure ltu writes it
+    7D 82 03 01   ; ltu r2 3 1
+    7E 82 03 00   ; jz r2 +3
+
+    ; compare failed, exit(-2)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 02   ; add r0 0 2
+    70 8F 8A 00   ; add rip ra 0
+
+
+    ; compare 3 to 3
+    70 87 02 02   ; add r7 2 2   ; clear register to make sure ltu writes it
+    7D 87 03 03   ; ltu r7 3 3
+    7E 87 03 00   ; jz r7 +3
+
+    ; compare failed, exit(-3)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 03   ; add r0 0 3
+    70 8F 8A 00   ; add rip ra 0
+
+
+
+    ; compare 3 to -3  (comparison is unsigned, 3 < 0xFFFFFFFD)
+    ; (use rfp to make sure we can use it as a general purpose register)
+    70 8D 02 02   ; add rfp 2 2   ; clear register to make sure ltu writes it
+    7D 8D 03 FD   ; ltu rfp 3 -3
+    71 8D 01 8D   ; sub rfp 1 rfp
+    7E 8A 03 00   ; jz ra +3
+
+    ; compare failed, exit(-4)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 04   ; add r0 0 4
+    70 8F 8A 00   ; add rip ra 0
+
+
+
+    ; compare -3 to 3  (comparison is unsigned, 0xFFFFFFFD > 3)
+    7D 8A FD 03   ; ltu ra -3 3
+    7E 8A 03 00   ; jz ra +3
+
+    ; compare failed, exit(-5)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 05   ; add r0 0 5
+    70 8F 8A 00   ; add rip ra 0
+
+
+
+    ; compare -3 to -3
+    70 8D 02 02   ; add rfp 2 2   ; clear register to make sure ltu writes it
+    7D 8A FD FD   ; ltu ra -3 -3
+    7E 8A 03 00   ; jz ra +3
+
+    ; compare failed, exit(-6)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 06   ; add r0 0 6
+    70 8F 8A 00   ; add rip ra 0
+
+
+
+    ; compare via registers to make sure it is comparing the register contents
+
+    ; compare 0xffffffff to 1 in ascending registers
+    70 80 FF 00   ; add r0 -1 0
+    70 81 00 01   ; add r1 0 1
+    70 84 05 00   ; add r4 5 0   ; clear register to make sure ltu writes it
+    7D 84 80 81   ; ltu r4 r0 r1
+    7E 84 03 00   ; jz r4 +3
+
+    ; compare failed, exit(-7)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 07   ; add r0 0 7
+    70 8F 8A 00   ; add rip ra 0
+
+    ; compare 0x40000000 to 0x80000000 in descending registers
+    76 83 01 1E   ; shl r3 1 30
+    76 82 01 1F   ; shl r2 1 31
+    70 85 05 00   ; add r5 5 0   ; clear register to make sure ltu writes it
+    7D 85 83 82   ; ltu r5 r3 r2
+    71 85 01 85   ; sub r5 1 r5
+    7E 85 03 00   ; jz r5 +3
+
+    ; compare failed, exit(-8)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 08   ; add r0 0 8
+    70 8F 8A 00   ; add rip ra 0
+
+
+
+
+
+    ; exit(0)
+    78 8A 89 08   ; ldw ra r9 8  (exit address)
+    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
+    70 8F 8A 00   ; add rip ra 0      ; jump to exit address

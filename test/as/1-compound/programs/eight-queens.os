@@ -94,7 +94,7 @@ ldw r0 rpp r0
 :is_queen_valid_loop
 
     ; if i==x, we've passed all tests, return true.
-    cmpu r7 r2 r0
+    sub r7 r2 r0
     jnz r7 &is_queen_valid_not_done
     mov r0 1
     ret
@@ -107,17 +107,17 @@ ldw r0 rpp r0
     ldb r4 r8 r2
 
     ; check if there's a queen in the same row
-    cmpu r7 r4 r1
+    sub r7 r4 r1
     jz r7 &is_queen_valid_fail
 
     ; check if there's a queen diagonally up
     add r7 r1 r3
-    cmpu r7 r4 r7 
+    sub r7 r4 r7 
     jz r7 &is_queen_valid_fail
 
     ; check if there's a queen diagonally down
     sub r7 r1 r3
-    cmpu r7 r4 r7 
+    sub r7 r4 r7 
     jz r7 &is_queen_valid_fail
 
     ; next i
@@ -147,7 +147,7 @@ ldw r0 rpp r0
 =place_queen
 
     ; if x is 8, we print the board instead of placing queens.
-    cmpu r7 r0 8
+    sub r7 r0 8
     jnz r7 &place_queen_not_print
 
         ; tail-call print_board()
@@ -186,7 +186,7 @@ ldw r0 rpp r0
     stw r1 rfp -8    ; store y
 
     ; next y
-    cmpu r7 r1 8
+    sub r7 r1 8
     jnz r7 &place_queen_next_y
 
     ; done
@@ -225,8 +225,10 @@ ldw r0 rpp r0
 
             ; check whether there is a queen in this position. 0 for "Q", 1 for "."
             ldb r7 r8 r3
-            cmpu r7 r7 r4
-            and r7 r7 1
+            sub r7 r7 r4
+            jz r7 &print_board_queen
+            add r7 '00 '01
+        :print_board_queen
 
             ; print the character, syscall write(stdout, rsp+ra, 1)
             ldw r0 r9 16     ; r0 = stdout
@@ -236,7 +238,7 @@ ldw r0 rpp r0
 
             ; increment x
             inc r3
-            cmpu r7 r3 8
+            sub r7 r3 8
             jz r7 &print_board_x_done
 
             ; print a space for alignment
@@ -257,7 +259,7 @@ ldw r0 rpp r0
 
         ; next y
         inc r4
-        cmpu r7 r4 8
+        sub r7 r4 8
         jnz r7 &print_board_next_y
 
     ; print two newlines
