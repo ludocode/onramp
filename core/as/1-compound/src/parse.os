@@ -132,7 +132,7 @@
     ldw r0 rpp ra
 
     ; check if it's a newline. these are handled separately.
-    cmpu ra r0 '0A   ; (line feed)
+    sub ra r0 '0A   ; (line feed)
     jz ra &try_parse_whitespace_newline
 
     ; check if it's whitespace, call isspace()
@@ -212,7 +212,7 @@
     ldw r0 rpp ra
 
     ; check if it's the start of a comment
-    cmpu ra r0 ";"
+    sub ra r0 ";"
     jz ra &try_parse_comment_loop
 
     ; not a comment, return false
@@ -236,11 +236,11 @@
     ldw r0 rpp ra
 
     ; check if it's the end of a line or the end of the file
-    cmpu ra r0 '0A  ; (line feed)
+    sub ra r0 '0A  ; (line feed)
     jz ra &try_parse_comment_done
-    cmpu ra r0 '0D  ; (carriage return)
+    sub ra r0 '0D  ; (carriage return)
     jz ra &try_parse_comment_done
-    cmpu ra r0 'FF  ; (end-of-file)
+    sub ra r0 'FF  ; (end-of-file)
     jz ra &try_parse_comment_done
 
     ; keep looping
@@ -272,7 +272,7 @@
     ldw r0 rpp ra
 
     ; check if it's the start of a debug info line
-    cmpu ra r0 "#"
+    sub ra r0 "#"
     jz ra &try_parse_debug_loop
 
     ; not a debug line, return false
@@ -305,11 +305,11 @@
     ldw r0 rpp ra
 
     ; check if it's the end of a line or the end of the file
-    cmpu ra r0 '0A  ; (line feed)
+    sub ra r0 '0A  ; (line feed)
     jz ra &try_parse_debug_done
-    cmpu ra r0 '0D  ; (carriage return)
+    sub ra r0 '0D  ; (carriage return)
     jz ra &try_parse_debug_done
-    cmpu ra r0 'FF  ; (end-of-file)
+    sub ra r0 'FF  ; (end-of-file)
     jz ra &try_parse_debug_done
 
     ; keep looping
@@ -498,7 +498,7 @@
     ; if successful, return it
     ; (we don't bother to check that it's actually a register, but the final
     ; stage assembler does.)
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_register_not_quoted_byte
     ldw rip '00 rsp        ; ret
 :parse_register_not_quoted_byte
@@ -526,7 +526,7 @@
     add rsp rsp '04     ; pop return address
 
     ; if successful, return it
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_register_fail
     ldw rip '00 rsp        ; ret
 
@@ -565,7 +565,7 @@
     ldw r0 rpp ra
 
     ; check for a minus sign
-    cmpu ra r0 "-"
+    sub ra r0 "-"
     jz ra &try_parse_number_negative
 
     ; non-negative; push false
@@ -596,7 +596,7 @@
     ldw r0 rpp ra
 
     ; check if it's a zero
-    cmpu ra r0 "0"
+    sub ra r0 "0"
     jz ra &try_parse_number_leading_zero
     jz '00 &try_parse_number_not_zero
 
@@ -617,9 +617,9 @@
     ldw r0 rpp ra
 
     ; check for x or X. if so it's hexadecimal.
-    cmpu ra r0 "x"
+    sub ra r0 "x"
     jz ra &try_parse_number_hexadecimal
-    cmpu ra r0 "X"
+    sub ra r0 "X"
     jz ra &try_parse_number_hexadecimal
 
     ; it's not hex. check if it's a digit
@@ -874,7 +874,7 @@
     add rsp rsp '04     ; pop return address
 
     ; if not a hex digit, break
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_hexadecimal_done
 
     ; add its value to the current total
@@ -936,7 +936,7 @@
     add rsp rsp '04     ; pop return address
 
     ; if successful, return it
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_mix_not_quoted_byte
     ldw rip '00 rsp        ; ret
 :parse_mix_not_quoted_byte
@@ -964,7 +964,7 @@
     add rsp rsp '04     ; pop return address
 
     ; if it failed to convert, fatal error
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_mix_fail
 
     ; return the register byte
@@ -981,7 +981,7 @@
     add rsp rsp '04     ; pop return address
 
     ; see if we got a character
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_mix_not_character
 
     ; character found, return it
@@ -1092,7 +1092,7 @@
     ldw r0 rpp ra
 
     ; check if it's the start of a string
-    cmpu ra r0 '22    ; '"'
+    sub ra r0 '22    ; '"'
     jz ra &try_parse_and_emit_string_loop
 
     ; not a string, return false
@@ -1116,13 +1116,13 @@
     ldw r0 rpp ra
 
     ; check for end-of-file or backslash. if so, fatal error
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &try_parse_and_emit_string_error
-    cmpu ra r0 '5C  ; '\\'
+    sub ra r0 '5C  ; '\\'
     jz ra &try_parse_and_emit_string_error
 
     ; check for a double quote. if so, it's the end of the string
-    cmpu ra r0 '22    ; '"'
+    sub ra r0 '22    ; '"'
     jz ra &try_parse_and_emit_string_done
 
     ; check if it's a printable character, call isprint()
@@ -1197,7 +1197,7 @@
     ldw r0 rpp ra
 
     ; check if it's the start of a string
-    cmpu ra r0 '22    ; '"'
+    sub ra r0 '22    ; '"'
     jz ra &try_parse_character_found
 
     ; not a string, return -1
@@ -1221,11 +1221,11 @@
     ldw r0 rpp ra
 
     ; check for end-of-file, double-quote or backslash. if so, fatal error
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &try_parse_character_error
-    cmpu ra r0 '22  ; '"'
+    sub ra r0 '22  ; '"'
     jz ra &try_parse_character_error
-    cmpu ra r0 '5C  ; '\\'
+    sub ra r0 '5C  ; '\\'
     jz ra &try_parse_character_error
 
     ; stash it
@@ -1257,7 +1257,7 @@
     ims ra <current_char
     ims ra >current_char
     ldw r0 rpp ra
-    cmpu ra r0 '22   ; '"'
+    sub ra r0 '22   ; '"'
     jz ra &try_parse_character_ok
     jz '00 &try_parse_character_error
 
@@ -1303,19 +1303,19 @@
     ldw r0 rpp ra
 
     ; check if it's the start of linker directive
-    cmpu ra r0 ":"
+    sub ra r0 ":"
     jz ra &try_parse_linker_char_found
-    cmpu ra r0 "="
+    sub ra r0 "="
     jz ra &try_parse_linker_char_found
-    cmpu ra r0 "@"
+    sub ra r0 "@"
     jz ra &try_parse_linker_char_found
-    cmpu ra r0 "^"
+    sub ra r0 "^"
     jz ra &try_parse_linker_char_found
-    cmpu ra r0 "<"
+    sub ra r0 "<"
     jz ra &try_parse_linker_char_found
-    cmpu ra r0 ">"
+    sub ra r0 ">"
     jz ra &try_parse_linker_char_found
-    cmpu ra r0 "&"
+    sub ra r0 "&"
     jz ra &try_parse_linker_char_found
 
     ; not a linker directive, return 0
@@ -1662,7 +1662,7 @@
     ldw r0 rpp ra
 
     ; check if it's a single quote
-    cmpu ra r0 "'"
+    sub ra r0 "'"
     jz ra &try_parse_quoted_byte_found
 
     ; not a quote, return -1
@@ -1698,7 +1698,7 @@
     add rsp rsp '04     ; pop return address
 
     ; make sure it's hex
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &try_parse_quoted_byte_error
 
     ; shift it up and store it
@@ -1729,7 +1729,7 @@
     add rsp rsp '04     ; pop return address
 
     ; make sure it's hex
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &try_parse_quoted_byte_error
 
     ; mix it in
@@ -1784,7 +1784,7 @@
     add rsp rsp '04     ; pop return address
 
     ; if not found, return false
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &parse_and_emit_quoted_byte_false
 
     ; found. emit it
@@ -1820,9 +1820,9 @@
 =is_identifier_char
 
     ; we accept $ in identifiers as an extension.
-    cmpu ra r0 "$"
+    sub ra r0 "$"
     jz ra &is_identifier_char_true
-    cmpu ra r0 "_"
+    sub ra r0 "_"
     jz ra &is_identifier_char_true
 
     ; a number is allowed if first_char is false. we therefore call isalpha()
@@ -1905,7 +1905,7 @@
     ldw r1 rfp 'FC
 
     ; check that the length isn't too long
-    cmpu ra r1 '7F    ; 127
+    sub ra r1 '7F    ; 127
     jz ra &try_parse_identifier_too_long
 
     ; store the current char into the string
@@ -2006,7 +2006,7 @@
     ims ra <current_char
     ims ra >current_char
     ldw ra rpp ra
-    cmpu ra ra 'FF
+    sub ra ra 'FF
     jz ra &parse_done
 
     ; try to parse an identifier

@@ -115,11 +115,11 @@
 @opcode_short_linker
 
     ; a linker directive was found. make sure it's a short invocation
-    cmpu ra r0 "<"
+    sub ra r0 "<"
     jz ra &opcode_short_linker_ok
-    cmpu ra r0 ">"
+    sub ra r0 ">"
     jz ra &opcode_short_linker_ok
-    cmpu ra r0 "&"
+    sub ra r0 "&"
     jz ra &opcode_short_linker_ok
     jz '00 &opcode_short_linker_error
 :opcode_short_linker_ok
@@ -207,7 +207,7 @@
     add rsp rsp '04     ; pop return address
 
     ; check whether we got a character
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &opcode_short_bytes_not_char
     jz '00 &opcode_short_bytes_found
 :opcode_short_bytes_not_char
@@ -222,7 +222,7 @@
     add rsp rsp '04     ; pop return address
 
     ; check whether we got a quoted byte
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &opcode_short_bytes_error
 
 :opcode_short_bytes_found
@@ -438,7 +438,7 @@
 @opcode_imw_linker
 
     ; a linker directive was found. make sure it's a full invocation
-    cmpu ra r0 "^"
+    sub ra r0 "^"
     jz ra &opcode_imw_linker_ok
     jz '00 &opcode_imw_linker_error
 :opcode_imw_linker_ok
@@ -590,7 +590,7 @@
     add rsp rsp '04     ; pop return address
 
     ; check whether we got a character
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &opcode_imw_not_char
     jz '00 &opcode_imw_byte
 :opcode_imw_not_char
@@ -605,7 +605,7 @@
     add rsp rsp '04     ; pop return address
 
     ; check whether we got a quoted byte
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &opcode_imw_bytes_error
 
 :opcode_imw_byte
@@ -617,11 +617,11 @@
 
     ; figure out where the byte goes
     ldw r2 rfp 'FC
-    cmpu ra r2 '00
+    sub ra r2 '00
     jz ra &opcode_imw_byte_0
-    cmpu ra r2 '01
+    sub ra r2 '01
     jz ra &opcode_imw_byte_1
-    cmpu ra r2 '02
+    sub ra r2 '02
     jz ra &opcode_imw_byte_2
     jz '00 &opcode_imw_byte_3
 
@@ -641,7 +641,7 @@
 
     ; bump iterator. if it's 4, we're done reading
     add r2 r2 '01
-    cmpu ra r2 '04
+    sub ra r2 '04
     jz ra &opcode_imw_emit_template
     stw r2 rfp 'FC
 
@@ -952,7 +952,7 @@
     add rsp rsp '04     ; pop return address
 
     ; if it failed to convert, fatal error
-    cmpu ra r0 'FF
+    sub ra r0 'FF
     jz ra &opcode_sys_error
 
     ; get our data, put the byte in it
@@ -1142,9 +1142,9 @@
 =opcode_jmp_linker
 
     ; figure out whether we are relative or absolute
-    cmpu ra r0 "&"
+    sub ra r0 "&"
     jz ra &opcode_jmp_linker_relative
-    cmpu ra r0 "^"
+    sub ra r0 "^"
     jz ra &opcode_jmp_linker_absolute
     jz '00 &opcode_jmp_linker_error
 
@@ -1309,7 +1309,7 @@
     jz r0 &opcode_call_forward_register
 
     ; we have a linker directive. it must be a 32 bit invocation
-    cmpu ra r0 "^"
+    sub ra r0 "^"
     jz ra &opcode_call_ok
     jz '00 &opcode_call_error
 :opcode_call_ok

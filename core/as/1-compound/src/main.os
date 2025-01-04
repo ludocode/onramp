@@ -116,7 +116,7 @@
     add rfp rsp '00     ; mov rfp rsp
 
     ; check that we have exactly four arguments
-    cmpu ra r0 '04
+    sub ra r0 '04
     jz ra &main_four_args
     jz '00 &main_incorrect_arguments
 :main_four_args
@@ -247,8 +247,7 @@
     add rsp rsp '04     ; pop return address
 
     ; make sure it's good
-    cmpu ra r0 '00
-    jz ra &open_files_input_error
+    jz r0 &open_files_input_error
     jz '00 &open_files_input_ok
 
     ; opening input failed, fatal error
@@ -279,8 +278,7 @@
     stw r0 rfp 'F8
 
     ; make sure it's good
-    cmpu ra r0 '00
-    jz ra &open_files_output_error
+    jz r0 &open_files_output_error
     jz '00 &open_files_output_ok
 
     ; opening output failed, fatal error

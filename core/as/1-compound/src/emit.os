@@ -214,7 +214,7 @@
     ; if i matches count, we're done
     ldw r2 rfp 'F4
     ldw r1 rfp 'F8
-    cmpu r0 r1 r2
+    sub r0 r1 r2
     jz r0 &emit_bytes_as_hex_done
 
     ; get p[i]
