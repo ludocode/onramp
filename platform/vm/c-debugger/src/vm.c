@@ -113,8 +113,10 @@ static void panic(const char* e) {
 #define VM_MKDIR     0x12
 #define VM_RMDIR     0x13
 
+#define VM_VERSION_NUMBER 1
+
 /* process info table */
-#define VM_VERSION 0
+#define VM_PIT_VERSION 0
 #define VM_BREAK 4
 #define VM_EXIT 8
 #define VM_INPUT 12
@@ -526,7 +528,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     }
 
     /* set up the rest of the process info table */
-    vm_store_u32(vm, vm->memory_base + VM_VERSION, 0);
+    vm_store_u32(vm, vm->memory_base + VM_PIT_VERSION, VM_VERSION_NUMBER);
     vm_store_u32(vm, vm->memory_base + VM_BREAK, addr);
     vm_store_u32(vm, vm->memory_base + VM_CAPABILITIES,
             0 // no echo, non-blocking, non-canonical

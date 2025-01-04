@@ -1170,7 +1170,7 @@
 
     ; version
     BF 00 00 00 01   ; mov edi, version (0x1000000)
-    B8 00 00 00 00   ; mov eax, 0
+    B8 01 00 00 00   ; mov eax, 1
     89 07            ; mov [rdi], eax
 
     ; input stream handle

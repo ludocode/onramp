@@ -30,11 +30,13 @@
 
 #include <stdlib.h>
 
-#include "internal.h"
-
 #include <__onramp/__pit.h>
 #include <stdio.h>
 #include <stdbool.h>
+#include <string.h>
+
+#include "internal.h"
+#include "syscalls.h"
 
 int __argc;
 char** __argv;
@@ -62,6 +64,20 @@ static void call_destructors(void);
 #ifdef __onramp__
 _Noreturn
 void __start_c(unsigned* process_info, unsigned stack_base) {
+
+    // check version
+    // version history:
+    // - 0: last experimental version before numbering
+    // - 1: replaced cmpu with ltu
+    if (process_info[__ONRAMP_PIT_VERSION] != 1) {
+        // If the VM version doesn't match the version of the libc, we try to
+        // print an error message and exit. Anything might have changed
+        // (instructions, syscall interface) so this won't necessarily work but
+        // we try anyway.
+        const char* message = "ERROR: Incompatible version of the Onramp VM.\n";
+        __sys_fwrite(process_info[__ONRAMP_PIT_ERROR], message, strlen(message));
+        __end(1, process_info[__ONRAMP_PIT_EXIT]);
+    }
 
     // store environment
     __process_info_table = process_info;

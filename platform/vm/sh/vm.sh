@@ -860,7 +860,7 @@ process_init() {
     store_word $EXIT_ADDRESS 127   # 0x0000007E == sys halt 0 0
 
     # Fill the process info table
-    store_word $PROCESS_INFO_TABLE 0             # version
+    store_word $PROCESS_INFO_TABLE 1             # version
     # break is set in program_init()
     store_word $(( $PROCESS_INFO_TABLE +  8 )) $EXIT_ADDRESS   # exit address
     store_word $(( $PROCESS_INFO_TABLE + 12 )) 0               # stdin

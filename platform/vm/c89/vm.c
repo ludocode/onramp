@@ -461,7 +461,7 @@ static void vm_init(int argc, char** argv) {
     address += 4;
 
     /* configure process info table */
-    vm_store_u32(process_info_address + 0, 0); /* version */
+    vm_store_u32(process_info_address + 0, 1); /* version */
     vm_store_u32(process_info_address + 8, halt_address);
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */

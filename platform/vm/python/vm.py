@@ -371,7 +371,7 @@ def start():
     registers[RSP] = BASE_ADDR + MEMORY_SIZE
 
     # Fill process info table
-    storeWord(tableAddress, 0) # version
+    storeWord(tableAddress, 1) # version
     storeWord(tableAddress + 4, pos)  # break
     storeWord(tableAddress + 8, haltAddress)  # exit address
     storeWord(tableAddress + 12, 0)  # input stream handle
