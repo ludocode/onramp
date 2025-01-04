@@ -46,6 +46,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
         echo "Generated $EXPECTED"
     else
         rm -f $EXPECTED
+        touch $BASENAME.fail
         echo "Failed, deleted $EXPECTED *****"
     fi
 

@@ -11,11 +11,14 @@
 #
 # For each test case:
 #
+# - If a corresponding .fail file exists, the assembler must return an error.
+# Its output is ignored.
+#
 # - If a corresponding .oo file exists, the assembler must succeed and its output
 # must match the file's contents.
 #
-# - If no corresponding .oo file exists, the assembler must return an error. Its
-# output is ignored.
+# - If no corresponding .oo or .fail file exists, the assembler must succeed.
+# Its output is ignored.
 #
 # - If a corresponding .args file exists, the contents are passed as
 # command-line arguments to the assembler instead of the default arguments. Use
@@ -69,6 +72,10 @@ TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
 ANY_ERROR=0
 
+# we want address sanitizer to return the same error code as the vm so we can
+# detect crashes on both
+export ASAN_OPTIONS="$ASAN_OPTIONS:exitcode=125"
+
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
 
@@ -98,22 +105,24 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
     set -e
 
     # check compile status and object code
-    if [ -e $BASENAME.oo ]; then
-        if [ $RET -ne 0 ]; then
-            echo "ERROR: $BASENAME failed; expected success."
-            THIS_ERROR=1
-        elif [ $OTHER_STAGE -eq 0 ] && ! diff -q $BASENAME.oo $TEMP_OO > /dev/null; then
-            echo "ERROR: $BASENAME did not match expected $BASENAME.oo"
-            THIS_ERROR=1
-        fi
-    else
+    if [ $RET -eq 125 ]; then
+        echo "ERROR: assembler crashed on $BASENAME; expected success or error message."
+        cat $TEMP_STDERR
+        THIS_ERROR=1
+    elif [ -e $BASENAME.fail ]; then
         if [ $RET -eq 0 ]; then
             echo "ERROR: $BASENAME succeeded; expected error."
             THIS_ERROR=1
         fi
+    elif [ $RET -ne 0 ]; then
+        echo "ERROR: $BASENAME failed; expected success."
+        THIS_ERROR=1
+    elif [ -e $BASENAME.oo ] && [ $OTHER_STAGE -eq 0 ] && ! diff -q $BASENAME.oo $TEMP_OO > /dev/null; then
+        echo "ERROR: $BASENAME did not match expected $BASENAME.oo"
+        THIS_ERROR=1
     fi
 
-    if [ -e $BASENAME.oo ]; then
+    if [ $THIS_ERROR -ne 1 ] && ! [ -e $BASENAME.fail ]; then
 
         # link and run
         if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld -g \
