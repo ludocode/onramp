@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -82,7 +82,7 @@
 
     ; make sure we have exactly three arguments (plus the program name)
     cmpu r0 r0 4
-    jne r0 &main_usage
+    jnz r0 &main_usage
 
     ; check if "-o" is the first argument
     ldw r1 r1 4
@@ -257,7 +257,7 @@
     imw r0 ^current_char
     ldw r0 rpp r0
     cmpu r0 r0 -1
-    je r0 &run_eof
+    jz r0 &run_eof
 
     ; check for a string
     call ^try_parse_string
@@ -321,7 +321,7 @@
     imw r0 ^current_char
     ldw r0 rpp r0
     cmpu r0 r0 "#"
-    jne r0 &try_parse_preproc_not_found
+    jnz r0 &try_parse_preproc_not_found
 
 :try_parse_preproc_loop
 
@@ -332,11 +332,11 @@
     imw r1 ^current_char
     ldw r1 rpp r1
     cmpu r0 r1 '0A   ; line feed
-    je r0 &try_parse_preproc_done
+    jz r0 &try_parse_preproc_done
     cmpu r0 r1 '0D   ; carriage return
-    je r0 &try_parse_preproc_done
+    jz r0 &try_parse_preproc_done
     cmpu r0 r1 -1    ; end-of-file
-    je r0 &try_parse_preproc_done
+    jz r0 &try_parse_preproc_done
 
     ; keep going
     jmp &try_parse_preproc_loop
@@ -450,7 +450,7 @@
     imw r1 ^current_char
     ldw r1 rpp r1
     cmpu r0 r1 "/"
-    jne r0 &try_parse_comment_not_found
+    jnz r0 &try_parse_comment_not_found
 
     ; consume it
     call ^next_char
@@ -460,9 +460,9 @@
     imw r1 ^current_char
     ldw r1 rpp r1
     cmpu r0 r1 "*"
-    je r0 &try_parse_comment_c
+    jz r0 &try_parse_comment_c
     cmpu r0 r1 "/"
-    je r0 &try_parse_comment_cxx
+    jz r0 &try_parse_comment_cxx
 
     ; not a comment. emit the / we consumed and fall through.
     mov r0 "/"
@@ -498,20 +498,20 @@
     imw r1 ^current_char
     ldw r1 rpp r1
     cmpu r0 r1 -1
-    je r0 &parse_comment_c_unclosed
+    jz r0 &parse_comment_c_unclosed
 
     ; check if we have a *
     imw r1 ^current_char
     ldw r1 rpp r1
     cmpu r0 r1 "*"
-    jne r0 &parse_comment_c_loop
+    jnz r0 &parse_comment_c_loop
     call ^next_char
 
     ; check if it's followed by /
     imw r1 ^current_char
     ldw r1 rpp r1
     cmpu r0 r1 "/"
-    je r0 &parse_comment_c_done
+    jz r0 &parse_comment_c_done
     jmp &parse_comment_c_test
 
 :parse_comment_c_done
@@ -558,15 +558,15 @@
     ; check if it's a backslash. if so we need to check whether we're escaping
     ; a line ending
     cmpu r0 r1 '5C   ; backslash
-    je r0 &parse_comment_cxx_backslash
+    jz r0 &parse_comment_cxx_backslash
 
     ; stop consuming when we reach a line feed, carriage return or eof
     cmpu r0 r1 '0A   ; line feed
-    je r0 &parse_comment_cxx_done
+    jz r0 &parse_comment_cxx_done
     cmpu r0 r1 '0D   ; carriage return
-    je r0 &parse_comment_cxx_done
+    jz r0 &parse_comment_cxx_done
     cmpu r0 r1 -1    ; end-of-file
-    je r0 &parse_comment_cxx_done
+    jz r0 &parse_comment_cxx_done
 
     ; keep going
     jmp &parse_comment_cxx_consume
@@ -582,11 +582,11 @@
 
     ; see if the next character is a carriage return, if so handle it specially
     cmpu r0 r1 '0D   ; carriage return
-    je r0 &parse_comment_cxx_escaped_carriage_return
+    jz r0 &parse_comment_cxx_escaped_carriage_return
 
     ; see if it's a line feed, if so consume it and continue
     cmpu r0 r1 '0A   ; line feed
-    je r0 &parse_comment_cxx_consume
+    jz r0 &parse_comment_cxx_consume
 
     ; otherwise we ignore the escape sequence and keep going. we don't consume
     ; the escaped character. (a double \\ at the end of a line still escapes
@@ -600,7 +600,7 @@
 
     ; check if we have a line feed, if so consume it and keep going
     cmpu r0 r1 '0A   ; line feed
-    je r0 &parse_comment_cxx_consume
+    jz r0 &parse_comment_cxx_consume
 
     ; otherwise test and keep going
     jmp &parse_comment_cxx_test
