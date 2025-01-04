@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -87,7 +87,7 @@ static void panic(const char* e) {
 #define VM_LDB  0x7A  /* load byte */
 #define VM_STB  0x7B  /* store byte */
 #define VM_IMS  0x7C  /* immediate short */
-#define VM_CMP  0x7D  /* compare */
+#define VM_LTU  0x7D  /* less than unsigned */
 #define VM_JZ   0x7E  /* jump if zero */
 #define VM_SYS  0x7F  /* interrupt */
 
@@ -371,6 +371,9 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t add
     // parse vm args
     for (i = 1; i < argc; ++i) {
         if (0 == strcmp(argv[i], "-d")) {
+            // TODO we need to either turn on non-blocking or poll on input
+            // when waiting for debugger commands
+            fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
             vm->running = false;
         } else {
             break;
@@ -1074,13 +1077,10 @@ static void vm_step(vm_t* vm) {
             vm->registers[dest] |= (uint32_t)arg2 | ((uint32_t)arg3 << 8);
             break;
         }
-        case VM_CMP: {
-            size_t left = vm_parse_mix(vm, arg2);
-            size_t right = vm_parse_mix(vm, arg3);
+        case VM_LTU:
             vm->registers[vm_parse_register(vm, arg1)] =
-                    (left < right) ? -1 : (left > right) ? 1 : 0;
+                    vm_parse_mix(vm, arg2) < vm_parse_mix(vm, arg3);
             break;
-        }
         case VM_JZ:
             if (0 == vm_parse_mix(vm, arg1))
                 vm->registers[VM_RIP] = (uint32_t)((int32_t)vm->registers[VM_RIP] +
@@ -1120,7 +1120,7 @@ static const char* vm_instruction_to_string(uint8_t instruction) {
         case VM_LDB:  return "ldb";
         case VM_STB:  return "stb";
         case VM_IMS:  return "ims";
-        case VM_CMP:  return "cmp";
+        case VM_LTU:  return "ltu";
         case VM_JZ:   return "jz";
         case VM_SYS:  return "sys";
         default: break;
@@ -1216,7 +1216,7 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
         case VM_SHRU:
         case VM_LDW:
         case VM_LDB:
-        case VM_CMP:
+        case VM_LTU:
             fputs(vm_register_to_string(bytes[1]), stdout);
             putchar(' ');
             vm_print_mix(bytes[2]);

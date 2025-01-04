@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -1721,20 +1721,15 @@
     C3               ; ret
     90 90 90 90 90 90
 
-@0xCE0 cmpu
+@0xCE0 ltu
     31 C0   ; xor eax, eax
     39 CA   ; cmp edx, ecx
-    72 04   ; jb cmpu_less (+4)
-    77 06   ; ja cmpu_greater (+6)
-    EB 06   ; jmp cmpu_done (+6)
-;cmpu_less:
-    FF C8   ; dec eax
-    EB 02   ; jmp cmpu_done (+2)
-;cmpu_greater:
+    73 02   ; jae cmpu_done (+2)
     FF C0   ; inc eax
 ;cmpu_done:
     89 06   ; mov [rsi], eax
     C3      ; ret
+    90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90
 
