@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -111,10 +111,8 @@
 
     ; make sure the size is reasonable. (we'll check again later; this just
     ; makes sure our alignment check won't overflow.)
-    7D 8A 80 F0                     ; cmpu ra r0 -16
-    7D 8A 8A FF                     ; cmpu ra ra -1
-    7E 8A &malloc_size_reasonable   ; jz ra &malloc_size_reasonable
-    7E 00 &malloc_fatal             ; jz 0 &malloc_fatal              ; jmp &malloc_fatal
+    7D 8A 80 F0             ; ltu ra r0 -16
+    7E 8A &malloc_fatal     ; jz ra &malloc_fatal
 :malloc_size_reasonable
 
     ; align the size (rounding up to a multiple of 4)
