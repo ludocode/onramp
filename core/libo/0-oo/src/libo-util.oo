@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -62,7 +62,7 @@
     70 81 81 01    ; add r1 r1 1       ; inc r1
 
     ; see if it's the end of the string
-    7D 8A 82 00          ; cmp ra r2 0
+    71 8A 82 00          ; sub ra r2 0
     7E 8A &fnv1a_cstr_done    ; jz ra &fnv1a_cstr_done
 
     ; update the hash
@@ -108,10 +108,7 @@
     70 83 00 00                ; add r3 0 0
 
     ; check sign
-    76 8B 01 1F                  ; shl rb 1 31   ; rb = 0x80000000
-    70 8A 8B 80                  ; add ra rb r0
-    7D 8A 8A 8B                  ; cmpu ra ra rb
-    7D 8A 8A 01                  ; cmpu ra ra 1
+    77 8A 80 1F                ; shru ra r0 31
     7E 8A &itoa_d_print_loop   ; jz ra &itoa_d_print_loop
 
     ; the number is negative, convert it to positive
