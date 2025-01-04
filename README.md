@@ -72,7 +72,7 @@ I welcome bug reports but I am not currently accepting contributions. Feel free 
 
 ## Build Status
 
-[![Tests](https://github.com/ludocode/onramp/workflows/Tests/badge.svg)](https://github.com/ludocode/onramp/actions?query=workflow%3A%22Tests%22)
+[![Tests](https://github.com/ludocode/onramp/actions/workflows/test.yml/badge.svg?branch=develop)](https://github.com/ludocode/onramp/actions/workflows/test.yml)
 
 
 
