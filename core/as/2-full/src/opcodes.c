@@ -45,7 +45,7 @@
 #define LDB   0x7A
 #define STB   0x7B
 #define IMS   0x7C
-#define CMPU  0x7D
+#define LTU   0x7D
 #define JZ    0x7E
 #define SYS   0x7F
 
@@ -472,52 +472,15 @@ static void opcode_shl(void) {
 static void opcode_bool(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
-
-    // In code emitted by our compilers, src and dest are often the same. We
-    // can optimize this a bit.
-
-    // TODO this could be replaced by just lt and sub, see isz
-
-    if (src != dest) {
-        uint8_t mov[] = {
-            ADD, dest, 0, src,
-        };
-        emit_hex_bytes(mov, sizeof(mov));
-    }
-
-    uint8_t bytes[] = {
-        JZ, dest, 1, 0,
-        ADD, dest, 0, 1,
-    };
+    uint8_t bytes[] = {LTU, dest, 0, src};
     emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_isz(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
-
-    // In code emitted by our compilers, src and dest are often the same. We
-    // can optimize this a bit.
-
-    // TODO this could be replaced by a single lt instruction if we ever get
-    // around to replacing cmpu
-
-    if (src == dest) {
-        uint8_t bytes[] = {
-            JZ, dest, 1, 0,
-            ADD, dest, 0, 1,
-            SUB, dest, 1, dest,
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-    } else {
-        uint8_t bytes[] = {
-            JZ, src, 2, 0,
-            ADD, dest, 0, 0,
-            JZ, 0, 1, 0,
-            ADD, dest, 0, 1,
-        };
-        emit_hex_bytes(bytes, sizeof(bytes));
-    }
+    uint8_t bytes[] = {LTU, dest, src, 1};
+    emit_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -658,10 +621,6 @@ static void opcode_ims(void) {
     fatal("Expected ims value: short invocation, number, or two quoted bytes or single-character strings.");
 }
 
-static void opcode_cmpu(void) {
-    opcode_reg_mix_mix(CMPU);
-}
-
 static void opcode_sys(void) {
     uint8_t number = parse_syscall_number();
 
@@ -710,7 +669,7 @@ static void opcode_imw(void) {
     if (try_parse_invocation_relative()) {
         uint8_t bytes[] = {
             ADD, reg, 0x00, 0x00,  // add reg 0 0
-            CMPU, reg,              // ims reg &label
+            IMS, reg,              // ims reg &label
         };
         emit_hex_bytes(bytes, sizeof(bytes));
         emit_label(identifier, label_type_invocation_relative, label_flags, -1, -1);
@@ -735,31 +694,8 @@ static void opcode_imw(void) {
     fatal("Expected imw value: number, absolute or relative label, or four quoted bytes or single-character strings.");
 }
 
-static void opcode_cmps(void) {
-    uint8_t dest = parse_register();
-    uint8_t arg1 = parse_mix_non_scratch();
-    uint8_t arg2 = parse_mix_non_scratch();
-    uint8_t bytes[] = {
-        SHL, RB, 0x01, 0x1F,  // shl rb 1 31       // rb = 0x80000000
-        ADD, RA, arg1, RB,    // add ra arg1 rb
-        ADD, RB, arg2, RB,    // add rb arg2 rb
-        CMPU, dest, RA, RB,   // cmpu dest ra rb
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
-}
-
 static void opcode_ltu(void) {
-    // This is a temporary implementation that uses cmpu. Eventually cmpu will
-    // be replaced by ltu in the VM.
-    uint8_t dest = parse_register();
-    uint8_t arg1 = parse_mix_non_scratch();
-    uint8_t arg2 = parse_mix_non_scratch();
-    uint8_t bytes[] = {
-        CMPU, RA, arg1, arg2,  // cmpu ra arg1 arg2
-        SHRU, RA, RA, 0x01,    // shru ra ra 1
-        AND, dest, RA, 0x01,   // and dest ra 1
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    opcode_reg_mix_mix(LTU);
 }
 
 static void opcode_lts(void) {
@@ -770,10 +706,53 @@ static void opcode_lts(void) {
         SHL, RB, 0x01, 0x1F,  // shl rb 1 31       // rb = 0x80000000
         ADD, RA, arg1, RB,    // add ra arg1 rb
         ADD, RB, arg2, RB,    // add rb arg2 rb
-        // This is temporary; the rest of this should become LTU.
-        CMPU, RA, RA, RB,     // cmpu ra ra rb
-        SHRU, RA, RA, 0x01,   // shru ra ra 1
-        AND, dest, RA, 0x01,  // and dest ra 1
+        LTU, dest, RA, RB,    // ltu dest ra 1
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
+// TODO this only exists temporarily until we convert the compiler to use
+// ltu/lts.
+static void opcode_cmpu(void) {
+    uint8_t dest = parse_register();
+    uint8_t arg1 = parse_mix_non_scratch();
+    uint8_t arg2 = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        LTU, RA, arg1, arg2,    // ltu ra arg1 arg2
+        JZ, RA, 0x02, 0x00,     // jz ra +2
+        ADD, dest, 0x00, 0xFF,  // add dest 0 -1    // mov dest -1
+        JZ, 0x00, 0x05, 0x00,   // jz 0 +5          // jmp +5
+        LTU, RA, arg2, arg1,    // ltu ra arg2 arg1
+        JZ, RA, 0x02, 0x00,     // jz ra +2
+        ADD, dest, 0x00, 0x01,  // add dest 0 1     // mov dest 1
+        JZ, 0x00, 0x01, 0x00,   // jz 0 +1          // jmp +1
+        ADD, dest, 0x00, 0x00,  // add dest 0 0     // zero dest
+    };
+    emit_hex_bytes(bytes, sizeof(bytes));
+}
+
+// TODO this only exists temporarily until we convert the compiler to use
+// ltu/lts.
+static void opcode_cmps(void) {
+    uint8_t dest = parse_register();
+    uint8_t arg1 = parse_mix_non_scratch();
+    uint8_t arg2 = parse_mix_non_scratch();
+    uint8_t bytes[] = {
+        SHL, RB, 0x01, 0x1F,    // shl rb 1 31       // rb = 0x80000000
+        ADD, RA, arg1, RB,      // add ra arg1 rb
+        ADD, RB, arg2, RB,      // add rb arg2 rb
+        LTU, RA, RA, RB,        // ltu ra ra rb
+        JZ, RA, 0x02, 0x00,     // jz ra +2
+        ADD, dest, 0x00, 0xFF,  // add dest 0 -1    // mov dest -1
+        JZ, 0x00, 0x08, 0x00,   // jz 0 +8          // jmp +8
+        SHL, RB, 0x01, 0x1F,    // shl rb 1 31      // rb = 0x80000000
+        ADD, RA, arg1, RB,      // add ra arg1 rb
+        ADD, RB, arg2, RB,      // add rb arg2 rb
+        LTU, RA, RB, RA,        // ltu ra rb ra
+        JZ, RA, 0x02, 0x00,     // jz ra +2
+        ADD, dest, 0x00, 0x01,  // add dest 0 1     // mov dest 1
+        JZ, 0x00, 0x01, 0x00,   // jz 0 +1          // jmp +1
+        ADD, dest, 0x00, 0x00,  // add dest 0 0     // zero dest
     };
     emit_hex_bytes(bytes, sizeof(bytes));
 }
