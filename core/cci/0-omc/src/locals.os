@@ -175,7 +175,7 @@
 
     ; if the count matches expected, we're done
     cmpu r0 r0 r1
-    je r0 &locals_pop_done
+    jz r0 &locals_pop_done
 
     ; decrement the count
     dec r1

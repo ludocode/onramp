@@ -204,9 +204,9 @@
 
     ; check for underscore and dollar sign
     cmpu r9 r0 "_"
-    je r9 &lexer_char_is_identifier_true
+    jz r9 &lexer_char_is_identifier_true
     cmpu r9 r0 "$"
-    je r9 &lexer_char_is_identifier_true
+    jz r9 &lexer_char_is_identifier_true
 
     ; check for letters
     call ^isalpha
@@ -284,7 +284,7 @@
 
     ; check if our token is too long
     cmpu r0 r2 r3
-    je r0 &lexer_try_alphanumeric_too_long
+    jz r0 &lexer_try_alphanumeric_too_long
 
     ; consume the current char
     call ^lexer_read_char
@@ -349,11 +349,11 @@
     ; check for newline or end-of-file. these indicate a
     ; truncated string or char literal.
     cmpu r9 r0 '0A   ; line feed
-    je r9 &lexer_parse_one_literal_char_truncated
+    jz r9 &lexer_parse_one_literal_char_truncated
     cmpu r9 r0 '0D   ; carriage return
-    je r9 &lexer_parse_one_literal_char_truncated
+    jz r9 &lexer_parse_one_literal_char_truncated
     cmpu r9 r0 -1    ; end-of-file
-    je r9 &lexer_parse_one_literal_char_truncated
+    jz r9 &lexer_parse_one_literal_char_truncated
 
     ; consume the char
     push r0
@@ -362,7 +362,7 @@
 
     ; check for an escape sequence
     cmpu r9 r0 '5C   ; 5C == "\\"
-    je r9 &lexer_parse_one_literal_char_escape
+    jz r9 &lexer_parse_one_literal_char_escape
 
     ; not an escape sequence. just return the character as is.
     leave
@@ -383,72 +383,72 @@
 
     ; \\
     cmpu r9 r0 '5C
-    je r9 &lexer_parse_one_literal_char_escape_ok
+    jz r9 &lexer_parse_one_literal_char_escape_ok
 
     ; \'
     cmpu r9 r0 "'"
-    je r9 &lexer_parse_one_literal_char_escape_ok
+    jz r9 &lexer_parse_one_literal_char_escape_ok
 
     ; \"
     cmpu r9 r0 '22   ; 22 == "
-    je r9 &lexer_parse_one_literal_char_escape_ok
+    jz r9 &lexer_parse_one_literal_char_escape_ok
 
     ; \?
     cmpu r9 r0 "?"
-    je r9 &lexer_parse_one_literal_char_escape_ok
+    jz r9 &lexer_parse_one_literal_char_escape_ok
 
     ; \a
     cmpu r9 r0 "a"
-    jne r9 &lexer_parse_one_literal_char_not_a
+    jnz r9 &lexer_parse_one_literal_char_not_a
     mov r0 '07   ; audible bell
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_a
 
     ; \b
     cmpu r9 r0 "b"
-    jne r9 &lexer_parse_one_literal_char_not_b
+    jnz r9 &lexer_parse_one_literal_char_not_b
     mov r0 '08   ; backspace
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_b
 
     ; \f
     cmpu r9 r0 "f"
-    jne r9 &lexer_parse_one_literal_char_not_f
+    jnz r9 &lexer_parse_one_literal_char_not_f
     mov r0 '0C   ; form feed
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_f
 
     ; \n
     cmpu r9 r0 "n"
-    jne r9 &lexer_parse_one_literal_char_not_n
+    jnz r9 &lexer_parse_one_literal_char_not_n
     mov r0 '0A   ; line feed
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_n
 
     ; \r
     cmpu r9 r0 "r"
-    jne r9 &lexer_parse_one_literal_char_not_r
+    jnz r9 &lexer_parse_one_literal_char_not_r
     mov r0 '0D   ; carriage return
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_r
 
     ; \t
     cmpu r9 r0 "t"
-    jne r9 &lexer_parse_one_literal_char_not_t
+    jnz r9 &lexer_parse_one_literal_char_not_t
     mov r0 '09   ; horizontal tab
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_t
 
     ; \v
     cmpu r9 r0 "v"
-    jne r9 &lexer_parse_one_literal_char_not_v
+    jnz r9 &lexer_parse_one_literal_char_not_v
     mov r0 '0B   ; vertical tab
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_v
 
     ; \e (extension, not standard C)
     cmpu r9 r0 "e"
-    jne r9 &lexer_parse_one_literal_char_not_e
+    jnz r9 &lexer_parse_one_literal_char_not_e
     mov r0 '1B   ; escape
     jmp &lexer_parse_one_literal_char_escape_ok
 :lexer_parse_one_literal_char_not_e
@@ -492,7 +492,7 @@
 
     ; check if it's a single quote
     cmpu r9 r0 "'"
-    jne r9 &lexer_try_char_literal_false
+    jnz r9 &lexer_try_char_literal_false
 
     ; consume it
     call ^lexer_read_char
@@ -501,7 +501,7 @@
     imw r0 ^lexer_char
     ldw r0 r0 rpp
     cmpu r9 r0 "'"
-    je r9 &lexer_try_char_literal_count
+    jz r9 &lexer_try_char_literal_count
 
     ; read the character, handling escape sequences and checking for errors
     call ^lexer_parse_one_literal_char
@@ -516,7 +516,7 @@
     imw r0 ^lexer_char
     ldw r0 r0 rpp
     cmpu r9 r0 "'"
-    jne r9 &lexer_try_char_literal_count
+    jnz r9 &lexer_try_char_literal_count
 
     ; consume the closing quote
     call ^lexer_read_char
@@ -565,7 +565,7 @@
 
     ; check if it's a double quote
     cmpu r9 r0 '22   ; 0x22 == "
-    jne r9 &lexer_try_string_literal_false
+    jnz r9 &lexer_try_string_literal_false
 
     ; consume it
     call ^lexer_read_char
@@ -594,7 +594,7 @@
     ; check if the current character is a double-quote. if so we're done.
     ldw r5 r4 0
     cmpu r9 r5 '22   ; 0x22 == "
-    je r9 &lexer_try_string_literal_done
+    jz r9 &lexer_try_string_literal_done
 
     ; read a character, handling escape sequences and checking for errors
     call ^lexer_parse_one_literal_char
@@ -612,7 +612,7 @@
 
     ; check if our token is too long
     cmpu r0 r2 r3
-    je r0 &lexer_try_string_literal_too_long
+    jz r0 &lexer_try_string_literal_too_long
 
     ; loop
     jmp &lexer_try_string_literal_loop
@@ -714,7 +714,7 @@
 
     ; check if our token is too long
     cmpu r0 r2 r3
-    je r0 &lexer_try_number_too_long
+    jz r0 &lexer_try_number_too_long
 
     ; consume the current char
     call ^lexer_read_char
@@ -723,9 +723,9 @@
     ldw r4 rfp -16
     ldb r0 r4 0
     cmpu r9 r0 "."
-    je r9 &lexer_try_number_more
+    jz r9 &lexer_try_number_more
     cmpu r9 r0 "'"
-    je r9 &lexer_try_number_more
+    jz r9 &lexer_try_number_more
     call ^isalnum
     jnz r0 &lexer_try_number_more
     jmp &lexer_try_number_done
@@ -1015,11 +1015,11 @@
 
     ; check if this is a line feed
     cmpu r9 r0 '0A
-    je r9 &lexer_consume_whitespace_line_feed
+    jz r9 &lexer_consume_whitespace_line_feed
 
     ; check if this is a carriage return
     cmpu r9 r0 '0D
-    je r9 &lexer_consume_whitespace_carriage_return
+    jz r9 &lexer_consume_whitespace_carriage_return
 
     ; it's not a newline. consume the whitespace
     call ^lexer_read_char
@@ -1045,7 +1045,7 @@
     imw r0 ^lexer_char
     ldw r0 r0 rpp
     cmpu r9 r0 '0A
-    je r9 &lexer_consume_whitespace_line_feed
+    jz r9 &lexer_consume_whitespace_line_feed
 
     ; fallthrough
 
@@ -1174,11 +1174,11 @@
 
     ; check if it's end of line
     cmpu r1 r0 -1
-    je r1 &lexer_discard_line_done
+    jz r1 &lexer_discard_line_done
     cmpu r1 r0 '0A   ; line feed
-    je r1 &lexer_discard_line_done
+    jz r1 &lexer_discard_line_done
     cmpu r1 r0 '0D   ; carriage return
-    je r1 &lexer_discard_line_done
+    jz r1 &lexer_discard_line_done
 
     ; consume it
     call ^lexer_read_char
@@ -1203,9 +1203,9 @@
     imw r0 ^lexer_char
     ldw r0 r0 rpp
     sub r1 r0 " "  ; space
-    je r1 &lexer_consume_horizontal_space_found
+    jz r1 &lexer_consume_horizontal_space_found
     sub r1 r0 9    ; horizontal tab
-    je r1 &lexer_consume_horizontal_space_found
+    jz r1 &lexer_consume_horizontal_space_found
     jmp &lexer_consume_horizontal_space_done
 
 :lexer_consume_horizontal_space_found
@@ -1236,11 +1236,11 @@
 
     ; check if we're at the end of the line. if so, we're done.
     cmpu r1 r0 -1
-    je r1 &lexer_parse_directive_done
+    jz r1 &lexer_parse_directive_done
     cmpu r1 r0 '0A   ; line feed
-    je r1 &lexer_parse_directive_done
+    jz r1 &lexer_parse_directive_done
     cmpu r1 r0 '0D   ; carriage return
-    je r1 &lexer_parse_directive_done
+    jz r1 &lexer_parse_directive_done
 
     ; parse the command. if it fails, the line is invalid.
     call ^lexer_try_alphanumeric
@@ -1252,7 +1252,7 @@
     imw r1 ^str_line
     add r1 rpp r1
     call ^strcmp
-    je r0 &lexer_parse_directive_line
+    jz r0 &lexer_parse_directive_line
 
     ; check if it's #pragma
     imw r0 ^lexer_token
@@ -1260,7 +1260,7 @@
     imw r1 ^str_pragma
     add r1 rpp r1
     call ^strcmp
-    je r0 &lexer_parse_directive_pragma
+    jz r0 &lexer_parse_directive_pragma
 
     ; otherwise we don't support it.
     jmp &lexer_parse_directive_error
@@ -1302,7 +1302,7 @@
     ; check if it's '#'. if not, we're done.
     ; (note that we don't bother to check if it's at the beginning of a line.)
     cmpu r0 r0 "#"
-    je r0 &lexer_consume_whitespace_and_directives_found
+    jz r0 &lexer_consume_whitespace_and_directives_found
     leave
     ret
 
@@ -1545,7 +1545,7 @@
 
     ; if it's EOF, return
     cmpu r9 r0 "e"  ; "e" == end-of-file
-    jne r9 &lexer_dump_tokens_not_eof
+    jnz r9 &lexer_dump_tokens_not_eof
     leave
     ret
 :lexer_dump_tokens_not_eof

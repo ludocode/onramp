@@ -58,7 +58,7 @@
 
     ; make sure we have exactly three arguments (plus the program name)
     cmpu r0 r0 4
-    jne r0 &main_usage
+    jnz r0 &main_usage
 
     ; check if "-o" is the first argument
     ldw r1 r1 4

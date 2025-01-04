@@ -282,7 +282,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     cmpu r0 r0 "a"   ; "a" == alphanumeric
-    je r0 &parse_alphanumeric_ok
+    jz r0 &parse_alphanumeric_ok
 
     ; if it's not alphanumeric, fatal error
     imw r0 ^error_expected_alphanumeric
@@ -901,7 +901,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     cmpu r0 r0 "n"   ; "n" == number
-    jne r0 &parse_primary_expression_not_number
+    jnz r0 &parse_primary_expression_not_number
 
     ; it's a number. emit code to load it into r0.
     imw r0 ^lexer_token
@@ -916,7 +916,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     cmpu r0 r0 "c"   ; "c" == character
-    jne r0 &parse_primary_expression_not_character
+    jnz r0 &parse_primary_expression_not_character
 
     ; it's a character. emit code to load it into r0.
     imw r0 ^lexer_token
@@ -932,7 +932,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     cmpu r0 r0 "s"   ; "s" == string
-    jne r0 &parse_primary_expression_not_string
+    jnz r0 &parse_primary_expression_not_string
 
     ; it's a string.
     jmp ^parse_string_literal
@@ -997,7 +997,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     sub r0 r0 "a"   ; "a" == alphanumeric
-    je r0 &parse_postfix_expression_identifier
+    jz r0 &parse_postfix_expression_identifier
 
     ; if it's not an identifier, it's a primary-expression
     leave
@@ -1289,119 +1289,119 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check ==
     imw r0 ^str_op_eq ; "=="
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check !=
     imw r0 ^str_op_ne ; "!="
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check <
     imw r0 ^str_op_lt ; "<"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check <=
     imw r0 ^str_op_le ; "<="
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check >
     imw r0 ^str_op_gt ; ">"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check >=
     imw r0 ^str_op_ge ; ">="
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check +
     imw r0 ^str_op_add ; "+"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check -
     imw r0 ^str_op_sub ; "-"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check *
     imw r0 ^str_op_mul ; "*"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check /
     imw r0 ^str_op_div ; "/"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check %
     imw r0 ^str_op_mod ; "%"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check &
     imw r0 ^str_op_and ; "&"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check |
     imw r0 ^str_op_or ; "|"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check ^
     imw r0 ^str_op_xor ; "^"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check <<
     imw r0 ^str_op_shl ; "<<"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
     ; check >>
     imw r0 ^str_op_shr ; ">>"
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    je r0 &parse_token_is_binary_op_true
+    jz r0 &parse_token_is_binary_op_true
 
 :parse_token_is_binary_op_false
     ; return false
@@ -1785,7 +1785,7 @@
     ; check if the type is void and this is the first argument. (we're looking
     ; for a `(void)` argument list.)
     cmpu r0 r0 0x10    ; 0x10 == void
-    jne r0 &parse_function_declaration_not_void
+    jnz r0 &parse_function_declaration_not_void
     ldw r0 rfp -16     ; argument_count
     jnz r0 &parse_function_declaration_not_void
 
@@ -1803,7 +1803,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     cmpu r0 r0 "a"
-    jne r0 &parse_function_declaration_empty_name
+    jnz r0 &parse_function_declaration_empty_name
 
     ; we have a name; take it
     call ^lexer_take
@@ -1997,7 +1997,7 @@
     imw r0 ^lexer_type
     ldw r0 rpp r0
     cmpu r0 r0 "e"   ; "e" == end-of-file
-    je r0 &parse_ret
+    jz r0 &parse_ret
 
     ; parse one global declaration or definition
     call ^parse_global

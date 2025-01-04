@@ -247,12 +247,6 @@
 =str_cmps "cmps" '00
 =str_jz "jz" '00
 =str_jnz "jnz" '00
-=str_je "je" '00
-=str_jne "jne" '00
-=str_jl "jl" '00
-=str_jle "jle" '00
-=str_jg "jg" '00
-=str_jge "jge" '00
 =str_jmp "jmp" '00
 
 =str_enter "enter" '00

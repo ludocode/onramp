@@ -958,7 +958,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_op_not_assign
+    jnz r0 &compile_binary_op_not_assign
 
     ; it's =
     ldw r0 rfp -8
@@ -1054,7 +1054,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_arithmetic_not_add
+    jnz r0 &compile_binary_arithmetic_not_add
 
     ; it's +
     imw r0 ^str_add ; "+"
@@ -1070,7 +1070,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_arithmetic_not_sub
+    jnz r0 &compile_binary_arithmetic_not_sub
 
     ; it's -
     imw r0 ^str_sub ; "-"
@@ -1086,7 +1086,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_arithmetic_not_mul
+    jnz r0 &compile_binary_arithmetic_not_mul
 
     ; it's *
     imw r0 ^str_mul
@@ -1102,7 +1102,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_arithmetic_not_div
+    jnz r0 &compile_binary_arithmetic_not_div
 
     ; it's /
     imw r0 ^str_divs
@@ -1118,7 +1118,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_arithmetic_not_mod
+    jnz r0 &compile_binary_arithmetic_not_mod
 
     ; it's %
     imw r0 ^str_mods
@@ -1155,7 +1155,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_bitwise_not_or
+    jnz r0 &compile_binary_bitwise_not_or
 
     ; it's |
     imw r0 ^str_or
@@ -1171,7 +1171,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_bitwise_not_and
+    jnz r0 &compile_binary_bitwise_not_and
 
     ; it's &
     imw r0 ^str_and
@@ -1187,7 +1187,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_bitwise_not_xor
+    jnz r0 &compile_binary_bitwise_not_xor
 
     ; it's ^
     imw r0 ^str_xor
@@ -1203,7 +1203,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_bitwise_not_shl
+    jnz r0 &compile_binary_bitwise_not_shl
 
     ; it's <<
     imw r0 ^str_shl
@@ -1219,7 +1219,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_bitwise_not_shr
+    jnz r0 &compile_binary_bitwise_not_shr
 
     ; it's %
     imw r0 ^str_shrs  ; we only support signed
@@ -1256,7 +1256,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_comparison_not_eq
+    jnz r0 &compile_binary_comparison_not_eq
 
     ; it's ==
     leave
@@ -1268,7 +1268,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_comparison_not_ne
+    jnz r0 &compile_binary_comparison_not_ne
 
     ; it's !=
     leave
@@ -1280,7 +1280,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_comparison_not_lt
+    jnz r0 &compile_binary_comparison_not_lt
 
     ; it's <
     leave
@@ -1292,7 +1292,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_comparison_not_gt
+    jnz r0 &compile_binary_comparison_not_gt
 
     ; it's >
     leave
@@ -1304,7 +1304,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_comparison_not_le
+    jnz r0 &compile_binary_comparison_not_le
 
     ; it's <=
     leave
@@ -1316,7 +1316,7 @@
     add r0 r0 rpp
     ldw r1 rfp -4
     call ^strcmp
-    jne r0 &compile_binary_comparison_not_ge
+    jnz r0 &compile_binary_comparison_not_ge
 
     ; it's >=
     leave
