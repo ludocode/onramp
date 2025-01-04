@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -130,8 +130,8 @@
 
     ; check that we have at least four arguments
     ; (program name, "rc", output file, and at least one input file)
-    7D 8A 80 04                      ; cmp ra r0 4
-    7D 8A 8A FF                      ; cmp ra ra -1
+    7D 8A 80 04                      ; ltu ra r0 4
+    71 8A 01 8A                      ; sub ra 1 ra
     7E 8A &main_incorrect_arguments  ; jz ra &main_incorrect_arguments
 
     ; preserve argv
@@ -191,7 +191,6 @@
     70 8C 8C 04        ; add rsp rsp 4     ; pop return address
 
     ; make sure it's good
-    7D 8A 80 00              ; cmp ra r0 0
     7E 8A &main_output_error  ; jz ra &main_output_error
     7E 00 &main_output_ok     ; jz 0 &main_output_ok
 
@@ -350,7 +349,6 @@
     70 8C 8C 04        ; add rsp rsp 4     ; pop return address
 
     ; make sure it's good
-    7D 8A 80 00             ; cmp ra r0 0
     7E 8A &add_input_error  ; jz ra &add_input_error
     7E 00 &add_input_ok     ; jz 0 &add_input_ok
 
