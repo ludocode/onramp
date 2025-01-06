@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 =main
@@ -29,6 +29,48 @@
     imw r0 0x8000f7fe
     sxs r0 r0
     imw r1 0xfffff7fe
+    sub r2 r0 r1
+    jnz r2 &fail
+
+    ; boundary case 0xffffffff (-1 int)
+    imw r0 0xffffffff
+    sxs r0 r0
+    imw r1 0xffffffff
+    sub r2 r0 r1
+    jnz r2 &fail
+
+    ; boundary case 0xffff (-1 short)
+    imw r0 0xffff
+    sxs r0 r0
+    imw r1 0xffffffff
+    sub r2 r0 r1
+    jnz r2 &fail
+
+    ; boundary case 0x7fff (SHRT_MAX == 32767)
+    imw r0 0x7fff
+    sxs r0 r0
+    imw r1 0x7fff
+    sub r2 r0 r1
+    jnz r2 &fail
+
+    ; boundary case 0x8000 (SHRT_MIN == -32768)
+    imw r0 0x8000
+    sxs r0 r0
+    imw r1 0xffff8000
+    sub r2 r0 r1
+    jnz r2 &fail
+
+    ; boundary case 0
+    imw r0 0
+    sxs r0 r0
+    imw r1 0
+    sub r2 r0 r1
+    jnz r2 &fail
+
+    ; boundary case 1
+    imw r0 1
+    sxs r0 r0
+    imw r1 1
     sub r2 r0 r1
     jnz r2 &fail
 

@@ -42,12 +42,19 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
     RET=$?
 
     if [ $RET -eq 0 ]; then
-        cp $TEMP_OO $EXPECTED
-        echo "Generated $EXPECTED"
+        # We only replace the generated linker code if it already existed.
+        # We're transitioning away from generated results.
+        if [ -e $EXPECTED ]; then
+            cp $TEMP_OO $EXPECTED
+            echo "Generated $EXPECTED"
+        else
+            rm -f $BASENAME.fail
+            echo "Passed, deleted $BASENAME.fail"
+        fi
     else
         rm -f $EXPECTED
         touch $BASENAME.fail
-        echo "Failed, deleted $EXPECTED *****"
+        echo "Failed, created $BASENAME.fail, deleted $EXPECTED *****"
     fi
 
     rm -f $TEMFILE

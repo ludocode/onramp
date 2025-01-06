@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -451,6 +451,8 @@
     add rip rpp ra    ; jump
 
 =opcode_sx_template
+
+; TODO this can be made branchless and much shorter, see as/2
 
     ; branch on the high bit
     shru ra r1 '07   ; shru ra <src> <low_bits-1>
