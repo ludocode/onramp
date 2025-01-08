@@ -323,7 +323,7 @@ static file_t vm_file(uint32_t handle) {
  * Initialization
  */
 
-static uint32_t vm_load_program(uint32_t start, const char* filename) {
+static void vm_load_program(uint32_t* /*in-out*/ start, uint32_t* /*out*/ end, const char* filename) {
     FILE* file;
     uint32_t addr;
 
@@ -332,7 +332,7 @@ static uint32_t vm_load_program(uint32_t start, const char* filename) {
     if (file == NULL) {
         vm_panic("Couldn't open program");
     }
-    addr = start;
+    addr = *start;
     for (;;) {
         size_t ret = fread(vm_memory + addr, 1, VM_MEMORY_SIZE - addr, file);
         if (ret == 0) {
@@ -344,40 +344,32 @@ static uint32_t vm_load_program(uint32_t start, const char* filename) {
     }
     fclose(file);
 
+    /* Align the end address */
+    addr = (addr + 0x3u) & ~0x3u;
+    *end = addr;
+
     /* Make sure there's still at least some room for heap and stack */
     if (VM_MEMORY_SIZE - addr < 32 * 1024) {
         vm_panic("Program is too big.");
     }
 
     /* Check for a #! or REM prefix */
-    if ((vm_load_u8(start) == '#' && vm_load_u8(start + 1) == '!') ||
-            (vm_load_u8(start) == 'R' &&
-             vm_load_u8(start + 1) == 'E' &&
-             vm_load_u8(start + 2) == 'M'))
+    if ((vm_load_u8(*start) == '#' && vm_load_u8(*start + 1) == '!') ||
+            (vm_load_u8(*start) == 'R' &&
+             vm_load_u8(*start + 1) == 'E' &&
+             vm_load_u8(*start + 2) == 'M'))
     {
-        start += 128;
+        *start += 128;
     }
 
     /* Check the format indicator */
-    if (vm_load_u32(start) != 0x726E4F7E ||
-            vm_load_u32(start + 4) != 0x706D617E ||
-            vm_load_u32(start + 8) != 0x2020207E)
+    if (vm_load_u32(*start) != 0x726E4F7E ||
+            vm_load_u32(*start + 4) != 0x706D617E ||
+            vm_load_u32(*start + 8) != 0x2020207E)
     {
         /*printf("%x\n", vm_load_u32(start));*/
         fprintf(stderr, "WARNING: Program does not start with \"~Onr~amp~   \" format indicator.\n");
     }
-
-    /* Setup registers */
-    memset(vm_registers, 0, sizeof(vm_registers));
-    vm_registers[0] = 4;
-    vm_registers[1] = 0; /* TODO command-line args */
-    vm_registers[2] = 0; /* TODO env vars */
-    vm_registers[VM_RFP] = VM_MEMORY_SIZE;
-    vm_registers[VM_RSP] = VM_MEMORY_SIZE;
-    vm_registers[VM_RPP] = start;
-    vm_registers[VM_RIP] = start;
-
-    return addr;
 }
 
 #ifdef VM_POSIX
@@ -427,7 +419,7 @@ static void io_setup(void) {
 static void vm_init(int argc, char** argv) {
     const char* filename = NULL;
     int i;
-    uint32_t address, process_info_address, halt_address;
+    uint32_t address, process_info_address, halt_address, program_start, program_break;
     char** env = 0;
     char* cwd = 0;
     char cwd_buffer[256];
@@ -450,8 +442,11 @@ static void vm_init(int argc, char** argv) {
         usage(argv[0]);
     }
 
-    /* reserve space for process info table */
+    /* Our process info table starts after zero to make sure it isn't
+     * interpreted as a null pointer. */
     address = 4;
+
+    /* Reserve space for process info table */
     process_info_address = address;
     address += 40;
 
@@ -526,10 +521,18 @@ static void vm_init(int argc, char** argv) {
         vm_files[2] = stderr;
     #endif
 
-    {
-        uint32_t break_address = vm_load_program(address, filename);
-        vm_store_u32(process_info_address + 4, break_address);
-    }
+    /* Load the program */
+    program_start = address;
+    vm_load_program(&program_start, &program_break, filename);
+
+    /* Setup registers */
+    vm_registers[0] = process_info_address;
+    vm_registers[VM_RSP] = VM_MEMORY_SIZE;
+    vm_registers[VM_RPP] = program_start;
+    vm_registers[VM_RIP] = program_start;
+
+    /* Store the break address in the process info table */
+    vm_store_u32(process_info_address + 4, program_break);
 }
 
 
