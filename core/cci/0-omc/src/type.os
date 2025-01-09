@@ -97,10 +97,10 @@
 
 
 ; ==========================================================
-; void type_init(void);
+; void type_setup(void);
 ; ==========================================================
 
-=type_init
+=type_setup
     enter
 
     ; allocate type_names (zeroed)
@@ -108,7 +108,7 @@
     ldw r0 r0 rpp
     mov r1 4
     call ^calloc
-    jz r0 &type_init_oom
+    jz r0 &type_setup_oom
     imw r1 ^type_names
     stw r0 rpp r1
 
@@ -116,7 +116,7 @@
     imw r0 ^type_buckets
     ldw r0 r0 rpp
     call ^malloc
-    jz r0 &type_init_oom
+    jz r0 &type_setup_oom
     imw r1 ^type_types
     stw r0 rpp r1
 
@@ -124,7 +124,7 @@
     imw r0 ^str_void
     add r0 r0 rpp
     call ^strdup
-    jz r0 &type_init_oom
+    jz r0 &type_setup_oom
     mov r1 r0
     mov r0 0x10   ; 0x10 == void
     call ^type_add
@@ -133,7 +133,7 @@
     imw r0 ^str_char
     add r0 r0 rpp
     call ^strdup
-    jz r0 &type_init_oom
+    jz r0 &type_setup_oom
     mov r1 r0
     mov r0 0x20   ; 0x20 == char
     call ^type_add
@@ -142,7 +142,7 @@
     imw r0 ^str_int
     add r0 r0 rpp
     call ^strdup
-    jz r0 &type_init_oom
+    jz r0 &type_setup_oom
     mov r1 r0
     mov r0 0x30   ; 0x30 == int
     call ^type_add
@@ -150,7 +150,7 @@
     leave
     ret
 
-:type_init_oom
+:type_setup_oom
     imw r0 ^error_out_of_memory
     add r0 r0 rpp
     call ^fatal
@@ -158,10 +158,10 @@
 
 
 ; ==========================================================
-; void type_destroy(void);
+; void type_teardown(void);
 ; ==========================================================
 
-=type_destroy
+=type_teardown
     enter
 
     ; TODO loop type_names freeing each name

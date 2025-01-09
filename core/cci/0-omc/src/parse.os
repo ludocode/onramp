@@ -113,17 +113,17 @@
 
 
 ; ==========================================================
-; void parse_init(void);
+; void parse_setup(void);
 ; ==========================================================
 
-=parse_init
+=parse_setup
 
     ; allocate the strings array
     imw r0 ^strings_capacity
     ldw r0 rpp r0
     shl r0 r0 2
     call ^malloc
-    jz r0 &parse_init_fail
+    jz r0 &parse_setup_fail
 
     ; store it
     imw r1 ^strings
@@ -131,7 +131,7 @@
 
     ret
 
-:parse_init_fail
+:parse_setup_fail
     imw r0 ^error_out_of_memory
     add r0 r0 rpp
     call ^fatal
@@ -139,10 +139,10 @@
 
 
 ; ==========================================================
-; void parse_destroy(void);
+; void parse_teardown(void);
 ; ==========================================================
 
-=parse_destroy
+=parse_teardown
 
     ; free strings
     imw r0 ^strings

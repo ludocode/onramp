@@ -119,17 +119,17 @@
 
 
 ; ==========================================================
-; void globals_init(void);
+; void globals_setup(void);
 ; ==========================================================
 
-=globals_init
+=globals_setup
 
     ; allocate globals_names (zeroed)
     imw r0 ^globals_buckets
     ldw r0 r0 rpp
     mov r1 4
     call ^calloc
-    jz r0 &globals_init_oom
+    jz r0 &globals_setup_oom
     imw r1 ^globals_names
     stw r0 rpp r1
 
@@ -137,7 +137,7 @@
     imw r0 ^globals_buckets
     ldw r0 r0 rpp
     call ^malloc
-    jz r0 &globals_init_oom
+    jz r0 &globals_setup_oom
     imw r1 ^globals_types
     stw r0 rpp r1
 
@@ -146,7 +146,7 @@
     ldw r0 r0 rpp
     shl r0 r0 2
     call ^malloc
-    jz r0 &globals_init_oom
+    jz r0 &globals_setup_oom
     imw r1 ^globals_argcounts
     stw r0 rpp r1
 
@@ -155,13 +155,13 @@
     ldw r0 r0 rpp
     shl r0 r0 2
     call ^malloc
-    jz r0 &globals_init_oom
+    jz r0 &globals_setup_oom
     imw r1 ^globals_argtypes
     stw r0 rpp r1
 
     ret
 
-:globals_init_oom
+:globals_setup_oom
     imw r0 ^error_out_of_memory
     add r0 r0 rpp
     call ^fatal
@@ -169,10 +169,10 @@
 
 
 ; ==========================================================
-; void globals_destroy(void);
+; void globals_teardown(void);
 ; ==========================================================
 
-=globals_destroy
+=globals_teardown
     ; TODO. we want to free everything to check for memory leaks. right now
     ; free doesn't do anything in the first stage libc anyway so we don't
     ; bother.

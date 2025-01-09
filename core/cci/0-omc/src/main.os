@@ -189,23 +189,23 @@
 =run
     ; no stack frame
 
-    call ^lexer_init
-    call ^emit_init
-    call ^type_init
-    call ^globals_init
-    call ^locals_init
-    call ^compile_init
-    call ^parse_init
+    call ^lexer_setup
+    call ^emit_setup
+    call ^type_setup
+    call ^globals_setup
+    call ^locals_setup
+    call ^compile_setup
+    call ^parse_setup
 
     ;call ^lexer_dump_tokens
     call ^parse
 
-    call ^parse_destroy
-    call ^compile_destroy
-    call ^locals_destroy
-    call ^globals_destroy
-    call ^type_destroy
-    call ^emit_destroy
-    call ^lexer_destroy
+    call ^parse_teardown
+    call ^compile_teardown
+    call ^locals_teardown
+    call ^globals_teardown
+    call ^type_teardown
+    call ^emit_teardown
+    call ^lexer_teardown
 
     ret

@@ -21,19 +21,19 @@
 
 
 ; ==========================================================
-; void compile_init(void);
+; void compile_setup(void);
 ; ==========================================================
 
-=compile_init
+=compile_setup
     ret
 
 
 
 ; ==========================================================
-; void compile_destroy(void);
+; void compile_teardown(void);
 ; ==========================================================
 
-=compile_destroy
+=compile_teardown
     ret
 
 

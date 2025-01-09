@@ -76,17 +76,17 @@
 
 
 ; ==========================================================
-; void lexer_init(void)
+; void lexer_setup(void)
 ; ==========================================================
 
-=lexer_init
+=lexer_setup
     ; no stack frame
 
     ; allocate a token buffer
     imw r0 ^lexer_token_capacity
     ldw r0 r0 rpp
     call ^malloc
-    jz r0 &lexer_init_fail
+    jz r0 &lexer_setup_fail
 
     ; assign it to lexer_token
     imw r1 ^lexer_token
@@ -102,7 +102,7 @@
 
     ret
 
-:lexer_init_fail
+:lexer_setup_fail
     imw r0 ^error_out_of_memory
     add r0 r0 rpp
     call ^fatal
@@ -110,10 +110,10 @@
 
 
 ; ==========================================================
-; void lexer_destroy(void)
+; void lexer_teardown(void)
 ; ==========================================================
 
-=lexer_destroy
+=lexer_teardown
 
     ; free lexer_token
     imw r0 ^lexer_token

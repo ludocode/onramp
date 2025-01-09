@@ -93,17 +93,17 @@
 
 
 ; ==========================================================
-; void locals_init(void);
+; void locals_setup(void);
 ; ==========================================================
 
-=locals_init
+=locals_setup
     enter
 
     ; allocate locals_types
     imw r0 ^locals_capacity
     ldw r0 r0 rpp
     call ^malloc
-    jz r0 &locals_init_oom
+    jz r0 &locals_setup_oom
     imw r1 ^locals_types
     stw r0 rpp r1
 
@@ -112,14 +112,14 @@
     ldw r0 r0 rpp
     shl r0 r0 2
     call ^malloc
-    jz r0 &locals_init_oom
+    jz r0 &locals_setup_oom
     imw r1 ^locals_names
     stw r0 rpp r1
 
     leave
     ret
 
-:locals_init_oom
+:locals_setup_oom
     imw r0 ^error_out_of_memory
     add r0 r0 rpp
     call ^fatal
@@ -127,10 +127,10 @@
 
 
 ; ==========================================================
-; void locals_destroy(void);
+; void locals_teardown(void);
 ; ==========================================================
 
-=locals_destroy
+=locals_teardown
 
     ; free all variable names
     zero r0
