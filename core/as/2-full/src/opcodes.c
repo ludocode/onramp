@@ -905,7 +905,7 @@ static opcode_fn_t opcodes_list[] = {
 #define OPCODES_TABLE_CAPACITY 256
 static opcode_fn_t opcodes_table[OPCODES_TABLE_CAPACITY];
 
-void opcodes_init(void) {
+void opcodes_setup(void) {
     size_t count = sizeof(opcodes_list) / sizeof(*opcodes_list);
     size_t mask = OPCODES_TABLE_CAPACITY - 1;
 
@@ -920,7 +920,7 @@ void opcodes_init(void) {
     }
 }
 
-void opcodes_destroy(void) {
+void opcodes_teardown(void) {
     // nothing
 }
 

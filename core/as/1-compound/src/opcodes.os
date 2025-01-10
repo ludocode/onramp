@@ -185,7 +185,7 @@
 
 
 ; ==========================================================
-; void opcodes_init(void);
+; void opcodes_setup(void);
 ; ==========================================================
 ; Creates the opcodes hashtable.
 ;
@@ -195,7 +195,7 @@
 ; - mask: rfp-12
 ; ==========================================================
 
-=opcodes_init
+=opcodes_setup
 
     ; set up a stack frame
     sub rsp rsp '04     ; push rfp       ; enter
@@ -235,12 +235,12 @@
     add r0 rpp ra
     stw r0 rfp 'FC
 
-:opcodes_init_list_loop
+:opcodes_setup_list_loop
 
     ; get the current name from the list
     ldw r1 rfp 'FC
     ldw r0 r1 '00
-    jz r0 &opcodes_init_done
+    jz r0 &opcodes_setup_done
     add r0 rpp r0
 
     ; call fnv1a_cstr()
@@ -257,7 +257,7 @@
     and r0 r0 r2
     stw r0 rfp 'F8
 
-    :opcodes_init_bucket_loop
+    :opcodes_setup_bucket_loop
 
         ; This could be optimized, there are no function calls here so we don't
         ; need all the loads and stores
@@ -271,16 +271,16 @@
         ldw r1 rfp 'F8
         mul r3 r1 '08    ; TODO shl
         ldw ra r0 r3
-        jz ra &opcodes_init_found
+        jz ra &opcodes_setup_found
 
         ; next bucket
         add r1 r1 '01
         ldw r2 rfp 'F4
         and r1 r1 r2
         stw r1 rfp 'F8
-        jz '00 &opcodes_init_bucket_loop
+        jz '00 &opcodes_setup_bucket_loop
 
-    :opcodes_init_found
+    :opcodes_setup_found
 
     ; copy the pair into the bucket, converting program-relative addresses to
     ; absolute as we go
@@ -297,9 +297,9 @@
     ldw r0 rfp 'FC
     add r0 r0 '08
     stw r0 rfp 'FC
-    jz '00 &opcodes_init_list_loop
+    jz '00 &opcodes_setup_list_loop
 
-:opcodes_init_done
+:opcodes_setup_done
 
     ; return
     add rsp rfp '00     ; mov rsp rfp    ; leave
@@ -310,10 +310,10 @@
 
 
 ; ==========================================================
-; void opcodes_destroy(void);
+; void opcodes_teardown(void);
 ; ==========================================================
 
-=opcodes_destroy
+=opcodes_teardown
 
     ; get the table
     ims ra <opcodes_table

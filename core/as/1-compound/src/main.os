@@ -390,9 +390,9 @@
 ; ==========================================================
 
 =run
-    ; call opcodes_init()
-    ims ra <opcodes_init
-    ims ra >opcodes_init
+    ; call opcodes_setup()
+    ims ra <opcodes_setup
+    ims ra >opcodes_setup
     sub rsp rsp '04     ; push return address
     add rb rip '08      ; ...
     stw rb '00 rsp      ; ...
@@ -459,9 +459,9 @@
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
 
-    ; call opcodes_destroy()
-    ims ra <opcodes_destroy
-    ims ra >opcodes_destroy
+    ; call opcodes_teardown()
+    ims ra <opcodes_teardown
+    ims ra >opcodes_teardown
     sub rsp rsp '04     ; push return address
     add rb rip '08      ; ...
     stw rb '00 rsp      ; ...

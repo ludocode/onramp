@@ -70,7 +70,7 @@ int main(int argc, const char** argv) {
     }
 
     // Prepare
-    opcodes_init();
+    opcodes_setup();
     set_current_filename(input_filename);
     emit_line_directive(1, input_filename);
     current_line = 1;
@@ -82,7 +82,7 @@ int main(int argc, const char** argv) {
     fclose(output_file);
     fclose(input_file);
     set_current_filename(NULL);
-    opcodes_destroy();
+    opcodes_teardown();
 
     return 0;
 }

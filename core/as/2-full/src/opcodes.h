@@ -25,8 +25,8 @@
 #ifndef OPCODES_H_INCLUDED
 #define OPCODES_H_INCLUDED
 
-void opcodes_init(void);
-void opcodes_destroy(void);
+void opcodes_setup(void);
+void opcodes_teardown(void);
 void opcodes_dispatch(const char* name);
 
 #endif
