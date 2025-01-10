@@ -53,7 +53,7 @@ static char** strings;
 static size_t strings_count;
 #define STRINGS_MAX 128
 
-void parse_stmt_init(void) {
+void parse_stmt_setup(void) {
     last_label = -1;
     continue_label = -1;
     break_label = -1;
@@ -62,7 +62,7 @@ void parse_stmt_init(void) {
     strings = malloc(sizeof(char*) * STRINGS_MAX);
 }
 
-void parse_stmt_destroy(void) {
+void parse_stmt_teardown(void) {
     free(strings);
 }
 

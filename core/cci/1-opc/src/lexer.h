@@ -60,12 +60,12 @@ extern lexer_type_t lexer_type;
 /**
  * Initializes the lexer, opening the given `.i` preprocessed C source file.
  */
-void lexer_init(const char* filename);
+void lexer_setup(const char* filename);
 
 /**
  * Destroys the lexer.
  */
-void lexer_destroy(void);
+void lexer_teardown(void);
 
 /**
  * Consumes the current token, replacing lexer_token with the next one from

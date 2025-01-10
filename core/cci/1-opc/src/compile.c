@@ -34,10 +34,10 @@
 
 static int compile_inhibit;
 
-void compile_init(void) {
+void compile_setup(void) {
 }
 
-void compile_destroy(void) {
+void compile_teardown(void) {
 }
 
 void compile_inhibit_push(void) {

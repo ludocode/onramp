@@ -27,8 +27,8 @@
 
 #include "common.h"
 
-void parse_decl_init(void);
-void parse_decl_destroy(void);
+void parse_decl_setup(void);
+void parse_decl_teardown(void);
 
 extern bool inside_function;
 extern global_t* current_function;

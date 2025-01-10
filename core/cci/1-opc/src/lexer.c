@@ -127,7 +127,7 @@ static void lexer_token_append(size_t length, char c) {
     *(lexer_token + length) = c;
 }
 
-void lexer_init(const char* filename) {
+void lexer_setup(const char* filename) {
     lexer_file = fopen(filename, "r");
     if (lexer_file == NULL) {
         fatal_2("Failed to open input file: ", filename);
@@ -143,7 +143,7 @@ void lexer_init(const char* filename) {
     lexer_consume();
 }
 
-void lexer_destroy(void) {
+void lexer_teardown(void) {
     fclose(lexer_file);
     free(lexer_token);
     free(current_filename);

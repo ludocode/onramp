@@ -29,8 +29,8 @@
 
 #include "type.h"
 
-void parse_expr_init(void);
-void parse_expr_destroy(void);
+void parse_expr_setup(void);
+void parse_expr_teardown(void);
 
 /**
  * Tries to parse a constant expression.

@@ -34,8 +34,8 @@
  */
 extern int locals_count;
 
-void locals_init(void);
-void locals_destroy(void);
+void locals_setup(void);
+void locals_teardown(void);
 
 /**
  * Adds a new variable with the given name and type.

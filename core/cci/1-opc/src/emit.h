@@ -29,8 +29,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 
-void emit_init(const char* output_filename);
-void emit_destroy(void);
+void emit_setup(const char* output_filename);
+void emit_teardown(void);
 
 /**
  * Toggles output on or off.

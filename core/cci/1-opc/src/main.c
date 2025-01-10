@@ -96,28 +96,29 @@ int main(int argc, const char** argv) {
         usage(*argv);
     }
 
-    globals_init();
-    emit_init(output_filename);
-    lexer_init(input_filename);
-    types_init();
-    locals_init();
-    compile_init();
-    parse_stmt_init();
-    parse_decl_init();
-    parse_expr_init();
+    global_setup();
+    emit_setup(output_filename);
+    lexer_setup(input_filename);
+    types_setup();
+    locals_setup();
+    compile_setup();
+    parse_stmt_setup();
+    parse_decl_setup();
+    parse_expr_setup();
 
     while (lexer_type != lexer_type_end) {
         parse_global();
     }
 
-    parse_expr_destroy();
-    parse_decl_destroy();
-    parse_stmt_destroy();
-    compile_destroy();
-    locals_destroy();
-    types_destroy();
-    lexer_destroy();
-    emit_destroy();
-    globals_destroy();
+    parse_expr_teardown();
+    parse_decl_teardown();
+    parse_stmt_teardown();
+    compile_teardown();
+    locals_teardown();
+    types_teardown();
+    lexer_teardown();
+    emit_teardown();
+    global_teardown();
+
     return EXIT_SUCCESS;
 }

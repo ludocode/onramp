@@ -41,10 +41,10 @@
 bool inside_function;
 global_t* current_function;
 
-void parse_decl_init(void) {
+void parse_decl_setup(void) {
 }
 
-void parse_decl_destroy(void) {
+void parse_decl_teardown(void) {
 }
 
 

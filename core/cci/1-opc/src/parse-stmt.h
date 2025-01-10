@@ -31,8 +31,8 @@
 
 extern global_t* current_function;
 
-void parse_stmt_init(void);
-void parse_stmt_destroy(void);
+void parse_stmt_setup(void);
+void parse_stmt_teardown(void);
 
 int parse_generate_label(void);
 

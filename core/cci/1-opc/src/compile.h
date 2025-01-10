@@ -28,8 +28,8 @@
 #include "common.h"
 #include "parse-decl.h"
 
-void compile_init(void);
-void compile_destroy(void);
+void compile_setup(void);
+void compile_teardown(void);
 
 /**
  * Inhibits compilation.

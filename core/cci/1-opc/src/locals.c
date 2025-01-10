@@ -41,13 +41,13 @@ int locals_frame_size;
 
 #define LOCALS_MAX 128
 
-void locals_init(void) {
+void locals_setup(void) {
     locals_names = malloc(LOCALS_MAX * sizeof(char*));
     locals_types = malloc(LOCALS_MAX * sizeof(type_t*));
     locals_offsets = malloc(LOCALS_MAX * sizeof(int));
 }
 
-void locals_destroy(void) {
+void locals_teardown(void) {
     locals_pop(0);
     free(locals_names);
     free(locals_offsets);

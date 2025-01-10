@@ -27,8 +27,8 @@
 
 #include "common.h"
 
-void globals_init(void);
-void globals_destroy(void);
+void global_setup(void);
+void global_teardown(void);
 
 const char* global_name(const global_t* global);
 

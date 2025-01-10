@@ -51,7 +51,7 @@ static size_t types_anonymous_records_capacity;
 static size_t types_anonymous_records_count;
 static record_t** types_anonymous_records;
 
-void types_init(void) {
+void types_setup(void) {
     types_buckets = 512;
     types_names = calloc(types_buckets, sizeof(char*));
     types_namespaces = malloc(types_buckets * sizeof(int));
@@ -73,7 +73,7 @@ void types_init(void) {
     types_add_typedef(strdup_checked("__builtin_va_list"), list);
 }
 
-void types_destroy(void) {
+void types_teardown(void) {
 
     // free hashtable contents
     size_t i = 0;

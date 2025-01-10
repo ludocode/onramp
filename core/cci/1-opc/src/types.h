@@ -35,8 +35,8 @@
  * store them all in one big table here.
  */
 
-void types_init(void);
-void types_destroy(void);
+void types_setup(void);
+void types_teardown(void);
 
 /**
  * Adds the given typedef if it does not already exist.

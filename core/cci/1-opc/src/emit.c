@@ -289,7 +289,7 @@ void emit_character_literal(char c) {
     emit_quoted_byte(c);
 }
 
-void emit_init(const char* output_filename) {
+void emit_setup(const char* output_filename) {
     emit_decimal_buffer = malloc(12);
     first_term = true;
     emit_enabled = true;
@@ -304,7 +304,7 @@ void emit_init(const char* output_filename) {
     emit_string("#line manual\n");
 }
 
-void emit_destroy(void) {
+void emit_teardown(void) {
     // make sure there's a trailing newline
     emit_char('\n');
     fclose(output_file);

@@ -43,11 +43,11 @@ static type_t* parse_post_inc_dec_operator(type_t* var_type, const char* binary_
 
 static char* stashed_identifier;
 
-void parse_expr_init(void) {
+void parse_expr_setup(void) {
     // nothing
 }
 
-void parse_expr_destroy(void) {
+void parse_expr_teardown(void) {
     if (stashed_identifier != NULL) {
         fatal("Internal error: leaked expression identifier");
     }

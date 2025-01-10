@@ -70,13 +70,13 @@ static void global_delete(global_t* global) {
     free(global);
 }
 
-void globals_init(void) {
+void global_setup(void) {
     // TODO start with a smaller table once growable
     globals_buckets = 4096;
     globals = calloc(globals_buckets, sizeof(global_t*));
 }
 
-void globals_destroy(void) {
+void global_teardown(void) {
     size_t i = 0;
     while (i < globals_buckets) {
         global_t* global = *(globals + i);
