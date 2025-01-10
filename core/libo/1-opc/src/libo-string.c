@@ -41,7 +41,7 @@ static table_t string_table;
     }
 #endif
 
-void string_table_init(void) {
+void string_setup(void) {
     table_init(&string_table);
 
     // We'd like to avoid too many resizes of this table. We start off with
@@ -49,7 +49,7 @@ void string_table_init(void) {
     table_reserve_bits(&string_table, 10);
 }
 
-void string_table_destroy(void) {
+void string_teardown(void) {
     if (table_count(&string_table) != 0) {
         //fatal("Internal error: a string was leaked.");
     }

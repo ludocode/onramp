@@ -47,7 +47,7 @@ int main(int argc, char** argv) {
     printf("\n");
     */
 
-    string_table_init();
+    string_setup();
     strings_setup();
     location_setup();
     options_setup();
@@ -72,5 +72,5 @@ int main(int argc, char** argv) {
     options_teardown();
     location_teardown();
     strings_teardown();
-    string_table_destroy();
+    string_teardown();
 }

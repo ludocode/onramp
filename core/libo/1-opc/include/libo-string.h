@@ -49,14 +49,14 @@ typedef struct string_t {
 /**
  * Initializes the intern string table.
  */
-void string_table_init(void);
+void string_setup(void);
 
 /**
  * Destroys the intern string table.
  *
  * It must be empty! If any strings are leaked, it is a fatal error.
  */
-void string_table_destroy(void);
+void string_teardown(void);
 
 /**
  * Returns a string containing the given null-terminated C string, creating it

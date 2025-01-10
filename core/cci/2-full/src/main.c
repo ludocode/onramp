@@ -99,7 +99,7 @@ static void parse_command_line(char** argv) {
 }
 
 int main(int argc, char** argv) {
-    string_table_init();
+    string_setup();
     options_init();
 
     parse_command_line(argv);
@@ -133,6 +133,6 @@ int main(int argc, char** argv) {
     strings_destroy();
 
     options_destroy();
-    string_table_destroy();
+    string_teardown();
     return 0;
 }
