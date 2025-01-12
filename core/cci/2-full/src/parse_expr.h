@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,8 +29,8 @@
 
 struct node_t;
 
-void parse_expr_init(void);
-void parse_expr_destroy(void);
+void parse_expr_setup(void);
+void parse_expr_teardown(void);
 
 struct node_t* parse_expression(void);
 struct node_t* parse_assignment_expression(void);

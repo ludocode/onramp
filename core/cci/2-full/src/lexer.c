@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -123,7 +123,7 @@ static int lexer_read_char(void) {
 /**
  * Initializes the lexer, opening the given `.i` preprocessed C source file.
  */
-void lexer_init(const char* filename) {
+void lexer_setup(const char* filename) {
     lexer_file = fopen(filename, "r");
     if (lexer_file == NULL) {
         fatal("Failed to open input file: %s", filename);
@@ -142,7 +142,7 @@ void lexer_init(const char* filename) {
 /**
  * Destroys the lexer.
  */
-void lexer_destroy(void) {
+void lexer_teardown(void) {
     fclose(lexer_file);
     if (queued_token) {
         token_deref(queued_token);

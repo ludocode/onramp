@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -126,7 +126,7 @@ string_t* STR_LESS_LESS_EQUAL;         // <<=
 string_t* STR_GREATER_GREATER_EQUAL;   // >>=
 string_t* STR_ELLIPSIS;                // ...
 
-void strings_init(void) {
+void strings_setup(void) {
 
     // keywords
     STR_ALIGNAS                     = string_intern_cstr("alignas");
@@ -231,7 +231,7 @@ void strings_init(void) {
     STR_ELLIPSIS                    = string_intern_cstr("...");
 }
 
-void strings_destroy(void) {
+void strings_teardown(void) {
 
     // keywords
     string_deref(STR_ALIGNAS);

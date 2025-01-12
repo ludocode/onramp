@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -265,7 +265,7 @@ static warning_t warning_find(const char* arg) {
     return warning_invalid;
 }
 
-static void warnings_init(void) {
+static void warnings_setup(void) {
     warning_args = calloc(warning_count, sizeof(const char*));
     warning_specs = calloc(warning_count, sizeof(warning_spec_t));
     warning_levels = calloc(warning_count, sizeof(warning_level_t));
@@ -295,7 +295,7 @@ static void warnings_init(void) {
     warning_add("pointer-arith", warning_pointer_arith, warning_level_error);
 }
 
-static void warnings_destroy(void) {
+static void warnings_teardown(void) {
     free(warning_specs);
     // TODO free warning_levels_stack and contents
     free(warning_levels);
@@ -394,11 +394,11 @@ typedef enum flag_spec_t {
     flag_spec_off,       // specified with -fno-...
 } flag_spec_t;
 
-static void flags_init(void) {
+static void flags_setup(void) {
     // TODO
 }
 
-static void flags_destroy(void) {
+static void flags_teardown(void) {
 }
 
 static bool flag_parse(const char* arg) {
@@ -412,14 +412,14 @@ static bool flag_parse(const char* arg) {
  * Other Options
  ****************************************/
 
-void options_init(void) {
-    warnings_init();
-    flags_init();
+void options_setup(void) {
+    warnings_setup();
+    flags_setup();
 }
 
-void options_destroy(void) {
-    flags_destroy();
-    warnings_destroy();
+void options_teardown(void) {
+    flags_teardown();
+    warnings_teardown();
 }
 
 void warn(warning_t warning, struct token_t* token, const char* message, ...) {

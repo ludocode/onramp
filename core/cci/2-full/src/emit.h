@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,8 +32,8 @@
 struct function_t;
 struct token_t;
 
-void emit_init(const char* output_filename);
-void emit_destroy(void);
+void emit_setup(const char* output_filename);
+void emit_teardown(void);
 
 void emit_global_divider(void);
 void emit_newline(void);

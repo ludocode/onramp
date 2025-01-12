@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -100,19 +100,19 @@ static void parse_command_line(char** argv) {
 
 int main(int argc, char** argv) {
     string_setup();
-    options_init();
+    options_setup();
 
     parse_command_line(argv);
     options_resolve();
 
-    strings_init();
-    scope_global_init();
-    parse_decl_init();
-    parse_expr_init();
-    parse_stmt_init();
-    emit_init(output_filename);
-    lexer_init(input_filename);
-    generate_init();
+    strings_setup();
+    scope_setup();
+    parse_decl_setup();
+    parse_expr_setup();
+    parse_stmt_setup();
+    emit_setup(output_filename);
+    lexer_setup(input_filename);
+    generate_setup();
 
     type_create_builtins();
     symbol_create_builtins();
@@ -123,16 +123,16 @@ int main(int argc, char** argv) {
 
     scope_emit_tentative_definitions();
 
-    generate_destroy();
-    lexer_destroy();
-    emit_destroy();
-    parse_stmt_init();
-    parse_expr_init();
-    parse_decl_init();
-    scope_global_destroy();
-    strings_destroy();
+    generate_teardown();
+    lexer_teardown();
+    emit_teardown();
+    parse_stmt_teardown();
+    parse_expr_teardown();
+    parse_decl_teardown();
+    scope_teardown();
+    strings_teardown();
 
-    options_destroy();
+    options_teardown();
     string_teardown();
     return 0;
 }

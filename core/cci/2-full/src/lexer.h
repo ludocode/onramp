@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -39,12 +39,12 @@ extern struct token_t* lexer_token;
 /**
  * Initializes the lexer, opening the given `.i` preprocessed C source file.
  */
-void lexer_init(const char* filename);
+void lexer_setup(const char* filename);
 
 /**
  * Destroys the lexer.
  */
-void lexer_destroy(void);
+void lexer_teardown(void);
 
 /**
  * Consumes the current token, replacing lexer_token with the next one from

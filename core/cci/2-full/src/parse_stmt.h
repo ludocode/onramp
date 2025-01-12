@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,9 +29,9 @@
 
 struct node_t;
 
-void parse_stmt_init(void);
+void parse_stmt_setup(void);
 
-void parse_stmt_destroy(void);
+void parse_stmt_teardown(void);
 
 /**
  * Parse a declaration or a statement.

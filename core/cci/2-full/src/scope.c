@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -109,12 +109,12 @@ void scope_deref(scope_t* scope) {
     free(scope);
 }
 
-void scope_global_init(void) {
+void scope_setup(void) {
     assert(scope_global == NULL);
     scope_global = (scope_current = scope_new(NULL));
 }
 
-void scope_global_destroy(void) {
+void scope_teardown(void) {
     assert(scope_global == scope_current);
     assert(scope_global->refcount == 1);
     scope_deref(scope_global);

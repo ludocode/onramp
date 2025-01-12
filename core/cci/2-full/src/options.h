@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -91,8 +91,8 @@ typedef enum option_t {
     option_pedantic_errors,   // -pedantic-errors
 } option_t;
 
-void options_init(void);
-void options_destroy(void);
+void options_setup(void);
+void options_teardown(void);
 
 bool options_parse(const char* arg);
 void options_resolve(void);

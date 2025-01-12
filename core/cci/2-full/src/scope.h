@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -48,8 +48,8 @@ typedef struct scope_t {
     vector_t records;
 } scope_t;
 
-void scope_global_init(void);
-void scope_global_destroy(void);
+void scope_setup(void);
+void scope_teardown(void);
 
 void scope_deref(scope_t* scope);
 

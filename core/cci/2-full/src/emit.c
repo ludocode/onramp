@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -39,7 +39,7 @@
 static FILE* output_file;
 static token_t* current_location;
 
-void emit_init(const char* output_filename) {
+void emit_setup(const char* output_filename) {
     output_file = fopen(output_filename, "wb");
     if (output_file == NULL) {
         fatal("ERROR: Failed to open output file.");
@@ -48,7 +48,7 @@ void emit_init(const char* output_filename) {
     emit_global_divider();
 }
 
-void emit_destroy(void) {
+void emit_teardown(void) {
     if (current_location)
         token_deref(current_location);
     fclose(output_file);

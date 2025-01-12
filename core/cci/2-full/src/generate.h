@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,8 +41,8 @@ extern int next_label;
 extern int register_next;
 extern int register_loop_count;
 
-void generate_init(void);
-void generate_destroy(void);
+void generate_setup(void);
+void generate_teardown(void);
 
 /**
  * Compiles the parse tree of given the function into a series of basic blocks

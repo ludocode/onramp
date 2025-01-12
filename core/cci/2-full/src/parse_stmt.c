@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -44,10 +44,10 @@ static node_t* switch_list;         // the previous case/default in a `switch`, 
 
 static void parse_statement(node_t* parent, bool cast_to_void);
 
-void parse_stmt_init(void) {
+void parse_stmt_setup(void) {
 }
 
-void parse_stmt_destroy(void) {
+void parse_stmt_teardown(void) {
 }
 
 static node_t* parse_return(void) {

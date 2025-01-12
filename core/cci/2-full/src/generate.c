@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -52,11 +52,11 @@ static void generate_access_location(token_t* token, symbol_t* symbol, int reg_o
 static void generate_builtin(node_t* node, int reg_out);
 static void generate_builtin_location(node_t* node, int reg_out);
 
-void generate_init(void) {
+void generate_setup(void) {
     register_next = R0;
 }
 
-void generate_destroy(void) {
+void generate_teardown(void) {
     // nothing
 }
 
