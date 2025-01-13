@@ -2,7 +2,7 @@
 
 The Onramp Virtual Machine is a simple virtual machine designed for portable bootstrapping.
 
-This document specifies the virtual machine and its bytecode. For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
+This document specifies version 1 of the virtual machine and its bytecode. For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
 
 
 
@@ -25,7 +25,7 @@ It has a few additional requirements:
 
 - The VM must make it easy for programs to run other programs.
 
-Non-goals are efficiency, memory safety, multithreading, interrupts, and suitability for implementation in hardware. The VM is designed primarily for non-interactive bootstrapping of a real native compiler.
+Non-goals are efficiency, memory safety, and suitability for implementation in hardware. The VM is designed primarily for non-interactive bootstrapping of a real native compiler. Interrupts are also not a priority at this time, although there is the possibility of implementing them later.
 
 Onramp's VM design takes inspiration from such projects as Robert Elder's [one page CPU](https://recc.robertelder.org/op-cpu-programmer-reference-manual.txt), the [TOY machine](https://introcs.cs.princeton.edu/java/62toy/) from Sedgewick and Wayne, the design of [MessagePack](https://msgpack.org/), classic architectures like PDP-11 (designed to be programmed directly in octal), and of course modern RISC ISAs like RISC-V. See the [inspiration](inspiration.md) page for details.
 
@@ -45,9 +45,9 @@ A small number of mostly orthogonal instructions are provided. Such basic functi
 
 There are (currently) no interrupts. The VM is designed for non-interactive computation. It does however support input and time so it is possible to write interactive terminal applications.
 
-All programs are position-independent. This makes it possible for programs to run other programs without the need for memory protection. The program pointer (`rpp`) contains the base address of the currently running program.
+All programs are position-independent. This makes it possible for programs to run other programs without the need for virtual memory. The program pointer (`rpp`) contains the base address of the currently running program.
 
-An Onramp VM can run hosted or freestanding. When hosted, the platform's filesystem is bridged into the virtual machine. This requires the implementation of a number of system calls. When freestanding, an OS runs inside the Onramp VM. The VM passes most system calls over to the contained OS which implements the filesystem.
+An Onramp VM can run hosted or freestanding. When hosted, the platform's filesystem is bridged into the virtual machine. This requires the implementation of a number of system calls. When freestanding, an OS runs inside the Onramp VM. The contained OS receives most system calls and implements the filesystem.
 
 When writing C programs and compiling them for Onramp, you do not need to worry about any of this. It is handled by the Onramp libc.
 
@@ -55,14 +55,20 @@ When writing C programs and compiling them for Onramp, you do not need to worry 
 
 ## Registers
 
-There are sixteen registers numbered `0x80` to `0x8F`. All instructions can operate on all registers, but some registers have special behaviour (such as the instruction pointer) and others have strong conventions on their use (such as the stack and program pointers.) These latter registers are given special names.
+There are sixteen registers numbered `0x80` to `0x8F`. All instructions can operate on all registers, but some registers have special behaviour (such as the instruction pointer and stack pointer) and others have strong conventions on their use (such as the frame and program pointers.) These latter registers are given special names.
 
 - Registers `r0`, `r1`, `r2` and `r3` are general-purpose caller-preserved registers that are used as function arguments and return values. See the calling convention section below.
+
 - Registers `r4`, `r5`, `r6`, `r7`, `r8` and `r9` are general purpose caller-preserved registers. These are typically used for local variables in functions.
-- Registers `ra` and `rb` are "scratch space" registers. They are clobbered not only by function calls but also by compound assembly instructions. They can be used for temporary space when writing bytecode or basic assembly by hand but they are best avoided when writing or emitting full assembly.
-- Register `rsp` is the stack pointer. It points to the last value pushed on the stack. The Onramp VM stack grows down.
+
+- Registers `ra` and `rb` are "scratch space" registers. They are clobbered not only by function calls but also by compound assembly instructions. They can be used for temporary space when writing bytecode by hand but they are best avoided when writing or emitting assembly.
+
+- Register `rsp` is the stack pointer. It points to the last value pushed on the stack. The Onramp VM stack grows down. The stack pointer must always be aligned to a 4-byte boundary and must always have 128 bytes free under it for interrupts and syscalls. There is no [red zone](https://en.wikipedia.org/wiki/Red_zone_(computing)); it is an error to read or write to the stack area under the stack pointer.
+
 - Register `rfp` is the frame pointer. It points to the start of the current function's stack frame. This is the location where the previous frame pointer was pushed, forming a linked list of stack frames.
+
 - Register `rpp` is the program pointer. It points to the base address where the program has been loaded into memory. Onramp VM programs are position-independent and must use `rpp` to calculate the addresses of program code and data.
+
 - Register `rip` is the instruction pointer. It points to the next instruction to be executed. Upon reading an instruction, the VM increments the instruction pointer past that instruction before executing it.
 
 Here it is in table form:
@@ -77,7 +83,7 @@ Here it is in table form:
 | `rpp`     | `8E`      | Program pointer (start of program)                          | Callee       |
 | `rip`     | `8F`      | Instruction pointer (next instruction to be executed)       | Caller       |
 
-There is no status or flags register. Detecting overflow, underflow and other such conditions must be done manually. Instructions such as `cmpu` (compare unsigned) and `jz` (jump if zero) access the predicate in a register of your choice.
+There is no status or flags register. Detecting overflow, underflow and other such conditions must be done manually. Instructions such as `ltu` (less than unsigned) and `jz` (jump if zero) can read or write the predicate in any register.
 
 
 
@@ -100,7 +106,7 @@ Here's a diagram showing the regions of memory, the initial values of the regist
             ^-- exit       ^-- environ          ^-- rip
 ```
 
-The entire memory region from `rpp` to the initial `rsp` is writable and executable. The process information table typically sits outside of this region and must not be written to.
+The entire memory region from `rpp` to the initial `rsp` is writable and executable. The process information table sits outside of this region and must not be written to.
 
 There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, etc.)
 
@@ -119,20 +125,28 @@ Note that although `rip` is initially set to the start of the program, it will m
 
 ## Process Info Table
 
-The process information table is an array of 32-bit words. It contains the following information:
+The process information table is an array of 32-bit words. Here's a quick reference table of its contents:
 
-| Index | Value                  |
-|-------|------------------------|
-| 0     | Version                |
-| 1     | Program Break          |
-| 2     | Exit Address           |
-| 3     | Input stream handle    |
-| 4     | Output stream handle   |
-| 5     | Error stream handle    |
-| 6     | Command-Line Arguments |
-| 7     | Environment Variables  |
-| 8     | Working directory      |
-| 9     | Capabilities           |
+| Index | Value                  | type   | Description
+|-------|------------------------|--------|------------------------------------------------------------------------|
+| 0     | Version                | int    | Always 1 for this version.                                             |
+| 1     | Program Break          | void*  | Address of one past the last byte in the program.                      |
+| 2     | Exit Address           | void*  | Address to which to jump to exit the program.                          |
+| 3     | Input stream handle    | int    | File handle of input stream, or -1 if input is not supported           |
+| 4     | Output stream handle   | int    | File handle of output stream, can match input                          |
+| 5     | Error stream handle    | int    | File handle of error stream, can match output and input                |
+| 6     | Command-Line Arguments | char** | Null-terminated array of null-terminated strings.                      |
+| 7     | Environment Variables  | char** | Null-terminated array of null-terminated strings of form "key=value".  |
+| 8     | Working directory      | char*  | Directory in which the program is being run.                           |
+| 9     | Capabilities           | int    | Flags indicating the capabilities and environment of the VM.           |
+
+The capabilities entry is an int containing a set of 1-bit flags. They are numbered from least to most significant bit:
+
+| Bit Position | Value               |                                                            |
+|--------------|---------------------|------------------------------------------------------------|
+| 0            | Input Echo          | 0 if Onramp should echo output to the input.               |
+| 1            | Input Blocks        | 1 if fread(input) blocks until input is available.         |
+| 2            | Input Line-Oriented | 1 if VM buffers input in lines (i.e. POSIX canonical)      |
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`.
 
@@ -160,11 +174,12 @@ Note that the process info table and its associated information must not be writ
 
 
 
+
 ## Position-Independence
 
 All Onramp VM bytecode programs are position-independent. Programs can be loaded at any address in memory.
 
-A special register, called the *program pointer* (`rpp`), contains the base address of the program in memory. References to symbols in the program (such as functions and and global variables) are relative to the start of the program. Their absolute address can be determined by adding `rpp`.
+A special register, called the *program pointer* (`rpp`), contains the base address of the program in memory. References to symbols in the program (such as functions and global variables) are relative to the start of the program. Their absolute address can be determined by adding `rpp`.
 
 Several instructions take two parameters that are added together, such as the add instruction and the load and store instructions. These can be interpreted as a base and an offset. When accessing program data, typically `rpp` is passed as the base, and the address of the data within the program (i.e. the value of a label) is passed as the offset.
 
@@ -230,14 +245,16 @@ This makes it easy to read a hexdump of bytecode and to write it directly in [co
 
 Each instruction specifies the type of its arguments. Arguments can be one of several types:
 
-- A "reg" argument is the name of a register. It must be a byte in the range `80`-`8F`.
-- An "imm" argument is a literal byte. It can have any value.
-- A "mix" argument is one byte that translates to a 32-bit value. How it is translated depends on its hexadecimal prefix:
+- A "reg" (or `r`) argument is the name of a register. It must be a byte in the range `80`-`8F`.
+- An "imm" (or `i`) argument is a literal byte. It can have any value.
+- A "mix" (or `m`) argument is one byte that translates to a 32-bit value. How it is translated depends on its hexadecimal prefix:
     - If it is in the range `80`-`8F`, its value is the content of the named register.
     - If it is in the range `00`-`7F`, it is an immediate positive value with high bits set to zero.
     - If it is in the range `90`-`FF`, it is an immediate negative value; it is sign-extended, i.e. the high 24 bits are set.
 
-Most instructions take mix-type arguments as input. This makes it easy to do math between registers and small immediate values without complicating the instruction set. Conversely, the destination of instructions are almost always reg-type.
+Most instructions take mix-type arguments as input. This makes it easy to do math between registers and small immediate values without complicating the instruction set.
+
+All instructions perform unsigned operations. (However, since any overflow is discarded, the result in most cases is the same as signed two's complement, so you can use signed two's complement operations if that's all you have. The exceptions have a `u` suffix to differentiate them from their signed `s` counterparts in compound assembly.)
 
 
 
@@ -255,7 +272,7 @@ Programs compiled by the Onramp compiler and assembler use two's complement to r
 
 
 
-### Opcodes
+## Opcode Table
 
 Opcodes are divided into four groups: arithmetic, logic, memory and control. Each group has four opcodes.
 
@@ -269,12 +286,12 @@ Here's a quick reference table for all supported instruction opcodes:
 
 Arithmetic:
 
-| Opcode        | Name          | Arguments                       | Operation              |
-|---------------|---------------|---------------------------------|------------------------|
-| `0x70` `add`  | Add           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 + arg2`   |
-| `0x71` `sub`  | Subtract      | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 - arg2`   |
-| `0x72` `mul`  | Multiply      | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 * arg2`   |
-| `0x73` `div`  | Divide        | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 / arg2`   |
+| Opcode        | Name          | Arguments                       | Operation                        |
+|---------------|---------------|---------------------------------|----------------------------------|
+| `0x70` `add`  | Add           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 + arg2`             |
+| `0x71` `sub`  | Subtract      | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 - arg2`             |
+| `0x72` `mul`  | Multiply      | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 * arg2`             |
+| `0x73` `div`  | Divide        | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 / arg2` (unsigned)  |
 
 Logic:
 
@@ -296,16 +313,283 @@ Memory:
 
 Control:
 
-| Opcode        | Name          | Arguments                       | Operation                                                |
-|---------------|---------------|---------------------------------|----------------------------------------------------------|
-| `0x7C` `ims`  | Immediate     | `<r:dest> <i:low> <i:high>`     | `dest = (dest << 16) \| (high << 8) \| low`              |
-| `0x7D` `cmpu` | Compare       | `<r:dest> <m:arg1> <m:arg2>`    | `dest = (-1 or 0 or 1) for arg1 (< or = or >) arg2`      |
-| `0x7E` `jz`   | Jump If Zero  | `<m:pred> <i:low> <i:high>`     | `if !pred: rip = rip + 4 * signext((high << 8) \| low)`  |
-| `0x7F` `sys`  | System Call   | `<i:syscall> 00 00`             | system call                                              |
+| Opcode       | Name               | Arguments                       | Operation                                                |
+|--------------|--------------------|---------------------------------|----------------------------------------------------------|
+| `0x7C` `ims` | Immediate Short    | `<r:dest> <i:low> <i:high>`     | `dest = (dest << 16) \| (high << 8) \| low`              |
+| `0x7D` `ltu` | Less Than Unsigned | `<r:dest> <m:arg1> <m:arg2>`    | `dest = (arg1 < arg2) ? 1 : 0` (unsigned)                |
+| `0x7E` `jz`  | Jump If Zero       | `<m:pred> <i:low> <i:high>`     | `if !pred: rip += 4 * signext16((high << 8) \| low)`     |
+| `0x7F` `sys` | System Call        | `<i:syscall> 00 00`             | system call                                              |
 
 All arithmetic and logic opcodes have the same format. They take a destination register and two mix-type arguments. They perform a mathematical operation on the arguments and place the result in the given register. All operations are unsigned.
 
-WARNING: `cmpu` will be replaced by `ltu` soon, `sys` will probably be removed, and possibly other changes will be made as well. This will require changing all the VMs and bytecode programs. If you implement a VM now be aware that you will need to update it later.
+WARNING: `sys` will be replaced by `iret` soon. This will require changing all the VMs and bytecode programs. If you implement a VM now be aware that you will need to update it later.
+
+
+
+## Opcode Specifications
+
+
+
+### Add
+
+- opcode: `0x70`
+- assembly syntax: `add <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 + arg2`
+
+The `add` instruction adds two 32-bit values, placing the result in a register. The addition is performed with unsigned overflow and the carry is discarded.
+
+One of the arguments is often the same as the destination in order to modify a register in-place. For example:
+
+```asm
+70 8C 8C 04    ; add rsp rsp 4
+```
+
+The above pops a word off the stack.
+
+The add instruction is used for many things beyond addition. It is often used with one of the source arguments zero to copy a value from one register to another. For example, the compound assembly instruction `mov r0 r1` is assembled to the following:
+
+```asm
+70 80 81 00    ; add r0 r1 0    ; mov r0 r1
+```
+
+It is also used to initialize registers with small constant values in a single instruction. For example:
+
+```asm
+70 80 00 05    ; add r0 0 5          ; mov r0 5
+70 81 7F 7F    ; add r1 127 127      ; mov r1 254
+70 82 90 90    ; add r2 -112 -112    ; mov r2 -224
+```
+
+The add instruction is also used to perform some absolute jumps. For example:
+
+```
+ims ra <some_function
+ims ra >some_function
+add rip rpp ra
+```
+
+In the above, the program-relative address of the function is added to the program pointer. The result is the absolute address of the function in memory. The result is placed in the instruction pointer, thus jumping to it.
+
+
+
+### Subtract
+
+- opcode: `0x71`
+- assembly syntax: `sub <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 - arg2`
+
+The `sub` instruction adds two 32-bit values, placing the result in a register. The subtraction is performed with unsigned overflow and any carry/borrow is discarded.
+
+The `sub` instruction can also be used to initialize a few additional small constant values that are not possible with `add`. For example:
+
+```asm
+71 81 90 71    ; sub r1 -112 113     ; mov r1 -225
+71 81 90 7F    ; sub r1 -112 128     ; mov r1 -239
+```
+
+
+### Multiply
+
+- opcode: `0x72`
+- assembly syntax: `mul <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 * arg2`
+
+The `mul` instruction multiplies two 32-bit values, placing the low 32 bits of the result in a register.
+
+Programs compiled with Onramp try to use shifts in place of multiplications where possible. The shift instructions are assumed to be faster than multiplication.
+
+
+
+### Divide Unsigned
+
+- opcode: `0x73`
+- assembly syntax: `divu <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 / arg2` (unsigned)
+
+The `divu` instruction divides the 32-bit values `arg1` by `arg2`, placing the result in a register.
+
+Note that a 32-bit two's complement signed division produces different results; you must be careful to perform unsigned division. Signed division is simulated by the `divs` instruction in compound assembly.
+
+Programs compiled with Onramp try to use other instructions (shift, multiply) in place of divide where possible. The divide instruction is assumed to be the slowest opcode in an Onramp VM.
+
+
+
+### Bitwise And
+
+- opcode: `0x74`
+- assembly syntax: `and <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 & arg2`
+
+For each bit in the result, if the corresponding bit at the same position in both arguments are set, the result bit is set.
+
+
+
+### Bitwise Or
+
+- opcode: `0x75`
+- assembly syntax: `or <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 | arg2`
+
+For each bit in the result, if the corresponding bit at the same position in either argument is set, the result bit is set.
+
+
+
+### Shift Left
+
+- opcode: `0x76`
+- assembly syntax: `shl <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 << arg2`
+
+Shifts bits in `arg1` by the number of positions given in `arg2` from least significant to most significant. The most significant bits shifted off the edge are discarded. The least significant bits shifted in are 0.
+
+This is equivalent to multiplying `arg1` by two to the power of `arg2`.
+
+The VM is allowed to assume that `arg2` is always in the range of 0 to 31 inclusive; for example, it may ignore all but the low five bits. (Debugging VMs halt the program and report an error if `arg2` is 32 or larger.)
+
+
+
+### Shift Right Unsigned
+
+- opcode: `0x77`
+- assembly syntax: `shru <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = arg1 >> arg2` (unsigned)
+
+Shifts bits in arg1 by the number of positions given in `arg2` from most significant to least significant. The least significant bits shifted off the edge are discarded. The most significant bits shifted in are 0.
+
+This is equivalent to dividing `arg1` by two to the power of `arg2`.
+
+Note that a 32-bit two's complement arithmetic right shift produces different results; you must be careful to perform an unsigned (logical) shift. Signed right shift is simulated by the `shrs` instruction in compound assembly.
+
+The VM is allowed to assume that `arg2` is always in the range of 0 to 31 inclusive; for example, it may ignore all but the low five bits. (Debugging VMs halt the program and report an error if `arg2` is 32 or larger.)
+
+
+
+### Load Word
+
+- opcode: `0x78`
+- assembly syntax: `ldw <r:dest> <m:base> <m:offset>`
+- behaviour: `dest = *(int*)(base + offset)`
+
+Loads the word at the address given by the sum of `base` and `offset`, placing it in the destination register.
+
+The VM is allowed to assume that the result of the address addition is always aligned to a 32-bit boundary; for example, it may ignore the low two bits. (Debugging VMs halt the program and report an error if the result is misaligned.) However, the `base` and `offset` do not themselves need to be aligned to a 32-bit boundary. The addition must be performed on all bits of `base` and `offset`.
+
+There is no difference between the `base` and `offset` arguments. The addition is commutative so the two arguments are interchangeable. Their names indicate the convention by which they are typically used.
+
+
+
+### Store Word
+
+- opcode: `0x79`
+- assembly syntax: `stw <m:src> <m:base> <m:offset>`
+- behaviour: `*(int*)(base + offset) = src`
+
+Stores the source word at the address given by the sum of `base` and `offset`.
+
+The VM is allowed to assume that the result of the address addition is always aligned to a 32-bit boundary; for example, it may ignore the low two bits. (Debugging VMs halt the program and report an error if the result is misaligned.) However, the `base` and `offset` do not themselves need to be aligned to a 32-bit boundary. The addition must be performed on all bits of `base` and `offset`.
+
+There is no difference between the `base` and `offset` arguments. The addition is commutative so the two arguments are interchangeable. Their names indicate the convention by which they are typically used.
+
+Note that, unlike most instructions, the first argument is a source, not a destination. This was done to keep it symmetric with the load instructions. If the source is a register, it is unchanged by this instruction.
+
+Since the source argument is mix-type, it is often used to store small constant values. For example, the program can directly store a zero to clear a word in memory.
+
+
+
+### Load Byte
+
+- opcode: `0x7A`
+- assembly syntax: `ldb <r:dest> <m:base> <m:offset>`
+- behaviour: `dest = *(char*)(base + offset)`
+
+Loads the byte at the address given by the sum of `base` and `offset`, placing it in the low 8 bits of the destination register. The upper 24 bits of the destination register are cleared.
+
+There is no difference between the `base` and `offset` arguments. The addition is commutative so the two arguments are interchangeable. Their names indicate the convention by which they are typically used.
+
+
+
+### Store Byte
+
+- opcode: `0x7B`
+- assembly syntax: `stb <m:src> <m:base> <m:offset>`
+- behaviour: `*(char*)(base + offset) = src & 0xFF`
+
+Stores the low 8 bits of the source word at the address given by the sum of `base` and `offset`.
+
+There is no difference between the `base` and `offset` arguments. The addition is commutative so the two arguments are interchangeable. Their names indicate the convention by which they are typically used.
+
+Note that, unlike most instructions, the first argument is a source, not a destination. This was done to keep it symmetric with the load instructions. If the source is a register, it is unchanged by this instruction. (In particular, the upper bits that are discarded during the store operation are not modified in the source register.)
+
+Since the source argument is mix-type, it is often used to store small constant values. For example, the program can directly store a zero to clear a word in memory.
+
+
+
+### Immediate Short
+
+- opcode: `0x7C`
+- assembly syntax: `ims <r:dest> <i:low> <i:high>`
+- behaviour: `dest = (dest << 16) \| (high << 8) \| low`
+
+Shifts the contents of the destination register up (left) 16 bits, then loads the low sixteen bits with the given arguments. The `low` argument is placed in bits 0-7 and the `high` argument is placed in bits 8-15. The high 16 bits of that are shifted out of the destination register are discarded.
+
+The immediate short instruction is almost always used in pairs to load all 32 bits of a register. For example:
+
+```asm
+7C 80 34 12
+7C 80 78 56
+```
+
+The above places 0x12345678 in the r0 register. A VM may optimize for this case, detecting when two `ims` operations are used together and loading all 32 bits of the register at once. (In particular, the arguments of the first `ims` instruction are often zero.) However, there are still rare cases where this instruction is used alone. The VM must have a fallback that implements the instruction correctly.
+
+The `ims` instruction is assumed to be fast due to this possible optimization. When compiling user code, if a register cannot be set to an immediate value in a single instruction, the Onramp toolchain prefers to output a pair of `ims` instructions.
+
+
+
+### Less Than Unsigned
+
+- opcode: `0x7D`
+- assembly syntax: `ltu <r:dest> <m:arg1> <m:arg2>`
+- behaviour: `dest = (arg1 < arg2) ? 1 : 0`
+
+Sets the destination register to 1 if `arg1` is less than `arg2`. Sets the destination register to 0 otherwise.
+
+The upper 31 bits of the destination register are always zero after this instruction. The low bit is set to the comparison result.
+
+Note that a 32-bit two's complement comparison produces different results; you must be careful to perform an unsigned (logical) comparison. A signed comparison simulated by the `lts` instruction (and other `s`-suffixed instructions) in compound assembly.
+
+
+
+### Jump If Zero
+
+- opcode: `0x7E`
+- assembly syntax: `<m:pred> <i:low> <i:high>`
+- behaviour: `if !pred: rip += 4 * signext16((high << 8) \| low)`
+
+Jumps by the given sign-extended 16-bit number of words if the predicate is zero. If any bit in the predicate is set, this does nothing.
+
+If the predicate is zero, the `high` argument is shifted up by 8 bits and added to the `low` argument to form an offset. Then, if the high bit of the high argument is set, the upper 16 bits of the argument are set as well; this is called sign extension. Finally, the complete offset is shifted up by two bits (i.e. multiplied by 4) and added to the instruction pointer, discarding the carry.
+
+The `low` and `high` arguments together form a 16-bit two's complement signed offset. This makes it possible to jump backwards with this instruction. Note that the VM does not actually need to handle any two's complement operations; it is equivalent to an unsigned addition with discarded carry.
+
+Note that, unlike most instructions, the first argument is not a destination. If the predicate is a register it is unchanged by this instruction.
+
+The predicate is mix-type. A predicate of 0 can be used to perform an unconditional jump. If the predicate is a non-zero, non-register constant, the instruction does nothing; this can be used as a "no operation" instruction.
+
+
+
+### System Call
+
+- opcode: `0x7E`
+- assembly syntax: `sys <i:syscall> 0 0`
+- behaviour: system call
+
+The given system call is invoked. See the [system call reference](virtual-machine-syscalls.md).
+
+The last two bytes of the instruction must be zero. (The VM may ignore them.)
+
+Note that the syscall number argument is not mix-type. It is not possible to perform an indirect syscall.
+
+WARNING: The system call instruction will be removed soon and replaced with an `iret` (interrupt return) instruction. System calls will be performed through a system call function pointer table in the process info table. System calls currently must preserve all registers; this will change soon as well so that system calls use the standard calling convention.
 
 
 
@@ -331,7 +615,7 @@ Handwritten bytecode programs that violate this convention describe the differen
 
 ## System Calls
 
-The `sys` instruction is used to perform a system call. This is a request to the VM to perform some special function.
+The `sys` instruction is used to perform a system call. This is a request to the VM to perform some special operation. (This will be changed soon for the next version of the VM spec.)
 
 In a hosted environment, these are typically implemented by the VM. A freestanding VM may implement only some system calls, passing most others to an OS running inside the VM.
 
@@ -349,9 +633,10 @@ Note that you do not push a return address as you would with a function call. Sy
 TODO: The above will likely change soon; system calls will be more like function calls, requiring a return address and not preserving registers. The `sys` instruction might be removed as well, instead being replaced by a function call table passed in the process info table. This will require changes to a few bytecode programs and to the libc. These changes are necessary to simplify the Onramp OS.
 
 
-### System Call Quick Reference
 
-This is a quick reference table. All system calls return a word that contains either an error code, a return value, or 0 indicating success without a value. If a return value is listed as "none" in the below table, the system call returns 0 on success.
+### System Call Quick Reference Table
+
+All system calls return a word that contains either an error code, a return value, or 0 indicating success without a value. If a return value is listed as "none" in the below table, the system call returns 0 on success.
 
 Misc:
 
@@ -393,9 +678,412 @@ Filesystem:
 | 12  | mkdir    | path                 | none                    | creates a directory             |
 | 13  | rmdir    | path                 | none                    | deletes an empty directory      |
 
+A description of each system call with a C-style prototype follows. (The C prototypes described below are declared by the libc in `#include <__onramp/__syscalls.h>`. They can be called as ordinary C functions, although such use is discouraged outside of the libc.)
 
 
-### Filesystem
+
+### halt
+
+```c
+[[noreturn]] void __sys_halt(int exit_code);
+```
+
+- syscall number: 0
+- argument in r0: exit code
+- return value: n/a (does not return)
+
+Halts the VM, returning to a host environment (if any) with the given exit code. This system call does not return.
+
+
+
+### time
+
+```c
+int __sys_time(unsigned time[3]);
+```
+
+- syscall number: 1
+- argument in r0: address at which to write the time
+- return value in r0: always 0
+
+Gets the current time, writing three words to the address given in r0.
+
+The current time consists of a 64-bit number of seconds plus a 32-bit number of nanoseconds since the UNIX epoch (the start of January 1st, 1970.) These are written as three words to the given address:
+
+- r0 + 0: The low 32 bits of the number of seconds
+- r0 + 4: The high 32 bits of the number of seconds
+- r0 + 8: The number of nanoseconds (0 to 999,999,999)
+
+If this system call is implemented, it cannot fail. It must always set register r0 to 0. (TODO: allow this system call to be optional)
+
+
+
+### spawn
+
+
+```c
+int __sys_spawn(TODO);
+```
+
+- syscall number: 2
+
+Spawns an external program in a hosted environment.
+
+This is not yet implemented.
+
+
+
+### fopen
+
+```c
+int __sys_fopen(const char* path, bool writeable);
+```
+
+- syscall number: 3
+- argument in r0: address of a null-terminated string containing the path to open
+- argument in r1: whether the file should be opened for writing
+- return value in r0: file handle or error code
+
+Opens the file at the given path, associating it with an integer file handle and returning it. The stream position is initially at the start of the stream.
+
+The `writeable` argument (in r1) must be 0 or 1. If it is 1, the file will support writing (via `fwrite` and `ftrunc`), and will be created if it does not already exist.
+
+If a file open for writing already exists, the contents are left intact. Since the initial position is at the start of the file, a subsequent write will overwrite the contents. To append to an existing file, the program must make an `fseek` call after opening it. To destroy the existing contents first, the program must make an `ftrunc` call.
+
+If the file is a directory, the call fails. `dopen` should be used to open directories.
+
+On success, a file handle is returned, which must not have the high bit set. This handle is valid only for file syscalls (i.e. those that start with `f` and take a `file_handle`.)
+
+
+
+### fclose
+
+```c
+int __sys_fclose(int file_handle);
+```
+
+- syscall number: 4
+- argument in r0: the handle of the file to close
+- return value in r0: always 0
+
+Closes the given file handle.
+
+This can only be used to close files, not the input/output/error streams.
+
+This system call must return 0; an `fclose` call cannot fail. If the given file handle is a standard stream or is invalid, the behaviour is undefined.
+
+
+
+### fread
+
+```c
+int __sys_fread(int file_handle, void* buffer, int count);
+```
+
+- syscall number: 5
+- argument in r0: the handle of the file or input stream from which to read
+- argument in r1: address at which to store the read data
+- argument in r2: the maximum number of bytes to read into the address at r1
+- return value in r0: the number of bytes read or an error code
+
+Reads up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if reading fails.
+
+The **fread** syscall is used to read from files and from the input stream. When called on the input stream, it is intended to read terminal input, typically user keystrokes, into the program. The input should be in UTF-8 format and it may use [ANSI escape sequences](https://en.wikipedia.org/wiki/ANSI_escape_code) for special characters (such as arrow keys.)
+
+Since platforms implement input differently, Onramp supports considerable variation in the implementation of fread. The behaviour of a VM's fread syscall must be accurately represented by the capabilities bits in the process info table as explained below.
+
+Assuming the capabilities are accurately reported by the VM, the Onramp libc will simulate whatever behaviour is desired by the program where possible. For example, if the VM has non-blocking input and the program requests blocking input, the libc will perform blocking. However, if the VM is blocking and the program requests non-blocking input, the behaviour cannot be simulated so the libc will reject the request. If you are implementing a VM, follow the recommendations below to get maximum compatibility with programs running on Onramp.
+
+If bytes are available, the VM must read at least one byte, but may read less than the number of bytes requested.
+
+If no bytes are available, the VM should not wait for input, and should instead immediately return zero with no error. (Note this is different from POSIX which raises EAGAIN or EWOULDBLOCK.) If non-blocking input is not possible on the VM's platform, the VM may instead block until data is available; in this case it must set bit 2 in the capabilities field of the process info table.
+
+When the user enters input, it should not be echoed to the output by the VM. If this is not possible on the VM's platform, the VM may instead echo input to the output; in this case it must set bit 0 in the capabilities field of the process info table.
+
+The VM should make input keystrokes available immediately rather than waiting until the end of a line. If this is not possible on the VM's platform, the VM may instead wait until a full line has been processed before making it available to the fread syscall; in this case it must set bit 1 in the capabilities field of the process info table.
+
+
+
+### fwrite
+
+```c
+int __sys_fwrite(int file_handle, void* buffer, int count);
+```
+
+- syscall number: 6
+- argument in r0: the handle of the file or output/error stream in which to write
+- argument in r1: address containing the data to write
+- argument in r2: the maximum number of bytes to write from the address at r1
+- return value in r0: the number of bytes read or an error code
+
+Writes up to `count` bytes from the given buffer into the given file or stream, returning the number of bytes actually read or an error code if writing fails.
+
+The `count` argument in r2 must be non-zero. The VM is allowed to assume it is never zero. (For example, it may ignore it and always write exactly one byte, although this would be inefficient.)
+
+If space is available to write bytes, the VM must write at least one byte, but may write less than the number of bytes requested. If the output stream is full, 0 is returned.
+
+This can only be called on the output stream, the error stream, or a file opened in writeable mode.
+
+
+
+### fseek
+
+```c
+int __sys_fseek(int file_handle, int base, unsigned offset_low, int offset_high);
+```
+
+- syscall number: 7
+- argument in r0: the handle of the file to seek
+- argument in r1: the base position (0, 1, 2) from which to seek
+- argument in r2: the low 32 bits of a 64-bit offset to add to the base position
+- argument in r3: the high 32 bits of a 64-bit offset to add to the base position
+- return value in r0: 0 on success or an error code
+
+Sets the current position in the file to the given position.
+
+The position is calculated as the given offset added to the given base.
+
+- If `base` is 0, the offset is added to the start of the file. (In other words, it is an absolute offset into the file.)
+- If `base` is 1, the offset is added to the current position.
+- If `base` is 2, the offset is added to the end of the file (i.e. the start plus its size.)
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the `offset_high` parameter can be ignored. Otherwise, the file position must be stored as a 64-bit value.
+
+This can only be called on files, not streams.
+
+
+
+### ftell
+
+```c
+int __sys_ftell(int file_handle, unsigned position[2]);
+```
+
+- syscall number: 8
+- argument in r0: the handle of the file from which to query the position
+- argument in r1: the address at which to store the 64-bit position in the file
+- return value in r0: always 0
+
+Stores the current position in the given file to the given `position` address.
+
+The VM must write two words: the low 32 bits of the position followed by the high 32 bits of the position.
+
+The outputted value can be used in a call to `fseek` with base 0 to return to this position in the file.
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write a second word to the output with value zero.
+
+This system call cannot fail. It can only be used on file handles. If used on the input/output/error streams, or if the file handle is invalid, the behaviour is undefined.
+
+
+
+### ftrunc
+
+```c
+int __sys_ftrunc(int file_handle, unsigned size_low, unsigned size_high);
+```
+
+- syscall number: 9
+- argument in r0: the handle of the file to resize
+- argument in r1: the low 32 bits of the 64-bit size to set
+- argument in r2: the high 32 bits of the 64-bit size to set
+- return value in r0: 0 on success or an error code
+
+Sets the size of the file to the given size.
+
+If the size is less than the current size of the file, the file is truncated: its size becomes that given and all data beyond that size is destroyed.
+
+If the size is greater than the current size, the VM may ignore it and return 0xFFFFFFFC (not supported), or it may append zero bytes to the file until the size becomes that given. (VMs may internally optimize this to use sparse files.)
+
+Returns zero if successful. In case of success, the file's size matches that given.
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must return an error (such as 0xFFFFFFFC not supported) if the `size_high` argument is not zero.
+
+
+
+### dopen
+
+```c
+int __sys_dopen(const char* path);
+```
+
+- syscall number: 10
+- argument in r0: address of a null-terminated string containing the path to open
+- return value in r0: directory handle or error code
+
+Opens the directory at the given path, associating it with an integer directory handle and returning it.
+
+On success, a directory handle is returned, which must not have the high bit set. This handle is valid only for directory syscalls (i.e `dread` and `dclose`.)
+
+Directory handles are independent from file handles; directory handle 0 is different from file handle 0, and both may exist simultaneously. (The Onramp libc remaps them to separate POSIX file handles.)
+
+The directory handle is used to read directory entries. A sequence of `dread` calls reads directory entries and `dclose` closes it.
+
+If the directory is modified while a directory handle is open, the behaviour is undefined.
+
+
+
+### dclose
+
+```c
+int __sys_dclose(int directory_handle);
+```
+
+- syscall number: 11
+- argument in r0: the handle of the directory to close
+- return value in r0: always 0
+
+Closes the directory associated with the given handle.
+
+This system call must return 0; a `dclose` call cannot fail. If the given directory handle is invalid, the behaviour is undefined.
+
+
+
+### dread
+
+```c
+int __sys_dread(int directory_handle, char buffer[256]);
+```
+
+- syscall number: 12
+- argument in r0: the handle of the directory to read
+- argument in r1: address of a buffer in which to write the filename read
+- return value in r0: 0 on success, error code otherwise
+
+Reads the next file or subdirectory entry from the given directory into the given buffer as a null-terminated string.
+
+If there are no more entries, an empty string is placed in the buffer (by writing a 0 byte to the first character) and 0 (success) is returned.
+
+
+
+### stat
+
+```c
+int __sys_stat(const char* path, unsigned output[4]);
+```
+
+- syscall number: 13
+- argument in r0: address of a null-terminated string containing the path to query
+- argument in r1: address at which to write the file information
+
+Queries information about the given path, writing it to the given address.
+
+If a file, directory or symlink exists at the given path, the following words are written to the output address in order:
+
+- r1 + 0: `type` -- 2 if the path is a symlink, 1 if the path is a directory, 0 if the path is a file
+- r1 + 4: `mode` -- Either 493 (0755) if the file is executable, 420 (0644) if it is not, or 0 if it is not a file.
+- r1 + 8: `size_low` -- The low 32 bits of the size of the file
+- r1 + 16: `size_high` -- The high 32 bits of the size of the file
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must write zero to the `size_high` field (provided the path exists and is a file.)
+
+
+
+### rename
+
+```c
+int __sys_rename(const char* from, const char* to);
+```
+
+- syscall number: 14
+- argument in r0: address of a null-terminated string containing the path of the source file or directory
+- argument in r1: address of a null-terminated string containing the path of the destination file or directory
+- return value in r0: 0 on success or an error code
+
+Moves and/or renames a file or directory.
+
+TODO define this better, probably we should require the destination to always be a full path (not a directory name), the libc should stat the destination and append the filename if it's a directory
+
+
+
+### symlink
+
+```c
+int __sys_symlink(const char* from, const char* to);
+```
+
+- syscall number: 15
+- argument in r0: address of a null-terminated string containing the path of the source file or directory
+- argument in r1: address of a null-terminated string containing the path of the destination file or directory
+- return value in r0: 0 on success or an error code
+
+Creates a symlink.
+
+If the destination already exists and is a file, this may overwrite it, or it may return an error. If the destination already exists and is a directory, this must return an error.
+
+TODO explain symlinks
+TODO symlink support should be optional.
+
+
+
+### unlink
+
+```c
+int __sys_unlink(const char* path);
+```
+
+- syscall number: 16
+- argument in r0: address of a null-terminated string containing the path of the file or symlink to delete
+- return value in r0: 0 on success or an error code
+
+Deletes the file or symlink at the given path. If this is used on a directory, an error is returned; `rmdir` must be used for directories.
+
+
+
+### chmod
+
+```c
+int __sys_chmod(const char* path, int mode);
+```
+
+- syscall number: 17
+- argument in r0: address of a null-terminated string containing the path of the file for which to change the executable flag
+- return value in r0: 0 on success or an error code
+
+Sets whether the file at the given path is executable in the host environment. Only two values are supported for mode:
+
+- 493 (0755) -- The file is executable
+- 420 (0644) -- The file is not executable
+
+This is just used for better integration of wrapped binaries into the host system. It can be ignored.
+
+TODO this should be optional, and if implemented should not be ignored.
+
+
+
+### mkdir
+
+```c
+int __sys_mkdir(const char* path);
+```
+
+- syscall number: 18
+- argument in r0: address of a null-terminated string containing the path of directory to create
+- return value in r0: 0 on success or an error code
+
+Creates an empty directory at the given path.
+
+If the path already exists, this returns an error.
+
+If the parent path does not exist, this returns an error. (It does not create directories recursively.)
+
+
+
+### rmdir
+
+```c
+int __sys_rmdir(const char* path);
+```
+
+- syscall number: 19
+- argument in r0: address of a null-terminated string containing the path of the empty directory to delete
+- return value in r0: 0 on success or an error code
+
+Deletes an empty directory at the given path.
+
+If the directory is not empty, this returns an error. If the directory does not exist, this returns an error. If the path is not a directory, this returns an error.
+
+
+## Filesystem
 
 A filesystem is made up of directories and files. Directories can contain other directories and files. Files contain data of arbitrary type and length, and grow automatically as data is written to them.
 
@@ -415,6 +1103,34 @@ Input and output is done through "handles". A handle is a 32-bit integer that re
 
 (These are similar to file descriptors in POSIX. We call them handles because the libc needs to translate them to POSIX-style file descriptors to simulate POSIX APIs.)
 
+Up to three handles are reserved for the standard input/output streams (see below.)
+
+If the VM is hosted, other handles should be available for the program to open files and directories on the filesystem. If the VM is freestanding, the write (and (optionally) read syscalls will only be used on the input/output streams, and all other I/O syscalls should not be implemented.
+
+
+
+### Input/Output Streams
+
+There are three I/O streams: input, output and error. These are intended for programs to interact with other programs and with a user.
+
+#### Input
+
+Implementation of the input stream is optional. If input is not supported, the input handle in the process info table should be set to -1. It is normal for a VM to have no input, for example when performing non-interactive bootstrapping.
+
+If input is supported, the input stream should not never block. It should not wait for input to become available, and it should not wait until a particular state is reached (such as the end of a line.) A read on the input should immediately return any and all available data; if no data is available, the read should return success with zero bytes read.
+
+The virtual machine should also not echo input, i.e. it should not print input characters to the output stream on its own. The Onramp libc will handle blocking, buffering and echo internally.
+
+(On POSIX systems, this means the input file handle should be non-blocking, should be in non-canonical mode, and should have echo disabled.)
+
+#### Output and Error
+
+The output stream is intended for normal program output, that could for instance be consumed by another program.
+
+The error stream is intended for displaying errors, warnings and other abnormal ouput to a user.
+
+The output and error streams are otherwise identical. If no distinction is required between them, the VM can use the same I/O handle for both. (It can also use the same handle for input.)
+
 
 
 ### Error Handling
@@ -429,219 +1145,6 @@ Most system calls return a 32-bit word. When a system call fails, it returns one
 All error codes have the high bit set. Values that can be returned from successful system calls (such as file and directory handles) do not have the high bit set. If a system call does not return a value, it returns 0 on success.
 
 If a system call is used incorrectly (e.g. an invalid argument value is passed), the behaviour is undefined. (An error-checking VM should detect this and halt.)
-
-
-
-### System Call Specifications
-
-A description of each system call with a C-style prototype follows.
-
-
-```c
-[[noreturn]] void halt(int exit_code);
-```
-
-Halts the VM, returning to a host environment (if any) with the given exit code.
-
-
-```c
-int time(unsigned time[3]);
-```
-
-Gets the current time.
-
-The current time consists of a 64-bit number of seconds plus a 32-bit number of nanoseconds since the UNIX epoch (the start of January 1st, 1970.) These are written as three words to the given address:
-
-- The low 32 bits of the number of seconds
-- The high 32 bits of the number of seconds
-- The number of nanoseconds (0 to 999,999,999)
-
-
-```c
-int spawn(TODO);
-```
-
-Spawns an external program in a hosted environment.
-
-
-```c
-int fopen(const char* path, bool writeable);
-```
-
-Opens the file at the given path, associating it with an integer file handle and returning it. The stream position is initially at the start of the stream.
-
-The `writeable` argument must be 0 or 1. If it is 1, the file will support writing (via `fwrite` and `ftrunc`), and will be created if it does not already exist. If a file open for writing already exists, the contents are left intact.
-
-Note that subsequent writes will overwrite data without truncating. To append to an existing file, the program must make a `fseek` call after opening it, and to destroy the existing contents first, the program must make a `ftrunc` call.
-
-If the file is a directory, the call fails. (`dopen` should be used to open directories.)
-
-On success, a file handle is returned, which must not have the high bit set. This handle is valid only for file syscalls (i.e. those that start with `f` and take a `file_handle`.)
-
-
-```c
-int fclose(int file_handle);
-```
-
-Closes the given file handle.
-
-This system call must return 0; an `fclose` call cannot fail. If the given file handle is invalid, the behaviour is undefined.
-
-
-```c
-int fread(int file_handle, void* buffer, int count);
-```
-
-Reads up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if reading fails.
-
-The **fread** syscall is used to read terminal input, typically user keystrokes, into the program. The input should be in UTF-8 format.
-
-Since platforms implement input differently, Onramp supports considerable variation in the implementation of fread. The behaviour of a VM's fread syscall must be accurately represented by the capabilities bits in the process info table as explained below.
-
-Assuming the capabilities are accurately reported by the VM, the Onramp libc will simulate whatever behaviour is desired by the program where possible. For example, if the VM has non-blocking input and the program requests blocking input, the libc will perform blocking. However, if the VM is blocking and the program requests non-blocking input, the behaviour cannot be simulated so the request will fail. If you are implementing a VM, follow the recommendations below to get maximum compatibility with programs running on Onramp.
-
-If bytes are available, the VM must read at least one byte, but may read less than the number of bytes requested.
-
-If no bytes are available, the VM should not wait for input, and should instead immediately return zero with no error. (Note this is different from POSIX which raises EAGAIN or EWOULDBLOCK.) If non-blocking input is not possible on the VM's platform, the VM may instead block until data is available; in this case it must set bit 2 in the capabilities field of the process info table.
-
-When the user enters input, it should not be echoed to the output by the VM. If this is not possible on the VM's platform, the VM may instead allow input to be echoed to the output; in this case it must set bit 0 in the capabilities field of the process info table.
-
-The VM should make input keystrokes available immediately rather than waiting until the end of a line. If this is not possible on the VM's platform, the VM may instead wait until a full line has been processed before making it available to the fread syscall; in this case it must set bit 1 in the capabilities field of the process info table.
-
-```c
-int fwrite(int file_handle, void* buffer, int count);
-```
-
-Writes up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if writing fails.
-
-If space is available to write bytes, the VM must write at least one byte, but may write less than the number of bytes requested. If the output stream is full, 0 is returned.
-
-
-```c
-int fseek(int file_handle, int base, unsigned offset_low, int offset_high);
-```
-
-Sets the current position in the file associated with the given handle to the given position.
-
-The position is calculated as the given offset added to the given base.
-
-- If `base` is 0, the offset is added to the start of the file.
-- If `base` is 1, the offset is added to the current position.
-- If `base` is 2, the offset is added to the end of the file (i.e. the start plus its size.)
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the `offset_high` parameter can be ignored. Otherwise, the file position must be stored as a 64-bit value.
-
-
-```c
-int ftell(int file_handle, unsigned* position);
-```
-
-Writes the current position in the given file to the given `position` address.
-
-The VM must write two words: the low 32 bits of the position followed by the high 32 bits of the position.
-
-The outputted value can be used in a call to `fseek()` with `base` 0 to return to this position in the file.
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write a second word to the output with value zero.
-
-
-```c
-int ftrunc(int file_handle, unsigned size_low, unsigned size_high);
-```
-
-Sets the size of the file to the given size.
-
-If the size is less than the current size of the file, the file is truncated: its size becomes that given and all data beyond that size is destroyed.
-
-If the size is greater than the current size, the VM may ignore it and return 0xFFFFFFFC (not supported), or it may append zero bytes to the file until the size becomes that given. (VMs may internally optimize this to use sparse files.)
-
-Returns zero if successful. In case of success, the file's size matches that given.
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must return an error if the `size_high` argument is not zero.
-
-
-```c
-int stat(const char* path, unsigned output[4]);
-```
-
-Outputs information about the given path. If a file, directory or symlink exists at the given path, the following words are written to the output address in order:
-
-- `type` -- 2 if the path is a symlink, 1 if the path is a directory, 0 if the path is a file
-- `mode` -- Either 493 (0755) if the file is executable, 420 (0644) if it is not, or 0 if it is not a file.
-- `size_low` -- The low 32 bits of the size of the file
-- `size_high` -- The high 32 bits of the size of the file
-
-
-```c
-int rename(const char* from, const char* to);
-```
-
-Moves and/or renames a file or directory.
-
-
-```c
-int symlink(const char* from, const char* to);
-```
-
-Creates a symlink if supported.
-
-
-```c
-int unlink(const char* path);
-```
-
-Deletes the file or symlink at the given path. If this is used on a directory, an error is returned; `rmdir` must be used for directories.
-
-
-```c
-int chmod(const char* path, int mode);
-```
-
-Sets whether the file at the given path is executable in the host environment. Only two values are supported for mode:
-
-- 493 (0755) -- The file is executable
-- 420 (0644) -- The file is not executable
-
-This is just used for better integration of wrapped binaries into the host system. It can be ignored.
-
-
-```c
-int mkdir(const char* path);
-```
-
-Creates an empty directory at the given path.
-
-
-```c
-int rmdir(const char* path);
-```
-
-Deletes an empty directory at the given path.
-
-
-```c
-int dopen(const char* path);
-```
-
-Opens a directory. Returns an I/O handle that is valid for directory syscalls only (i.e. `dread` and `dclose`.)
-
-
-```c
-int dclose(int directory_handle);
-```
-
-Closes the directory associated with the given handle.
-
-This system call must return 0; a `dclose` call cannot fail. If the given file handle is invalid, the behaviour is undefined.
-
-
-```c
-int dread(int directory_handle, char buffer[256]);
-```
-
-Reads the next file entry from the given directory into the given buffer as a null-terminated string.
-
-If there are no more entries, an empty string is placed in the buffer and 0 (success) is returned.
 
 
 
