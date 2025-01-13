@@ -38,18 +38,6 @@ Once you have a VM, Onramp bootstraps itself. Read the [full bootstrapping path]
 
 
 
-## _Why bootstrap?_
-
-**Security**: Compiler binaries can contain malware and [backdoors](https://en.wikipedia.org/wiki/Backdoor_(computing)#Compiler_backdoors) that insert viruses into programs they compile. Malicious code in a compiler can even recognize its own source code and propagate itself. Recompiling a compiler with itself therefore does not eliminate the threat. The only compiler that can truly be trusted is one that you've bootstrapped from scratch.
-
-**Preservation**: We have a duty to preserve information and media about our culture, our history, and our world for future generations. We need to make it possible for contemporary codecs and compression algorithms to run on hardware we can't even concieve of. The best way to do that is to [preserve the code](https://archiveprogram.github.com/arctic-vault/), along with the tools to compile it on anything.
-
-**Education**: Bootstrapping demonstrates the entire stack from machine code to a high-level language. Students can observe how every step of the process works, and in the case of Onramp, on a simplified machine with simplified tools and languages.
-
-**Fun**: Modern languages and frameworks have little connection to how hardware really works. Layers of complexity and waste continue to build upon one another, and goals of simplicity and efficiency have been abandoned by the industry. Bootstrapping is a respite from this. Working with the bare metal, writing low-level code, understanding every part of the machine and the toolchain can reignite our passion for software and bring much needed joy back into programming.
-
-
-
 ## Under Construction!
 
 Onramp is not yet complete. [It can compile Doom](https://ludocode.com/blog/onramp-can-compile-doom), but not much else at the moment. It is missing floating point support and most libc functionality.
@@ -113,9 +101,29 @@ See the [Setup Guide](docs/setup-guide.md) for more information on how to build 
 
 ## Documentation Index
 
+Onramp documentation (including this `README.md`) is written in [GitHub-Flavored Markdown](https://github.github.com/gfm/).
+
+Onramp is heavily documented. Specifications are written for all of Onramp's tools and languages.
+
+The following documentation pages are available:
+
 - [Setup Guide](docs/setup-guide.md)
 - [Usage Guide](docs/usage-guide.md)
-- Languages:
+- Tools:
+    - Core Tools
+        - [`cc`: Driver](core/cc/README.md)
+        - [`cpp`: Preprocessor](core/cpp/README.md)
+        - [`cci`: Compiler](core/cci/README.md)
+        - [`as`: Assembler](core/as/README.md)
+        - [`ar`: Archiver](core/ar/README.md)
+        - [`ld`: Linker](core/ld/README.md)
+        - [`libc`: Standard Library](core/libc/README.md)
+        - [`sh`: Shell](core/sh/README.md)
+        - [`os`: Operating System](core/os/README.md)
+    - Platform-specific Tools
+        - [`hex`: Hex Tool](platform/hex/)
+        - [`vm`: Virtual Machine](platform/vm/)
+- Specifications:
     - [Onramp Hexadecimal](docs/hexadecimal.md)
     - [Onramp Virtual Machine and Bytecode](docs/virtual-machine.md)
     - [Onramp Object Code](docs/object-code.md)
@@ -126,33 +134,12 @@ See the [Setup Guide](docs/setup-guide.md) for more information on how to build 
     - [Onramp Debug Info](docs/debug-info.md)
 - Miscellaneous:
     - [Bootstrap Path](docs/bootstrap-path.md)
+    - [Core Components](core/README.md)
+    - [Testing Onramp](test/README.md)
     - [Coding Without Labels](docs/coding-without-labels.md)
     - [Inspiration](docs/inspiration.md)
 
-
-
-## Components
-
-Platform-specific:
-
-| Program                    | Description            | Operation                                                |
-|----------------------------|------------------------|----------------------------------------------------------|
-| [`hex`](platform/hex/)     | Hex tool               | Converts hexadecimal `.ohx` to raw bytes                 |
-| [`vm`](platform/vm/)       | Virtual machine        | Executes `.oe` bytecode, bridges filesystem when hosted  |
-
-Platform-independent:
-
-| Program               | Description            | Operation                                         |
-|-----------------------|------------------------|---------------------------------------------------|
-| [`cc`](core/cc/)      | Driver                 | Performs any or all phases of translation         |
-| [`cpp`](core/cpp/)    | Preprocessor           | Preprocesses `.c` to `.i`                         |
-| [`cci`](core/cci/)    | Compiler               | Compiles `.i` to `.os`                            |
-| [`as`](core/as/)      | Assembler              | Assembles `.os` to `.oo` object file              |
-| [`ar`](core/ar/)      | Archiver               | Combines `.oo` object files into `.oa` library    |
-| [`ld`](core/ld/)      | Linker                 | Links `.oo` and `.oa` into `.oe` executable       |
-| [`libc`](core/libc/)  | Standard library       | Provides C and POSIX library functions            |
-| [`sh`](core/sh/)      | Shell                  | Runs scripts                                      |
-| [`os`](core/os/)      | Operating System       | Implements a filesystem and syscalls              |
+In addition, each tool, and each stage of each tool has a `README.md` describing the implementation. Look for the `README.md` in any directory for a description of its contents.
 
 
 
@@ -169,6 +156,18 @@ Platform-independent:
 | `.c`        | C source code, an Onramp Subset ([omC](docs/minimal-c.md) or [opC](docs/practical-c.md)) or a standard version |
 | `.sh`       | [Onramp Shell](docs/shell.md), our subset of POSIX shell                                                       |
 | `.od`       | [Onramp Debug Info](docs/debug-info.md), the debug symbols for an Onramp executable                            |
+
+
+
+## _Why bootstrap?_
+
+**Security**: Compiler binaries can contain malware and [backdoors](https://en.wikipedia.org/wiki/Backdoor_(computing)#Compiler_backdoors) that insert viruses into programs they compile. Malicious code in a compiler can even recognize its own source code and propagate itself. Recompiling a compiler with itself therefore does not eliminate the threat. The only compiler that can truly be trusted is one that you've bootstrapped from scratch.
+
+**Preservation**: We have a duty to preserve information and media about our culture, our history, and our world for future generations. We need to make it possible for contemporary codecs and compression algorithms to run on hardware we can't even concieve of. The best way to do that is to [preserve the code](https://archiveprogram.github.com/arctic-vault/), along with the tools to compile it on anything.
+
+**Education**: Bootstrapping demonstrates the entire stack from machine code to a high-level language. Students can observe how every step of the process works, and in the case of Onramp, on a simplified machine with simplified tools and languages.
+
+**Fun**: Modern languages and frameworks have little connection to how hardware really works. Layers of complexity and waste continue to build upon one another, and goals of simplicity and efficiency have been abandoned by the industry. Bootstrapping is a respite from this. Working with the bare metal, writing low-level code, understanding every part of the machine and the toolchain can reignite our passion for software and bring much needed joy back into programming.
 
 
 
