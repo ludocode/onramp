@@ -227,4 +227,4 @@ Control:
 |     |`leave` | none                          | Destroys the current stack frame                                  |
 |  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                            |
 
-\* WARNING: `cmpu` is currently a primitive instructions but will be replaced with `ltu` soon. `sys`, `cmpu` and `cmps` will be removed.
+\* WARNING: `sys` will be removed soon.

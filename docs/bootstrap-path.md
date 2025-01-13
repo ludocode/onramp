@@ -22,7 +22,7 @@ We start by getting the linker up, along with a libc and utility library we can 
 
 - [ld/0-labels](../core/ld/0-labels), the basic linker written in hexadecimal bytecode, giving us support for labels
 - [libc/0-oo](../core/libc/0-oo), a basic libc. `__start()`/`exit()`, `memcpy()`/`strlen()`, `fopen()`/`fread()`/`fwrite()`, etc.
-- [libo/0-oo](../core/libo/0-oo), a utility library for compiler development. `fatal()` error handling, `iota()`, `fnv1a()`, etc.
+- [libo/0-oo](../core/libo/0-oo), a utility library for compiler development. `fatal()` error handling, `itoa()`, `fnv1a()`, etc.
 - [ar/0-cat](../core/ar/0-cat), a trivial archiving tool to join our libc and libo into static libraries
 
 Next we build our way up to a powerful assembler.

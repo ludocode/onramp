@@ -24,7 +24,7 @@ If there is a native machine code VM for your platform (e.g. `linux-x86_64/`), t
 
 If there isn't a machine code VM for your platform, the script will attempt to compile a VM or use an interpreted one. If it cannot find a VM that works on your system, the script will fail.
 
-Obviously if it uses a C compiler to build a VM, it didn't really bootstrap a C compiler from scratch. This may be fine if you're just trying to get Onramp working on an older system that just has an ANSI C compiler. If you want to eliminate compilers from your trusted seeds, you'll need a real machine code VM.
+Obviously if it uses a C compiler to build a VM, it didn't really bootstrap a C compiler from scratch. This may be fine if you're trying to bootstrap on an older system that only has an ancient C compiler. If you want to eliminate compilers from your trusted seeds, you'll need a machine code VM, or at least an assembly VM with an assembler you can trust.
 
 The build script supports the following command-line options to choose a specific hex tool and VM and to otherwise change its behaviour. (Pass no options to use the default auto-detection.)
 
@@ -32,7 +32,7 @@ The build script supports the following command-line options to choose a specifi
 - `--vm [name]` -- Use the VM with the given name
 - `--dev` -- Use preferred tools for developing Onramp
 - `--min` -- Use only tools with no additional dependencies (i.e. a machine code VM), fail otherwise
-- `--skip-core` -- Skip the core bootstrap; just do the POSIX setup
+- `--setup` -- Skip the core bootstrap; just do the POSIX setup. (Run core/build.sh afterwards to do the build.)
 
 For example, to use the fastest VM and hex tool (requiring a native C compiler):
 

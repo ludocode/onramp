@@ -20,6 +20,8 @@ The [Dutil-Dumas Message](https://www.plover.com/misc/Dumas-Dutil/messages.pdf) 
 
 [Toybox vs BusyBox](https://youtu.be/MkJkyMuBm3g?t=723) by Rob Landley (linked to 12:03 but the whole talk is worth watching)
 
+[A rant on personal engineering projects](https://www.youtube.com/watch?v=4jgTCayWlwc) by Joe Barnard
+
 
 
 ## Projects

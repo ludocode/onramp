@@ -21,7 +21,7 @@ onrampcc file1.oo file2.oo file3.oo -o foo
 
 See the command-line options below.
 
-By default `onrampcc` produces binaries wrapped for your platform. The above `foo` file can be run like a normal executable, except that it requires `onrampvm` on your PATH.
+By default `onrampcc` produces binaries wrapped for your platform. The above `foo` file can be run like a normal executable, except that it requires `onrampvm` on your `PATH`.
 
 
 
@@ -87,7 +87,7 @@ Output format:
 
 Preprocessor options:
 
-- `-Dname` -- Define a macro with an empty expansion.
+- `-Dname` -- Define a macro with an expansion of `1`.
 - `-Dname=expansion` -- Define a macro with the given expansion.
 - `-I/path/to/includes` -- Add a search path for `#include` and `#embed`.
 - `-include /path/to/header.h` -- Include the given header at the start of preprocessing.
@@ -128,6 +128,8 @@ The Onramp compiler pre-defines several macros by default. Here's a list of user
 - `#define __onramp_cci__ 1` -- This is the Onramp compiler.
 - `#define __onramp_cpp__ 1` -- This is the Onramp preprocessor.
 - `#define __onramp_libc__ 1` -- The libc headers are those of the Onramp libc, and the program will be linked with it.
+
+The value of these macros may change to reflect version numbers later. For now they are all `1`.
 
 You can view the predefined macros using `-dM`, for example:
 

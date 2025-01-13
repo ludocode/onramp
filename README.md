@@ -99,17 +99,15 @@ See the [Setup Guide](docs/setup-guide.md) for more information on how to build 
 
 
 
-## Documentation Index
+## Documentation
 
-Onramp documentation (including this `README.md`) is written in [GitHub-Flavored Markdown](https://github.github.com/gfm/).
-
-Onramp is heavily documented. Specifications are written for all of Onramp's tools and languages.
+Onramp documentation (including this `README.md`) is written in [GitHub-Flavored Markdown](https://github.github.com/gfm/). Onramp is heavily documented; specifications are written for all of Onramp's tools and languages.
 
 The following documentation pages are available:
 
 - [Setup Guide](docs/setup-guide.md)
 - [Usage Guide](docs/usage-guide.md)
-- Tools:
+- Tools
     - Core Tools
         - [`cc`: Driver](core/cc/README.md)
         - [`cpp`: Preprocessor](core/cpp/README.md)
@@ -123,7 +121,7 @@ The following documentation pages are available:
     - Platform-specific Tools
         - [`hex`: Hex Tool](platform/hex/)
         - [`vm`: Virtual Machine](platform/vm/)
-- Specifications:
+- Specifications
     - [Onramp Hexadecimal](docs/hexadecimal.md)
     - [Onramp Virtual Machine and Bytecode](docs/virtual-machine.md)
     - [Onramp Object Code](docs/object-code.md)
@@ -132,7 +130,7 @@ The following documentation pages are available:
     - [Onramp Practical C](docs/practical-c.md)
     - [Onramp Shell](docs/shell.md)
     - [Onramp Debug Info](docs/debug-info.md)
-- Miscellaneous:
+- Miscellaneous
     - [Bootstrap Path](docs/bootstrap-path.md)
     - [Core Components](core/README.md)
     - [Testing Onramp](test/README.md)

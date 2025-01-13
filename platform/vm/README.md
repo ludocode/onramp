@@ -34,7 +34,7 @@ You could also write the VM in a real platform-specific assembly language, provi
 
 These VMs are written in compiled languages. Their speed is comparable to (or better than) machine code VMs, but of course they depend on an existing compiler.
 
-[`c89`](c89/) is the only VM so far written in a compiled language. It is useful if you have an older system that only has an ANSI C compiler and you want to bootstrap a more modern C11 or later compiler with Onramp.
+[`c89`](c89/) is an example of a VM in a compiled language. It is useful if you have an older system that only has an ANSI C compiler and you want to bootstrap a more modern C11 or later compiler with Onramp.
 
 
 
