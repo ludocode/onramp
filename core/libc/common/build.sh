@@ -53,6 +53,7 @@ cp core/libc/common/include/limits.h build/output/include/limits.h
 cp core/libc/common/include/malloc.h build/output/include/malloc.h
 cp core/libc/common/include/math.h build/output/include/math.h
 cp core/libc/common/include/setjmp.h build/output/include/setjmp.h
+cp core/libc/common/include/signal.h build/output/include/signal.h
 cp core/libc/common/include/spawn.h build/output/include/spawn.h
 cp core/libc/common/include/stdalign.h build/output/include/stdalign.h
 cp core/libc/common/include/stdarg.h build/output/include/stdarg.h
