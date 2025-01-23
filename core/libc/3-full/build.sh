@@ -58,6 +58,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/rand.c \
     -o build/intermediate/libc-3-full/rand.oo
 
+echo Compiling libc/3-full signal.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/build-ccargs \
+    -c core/libc/3-full/src/signal.c \
+    -o build/intermediate/libc-3-full/signal.oo
+
 echo Compiling libc/3-full stdbit_llong.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
@@ -112,6 +118,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full/malloc.oo \
     build/intermediate/libc-3-full/qsort.oo \
     build/intermediate/libc-3-full/rand.oo \
+    build/intermediate/libc-3-full/signal.oo \
     build/intermediate/libc-3-full/stdbit_llong.oo \
     build/intermediate/libc-3-full/stdlib_3.oo \
     build/intermediate/libc-3-full/time.oo \
