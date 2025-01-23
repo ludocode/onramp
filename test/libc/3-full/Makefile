@@ -55,6 +55,7 @@ OBJS3=\
 		$(BUILD3)/malloc.oo \
 		$(BUILD3)/qsort.oo \
 		$(BUILD3)/rand.oo \
+		$(BUILD3)/signal.oo \
 		$(BUILD3)/stdbit_llong.oo \
 		$(BUILD3)/stdlib_3.oo \
 		$(BUILD3)/time.oo \
@@ -173,6 +174,12 @@ $(BUILD3)/rand.oo: $(SRC3)/rand.c Makefile
 	@mkdir -p $(BUILD3)
 	$(CC) $(CPPFLAGS) -c $(SRC3)/rand.c -o $(BUILD3)/rand.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC3)/rand.c -o $@
+
+$(BUILD3)/signal.oo: $(SRC3)/signal.c Makefile
+	@rm -f $@
+	@mkdir -p $(BUILD3)
+	$(CC) $(CPPFLAGS) -c $(SRC3)/signal.c -o $(BUILD3)/signal.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC3)/signal.c -o $@
 
 $(BUILD3)/stdbit_llong.oo: $(SRC3)/stdbit_llong.c Makefile
 	@rm -f $@
