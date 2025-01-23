@@ -46,8 +46,6 @@ A near-term goal is to compile native compilers and tools: [TinyCC](https://en.w
 
 Onramp is an experiment in implementing C completely from scratch on a custom architecture, retaining all bootstrap stages in between. It is essentially three compilers, three preprocessors/assemblers/linkers, a multi-stage libc, a custom instruction set, several virtual machines, a debugger... It will take a long time to complete and there are many directions it can take in the future.
 
-I welcome bug reports but I am not currently accepting contributions. Feel free to fork this and implement VMs but be aware that the bytecode format will change. (Also, I don't have good VM tests at the moment so you might have a lot of trouble debugging your VM.)
-
 
 
 ## Project Status
