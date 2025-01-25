@@ -1,6 +1,14 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+; The entry point of the program.
+;==========================================
 
 @0x00 =_start
     ; format indicator `~Onr~amp~   `
@@ -8,89 +16,321 @@
     7E 61 6D 70   ; jz 97 28781
     7E 20 20 20   ; jz 32 8224
 
-    ; store process info vector in r9
-    70 89 80 00   ; add r9 r0 0
+    ; store process info table
+    79 80 8E 20   ; stw r0 rpp 0x20
 
     ; jump to test
-    7C 8A 00 00   ; ims ra <test   ; imw ra ^test
-    7C 8A 50 00   ; ims ra >test
+    7C 8A 00 00   ; ims ra <test   ; imw ra ^test (0x160)
+    7C 8A 60 01   ; ims ra >test
     70 8F 8E 8A   ; add rip rpp ra
 
     ; padding
     00 00 00 00
+@0x20
 
-@0x20 =exit
-    78 8A 89 08   ; ldw ra r9 8    ; get exit address
-    70 8F 8A 00   ; add rip ra 0   ; jump to it
-    
+
+
+;==========================================
+; uint32_t* process_info_table;
+;==========================================
+
+@0x20 =process_info_table
+    00 00 00 00
+
     ; padding
     00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x30
 
-@0x30 =hello_txt
-    ; "test/vm/testdata/hello.txt" '00
+
+
+;==========================================
+; const char hello_world_filename[];
+;==========================================
+; The filename of the test file to read.
+;==========================================
+
+@0x30 =hello_world_filename
+    ; "test/vm/testdata/hello-world.txt" '00
     74 65 73 74 2f 76 6d 2f  74 65 73 74 64 61 74 61
-  ;  t  e  s  t  /  v  m  /   t  e  s  t  d  a  t  a  
-    2f 68 65 6c 6c 6f 2e 74  78 74 00 00 00 00 00 00
-  ;  /  h  e  l  l  o  .  t   x  t \0
+  ;  t  e  s  t  /  v  m  /   t  e  s  t  d  a  t  a
+    2f 68 65 6c 6c 6f 2d 77  6f 72 6c 64 2e 74 78 74
+  ;  /  h  e  l  l  o  -  w   o  r  l  d  .  t  x  t
+    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ; \0
+@0x60
 
-@0x50 =test
-    ; make space to read
-    71 8C 8C 10   ; sub rsp rsp 16
 
-    ; TODO we need to prepend the working directory here
-    ; syscall fopen(hello_txt, 0)
-    7C 80 00 00   ; ims ra <hello_txt   ; imw ra ^hello_txt
-    7C 80 30 00   ; ims ra >hello_txt
-    70 80 8E 80   ; add r0 rpp r0
-    70 81 00 00   ; add r1 0 0
-    7F 03 00 00   ; sys fopen
 
-    ; store handle on the stack
-    79 80 8C 00
+;==========================================
+; const char hello_world_contents[13];
+;==========================================
+; The expected contents of the test file.
+;==========================================
 
-    ; check high bit for errors
-    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
-    74 8A 8A 01    ; and ra ra 1
-    7E 8A 04 00    ; jz ra &fopen_ok (+4)
+@0x60 =hello_world_contents
+    ; "Hello world!" '0A '00
+    48 65 6c 6c 6f 20 77 6f  72 6c 64 21 0a 00 00 00
+  ;  H  e  l  l  o     w  o   r  l  d  ! \n
+@0x70
+
+
+
+;==========================================
+; [[noreturn]] void exit(int);
+;==========================================
+
+@0x70 =exit
+    78 8A 89 08   ; ldw ra r9 8    ; get exit address
+    70 8F 8A 00   ; add rip ra 0   ; jump to it
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x90
+
+
+
+;==========================================
+; int open_file(void);
+;==========================================
+; Opens the test file for reading.
+;
+; The path is assembled at the program break, and then a syscall
+; open is performed.
+;
+; On success, the file handle is returned. On error, the test exits with a
+; failure status.
+;
+; vars:
+;     - program break: r0
+;     - string to append: r1
+;     - wd/destination index: r2
+;     - path index: r3
+;     - current character: r4
+;     - process info table: r9
+;==========================================
+
+@0x90 =open_file
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; get process info
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process info table
+    78 80 89 04   ; ldw r0 r9 4       ; r0 = program break
+    78 81 89 20   ; ldw r1 r9 32      ; r1 = working directory
+
+    ; skip working directory if null
+    7E 81 05 00   ; jz r1 &open_file_wd_done (+5)
+
+    ; copy the working directory to the program break
+    70 82 00 00   ; add r2 0 0      ; zero r2       ; r2 is the destination index
+;:open_file_wd_loop
+    7A 84 81 82   ; ldb r4 r1 r2                    ; r4 is the current character
+    7E 84 03 00   ; jz r4 &open_file_wd_done (+3)
+    7B 84 80 82   ; stb r4 r0 r2
+    70 82 82 01   ; add r2 r2 1               ; inc r2
+    7E 00 FB FF   ; jz 0 &open_file_wd_loop   ; jmp &open_file_wd_loop (-5)
+;:open_file_wd_done
+
+    ; append a slash if the working directory is not empty and
+    ; it doesn't already have a trailing slash. (if the working
+    ; directory is empty we assume the vm wants us to use
+    ; relative paths.)
+    7E 82 06 00    ; jz r2 &open_file_no_slash (+6)
+    71 8A 82 01    ; sub ra r2 1
+    7A 81 81 8A    ; ldb r1 r1 ra
+    71 81 81 2F    ; sub r1 r1 "/"
+    7E 81 02 00    ; jz r1 &open_file_no_slash (+2)
+    7B 2F 80 82    ; stb "/" r0 r2
+    70 82 82 01    ; add r2 r2 1         ; inc r2
+;:open_file_no_slash
+
+    ; append the filename to the working directory
+    70 81 8E 30    ; add r1 rpp 0x30    ; r1 = hello_world_filename
+    70 83 00 00    ; add r3 0 0         ; zero r3
+;:open_file_path_loop
+    7A 84 81 83   ; ldb r4 r1 r3
+    7B 84 80 82   ; stb r4 r0 r2   ; store before jz to null-terminate
+    7E 84 03 00   ; jz r4 &open_file_path_done (+3)
+    70 82 82 01   ; add r2 r2 1                ; inc r2
+    70 83 83 01   ; add r3 r3 1                ; inc r3
+    7E 00 FA FF   ; jz 0 &open_file_path_loop  ; jmp &open_file_path_loop (-6)
+;:open_file_path_done
+
+    ; syscall fopen
+    70 81 00 00   ; add r1 0 0   ; zero r1   ; not writeable
+    7F 03 00 00   ; sys fopen 0 0
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &open_file_ok (+4)
+    ; fail, exit(1)
     70 80 01 00   ; add r0 1 0
     7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
-    7C 8A 20 00   ; ims ra >exit
+    7C 8A 70 00   ; ims ra >exit
     70 8F 8E 8A   ; add rip rpp ra
-;:fopen_ok
+;:open_file_ok
 
-    ; syscall fread(handle, rsp+4)
-    70 81 8C 04   ; add r1 rsp 4
-    70 82 00 0C   ; add r2 0 12
+    ; success
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x160
+
+
+;==========================================
+; void test(void);
+;==========================================
+; vars:
+;     - file descriptor: rfp-4
+;     - total: rfp-8
+;==========================================
+
+@0x160 test
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; TODO check if we have all needed syscalls.
+    ; fopen is optional so if not implemented the test should pass
+    ; (unless we mark the test as only for hosted environments.)
+    ; if fopen is implemented, fread and fclose must be implemented as well (and fwrite but we don't use it in this test.)
+
+
+
+    ; open the file
+
+    ; call open_file
+    7C 8A 00 00    ; ims ra <open_file
+    7C 8A 90 00    ; ims ra >open_file (0x90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; save file descriptor
+    79 80 8D FC    ; stw r0 rfp -4
+
+
+
+    ; read the file
+
+    ; clear total
+    79 00 8D F8    ; stw 0 rfp -8
+
+;:test_read_loop
+
+    ; syscall fread(fd, break + total, 127);
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process info table
+    78 81 89 04   ; ldw r1 r9 4       ; r1 = program break
+    78 8A 8D F8   ; ldw ra rfp -8     ; ra = total
+    70 81 81 8A   ; add r1 r1 ra      ; r1 = break + total
+    78 80 8D FC   ; ldw r0 rfp -4     ; r0 = fd
+    70 82 00 7F   ; add r2 0 127      ; r2 = 127
     7F 05 00 00   ; sys fread
 
-    ; check that we got non-zero result and check high bit for errors
-    7E 80 03 00    ; jz r0 &fread_fail (+3)
-    77 8A 80 1F    ; ror ra r0 31    ; TODO shru, no need for and
-    74 8A 8A 01    ; and ra ra 1
-    7E 8A 04 00    ; jz ra &fread_ok (+4)
-;:fread_fail
-    70 80 01 00   ; add r0 1 0
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &test_read_ok (+4)
+    ; fail, exit(2)
+    70 80 02 00   ; add r0 2 0
     7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
-    7C 8A 20 00   ; ims ra >exit
+    7C 8A 70 00   ; ims ra >exit
     70 8F 8E 8A   ; add rip rpp ra
-;:fread_ok
+;:test_read_ok
 
-    ; TODO for now we just check that we got at least one char
-    7A 8A 8C 04    ; ldb ra rsp 4
-    71 8A 8A 48    ; sub ra ra "H"
-    7E 8A 04 00    ; jz ra &char_ok (+4)
-    70 80 01 00   ; add r0 1 0
-    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
-    7C 8A 20 00   ; ims ra >exit
-    70 8F 8E 8A   ; add rip rpp ra
-;:char_ok
+    ; if we got zero, it's eof
+    7E 80 04 00   ; jz r0 &test_read_done (+4)
 
-    ; syscall fclose(handle)
-    78 80 8C 00   ; ldw r0 rsp 0   ; handle
+    ; add and loop
+    78 81 8D F8   ; ldw r1 rfp -8
+    70 81 81 80   ; add r1 r1 r0
+    79 81 8D F8   ; stw r1 rfp -8
+    7E 00 EE FF   ; jz 0 &test_read_loop (-18)
+
+;:test_read_done
+
+    ; close the file
+    ; syscall fclose(fd)
+    78 80 8D FC   ; ldw r0 rfp -4
     7F 04 00 00   ; sys fclose
 
-    ; exit(0)
+;;    ; make sure fclose returned 0
+;TODO disabled, most vms don't currently set r0 on fclose() and there's no point to requiring it. instead we should allow these syscalls to not return values on syscalls that can't fail, and c-debugger should quash it with high bit set to make sure there's no error checking on it
+;;    7E 80 04 00   ; jz r0 &test_close_ok (+4)
+;;    ; fail, exit(3)
+;;    70 80 03 00   ; add r0 3 0
+;;    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+;;    7C 8A 70 00   ; ims ra >exit
+;;    70 8F 8E 8A   ; add rip rpp ra
+;;;:test_close_ok
+
+
+
+    ; compare the file
+
+    ; make sure we got exactly 13 bytes
+    78 81 8D F8   ; ldw r1 rfp -8
+    71 81 81 0D   ; sub r1 r1 13
+    7E 81 04 00   ; jz r1 &test_size_ok (+4)
+    ; fail, exit(4)
+    70 80 04 00   ; add r0 4 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 70 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra
+;:test_size_ok
+
+    ; check each byte
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process info table
+    78 81 89 04   ; ldw r1 r9 4       ; r1 = program break
+    70 80 8E 60   ; add r0 rpp 0x60   ; r0 = hello_world_contents
+    70 82 00 00   ; add r2 0 0   ; zero r2   ; i = 0
+;:test_check_loop
+    7A 8A 80 82   ; ldb ra r0 r2
+    7A 8B 81 82   ; ldb ra r1 r2
+    71 8A 8A 8B   ; sub ra ra rb
+    7E 8A 04 00   ; jz ra &test_check_loop_ok (+4)
+    ; fail, exit(5)
+    70 80 05 00   ; add r0 5 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 70 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra
+;:test_check_loop_ok
+    70 82 82 01   ; add r2 r2 1   ; inc r2
+    71 8A 82 0D   ; sub ra r2 13
+    7E 8A 01 00   ; jz ra &test_check_loop_done (+1)
+    7E 00 F4 FF   ; jz 0 &test_check_loop (-12)
+;:test_check_loop_done
+
+    ; success! exit(0)
     70 80 00 00   ; add r0 0 0
     7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
-    7C 8A 20 00   ; ims ra >exit
+    7C 8A 70 00   ; ims ra >exit
     70 8F 8E 8A   ; add rip rpp ra
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
