@@ -35,6 +35,7 @@ cp core/libc/common/include/__onramp/__arithmetic.h build/output/include/__onram
 cp core/libc/common/include/__onramp/__bool.h build/output/include/__onramp/__bool.h
 cp core/libc/common/include/__onramp/__mode_t.h build/output/include/__onramp/__mode_t.h
 cp core/libc/common/include/__onramp/__null.h build/output/include/__onramp/__null.h
+cp core/libc/common/include/__onramp/__pit.h build/output/include/__onramp/__pit.h
 cp core/libc/common/include/__onramp/__predef.h build/output/include/__onramp/__predef.h
 cp core/libc/common/include/__onramp/__size_t.h build/output/include/__onramp/__size_t.h
 cp core/libc/common/include/__onramp/__useconds_t.h build/output/include/__onramp/__useconds_t.h

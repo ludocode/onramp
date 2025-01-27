@@ -416,6 +416,7 @@ usage() {
     echo "    --min            Use only tools with no additional dependencies (i.e. a shell"
     echo "                         hex tool and machine code VM), fail otherwise"
     echo "    --setup          Skip the core bootstrap; setup the VM, hex and shell only"
+    echo "                         (allows you to set PATH and run core/build.sh manually)"
     echo
     echo "Look in platform/hex/ and platform/vm/ for the names of tools. Only those tools"
     echo "that support POSIX platforms can be built by this script."

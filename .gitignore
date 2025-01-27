@@ -1,3 +1,4 @@
 /build/
 /test/local.mk
 vgcore.*
+/.ninja_log

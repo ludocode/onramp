@@ -500,10 +500,20 @@ static void set_default_options(const char* cc_filename) {
     }
     path_end = (path_end + 1);
     size_t path_len = (path_end - cc_filename);
+
+    #ifdef __onramp__
     tool_cpp = create_tool_path(cc_filename, path_len, "cpp.oe");
     tool_cci = create_tool_path(cc_filename, path_len, "cci.oe");
     tool_as = create_tool_path(cc_filename, path_len, "as.oe");
     tool_ld = create_tool_path(cc_filename, path_len, "ld.oe");
+    #endif
+    #ifndef __onramp__
+    tool_cpp = create_tool_path(cc_filename, path_len, "cpp");
+    tool_cci = create_tool_path(cc_filename, path_len, "cci");
+    tool_as = create_tool_path(cc_filename, path_len, "as");
+    tool_ld = create_tool_path(cc_filename, path_len, "ld");
+    #endif
+
     libc_archive = create_tool_path(cc_filename, path_len, "../lib/libc.oa");
     libc_include = create_tool_path(cc_filename, path_len, "../include");
 }
