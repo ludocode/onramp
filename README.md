@@ -91,7 +91,7 @@ See the [Setup Guide](docs/setup-guide.md) for more information on how to build 
 
 Contributions are welcome! I am especially looking for bug reports, general feedback, bug fixes and libc improvements. You can also support the project financially via [GitHub Sponsors](https://github.com/sponsors/ludocode).
 
-The primary Onramp repository is hosted [here on GitHub](https://github.com/ludocode/onramp) but you don't have to use GitHub if you don't want to. Free to host a fork or mirror anywhere. Code contributions can be done by GitHub pull request, by sending me links to your external fork over email or IRC, or simply by emailing me patches.
+The primary Onramp repository is hosted [here on GitHub](https://github.com/ludocode/onramp) but you don't have to use GitHub if you don't want to. Feel free to host a fork or mirror anywhere. Code contributions can be done by GitHub pull request, by sending me links to your external fork over email or IRC, or simply by emailing me patches.
 
 Authors retain copyright over their code contributions, but all code in this repository must be MIT licensed. By contributing to Onramp you agree to license your contributions under the MIT license and you assert that you have the right to do so.
 
