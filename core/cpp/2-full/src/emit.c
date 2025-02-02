@@ -93,6 +93,16 @@ void emit_string(const string_t* string) {
 }
 
 static void emit_token_string(token_t* token, char delimiter) {
+    assert(token->type == token_type_character || token->type == token_type_string);
+
+    switch (token->prefix) {
+        case token_prefix_none: break;
+        case token_prefix_L: emit_char('L'); break;
+        case token_prefix_u: emit_char('u'); break;
+        case token_prefix_U: emit_char('U'); break;
+        case token_prefix_u8: emit_bytes("u8", 2); break;
+    }
+
     // The value already contains escaped quotes and other escape sequences; we
     // never unescaped it. We just need to put quotes around it.
     emit_char(delimiter);

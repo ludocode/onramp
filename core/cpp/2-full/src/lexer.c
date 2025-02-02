@@ -196,8 +196,6 @@ static void lexer_buffer_append(lexer_t* lexer, char32_t c) {
 /**
  * Parses a string or character literal (including an angle-bracketed filename
  * after an include directive.)
- *
- * If the literal has a prefix (e.g. "L" or "u8"), it's in the buffer.
  */
 static void lexer_parse_literal(lexer_t* lexer, token_prefix_t prefix) {
     char32_t end_quote = lexer->next_char;
@@ -553,8 +551,11 @@ static void lexer_parse(lexer_t* lexer) {
         if (lexer->next_char == '"' || lexer->next_char == '\'' ||
                 (lexer->next_char == '<' && lexer->include_state == lexer_include_state_include))
         {
+            // We only consume the string now if the prefix is valid. If not,
+            // the prefix is its own token.
             token_prefix_t prefix = lexer_literal_prefix(lexer);
             if (prefix != token_prefix_none) {
+                lexer->buffer_count = 0;
                 lexer_parse_literal(lexer, prefix);
                 return;
             }
