@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -77,6 +77,12 @@ void location_set_copy(location_t* dest, location_t* src) {
     if (dest->source)
         token_deref(dest->source);
     *dest = *src;
+}
+
+void location_set_filename(location_t* location, string_t* filename) {
+    string_ref(filename);
+    string_deref(location->filename);
+    location->filename = filename;
 }
 
 void location_destroy(location_t* location) {

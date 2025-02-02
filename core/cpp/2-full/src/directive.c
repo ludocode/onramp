@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -290,6 +290,69 @@ static void directive_include(stream_t* stream, token_t* command) {
     token_deref(token);
 }
 
+static void directive_line(stream_t* stream, token_t* command) {
+    stream_skip_horizontal_space(stream);
+    if (!stream->use_lexer) {
+        fatal_token(command, "#line directive is not supported here.");
+    }
+
+    // parse line number
+    token_t* token = stream_peek(stream);
+    if (token->type != token_type_number) {
+        fatal_token(token, "Expected a line number after #line");
+    }
+
+    // TODO some compilers allow line numbers with 0x prefix (e.g. tcc).
+    // popular compilers don't. we should probably share the number parsing
+    // code with the expression parser but also warn if this is used.
+    // For now we don't bother.
+    // TODO test error handling on floats, 0x prefixes, trailing junk in
+    // numbers, etc. The below code should handle it all correctly but we have
+    // no tests.
+
+    const char* p = string_cstr(token->value);
+    int line = 0;
+    while (*p) {
+        if ((line == 0 && *p == '0')     // octal invalid
+                || *p < '0' || *p > '9') // must be decimal digit
+        {
+            fatal_token(token, "Invalid line number in #line; expected decimal integer.");
+        }
+        int new_line = line * 10 + *p++ - '0';
+        if (new_line <= line) {
+            fatal_token(token, "Overflow in line number in #line directive; line number must fit in a signed 32-bit int.");
+        }
+        line = new_line;
+    }
+    stream_consume(stream);
+
+    stream_skip_horizontal_space(stream);
+    token = stream_peek(stream);
+    string_t* filename = NULL;
+    if (token->type == token_type_string) {
+        if (token->prefix != token_prefix_none) {
+            fatal_token(token, "Filename in #line directive cannot have a string prefix.");
+        }
+        filename = string_ref(token->value);
+        stream_consume(stream);
+    }
+
+    // We need to set both token and char location because the current token
+    // might be the line ending in which case the following token might have
+    // already been parsed, see output of test misc/line-escaped-newline.c for
+    // example. TODO I intend to change the lexer to not parse on consume, once
+    // that's done one of these can be removed.
+    lexer_current->token_location.line = line;
+    lexer_current->char_location.line = line;
+    if (filename) {
+        location_set_filename(&lexer_current->token_location, filename);
+        location_set_filename(&lexer_current->char_location, filename);
+        string_deref(filename);
+    }
+
+    directive_parse_end_of_line(stream, command);
+}
+
 void directive_parse(stream_t* stream, token_t* directive) {
     assert(directive->type == token_type_directive);
     stream_skip_horizontal_space(stream);
@@ -321,9 +384,7 @@ void directive_parse(stream_t* stream, token_t* directive) {
     } else if (string_equal(command_str, STR_UNDEF)) {
         directive_undef(stream, command);
     } else if (string_equal(command_str, STR_LINE)) {
-        // TODO implement #line
-        fatal_token(command, "#line is not yet implemented.");
-        //directive_line(stream);
+        directive_line(stream, command);
     } else if (string_equal(command_str, STR_INCLUDE)) {
         directive_include(stream, command);
     } else if (string_equal(command_str, STR_INCLUDE_NEXT)) {
