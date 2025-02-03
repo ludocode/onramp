@@ -159,6 +159,10 @@ void emit_token_at(token_t* token, location_t* location) {
             emit_location(location);
             emit_token_string(token, '"');
             break;
+        // Invalid tokens are emitted verbatim. This provides some possibility
+        // of preprocessing files that aren't valid C. We're behaving the same
+        // way GCC and Clang do.
+        case token_type_invalid:
         case token_type_alphanumeric:
         case token_type_number:
         case token_type_punctuation:
@@ -181,7 +185,6 @@ void emit_token_at(token_t* token, location_t* location) {
         case token_type_directive:
         case token_type_angle_include:
         case token_type_end:
-        case token_type_invalid:
             fatal("Internal error: cannot emit token type '%c'.", token->type);
             break;
     }
