@@ -259,35 +259,121 @@ static void directive_undef(stream_t* stream, token_t* command) {
 // Handles an #include directive.
 static void directive_include(stream_t* stream, token_t* command) {
     stream_skip_horizontal_space(stream);
-    token_t* token = stream_take(stream);
+    token_t* token = stream_peek(stream);
 
     // If the next token is a string, we've found our filename.
     if (token->type == token_type_string || token->type == token_type_angle_include) {
         if (token->prefix != token_prefix_none) {
             fatal_token(token, "String prefixes are not supported on `#include` directives.");
         }
+        token = token_ref(token);
+        stream_consume(stream);
     } else {
+        token = NULL;
 
         // Otherwise we need to collect the rest of the tokens on the line and
         // perform a macro expansion pass on them.
 
-        if (token->type != token_type_alphanumeric) {
-            fatal_token(token, "An #include directive must contain a filename enclosed in quotes or angle brackets or a list of macros that expand to one.");
+        vector_t buffer;
+        vector_init(&buffer);
+        macro_expand_stream(stream, &buffer, false, true);
+        if (vector_is_empty(&buffer)) {
+            goto error;
         }
 
-        fatal_token(token, "TODO #include macro");
+        // Find the first and last non-whitespace tokens
+        // TODO don't we have helpers for this somewhere?
+        token_t* first = NULL;
+        token_t* last = NULL;
+        for (size_t i = 0; i < vector_count(&buffer); ++i) {
+            token_t* t = vector_at(&buffer, i);
+            if (t->type != token_type_space) {
+                first = t;
+                break;
+            }
+        }
+        for (size_t i = vector_count(&buffer); i-- > 0;) {
+            token_t* t = vector_at(&buffer, i);
+            if (t->type != token_type_space) {
+                last = t;
+                break;
+            }
+        }
+        if (first == NULL || last == NULL) {
+            goto error;
+        }
 
         // At this point we should have either a string or a tokenized
         // angle-bracketed filename. If it's angle-bracketed, we need to
         // convert it to a string and wrap it in a token with the same location
-        // as the first macro. TODO probably share stringify code
+        // as the first macro.
 
-        // TODO make sure rest of line is clear
+        // Check for a string
+        if (first->type == token_type_string) {
+            if (first != last) {
+                goto error;
+            }
+            token = token_ref(first);
+        } else if (token_is_punctuation(first, STR_LESS) && token_is_punctuation(last, STR_GREATER)) {
+
+            // Collect all tokens in between, adding their contents to a string
+            // buffer
+            // TODO we REALLY need a growable bytebuffer in libo
+            size_t capacity = 32;
+            uint8_t* str = malloc(capacity);
+            if (str == NULL) {
+                fatal_token(first, "Out of memory.");
+            }
+            size_t count = 0;
+            size_t i = 0;
+            for (size_t i = 0; first != vector_at(&buffer, i); ++i) {}
+            ++i;
+            for (size_t i = 0; last != vector_at(&buffer, i); ++i) {
+                // TODO this won't work if the filename has spaces in it
+                // because we don't store the value of whitespace in the
+                // tokens. We probably should.
+                // It also won't work if the filename has // in it but that's
+                // probably way harder to fix and probably shouldn't be fixed.
+                token_t* t = vector_at(&buffer, i);
+                size_t new_count = count + string_length(t->value);
+                if (capacity < new_count) {
+                    size_t new_capacity = new_count;
+                    do {
+                        new_capacity *= 2;
+                    } while (new_capacity <= new_count);
+                    str = realloc(str, new_capacity);
+                    if (str == NULL) {
+                        fatal_token(t, "Out of memory.");
+                    }
+                    capacity = new_capacity;
+                }
+                memcpy(str + count, string_cstr(t->value), string_length(t->value));
+                count = new_count;
+            }
+
+            // Create a token for it
+            token = token_new_bytes(token_type_angle_include, str, count, &first->location);
+            free(str);
+
+        } else {
+            goto error;
+        }
+
+        // Clean up
+        for (size_t i = 0; i < vector_count(&buffer); ++i) {
+            token_deref(vector_at(&buffer, i));
+        }
+        vector_destroy(&buffer);
     }
 
+    assert(token);
     directive_parse_end_of_line(stream, command);
     preprocess_include_search(stream, token);
     token_deref(token);
+    return;
+
+error:
+    fatal_token(token, "An #include directive must contain a filename enclosed in quotes or angle brackets or a list of macros that expand to one.");
 }
 
 static void directive_line(stream_t* stream, token_t* command) {
