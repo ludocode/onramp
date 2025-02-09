@@ -75,6 +75,15 @@ void emit_open(void) {
     if (output_file == NULL) {
         fatal("Failed to open output file: %s", output_file);
     }
+
+    // The first line of the output is always a linemarker for the source file.
+    // This comes before any includes, builtins, command-line arguments, etc.
+    string_t* filename = string_intern_cstr(options_input_filename);
+    location_t location;
+    location_init(&location, filename, 1, 1, NULL);
+    emit_location(&location);
+    location_destroy(&location);
+    string_deref(filename);
 }
 
 void emit_teardown(void) {
