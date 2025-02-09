@@ -262,7 +262,8 @@ static void directive_include(stream_t* stream, token_t* command) {
     token_t* token = token_ref(stream_peek(stream));
 
     // Collect the rest of the tokens on the line. We need to perform a macro
-    // expansion pass on them.
+    // expansion pass on them. (This is necessary even if the first token is a
+    // string. See test: ./include/include-macro-blank-after.c)
 
     vector_t buffer;
     vector_init(&buffer);
@@ -299,7 +300,9 @@ static void directive_include(stream_t* stream, token_t* command) {
 
     if (first->type == token_type_string || first->type == token_type_angle_include) {
         if (first != last) {
-            goto error;
+            // See test: ./include/include-extra-tokens-quote.c
+            // TODO enable warning
+            //warn(last, "-Wextra-tokens", "Unexpected token at the end of #include directive");
         }
         token_deref(token);
         token = token_ref(first);
