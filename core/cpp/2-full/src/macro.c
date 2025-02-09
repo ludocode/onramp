@@ -230,7 +230,9 @@ macro_t* macro_find(string_t* name) {
  * If the arguments contain preprocessor directives, the directives will be
  * parsed inline before this returns.
  */
-static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t* stream, vector_t* args) {
+static token_t* macro_collect_args(token_t* invocation, macro_t* macro,
+        stream_t* stream, vector_t* args, bool stop_on_newline)
+{
     //trace("Collecting args for macro %s\n", macro->name->value->bytes);
     vector_t* arg = vector_new();
     int depth = 0;
@@ -242,6 +244,9 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro, stream_t
         token = stream_take(stream);
         if (token->type == token_type_end) {
             fatal_token(token, "Unclosed macro argument list: expected `)` at end of macro invocation.");
+        }
+        if (stop_on_newline && token->type == token_type_newline) {
+            fatal_token(token, "Unclosed macro argument list. (A macro argument list in a preprocessor directive cannot span multiple lines.)");
         }
 
         if (token->type == token_type_directive) {
@@ -671,7 +676,7 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
 
             // Collect the arguments, running any embedded directives
             args = vector_new();
-            token_t* paren_close = macro_collect_args(token, macro, stream, args);
+            token_t* paren_close = macro_collect_args(token, macro, stream, args, stop_on_newline);
 
             // Generate the hideset. Dave Prosser's algorithm is to intersect
             // the hideset with that of the closing parenthesis.
