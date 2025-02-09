@@ -261,71 +261,63 @@ static void directive_include(stream_t* stream, token_t* command) {
     stream_skip_horizontal_space(stream);
     token_t* token = token_ref(stream_peek(stream));
 
-    // If the next token is a string, we've found our filename.
-    if (token->type == token_type_string || token->type == token_type_angle_include) {
-        if (token->prefix != token_prefix_none) {
-            fatal_token(token, "String prefixes are not supported on `#include` directives.");
-        }
-        stream_consume(stream);
-    } else {
+    // Collect the rest of the tokens on the line. We need to perform a macro
+    // expansion pass on them.
 
-        // Otherwise we need to collect the rest of the tokens on the line and
-        // perform a macro expansion pass on them.
-
-        vector_t buffer;
-        vector_init(&buffer);
-        macro_expand_stream(stream, &buffer, false, true);
-        if (vector_is_empty(&buffer)) {
-            goto error;
-        }
-
-        // Find the first and last non-whitespace tokens
-        // TODO don't we have helpers for this somewhere?
-        token_t* first = NULL;
-        token_t* last = NULL;
-        for (size_t i = 0; i < vector_count(&buffer); ++i) {
-            token_t* t = vector_at(&buffer, i);
-            if (t->type != token_type_space) {
-                first = t;
-                break;
-            }
-        }
-        for (size_t i = vector_count(&buffer); i-- > 0;) {
-            token_t* t = vector_at(&buffer, i);
-            if (t->type != token_type_space) {
-                last = t;
-                break;
-            }
-        }
-        if (first == NULL || last == NULL) {
-            goto error;
-        }
-
-        // At this point we should have either a string or a tokenized
-        // angle-bracketed filename.
-
-        // Check for a string
-        if (first->type == token_type_string) {
-            if (first != last) {
-                goto error;
-            }
-            token_deref(token);
-            token = token_ref(first);
-        } else if (token_is_punctuation(first, STR_LESS) && token_is_punctuation(last, STR_GREATER)) {
-            // Support for this has been removed. There are too many edge cases
-            // to make this work properly.
-            fatal_token(first, "Macros in #include that expand to an angle-bracketed filename are not supported.");
-        } else {
-            goto error;
-        }
-
-        // Clean up
-        for (size_t i = 0; i < vector_count(&buffer); ++i) {
-            token_deref(vector_at(&buffer, i));
-        }
-        vector_destroy(&buffer);
+    vector_t buffer;
+    vector_init(&buffer);
+    macro_expand_stream(stream, &buffer, false, true);
+    if (vector_is_empty(&buffer)) {
+        goto error;
     }
 
+    // Find the first and last non-whitespace tokens
+    // TODO don't we have helpers for this somewhere?
+    token_t* first = NULL;
+    token_t* last = NULL;
+    for (size_t i = 0; i < vector_count(&buffer); ++i) {
+        token_t* t = vector_at(&buffer, i);
+        if (t->type != token_type_space) {
+            first = t;
+            break;
+        }
+    }
+    for (size_t i = vector_count(&buffer); i-- > 0;) {
+        token_t* t = vector_at(&buffer, i);
+        if (t->type != token_type_space) {
+            last = t;
+            break;
+        }
+    }
+    if (first == NULL || last == NULL) {
+        goto error;
+    }
+
+    // At this point we should have either a string, an angle-bracketed
+    // filename parsed by the lexer, or a tokenized angle-bracketed filename
+    // expanded from a macro.
+
+    if (first->type == token_type_string || first->type == token_type_angle_include) {
+        if (first != last) {
+            goto error;
+        }
+        token_deref(token);
+        token = token_ref(first);
+    } else if (token_is_punctuation(first, STR_LESS) && token_is_punctuation(last, STR_GREATER)) {
+        // Support for this has been removed. There are too many edge cases
+        // to make this work properly.
+        fatal_token(first, "Macros in #include that expand to an angle-bracketed filename are not supported.");
+    } else {
+        goto error;
+    }
+
+    // Clean up
+    for (size_t i = 0; i < vector_count(&buffer); ++i) {
+        token_deref(vector_at(&buffer, i));
+    }
+    vector_destroy(&buffer);
+
+    // Our token is now the path to include. Do the search.
     assert(token);
     directive_parse_end_of_line(stream, command);
     preprocess_include_search(stream, token);
