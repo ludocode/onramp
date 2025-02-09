@@ -120,12 +120,7 @@ function clean() {
     fi
 }
 
-# Collect and sort file list
-find $SOURCE_FOLDER/* -name '*.c' > $TEMP_FILES
-FILES="$(cat $TEMP_FILES | sort)"
-rm -f $TEMP_FILES
-
-for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'); do
+for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'|sort); do
     THIS_ERROR=0
     BASENAME=$(echo $TESTFILE|sed 's/\.c$//')
 

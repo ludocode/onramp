@@ -59,6 +59,10 @@ static void emit_bytes(const char* bytes, size_t length) {
     }
 }
 
+static void emit_cstr(const char* cstr) {
+    emit_bytes(cstr, strlen(cstr));
+}
+
 void emit_setup(void) {
     last_char = '\n';
     location_init_builtin(&last_location);
@@ -85,6 +89,7 @@ static void emit_newline_if_needed(void) {
     if (last_char != '\n') {
         emit_char('\n');
         last_char = '\n';
+        ++last_location.line;
     }
 }
 
@@ -149,6 +154,20 @@ void emit_pragma_file_pop(void) {
     last_char = '\n';
 }
 
+void emit_inline_pragma(token_t* token) {
+    emit_newline_if_needed();
+    emit_location(&token->location);
+    emit_cstr("#pragma ");
+
+    // TODO we need to decode escape sequences! for now we don't bother; this
+    // works for all the pragmas we currently care about and the compiler will
+    // ignore the rest. We'll need to implement this to support GCC diagnostics
+    // in _Pragma().
+    emit_string(token->value);
+
+    emit_newline_if_needed();
+}
+
 void emit_token_at(token_t* token, location_t* location) {
     switch (token->type) {
         case token_type_character:
@@ -181,6 +200,9 @@ void emit_token_at(token_t* token, location_t* location) {
             break;
         case token_type_newline:
             // emit nothing. we insert newlines and linemarkers as needed.
+            break;
+        case token_type_pragma:
+            emit_inline_pragma(token);
             break;
         case token_type_directive:
         case token_type_angle_include:

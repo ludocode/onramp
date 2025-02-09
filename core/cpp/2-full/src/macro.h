@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,8 +34,13 @@ struct stream_t;
 struct macro_t;
 struct hideset_t;
 
-typedef void macro_function_t(struct macro_t* macro, vector_t* /*nullable*/ args,
-        struct stream_t* stream, struct hideset_t* hideset, location_t* location);
+typedef void macro_function_t(
+        struct token_t* token,
+        struct macro_t* macro,
+        vector_t* /*nullable*/ args,
+        struct stream_t* stream,
+        struct hideset_t* hideset,
+        location_t* location);
 
 /**
  * A macro.

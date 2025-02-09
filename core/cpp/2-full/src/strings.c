@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -74,7 +74,7 @@ string_t* STR_ASTERISK;                // *
 string_t* STR_SLASH;                   // /
 string_t* STR_PERCENT;                 // %
 string_t* STR_TILDE;                   // ~
-string_t* STR_EXCLAMATION;             // ~
+string_t* STR_EXCLAMATION;             // !
 
 // miscellaneous
 string_t* STR_EMPTY;          // ""

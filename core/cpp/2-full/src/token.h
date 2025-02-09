@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -46,6 +46,7 @@ typedef enum token_type_t {
     token_type_space = 'w',   // horizontal whitespace
     token_type_newline = 'l', // end-of-line token
     token_type_end = 'e',
+    token_type_pragma = 'g', // the contents of a _Pragma()
     token_type_invalid = 'i',
 } token_type_t;
 

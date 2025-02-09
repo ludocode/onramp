@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,6 +43,7 @@ static void macro_delete_arg(vector_t* arg);
 static macro_function_t macro_builtin_file;
 static macro_function_t macro_builtin_line;
 static macro_function_t macro_builtin_counter;
+static macro_function_t macro_builtin_pragma;
 
 static int macro_counter = 0;
 
@@ -81,7 +82,13 @@ static void macro_define_int(const char* cname, int value) {
     macro_deref(macro);
 }
 
-static void macro_define_function(const char* cname, macro_function_t* function) {
+/**
+ * Defines a macro.
+ *
+ * If arg_count is -1, this is an object-like macro; otherwise it's a
+ * function-like macro with the given number of args.
+ */
+static macro_t* macro_define_function(const char* cname, macro_function_t* function, int arg_count) {
     string_t* name = string_intern_cstr(cname);
     token_t* name_token = token_new(token_type_alphanumeric, name, &location_builtin);
     macro_t* macro = macro_new(name_token);
@@ -90,8 +97,16 @@ static void macro_define_function(const char* cname, macro_function_t* function)
 
     macro->function = function;
 
+    if (arg_count >= 0) {
+        macro->params = vector_new();
+        for (int i = 0; i < arg_count; ++i) {
+            vector_append(macro->params, string_intern_cstr(""));
+        }
+    }
+
     macro_define(macro);
     macro_deref(macro);
+    return macro;
 }
 
 void macro_define_builtins(void) {
@@ -99,9 +114,10 @@ void macro_define_builtins(void) {
         macro_define_int("__onramp_cpp__", 1);
     }
 
-    macro_define_function("__FILE__", macro_builtin_file);
-    macro_define_function("__LINE__", macro_builtin_line);
-    macro_define_function("__COUNTER__", macro_builtin_counter);
+    macro_define_function("__FILE__", macro_builtin_file, -1);
+    macro_define_function("__LINE__", macro_builtin_line, -1);
+    macro_define_function("__COUNTER__", macro_builtin_counter, -1);
+    macro_define_function("_Pragma", macro_builtin_pragma, 1);
 }
 
 void macro_undef(string_t* name) {
@@ -349,7 +365,7 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
     // If this is a builtin macro (e.g. __FILE__, __LINE__), delegate to the
     // function that implements it.
     if (macro->function) {
-        macro->function(macro, args, stream, hideset, location);
+        macro->function(token, macro, args, stream, hideset, location);
         return;
     }
 
@@ -855,22 +871,62 @@ static void macro_check(macro_t* macro) {
     }
 }
 
-static void macro_builtin_file(macro_t* macro, vector_t* /*nullable*/ args,
-        stream_t* stream, hideset_t* hideset, location_t* location)
+static void macro_builtin_file(token_t* token, macro_t* macro,
+        vector_t* /*nullable*/ args, stream_t* stream,
+        hideset_t* hideset, location_t* location)
 {
-    token_t* token = token_new(token_type_string, location->filename, location);
+    token = token_new(token_type_string, location->filename, location);
     token->hideset = hideset ? hideset_ref(hideset) : NULL;
     stream_push(stream, token);
 }
 
-static void macro_builtin_line(macro_t* macro, vector_t* /*nullable*/ args,
-        stream_t* stream, hideset_t* hideset, location_t* location)
+static void macro_builtin_line(token_t* token, macro_t* macro,
+        vector_t* /*nullable*/ args, stream_t* stream,
+        hideset_t* hideset, location_t* location)
 {
     stream_push(stream, token_new_int(location->line, location, hideset));
 }
 
-static void macro_builtin_counter(macro_t* macro, vector_t* /*nullable*/ args,
-        stream_t* stream, hideset_t* hideset, location_t* location)
+static void macro_builtin_counter(token_t* token, macro_t* macro,
+        vector_t* /*nullable*/ args, stream_t* stream,
+        hideset_t* hideset, location_t* location)
 {
     stream_push(stream, token_new_int(macro_counter++, location, hideset));
+}
+
+static void macro_builtin_pragma(token_t* token, macro_t* macro,
+        vector_t* /*nullable*/ args, stream_t* stream,
+        hideset_t* hideset, location_t* location)
+{
+    if (vector_count(args) != 1)
+        goto error;
+    vector_t* arg = vector_at(args, 0);
+    void** start = vector_start(arg);
+    void** end = vector_end(arg);
+    if (start == end)
+        goto error;
+
+    // There should be a single non-whitespace token. Find it
+    if (((token_t*)*start)->type == token_type_space) {
+        start = token_next(start, end);
+    }
+    if (start == NULL)
+        goto error;
+    if (token_next(start, end) != NULL)
+        goto error;
+    token = *start;
+
+    // Make sure it's a string
+    if (token->type != token_type_string)
+        goto error;
+
+    // Push a pragma token into the stream. It will get emitted as its own
+    // #pragma line by the emitter.
+    token = token_new(token_type_pragma, token->value, location);
+    token->hideset = hideset_ref(hideset);
+    stream_push(stream, token);
+    return;
+
+error:
+    fatal_token(token, "_Pragma() must contain a string.");
 }
