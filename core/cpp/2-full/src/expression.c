@@ -82,6 +82,7 @@ static int expression_binary_precedence(token_t* operator) {
  * in the left number.
  */
 static void expression_binary_evaluate(token_t* operator, number_t* left, const number_t* right) {
+    //trace("binary evaluate %u %s %u\n", (unsigned)left->u, operator->value->bytes, (unsigned)right->u);
 
     // The result of ||, &&, != and == is a boolean. This doesn't depend on the
     // sign of the operands and it promotes to signed regardless of the
@@ -254,17 +255,148 @@ static bool expression_try_parse_number(stream_t* stream, number_t* out) {
     //trace("expression parsing number token %s\n", p);
     unsigned base = 0;
 
-    // TODO assume decimal, need to port over cci/2 number parsing
-    out->u = 0;
-    base = 10;
-    for (;*p;) {
-        out->u *= base;
-        out->u += *p++ - '0';
+    // TODO this is copy-pasted from cci/2. Probably should be shared in libo,
+    // but it's not straightforward because it needs to be compilable without
+    // `long long`, and we don't really want to move all of cpp/2's u64_t
+    // arithmetic into libo. plus all the error handling is an issue.
+
+    // TODO this is written in omC. it should be normal C.
+
+    // detecting leading 0x/0X for hex
+    if (*p == '0') {
+        char x = *(p + 1);
+        if ((x == 'x') | (x == 'X')) {
+            base = 16;
+            p = (p + 2);
+        }
     }
+
+    // detect leading binary 0b/0B for binary
+    if (base == 0) {
+        if (*p == '0') {
+            char b = *(p + 1);
+            if ((b == 'b') | (b == 'B')) {
+                // TODO binary number literals are C23 only
+                base = 2;
+                p = (p + 2);
+            }
+        }
+    }
+
+    // detect leading 0 for octal
+    if (base == 0) {
+        if (*p == '0') {
+            base = 8;
+        }
+    }
+
+    // otherwise assume decimal
+    if (base == 0) {
+        base = 10;
+    }
+
+    // an octal constant is allowed to have a digit separator after the 0
+    // prefix. other prefixes are not.
+    if (base != 8 && *p == '\'') {
+        // TODO this should probably be a warning
+        fatal_token(token, "A digit separator is not allowed between an 0x/0b prefix and the first digit.");
+    }
+
+    // accumulate digits
+    bool was_separator;
+    uint64_t value = 0;
+    while (1) {
+        if (*p == '\'') {
+            // TODO digit separators are C23 only
+            p = (p + 1);
+            was_separator = true;
+            continue;
+        }
+
+        // TODO hex_to_int in libo
+        unsigned digit = 99;
+        if ((*p >= '0') & (*p <= '9')) {
+            digit = (*p - '0');
+        }
+        if ((*p >= 'a') & (*p <= 'f')) {
+            digit = ((*p - 'a') + 10);
+        }
+        if ((*p >= 'A') & (*p <= 'F')) {
+            digit = ((*p - 'A') + 10);
+        }
+        if (digit >= base) {
+            break;
+        }
+        was_separator = false;
+
+        // Add the digit, checking for overflow
+        uint64_t temp = value * base;
+        if (temp < value) {
+            goto out_of_range;
+        }
+        temp += digit;
+        if (temp < value) {
+            goto out_of_range;
+        }
+        value = temp;
+
+        p = (p + 1);
+    }
+
+    if (was_separator) {
+        // TODO this should probably be a warning
+        fatal_token(token, "A digit separator is not allowed at the end of a number.");
+    }
+
+    // parse out the suffix
+    bool suffix_unsigned = false;
+    bool suffix_long = false;
+    bool suffix_long_long = false;
+    while (*p) {
+
+        // parse long
+        if ((*p == 'l') | (*p == 'L')) {
+            if (suffix_long_long) {
+                fatal_token(token, "`long long long` integer suffix is not supported.");
+            }
+            if (suffix_long) {
+                suffix_long = false;
+                suffix_long_long = true;
+            } else {
+                suffix_long = true;
+            }
+            p = (p + 1);
+            continue;
+        }
+
+        // parse unsigned
+        if ((*p == 'u') | (*p == 'U')) {
+            if (suffix_unsigned) {
+                fatal_token(token, "Redundant `u` suffix on integer literal.");
+            }
+            suffix_unsigned = true;
+            p = (p + 1);
+            continue;
+        }
+
+        // unrecognized. try to give slightly better error mesagge
+        if (((*p == '.') | ((*p == 'e') | (*p == 'E'))) |
+                ((*p == 'p') | (*p == 'P')))
+        {
+            fatal_token(token, "TODO floating point literals are not yet supported");
+        }
+        fatal_token(token, "Malformed number literal.");
+    }
+
+    out->u = value;
+    out->is_signed = !suffix_unsigned;
 
     //trace("expression parsed %" PRIi64 "\n", out->s);
     stream_consume(stream);
     return true;
+
+out_of_range:
+    fatal_token(token, "Number does not fit in a 64-bit integer.");
 }
 
 static void expression_parse_primary(stream_t* stream, number_t* out) {
@@ -396,6 +528,7 @@ static void expression_parse_binary(stream_t* stream, number_t* out, int min_pre
         stream_skip_horizontal_space(stream);
         token_t* operator = stream_peek(stream);
         int precedence = expression_binary_precedence(operator);
+        //trace("precedence %i for %s, min_precedence %i\n", precedence, operator->value->bytes, min_precedence);
         if (precedence < min_precedence)
             break;
         token_ref(operator);
@@ -403,7 +536,7 @@ static void expression_parse_binary(stream_t* stream, number_t* out, int min_pre
 
         // Parse the right-hand side
         number_t temp;
-        expression_parse_binary(stream, &temp, min_precedence + 1);
+        expression_parse_binary(stream, &temp, precedence + 1);
 
         // Calculate
         expression_binary_evaluate(operator, out, &temp);

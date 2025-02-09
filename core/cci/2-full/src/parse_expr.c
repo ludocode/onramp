@@ -135,9 +135,12 @@ static base_t parse_number_type(token_t* token, u64_t* number, int base,
 static node_t* parse_number(void) {
     assert(lexer_token->type == token_type_number);
     node_t* node = node_new_lexer(NODE_NUMBER);
+    token_t* token = node->token;
 
-    const char* p = string_cstr(node->token->value);
+    const char* p = string_cstr(token->value);
     unsigned base = 0;
+
+    // TODO this is written in omC. it should be opC.
 
     // detecting leading 0x/0X for hex
     if (*p == '0') {
@@ -176,7 +179,7 @@ static node_t* parse_number(void) {
     // prefix. other prefixes are not.
     if (base != 8 && *p == '\'') {
         // TODO this should probably be a warning
-        fatal("A digit separator is not allowed between an 0x/0b prefix and the first digit.");
+        fatal_token(token, "A digit separator is not allowed between an 0x/0b prefix and the first digit.");
     }
 
     // accumulate digits
@@ -225,7 +228,7 @@ static node_t* parse_number(void) {
 
     if (was_separator) {
         // TODO this should probably be a warning
-        fatal("A digit separator is not allowed at the end of a number.");
+        fatal_token(token, "A digit separator is not allowed at the end of a number.");
     }
 
     // parse out the suffix
@@ -237,7 +240,7 @@ static node_t* parse_number(void) {
         // parse long
         if ((*p == 'l') | (*p == 'L')) {
             if (suffix_long_long) {
-                fatal("`long long long` integer suffix is not supported.");
+                fatal_token(token, "`long long long` integer suffix is not supported.");
             }
             if (suffix_long) {
                 suffix_long = false;
@@ -252,7 +255,7 @@ static node_t* parse_number(void) {
         // parse unsigned
         if ((*p == 'u') | (*p == 'U')) {
             if (suffix_unsigned) {
-                fatal("Redundant `u` suffix on integer literal.");
+                fatal_token(token, "Redundant `u` suffix on integer literal.");
             }
             suffix_unsigned = true;
             p = (p + 1);
@@ -263,13 +266,13 @@ static node_t* parse_number(void) {
         if (((*p == '.') | ((*p == 'e') | (*p == 'E'))) |
                 ((*p == 'p') | (*p == 'P')))
         {
-            fatal("TODO floating point literals are not yet supported");
+            fatal_token(token, "TODO floating point literals are not yet supported");
         }
-        fatal("Malformed number literal.");
+        fatal_token(token, "Malformed number literal.");
     }
 
     // Choose a type.
-    node->type = type_new_base(parse_number_type(node->token, &value, base,
+    node->type = type_new_base(parse_number_type(token, &value, base,
             suffix_unsigned, suffix_long, suffix_long_long));
 
     if (type_is_long_long(node->type)) {
@@ -280,7 +283,7 @@ static node_t* parse_number(void) {
     return node;
 
 out_of_range:
-    fatal_token(node->token, "Number does not fit in a 64-bit integer.");
+    fatal_token(token, "Number does not fit in a 64-bit integer.");
 }
 
 static node_t* parse_character(void) {

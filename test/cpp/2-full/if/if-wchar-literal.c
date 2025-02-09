@@ -5,5 +5,5 @@
 #if L'\n' + 5 == 15
 int main(void) {}
 #else
-error
+#error
 #endif
