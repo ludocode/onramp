@@ -27,6 +27,7 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#include "libo-unicode.h"
 #include "stream.h"
 #include "token.h"
 #include "strings.h"
@@ -289,6 +290,53 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
         return;
     }
 
+    // Parse literal character
+    if (stream_peek(stream)->type == token_type_character) {
+        token_t* token = stream_take(stream);
+        // TODO fix const in unicode funcs
+        char8_t* p = (char8_t*)string_cstr(token->value);
+        char8_t* end = p + string_length(token->value);
+
+        char32_t value = utf8_decode(&p, end);
+        if (value == '\\') {
+            // TODO share escape sequence parsing code with other parts of
+            // cpp/2 that need it (e.g. emit_pragma())
+            if (p == end) {
+                fatal_token(token, "Truncated character escape sequence.");
+            }
+            value = utf8_decode(&p, end);
+            switch (value) {
+                case 'a':   value = '\a';  break;  // bell
+                case 'b':   value = '\b';  break;  // backspace
+                case 't':   value = '\t';  break;  // horizontal tab
+                case 'n':   value = '\n';  break;  // line feed
+                case 'v':   value = '\v';  break;  // vertical tab
+                case 'f':   value = '\f';  break;  // form feed
+                case 'r':   value = '\r';  break;  // carriage return
+                case 'e':   value = 27;    break;  // escape (extension, not standard C)
+                case '"':   value = '"';   break;  // double quote
+                case '\'':  value = '\'';  break;  // single quote
+                case '?':   value = '?';   break;  // question mark
+                case '\\':  value = '\\';  break;  // backslash
+
+                case '0': case '1': case '2': case '3':
+                case '4': case '5': case '6': case '7':
+                case 'x': case 'X':
+                case 'u': case 'U':
+                    fatal_token(token, "Octal, hexadecimal and unicode escape sequences are not implemented in preprocessor expressions.");
+                    break;
+
+                default:
+                    fatal_token(token, "Unrecognized character escape sequence in preprocessor expression.");
+                    break;
+            }
+        }
+
+        out->u = (uint32_t)value;
+        token_deref(token);
+        return;
+    }
+
     // Any identifier that wasn't expanded as a macro is treated as a zero.
     // TODO warn -Wundef
     if (stream_peek(stream)->type == token_type_alphanumeric) {
@@ -296,8 +344,6 @@ static void expression_parse_primary(stream_t* stream, number_t* out) {
         out->u = 0;
         return;
     }
-
-    // TODO literal char.
 
     fatal_token(stream_peek(stream), "Expected primary expression in #if/#elif directive.");
 }
