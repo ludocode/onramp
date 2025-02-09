@@ -665,7 +665,11 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
             // directly by an open parenthesis (with only whitespace allowed;
             // in particular, no directives are allowed before the opening
             // parenthesis.)
-            stream_skip_whitespace(stream);
+            if (stop_on_newline) {
+                stream_skip_horizontal_space(stream);
+            } else {
+                stream_skip_whitespace(stream);
+            }
             if (!stream_accept(stream, STR_PAREN_OPEN)) {
                 // No parenthesis; just output it.
                 //trace("Object-like macro %s is not followed by an open paren. Outputting as-is\n", token->value->bytes);
