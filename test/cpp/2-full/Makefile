@@ -89,4 +89,4 @@ test-2: build FORCE
 test: test-0 test-1 FORCE
 
 generate: build FORCE $(VM)
-	../generate.sh . full $(VM) $(OUT)/cpp
+	../generate.sh . $(OUT)/cpp
