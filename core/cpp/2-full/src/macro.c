@@ -710,6 +710,9 @@ void macro_parse(stream_t* stream) {
         //token_print(name);
         fatal_token(macro_name, "Expected an identifier after `#define`.");
     }
+    if (string_equal(macro_name->value, STR_DEFINED)) {
+        fatal_token(macro_name, "`defined` is not a valid macro name.");
+    }
 
     // Create the macro
     macro_t* macro = macro_new(macro_name);
