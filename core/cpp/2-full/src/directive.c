@@ -394,6 +394,35 @@ static void directive_line(stream_t* stream, token_t* command) {
     directive_parse_end_of_line(stream, command);
 }
 
+static void directive_error_or_warning(stream_t* stream, token_t* directive, bool error) {
+
+    // Collect the rest of the tokens on the line and perform a macro expansion
+    // pass on them
+    vector_t buffer;
+    vector_init(&buffer);
+    macro_expand_stream(stream, &buffer, false, true);
+
+    // Stringify the result
+    token_t* strtok = token_new_stringify(&buffer, NULL);
+    // TODO this contains the string without resolving escape characters. We
+    // should resolve escapes. e.g. `#error "foo"` prints `#error: \"foo\"`
+
+    // Output it
+    if (error) {
+        fatal_token(directive, "#error: %s", string_cstr(strtok->value));
+    } else {
+        // TODO: this should be a warning, not an error, unless -Werror
+        fatal_token(directive, "#warning: %s", string_cstr(strtok->value));
+    }
+
+    // Clean up
+    token_deref(strtok);
+    for (size_t i = 0; i < vector_count(&buffer); ++i) {
+        token_deref(vector_at(&buffer, i));
+    }
+    vector_destroy(&buffer);
+}
+
 void directive_parse(stream_t* stream, token_t* directive) {
     assert(directive->type == token_type_directive);
     stream_skip_horizontal_space(stream);
@@ -435,11 +464,9 @@ void directive_parse(stream_t* stream, token_t* directive) {
         goto ignore;
         //directive_pragma(stream);
     } else if (string_equal(command_str, STR_ERROR)) {
-        fatal_token(command, "#error is not yet implemented.");
-        //directive_error_or_warning(stream, true);
+        directive_error_or_warning(stream, command, true);
     } else if (string_equal(command_str, STR_WARNING)) {
-        fatal_token(command, "#warning is not yet implemented.");
-        //directive_error_or_warning(stream, false);
+        directive_error_or_warning(stream, command, false);
     } else if (string_equal(command_str, STR_EMBED)) {
         fatal_token(command, "#embed is not yet implemented.");
         //directive_embed(stream);
