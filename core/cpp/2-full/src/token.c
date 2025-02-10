@@ -235,8 +235,31 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
     location_t* location = &location_builtin;
     bool last_space = false;
 
-    for (size_t i = 0; i < vector_count(tokens); ++i) {
-        token_t* token = vector_at(tokens, i);
+
+
+    // TODO this whole function is a mess. needs to be cleaned up badly.
+
+
+
+    void** start = vector_start(tokens);
+    void** end = vector_end(tokens);
+    if (start == end)
+        goto done;
+
+    // Find the first and last non-whitespace tokens
+    if (token_is_whitespace(*start)) {
+        start = token_next(start, end);
+    }
+    void** last = end - 1;
+    if (token_is_whitespace(*last)) {
+        last = token_previous(last, start);
+    }
+    end = last + 1;
+
+
+
+    for (void** p = start; p != end; ++p) {
+        token_t* token = *p;
         string_t* append;
 
         switch (token->type) {
@@ -244,6 +267,7 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
             // Our lexer creates space tokens for comments and doesn't coalesce
             // them so we need to do so here.
             case token_type_space:
+            case token_type_newline:
                 if (last_space)
                     continue;
                 last_space = true;
@@ -287,6 +311,7 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
         string_deref(append);
     }
 
+done:;
     token_t* token = token_new_bytes(token_type_string, result, result_length, location);
     free(result);
     token->hideset = hideset ? hideset_ref(hideset) : NULL;
@@ -297,8 +322,7 @@ token_t* token_new_stringify(vector_t* tokens, hideset_t* hideset) {
 
 void** token_next(void** p, void** end) {
     for (void** q = p + 1; q != end; ++q) {
-        token_t* token = *q;
-        if (token->type != token_type_space) {
+        if (!token_is_whitespace(*q)) {
             return q;
         }
     }
@@ -307,8 +331,7 @@ void** token_next(void** p, void** end) {
 
 void** token_previous(void** p, void** start) {
     for (void** q = p; q-- != start;) {
-        token_t* token = *q;
-        if (token->type != token_type_space) {
+        if (!token_is_whitespace(*q)) {
             return q;
         }
     }
