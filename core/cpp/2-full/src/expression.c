@@ -82,7 +82,7 @@ static int expression_binary_precedence(token_t* operator) {
  * in the left number.
  */
 static void expression_binary_evaluate(token_t* operator, number_t* left, const number_t* right) {
-    //trace("binary evaluate %u %s %u\n", (unsigned)left->u, operator->value->bytes, (unsigned)right->u);
+    //trace("binary evaluate %lu %s %lu\n", left->u, operator->value->bytes, right->u);
 
     // The result of ||, &&, != and == is a boolean. This doesn't depend on the
     // sign of the operands and it promotes to signed regardless of the
@@ -503,7 +503,7 @@ static void expression_parse_unary(stream_t* stream, number_t* out) {
     // Parse unary ~
     if (stream_accept(stream, STR_TILDE)) {
         expression_parse_unary(stream, out);
-        out->u = -out->u;
+        out->u = ~out->u;
         return;
     }
 
