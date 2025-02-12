@@ -36,10 +36,17 @@ void emit_open(void);
  * Emits linemarkers or newlines as needed to position the next token at the
  * given location.
  */
-void emit_location(location_t* location);
+void emit_location(location_t* location, bool force);
+
+/**
+ * Emits a linemarker for the start of a file.
+ */
+void emit_location_start(string_t* filename);
 
 void emit_pragma_file_push(void);
 void emit_pragma_file_pop(void);
+
+void emit_newline_if_needed(void);
 
 /**
  * Emits a token at a particular location.

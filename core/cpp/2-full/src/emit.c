@@ -79,10 +79,7 @@ void emit_open(void) {
     // The first line of the output is always a linemarker for the source file.
     // This comes before any includes, builtins, command-line arguments, etc.
     string_t* filename = string_intern_cstr(options_input_filename);
-    location_t location;
-    location_init(&location, filename, 1, 1, NULL);
-    emit_location(&location);
-    location_destroy(&location);
+    emit_location_start(filename);
     string_deref(filename);
 }
 
@@ -94,7 +91,7 @@ void emit_teardown(void) {
     location_destroy(&last_location);
 }
 
-static void emit_newline_if_needed(void) {
+void emit_newline_if_needed(void) {
     if (last_char != '\n') {
         emit_char('\n');
         last_char = '\n';
@@ -124,10 +121,10 @@ static void emit_token_string(token_t* token, char delimiter) {
     emit_char(delimiter);
 }
 
-void emit_location(location_t* location) {
+void emit_location(location_t* location, bool force) {
 
     // If the filenames match, we can optimize a bit.
-    if (string_equal(last_location.filename, location->filename)) {
+    if (!force && string_equal(last_location.filename, location->filename)) {
         if (location->line == last_location.line) {
             return;
         }
@@ -151,6 +148,13 @@ void emit_location(location_t* location) {
     last_char = '\n';
 }
 
+void emit_location_start(string_t* filename) {
+    location_t location;
+    location_init(&location, filename, 1, 1, NULL);
+    emit_location(&location, true);
+    location_destroy(&location);
+}
+
 void emit_pragma_file_push(void) {
     emit_newline_if_needed();
     fprintf(output_file, "#pragma onramp file push\n");
@@ -165,7 +169,7 @@ void emit_pragma_file_pop(void) {
 
 void emit_inline_pragma(token_t* token) {
     emit_newline_if_needed();
-    emit_location(&token->location);
+    emit_location(&token->location, false);
     emit_cstr("#pragma ");
 
     // TODO we need to decode escape sequences! for now we don't bother; this
@@ -180,11 +184,11 @@ void emit_inline_pragma(token_t* token) {
 void emit_token_at(token_t* token, location_t* location) {
     switch (token->type) {
         case token_type_character:
-            emit_location(location);
+            emit_location(location, false);
             emit_token_string(token, '\'');
             break;
         case token_type_string:
-            emit_location(location);
+            emit_location(location, false);
             emit_token_string(token, '"');
             break;
         // Invalid tokens are emitted verbatim. This provides some possibility
@@ -197,14 +201,14 @@ void emit_token_at(token_t* token, location_t* location) {
             // The string may be empty in the case of a token pasting
             // placeholder that wasn't concatenated.
             if (!string_is_empty(token->value)) {
-                emit_location(location);
+                emit_location(location, false);
                 emit_string(token->value);
             }
             break;
         case token_type_space:
             if (last_char == ' ' || last_char == '\n')
                 break;
-            emit_location(location);
+            emit_location(location, false);
             emit_char(' ');
             break;
         case token_type_newline:

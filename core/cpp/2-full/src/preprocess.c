@@ -83,13 +83,15 @@ static void preprocess_prepare_include(void) {
  * Note that includes are not recursive. This points the stream to the
  * new file and then returns.
  */
-static void preprocess_include_file(struct string_t* filename, FILE* file, struct token_t* source) {
+static void preprocess_include_file(string_t* filename, FILE* file, struct token_t* source) {
     //trace("pushing file %s\n", filename->bytes);
     if (file_current != NULL) {
+        emit_pragma_file_push();
         vector_append(&files, file_current);
     }
     file_current = file_new(filename, file, source);
     lexer_current = file_current->lexer;
+    emit_location_start(filename);
 }
 
 /*
@@ -159,11 +161,17 @@ static void preprocess_run(stream_t* stream) {
             //trace("popping file %s\n", file_current->lexer->reader.filename->bytes);
             file_delete(file_current);
 
+            // Always end all include files in a newline. (Otherwise if a
+            // single-line file is included twice in a row and line directives
+            // are disabled the tokens will run together.)
+            emit_newline_if_needed();
+
             // If there are no more files, we're done
             if (vector_is_empty(&files)) {
                 break;
             }
 
+            emit_pragma_file_pop();
             file_current = vector_remove_last(&files);
             lexer_current = file_current->lexer;
             continue;
