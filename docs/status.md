@@ -6,6 +6,24 @@ If a ✓ appears in the status column, the feature is implemented in Onramp. If 
 
 This is perhaps a wishlist of features that we'd like to implement, but it is in no way a promise or even a plan to implement them. Many of the features here will probably never be implemented. The main motivation for implementing features is whether real software we want to compile uses them.
 
+Standards:
+
+- [Onramp](#onramp)
+- [C89 (ANSI C)](#c89-ansi-c)
+- [C95](#c95)
+- [C99](#c99)
+- [C11](#c11)
+- [C17](#c17)
+- [C23](#c23)
+- [POSIX](#posix)
+- [BSD](#bsd)
+- [Common Extensions](#gnu-extensions)
+- [GNU Extensions](#gnu-extensions)
+- [Clang Extensions](#clang-extensions)
+- [Microsoft Extensions](#microsoft-extensions)
+- [Plan 9 Extensions](#plan-9-extensions)
+- [TinyCC Extensions](#tinycc-extensions)
+
 
 
 
@@ -16,7 +34,7 @@ This is mostly a list of internal Onramp features that still need to be implemen
 
 ### Virtual Machine
 
-A feature is checked here if it is well-specified and it is implemented in the debugger and (for non-debug features) other common VMs. Most of the below features are optional.
+A feature is checked here if it is well-specified and it is implemented in the debugger and (for non-debug features) other common VMs.
 
 | Feature                                                       | Status |
 |:--------------------------------------------------------------|:------:|
@@ -65,6 +83,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 
 | Feature                                                       | Status |
 |:--------------------------------------------------------------|:------:|
+| Constructors and destructors                                  |    ✓   |
 | Weak symbols                                                  |        |
 | Garbage collection                                            |        |
 
@@ -184,6 +203,7 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 
 
 
+
 ## C99
 
 ### Compiler
@@ -231,6 +251,7 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 
 
 
+
 ## C11
 
 ### Compiler
@@ -259,7 +280,6 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 | `aligned_alloc()`                             |        |
 | `<stdatomic.h>`                               |        |
 | `<threads.h>`                                 |        |
-
 
 
 
@@ -311,16 +331,6 @@ C17 added no no features and only fixed C11 defects. In Onramp, C17 is an alias 
 
 
 
-## Common Extensions
-
-| Feature                                       | Status |
-|:----------------------------------------------|:------:|
-| `#pragma once`                                |        |
-
-
-
-
-
 ## POSIX
 
 POSIX features are activated by defining `_POSIX_C_SOURCE` before including any header files.
@@ -342,7 +352,6 @@ POSIX is huge, and Onramp will never be able to implement some parts of it (such
 
 
 
-
 ## BSD
 
 | Feature                                                       | Status |
@@ -354,10 +363,21 @@ POSIX is huge, and Onramp will never be able to implement some parts of it (such
 
 
 
+## Common Extensions
+
+| Feature                                       | Status |
+|:----------------------------------------------|:------:|
+| `#pragma once`                                |        |
+
+
+
+
 
 ## GNU Extensions
 
 GNU extensions are activated with the command-line argument `-fgnu-extensions` or with a `-std=gnu*` option.
+
+When GNU extensions are enabled, some later version C features are available in earlier versions.
 
 ### Compiler
 
@@ -397,7 +417,6 @@ GNU extensions are activated with the command-line argument `-fgnu-extensions` o
 | Directives in macro arguments                                 |    ✓   |
 | `#include_next`                                               |        |
 | GNU-style linemarkers                                         |        |
-
 
 
 

@@ -1,4 +1,4 @@
-# Onramp Boostrap Path
+# Onramp Bootstrap Path
 
 This document describes the bootstrap process that Onramp takes to get from nothing all the way to a full implementation of C.
 
