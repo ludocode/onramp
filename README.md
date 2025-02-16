@@ -54,6 +54,8 @@ Onramp is an experiment in implementing C completely from scratch on a custom ar
     <img src="docs/assets/project-status.svg" alt="Current status of Onramp components." />
 </div>
 
+See the [Implementation Status](docs/status.md) document for a breakdown of implemented and missing features.
+
 
 
 ## Build Status
@@ -139,6 +141,7 @@ The following documentation pages are available:
     - [Onramp Shell](docs/shell.md)
     - [Onramp Debug Info](docs/debug-info.md)
 - Miscellaneous
+    - [Implementation Status](docs/status.md)
     - [Bootstrap Path](docs/bootstrap-path.md)
     - [Core Components](core/README.md)
     - [Testing Onramp](test/README.md)
