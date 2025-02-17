@@ -45,6 +45,7 @@ onrampvm build/intermediate/cc/cc.oe \
 
 echo Linking cc
 onrampvm build/intermediate/ld-2-full/ld.oe \
+    -O -g \
     build/output/lib/libc.oa \
     build/intermediate/libo-1-opc-re/libo.oa \
     build/intermediate/cc-re/cc.oo \
