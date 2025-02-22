@@ -32,13 +32,6 @@ echo === Rebuilding libc/3-full
 
 # libc/1 sources
 
-# TODO remove libc/1 malloc.oo when libc/3 malloc builds
-echo Compiling libc/1-omc malloc.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/1-omc/src/malloc.c \
-    -o build/intermediate/libc-3-full-re/malloc-libc1.oo
-
 echo Compiling libc/1-omc strtol.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -200,7 +193,6 @@ onrampvm build/intermediate/cc/cc.oe \
 # link
 
 # Note: start.oo must come first!
-# TODO remove libc/1 malloc.oo when libc/3 malloc builds
 echo Archiving libc/3-full
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/output/lib/libc.oa \
@@ -211,7 +203,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
     \
-    build/intermediate/libc-3-full-re/malloc-libc1.oo \
     build/intermediate/libc-3-full-re/strtol.oo \
     \
     build/intermediate/libc-3-full-re/assert.oo \

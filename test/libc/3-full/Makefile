@@ -60,7 +60,6 @@ OBJS3=\
 		$(BUILD3)/stdlib_3.oo \
 		$(BUILD3)/time.oo \
 
-# TODO remove libc/1 malloc.oo when libc/3 builds
 OBJS_ALL=\
 		$(BUILD2)/start.oo \
 		\
@@ -68,7 +67,6 @@ OBJS_ALL=\
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
-		$(BUILD1)/malloc.oo \
 		$(BUILD1)/strtol.oo \
 		\
 		$(BUILD2)/assert.oo \

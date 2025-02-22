@@ -83,7 +83,6 @@ onrampvm build/intermediate/cc/cc.oe \
     -o build/intermediate/libc-3-full/time.oo
 
 # Note: start.oo must come first!
-# TODO remove libc/1 malloc.oo when libc/3 malloc builds
 echo Archiving libc/3-full
 onrampvm build/intermediate/ar-0-cat/ar.oe \
     rc build/intermediate/libc-3-full/libc.oa \
@@ -94,7 +93,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
     \
-    build/intermediate/libc-1-omc/malloc.oo \
     build/intermediate/libc-1-omc/strtol.oo \
     \
     build/intermediate/libc-2-opc/assert.oo \

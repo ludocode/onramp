@@ -26,7 +26,7 @@ fi
 # build some dependencies
 set -e
 ROOT=$(dirname $0)/../..
-make -C $ROOT/test/cpp/1-omc/ build   # TODO 2-full
+make -C $ROOT/test/cpp/2-full/ build
 make -C $ROOT/test/cci/2-full/ build
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
@@ -66,8 +66,6 @@ elif ! [ "$LIBC_ID" = "full" ]; then
     exit 1
 fi
 MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1 $MACROS"
-# TODO use cpp/2 once it exists
-MACROS="$MACROS -D__onramp_cpp_opc__=1"
 MACROS="$MACROS -I $ROOT/core/libc/common/include"
 MACROS="$MACROS -include __onramp/__predef.h"
 
@@ -88,7 +86,7 @@ for TESTFILE in $FILES; do
 
     # preprocess
     PREPROCESSOR_ARGS="$PREPROCESSOR_OPTIONS $MACROS"
-    $ROOT/build/test/cpp-1-omc/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I
+    $ROOT/build/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I
     if [ $? -ne 0 ]; then
         echo "ERROR: $BASENAME failed to preprocess."
         THIS_ERROR=1
@@ -161,7 +159,7 @@ for TESTFILE in $FILES; do
     if [ $THIS_ERROR -eq 1 ]; then
         echo "Commands:"
         echo "    make build && \\"
-        echo "    $ROOT/build/test/cpp-1-omc/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
+        echo "    $ROOT/build/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
         echo "    $ROOT/build/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS && \\"
         echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/build/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"

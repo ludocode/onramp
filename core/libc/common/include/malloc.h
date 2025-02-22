@@ -37,4 +37,10 @@
 
 #include <stdlib.h>
 
+/*
+ * Additional <malloc.h> functions follow.
+ */
+
+void* memalign(size_t alignment, size_t size);
+
 #endif

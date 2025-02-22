@@ -24,11 +24,10 @@
 
 #include <stdlib.h>
 
+#include <__onramp/__pit.h>
 #include <errno.h>
 #include <limits.h>
 #include <string.h>
-
-extern int* __process_info_table;
 
             //#include <stdio.h>
             //void putd(int number);
@@ -89,7 +88,7 @@ void __malloc_init(void) {
 
     #ifdef __onramp__
         // The heap start is the program break aligned to 32 bits.
-        heap_start = *(__process_info_table + 1);
+        heap_start = *(__process_info_table + __ONRAMP_PIT_BREAK);
 
         // The heap end is the bottom of the stack. For now we reserve 32kB for
         // the stack. We just subtract it from the address of a local variable,

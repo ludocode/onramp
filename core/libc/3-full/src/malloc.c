@@ -26,6 +26,7 @@
 
 #include "internal.h"
 
+#include <__onramp/__pit.h>
 #include <malloc.h>
 #include <stdint.h>
 #include <string.h>
@@ -49,10 +50,6 @@
 // TODO we don't build on 64-bit systems currently so we can't build natively
 // for testing. For now we just build on onramp only.
 #ifdef __onramp__
-
-// TODO we also don't build on onramp because cpp/2 is not working yet. This is
-// disabled entirely.
-#ifndef __onramp__
 
 
 /*
@@ -106,6 +103,14 @@ typedef struct free_alloc_t {
  * The need to store pointers makes the minimum allocation size 8.
  */
 #define MINIMUM_ALLOCATION_SIZE (sizeof(free_alloc_t))
+
+/**
+ * The minimum alignment on Onramp is 4. There are no SIMD instructions or
+ * anything else in the system that could require larger alignment (however
+ * programs can still request larger alignment for their own purposes with
+ * aligned_alloc().)
+ */
+#define MINIMUM_ALIGNMENT (sizeof(size_t))
 
 /**
  * We have a separate free list for each power of two. Unused allocations are
@@ -163,6 +168,7 @@ static int highest_bit(unsigned v) {
 
 static void add_to_free_list(free_alloc_t* alloc, size_t size) {
     int size_class = highest_bit(size);
+    //printf("  adding to free list: 0x%p size %zi class %i\n", alloc, size, size_class);
     if (free_list[size_class] != NULL) {
         libc_assert(free_list[size_class]->previous == NULL);
         free_list[size_class]->previous = alloc;
@@ -173,6 +179,7 @@ static void add_to_free_list(free_alloc_t* alloc, size_t size) {
 }
 
 static void remove_from_free_list(free_alloc_t* alloc, size_t size) {
+    //printf("  removing from free list: 0x%p %zi\n", alloc, size);
     if (alloc->next != NULL) {
         alloc->next->previous = alloc->previous;
     }
@@ -214,7 +221,17 @@ __attribute__((constructor))
 #endif
 void __malloc_init(void) {
     #ifdef __onramp__
-        // __heap_start and __heap_end are assigned in the assembly for _start().
+
+        // The heap start is the program break aligned to 32 bits. (It's
+        // aligned below.)
+        __heap_start = __process_info_table[__ONRAMP_PIT_BREAK];
+
+        // The heap end is the bottom of the stack. For now we reserve 32kB for
+        // the stack. We just subtract it from the address of a local variable,
+        // close enough.
+        char* dummy;
+        __heap_end = (char*)&dummy - 32768;
+        //printf("__heap_start 0x%p __heap_end 0x%p dummy stack var 0x%p\n", __heap_start, __heap_end, &dummy);
 
         // TODO when assigning the heap_end we need to reserve space for the
         // stack. For the full libc we need to decide a stack size. Probably we
@@ -228,16 +245,7 @@ void __malloc_init(void) {
         // bootstrap in 1-omC so our compiler should run but the software we
         // compile with it might not. (We should also have a minimum stack
         // size, probably of 8 kB.)
-        //
-        // TODO not clear how much stack space Doom needs but it does have a
-        // minimum requirement of 4 MB of RAM. use this on original EXE:
-        //     https://stackoverflow.com/a/67236352
-        //
-        // TODO maybe an alternative to this is to not store the entire heap as
-        // one allocation, but instead do a morecore thing to add space to it.
-        // This way the stack and heap can grow as needed and bad things
-        // happen only if they collide. This may not be smart though, it would
-        // be nice to guarantee a minimum stack size.
+
 
     #elif defined(__linux__)
         // On Linux we allocate a big chunk to the heap.
@@ -247,6 +255,10 @@ void __malloc_init(void) {
     #else
         #error "Platform not supported."
     #endif
+
+    // align start and end pointers
+    __heap_start = (char*)((int)(__heap_start + 3) & (~3));
+    __heap_end = (char*)((int)__heap_end & (~3));
 
     if (__heap_end < __heap_start || (uintptr_t)(__heap_end - __heap_start) < (uintptr_t)(4 * sizeof(size_t))) {
         // Not enough heap to do anything useful. We simply return without
@@ -271,7 +283,8 @@ void __malloc_init(void) {
  */
 static void try_shrink(void* ptr, size_t requested_size) {
     size_t tag = HEADER_TAG(ptr);
-    size_t size = tag & ~1;
+    size_t size = tag & ~(size_t)1;
+    //printf("  try shrink 0x%p of size %zi to %zi\n",ptr, size, requested_size);
     libc_assert(tag & 1); // the allocation must be in used
     libc_assert(tag == FOOTER_TAG(ptr, size));
     libc_assert(requested_size <= size); // the requested size must be smaller
@@ -291,18 +304,30 @@ static void try_shrink(void* ptr, size_t requested_size) {
     }
 }
 
+// Rounds up the given size to the minimum size and natural alignment of
+// allocations.
+//
+// This is malloc_good_size() on macOS and nallocx() (without flags) on
+// FreeBSD. We could expose it as these at some point.
+static size_t round_size(size_t requested_size) {
+
+    // There's a minimum size to fit our free list pointers. (We always provide
+    // a unique address even if 0 bytes are requested.)
+    if (requested_size < MINIMUM_ALLOCATION_SIZE) {
+        requested_size = MINIMUM_ALLOCATION_SIZE;
+    }
+
+    // Allocations must remain aligned.
+    requested_size = (requested_size + (MINIMUM_ALIGNMENT - 1)) & ~(size_t)(MINIMUM_ALIGNMENT - 1);
+
+    return requested_size;
+}
+
 void* malloc(size_t requested_size) {
-
-    // We always allocate even if 0 bytes are requested. We only return NULL if
-    // we run out of memory.
-    if (requested_size == 0)
-        requested_size = 1;
-
-    // Round up to a multiple of the minimum allocation size.
-    requested_size = (requested_size + (MINIMUM_ALLOCATION_SIZE - 1))
-            & ~(MINIMUM_ALLOCATION_SIZE - 1);
-
+    //printf("malloc requested %zi\n",requested_size);
+    requested_size = round_size(requested_size);
     int size_class = highest_bit(requested_size);
+    //printf("  rounded to %zi, size_class %zi\n",requested_size, size_class);
 
     // First search the free list of the requested size class to see if any
     // existing free allocations will fit.
@@ -311,8 +336,9 @@ void* malloc(size_t requested_size) {
         size_t alloc_size = HEADER_TAG(alloc);
         libc_assert((alloc_size & 1) == 0); // allocation must be unused
         libc_assert(alloc_size == FOOTER_TAG(alloc, alloc_size)); // tags must match
-        if (requested_size < alloc_size)
+        if (requested_size > alloc_size)
             continue;
+        //printf("  found in matching size class %i\n",size_class);
         remove_from_free_list(alloc, alloc_size);
         found = alloc;
         break;
@@ -325,6 +351,7 @@ void* malloc(size_t requested_size) {
         while (++size_class < (int)(sizeof(free_list) / sizeof(free_list[0]))) {
             if (free_list[size_class] == NULL)
                 continue;
+            //printf("  found in higher size class %i\n",size_class);
             found = free_list[size_class];
             remove_from_free_list(found, HEADER_TAG(found));
             break;
@@ -338,8 +365,9 @@ void* malloc(size_t requested_size) {
 
     // Make sure what we found is valid
     size_t found_size = HEADER_TAG(found);
-    libc_assert(found_size >= requested_size);
+    //printf("  found 0x%p size %zi\n",found,found_size);
     libc_assert((found_size & 1) == 0); // allocation must be unused
+    libc_assert(found_size >= requested_size);
     libc_assert(found_size == FOOTER_TAG(found, found_size)); // tags must match
 
     // Mark it as used
@@ -350,6 +378,7 @@ void* malloc(size_t requested_size) {
     try_shrink(found, requested_size);
 
     // Done
+    //printf("  malloc() returning 0x%p\n",found);
     return found;
 }
 
@@ -358,7 +387,8 @@ void free(void* ptr) {
         return;
 
     size_t tag = HEADER_TAG(ptr);
-    size_t size = tag & ~1;
+    size_t size = tag & ~(size_t)1;
+    //printf("free() freeing 0x%p size %zi\n",ptr, size);
 
     // Some checks against memory corruption:
     // The tag must indicate that this pointer is in use.
@@ -375,6 +405,7 @@ void free(void* ptr) {
         size_t previous_size = PREVIOUS_TAG(ptr);
         if ((previous_size & 1) == 0) {
             free_alloc_t* previous = (free_alloc_t*)((char*)ptr - 2 * sizeof(size_t) - previous_size);
+            //printf("  merging with previous block 0x%p size %zi\n", previous, previous_size);
             libc_assert(previous_size == HEADER_TAG(previous));
             remove_from_free_list(previous, previous_size);
 
@@ -390,6 +421,7 @@ void free(void* ptr) {
         size_t next_size = NEXT_TAG(ptr, size);
         if ((next_size & 1) == 0) {
             free_alloc_t* next = (free_alloc_t*)((char*)ptr + size + 2 * sizeof(size_t));
+            //printf("  merging with next block 0x%p size %zi\n", next, next_size);
             libc_assert(next_size == FOOTER_TAG(next, next_size));
             remove_from_free_list(next, next_size);
 
@@ -408,6 +440,7 @@ size_t malloc_size(void* ptr) {
 }
 
 void* realloc(void* ptr, size_t new_size) {
+    //printf("realloc() resizing 0x%p from %zi to %zi\n",ptr, HEADER_TAG(ptr)&~(size_t)1, new_size);
 
     // realloc(NULL, size) is equivalent to malloc(size).
     if (ptr == NULL)
@@ -418,22 +451,17 @@ void* realloc(void* ptr, size_t new_size) {
     if (new_size == 0)
         abort();
 
+    new_size = round_size(new_size);
     size_t tag = HEADER_TAG(ptr);
-    size_t size = tag & ~1;
+    size_t size = tag & ~(size_t)1;
 
     // The same corruption checks as in free() above
     libc_assert(tag & 1);
     libc_assert(tag == FOOTER_TAG(ptr, size));
 
-    // If the requested size isn't more than the current size, just try to
-    // shrink. We don't do anything else.
-    if (new_size <= size) {
-        try_shrink(ptr, new_size);
-        return ptr;
-    }
-
     // See if the next block can be merged into this one (and if it would be
-    // large enough to satisfy the requested allocation)
+    // large enough to satisfy the requested allocation.) We do this even if
+    // we're shrinking because we need to merge the slack.
     if ((char*)ptr + size + sizeof(size_t) != __heap_end) {
         size_t next_size = NEXT_TAG(ptr, size);
         if ((next_size & 1) == 0 && size + next_size >= new_size) {
@@ -453,15 +481,27 @@ void* realloc(void* ptr, size_t new_size) {
         }
     }
 
+    // Otherwise, if the requested size isn't more than the current size, just
+    // try to shrink. We don't do anything else.
+    if (new_size <= size) {
+        try_shrink(ptr, new_size);
+        return ptr;
+    }
+
     // Otherwise we have to move.
     void* new_ptr = malloc(new_size);
-    if (new_ptr == NULL)
+    if (new_ptr == NULL) {
+        // malloc() already set errno
         return NULL;
+    }
     memcpy(new_ptr, ptr, size);
     free(ptr);
     return new_ptr;
 }
 
+// TODO for now we still rely on malloc_util.o from libc/0. We should decide
+// whether to keep using it (and remove this) or reimplement it in C here.
+#if 0
 void* calloc(size_t count, size_t element_size) {
     // TODO overflow
     size_t size = count * element_size;
@@ -470,6 +510,7 @@ void* calloc(size_t count, size_t element_size) {
         memset(ptr, 0, sizeof(size));
     return ptr;
 }
+#endif
 
 void* aligned_alloc(size_t alignment, size_t size) {
     // aligned_alloc() requires that the size be a multiple of the alignment.
@@ -493,9 +534,9 @@ void* memalign(size_t alignment, size_t size) {
 int posix_memalign(void** out_ptr, size_t alignment, size_t size) {
 
     // Make sure the alignment is valid and is a power of two
-    libc_assert(alignment >= sizeof(void*));
+    libc_assert(alignment >= sizeof(void*)); // TODO is this check required/valid?
     int alignment_class = highest_bit(alignment);
-    libc_assert((alignment & ~(1 << (alignment_class - 1))) == 0);
+    libc_assert((alignment & ~((size_t)1 << (alignment_class - 1))) == 0); // TODO use stdc_has_single_bit()
 
     // TODO for now we just ignore alignment. obviously this is not valid.
     // later we will just malloc() a much larger block, split it to get our
@@ -518,12 +559,40 @@ int posix_memalign(void** out_ptr, size_t alignment, size_t size) {
  *
  * This is used by __onramp_spawn() to provide as much free memory as possible
  * to the child process.
+ *
+ * This does not actually allocate it; it just returns the usable area. It is
+ * not safe to call any allocation functions while the area is in use.
  */
 void* __malloc_largest_unused_region(size_t* out_size) {
-    // TODO
-    return 0;
+    free_alloc_t* p;
+    size_t size = 0;
+
+    // Find the highest size class with an allocation in it
+    for (size_t size_class = (sizeof(free_list) / sizeof(free_list[0])); size_class-- != 0; ) {
+        if (free_list[size_class] == NULL)
+            continue;
+
+        // Find the largest allocation in this size class (usually there's only
+        // one but we check anyway)
+        for (free_alloc_t* f = free_list[size_class]; f; f = f->next) {
+            assert((HEADER_TAG(f) & 1) == 0); // make sure it's not allocated
+            if (HEADER_TAG(f) > size) {
+                size = HEADER_TAG(f);
+                p = f;
+            }
+        }
+        break;
+    }
+
+
+    // Return the unused portion so we don't corrupt our linked list
+    if (size <= sizeof(free_alloc_t)) {
+        __fatal("Out of memory.\n");
+    }
+    *out_size = size - sizeof(free_alloc_t);
+    //printf("__malloc_largest_unused_region() returning 0x%p size %zi\n",p+1, *out_size);
+    return p + 1;
 }
 
 
-#endif
 #endif

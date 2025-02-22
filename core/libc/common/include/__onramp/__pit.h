@@ -28,7 +28,12 @@
 /**
  * The process info table.
  */
+#ifdef __onramp_cci_omc__
+extern int* __process_info_table;
+#endif
+#ifndef __onramp_cci_omc__
 extern unsigned* __process_info_table;
+#endif
 
 #define __ONRAMP_PIT_VERSION 0
 #define __ONRAMP_PIT_BREAK 1
