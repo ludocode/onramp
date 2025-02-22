@@ -47,6 +47,11 @@
  * are 32 bits.
  */
 
+// NOTE: There is quite a bit of printf() code here that can be uncommented to
+// debug this. Note that malloc() is initialized before io, and __io_init()
+// needs malloc() so these print calls will crash on startup. Some hacks are
+// needed to use them. See io.c and system.c .
+
 // TODO we don't build on 64-bit systems currently so we can't build natively
 // for testing. For now we just build on onramp only.
 #ifdef __onramp__
@@ -266,7 +271,15 @@ void __malloc_init(void) {
         return;
     }
 
-    // The entire heap starts out as one big free allocation.
+    // Place sentinel tags at either end of the heap. This eliminates special
+    // cases in our merging code: the ends of the heap will be treated as
+    // allocations in use.
+    *(size_t*)__heap_start = 1;
+    __heap_start += sizeof(size_t);
+    __heap_end -= sizeof(size_t);
+    *(size_t*)__heap_end = 1;
+
+    // The rest of the heap starts out as one big free allocation.
     size_t size = __heap_end - __heap_start - 2 * sizeof(size_t);
     *(size_t*)__heap_start = size;     // header tag
     *((size_t*)__heap_end - 1) = size; // footer tag
@@ -471,16 +484,20 @@ size_t malloc_size(void* ptr) {
 }
 
 void* realloc(void* ptr, size_t new_size) {
-    //printf("realloc() resizing 0x%p from %zi to %zi\n",ptr, HEADER_TAG(ptr)&~(size_t)1, new_size);
+    //printf("realloc() resizing 0x%p to size %zi\n", ptr, new_size);
 
     // realloc(NULL, size) is equivalent to malloc(size).
-    if (ptr == NULL)
+    if (ptr == NULL) {
+        //printf("  ptr is null; forwarding to malloc()\n");
         return malloc(new_size);
+    }
 
     // realloc() of a non-null pointer with a size of zero is undefined
     // behaviour.
-    if (new_size == 0)
+    if (new_size == 0) {
+        //printf("  resize of non-null to 0 is undefined\n");
         abort();
+    }
 
     new_size = round_size(new_size);
     size_t tag = HEADER_TAG(ptr);

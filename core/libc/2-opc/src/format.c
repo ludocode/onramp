@@ -475,6 +475,9 @@ typedef struct {
 } output_t;
 
 static void output_init_file(output_t* output, FILE* file) {
+    if (file == NULL) {
+        __fatal("NULL was passed to a format function expected FILE*.\n");
+    }
     memset(output, 0, sizeof(*output));
     output->file = file;
 }
@@ -492,9 +495,8 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
         if (count != fwrite(bytes, 1, count, output->file)) {
             output->error = true;
         }
-    }
 
-    if (output->buffer) {
+    } else if (output->buffer) {
         char* buffer = output->buffer;
         size_t free_space = output->buffer_end - output->buffer;
         if (free_space < count) {
@@ -504,6 +506,9 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
             output->buffer += count;
         }
         memcpy(buffer, bytes, count);
+
+    } else {
+        __fatal("Internal error: Invalid format output.");
     }
 }
 
