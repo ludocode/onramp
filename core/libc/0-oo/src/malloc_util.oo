@@ -79,7 +79,7 @@
 
 
 ; ==========================================================
-; void* strdup(const char* str);
+; char* strdup(const char* str);
 ; ==========================================================
 ; Allocates and returns a copy of the given null-terminated string.
 ; ==========================================================
@@ -116,7 +116,7 @@
 
 
 ; ==========================================================
-; void* strndup(const char* str, size_t n);
+; char* strndup(const char* str, size_t n);
 ; ==========================================================
 ; Allocates and returns a copy of the given null-terminated string.
 ;

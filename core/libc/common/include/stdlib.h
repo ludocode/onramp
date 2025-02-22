@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -96,8 +96,17 @@ void free(void* __ptr);
 void* malloc(size_t __size);
 void* realloc(void* __ptr, size_t __size);
 int posix_memalign(void** __ptr, size_t __alignment, size_t __size);
-// TODO extensions
-size_t malloc_size(void* ptr);
+
+// TODO extensions. this is BSD and Linux; macOS calls this malloc_size()
+size_t malloc_usable_size(void* __ptr);
+
+// TODO C23
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+void free_sized(void* __ptr) __asm__("free");
+void free_aligned_sized(void* __ptr) __asm__("free");
+#endif
+#endif
 
 
 

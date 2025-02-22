@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Fraser Heavy Software
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -64,7 +64,6 @@ OBJS_ALL=\
 		$(BUILD2)/start.oo \
 		\
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
-		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
 		$(BUILD1)/strtol.oo \

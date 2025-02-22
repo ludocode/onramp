@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -32,6 +32,7 @@
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdbit.h>
 
 /**
  * This is Onramp's full implementation of malloc().
@@ -46,11 +47,9 @@
  * are 32 bits.
  */
 
-
 // TODO we don't build on 64-bit systems currently so we can't build natively
 // for testing. For now we just build on onramp only.
 #ifdef __onramp__
-
 
 /*
  * The allocator is made extra simple because we don't have to worry about
@@ -66,12 +65,6 @@ char* __heap_end;
  *
  * The lowest bit of the boundary tag is 1 if the allocation is in use and 0
  * otherwise.
- *
- * The second lowest bit of a header tag is 1 if the allocation has left
- * padding for alignment. In this case it's not a real boundary tag; the size
- * instead indicates how much to shift left to get the real base of the
- * pointer. TODO nope get rid of this, if we can't align by cutting left, skip
- * the block entirely
  *
  * The higher bits are the size.
  *
@@ -102,7 +95,7 @@ typedef struct free_alloc_t {
 /**
  * The need to store pointers makes the minimum allocation size 8.
  */
-#define MINIMUM_ALLOCATION_SIZE (sizeof(free_alloc_t))
+#define MINIMUM_SIZE (sizeof(free_alloc_t))
 
 /**
  * The minimum alignment on Onramp is 4. There are no SIMD instructions or
@@ -164,6 +157,12 @@ static int highest_bit(unsigned v) {
     }
 
     return r;
+}
+
+// TODO this belongs in <stdbit.h> and should be a _Generic macro
+// (and also we should have a better implementation)
+static int stdc_has_single_bit(size_t x) {
+    return x != 0 && (x & ~(1 << highest_bit(x))) == 0;
 }
 
 static void add_to_free_list(free_alloc_t* alloc, size_t size) {
@@ -277,11 +276,43 @@ void __malloc_init(void) {
     free_list[highest_bit(size)] = alloc;
 }
 
+// TODO try_grow and try_shrink are always used together, we should just merge them into try_resize()
+
+/*
+ * Try to merge this (in use) allocation with the next one if it's free.
+ */
+static void try_grow(void* ptr, size_t size) {
+    assert(HEADER_TAG(ptr) & 1); // ensure in use
+    assert((HEADER_TAG(ptr) & ~(size_t)1) == size); // ensure given size is correct
+
+    size_t next_tag = NEXT_TAG(ptr, size);
+    if (next_tag & 1) {
+        //printf("  try grow 0x%p can't grow\n",ptr);
+        // The next allocation is in use. We can't use it.
+        return;
+    }
+
+    // The next allocation is free. We can merge.
+    free_alloc_t* next = (free_alloc_t*)((char*)ptr + size + 2 * sizeof(size_t));
+    libc_assert(next_tag == FOOTER_TAG(next, next_tag));
+    remove_from_free_list(next, next_tag);
+
+    //printf("  try grow 0x%p size %zi merging with 0x%p new size %zi\n",ptr, size, (void*)next, size + next_tag + TAGS_SIZE);
+    size = size + next_tag + TAGS_SIZE;
+    HEADER_TAG(ptr) = size | 1;
+    FOOTER_TAG(ptr, size) = size | 1;
+}
+
 /*
  * Try to split ptr down to the given size, putting any remainder back in the
  * free lists.
  */
-static void try_shrink(void* ptr, size_t requested_size) {
+static void try_shrink(void* ptr, size_t current_size, size_t requested_size) {
+
+    // If the next allocation is free, we have to first merge it into this one
+    // before we can split, otherwise we'll have two adjacent free allocations.
+    try_grow(ptr, current_size);
+
     size_t tag = HEADER_TAG(ptr);
     size_t size = tag & ~(size_t)1;
     //printf("  try shrink 0x%p of size %zi to %zi\n",ptr, size, requested_size);
@@ -289,7 +320,7 @@ static void try_shrink(void* ptr, size_t requested_size) {
     libc_assert(tag == FOOTER_TAG(ptr, size));
     libc_assert(requested_size <= size); // the requested size must be smaller
 
-    if (size - requested_size >= TAGS_SIZE + MINIMUM_ALLOCATION_SIZE) {
+    if (size - requested_size >= TAGS_SIZE + MINIMUM_SIZE) {
         size_t other_size = size - requested_size - TAGS_SIZE;
 
         // Shrink this allocation
@@ -311,10 +342,10 @@ static void try_shrink(void* ptr, size_t requested_size) {
 // FreeBSD. We could expose it as these at some point.
 static size_t round_size(size_t requested_size) {
 
-    // There's a minimum size to fit our free list pointers. (We always provide
-    // a unique address even if 0 bytes are requested.)
-    if (requested_size < MINIMUM_ALLOCATION_SIZE) {
-        requested_size = MINIMUM_ALLOCATION_SIZE;
+    // There's a minimum size to fit our free list pointers. (We also always
+    // provide a unique address even if 0 bytes are requested.)
+    if (requested_size < MINIMUM_SIZE) {
+        requested_size = MINIMUM_SIZE;
     }
 
     // Allocations must remain aligned.
@@ -375,7 +406,7 @@ void* malloc(size_t requested_size) {
     FOOTER_TAG(found, found_size) |= 1;
 
     // See if there is enough space left over to split it
-    try_shrink(found, requested_size);
+    try_shrink(found, found_size, requested_size);
 
     // Done
     //printf("  malloc() returning 0x%p\n",found);
@@ -459,6 +490,25 @@ void* realloc(void* ptr, size_t new_size) {
     libc_assert(tag & 1);
     libc_assert(tag == FOOTER_TAG(ptr, size));
 
+    // If the requested size isn't more than the current size, just try to
+    // shrink it. We don't do anything else.
+    if (new_size <= size) {
+        try_shrink(ptr, size, new_size);
+        return ptr;
+    }
+
+    // See if we can merge this block with the next one
+    try_grow(ptr, size);
+    size_t grow_size = malloc_usable_size(ptr);
+
+    // If we're now large enough, we can shrink back down to the new size and
+    // we're done.
+    if (grow_size >= new_size) {
+        try_shrink(ptr, grow_size, new_size);
+        return ptr;
+    }
+
+#if 0
     // See if the next block can be merged into this one (and if it would be
     // large enough to satisfy the requested allocation.) We do this even if
     // we're shrinking because we need to merge the slack.
@@ -476,17 +526,11 @@ void* realloc(void* ptr, size_t new_size) {
             FOOTER_TAG(ptr, size) = size | 1;
 
             // If there's any left over, put it back in.
-            try_shrink(ptr, new_size);
+            try_shrink(ptr, size, new_size);
             return ptr;
         }
     }
-
-    // Otherwise, if the requested size isn't more than the current size, just
-    // try to shrink. We don't do anything else.
-    if (new_size <= size) {
-        try_shrink(ptr, new_size);
-        return ptr;
-    }
+#endif
 
     // Otherwise we have to move.
     void* new_ptr = malloc(new_size);
@@ -499,59 +543,106 @@ void* realloc(void* ptr, size_t new_size) {
     return new_ptr;
 }
 
-// TODO for now we still rely on malloc_util.o from libc/0. We should decide
-// whether to keep using it (and remove this) or reimplement it in C here.
-#if 0
-void* calloc(size_t count, size_t element_size) {
-    // TODO overflow
-    size_t size = count * element_size;
-    void* ptr = malloc(size);
-    if (ptr)
-        memset(ptr, 0, sizeof(size));
-    return ptr;
-}
-#endif
+void* aligned_alloc(size_t alignment, size_t requested_size) {
+    //printf("aligned_alloc requested alignment %zi size %zi\n", alignment, requested_size);
 
-void* aligned_alloc(size_t alignment, size_t size) {
-    // aligned_alloc() requires that the size be a multiple of the alignment.
-    libc_assert(size % alignment == 0);
+    // aligned_alloc() on C11 requires that the size be a multiple of the
+    // alignment. This requirement was relaxed in C17 so we don't check.
+    requested_size = round_size(requested_size);
 
-    // memalign() and posix_memalign() don't so we wrap them instead of the
-    // other way around.
-    return memalign(alignment, size);
-}
-
-void* memalign(size_t alignment, size_t size) {
-    void* ptr;
-    int err = posix_memalign(&ptr, alignment, size);
-    if (err != 0) {
-        errno = err;
+    // The only requirement for alignment is that it is an alignment supported
+    // by the implementation. This implementation supports any power of two.
+    if (!stdc_has_single_bit(alignment)) {
+        //printf("  bad alignment!\n");
+        errno = EINVAL;
         return NULL;
     }
-    return ptr;
+
+    // We allocate a chunk that is the size plus the alignment, this way we can
+    // align the pointer within it and return the excess on both sides to the
+    // heap. We also add the overhead of an empty allocation (tags plus
+    // pointers) to ensure that we can make enough space on the left to store
+    // metadata. This can require a fair bit of extra memory for large
+    // alignments but the excess is immediately returned to the heap.
+    size_t alloc_size = requested_size + alignment + TAGS_SIZE + MINIMUM_SIZE;
+    //printf("  rounded size to %zi, allocating %zi\n",requested_size, alloc_size);
+    void* p = malloc(alloc_size);
+    if (!p) {
+        // malloc() set errno
+        return NULL;
+    }
+
+    // Check alignment
+    libc_assert(stdc_has_single_bit(alignment));
+    uintptr_t mask = (uintptr_t)(alignment - 1);
+    uintptr_t pu = (uintptr_t)p;
+    if (pu & ~mask == 0) {
+        // It's already aligned. Just cut right and return.
+        //printf("  already aligned. shrinking\n");
+        size_t current_size = HEADER_TAG(p) & ~(size_t)1;
+        try_shrink(p, current_size, requested_size);
+        //printf("  final allocation size is %zi\n", HEADER_TAG(p)&~(size_t)1);
+        //printf("  returning 0x%p\n", p);
+        return p;
+    }
+
+    // Align the pointer
+    uintptr_t qu = (pu + mask) & ~mask;
+    if (qu - pu < TAGS_SIZE + MINIMUM_SIZE) {
+        // Not quite aligned on the left, but not enough room for metadata. We
+        // jump to the next multiple of alignment, or at least enough that we
+        // can fit a left allocation. (This is why we needed to reserve extra
+        // space for metadata above.)
+        //printf("  not enough to cut left; jumping to next alignment\n");
+        if (alignment < MINIMUM_SIZE + TAGS_SIZE) {
+            qu += MINIMUM_SIZE + TAGS_SIZE;
+        } else {
+            qu += alignment;
+        }
+    }
+    void* q = (void*)qu;
+    //printf("  aligned to 0x%p\n", q);
+    libc_assert(qu - pu + requested_size <= alloc_size);
+
+    // Return excess left to the heap
+    size_t left_size = qu - pu - TAGS_SIZE;
+    //printf("  cutting left allocation of %zi\n", left_size);
+    libc_assert(left_size >= MINIMUM_SIZE);
+    HEADER_TAG(p) = left_size;
+    FOOTER_TAG(p, left_size) = left_size;
+    add_to_free_list(p, left_size);
+    size_t new_size = alloc_size - (qu - pu);
+    //printf("  new allocation size is %zi\n", new_size);
+    libc_assert(new_size >= requested_size);
+    HEADER_TAG(q) = new_size | 1;
+    FOOTER_TAG(q, new_size) = new_size | 1;
+
+    // Return excess right to the heap
+    //printf("  shrinking\n");
+    try_shrink(q, new_size, requested_size);
+    //printf("  final allocation size is %zi\n", HEADER_TAG(q)&~(size_t)1);
+    //printf("  returning 0x%p\n", q);
+    return q;
 }
 
 int posix_memalign(void** out_ptr, size_t alignment, size_t size) {
 
-    // Make sure the alignment is valid and is a power of two
-    libc_assert(alignment >= sizeof(void*)); // TODO is this check required/valid?
-    int alignment_class = highest_bit(alignment);
-    libc_assert((alignment & ~((size_t)1 << (alignment_class - 1))) == 0); // TODO use stdc_has_single_bit()
+    // posix_memalign() requires that the alignment is at least sizeof(void*)
+    // and is a power of two. (aligned_alloc() checks for power of two.)
+    if (alignment < sizeof(void*))
+        return EINVAL;
 
-    // TODO for now we just ignore alignment. obviously this is not valid.
-    // later we will just malloc() a much larger block, split it to get our
-    // aligned request, then return the rest back.
-
-    int old_err = errno;
-    void* ptr = malloc(size);
-    if (!ptr) {
+    // posix_memalign() must not modify the output pointer or set errno on
+    // failure. We preserve errno before and restore it after the call.
+    int prev_err = errno;
+    void* p = aligned_alloc(alignment, size);
+    if (!p) {
         int err = errno;
-        errno = old_err;
+        errno = prev_err;
         return err;
     }
-    *out_ptr = ptr;
+    *out_ptr = p;
     return 0;
-
 }
 
 /**
@@ -584,7 +675,6 @@ void* __malloc_largest_unused_region(size_t* out_size) {
         break;
     }
 
-
     // Return the unused portion so we don't corrupt our linked list
     if (size <= sizeof(free_alloc_t)) {
         __fatal("Out of memory.\n");
@@ -594,5 +684,55 @@ void* __malloc_largest_unused_region(size_t* out_size) {
     return p + 1;
 }
 
+size_t malloc_usable_size(void* p) {
+    size_t tag = HEADER_TAG(p);
+    assert(tag & 1); // ensure allocation is in use
+    size_t size = tag & ~(size_t)1;
+    assert(tag == FOOTER_TAG(p, size)); // ensure footer tag matches header tag
+    //printf("malloc_usable_size() 0x%p returning %zi\n",p, size);
+    return size;
+}
+
+void* calloc(size_t count, size_t element_size) {
+    // TODO overflow
+    size_t size = count * element_size;
+    void* ptr = malloc(size);
+    if (ptr)
+        memset(ptr, 0, size);
+    return ptr;
+}
+
+void* __memdup(const void* src, size_t count) {
+    void* dest = malloc(count);
+    if (!dest) {
+        // malloc() set errno
+        return NULL;
+    }
+    memcpy(dest, src, count);
+    return dest;
+}
+
+char* strdup(const char* src) {
+    size_t len = strlen(src);
+    void* dest = malloc(len + 1);
+    if (!dest) {
+        // malloc() set errno
+        return NULL;
+    }
+    memcpy(dest, src, len + 1);
+    return dest;
+}
+
+char* strndup(const char* src, size_t max_len) {
+    size_t len = strnlen(src, max_len);
+    void* dest = malloc(len + 1);
+    if (!dest) {
+        // malloc() set errno
+        return NULL;
+    }
+    memcpy(dest, src, len);
+    dest[len] = 0;
+    return dest;
+}
 
 #endif

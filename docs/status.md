@@ -166,7 +166,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 | Formatting: `printf()`, `vsnprintf()`, etc.                   |   ½\*  |
 | Scanning: `scanf()`, `sscanf()`, etc.                         |        |
 | File I/O: `fopen()`, `fread()`, etc.                          |    ✓   |
-| Memory allocation: `malloc()`, `realloc()`, etc.              |   ½\*  |
+| Memory allocation: `malloc()`, `realloc()`, etc.              |    ✓   |
 | `<math.h>` functions                                          |        |
 | `<errno.h>`                                                   |    ✓   |
 | `<stdlib.h>` algorithms: `qsort()`, etc.                      |    ½   |
@@ -174,8 +174,6 @@ A feature is checked here if it is well-specified and it is implemented in the d
 | Signals: `<signal.h>`, `sigaction()`, `raise()`               |        |
 
 \* Basic `printf()` formatting works but specifier flags and modifiers are mostly ignored.
-
-\* `malloc()` in libc/0 does not reclaim memory on `free()`. `malloc()` in libc/1 works but it is very slow. A good `malloc()` is written in libc/2 but it is not working yet, does not properly support alignment, and does not support expanding the heap. A "morecore" syscall is needed. Once libc/2 `malloc()` is fully implemented, libc/1 `malloc()` could be deleted.
 
 
 
@@ -277,7 +275,7 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 
 | Feature                                       | Status |
 |:----------------------------------------------|:------:|
-| `aligned_alloc()`                             |        |
+| `aligned_alloc()`                             |    ✓   |
 | `<stdatomic.h>`                               |        |
 | `<threads.h>`                                 |        |
 
@@ -326,6 +324,7 @@ C17 added no no features and only fixed C11 defects. In Onramp, C17 is an alias 
 |:----------------------------------------------|:------:|
 | `<stdbit.h>`                                  |        |
 | `<stdckdint.h>`                               |        |
+| `free_sized()`, `free_aligned_sized()`        |    ✓   |
 
 
 
