@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,17 +22,11 @@
  * SOFTWARE.
  */
 
-        // TODO currently using this workaround since we don't have #undef in cpp/1
-        // TODO add #undef in cpp/1 to simplify this
-        #define __ONRAMP_STRING_IMPL
-#include <string.h>
-        int bcmp(const void* a, const void* b, size_t count);
-        void* memcpy(void* dest, const void* src, size_t count);
-        char* rindex(const char* s, int c);
-        char* index(const char* s, int c);
+#define __ONRAMP_STRING_IMPL
 
 #include "internal.h"
 
+#include <string.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -549,10 +543,11 @@ void* __memdup(const void* src, size_t size) {
 
 
 /*
- * These functions are aliased in the headers but we still need to provide
- * definitions in case assembly code references them. They'll be
- * garbage-collected by ld/2 if unused.
+ * When <string.h> is included, bcmp() and memcpy() are aliased to memcmp() and
+ * memmove(). We still need to provide definitions when bootstrapping because
+ * they are used by bytecode/assembly.
  */
+// TODO we should #ifdef these out when doing the final rebuild
 
 int bcmp(const void* a, const void* b, size_t count) {
     return memcmp(a, b, count);
@@ -560,12 +555,4 @@ int bcmp(const void* a, const void* b, size_t count) {
 
 void* memcpy(void* dest, const void* src, size_t count) {
     return memmove(dest, src, count);
-}
-
-char* rindex(const char* s, int c) {
-    return strrchr(s, c);
-}
-
-char* index(const char* s, int c) {
-    return strchr(s, c);
 }

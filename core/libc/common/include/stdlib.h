@@ -103,8 +103,8 @@ size_t malloc_usable_size(void* __ptr);
 // TODO C23
 #ifndef __onramp_cci_omc__
 #ifndef __onramp_cci_opc__
-void free_sized(void* __ptr) __asm__("free");
-void free_aligned_sized(void* __ptr) __asm__("free");
+void free_sized(void* __ptr, size_t __size) __asm__("free");
+void free_aligned_sized(void* __ptr, size_t __alignment, size_t __size) __asm__("free");
 #endif
 #endif
 

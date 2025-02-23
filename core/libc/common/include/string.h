@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,38 +33,6 @@
 #include <__onramp/__null.h>
 
 /* TODO organize these like the standard */
-
-
-
-#ifndef __ONRAMP_STRING_IMPL
-
-#ifdef __onramp_cci_omc__
-#define __ONRAMP_ASM_NAME_WORKAROUND
-#endif
-#ifdef __onramp_cci_opc__
-#define __ONRAMP_ASM_NAME_WORKAROUND
-#endif
-
-#ifndef __ONRAMP_ASM_NAME_WORKAROUND
-int bcmp(const void* a, const void* b, size_t count) __asm__("memcmp");
-void* memcpy(void* dest, const void* src, size_t count) __asm__("memmove");
-char* rindex(const char* s, int c) __asm__("strrchr");
-char* index(const char* s, int c) __asm__("strchr");
-#endif
-
-#ifdef __ONRAMP_ASM_NAME_WORKAROUND
-#define bcmp memcmp
-#define memcpy memmove
-#define index strchr
-#define rindex strrchr
-#endif
-
-#endif
-
-
-
-void bcopy(const void* src, void* dest, size_t count);
-void bzero(void* p, size_t count);
 
 void* memccpy(void* restrict dest, const void* restrict src, int c, size_t n);
 void* memchr(const void* s, int c, size_t n);
@@ -107,5 +75,31 @@ char* strdup(const char* str);
 char* strndup(const char* str, size_t max_length);
 
 void* __memdup(const void* src, size_t size);
+
+void bcopy(const void* src, void* dest, size_t count);
+void bzero(void* p, size_t count);
+
+/*
+ * These functions are just aliases of others. Some of them need forwarding
+ * definitions during bootstrapping.
+ */
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+#ifndef __ONRAMP_STRING_IMPL
+    #define __ONRAMP_STRING_ASM_NAMES
+    int bcmp(const void* a, const void* b, size_t count) __asm__("memcmp");
+    void* memcpy(void* dest, const void* src, size_t count) __asm__("memmove");
+    char* rindex(const char* s, int c) __asm__("strrchr");
+    char* index(const char* s, int c) __asm__("strchr");
+#endif
+#endif
+#endif
+#ifndef __ONRAMP_STRING_ASM_NAMES
+    int bcmp(const void* a, const void* b, size_t count);
+    void* memcpy(void* dest, const void* src, size_t count);
+#endif
+#ifndef __onramp_cpp_omc__
+    #undef __ONRAMP_STRING_ASM_NAMES
+#endif
 
 #endif
