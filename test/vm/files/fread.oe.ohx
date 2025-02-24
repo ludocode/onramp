@@ -20,8 +20,8 @@
     79 80 8E 20   ; stw r0 rpp 0x20
 
     ; jump to test
-    7C 8A 00 00   ; ims ra <test   ; imw ra ^test (0x160)
-    7C 8A 60 01   ; ims ra >test
+    7C 8A 00 00   ; ims ra <test   ; imw ra ^test (0x2B0)
+    7C 8A B0 02   ; ims ra >test
     70 8F 8E 8A   ; add rip rpp ra
 
     ; padding
@@ -192,50 +192,34 @@
 @0x160
 
 
+
 ;==========================================
-; void test(void);
+; int read_file(int fd);
 ;==========================================
+; Reads the file.
+;
+; The file is read at the program break.
+;
+; Returns the number of bytes in the file.
+;
 ; vars:
 ;     - file descriptor: rfp-4
 ;     - total: rfp-8
 ;==========================================
 
-@0x160 test
+@0x160 =read_file
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
-    ; TODO check if we have all needed syscalls.
-    ; fopen is optional so if not implemented the test should pass
-    ; (unless we mark the test as only for hosted environments.)
-    ; if fopen is implemented, fread and fclose must be implemented as well (and fwrite but we don't use it in this test.)
+    ; setup local variables
+    71 8C 8C 08    ; sub rsp rsp 8    ; make stack space
+    79 80 8D FC    ; stw r0 rfp -4    ; save file descriptor
+    79 00 8D F8    ; stw 0 rfp -8     ; clear total
 
-
-
-    ; open the file
-
-    ; call open_file
-    7C 8A 00 00    ; ims ra <open_file
-    7C 8A 90 00    ; ims ra >open_file (0x90)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; save file descriptor
-    79 80 8D FC    ; stw r0 rfp -4
-
-
-
-    ; read the file
-
-    ; clear total
-    79 00 8D F8    ; stw 0 rfp -8
-
-;:test_read_loop
+;:read_file_loop
 
     ; syscall fread(fd, break + total, 127);
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process info table
@@ -248,43 +232,55 @@
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
-    7E 8A 04 00   ; jz ra &test_read_ok (+4)
+    7E 8A 04 00   ; jz ra &read_file_ok (+4)
     ; fail, exit(2)
     70 80 02 00   ; add r0 2 0
     7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
     7C 8A 70 00   ; ims ra >exit
     70 8F 8E 8A   ; add rip rpp ra
-;:test_read_ok
+;:read_file_ok
 
     ; if we got zero, it's eof
-    7E 80 04 00   ; jz r0 &test_read_done (+4)
+    7E 80 04 00   ; jz r0 &read_file_done (+4)
 
     ; add and loop
     78 81 8D F8   ; ldw r1 rfp -8
     70 81 81 80   ; add r1 r1 r0
     79 81 8D F8   ; stw r1 rfp -8
-    7E 00 EE FF   ; jz 0 &test_read_loop (-18)
+    7E 00 EE FF   ; jz 0 &read_file_loop (-18)
 
-;:test_read_done
+;:read_file_done
 
-    ; close the file
-    ; syscall fclose(fd)
-    78 80 8D FC   ; ldw r0 rfp -4
-    7F 04 00 00   ; sys fclose
+    ; return total
+    78 80 8D F8     ; ldw r0 rfp -8
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
-;;    ; make sure fclose returned 0
-;TODO disabled, most vms don't currently set r0 on fclose() and there's no point to requiring it. instead we should allow these syscalls to not return values on syscalls that can't fail, and c-debugger should quash it with high bit set to make sure there's no error checking on it
-;;    7E 80 04 00   ; jz r0 &test_close_ok (+4)
-;;    ; fail, exit(3)
-;;    70 80 03 00   ; add r0 3 0
-;;    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
-;;    7C 8A 70 00   ; ims ra >exit
-;;    70 8F 8E 8A   ; add rip rpp ra
-;;;:test_close_ok
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x200
 
 
 
-    ; compare the file
+;==========================================
+; int compare_file(int fd);
+;==========================================
+; Compares the contents of the file to that expected.
+;==========================================
+
+@0x200 =compare_file
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
     ; make sure we got exactly 13 bytes
     78 81 8D F8   ; ldw r1 rfp -8
@@ -319,6 +315,77 @@
     7E 00 F4 FF   ; jz 0 &test_check_loop (-12)
 ;:test_check_loop_done
 
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x2B0
+
+
+
+;==========================================
+; void test(void);
+;==========================================
+; vars:
+;     - file descriptor: rfp-4
+;     - total: rfp-8
+;==========================================
+
+@0x2B0 =test
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; make room for local variables
+    71 8C 8C 08    ; sub rsp rsp 8
+
+    ; call open_file
+    7C 8A 00 00    ; ims ra <open_file
+    7C 8A 90 00    ; ims ra >open_file (0x90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; save file descriptor
+    79 80 8D FC    ; stw r0 rfp -4
+
+    ; call read_file(fd)
+    7C 8A 00 00    ; ims ra <read_file
+    7C 8A 60 01    ; ims ra >read_file (0x160)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; close the file, syscall fclose(fd)
+    78 80 8D FC   ; ldw r0 rfp -4
+    7F 04 00 00   ; sys fclose
+
+    ; call compare_file(fd)
+    78 80 8D FC    ; ldw r0 rfp -4
+    7C 8A 00 00    ; ims ra <compare_file
+    7C 8A 00 02    ; ims ra >compare_file (0x200)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
     ; success! exit(0)
     70 80 00 00   ; add r0 0 0
     7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
@@ -334,3 +401,5 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
+
+@0x370
