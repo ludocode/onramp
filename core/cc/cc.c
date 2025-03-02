@@ -471,6 +471,11 @@ static bool try_parse_misc(char*** argv) {
 
     if (try_parse_option_string(argv, "-wrap-header", &wrap_header)) {return true;}
 
+    if (try_parse_misc_option(argv, "--version", NULL)) {
+        puts("Onramp (cc) version 0");
+        _Exit(0);
+    }
+
     return false;
 }
 
