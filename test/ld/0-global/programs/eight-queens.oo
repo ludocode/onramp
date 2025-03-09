@@ -25,11 +25,10 @@
 ; Generates all solutions to the 8 queens problem, printing them to standard
 ; output.
 
-
-
-; global vars:
-; - process_info_table: r9
-; - queens: r8
+; TODO we should change this test to link against the libc since that's a
+; better test of how .oo files are normally used. That would require changes to
+; the test runner. For now we just include a putchar() that makes the syscall
+; manually.
 
 
 
@@ -43,13 +42,10 @@
     7E 61 6D 70   ; jz 97 28781
     7E 20 20 20   ; jz 32 8224
 
-    ; put process info table in r9
-    70 89 00 80   ; add r9 0 r0
-
-    ; put queens array in r8
-    7C 88 <queens
-    7C 88 >queens
-    70 88 88 8E    ; add r8 r8 rpp
+    ; store process info table
+    7C 89 <process_info_table
+    7C 89 >process_info_table
+    79 80 8E 89   ; stw r0 rpp r9
 
     ; call place_queen(0)
     70 80 00 00    ; add r0 0 0
@@ -62,8 +58,21 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; jump to exit with status 0
+    7C 89 <process_info_table
+    7C 89 >process_info_table
+    78 89 8E 89    ; ldw r9 rpp r9
     70 80 00 00    ; add r0 0 0
     78 8F 89 08    ; ldw rip r9 8     ; load exit address into rip
+
+
+
+; ======================================
+; uint32_t* process_info_table;
+; ======================================
+
+=process_info_table
+    00 00 00 00
+
 
 
 
@@ -81,7 +90,7 @@
 ; ======================================
 ; bool is_queen_valid(int x, int y);
 ; ======================================
-; Returns true if the queen in the given row and column would be valid given
+; Returns true if a queen in the given row and column would be valid given
 ; the queens in the preceding columns, or false otherwise
 ;
 ; vars:
@@ -93,7 +102,7 @@
 ; ======================================
 
 =is_queen_valid
-    ; no stack frame
+    ; don't bother with a stack frame
 
     ; iterate i from 0 to x
     70 82 00 00   ; add r2 0 0
@@ -110,7 +119,10 @@
     71 83 80 82   ; sub r3 r0 r2
 
     ; get the queen's position in column i
-    7A 84 88 82   ; ldb r4 r8 r2
+    7C 88 <queens   ; ims r8 <queens
+    7C 88 >queens   ; ims r8 >queens
+    70 88 8E 88     ; add r8 rpp r8
+    7A 84 88 82     ; ldb r4 r8 r2
 
     ; check if there's a queen in the same row
     71 8A 84 81   ; sub ra r4 r1
@@ -152,6 +164,12 @@
 
 =place_queen
 
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
     ; if x is 8, we print the board instead of placing queens.
     71 8A 80 08    ; sub ra r0 8
     7E 8A &place_queen_print      ; jz ra &place_queen_print
@@ -159,27 +177,22 @@
     
 :place_queen_print
 
-        ; call print_board()
-        7C 8A <print_board    ; ims ra <print_board
+        ; clean up stack frame
+        70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+        78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+        70 8C 8C 04     ; add rsp rsp 4     ; ...
+
+        ; tail-call print_board()
+        7C 8A <print_board    ; ims ra <print_board    ; jmp ^print_board
         7C 8A >print_board    ; ims ra >print_board
-        71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-        70 8B 8F 08    ; add rb rip 8
-        79 8B 00 8C    ; stw rb 0 rsp
-        70 8F 8E 8A    ; add rip rpp ra    ; jump
-        70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+        70 8F 8E 8A           ; add rip rpp ra
 
         ; return
-        78 8F 00 8C   ; ldw rip 0 rsp     ; ret
+        78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 :place_queen_not_print
 
-    ; set up a stack frame
-    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp        ; enter
-    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
-    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
-
-    ; load our vars into the frame
-    71 8C 8C 08     ; sub rsp rsp 8
+    ; initialize vars
     79 80 8D FC     ; stw r0 rfp -4   ; store x
     79 00 8D F8     ; stw 0 rfp -8    ; store y=0
 
@@ -199,10 +212,15 @@
     ; if not valid, don't recurse
     7E 80 &place_queen_inc_y    ; jz r0 &place_queen_inc_y
 
-    ; queen is valid. recurse place_queen(x+1)
+    ; queen is valid. store it
     78 80 8D FC    ; ldw r0 rfp -4    ; load x
     78 81 8D F8    ; ldw r1 rfp -8    ; load y
+    7C 88 <queens   ; ims r8 <queens
+    7C 88 >queens   ; ims r8 >queens
+    70 88 8E 88     ; add r8 rpp r8
     7B 81 88 80    ; stb r1 r8 r0     ; queens[x] = y
+
+    ; recurse place_queen(x+1)
     70 80 80 01    ; add r0 r0 1      ; inc r0
     7C 8A <place_queen    ; ims ra <place_queen
     7C 8A >place_queen    ; ims ra >place_queen
@@ -227,7 +245,7 @@
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^
-    78 8F 00 8C   ; ldw rip 0 rsp     ; ret
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 
 
@@ -237,77 +255,148 @@
 ; vars:
 ; - x: r3
 ; - y: r4
-; "Q": rsp
-; ".": rsp+1
-; " ": rsp+2
-; "\n": rsp+3
 ; ======================================
 
 =print_board
 
-    ; push "Q. \n" to the stack
-    71 8C 8C 04    ; sub rsp rsp 4
-    7C 8A 20 0A    ; imm ra " \n"
-    7C 8A 51 2E    ; imm ra "Q."
-    79 8A 8C 00    ; stw ra rsp 0
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
 
     ; iterate over y from 0 to 8
-    70 84 00 00   ; add r4 0 0
+    79 00 8E F8     ; stw 0 rfp -8    ; y=0
 :print_board_next_y
 
         ; iterate over x from 0 to 8
-        70 83 00 00   ; add r3 0 0
+        79 00 8E FC     ; stw 0 rfp -4    ; x=0
         :print_board_next_x
 
-            ; check whether there is a queen in this position. 0 for "Q", 1 for "."
-            7A 8A 88 83    ; ldb ra r8 r3
-            71 8A 8A 84    ; sub ra ra r4
-            7E 8A 01 00    ; jz ra +1
-            70 8A 00 01    ; add ra 0 1
+            ; check whether there is a queen in this position.
+            78 83 8E FC     ; ldw r3 rfp -4
+            7C 88 <queens   ; ims r8 <queens
+            7C 88 >queens   ; ims r8 >queens
+            70 88 8E 88     ; add r8 rpp r8
+            7A 87 88 83     ; ldb r7 r8 r3
+            78 84 8E F8     ; ldw r4 rfp -8
+            71 87 87 84     ; sub r7 r7 r4
 
-            ; print the character, syscall write(stdout, rsp+ra, 1)
-            78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
-            70 81 8C 8A   ; add r1 rsp ra    ; r1 = string address (rsp+ra)
-            70 82 00 01   ; add r2 0 1       ; r2 = string length (1)
-            7F 06 00 00   ; sys write 0 0
+            ; choose the character to emit, either "Q" or "."
+            7E 87 &print_board_queen
+            70 80 00 2E    ; add r0 0 "."   ; mov r0 "."
+            7E 00 &print_board_char   ; jmp &print_board_char
+        :print_board_queen
+            70 80 00 51    ; add r0 0 "Q"   ; mov r0 "Q"
+        :print_board_char
+
+            ; call putchar()
+            7C 8A <putchar    ; ims ra <putchar
+            7C 8A >putchar    ; ims ra >putchar
+            71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+            70 8B 8F 08       ; add rb rip 8
+            79 8B 00 8C       ; stw rb 0 rsp
+            70 8F 8E 8A       ; add rip rpp ra    ; jump
+            70 8C 8C 04       ; add rsp rsp 4     ; pop return address
 
             ; increment x
+            78 83 8E FC    ; ldw r3 rfp -4
             70 83 83 01    ; add r3 r3 1   ; inc r3
-            71 8A 83 08    ; sub ra r3 8
-            7E 8A &print_board_x_done    ; jz ra &print_board_x_done
+            79 83 8E FC    ; stw r3 rfp -4
 
-            ; print a space for alignment
-            70 81 8C 02   ; add r1 rsp 2    ; r1 = string address (rsp+2)
-            78 80 89 10   ; ldw r0 r9 16     ; r0 = stdout
-            70 82 00 01   ; add r2 0 1       ; r2 = string length (1)
-            7F 06 00 00   ; sys write 0 0
+            ; break if x == 8
+            71 87 83 08    ; sub ra r3 8
+            7E 87 &print_board_x_done    ; jz ra &print_board_x_done
+
+            ; print a space for alignment, call putchar(' ')
+            70 80 00 20       ; add r0 0 " "   ; mov r0 " "
+            7C 8A <putchar    ; ims ra <putchar
+            7C 8A >putchar    ; ims ra >putchar
+            71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+            70 8B 8F 08       ; add rb rip 8
+            79 8B 00 8C       ; stw rb 0 rsp
+            70 8F 8E 8A       ; add rip rpp ra    ; jump
+            70 8C 8C 04       ; add rsp rsp 4     ; pop return address
 
             ; next
             7E 00 &print_board_next_x    ; jz 0 &print_board_next_x
         :print_board_x_done
 
-        ; print newline
-        78 80 89 10   ; ldw r0 r9 16    ; r0 = stdout
-        70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
-        70 82 00 01   ; add r2 0 1      ; r2 = string length (1)
-        7F 06 00 00   ; sys write 0 0
+        ; print newline, call putchar('\n')
+        70 80 00 0A       ; add r0 0 10   ; mov r0 10  (\n)
+        7C 8A <putchar    ; ims ra <putchar
+        7C 8A >putchar    ; ims ra >putchar
+        71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+        70 8B 8F 08       ; add rb rip 8
+        79 8B 00 8C       ; stw rb 0 rsp
+        70 8F 8E 8A       ; add rip rpp ra    ; jump
+        70 8C 8C 04       ; add rsp rsp 4     ; pop return address
 
         ; next y
+        78 84 8E F8    ; ldw r4 rfp -8
         70 84 84 01    ; add r4 r4 1   ; inc r4
-        71 8A 84 08    ; sub ra r4 8
-        7E 8A 01 00    ; jz ra 1
+        79 84 8E F8    ; stw r4 rfp -8
+        71 87 84 08    ; sub ra r4 8
+        7E 87 &print_board_done_y    ; jz ra &print_board_done_y
         7E 00 &print_board_next_y    ; jz 0 &print_board_next_y
+:print_board_done_y
 
-    ; print two newlines
-    78 80 89 10   ; ldw r0 r9 16    ; r0 = stdout
-    70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
-    70 82 00 01   ; add r2 0 1      ; r2 = string length (1)
-    7F 06 00 00   ; sys write 0 0
-    78 80 89 10   ; ldw r0 r9 16    ; r0 = stdout
-    70 81 8C 03   ; add r1 rsp 3    ; r1 = string address (rsp+3)
-    70 82 00 01   ; add r2 0 1      ; r2 = string length (1)
-    7F 06 00 00   ; sys write 0 0
+    ; call putchar('\n')
+    70 80 00 0A       ; add r0 0 10   ; mov r0 10  (\n)
+    7C 8A <putchar    ; ims ra <putchar
+    7C 8A >putchar    ; ims ra >putchar
+    71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra    ; jump
+    70 8C 8C 04       ; add rsp rsp 4     ; pop return address
+
+    ; call putchar('\n') again
+    70 80 00 0A       ; add r0 0 10   ; mov r0 10  (\n)
+    7C 8A <putchar    ; ims ra <putchar
+    7C 8A >putchar    ; ims ra >putchar
+    71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra    ; jump
+    70 8C 8C 04       ; add rsp rsp 4     ; pop return address
 
     ; return
-    70 8C 8C 04    ; add rsp rsp 4
-    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int putchar(int c);
+; ==========================================================
+
+=putchar
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; push the character so we can get a pointer to it
+    71 8C 8C 04     ; sub rsp rsp 4     ; push c
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; get standard output handle
+    7C 8A <process_info_table      ; ims ra <process_info_table
+    7C 8A >process_info_table      ; ims ra >process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+    78 80 89 10                    ; ldw r0 r9 16     ; r0 = pit[STDOUT]
+
+    ; make the syscall
+    70 81 00 8C    ; add r1 0 rsp   ; mov r1 rsp
+    70 82 00 01    ; add r2 0 1     ; mov r2 1
+    7F 06 00 00    ; sys write 0 0
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret

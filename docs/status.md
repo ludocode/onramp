@@ -285,7 +285,7 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 
 ## C17
 
-C17 added no no features and only fixed C11 defects. In Onramp, C17 is an alias for C11; all C17 fixes are backported to C11.
+C17 added no new features and only fixed C11 defects. In Onramp, C17 is an alias for C11; all C17 fixes are backported to C11.
 
 
 

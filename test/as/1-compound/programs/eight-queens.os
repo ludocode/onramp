@@ -27,37 +27,21 @@
 
 
 
-; global vars:
-; - process_info_table: r9
-; - queens: r8
-
-
-
 ;==========================================
-; [[noreturn]] void __start(uint32_t* process_info_table);
+; int main(void);
 ;==========================================
 
-; TODO this was written before we were linking against libc, hack to workaround it
-;=__start
-;    "~Onr~amp~   "
 =main
-imw r0 ^__process_info_table
-ldw r0 rpp r0
-
-    ; put process info table in r9
-    mov r9 r0
-
-    ; put queens array in r8
-    imw r8 ^queens
-    add r8 r8 rpp
+    enter
 
     ; call place_queen(0)
-    mov r0 0
+    zero r0
     call ^place_queen
 
-    ; jump to exit with status 0
-    mov r0 0
-    ldw rip r9 8     ; load exit address into rip
+    ; return 0
+    zero r0
+    leave
+    ret
 
 
 
@@ -75,7 +59,7 @@ ldw r0 rpp r0
 ; ======================================
 ; bool is_queen_valid(int x, int y);
 ; ======================================
-; Returns true if the queen in the given row and column would be valid given
+; Returns true if a queen in the given row and column would be valid given
 ; the queens in the preceding columns, or false otherwise
 ;
 ; vars:
@@ -104,6 +88,8 @@ ldw r0 rpp r0
     sub r3 r0 r2
 
     ; get the queen's position in column i
+    imw r8 ^queens
+    add r8 rpp r8
     ldb r4 r8 r2
 
     ; check if there's a queen in the same row
@@ -145,27 +131,26 @@ ldw r0 rpp r0
 ; ======================================
 
 =place_queen
+    enter
+    sub rsp rsp 8
 
     ; if x is 8, we print the board instead of placing queens.
     sub r7 r0 8
     jnz r7 &place_queen_not_print
 
-        ; tail-call print_board()
-        jmp ^print_board
+    ; tail-call print_board()
+    leave
+    jmp ^print_board
 
 :place_queen_not_print
 
-    ; set up a stack frame
-    enter
-
-    ; load our vars into the frame
-    sub rsp rsp 8
+    ; initialize vars
     stw r0 rfp -4   ; store x
     stw 0 rfp -8    ; store y=0
 
 :place_queen_next_y
 
-    ; check if a queen in this position is valid
+    ; check if a queen in this position is valid, call is_queen_valid(x,y)
     ldw r0 rfp -4    ; load x
     ldw r1 rfp -8    ; load y
     call ^is_queen_valid
@@ -173,12 +158,16 @@ ldw r0 rpp r0
     ; if not valid, don't recurse
     jz r0 &place_queen_inc_y
 
-        ; queen is valid. recurse place_queen(x+1)
-        ldw r0 rfp -4    ; load x
-        ldw r1 rfp -8    ; load y
-        stb r1 r8 r0     ; queens[x] = y
-        inc r0
-        call ^place_queen
+    ; queen is valid. store it
+    ldw r0 rfp -4    ; load x
+    ldw r1 rfp -8    ; load y
+    imw r8 ^queens
+    add r8 rpp r8
+    stb r1 r8 r0     ; queens[x] = y
+
+    ; recurse place_queen(x+1)
+    inc r0
+    call ^place_queen
 
 :place_queen_inc_y
     ldw r1 rfp -8    ; load y
@@ -199,79 +188,74 @@ ldw r0 rpp r0
 ; void print_board(void)
 ; ======================================
 ; vars:
-; - x: r3
-; - y: r4
-; "Q": rsp
-; ".": rsp+1
-; " ": rsp+2
-; "\n": rsp+3
+; - x: r3, rfp-4
+; - y: r4, rfp-8
 ; ======================================
 
 =print_board
-    ; don't bother with a stack frame
-
-    ; push "Q. \n" to the stack
-    ims r7 '20 '0A
-    ims r7 "Q" "."
-    push r7
+    enter
+    sub rsp rsp 8
 
     ; iterate over y from 0 to 8
-    zero r4
+    stw 0 rfp -8      ; y=0
 :print_board_next_y
 
         ; iterate over x from 0 to 8
-        zero r3
+        stw 0 rfp -4     ; x=0
         :print_board_next_x
 
-            ; check whether there is a queen in this position. 0 for "Q", 1 for "."
-            ldb r7 r8 r3
-            sub r7 r7 r4
-            jz r7 &print_board_queen
-            add r7 '00 '01
-        :print_board_queen
+            ; check whether there is a queen in this position.
+            ldw r3 rfp -4
+            imw r8 ^queens
+            add r8 rpp r8
+            ldb r7 r8 r3   ; r7 = queens[x]
+            ldw r4 rfp -8
+            sub r7 r7 r4   ; if r7 == y
 
-            ; print the character, syscall write(stdout, rsp+ra, 1)
-            ldw r0 r9 16     ; r0 = stdout
-            add r1 rsp r7    ; r1 = string address (rsp+ra)
-            mov r2 1         ; r2 = string length (1)
-            sys fwrite '00 '00
+            ; emit the appropriate character, call putchar() with 'Q' or '.'
+            jz r7 &print_board_queen
+            mov r0 "."    ; it's not a queen, print '.'
+            jmp &print_board_char
+        :print_board_queen
+            mov r0 "Q"    ; it's a queen, print 'Q'
+        :print_board_char
+            call ^putchar
 
             ; increment x
+            ldw r3 rfp -4
             inc r3
+            stw r3 rfp -4
+
+            ; break if x == 8
             sub r7 r3 8
             jz r7 &print_board_x_done
 
             ; print a space for alignment
-            ldw r0 r9 16    ; r0 = stdout
-            add r1 rsp 2    ; r1 = string address (rsp+2)
-            mov r2 1        ; r2 = string length (1)
-            sys fwrite '00 '00
+            mov r0 " "
+            call ^putchar
 
             ; next
             jmp &print_board_next_x
         :print_board_x_done
 
-        ; print newline
-        ldw r0 r9 16    ; r0 = stdout
-        add r1 rsp 3    ; r1 = string address (rsp+3)
-        mov r2 1        ; r2 = string length (1)
-        sys fwrite '00 '00
+        ; print newline, call putchar('\n')
+        mov r0 '0A  ; \n
+        call ^putchar
 
-        ; next y
+        ; next y, break if y == 8
+        ldw r4 rfp -8
         inc r4
+        stw r4 rfp -8
         sub r7 r4 8
         jnz r7 &print_board_next_y
 
     ; print two newlines
-    ldw r0 r9 16    ; r0 = stdout
-    add r1 rsp 3    ; r1 = string address (rsp+3)
-    mov r2 1        ; r2 = string length (1)
-    sys fwrite '00 '00
-    ldw r0 r9 16    ; r0 = stdout
-    add r1 rsp 3    ; r1 = string address (rsp+3)
-    mov r2 1        ; r2 = string length (1)
-    sys fwrite '00 '00
+    mov r0 '0A  ; \n
+    call ^putchar
+    mov r0 '0A  ; \n
+    call ^putchar
 
     ; return
     popd
+    leave
     ret
