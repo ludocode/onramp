@@ -35,12 +35,22 @@ if ! command -v onrampvm > /dev/null; then
     exit 1
 fi
 
+# build some dependencies
+set -e
+ROOT=$(dirname $0)/../..
+
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
 ERROR=0
+
+# Some tests link against the libc. They provide arguments that use it here. We
+# use libc/0 because early linker stages don't have the capacity to link the
+# later libcs.
+make -C $ROOT/test/libc/0-oo/ build
+LIBC=$ROOT/build/test/libc-0-oo/libc.oa
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -59,8 +69,11 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
         ARGS="$INPUT -o $OUTPUT"
     fi
 
+    # link
+    set +e
     $COMMAND $ARGS &> /dev/null
     RET=$?
+    set -e
 
     if [ -e $BASENAME.oe ]; then
         if [ $RET -ne 0 ]; then
@@ -80,7 +93,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
         fi
     fi
 
-    if [ -e $BASENAME.stdout ]; then
+    if [ $ERROR = 0 ] && [ -e $BASENAME.stdout ]; then
         onrampvm $TEMP_OE > $TEMP_STDOUT
         if ! diff $TEMP_STDOUT $BASENAME.stdout > /dev/null; then
             echo "ERROR: $TESTFILE output did not match expected $BASENAME.stdout"

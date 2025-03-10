@@ -25,32 +25,18 @@
 ; Generates all solutions to the 8 queens problem, printing them to standard
 ; output.
 
-; TODO we should change this test to link against the libc since that's a
-; better test of how .oo files are normally used. That would require changes to
-; the test runner. For now we just include a putchar() that makes the syscall
-; manually.
-
-
-
-; TODO remove this, this is a copy of ld/0, we should just run the tests in
-; ld/0 for ld/1 and ld/2
-
 
 
 ;==========================================
-; [[noreturn]] void __start(uint32_t* process_info_table);
+; int main(void);
 ;==========================================
 
-=__start
-    ; format indicator "~Onr~amp~   "
-    7E 4F 6E 72   ; jz 79 29294
-    7E 61 6D 70   ; jz 97 28781
-    7E 20 20 20   ; jz 32 8224
+=main
 
-    ; store process info table
-    7C 89 <process_info_table
-    7C 89 >process_info_table
-    79 80 8E 89   ; stw r0 rpp r9
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
     ; call place_queen(0)
     70 80 00 00    ; add r0 0 0
@@ -62,12 +48,12 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; jump to exit with status 0
-    7C 89 <process_info_table
-    7C 89 >process_info_table
-    78 89 8E 89    ; ldw r9 rpp r9
-    70 80 00 00    ; add r0 0 0
-    78 8F 89 08    ; ldw rip r9 8     ; load exit address into rip
+    ; return 0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    78 8F 89 08     ; ldw rip r9 8      ; ret
 
 
 
@@ -365,40 +351,6 @@
     79 8B 00 8C       ; stw rb 0 rsp
     70 8F 8E 8A       ; add rip rpp ra    ; jump
     70 8C 8C 04       ; add rsp rsp 4     ; pop return address
-
-    ; return
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
-    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
-    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
-    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-
-
-
-; ==========================================================
-; int putchar(int c);
-; ==========================================================
-
-=putchar
-
-    ; set up a stack frame
-    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
-    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
-    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
-
-    ; push the character so we can get a pointer to it
-    71 8C 8C 04     ; sub rsp rsp 4     ; push c
-    79 80 00 8C     ; stw r0 0 rsp      ; ...
-
-    ; get standard output handle
-    7C 8A <process_info_table      ; ims ra <process_info_table
-    7C 8A >process_info_table      ; ims ra >process_info_table
-    78 89 8E 8A                    ; ldw r9 rpp ra
-    78 80 89 10                    ; ldw r0 r9 16     ; r0 = pit[STDOUT]
-
-    ; make the syscall
-    70 81 00 8C    ; add r1 0 rsp   ; mov r1 rsp
-    70 82 00 01    ; add r2 0 1     ; mov r2 1
-    7F 06 00 00    ; sys write 0 0
 
     ; return
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave

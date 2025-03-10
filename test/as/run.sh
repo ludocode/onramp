@@ -62,7 +62,8 @@ fi
 set -e
 ROOT=$(dirname $0)/../..
 make -C $ROOT/test/ld/2-full/ build
-make -C $ROOT/test/libc/0-oo/ build
+make -C $ROOT/test/libc/3-full/ build
+LIBC=$ROOT/build/test/libc-3-full/libc.oa
 
 SOURCE_FOLDER="$1"
 shift
@@ -126,8 +127,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
 
         # link and run
         if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld -g \
-                $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
-            # TODO libc/1 not libc/0 ^^^^^
+                $LIBC $TEMP_OO -o $TEMP_OE &> /dev/null; then
             echo "ERROR: $BASENAME failed to link."
             THIS_ERROR=1
         fi

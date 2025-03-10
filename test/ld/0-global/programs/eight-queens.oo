@@ -25,11 +25,6 @@
 ; Generates all solutions to the 8 queens problem, printing them to standard
 ; output.
 
-; TODO we should change this test to link against the libc since that's a
-; better test of how .oo files are normally used. That would require changes to
-; the test runner. For now we just include a putchar() that makes the syscall
-; manually.
-
 
 
 ;==========================================

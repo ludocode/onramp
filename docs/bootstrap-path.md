@@ -89,11 +89,13 @@ The Onramp unit tests include a program to generate all solutions to the [eight 
 
 - [Eight queens in hexadecimal bytecode](../test/vm/programs/eight-queens.oe.ohx). This is the lowest level: everything is done by hand. Note the fixed addresses and padding between symbols. Editing can be painful if you need to move a function or recalculate a relative jump.
 
-- [Eight queens in object code](../test/ld/0-global/programs/eight-queens.oo). Nearly the same as the raw bytecode, but it uses labels instead of fixed addresses. It is much easier to change and fix bugs.
+- [Eight queens in object code](../test/ld/0-global/programs/eight-queens.oo). Nearly the same as the raw bytecode, but it uses labels instead of fixed addresses. Padding is no longer necessary. It is much easier to change and fix bugs.
 
-- [Eight queens in primitive assembly](../test/as/0-basic/programs/eight-queens.os). This assembles to the identical program as the object code but it is much more legible. You don't need to memorize the bytecode values to understand and edit the code. Things like function calling, stack manipulation and conditional jumps are still a pain.
+- [Eight queens in object code with libc](../test/ld/1-omc/programs/eight-queens.oo). With the ability to link against a libc, we no longer need to make any manual syscalls. We have a `main()` function from which we can return. We don't have to keep re-implementing I/O functions like `putchar()`.
 
-- [Eight queens in compound assembly](../test/as/1-compound/programs/eight-queens.os). This is much shorter! It feels more like a CISC machine now. Compound instructions like `call` replace many primitive instructions. Short instructions like `ret`, `inc` and `mov` are extremely clear. Decimal numbers are much more legible than quoted hex. Conditional jumps like `jne` are much easier to follow than the stacked `jz` calls that were needed before. `push` and `pop` replace manual stack pointer manipulation.
+- [Eight queens in primitive assembly](../test/as/0-basic/programs/eight-queens.os). This is identical to the previous object code but it is much more legible. You don't need to memorize bytecode values to understand and edit the code. Things like function calling, stack manipulation and conditional jumps are still a pain.
+
+- [Eight queens in compound assembly](../test/as/1-compound/programs/eight-queens.os). This is much shorter! It feels more like a CISC machine now. Compound instructions like `call` replace many primitive instructions. Short instructions like `ret`, `inc` and `mov` are extremely clear. Decimal numbers are much more legible than quoted hex. We have `jnz` so we don't have to stack `jz` calls with extra labels. `push` and `pop` replace manual stack pointer manipulation.
 
 - [Eight queens in Onramp Minimal C](../test/cci/0-omc/programs/eight-queens.c). We now have real structured programming! No more labels and jumps. We also have named variables! No more dealing with registers or spilling. No stack manipulation at all. We have function prototypes, include files for the standard library, and more. There are some obvious limitations though: no initializers, no `for` loops, no `else`, no arrays, parentheses everywhere. The queens array must be manually allocated.
 

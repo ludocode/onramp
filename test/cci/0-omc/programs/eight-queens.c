@@ -30,8 +30,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-char* queens;
-void place_queen(int x);
+static char* queens;
+static void place_queen(int x);
 static void print_board(void);
 
 int main(void) {
@@ -44,7 +44,7 @@ int main(void) {
  * Returns true if the queen in the given row and column would be valid given
  * the queens in the preceding columns, or false otherwise
  */
-int is_queen_valid(int x, int y) {
+static int is_queen_valid(int x, int y) {
     int i = 0;
     while (i < x) {
         int q = *(queens + i);
@@ -63,7 +63,7 @@ int is_queen_valid(int x, int y) {
  *
  * If the column number is 8, this instead prints the board.
  */
-void place_queen(int x) {
+static void place_queen(int x) {
     if (x == 8) {
         print_board();
         return;
@@ -82,7 +82,7 @@ void place_queen(int x) {
 /**
  * Prints the board.
  */
-void print_board(void) {
+static void print_board(void) {
     int y = 0;
     while (y < 8) {
         int x = 0;

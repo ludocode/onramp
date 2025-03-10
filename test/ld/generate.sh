@@ -13,11 +13,16 @@ if [ "$1" == "" ]; then
     exit 1
 fi
 
+ROOT=$(dirname $0)/../..
+
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
 TEMP_OE=/tmp/onramp-test.oe
 TEMP_STDOUT=/tmp/onramp-test.stdout
+
+make -C $ROOT/test/libc/0-oo/ build
+LIBC=$ROOT/build/test/libc-0-oo/libc.oa
 
 for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
     echo -n "Running $TESTFILE... "
