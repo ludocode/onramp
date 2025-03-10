@@ -182,9 +182,6 @@
         7C 8A >print_board    ; ims ra >print_board
         70 8F 8E 8A           ; add rip rpp ra
 
-        ; return
-        78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-
 :place_queen_not_print
 
     ; initialize vars
@@ -208,12 +205,12 @@
     7E 80 &place_queen_inc_y    ; jz r0 &place_queen_inc_y
 
     ; queen is valid. store it
-    78 80 8D FC    ; ldw r0 rfp -4    ; load x
-    78 81 8D F8    ; ldw r1 rfp -8    ; load y
+    78 80 8D FC     ; ldw r0 rfp -4    ; load x
+    78 81 8D F8     ; ldw r1 rfp -8    ; load y
     7C 88 <queens   ; ims r8 <queens
     7C 88 >queens   ; ims r8 >queens
     70 88 8E 88     ; add r8 rpp r8
-    7B 81 88 80    ; stb r1 r8 r0     ; queens[x] = y
+    7B 81 88 80     ; stb r1 r8 r0     ; queens[x] = y
 
     ; recurse place_queen(x+1)
     70 80 80 01    ; add r0 r0 1      ; inc r0
@@ -248,8 +245,8 @@
 ; void print_board(void)
 ;
 ; vars:
-; - x: r3
-; - y: r4
+; - x: r3, rfp-4
+; - y: r4, rfp-8
 ; ======================================
 
 =print_board
@@ -261,28 +258,28 @@
     71 8C 8C 08     ; sub rsp rsp 8
 
     ; iterate over y from 0 to 8
-    79 00 8E F8     ; stw 0 rfp -8    ; y=0
+    79 00 8D F8     ; stw 0 rfp -8    ; y=0
 :print_board_next_y
 
         ; iterate over x from 0 to 8
-        79 00 8E FC     ; stw 0 rfp -4    ; x=0
+        79 00 8D FC     ; stw 0 rfp -4    ; x=0
         :print_board_next_x
 
             ; check whether there is a queen in this position.
-            78 83 8E FC     ; ldw r3 rfp -4
+            78 83 8D FC     ; ldw r3 rfp -4
             7C 88 <queens   ; ims r8 <queens
             7C 88 >queens   ; ims r8 >queens
             70 88 8E 88     ; add r8 rpp r8
             7A 87 88 83     ; ldb r7 r8 r3
-            78 84 8E F8     ; ldw r4 rfp -8
+            78 84 8D F8     ; ldw r4 rfp -8
             71 87 87 84     ; sub r7 r7 r4
 
             ; choose the character to emit, either "Q" or "."
-            7E 87 &print_board_queen
-            70 80 00 2E    ; add r0 0 "."   ; mov r0 "."
+            7E 87 &print_board_queen  ; jz r7 &print_board_queen
+            70 80 00 2E               ; add r0 0 "."              ; mov r0 "."
             7E 00 &print_board_char   ; jmp &print_board_char
         :print_board_queen
-            70 80 00 51    ; add r0 0 "Q"   ; mov r0 "Q"
+            70 80 00 51               ; add r0 0 "Q"              ; mov r0 "Q"
         :print_board_char
 
             ; call putchar()
@@ -295,13 +292,13 @@
             70 8C 8C 04       ; add rsp rsp 4     ; pop return address
 
             ; increment x
-            78 83 8E FC    ; ldw r3 rfp -4
+            78 83 8D FC    ; ldw r3 rfp -4
             70 83 83 01    ; add r3 r3 1   ; inc r3
-            79 83 8E FC    ; stw r3 rfp -4
+            79 83 8D FC    ; stw r3 rfp -4
 
             ; break if x == 8
-            71 87 83 08    ; sub ra r3 8
-            7E 87 &print_board_x_done    ; jz ra &print_board_x_done
+            71 87 83 08                 ; sub r7 r3 8
+            7E 87 &print_board_x_done   ; jz r7 &print_board_x_done
 
             ; print a space for alignment, call putchar(' ')
             70 80 00 20       ; add r0 0 " "   ; mov r0 " "
@@ -327,12 +324,14 @@
         70 8F 8E 8A       ; add rip rpp ra    ; jump
         70 8C 8C 04       ; add rsp rsp 4     ; pop return address
 
-        ; next y
-        78 84 8E F8    ; ldw r4 rfp -8
+        ; increment y
+        78 84 8D F8    ; ldw r4 rfp -8
         70 84 84 01    ; add r4 r4 1   ; inc r4
-        79 84 8E F8    ; stw r4 rfp -8
-        71 87 84 08    ; sub ra r4 8
-        7E 87 &print_board_done_y    ; jz ra &print_board_done_y
+        79 84 8D F8    ; stw r4 rfp -8
+
+        ; break if y is 8, otherwise loop
+        71 87 84 08    ; sub r7 r4 8
+        7E 87 &print_board_done_y    ; jz r7 &print_board_done_y
         7E 00 &print_board_next_y    ; jz 0 &print_board_next_y
 :print_board_done_y
 

@@ -142,7 +142,7 @@ def syscall(number):
         handles[registers[0]] = None
         return
 
-    if number == 0x05:  # read
+    if number == 0x05:  # fread
         file = handles[registers[0]]
         address = registers[1]
         count = registers[2]
@@ -228,6 +228,13 @@ def run():
     # and registers directly.
 
     while True:
+        #print(f"address {hex(registers[RIP])[2:]} "
+        #        f"relative {hex(registers[RIP] - registers[RPP])[2:]} instruction "
+        #        f"{hex(memory[registers[RIP] - BASE_ADDR])[2:]} "
+        #        f"{hex(memory[registers[RIP] - BASE_ADDR + 1])[2:]} "
+        #        f"{hex(memory[registers[RIP] - BASE_ADDR + 2])[2:]} "
+        #        f"{hex(memory[registers[RIP] - BASE_ADDR + 3])[2:]}"
+        #      )
 
         opcode = memory[registers[RIP] - BASE_ADDR]
         registers[RIP] += 4
