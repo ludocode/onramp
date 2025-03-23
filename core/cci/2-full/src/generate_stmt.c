@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -50,10 +50,19 @@ void generate_return(node_t* node, int reg_out) {
     } else {
         // No return value. If the function is main, we have to implicitly
         // return zero.
+        // TODO this probably isn't true for return statements without
+        // arguments. We only need to return 0 implicitly if control falls off
+        // the end of main(), which we do in generate_function().
         if (string_equal_cstr(current_function->asm_name, "main")) {
             block_append(current_block, node->token, ZERO, R0);
         }
     }
+
+    // generate defer statements
+    int reg_defer = register_alloc(node->token);
+    generate_exit_defers(node, current_function->root, reg_defer);
+    register_free(node->token, reg_defer);
+
     block_append(current_block, node->token, LEAVE);
     block_append(current_block, node->token, RET);
 }

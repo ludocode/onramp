@@ -139,11 +139,14 @@ static void generate_sequence(node_t* node, int reg_out) {
     // we can't generate in place because we have to run defer before storing
     // the result. We need to make stack space for it.
     int reg_last = reg_out;
+    // TODO I don't think this is actually necessary, we never generate directly in place
+    /*
     if (has_defer && indirect) {
         reg_last = register_alloc(node->token);
         block_sub_rsp(current_block, node->token, type_size(node->type));
         block_append(current_block, node->token, MOV, reg_last, RSP);
     }
+    */
 
     // Generate the last child. (Note that it may itself be a defer node.)
     if (node->last_child->kind == NODE_DEFER) {
@@ -169,9 +172,12 @@ static void generate_sequence(node_t* node, int reg_out) {
 
         // If we generated the last node into temporary stack space, copy it
         // and free the space
+        // TODO as above I don't think this is necessary
+        /*
         if (indirect) {
             generate_copy(node->last_child->token, node->type, 1, reg_last, reg_out);
         }
+        */
     }
 }
 
