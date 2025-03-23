@@ -976,8 +976,8 @@ static void parse_function_definition(symbol_t* symbol, type_t* type, token_t* n
     emit_global_divider();
 
     // done
-    scope_pop();
-    scope_pop();
+    scope_pop(); // parameters
+    scope_pop(); // prototype tags
     current_function = NULL;
     function_delete(function);
 }

@@ -330,6 +330,18 @@ C17 added no new features and only fixed C11 defects. In Onramp, C17 is an alias
 
 
 
+## C2Y
+
+### Compiler
+
+| Feature                                       | Status |
+|:----------------------------------------------|:------:|
+| `defer`                                       |        |
+
+
+
+
+
 ## POSIX
 
 POSIX features are activated by defining `_POSIX_C_SOURCE` before including any header files.

@@ -368,6 +368,22 @@ static node_t* parse_goto(void) {
     return node;
 }
 
+static node_t* parse_defer(void) {
+
+    // create a defer node
+    node_t* defer_node = node_new_lexer(NODE_DEFER);
+    defer_node->type = type_new_base(BASE_VOID);
+
+    // create a sequence for the contents
+    node_t* sequence = node_new(NODE_SEQUENCE);
+    sequence->type = type_new_base(BASE_VOID);
+    node_append(defer_node, sequence);
+
+    // parse the contents
+    parse_statement(sequence, true);
+    return defer_node;
+}
+
 /**
  * Parses a statement, not including any leading labels (which are parsed by
  * parse_labels().)
@@ -396,6 +412,11 @@ static void parse_statement_no_labels(node_t* parent, bool cast_to_void) {
         if (lexer_is(STR_CONTINUE)) { node_append(parent, parse_continue(parent)); return; }
         if (lexer_is(STR_RETURN)) { node_append(parent, parse_return()); return; }
         if (lexer_is(STR_GOTO)) { node_append(parent, parse_goto()); return; }
+
+        // TODO `defer` should only be valid under -std=c2y, could probably allow `_Defer` everywhere
+        if (lexer_is(STR_DEFER) || lexer_is(STR_DEFER_X)) {
+            node_append(parent, parse_defer()); return;
+        }
     }
 
     // Expression statement

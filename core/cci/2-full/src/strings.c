@@ -42,6 +42,8 @@ string_t* STR_CONST;           // const
 string_t* STR_CONSTEXPR;       // constexpr
 string_t* STR_CONTINUE;        // continue
 string_t* STR_DEFAULT;         // default
+string_t* STR_DEFER;           // defer
+string_t* STR_DEFER_X;         // _Defer
 string_t* STR_DO;              // do
 string_t* STR_DOUBLE;          // double
 string_t* STR_ELSE;            // else
@@ -146,6 +148,8 @@ void strings_setup(void) {
     STR_CONSTEXPR                   = string_intern_cstr("constexpr");
     STR_CONTINUE                    = string_intern_cstr("continue");
     STR_DEFAULT                     = string_intern_cstr("default");
+    STR_DEFER                       = string_intern_cstr("defer");
+    STR_DEFER_X                     = string_intern_cstr("_Defer");
     STR_DO                          = string_intern_cstr("do");
     STR_DOUBLE                      = string_intern_cstr("double");
     STR_ELSE                        = string_intern_cstr("else");
@@ -251,6 +255,8 @@ void strings_teardown(void) {
     string_deref(STR_CONSTEXPR);
     string_deref(STR_CONTINUE);
     string_deref(STR_DEFAULT);
+    string_deref(STR_DEFER);
+    string_deref(STR_DEFER_X);
     string_deref(STR_DO);
     string_deref(STR_DOUBLE);
     string_deref(STR_ELSE);

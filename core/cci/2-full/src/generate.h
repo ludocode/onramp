@@ -117,4 +117,17 @@ void generate_dereference_impl(struct node_t* node, int reg_out, int reg_ptr, in
  */
 void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
 
+/*
+ * This generates the contents of a defer.
+ *
+ * This is not called via generate_node(); a defer is never be generated
+ * arbitrarily.
+ *
+ * When generating a sequence, the sequence generates the defer nodes at the
+ * end in reverse order. See generate_sequence(). Furthermore, when a jump
+ * (break, continue, goto, return) is generated, it calls generate_defer() here
+ * for any defers that are crossed.
+ */
+void generate_defer(struct node_t* node, int reg_out);
+
 #endif

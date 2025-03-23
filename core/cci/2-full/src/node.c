@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -52,6 +52,7 @@ const char* node_kind_to_string(node_kind_t kind) {
         case NODE_CONTINUE:          return "CONTINUE";
         case NODE_RETURN:            return "RETURN";
         case NODE_GOTO:              return "GOTO";
+        case NODE_DEFER:             return "DEFER";
 
         case NODE_LABEL:             return "LABEL";
         case NODE_CASE:              return "CASE";

@@ -99,6 +99,8 @@ static void generate_sequence(node_t* node, int reg_out) {
     if (node->first_child == NULL)
         return;
 
+    bool has_defer = false;
+
     // If our return value is passed indirectly, the register contains the
     // address where it should be stored. We need to preserve it so we'll need
     // a temporary register. If the return value is passed directly (including
@@ -113,6 +115,13 @@ static void generate_sequence(node_t* node, int reg_out) {
 
     // Generate all but last child using the temporary register
     for (node_t* child = node->first_child; child != node->last_child; child = child->right_sibling) {
+
+        // Defer nodes are generated at the end
+        if (child->kind == NODE_DEFER) {
+            has_defer = true;
+            continue;
+        }
+
         assert(type_matches_base(child->type, BASE_VOID));
         generate_node(child, reg_val);
     }
@@ -126,8 +135,44 @@ static void generate_sequence(node_t* node, int reg_out) {
     // ensures that it's safe to generate into the output register.
     assert(type_equal(node->type, node->last_child->type));
 
-    // Generate the last child into the destination
-    generate_node(node->last_child, reg_out);
+    // If we have a defer node before the last node and it's passed indirectly,
+    // we can't generate in place because we have to run defer before storing
+    // the result. We need to make stack space for it.
+    int reg_last = reg_out;
+    if (has_defer && indirect) {
+        reg_last = register_alloc(node->token);
+        block_sub_rsp(current_block, node->token, type_size(node->type));
+        block_append(current_block, node->token, MOV, reg_last, RSP);
+    }
+
+    // Generate the last child. (Note that it may itself be a defer node.)
+    if (node->last_child->kind == NODE_DEFER) {
+        generate_defer(node->last_child, reg_last);
+    } else {
+        generate_node(node->last_child, reg_last);
+    }
+
+    if (has_defer) {
+
+        // Generate other defer nodes in reverse order. (We always use a
+        // temporary register for simplicity; this will get fixed when we
+        // change this to emit IR.)
+        int reg_defer = register_alloc(node->token);
+        node_t* child = node->last_child;
+        do {
+            child = child->left_sibling;
+            if (child->kind == NODE_DEFER) {
+                generate_defer(child, reg_defer);
+            }
+        } while (child != node->first_child);
+        register_free(node->token, reg_defer);
+
+        // If we generated the last node into temporary stack space, copy it
+        // and free the space
+        if (indirect) {
+            generate_copy(node->last_child->token, node->type, 1, reg_last, reg_out);
+        }
+    }
 }
 
 static void generate_number(node_t* node, int reg_out) {
@@ -1046,6 +1091,18 @@ static void generate_address_of(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
 }
 
+void generate_defer(node_t* node, int reg_out) {
+    assert(node->kind == NODE_DEFER);
+
+    // defer always has one child node which is a sequence of void type.
+    assert(node->first_child != NULL);
+    assert(node->first_child == node->last_child);
+    assert(node->first_child->kind == NODE_SEQUENCE);
+    assert(type_matches_base(node->first_child->type, BASE_VOID));
+
+    generate_node(node->first_child, reg_out);
+}
+
 #ifdef GENERATE_DEBUG
 int debug_depth;
 #endif
@@ -1075,6 +1132,8 @@ void generate_node(node_t* node, int reg_out) {
             fatal("Internal error: cannot generate arbitrary INITIALIZER_LIST node.");
         case NODE_TYPE:
             fatal("Internal error: cannot generate arbitrary TYPE node.");
+        case NODE_DEFER:
+            fatal("Internal error: cannot generate arbitrary DEFER node.");
 
         case NODE_VARIABLE:
             if (node->first_child) {

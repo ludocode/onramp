@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -57,6 +57,7 @@ typedef enum node_kind_t {
     NODE_CONTINUE,  // No children
     NODE_RETURN,    // Zero or one children, optional expression
     NODE_GOTO,      // No children, value is a string label
+    NODE_DEFER,     // Single child is statement
 
     // labels
     NODE_LABEL,     // No children, token is name

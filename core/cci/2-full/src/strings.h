@@ -45,6 +45,8 @@ extern string_t* STR_CONST;           // const
 extern string_t* STR_CONSTEXPR;       // constexpr
 extern string_t* STR_CONTINUE;        // continue
 extern string_t* STR_DEFAULT;         // default
+extern string_t* STR_DEFER;           // defer
+extern string_t* STR_DEFER_X;         // _Defer
 extern string_t* STR_DO;              // do
 extern string_t* STR_DOUBLE;          // double
 extern string_t* STR_ELSE;            // else

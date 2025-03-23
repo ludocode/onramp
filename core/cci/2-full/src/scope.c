@@ -33,6 +33,7 @@
 #include "symbol.h"
 #include "token.h"
 #include "generate.h"
+#include "node.h"
 
 scope_t* scope_global;
 scope_t* scope_current;

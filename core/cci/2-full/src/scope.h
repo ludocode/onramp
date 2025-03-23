@@ -34,6 +34,7 @@ struct type_t;
 struct string_t;
 struct token_t;
 struct record_t;
+struct node_t;
 
 typedef enum namespace_t {
     NAMESPACE_TYPEDEF = 1,
