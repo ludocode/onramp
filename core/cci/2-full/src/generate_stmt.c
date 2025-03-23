@@ -59,10 +59,12 @@ void generate_return(node_t* node, int reg_out) {
 }
 
 void generate_break(node_t* node, int reg_out) {
+    generate_exit_defers(node, node->container, reg_out);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->break_label);
 }
 
 void generate_continue(node_t* node, int reg_out) {
+    generate_exit_defers(node, node->container, reg_out);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->continue_label);
 }
 

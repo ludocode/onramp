@@ -1103,6 +1103,37 @@ void generate_defer(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
 }
 
+void generate_exit_defers(node_t* node, node_t* container, int reg_out) {
+    assert(node != container);
+
+    // The node should be a jump. It doesn't make sense for it to be a DEFER,
+    // or a SEQUENCE or almost anything else.
+    assert(node->kind != NODE_DEFER);
+    assert(node->kind != NODE_SEQUENCE);
+
+    // We walk up from the node to the given container checking SEQUENCE nodes
+    // for DEFER nodes.
+    node_t* parent = node;
+    do {
+        node_t* child = parent;
+        parent = child->parent;
+        if (parent == NULL) {
+            fatal_token(node->token, "Internal error: generating defers, container is not parent of node");
+        }
+        if (parent->kind == NODE_DEFER) {
+            fatal_token(node->token, "Cannot jump out of a `defer` block.");
+        }
+        if (parent->kind == NODE_SEQUENCE) {
+            while (child != parent->first_child) {
+                child = child->left_sibling;
+                if (child->kind == NODE_DEFER) {
+                    generate_defer(child, reg_out);
+                }
+            }
+        }
+    } while (parent != container);
+}
+
 #ifdef GENERATE_DEBUG
 int debug_depth;
 #endif

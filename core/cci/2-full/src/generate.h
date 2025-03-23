@@ -130,4 +130,12 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
  */
 void generate_defer(struct node_t* node, int reg_out);
 
+/*
+ * This generates all defer nodes for a jump from the source node out to the
+ * given container node.
+ *
+ * The container must be a parent of the node.
+ */
+void generate_exit_defers(struct node_t* node, struct node_t* container, int reg_out);
+
 #endif
