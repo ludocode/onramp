@@ -311,11 +311,12 @@ static void parse_default(node_t* parent) {
 
 static void parse_label(node_t* parent, token_t* name) {
     // TODO ensure name is not a keyword
-    // TODO ensure label is not already defined in this function. We'll need to
-    // add a table of labels to the function.
+
     node_t* node = node_new_token(NODE_LABEL, name);
     node->type = type_new_base(BASE_VOID);
     node_append(parent, node);
+
+    function_add_label(current_function, node);
 }
 
 static bool parse_labels(node_t* parent) {

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,25 @@
 #include "node.h"
 #include "token.h"
 
+typedef struct label_node_t {
+    table_entry_t entry;
+    string_t* string;
+    node_t* node;
+} label_node_t;
+
+label_node_t* label_node_new(string_t* string, node_t* node) {
+    label_node_t* ln = malloc(sizeof(label_node_t));
+    ln->string = string_ref(string);
+    // TODO we need to reference-count nodes to make this safe
+    ln->node = node;
+    return ln;
+}
+
+void label_node_delete(label_node_t* ln) {
+    string_deref(ln->string);
+    free(ln);
+}
+
 function_t* function_new(type_t* type, token_t* name,
         string_t* asm_name, node_t* root)
 {
@@ -40,17 +59,33 @@ function_t* function_new(type_t* type, token_t* name,
     function->asm_name = string_ref(asm_name);
     function->root = root;
     vector_init(&function->blocks);
+    table_init(&function->labels);
     function->variadic_offset = -1;
     function->name_label = -1;
     return function;
 }
 
 void function_delete(function_t* function) {
-    // TODO free blocks
+
+    // free labels
+    for (table_entry_t** bucket = table_first_bucket(&function->labels);
+            bucket; bucket = table_next_bucket(&function->labels, bucket))
+    {
+        for (table_entry_t* entry = *bucket; entry;) {
+            table_entry_t* next = table_entry_next(entry);
+            label_node_delete((label_node_t*)entry);
+            entry = next;
+        }
+    }
+    table_destroy(&function->labels);
+
+    // free blocks
     size_t count = vector_count(&function->blocks);
-    for (size_t i = 0; i < count; ++i)
+    for (size_t i = 0; i < count; ++i) {
         block_delete(vector_at(&function->blocks, i));
+    }
     vector_destroy(&function->blocks);
+
     node_delete(function->root);
     string_deref(function->asm_name);
     token_deref(function->name);
@@ -60,4 +95,30 @@ void function_delete(function_t* function) {
 
 void function_add_block(function_t* function, block_t* block) {
     vector_append(&function->blocks, block);
+}
+
+void function_add_label(function_t* function, node_t* label) {
+    assert(label->kind == NODE_LABEL);
+
+    // make sure the label doesn't already exist
+    string_t* string = label->token->value;
+    if (NULL != function_find_label(function, string)) {
+        fatal_token(label->token, "Duplicate label.");
+    }
+
+    label_node_t* ln = label_node_new(string, label);
+    uint32_t hash = string_hash(string);
+
+    table_put(&function->labels, &ln->entry, hash);
+}
+
+node_t* function_find_label(function_t* function, string_t* name) {
+    table_entry_t* entry = table_bucket(&function->labels, string_hash(name));
+    for (; entry; entry = table_entry_next(entry)) {
+        label_node_t* ln = (label_node_t*)entry;
+        if (string_equal(name, ln->string)) {
+            return ln->node;
+        }
+    }
+    return NULL;
 }

@@ -235,15 +235,109 @@ void generate_case_or_default(node_t* node, int reg_out) {
     function_add_block(current_function, current_block);
 }
 
-void generate_goto(node_t* node, int reg_out) {
-    // TODO make sure the label actually exists; see parse_label(), need a
-    // table of labels in function
+void generate_goto(node_t* goto_node, int reg_out) {
 
-    if (node->string == NULL) {
-        node->string = generate_label_name(node);
+    // find the destination label node
+    node_t* label_node = function_find_label(current_function, goto_node->token->value);
+    if (label_node == NULL) {
+        fatal_token(goto_node->token, "Label in `goto` does not exist.");
     }
 
-    block_append(current_block, node->token, JMP, '&', node->string->bytes, -1);
+    // collect goto parents
+    vector_t goto_parents;
+    vector_init(&goto_parents);
+    for (node_t* node = goto_node; node; node = node->parent) {
+        vector_append(&goto_parents, node);
+    }
+
+    // collect label parents
+    vector_t label_parents;
+    vector_init(&label_parents);
+    for (node_t* node = label_node; node; node = node->parent) {
+        vector_append(&label_parents, node);
+    }
+
+    // find the nearest common ancestor
+    node_t* ancestor;
+    size_t goto_i = vector_count(&goto_parents);
+    size_t label_i = vector_count(&label_parents);
+    while (1) {
+        --goto_i;
+        --label_i;
+        if (vector_at(&goto_parents, goto_i) != vector_at(&label_parents, label_i)) {
+            ancestor = vector_at(&goto_parents, goto_i + 1);
+            break;
+        }
+    }
+
+    // make sure we're not jumping out of a defer
+    for (size_t i = 0; i <= goto_i; ++i) {
+        if (((node_t*)vector_at(&goto_parents, i))->kind == NODE_DEFER) {
+            fatal_token(goto_node->token, "Cannot `goto` out of a `defer` statement.");
+        }
+    }
+
+    // make sure we're not jumping into a defer, or into a node that follows a defer
+    for (size_t i = 1; i <= label_i; ++i) {
+        node_t* node = vector_at(&label_parents, i);
+        if (node->kind == NODE_DEFER) {
+            fatal_token(label_node->token, "Cannot `goto` into a `defer` statement.");
+        }
+        if (node->kind == NODE_SEQUENCE) {
+            node_t* child = vector_at(&label_parents, i - 1);
+            for (node_t* p = node->first_child; p != child; p = p->right_sibling) {
+                if (p->kind == NODE_DEFER) {
+                    fatal_token(label_node->token, "Cannot `goto` forward across a `defer` statement.");
+                }
+            }
+        }
+    }
+
+    // generate defers out to the common ancestor
+    generate_exit_defers(goto_node, ancestor, reg_out);
+
+    // figure out if we're jumping backwards or forwards in the common ancestor
+    bool backwards = false;
+    node_t* goto_ancestor_child = vector_at(&goto_parents, goto_i);
+    node_t* label_ancestor_child = vector_at(&label_parents, label_i);
+    for (node_t* node = goto_ancestor_child->left_sibling; node; node = node->left_sibling) {
+        if (node == label_ancestor_child) {
+            backwards = true;
+            break;
+        }
+    }
+
+    // if we're jumping backwards in the common ancestor, generate defers
+    if (backwards) {
+        node_t* node = goto_ancestor_child->left_sibling;
+        for (; node != label_ancestor_child; node = node->left_sibling) {
+            assert(node != NULL);
+            if (node->kind == NODE_DEFER) {
+                generate_defer(node, reg_out);
+            }
+        }
+    }
+
+    // if we're jumping forwards in the common ancestor, make sure we're not
+    // crossing a defer node
+    if (!backwards) {
+        node_t* node = goto_ancestor_child->right_sibling;
+        for (; node && node != label_ancestor_child; node = node->right_sibling) {
+            assert(node != NULL);
+            if (node->kind == NODE_DEFER) {
+                fatal_token(label_node->token, "Cannot `goto` forward across a `defer` statement.");
+            }
+        }
+    }
+
+    // generate the jump
+    if (goto_node->string == NULL) {
+        goto_node->string = generate_label_name(goto_node);
+    }
+    block_append(current_block, goto_node->token, JMP, '&', goto_node->string->bytes, -1);
+
+    vector_destroy(&label_parents);
+    vector_destroy(&goto_parents);
 }
 
 // The type to use for case_cmp() comparisons. It would be better to use

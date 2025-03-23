@@ -281,19 +281,24 @@ char node_print_buffer[512];
 
 void node_print(node_t* node) {
     printf("%s", node_kind_to_string(node->kind));
-    if (node->token)
-        printf(" `%s`", string_cstr(node->token->value));
-    if (node->type) {
-        // (the type should never be null, but we want to be able to print a node on a null type assertion)
+
+    // (the type should never be null, but we want to be able to print a node on a null type assertion)
+    if (!node->type) {
+        fputs("<null type!>", stdout);
+    } {
         putchar(' ');
         //putchar('`');
         type_print(node->type);
         //putchar('`');
     }
 
+    if (node->token) {
+        printf(" `%s`", string_cstr(node->token->value));
+    }
+
     switch (node->kind) {
         case NODE_VARIABLE:
-            fputs(" : ", stdout);
+            putchar(' ');
             type_print(node->symbol->type);
             break;
         case NODE_MEMBER_PTR:

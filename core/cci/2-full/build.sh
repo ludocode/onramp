@@ -186,6 +186,7 @@ onrampvm build/intermediate/cc/cc.oe \
 
 echo Linking cci/2-full
 onrampvm build/intermediate/ld-2-full/ld.oe \
+    -g \
     build/intermediate/libc-2-opc/libc.oa \
     build/intermediate/libo-1-opc/libo.oa \
     build/intermediate/cci-2-full/arithmetic.oo \
