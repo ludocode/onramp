@@ -308,6 +308,7 @@ static int generate_parameter_offsets(function_t* function) {
             param = param->right_sibling)
     {
         assert(param->kind == NODE_PARAMETER);
+
         type_t* type = param->type;
         int size = (int)type_size(type);
 
@@ -326,7 +327,9 @@ static int generate_parameter_offsets(function_t* function) {
             // TODO for now we just word-align every parameter, we don't bother
             // to pack them.
             frame_size += 4;
-            param->symbol->offset = -frame_size;
+            if (param->symbol) {
+                param->symbol->offset = -frame_size;
+            }
             ++reg_count;
         }
         //printf("assigned offset %i to param %s of size %i\n", param->symbol->offset, param->symbol->name->bytes, (int)type_size(param->symbol->type));
@@ -398,19 +401,15 @@ void generate_function(function_t* function) {
     // move register arguments into local variables
     int param_reg = R0;
     for (node_t* param = root->first_child;
-            param != root->last_child;
+            param != root->last_child && param_reg != R4;
             param = param->right_sibling)
     {
         assert(param->kind == NODE_PARAMETER);
-        // TODO why would param->symbol be null? if it's because the parameter
-        // is unnamed, it should still skip the register if direct
-        if (!param->symbol) {
-            fatal("TODO unnamed parameter register args are incorrectly handled");
-            continue;
-        }
-        if (param->symbol->offset < 0) {
-            int offset = -(param_reg - R0 + 1) * 4;
-            block_append(current_block, param->token, STW, param_reg, RFP, offset);
+        if (!type_is_passed_indirectly(param->type)) {
+            if (param->symbol) {
+                int offset = -(param_reg - R0 + 1) * 4;
+                block_append(current_block, param->token, STW, param_reg, RFP, offset);
+            }
             ++param_reg;
         }
     }

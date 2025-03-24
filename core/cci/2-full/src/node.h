@@ -184,7 +184,7 @@ typedef struct node_t {
         string_t* string; // An arbitrary string value, e.g. a label name, record member name
 
         struct token_t* member; // The member for NODE_MEMBER_*
-        struct symbol_t* symbol; // The symbol for NODE_ACCESS
+        struct symbol_t* symbol; // The symbol for NODE_ACCESS or NODE_PARAMETER (null if unnamed parameter)
         struct node_t* container; // loop/switch reference for break/continue
         uint32_t u32; // 32-bit float, int or character
         u64_t u64;    // 64-bit double or long long
