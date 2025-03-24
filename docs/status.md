@@ -15,6 +15,7 @@ Standards:
 - [C11](#c11)
 - [C17](#c17)
 - [C23](#c23)
+- [C2Y](#c2y)
 - [POSIX](#posix)
 - [BSD](#bsd)
 - [Common Extensions](#gnu-extensions)
@@ -336,7 +337,7 @@ C17 added no new features and only fixed C11 defects. In Onramp, C17 is an alias
 
 | Feature                                       | Status |
 |:----------------------------------------------|:------:|
-| `defer`                                       |        |
+| `defer` (TS 25755)                            |    ✓   |
 
 
 
