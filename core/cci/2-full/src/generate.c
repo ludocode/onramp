@@ -1158,6 +1158,37 @@ void generate_exit_defers(node_t* node, node_t* container, int reg_out) {
     } while (parent != container);
 }
 
+void generate_diagnose_defers(node_t* node, node_t* container, token_t* error_token) {
+    if (node == container) {
+        return;
+    }
+
+    // The node should be a case, default or label. It doesn't make sense for
+    // it to be a DEFER, or a SEQUENCE or almost anything else.
+    assert(node->kind != NODE_DEFER);
+    assert(node->kind != NODE_SEQUENCE);
+
+    node_t* parent = node;
+    do {
+        node_t* child = parent;
+        parent = child->parent;
+        if (parent == NULL) {
+            fatal_token(error_token, "Internal error: diagnosing defers, container is not parent of node");
+        }
+        if (parent->kind == NODE_DEFER) {
+            fatal_token(error_token, "Cannot jump into a `defer` block.");
+        }
+        if (parent->kind == NODE_SEQUENCE) {
+            while (child != parent->first_child) {
+                child = child->left_sibling;
+                if (child->kind == NODE_DEFER) {
+                    fatal_token(error_token, "Cannot jump forward across a `defer` statement.");
+                }
+            }
+        }
+    } while (parent != container);
+}
+
 void generate_node(node_t* node, int reg_out) {
     #ifdef GENERATE_DEBUG
     for (int i = 0; i < debug_depth; ++i)

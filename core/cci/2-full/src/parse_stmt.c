@@ -254,10 +254,12 @@ static void parse_case(node_t* parent) {
     node->type = type_new_base(BASE_VOID);
     node_append(parent, node);
 
-    // store our case/default statements in a linked list
     if (switch_container == NULL) {
         fatal_token(lexer_token, "Cannot use `case` outside of a `switch` statement.");
     }
+    node->container = switch_container;
+
+    // store our case/default statements in a linked list
     switch_list->next_case = node;
     switch_list = node;
 
@@ -299,10 +301,12 @@ static void parse_default(node_t* parent) {
     node->type = type_new_base(BASE_VOID);
     node_append(parent, node);
 
-    // store our case/default statements in a linked list
-    if (switch_list == NULL) {
+    if (switch_container == NULL) {
         fatal_token(lexer_token, "Cannot use `default` outside of a `switch` statement.");
     }
+    node->container = switch_container;
+
+    // store our case/default statements in a linked list
     switch_list->next_case = node;
     switch_list = node;
 

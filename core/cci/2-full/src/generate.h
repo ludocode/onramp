@@ -139,4 +139,10 @@ void generate_defer(struct node_t* node, int reg_out);
  */
 void generate_exit_defers(struct node_t* node, struct node_t* container, int reg_out);
 
+/**
+ * This diagnoses errors on any defer nodes found for a jump into the given
+ * node from the given container node.
+ */
+void generate_diagnose_defers(struct node_t* node, struct node_t* container, struct token_t* error_token);
+
 #endif

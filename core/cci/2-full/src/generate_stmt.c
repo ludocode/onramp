@@ -230,6 +230,8 @@ void generate_label(node_t* node, int reg_out) {
 }
 
 void generate_case_or_default(node_t* node, int reg_out) {
+    generate_diagnose_defers(node, node->container, node->token);
+
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->jump_label);
     current_block = block_new(node->jump_label);
     function_add_block(current_function, current_block);
@@ -277,21 +279,9 @@ void generate_goto(node_t* goto_node, int reg_out) {
         }
     }
 
-    // make sure we're not jumping into a defer, or into a node that follows a defer
-    for (size_t i = 1; i <= label_i; ++i) {
-        node_t* node = vector_at(&label_parents, i);
-        if (node->kind == NODE_DEFER) {
-            fatal_token(label_node->token, "Cannot `goto` into a `defer` statement.");
-        }
-        if (node->kind == NODE_SEQUENCE) {
-            node_t* child = vector_at(&label_parents, i - 1);
-            for (node_t* p = node->first_child; p != child; p = p->right_sibling) {
-                if (p->kind == NODE_DEFER) {
-                    fatal_token(label_node->token, "Cannot `goto` forward across a nested `defer` statement.");
-                }
-            }
-        }
-    }
+    // make sure we're not jumping into a defer, or into a node that follows a
+    // defer
+    generate_diagnose_defers(label_node, label_ancestor_child, goto_node->token);
 
     // generate defers out to the direct child of the common ancestor
     generate_exit_defers(goto_node, goto_ancestor_child, reg_out);
