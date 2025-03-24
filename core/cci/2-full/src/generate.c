@@ -41,6 +41,8 @@
 #include "generate_stmt.h"
 #include "token.h"
 
+//#define GENERATE_DEBUG
+
 function_t* current_function;
 block_t* current_block;
 int next_label;
@@ -1097,7 +1099,18 @@ static void generate_address_of(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
 }
 
+#ifdef GENERATE_DEBUG
+int debug_depth;
+#endif
+
 void generate_defer(node_t* node, int reg_out) {
+    #ifdef GENERATE_DEBUG
+    for (int i = 0; i < debug_depth; ++i)
+        fputs("  ", stdout);
+    printf("%s() %s %x\n", __func__, node_kind_to_string(node->kind), reg_out);
+    ++debug_depth;
+    #endif
+
     assert(node->kind == NODE_DEFER);
 
     // defer always has one child node which is a sequence of void type.
@@ -1107,10 +1120,16 @@ void generate_defer(node_t* node, int reg_out) {
     assert(type_matches_base(node->first_child->type, BASE_VOID));
 
     generate_node(node->first_child, reg_out);
+
+    #ifdef GENERATE_DEBUG
+    --debug_depth;
+    #endif
 }
 
 void generate_exit_defers(node_t* node, node_t* container, int reg_out) {
-    assert(node != container);
+    if (node == container) {
+        return;
+    }
 
     // The node should be a jump. It doesn't make sense for it to be a DEFER,
     // or a SEQUENCE or almost anything else.
@@ -1139,10 +1158,6 @@ void generate_exit_defers(node_t* node, node_t* container, int reg_out) {
         }
     } while (parent != container);
 }
-
-#ifdef GENERATE_DEBUG
-int debug_depth;
-#endif
 
 void generate_node(node_t* node, int reg_out) {
     #ifdef GENERATE_DEBUG

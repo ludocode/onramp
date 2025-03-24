@@ -134,7 +134,8 @@ void generate_defer(struct node_t* node, int reg_out);
  * This generates all defer nodes for a jump from the source node out of the
  * given container node.
  *
- * The container must be a parent of the node.
+ * The container must be a parent of the node, or the node itself (in which
+ * case nothing is generated.)
  */
 void generate_exit_defers(struct node_t* node, struct node_t* container, int reg_out);
 

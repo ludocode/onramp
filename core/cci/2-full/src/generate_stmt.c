@@ -257,18 +257,18 @@ void generate_goto(node_t* goto_node, int reg_out) {
         vector_append(&label_parents, node);
     }
 
-    // find the nearest common ancestor
-    node_t* ancestor;
+    // find the direct children of the nearest common ancestor
     size_t goto_i = vector_count(&goto_parents);
     size_t label_i = vector_count(&label_parents);
     while (1) {
         --goto_i;
         --label_i;
         if (vector_at(&goto_parents, goto_i) != vector_at(&label_parents, label_i)) {
-            ancestor = vector_at(&goto_parents, goto_i + 1);
             break;
         }
     }
+    node_t* goto_ancestor_child = vector_at(&goto_parents, goto_i);
+    node_t* label_ancestor_child = vector_at(&label_parents, label_i);
 
     // make sure we're not jumping out of a defer
     for (size_t i = 0; i <= goto_i; ++i) {
@@ -287,19 +287,17 @@ void generate_goto(node_t* goto_node, int reg_out) {
             node_t* child = vector_at(&label_parents, i - 1);
             for (node_t* p = node->first_child; p != child; p = p->right_sibling) {
                 if (p->kind == NODE_DEFER) {
-                    fatal_token(label_node->token, "Cannot `goto` forward across a `defer` statement.");
+                    fatal_token(label_node->token, "Cannot `goto` forward across a nested `defer` statement.");
                 }
             }
         }
     }
 
-    // generate defers out to the common ancestor
-    generate_exit_defers(goto_node, ancestor, reg_out);
+    // generate defers out to the direct child of the common ancestor
+    generate_exit_defers(goto_node, goto_ancestor_child, reg_out);
 
     // figure out if we're jumping backwards or forwards in the common ancestor
     bool backwards = false;
-    node_t* goto_ancestor_child = vector_at(&goto_parents, goto_i);
-    node_t* label_ancestor_child = vector_at(&label_parents, label_i);
     for (node_t* node = goto_ancestor_child->left_sibling; node; node = node->left_sibling) {
         if (node == label_ancestor_child) {
             backwards = true;
