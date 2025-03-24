@@ -347,11 +347,6 @@ static bool parse_labels(node_t* parent) {
         break;
     }
 
-    if (found_label && lexer_is(STR_BRACE_CLOSE)) {
-        // allow labels at the end of a block
-        // TODO this is C2x only, warn otherwise
-    }
-
     return found_label;
 }
 
@@ -445,6 +440,12 @@ static void parse_statement(node_t* parent, bool cast_to_void) {
 
 void parse_declaration_or_statement(node_t* parent, bool cast_to_void) {
     bool found_label = parse_labels(parent);
+
+    if (found_label && lexer_is(STR_BRACE_CLOSE)) {
+        // allow labels at the end of a block
+        // TODO this is C2x only, warn otherwise
+        return;
+    }
 
     if (try_parse_declaration(parent)) {
         if (found_label) {
