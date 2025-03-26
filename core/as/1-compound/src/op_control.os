@@ -915,7 +915,7 @@
     ims ra <opcode_lts_template
     ims ra >opcode_lts_template
     add r0 rpp ra
-    add r1 '00 '18
+    add r1 '00 '10
 
     ; fill it in
     ldb r2 rsp '00    ; load dest
