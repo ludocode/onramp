@@ -39,7 +39,7 @@
 #define __STDC_NO_COMPLEX__
 #define __STDC_NO_VLA__
 
-#define __STDC_DEFER_TS25755___ 1
+#define __STDC_DEFER_TS25755__ 1
 
 // These are here for lack of a better place to put them. We want functions
 // declared in our libc headers (even those of earlier stages) to match the
