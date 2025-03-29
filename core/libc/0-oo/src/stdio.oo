@@ -248,6 +248,19 @@
 
 
 ; ==========================================================
+; const char* __files_error_fwrite_failed;
+; ==========================================================
+
+=__files_error_fwrite_failed
+    ; "ERROR: fwrite() failed." '0A '00
+    45 52 52 4f 52 3a 20 66  77 72 69 74 65 28 29 20
+  ;  E  R  R  O  R  :     f   w  r  i  t  e  (  )
+    66 61 69 6c 65 64 2e 0a  00
+  ;  f  a  i  l  e  d  . \n  \0
+
+
+
+; ==========================================================
 ; FILE* fopen(const char* filename, const char* mode);
 ; ==========================================================
 ; Opens the file with the given name in the given mode.
@@ -685,6 +698,13 @@
 ; (Element sizes other than 1 would require buffering which we don't do yet,
 ; plus there are overflow checks and other considerations needed to do it
 ; correctly. It's better to just forbid it during bootstrapping.)
+;
+; vars:
+; - file: rfp-4
+; - i/o handle: rfp-8
+; - remaining: rfp-12
+; - data: rfp-16
+; - total: rfp-20
 ; ==========================================================
 
 =fwrite
@@ -701,10 +721,17 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 10     ; sub rsp rsp 16
 
-    ; store the file
-    71 8C 8C 04     ; sub rsp rsp 4     ; push r3
-    79 83 00 8C     ; stw r3 0 rsp      ; ...
+    ; initialize vars
+    79 83 8D FC     ; stw r3 rfp -4    ; file
+    79 82 8D F4     ; stw r2 rfp -12   ; remaining (element_count)
+    79 82 8D EC     ; stw r2 rfp -20   ; total (element_count)
+    79 80 8D F0     ; stw r0 rfp -16   ; data
+
+    ; store i/o handle
+    78 80 00 83     ; ldw r0 0 r3
+    79 80 8D F8     ; stw r0 rfp -8
 
     ; make sure the element size is 1
     71 81 81 01     ; sub r1 r1 1
@@ -719,18 +746,12 @@
     70 8F 8E 8A        ; add rip rpp ra
 :__fwrite_size_ok
 
-    ; put the buffer into r1 (count is already in r2)
-    70 81 00 80     ; add r1 0 r0     ; mov r1 r0
-
-    ; get the handle into r0 and save it on the stack
-    78 80 00 83     ; ldw r0 0 r3
-    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
-    79 80 00 8C     ; stw r0 0 rsp      ; ...
-
-    ; we'll be accumulating the total write in r3
-    70 83 00 00     ; add r3 0 0      ; zero r3
-
 :__fwrite_loop
+
+    ; prepare syscall arguments
+    78 80 8D F8     ; ldw r0 rfp -8    ; i/o handle
+    78 81 8D F0     ; ldw r1 rfp -16   ; data
+    78 82 8D F4     ; ldw r2 rfp -12   ; remaining (element_count)
 
     ; make the syscall
     7F 06 00 00         ; sys fwrite 0 0
@@ -738,47 +759,43 @@
     ; if nothing was returned, we're done
     7E 80 &__fwrite_done  ; jz r0 &__fwrite_done
 
-    ; add it to the total
-    70 83 83 80         ; add r3 r3 r0
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A &__fwrite_syscall_ok     ; jz ra &__fwrite_syscall_ok
+    7E 00 &__fwrite_syscall_failed ; jz ra &__fwrite_syscall_failed
+:__fwrite_syscall_ok
 
-    ; adjust the remaining count. if it's zero, we're done
+    ; subtract written bytes from remaining. if it's zero, we're done
+    78 82 8D F4           ; ldw r2 rfp -12
     71 82 82 80           ; sub r2 r2 r0
     7E 82 &__fwrite_done  ; jz r2 &__fwrite_done
+    79 82 8D F4           ; stw r2 rfp -12
 
     ; adjust the write position
-    70 81 81 80         ; add r1 r1 r0
-
-    ; get the handle again
-    78 80 00 8C         ; ldw r0 0 rsp
-
-        ; TODO loop disabled for now, VMs aren't currently returning anything for
-        ; write. Not sure yet if I want to allow VMs to do partial writes or if VMs
-        ; should return nothing and just abort if writing fails. Downside of latter
-        ; option is that VMs must implement the loop. But upside is that it's
-        ; simpler bytecode and much easier to specify
-        70 83 82 00           ; add r3 r2 0
-        7E 00 &__fwrite_done  ; jz 0 &__fwrite_done
+    78 81 8D F0     ; ldw r1 rfp -16
+    70 81 81 80     ; add r1 r1 r0
+    79 81 8D F0     ; stw r1 rfp -16
 
     ; and loop
-    7E 00 &__fwrite_loop  ; jz 0 &__fwrite_loop
+    7E 00 &__fwrite_loop   ; jz 0 &__fwrite_loop   ; jmp &__fwrite_loop
 
 :__fwrite_done
 
-    ; increment the file position by the total
-    ; TODO get rid of this
-    ;78 80 8D FC     ; ldw r0 rfp -4
-    ;78 81 80 04     ; ldw r1 r0 4
-    ;70 81 81 83     ; add r1 r1 r3
-    ;79 81 80 04     ; stw r1 r0 4
-
-    ; put our total in r0 to return it
-    70 80 00 83     ; add r0 0 r3       ; mov r0 r3
-
-    ; return
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
+    ; return total
+    78 80 8D EC     ; ldw r0 rfp -20
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
     70 8C 8C 04     ; add rsp rsp 4     ; ...
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:__fwrite_syscall_failed
+    ; we don't support error states or ferror() during bootstrapping.
+    7C 80 <__files_error_fwrite_failed   ; ims r0 <__files_error_fwrite_failed
+    7C 80 >__files_error_fwrite_failed   ; ims r0 >__files_error_fwrite_failed
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
 
 
 
