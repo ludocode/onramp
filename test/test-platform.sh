@@ -26,7 +26,9 @@
 
 # Runs all platform-specific tests that can run on the current platform.
 #
-# (For now we assume the current platform is x86_64 Linux.)
+# Any tools that are not supported on the current platform are skipped. This
+# script assumes only that a POSIX shell is available (since the script is
+# running in it.)
 
 
 
@@ -43,13 +45,20 @@ cd "$(dirname "$0")/.."
 # test-core.sh .
 
 # python
-test/hex/run.sh platform/hex/python/hex.py
+if command -v python >/dev/null; then
+    test/hex/run.sh platform/hex/python/hex.py
+fi
 
 # python-golf
-test/hex/run.sh --lax platform/hex/python-golf/hex.py
+if command -v python >/dev/null; then
+    test/hex/run.sh --lax platform/hex/python-golf/hex.py
+fi
 
 # sh
 test/hex/run.sh --lax platform/hex/sh/hex.sh
+if command -v busybox >/dev/null; then
+    busybox sh test/hex/run.sh --lax 'busybox sh platform/hex/sh/hex.sh'
+fi
 
 # sh-alt
 test/hex/run.sh --lax platform/hex/sh-alt/hexcomb.sh
@@ -62,7 +71,9 @@ if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
 fi
 
 # xxd
-test/hex/run.sh --lax platform/hex/xxd/hex.sh
+if command -v xxd >/dev/null; then
+    test/hex/run.sh --lax platform/hex/xxd/hex.sh
+fi
 
 
 
@@ -71,7 +82,9 @@ test/hex/run.sh --lax platform/hex/xxd/hex.sh
 ################
 
 # c-debugger
-make -C platform/vm/c-debugger
+if command -v cc >/dev/null; then
+    platform/vm/c-debugger/test.sh
+fi
 
 # x86_64-linux
 if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
@@ -79,10 +92,14 @@ if [ "$(uname -s)" = "Linux" ] && [ "$(uname -m)" = "x86_64" ]; then
 fi
 
 # python
-platform/vm/python/test.sh
+if command -v python >/dev/null; then
+    platform/vm/python/test.sh
+fi
 
 # c89
-platform/vm/c89/test.sh
+if command -v cc >/dev/null; then
+    platform/vm/c89/test.sh
+fi
 
 # sh
 # TODO disabled for now, it's too slow
