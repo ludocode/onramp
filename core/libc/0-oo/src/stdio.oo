@@ -344,6 +344,7 @@
 :__fopen_syscall_ok
 
     ; save metadata in the file slot
+    78 82 8D F4     ; ldw r2 rfp -12
     79 80 82 00     ; stw r0 r2 0    ; i/o handle
     ;79 00 82 04     ; stw 0 r2 4     ; position in file   ; TODO disabled, position to be removed
 
@@ -576,6 +577,9 @@
 ; vars:
 ; - file: rfp-4
 ; - i/o handle: rfp-8
+; - total: rfp-12
+; - remaining: rfp-16
+; - buffer: rfp-20
 ; ==========================================================
 
 =fread
@@ -592,10 +596,13 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 14     ; sub rsp rsp 20
 
-    ; store the file
-    71 8C 8C 04     ; sub rsp rsp 4     ; push r3
-    79 83 00 8C     ; stw r3 0 rsp      ; ...
+    ; initialize vars
+    79 83 8D FC     ; stw r3 rfp -4    ; file
+    79 00 8D F4     ; stw 0 rfp -12    ; total = 0
+    79 82 8D F0     ; stw r2 rfp -16   ; count (remaining)
+    79 80 8D EC     ; stw r0 rfp -20   ; buffer
 
     ; make sure the element size is 1
     71 81 81 01     ; sub r1 r1 1
@@ -610,16 +617,12 @@
     70 8F 8E 8A        ; add rip rpp ra
 :__fread_size_ok
 
-    ; put the buffer into r1 (count is already in r2)
-    70 81 00 80     ; add r1 0 r0     ; mov r1 r0
+    ; load the buffer into r1
+    78 81 8D EC     ; ldw r1 rfp -20
 
-    ; get the handle into r0 and save it on the stack
+    ; get the i/o handle into r0 and store it
     78 80 00 83     ; ldw r0 0 r3
-    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
-    79 80 00 8C     ; stw r0 0 rsp      ; ...
-
-    ; we'll be accumulating the total read in r3
-    70 83 00 00     ; add r3 0 0      ; zero r3
+    79 80 8D F8     ; stw r0 rfp -8
 
 :__fread_loop
 
@@ -630,17 +633,23 @@
     7E 80 &__fread_done  ; jz r0 &__fread_done
 
     ; add it to the total
+    78 83 8D F4        ; ldw r3 rfp -12
     70 83 83 80        ; add r3 r3 r0
+    79 83 8D F4        ; stw r3 rfp -12
 
     ; adjust the remaining count. if it's zero, we're done
+    78 82 8D F0          ; ldw r2 rfp -16
     71 82 82 80          ; sub r2 r2 r0
     7E 82 &__fread_done  ; jz r2 &__fread_done
+    79 82 8D F0          ; stw r2 rfp -16
 
     ; adjust the read position
+    78 81 8D EC        ; ldw r1 rfp -20
     70 81 81 80        ; add r1 r1 r0
+    79 81 8D EC        ; stw r1 rfp -20
 
     ; get the handle again
-    78 80 00 8C        ; ldw r0 0 rsp
+    78 80 8D F8        ; ldw r0 rfp -8
 
     ; and loop
     7E 00 &__fread_loop  ; jz 0 &__fread_loop
@@ -655,7 +664,7 @@
     ;79 81 80 04     ; stw r1 r0 4
 
     ; put our total in r0 to return it
-    70 80 00 83     ; add r0 0 r3       ; mov r0 r3
+    78 80 8D F4     ; ldw r0 rfp -12
 
     ; return
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
