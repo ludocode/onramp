@@ -34,7 +34,7 @@ jobs:
       - run: scripts/posix/build.sh --setup --dev
       - run: test/test-bootstrap.sh
 
-  test-bootstrapped:
+  test-bootstrapped-short-read:
     name: "Bootstrapped Tests w/ Short Read"
     runs-on: ubuntu-latest
     steps:
@@ -44,7 +44,7 @@ jobs:
       - run: platform/vm/c-debugger/install.sh
       - run: test/test-bootstrap.sh
 
-  test-bootstrapped:
+  test-bootstrapped-short-write:
     name: "Bootstrapped Tests w/ Short Write"
     runs-on: ubuntu-latest
     steps:
