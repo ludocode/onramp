@@ -56,11 +56,11 @@ if [ "x$CC" = "x" ]; then
 fi
 
 # Choose compiler flags
-# (set CFLAGS to override the defaults)
+# (set CFLAGS to override the defaults or EXTRA_CFLAGS to add flags)
 if [ "x$CFLAGS" = "x" ]; then
     CFLAGS="-O2 -g -Wall -Wextra -Wpedantic -Wno-unused-parameter"
 fi
-CFLAGS="$CFLAGS -Icore/libo/1-opc/include"
+CFLAGS="$CFLAGS $EXTRA_CFLAGS -Icore/libo/1-opc/include"
 
 # Compile it
 mkdir -p build/test/vm-c-debugger

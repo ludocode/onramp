@@ -33,3 +33,23 @@ jobs:
       - uses: actions/checkout@main
       - run: scripts/posix/build.sh --setup --dev
       - run: test/test-bootstrap.sh
+
+  test-bootstrapped:
+    name: "Bootstrapped Tests w/ Short Read"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - run: scripts/posix/build.sh --setup --dev
+      - run: EXTRA_CFLAGS=-DMAX_READ_SIZE=1 platform/vm/c-debugger/build.sh
+      - run: platform/vm/c-debugger/install.sh
+      - run: test/test-bootstrap.sh
+
+  test-bootstrapped:
+    name: "Bootstrapped Tests w/ Short Write"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@main
+      - run: scripts/posix/build.sh --setup --dev
+      - run: EXTRA_CFLAGS=-DMAX_WRITE_SIZE=1 platform/vm/c-debugger/build.sh
+      - run: platform/vm/c-debugger/install.sh
+      - run: test/test-bootstrap.sh

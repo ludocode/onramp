@@ -688,6 +688,15 @@ static uint32_t vm_fread(vm_t* vm) {
     }
     uint8_t* buffer = vm->memory + (addr - vm->memory_base);
 
+    // In order to test that stages correctly handle short reads, we limit the
+    // number of bytes that can be read at once.
+    #ifndef MAX_READ_SIZE
+    #define MAX_READ_SIZE 127
+    #endif
+    if (count > MAX_READ_SIZE) {
+        count = MAX_READ_SIZE;
+    }
+
     if (file == stdin) {
         // We have non-blocking input so we don't use fread(). Instead we use
         // POSIX read().
@@ -725,6 +734,16 @@ static uint32_t vm_fwrite(vm_t* vm) {
     }
     if (!vm_is_buffer_valid(vm, addr, count)) {
         panic("ERROR: Invalid buffer given to syscall fwrite.");
+    }
+
+    // In order to test that stages correctly handle short writes, we limit the
+    // number of bytes that can be written at once. The default for writes is
+    // smaller than reads to test correct behaviour of read->write loops.
+    #ifndef MAX_WRITE_SIZE
+    #define MAX_WRITE_SIZE 59
+    #endif
+    if (count > MAX_WRITE_SIZE) {
+        count = MAX_WRITE_SIZE;
     }
 
     uint8_t* buffer = vm->memory + (addr - vm->memory_base);
