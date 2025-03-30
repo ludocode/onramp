@@ -38,11 +38,20 @@
  * copyrighted Unicode data tables.
  */
 
-#include <uchar.h>
 #include <stdbool.h>
+#include <stddef.h>
+#include <stdint.h>
 
-// TODO external compilers don't properly support char8_t yet
-typedef unsigned char char8_t;
+#ifdef __onramp__
+    #include <uchar.h>
+#endif
+#ifndef __onramp__
+    // TODO external compilers don't properly support char8_t yet
+    // (and macOS doesn't support <uchar.h> at all)
+    typedef uint8_t char8_t;
+    typedef uint16_t char16_t;
+    typedef uint32_t char32_t;
+#endif
 
 /**
  * The offset added to invalid bytes in a Unicode stream.

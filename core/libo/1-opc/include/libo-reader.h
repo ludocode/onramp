@@ -25,12 +25,20 @@
 #ifndef ONRAMP_LIBO_READER_H_INCLUDED
 #define ONRAMP_LIBO_READER_H_INCLUDED
 
-#include <uchar.h>
-#include <stdio.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
 
-// TODO external compilers don't properly support char8_t yet
-typedef unsigned char char8_t;
+#ifdef __onramp__
+    #include <uchar.h>
+#endif
+#ifndef __onramp__
+    // TODO external compilers don't properly support char8_t yet
+    // (and macOS doesn't support <uchar.h> at all)
+    typedef uint8_t char8_t;
+    typedef uint16_t char16_t;
+    typedef uint32_t char32_t;
+#endif
 
 struct string_t;
 
