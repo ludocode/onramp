@@ -54,7 +54,7 @@
 ;   2C0  arg_is_dash_o
 ;   320  parse_args
 ;   410  open_files
-;   480  read_char
+;   470  read_char
 ;   4B0  parse_character
 ;   580  try_parse_whitespace
 ;   5F0  emit_byte
@@ -325,7 +325,7 @@
 
     ; read the first char, call read_char()
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -432,7 +432,7 @@
     70 81 00 01    ; add r1 0 1     ; writeable
     7F 03 00 00    ; sys fopen 0 0
 
-    ; return value must not be -1
+    ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
     7E 00 06 00    ; jz ra &open_output_file_ok (+6)
 
@@ -446,7 +446,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 ;:open_output_file_ok
 
-    ; store output handle in globals
+    ; store output handle
     79 80 8E 28    ; stw r0 rpp 0x28  (output_io_handle)
 
     ; syscall ftrunc (to destroy contents in case it already existed)
@@ -640,10 +640,8 @@
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00
-@0x480
+@0x470
 
 
 
@@ -654,7 +652,7 @@
 ; current_char.
 ;==========================================
 
-@0x480 =read_char
+@0x470 =read_char
     ; don't bother to set up a stack frame
 
     ; syscall read(input_io_handle, &current_char, 1)
@@ -663,8 +661,21 @@
     70 82 00 01     ; add r2 0 1       ; 1
     7F 05 00 00     ; sys fread 0 0
 
-    ; r0 contains the number of bytes read. if it's zero, assume it's the end
-    ; of the file.
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 00 06 00    ; jz ra &read_char_ok (+6)
+
+    ; failed to read char. fatal
+;:read_char_fail
+    7C 80 00 00    ; ims r0 <error_input_file
+    7C 80 C0 00    ; ims r0 >error_input_file
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:read_char_ok
+
+    ; r0 contains the number of bytes read. if zero, it's end of file.
     7E 80 01 00    ; jz r0 &read_char_eof (+1)
     7E 00 01 00    ; jz 0 &read_char_ret (+1)
 
@@ -675,9 +686,7 @@
 ;:read_char_ret
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
-    ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    ; no padding left!
 @0x4B0
 
 
@@ -706,7 +715,7 @@
     7E 00 04 00    ; jz 0 &parse_character_no_eof (+4)
 
     ; if end of file, exit with status 0
-    ; TODO we need to close the file
+; TODO we need to close the files
     70 80 00 00    ; add r0 0 0
     78 88 8E 20    ; ldw r8 rpp 0x20  (process_info_table)
     78 8A 88 08    ; ldw ra r8 8      (exit address)
@@ -812,7 +821,7 @@
 
     ; it's whitespace. consume it
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -850,6 +859,10 @@
     70 81 00 8C    ; add r1 0 rsp     ; buffer
     70 82 00 01    ; add r2 0 1       ; count
     7F 06 00 00    ; sys fwrite 0 0
+
+    ; TODO check for errors! high bit indicates error, and since we're writing
+    ; only one byte to a blocking stream, any return value other than 1 is an
+    ; error
 
     ; increment byte count
     78 8A 8E 30    ; ldw ra rpp 0x30    ; load byte_count
@@ -978,7 +991,7 @@
 
     ; consume the character
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1032,7 +1045,7 @@
 
     ; consume the second hex character
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1127,7 +1140,7 @@
 
     ; consume the character
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1231,7 +1244,7 @@
 
     ; consume the "@"
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1252,7 +1265,7 @@
 
     ; consume the "0"
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1275,7 +1288,7 @@
 
     ; consume the "x"
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1352,7 +1365,7 @@
 
     ; consume the digit
     7C 8A 00 00    ; ims ra <read_char
-    7C 8A 80 04    ; ims ra >read_char
+    7C 8A 70 04    ; ims ra >read_char
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
