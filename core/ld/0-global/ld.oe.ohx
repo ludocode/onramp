@@ -25,38 +25,29 @@
 ; This is the implementation of the Onramp first stage linker. See the attached
 ; README.md for details.
 ;
-; Note that r9 is not treated as caller-preserved. Instead it always points to
-; a table of global variables allocated during initialization. See the global
-; variables table below.
+; Global variables start at 0x20 and end at 0x50.
 ;
-; We use a fixed-size hashtable of 8192 entries. Each bucket is two words, so
-; the table uses a total of 64 kB of memory (not counting strings.) We limit
-; the total number of labels to 4096 to avoid too many collisions. (This limit
-; is removed by the next stage linker.) We don't have constants so the
-; calculations for this are a bit all over the place; look for << to find the
-; hashtable size calculations.
-
-
-
-; global variables:
-;  name                  offset from r9
-;   process_info_table     0    00
-;   symbol_hashtable       4    04
-;   symbol_count           8    08
-;   current_break         12    0C
-;   output_io_handle      16    10
-;   pass                  20    14
-;   current_address       24    18
-;   current_char          28    1C
-;   input_io_handle       32    20
-;      total               36    24
+; We use a fixed-size hashtable of 8192 buckets. Each bucket is two words (8
+; bytes), so the table uses a total of 64 kB of memory (not counting strings.)
+; We limit the total number of labels to half the bucket count to avoid too
+; many collisions. (This limit is removed by the next stage linker.) We don't
+; have constants so the calculations for this are a bit all over the place;
+; look for << to find the hashtable size calculations.
 
 
 
 ; symbol table:
 ;  addr  name
 ;     0  __start
-;    20  error_duplicate_symbol
+;    20  process_info_table
+;    24  input_io_handle
+;    28  output_io_handle
+;    2C  symbol_hashtable
+;    30  symbol_count
+;    34  pass
+;    38  current_address
+;    3C  nurrent_char
+;    40  current_break
 ;    50  error_invocation_not_found
 ;    90  error_input_file
 ;    C0  error_output_file
@@ -92,6 +83,7 @@
 ;  1060  emit_two_bytes
 ;  10B0  fatal_symbol
 ;  1160  strcmp
+;  11B0  error_duplicate_symbol
 
 
 
@@ -120,18 +112,113 @@
 
 
 ;==========================================
-; const char error_duplicate_symbol[];
+; uint32_t* process_info_table;
 ;==========================================
 
-@0x20 =error_duplicate_symbol
-    ; "ERROR: Duplicate label or symbol definition." '0A '00
-    45 52 52 4f 52 3a 20 44  75 70 6c 69 63 61 74 65
-  ;  E  R  R  O  R  :     D   u  p  l  i  c  a  t  e
-    20 6c 61 62 65 6c 20 6f  72 20 73 79 6d 62 6f 6c
-  ;     l  a  b  e  l     o   r     s  y  m  b  o  l
-    20 64 65 66 69 6e 69 74  69 6f 6e 2e 0a 00 00 00
-  ;     d  e  f  i  n  i  t   i  o  n  . \n \0
-@0x50
+@0x20 =process_info_table
+    FF FF FF FF
+@0x24
+
+
+
+;==========================================
+; int input_io_handle;
+;==========================================
+
+@0x24 =input_io_handle
+    FF FF FF FF
+@0x28
+
+
+
+;==========================================
+; int output_io_handle;
+;==========================================
+
+@0x28 =output_io_handle
+    FF FF FF FF
+@0x2C
+
+
+
+;==========================================
+; struct {char* name, size_t address}* symbol_hashtable;
+;==========================================
+
+@0x2C =symbol_hashtable
+    FF FF FF FF
+@0x30
+
+
+
+;==========================================
+; size_t symbol_count;
+;==========================================
+
+@0x30 =symbol_count
+    00 00 00 00
+@0x34
+
+
+
+;==========================================
+; int pass;
+;==========================================
+
+@0x34 =pass
+    00 00 00 00
+@0x38
+
+
+
+;==========================================
+; size_t current_address;
+;==========================================
+
+@0x38 =current_address
+    00 00 00 00
+@0x3C
+
+
+
+;==========================================
+; int current_char;
+;==========================================
+; This is an int because it has value -1 when end-of-file is reached.
+;==========================================
+
+@0x3C =current_char
+    00 00 00 00
+@0x40
+
+
+
+;==========================================
+; intptr_t current_break;
+;==========================================
+
+@0x40 =current_break
+    FF FF FF FF
+@0x44
+
+
+
+;==========================================
+; intptr_t stack_bottom;
+;==========================================
+; The bottom of the stack. If current_break runs past this, we've run out of
+; memory.
+;==========================================
+
+@0x44 =stack_bottom
+    FF FF FF FF
+@0x48
+
+
+
+    ; padding
+    00 00 00 00
+    00 00 00 00
 
 
 
@@ -347,36 +434,36 @@
 ; - current_break: r2
 ; - hashtable_iterator: r3
 ; - hashtable_size: r4
-; - global_variables: r9
+; - stack_bottom: r5
 ;==========================================
 
 @0x220 =initialize
     ; don't bother to set up a stack frame
 
-    ; get the program break into r9. it will be the address of our global
-    ; variables.
-    78 89 80 04   ; ldw r9 r0 4
+    ; store the process info table
+    79 80 8E 20   ; stw r0 rpp 0x20       ; process_info_table
 
-    ; align it
-    70 89 89 03   ; add r9 r9 3
-    74 89 89 FC   ; and r9 r9 -4
+    ; get the program break into r1 and align it. this is the start of the heap
+    78 81 80 04   ; ldw r1 r0 4
+    70 81 81 03   ; add r1 r1 3
+    74 81 81 FC   ; and r1 r1 -4
 
-    ; allocate our global variables
-    70 81 89 24   ; add r1 r9 36
+    ; TODO we should check that we have a decent size heap here (however much
+    ; is needed for bootstrap plus some margin.) If not we need to call a
+    ; morecore syscall once we add it and switch the stack to it.
 
     ; allocate our hashtable (1<<16 is 64 kB for 8196 two-word entries.)
+    79 81 8E 2C   ; stw r1 rpp 0x2C    ; symbol_hashtable
     76 84 01 10   ; shl r4 1 16
     70 82 81 84   ; add r2 r1 r4
 
-    ; fill out our global variables
-    79 80 89 00   ; stw r0 r9  0       ; process_info_table
-    79 81 89 04   ; stw r1 r9  4       ; symbol_hashtable
-    79 00 89 08   ; stw  0 r9  8       ; symbol_count
-    79 82 89 0C   ; stw r2 r9 12       ; current_break
-    79 FF 89 10   ; stw -1 r9 16       ; output_io_handle
-    79 00 89 14   ; stw  0 r9 20       ; pass
-    79 00 89 18   ; stw  0 r9 24       ; current_address
-    ; the rest don't need to be initialized
+    ; store the new break for allocating strings
+    79 82 8E 40   ; stw r2 rpp 0x40    ; current_break
+
+    ; allocate 4 kB from the end of the heap for the stack
+    76 85 01 0C   ; shl r5 1 12   ; 1<<12 == 4096
+    71 85 8C 85   ; sub r5 rsp r5
+    79 85 8E 44   ; stw r5 rpp 0x44    ; stack_bottom
 
     ; zero out the hashtable strings
     ; (we don't need to zero out the addresses)
@@ -393,6 +480,7 @@
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x280
@@ -452,7 +540,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; make sure we found an output file
-    78 8A 89 10    ; ldw ra r9 16
+    78 8A 8E 28    ; ldw ra rpp 0x28    ; output_io_handle
     71 8A 8A FF    ; sub ra ra -1
     7E 8A 01 00    ; jz ra &perform_link_no_output (+1)
     7E 00 06 00    ; jz 0 &perform_link_pass_0_ok (+6)
@@ -468,10 +556,10 @@
 ;:perform_link_pass_0_ok
 
     ; increment pass, reset current address
-    79 01 89 14   ; stw 1 r9 20   ; pass
-    79 00 89 18   ; stw 0 r9 24   ; current_address
+    79 01 8E 34   ; stw 1 rpp 0x34    ; pass
+    79 00 8E 38   ; stw 0 rpp 0x38    ; current_address
 
-    ; call perform_pass()
+    ; call perform_pass() again
     7C 8A 00 00    ; ims ra <perform_pass
     7C 8A A0 03    ; ims ra >perform_pass
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -481,20 +569,20 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; success! close output handle
-    78 80 89 10    ; ldw r0 r9 16    ; output_io_handle
+    78 80 8E 28    ; ldw r0 rpp 0x28    ; output_io_handle
     7F 04 00 00    ; sys fclose 0 0
 
     ; set exit status 0
     70 80 00 00    ; add r0 0 0
 
     ; jump to the exit address
-    78 8A 89 00    ; ldw ra r9 0
-    78 8A 8A 08    ; ldw ra ra 8
-    70 8F 00 8A    ; add rip 0 ra
+    78 8A 8E 20    ; ldw ra rpp 0x20    ; process_info_table
+    78 8F 8A 08    ; ldw rip ra 8       ; exit address
 
     ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x340
 
 
@@ -525,17 +613,15 @@
     70 82 00 80    ; add r2 0 r0   ; mov r2 r0
     78 81 00 8C    ; ldw r1 0 rsp
 
-    ; get process info table into r8
-    78 88 89 00    ; ldw r8 r9 0
-
     ; write to stderr
-    78 80 88 14    ; ldw r0 r8 20   ; stderr
+    78 88 8E 20    ; ldw r8 rpp 0x20   ; process_info_table
+    78 80 88 14    ; ldw r0 r8 20      ; stderr
     7F 06 00 00    ; sys fwrite 0 0
 
     ; exit with status 1
     70 80 00 01    ; add r0 0 1
-    78 8A 88 08    ; ldw r8 r8 8
-    70 8F 00 8A    ; add rip 0 ra
+    78 88 8E 20    ; ldw r8 rpp 0x20   ; process_info_table
+    78 8F 88 08    ; ldw rip r8 8      ; exit address
 
     ; padding
     00 00 00 00
@@ -587,7 +673,7 @@
 
     ; get current argument
     78 82 8D FC     ; ldw r2 rfp -4   ; get current_index
-    78 81 89 00     ; ldw r1 r9 0     ; get process info table
+    78 81 8E 20     ; ldw r1 rpp 0x20 ; get process_info_table
     78 81 81 18     ; ldw r1 r1 24    ; get args
     78 80 81 82     ; ldw r0 r1 r2    ; get current_arg
 
@@ -649,7 +735,7 @@
 
     ; get new current argument
     78 82 8D FC     ; ldw r2 rfp -4   ; get current_index
-    78 81 89 00     ; ldw r1 r9 0     ; get process info table
+    78 81 8E 20     ; ldw r1 rpp 0x20 ; get process_info_table
     78 81 81 18     ; ldw r1 r1 24    ; get args
     78 80 81 82     ; ldw r0 r1 r1    ; get current_arg
 
@@ -658,7 +744,7 @@
     79 82 8D FC    ; stw r2 rfp -4
 
     ; if the current pass is not 0, we've already opened the output. skip it.
-    78 8A 89 14    ; ldw ra r9 20
+    78 8A 8E 34    ; ldw ra rpp 0x34    ; pass
     7E 8A 01 00    ; jz ra &perform_pass_output_open (+1)
     78 8F 8D F4    ; ldw rip rfp -12    ; jump back to perform_pass_loop
 ;:perform_pass_output_open
@@ -757,12 +843,14 @@
 ;:open_output_file_ok
 
     ; store output handle in globals
-    79 80 89 10    ; stw r0 r9 16
+    79 80 8E 28    ; stw r0 rpp 0x28    ; output_io_handle
 
     ; syscall ftrunc (to destroy contents in case it already existed)
     70 81 00 00    ; add r1 0 0
     70 82 00 00    ; add r2 0 0
     7F 09 00 00    ; sys ftrunc 0 0
+
+    ; TODO check for errors
 
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
@@ -786,7 +874,7 @@
     ; don't bother to set up a stack frame
 
     ; clear current_char
-    79 00 89 1C    ; stw 0 r9 28   ; current_char
+    79 00 8E 3C    ; stw 0 rpp 0x3C   ; current_char
 
     ; syscall open
     70 81 00 00    ; add r1 0 0     ; read-only
@@ -808,7 +896,7 @@
 ;:open_input_file_ok
 
     ; store the input handle
-    79 80 89 20    ; stw r0 r9 32    ; input_io_handle
+    79 80 8E 24    ; stw r0 rpp 0x24   ; input_io_handle
 
     ; read the first character
     7C 8A 00 00    ; ims ra <read_char
@@ -822,7 +910,7 @@
 ;:parse_input_file_loop
 
     ; see if the current character is -1, meaning end of file
-    78 8A 89 1C    ; ldw ra r9 28
+    78 8A 8E 3C    ; ldw ra rpp 0x3C    ; current_char
     71 8A 8A FF    ; sub ra ra -1
     7E 8A 08 00    ; jz ra &parse_input_file_done (+8)
 
@@ -841,8 +929,10 @@
 ;:parse_input_file_done
 
     ; close the file
-    78 80 89 20    ; ldw r0 r9 32    ; input_io_handle
+    78 80 8E 24    ; ldw r0 rpp 0x24   ; input_io_handle
     7F 04 00 00    ; sys fclose 0 0
+
+    ; TODO check for error
 
     ; return
     70 8C 8C 04    ; add rsp rsp 4
@@ -865,10 +955,10 @@
     ; don't bother to set up a stack frame
 
     ; syscall read(input_io_handle, &current_char, 1)
-    78 80 89 20     ; ldw r0 r9 32    ; input_io_handle
-    70 81 89 1C     ; add r1 r9 28    ; &current_char
-    70 82 00 01     ; add r2 0 1      ; 1
-    7F 05 00 00     ; sys fread 0 0
+    78 80 8E 24    ; ldw r0 rpp 0x24   ; input_io_handle
+    70 81 8E 3C    ; add r1 rpp 0x3C   ; &current_char
+    70 82 00 01    ; add r2 0 1        ; 1
+    7F 05 00 00    ; sys fread 0 0
 
     ; r0 contains the number of bytes read. if it's zero, assume it's the end
     ; of the file.
@@ -877,7 +967,7 @@
 
     ; at end of file, put -1 (as an int) into current_char
 ;:read_char_eof
-    79 FF 89 1C    ; stw -1 r9 28   ; current_char
+    79 FF 8E 3C    ; stw -1 rpp 0x3C  ; current_char
 
 ;:read_char_ret
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
@@ -1188,7 +1278,7 @@
     ; don't bother to set up a stack frame
 
     ; if we're in pass 0, just return
-    78 8A 89 14    ; ldw ra r9 20   ; get pass
+    78 8A 8E 34    ; ldw ra rpp 0x34  ; pass
     7E 8A 01 00    ; jz ra &emit_byte_skip (+1)
     7E 00 01 00    ; jz ra &emit_byte_ok (+1)
 ;:emit_byte_skip
@@ -1200,7 +1290,7 @@
     7B 80 00 8C    ; stb r0 0 rsp
 
     ; make the syscall
-    78 80 89 10    ; ldw r0 r9 16     ; output handle
+    78 80 8E 28    ; ldw r0 rpp 0x28  ; output_io_handle
     70 81 00 8C    ; add r1 0 rsp     ; buffer
     70 82 00 01    ; add r2 0 1       ; count
     7F 06 00 00    ; sys fwrite 0 0
@@ -1231,7 +1321,7 @@
     ; no stack frame
 
     ; convert the first char to its hex value
-    7A 80 89 1C    ; ldb r0 r9 28      ; current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
     7C 8A 00 00    ; ims ra <hex_value
     7C 8A 90 08    ; ims ra >hex_value
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -1261,9 +1351,9 @@
     79 80 00 8C    ; stw r0 0 rsp      ; ...
 
     ; increment current address
-    78 8A 89 18    ; ldw ra r9 24   ; current_address
-    70 8A 8A 01    ; add ra ra 1    ; inc ra
-    79 8A 89 18    ; stw ra r9 24   ; current_address
+    78 8A 8E 38    ; ldw ra rpp 0x38    ; current_address
+    70 8A 8A 01    ; add ra ra 1        ; inc ra
+    79 8A 8E 38    ; stw ra rpp 0x38    ; current_address
 
     ; consume the character
     7C 8A 00 00    ; ims ra <read_char
@@ -1275,7 +1365,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; make sure it's not the end of the file
-    78 80 89 1C    ; ldw r0 r9 28
+    78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
     71 8A 80 FF    ; sub ra r0 -1
     7E 8A 0A 00    ; jz ra &parse_hex_byte_invalid (+10)
 
@@ -1352,7 +1442,7 @@
     ; don't bother to set up a stack frame
 
     ; get the current char
-    7A 80 89 1C     ; ldb r0 r9 28    ; current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
 
     ; check if comment (we treat debug lines and archive info as comments)
     71 8A 80 3B    ; sub ra r0 ";"
@@ -1380,7 +1470,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; get the current char
-    7A 80 89 1C     ; ldb r0 r9 28    ; &current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
 
     ; check if newline (\n or \r) or end of file
     71 8A 80 0A    ; sub ra r0 "\n"
@@ -1418,7 +1508,7 @@
     ; don't bother to set up a stack frame
 
     ; get the current char
-    7A 80 89 1C     ; ldb r0 r9 28    ; current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
 
     ; check for whitespace
     71 8A 80 20    ; sub ra r0 " "   (space)
@@ -1486,7 +1576,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; the current char must be a leading identifier char.
-    78 80 89 1C    ; ldw r0 r9 28      ; current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C   ; current_char
     70 81 00 01    ; add r1 0 1        ; first_char=true
     7C 8A 00 00    ; ims ra <is_identifier_char
     7C 8A 60 07    ; ims ra >is_identifier_char
@@ -1515,9 +1605,9 @@
 ;:read_symbol_loop
 
     ; append current_char to our string
-    7A 80 89 1C     ; ldb r0 r9 28     ; current_char
+    78 80 8E 3C     ; ldw r0 rpp 0x3C  ; current_char
     78 81 00 8C     ; ldw r1 0 rsp     ; count
-    78 82 89 0C     ; ldw r2 r9 12     ; current_break
+    78 82 8E 40     ; ldw r2 rpp 0x40  ; current_break
     7B 80 82 81     ; stb r0 r2 r1     ; append char
 
     ; increment the count
@@ -1534,7 +1624,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check if it's a non-leading identifier char.
-    78 80 89 1C    ; ldw r0 r9 28      ; current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C   ; current_char
     70 81 00 00    ; add r1 0 0        ; first_char=false
     7C 8A 00 00    ; ims ra <is_identifier_char
     7C 8A 60 07    ; ims ra >is_identifier_char
@@ -1552,7 +1642,7 @@
 
     ; append a null-terminator
     78 81 00 8C     ; ldw r1 0 rsp     ; count
-    78 82 89 0C     ; ldw r2 r9 12     ; current_break
+    78 82 8E 40     ; ldw r2 rpp 0x40  ; current_break
     7B 00 82 81     ; stb 0 r2 r1      ; append null-terminator
 
     ; return the full size
@@ -1601,7 +1691,7 @@
 
     ; check if bucket is empty
     76 83 80 03    ; shl r3 r0 3     ; hashtable buckets are 8 bytes
-    78 82 89 04    ; ldw r2 r9 4     ; get symbol_hashtable
+    78 82 8E 2C    ; ldw r2 rpp 0x2C ; get symbol_hashtable
     78 81 82 83    ; ldw r1 r2 r3    ; get bucket string name into r1
     7E 81 01 00    ; jz r1 &find_symbol_empty (+1)
     7E 00 03 00    ; jz 0 &find_symbol_not_empty (+3)
@@ -1641,7 +1731,7 @@
     ; name matches. return the bucket
 ;:find_symbol_found
     76 83 81 03    ; shl r3 r1 3     ; hashtable buckets are 8 bytes
-    78 82 89 04    ; ldw r2 r9 4     ; get symbol_hashtable
+    78 82 8E 2C    ; ldw r2 rpp 0x2C ; get symbol_hashtable
     70 80 82 83    ; add r0 r2 r3
     70 8C 8C 04    ; add rsp rsp 4   ; pop symbol
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
@@ -1672,7 +1762,7 @@
     ; don't bother to set up a stack frame
 
     ; get the current char
-    7A 80 89 1C     ; ldb r0 r9 28    ; current_char
+    78 80 8E 3C    ; ldw r0 rpp 0x3C   ; current_char
 
     ; check if it's a definition
     71 8A 80 3D    ; sub ra r0 "="  (global symbol)
@@ -1691,7 +1781,7 @@
 
     ; make sure there aren't already 4096 symbols
     ; TODO this should be moved down below to pass 1 only
-    78 80 89 08   ; ldw r0 r9 8    ; symbol_count
+    78 80 8E 30   ; ldw r0 rpp 0x30  ; symbol_count
     76 8A 01 0C   ; shl ra 1 12
     71 8A 8A 80   ; sub ra ra r0
     7E 8A 01 00   ; jz ra &try_parse_define_too_many (+1)
@@ -1711,7 +1801,7 @@
     ; boundary.
 
     ; check if it's a symbol definition (to line up to a word boundary)
-    7A 80 89 1C     ; ldb r0 r9 28    ; current_char
+    78 80 8E 3C     ; ldw r0 rpp 0x3C   ; current_char
     71 8A 80 3D     ; sub ra r0 "="  (global symbol)
     7E 8A 03 00     ; jz ra &try_parse_define_symbol (+3)
     71 8A 80 40     ; sub ra r0 "@"  (static symbol)
@@ -1721,7 +1811,7 @@
 ;:try_parse_define_symbol
 
     ; it's a symbol. check if the current address is aligned
-    78 8A 89 18    ; ldw ra r9 24   ; current_address
+    78 8A 8E 38    ; ldw ra rpp 0x38    ; current_address
     74 8A 8A 03    ; and ra ra 3
     7E 8A 0C 00    ; jz ra &try_parse_define_symbol_done (+12)
 
@@ -1736,9 +1826,9 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; increment the current address and try again
-    78 8A 89 18    ; ldw ra r9 24   ; current_address
-    70 8A 8A 01    ; add ra ra 1    ; inc ra
-    79 8A 89 18    ; stw ra r9 24   ; current_address
+    78 8A 8E 38    ; ldw ra rpp 0x38    ; current_address
+    70 8A 8A 01    ; add ra ra 1        ; inc ra
+    79 8A 8E 38    ; stw ra rpp 0x38    ; current_address
     7E 00 F1 FF    ; jz ra &try_parse_define_symbol (-15)
 
 ;:try_parse_define_symbol_done
@@ -1753,7 +1843,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check what pass we're in
-    78 8A 89 14    ; ldw ra r9 20   ; get pass
+    78 8A 8E 34    ; ldw ra rpp 0x34  ; pass
     7E 8A 02 00    ; jz ra &try_parse_define_first_pass (+2)
 
     ; we're in the second pass. ignore the rest, return true
@@ -1763,18 +1853,18 @@
 ;try_parse_define_first_pass
 
     ; increment the symbol count
-    78 8A 89 08   ; ldw ra r9 8   ; symbol_count
-    70 8A 8A 01   ; add ra ra 1   ; inc ra
-    79 8A 89 08   ; stw ra r9 8   ; symbol_count
+    78 8A 8E 30   ; ldw ra rpp 0x30  ; symbol_count
+    70 8A 8A 01   ; add ra ra 1      ; inc ra
+    79 8A 8E 30   ; stw ra rpp 0x30  ; symbol_count
 
     ; push the symbol's address to the stack
-    78 81 89 0C    ; ldw r1 r9 12       ; current_break
+    78 81 8E 40    ; ldw r1 rpp 0x40    ; current_break
     71 8C 8C 04    ; sub rsp rsp 4      ; push r1
     79 81 00 8C    ; stw r1 0 rsp       ; ...
 
     ; bump the break by the symbol's size (to allocate it)
     70 81 81 80    ; add r1 r1 r0
-    79 81 89 0C    ; stw r1 r9 12       ; current_break
+    79 81 8E 40    ; stw r1 rpp 0x40    ; current_break
 
     ; call find_symbol
     78 80 00 8C    ; ldw r0 0 rsp
@@ -1792,7 +1882,7 @@
 
     ; the bucket is not empty. fatal error_duplicate_symbol
     7C 80 00 00    ; ims r0 <error_duplicate_symbol
-    7C 80 20 00    ; ims r0 >error_duplicate_symbol
+    7C 80 B0 11    ; ims r0 >error_duplicate_symbol
     70 80 8E 80    ; add r0 rpp r0
     78 81 00 8C    ; ldw r1 0 rsp    ; symbol name
     7C 8A 00 00    ; ims ra <fatal_symbol
@@ -1807,7 +1897,7 @@
 
     ; assign values to bucket
     79 81 80 00    ; stw r1 r0 0
-    78 8A 89 18    ; ldw ra r9 24   ; current_address
+    78 8A 8E 38    ; ldw ra rpp 0x38    ; current_address
     79 8A 80 04    ; stw ra r0 4
 
     ; return true
@@ -1830,7 +1920,7 @@
     ; don't bother to set up a stack frame
 
     ; get the current char
-    7A 80 89 1C     ; ldb r0 r9 28    ; current_char
+    78 80 8E 3C     ; ldw r0 rpp 0x3C   ; current_char
 
     ; check if it's an invocation
     71 8A 80 26    ; sub ra r0 "&"  (relative)
@@ -1850,7 +1940,7 @@
 ;:try_parse_invoke_true
 
     ; increment current address. if ^ it's 4, otherwise it's 2.
-    78 8A 89 18    ; ldw ra r9 24   ; current_address
+    78 8A 8E 38    ; ldw ra rpp 0x38    ; current_address
     71 8B 80 5E    ; sub rb r0 "^"  (full int)
     7E 8B 02 00    ; jz rb &try_parse_invoke_four (+2)
     70 8A 8A 02    ; add ra ra 2
@@ -1858,7 +1948,7 @@
 ;:try_parse_invoke_four
     70 8A 8A 04    ; add ra ra 4
 ;:try_parse_invoke_two
-    79 8A 89 18    ; stw ra r9 24   ; current_address
+    79 8A 8E 38    ; stw ra rpp 0x38    ; current_address
 
     ; push the invocation symbol onto the stack
     71 8C 8C 04    ; sub rsp rsp 4      ; push r0
@@ -1874,7 +1964,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check what pass we're in
-    78 8A 89 14    ; ldw ra r9 20   ; get pass
+    78 8A 8E 34    ; ldw ra rpp 0x34  ; pass
     7E 8A 01 00    ; jz ra &try_parse_define_first_pass (+1)
     7E 00 03 00    ; jz ra &try_parse_define_second_pass (+3)
 
@@ -1886,7 +1976,7 @@
 ;try_parse_define_second_pass
 
     ; call find_symbol
-    78 80 89 0C    ; ldw r0 r9 12       ; &current_break
+    78 80 8E 40    ; ldw r0 rpp 0x40    ; current_break
     7C 8A 00 00    ; ims ra <find_symbol
     7C 8A 50 0C    ; ims ra >find_symbol
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -1905,7 +1995,7 @@
     7C 80 00 00    ; ims r0 <error_invocation_not_found
     7C 80 50 00    ; ims r0 >error_invocation_not_found
     70 80 8E 80    ; add r0 rpp r0
-    78 81 89 0C    ; ldw r1 r9 12       ; &current_break
+    78 81 8E 40    ; ldw r1 rpp 0x40    ; current_break
     7C 8A 00 00    ; ims ra <fatal_symbol
     7C 8A B0 10    ; ims ra >fatal_symbol
     70 8F 8E 8A    ; add rip rpp ra    ; jump
@@ -1955,7 +2045,7 @@
 
     ; symbol is &, calculate difference from current address
 ;:try_parse_invoke_rel
-    78 8A 89 18    ; ldw ra r9 24   ; current_address
+    78 8A 8E 38    ; ldw ra rpp 0x38    ; current_address
     71 80 80 8A    ; sub r0 r0 ra
 
     ; make sure relative invocation is aligned
@@ -2141,7 +2231,7 @@
     70 82 00 80    ; add r2 0 r0      ; mov r2 r0   ;    length
     78 81 00 8C    ; ldw r1 0 rsp     ; pop r1      ; symbol
     70 8C 8C 04    ; add rsp rsp 4    ; ^^^
-    78 88 89 00    ; ldw r8 r9 0                    ; process info table
+    78 88 8E 20    ; ldw r8 rpp 0x20                ; process_info_table
     78 80 88 14    ; ldw r0 r8 20                   ; stderr
     7F 06 00 00    ; sys fwrite 0 0
 
@@ -2154,7 +2244,7 @@
     ; syscall write
     70 82 00 02    ; add r2 0 2       ; mov r2 2      ; length
     70 81 00 8C    ; add r1 0 rsp     ; mov r1 rsp    ; string
-    78 88 89 00    ; ldw r8 r9 0                    ; process info table
+    78 88 8E 20    ; ldw r8 rpp 0x20                ; process_info_table
     78 80 88 14    ; ldw r0 r8 20                   ; stderr
     7F 06 00 00    ; sys fwrite 0 0
 
@@ -2237,3 +2327,19 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x11B0
+
+
+
+;==========================================
+; const char error_duplicate_symbol[];
+;==========================================
+
+@0x11B0 =error_duplicate_symbol
+    ; "ERROR: Duplicate label or symbol definition." '0A '00
+    45 52 52 4f 52 3a 20 44  75 70 6c 69 63 61 74 65
+  ;  E  R  R  O  R  :     D   u  p  l  i  c  a  t  e
+    20 6c 61 62 65 6c 20 6f  72 20 73 79 6d 62 6f 6c
+  ;     l  a  b  e  l     o   r     s  y  m  b  o  l
+    20 64 65 66 69 6e 69 74  69 6f 6e 2e 0a 00 00 00
+  ;     d  e  f  i  n  i  t   i  o  n  . \n \0
+@0x11E0

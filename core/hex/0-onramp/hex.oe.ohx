@@ -29,7 +29,7 @@
 ; backslashes. It passes all tests. It gives reasonable error messages but
 ; without line numbers.
 ;
-; Global variables start at 0x20.
+; Global variables start at 0x20 and end at 0x50.
 
 
 
@@ -127,12 +127,11 @@
 ;==========================================
 ; char current_char;
 ;==========================================
+; This is an int because it has value -1 when end-of-file is reached.
+;==========================================
 
 @0x2C =current_char
-    00
-
-    ; padding
-    00 00 00
+    00 00 00 00
 @0x30
 
 
@@ -453,6 +452,8 @@
     70 81 00 00    ; add r1 0 0
     70 82 00 00    ; add r2 0 0
     7F 09 00 00    ; sys ftrunc 0 0
+
+    ; TODO check for errors
 
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
