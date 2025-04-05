@@ -24,6 +24,8 @@
 # If a corresponding .env file exists, the contents are passed as environment
 # variables to the program. Otherwise, the program inherits the current
 # environment.
+#
+# If a corresponding .skip file exists, the test is skipped.
 
 if [ "$1" == "" ]; then
     echo "Need command to test."
@@ -49,6 +51,12 @@ echo "Running vm tests on: $COMMAND"
 for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'); do
     THIS_ERROR=0
     BASENAME=$(echo $HEXNAME|sed 's/\.oe\.ohx$//')
+
+    if [ -e $BASENAME.skip ]; then
+        echo "Skipping $BASENAME"
+        continue
+    fi
+
     echo "Testing $BASENAME"
 
     ARGS=

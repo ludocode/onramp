@@ -53,7 +53,7 @@
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^
     70 80 00 00     ; add r0 0 0        ; zero r0
-    78 8F 89 08     ; ldw rip r9 8      ; ret
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 
 

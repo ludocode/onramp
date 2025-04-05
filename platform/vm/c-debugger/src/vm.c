@@ -923,6 +923,12 @@ static void vm_sys(vm_t* vm, uint8_t syscall_number, uint8_t arg1, uint8_t arg2)
     }
 
     vm->registers[0] = ret;
+
+    // We quash all other caller-preserved registers to ensure that programs do
+    // not depend on register preservation.
+    for (size_t i = 1; i <= 0xB; ++i) {
+        vm->registers[i] = 0xDEADDEAD;
+    }
 }
 
 #if 0

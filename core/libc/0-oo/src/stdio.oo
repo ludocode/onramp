@@ -370,8 +370,10 @@
     7E 00 &__fopen_not_append   ; jz 0 &__fopen_not_append
 
     ; mode is append. seek to the end
-    70 81 00 FF     ; add r1 0 -1     ; mov r1 -1
-    70 82 00 FF     ; add r2 0 -1     ; mov r2 -1
+    ; TODO probably remove this, I don't think append is used in bootstrapping.
+    70 81 00 02     ; add r1 0 2     ; mov r1 2
+    70 82 00 00     ; add r2 0 0     ; mov r2 0
+    70 83 00 00     ; add r3 0 0     ; mov r3 0
     7F 07 00 00     ; sys fseek 0 0
     ;78 82 8D F4     ; ldw r2 rfp -12
     ;79 80 82 04     ; stw 0 r2 4      ; position in file

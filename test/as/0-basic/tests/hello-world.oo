@@ -3,20 +3,13 @@
 
 
 
-
-
-
 =main 
-7C80<__process_info_table 
-7C80>__process_info_table 
-78808E80
 
 
-70898000
-
-
-708A8910
-78808A00
+7C89<__process_info_table 
+7C89>__process_info_table 
+78898E89
+78808910
 
 
 7C81<hello_world 
@@ -26,8 +19,10 @@
 7F060000
 
 
-708A8908
-788A8A00
+7C89<__process_info_table 
+7C89>__process_info_table 
+78898E89
+788A8908
 
 
 70800000

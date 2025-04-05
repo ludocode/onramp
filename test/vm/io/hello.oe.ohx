@@ -8,11 +8,12 @@
     7E 61 6D 70   ; jz 97 28781
     7E 20 20 20   ; jz 32 8224
 
-    ; store process info vector in r9
-    70 89 80 00   ; add r9 r0 0
+    ; push process info vector
+    71 8C 8C 04   ; sub rsp rsp 4
+    79 80 8C 00   ; stw r0 rsp 0
 
     ; get the output file descriptor
-    70 8A 89 10   ; add ra r9 16  (output stream handle)
+    70 8A 80 10   ; add ra r0 16  (output stream handle)
     78 80 8A 00   ; ldw r0 ra 0
 
     ; output("Hello world!")
@@ -21,6 +22,7 @@
     7F 06 00 00   ; sys write 0 0
 
     ; get the exit address
+    78 89 8C 00   ; ldw r9 rsp 0
     70 8A 89 08   ; add ra r9 8  (exit address)
     78 8A 8A 00   ; ldw ra ra 0
 
@@ -29,7 +31,6 @@
     70 8F 8A 00   ; add rip ra 0      ; jump to exit address
 
     ; padding
-    00 00 00 00 00 00 00 00
     00 00 00 00
 
 @0x40 =hello_world
