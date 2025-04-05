@@ -25,7 +25,7 @@
 
 
 /*
- * This is the omC (Onramp Subset of C) preprocessor.
+ * This is the omC (Onramp Minimal C) preprocessor.
  *
  * It is written in omC, except it depends only on the directive-stripping
  * preprocessor (cpp/0-strip), so it can be bootstrapped without needing a
@@ -35,8 +35,9 @@
  * with any cci stage) it is self-hosting, though we don't actually bother to
  * build it with itself during the bootstrap process.
  *
- * Since our linker doesn't yet support file scope, we have to implement this
- * in a single C source file (otherwise generated label names would collide.)
+ * Since our linker doesn't yet support file scope, and we don't have any
+ * mechanism for including other files yet, we have to implement this in a
+ * single C source file (otherwise generated label names would collide.)
  */
 
 

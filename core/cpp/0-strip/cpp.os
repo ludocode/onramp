@@ -22,9 +22,15 @@
 
 
 
-; This is the first stage preprocessor. It is written in compound assembly. It
-; simply treats preprocessor directives as comments and strips all comments.
+; This is the first stage preprocessor. It is written in compound assembly.
 ;
+; It simply strips all preprocessor directives and comments.
+;
+; Both C-style comments and C++-style comments are supported. A preprocessor
+; directive is treated the same as a comment.
+
+
+
 ; TODO we're linking against libo now so we should use its fatal() and
 ; file/line mechanism to give better error messages.
 
@@ -56,13 +62,13 @@
     "ERROR: Unclosed string or character literal." '0A '00
 
 @input_file
-    '00 '00 '00 '00
+    0
 
 @output_file
-    '00 '00 '00 '00
+    0
 
 @current_char
-    '00
+    0
 
 
 
@@ -314,6 +320,7 @@
 ; ==========================================================
 ; void try_parse_preproc(void);
 ; ==========================================================
+; ==========================================================
 
 =try_parse_preproc
 
@@ -322,6 +329,8 @@
     ldw r0 rpp r0
     cmpu r0 r0 "#"
     jnz r0 &try_parse_preproc_not_found
+
+; TODO rename parse_comment_cxx() to consume_line_comment() and call it
 
 :try_parse_preproc_loop
 
