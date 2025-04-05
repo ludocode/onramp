@@ -22,7 +22,9 @@
 
 .SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic
+CPPFLAGS := -Wall -Wextra -Wpedantic \
+			-Wno-int-to-pointer-cast \
+			-Wno-pointer-to-int-cast
 
 -include ../../local.mk
 

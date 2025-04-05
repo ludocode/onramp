@@ -184,4 +184,13 @@ char* getenv(const char* key);
  */
 void* __malloc_largest_unused_region(size_t* out_size);
 
+
+
+// TODO POSIX or BSD only
+int putenv(char* str);
+int setenv(const char* name, const char* value, int overwrite);
+int unsetenv(const char* name);
+int clearenv(void);
+
+
 #endif

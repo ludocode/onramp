@@ -50,4 +50,15 @@
     typedef int long;
 #endif
 
+// TODO some builtins will be defined here as well, at least until we implement
+// them properly in cci/2
+#ifdef __onramp_cci_opc__
+    #define __builtin_unreachable abort
+#endif
+#ifndef __onramp_cci_opc__
+    #ifndef __onramp_cci_omc__
+        _Noreturn void __builtin_unreachable(void) __asm__("abort");
+    #endif
+#endif
+
 #endif

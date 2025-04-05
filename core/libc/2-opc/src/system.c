@@ -44,6 +44,7 @@ extern char** environ;
 
 // TODO clean these up
 _Noreturn void __end(unsigned exit_code, unsigned exit_address);
+extern void __environ_setup(void);
 extern void __malloc_init(void);
 extern void __file_init(void);
 extern void __file_destroy(void);
@@ -60,6 +61,25 @@ extern void __call_constructor(int argc, char** argv, char** envp, void* func);
 extern void __call_destructor(void* func);
 static void call_constructors(void);
 static void call_destructors(void);
+
+static char* empty_argv[2];
+
+static void __argv_setup(void) {
+    __argv = (char**)__process_info_table[__ONRAMP_PIT_ARGS];
+
+    // The VM is allowed to leave argv NULL or point it to an empty
+    // (null-terminated) array. We make sure there is always at least
+    // a program name.
+    if (__argv == NULL || __argv[0] == NULL) {
+        // We don't have initializers or local static variables in opC so we
+        // have to declare it above and initialize it here.
+        empty_argv[0] = "<unnamed>";
+        __argv = empty_argv;
+    }
+
+    // Count command-line args
+    for (__argc = 0; __argv[__argc]; ++__argc) {}
+}
 
 #ifdef __onramp__
 _Noreturn
@@ -79,19 +99,14 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
         __end(1, process_info[__ONRAMP_PIT_EXIT]);
     }
 
-    // store environment
-    __process_info_table = process_info;
-    __argv = process_info[__ONRAMP_PIT_ARGS];
-    environ = process_info[__ONRAMP_PIT_ENVIRON];
-
     // initialize the libc
+    __process_info_table = process_info;
+    __argv_setup();
+    __environ_setup();
     __time_setup();
     __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __io_init();
     __file_init();
-
-    // count command-line args
-    for (__argc = 0; __argv[__argc]; ++__argc) {}
 
     // run user code. exit() does not return.
     call_constructors();
@@ -203,5 +218,6 @@ static void call_destructors(void) {
     #ifndef __onramp__
     // hack for annoying "unused" warning when testing with a native C compiler
     (void)call_constructors;
+    (void)__argv_setup;
     #endif
 }
