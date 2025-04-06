@@ -2,52 +2,91 @@
 
 The Onramp Virtual Machine is a simple virtual machine designed for portable bootstrapping.
 
-This document specifies version 1 of the virtual machine and its bytecode. For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
+This document specifies version 2 of the virtual machine and its bytecode. For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
 
+Here's an index of sections in this document:
 
-
-## Rationale
-
-The Onramp VM is designed to balance the following constraints:
-
-- The machine must be easy to implement:
-    - In both raw machine code and in high-level languages;
-    - In both freestanding and hosted environments;
-
-- The bytecode must be easy to read and write by hand:
-    - In raw hex bytes, in a powerful assembly language, and any step in between;
-
-- The bytecode must be easy to produce as the output of a compiler.
-
-It has a few additional requirements:
-
-- The VM must bridge the filesystem in a hosted environment;
-
-- The VM must make it easy for programs to run other programs.
-
-Non-goals are efficiency, memory safety, and suitability for implementation in hardware. The VM is designed primarily for non-interactive bootstrapping of a real native compiler. Interrupts are also not a priority at this time, although there is the possibility of implementing them later.
-
-Onramp's VM design takes inspiration from such projects as Robert Elder's [one page CPU](https://recc.robertelder.org/op-cpu-programmer-reference-manual.txt), the [TOY machine](https://introcs.cs.princeton.edu/java/62toy/) from Sedgewick and Wayne, the design of [MessagePack](https://msgpack.org/), classic architectures like PDP-11 (designed to be programmed directly in octal), and of course modern RISC ISAs like RISC-V. See the [inspiration](inspiration.md) page for details.
+- [Overview](#overview)
+- [Registers](#registers)
+- [Memory Layout](#memory-layout)
+- [Process Info Table](#process-info-table)
+- [Position-Independence](#position-independence)
+- [Instructions](#instructions)
+- [Negative Values](#negative-values)
+- [Opcode Table](#opcode-table)
+- [Opcode Specifications](#opcode-specifications)
+    - [Add](#add)
+    - [Subtract](#subtract)
+    - [Multiply](#multiply)
+    - [Divide Unsigned](#divide-unsigned)
+    - [Bitwise And](#bitwise-and)
+    - [Bitwise Or](#bitwise-or)
+    - [Shift Left](#shift-left)
+    - [Shift Right Unsigned](#shift-right-unsigned)
+    - [Load Word](#load-word)
+    - [Store Word](#store-word)
+    - [Load Byte](#load-byte)
+    - [Store Byte](#store-byte)
+    - [Immediate Short](#immediate-short)
+    - [Less Than Unsigned](#less-than-unsigned)
+    - [Jump If Zero](#jump-if-zero)
+- [Calling Convention](#calling-convention)
+    - [External Function Calls](#external-function-calls)
+- [System Calls](#system-calls)
+    - [System Call Table](#system-call-table)
+    - [System Call Quick Reference](#system-call-quick-reference)
+    - [`halt`](#halt)
+    - [`time`](#time)
+    - [`panic`](#panic)
+    - [`fopen`](#fopen)
+    - [`fclose`](#fclose)
+    - [`fread`](#fread)
+    - [`fwrite`](#fwrite)
+    - [`fseek`](#fseek)
+    - [`ftell`](#ftell)
+    - [`ftrunc`](#ftrunc)
+    - [`dopen`](#dopen)
+    - [`dclose`](#dclose)
+    - [`dread`](#dread)
+    - [`stat`](#stat)
+    - [`rename`](#rename)
+    - [`symlink`](#symlink)
+    - [`unlink`](#unlink)
+    - [`chmod`](#chmod)
+    - [`mkdir`](#mkdir)
+    - [`rmdir`](#rmdir)
+    - [`spawn`](#spawn)
+- [Filesystem](#filesystem)
+    - [I/O Handles](#io-handles)
+    - [Input/Output Streams](#inputoutput-streams)
+        - [Input](#input)
+        - [Output and Error](#output-and-error)
+    - [Error Handling](#error-handing)
+- [Debug Info](#debug-info)
+- [File Format](#file-format)
+- [Rationale](#rationale)
 
 
 
 ## Overview
 
-The Onramp VM is a register-based RISC machine in a von Neumann architecture.
+The Onramp VM is a register-based reduced instruction set computer (RISC). It uses 32-bit words addressed over 8-bit memory.
 
-A large, contiguous region of memory is available to the program which initially contains its code. Programs typically divide the remainder into a heap and a stack.
+A large contiguous region of memory is available to the program which stores both code and data. The memory region is initialized with the program code, along with a process info table (PIT) containing information about the environment: command-line arguments, environment variables and so on. Programs typically divide the remainder of memory into a heap and a stack.
 
-Programs are stored as a series of 32-bit bytecode instructions in a binary file format. Opcodes and arguments each occupy individual bytes and have distinct prefixes. This makes it easy to read and write the bytecode in hexadecimal.
+Programs are stored as a series of 32-bit bytecode instructions in a binary file format. Each instruction is four bytes: the first byte is the opcode and the three remaining bytes are the arguments. Opcodes, register arguments, and most immediate values have distinct hexadecimal prefixes which makes it easy to read and write bytecode in hexadecimal.
 
-There are 16 registers. The first twelve are general purpose, the first four of which are used as function arguments and return values. The last four registers are the stack pointer, frame pointer, program pointer and instruction pointer respectively. There is no flags register. Carry and overflow must be detected manually, and compare and jump instructions use arbitary registers.
+There are 16 registers. Registers `r0` through `r9` are general purpose. Registers `ra` and `rb` are scratch registers reserved by the Onramp assembler. The last four registers are the stack pointer `rpp`, frame pointer `rfp`, program pointer `rpp` and instruction pointer `rip` respectively. There is no flags register. Carry and overflow must be detected manually, and conditional instructions use arbitrary registers as predicates.
 
-A small number of mostly orthogonal instructions are provided. Such basic functionality as pushing data onto the stack or jumping to an address do not have dedicated instructions. They must be emulated with more fundamental instructions, such as adding two values into a register or storing a word at a memory address. Emulation of higher level instructions is provided by an advanced assembler later on in the bootstrap process which reserves the last two general-purpose registers (`ra` and `rb`.)
+There are 15 opcodes. All of them provide extremely basic functionality, such as adding two values into a register or storing a word at a memory address. High-level instructions such as pushing data onto the stack or calling a function do not have dedicated opcodes: they must be emulated with several low-level instructions. Emulation of high-level instructions is provided by the Onramp assembler using the scratch registers (`ra` and `rb`.)
 
-There are (currently) no interrupts. The VM is designed for non-interactive computation. It does however support input and time so it is possible to write interactive terminal applications.
+There are (currently) no interrupts. The VM is designed for non-interactive computation. It does however optionally support input and time so it is possible to write interactive terminal applications.
 
 All programs are position-independent. This makes it possible for programs to run other programs without the need for virtual memory. The program pointer (`rpp`) contains the base address of the currently running program.
 
-An Onramp VM can run hosted or freestanding. When hosted, the platform's filesystem is bridged into the virtual machine. This requires the implementation of a number of system calls. When freestanding, an OS runs inside the Onramp VM. The contained OS receives most system calls and implements the filesystem.
+The VM accesses the outside environment via system calls. These are provided by the VM to the program as a table of function pointers which the program calls using a special calling convention. System calls include input and output streams; file and directory access; time and more.
+
+An Onramp VM can run hosted or freestanding. When hosted, the platform's filesystem is bridged into the virtual machine. This requires the VM to implement the file and directory system calls. When freestanding, an OS runs inside the Onramp VM. The contained OS receives most system calls and implements the filesystem.
 
 When writing C programs and compiling them for Onramp, you do not need to worry about any of this. It is handled by the Onramp libc.
 
@@ -55,9 +94,9 @@ When writing C programs and compiling them for Onramp, you do not need to worry 
 
 ## Registers
 
-There are sixteen registers numbered `0x80` to `0x8F`. All instructions can operate on all registers, but some registers have special behaviour (such as the instruction pointer and stack pointer) and others have strong conventions on their use (such as the frame and program pointers.) These latter registers are given special names.
+There are sixteen registers numbered `0x80` to `0x8F`. All instructions can operate on all registers, but some registers have special behaviour (such as the instruction pointer and stack pointer) and others have strong conventions on their use (such as the frame pointer and program pointer.) These latter registers are given special names.
 
-- Registers `r0`, `r1`, `r2` and `r3` are general-purpose caller-preserved registers that are used as function arguments and return values. See the calling convention section below.
+- Registers `r0`, `r1`, `r2` and `r3` are general-purpose caller-preserved registers that are used as function arguments and return values. See the Calling Convention section below.
 
 - Registers `r4`, `r5`, `r6`, `r7`, `r8` and `r9` are general purpose caller-preserved registers. These are typically used for local variables in functions.
 
@@ -80,8 +119,10 @@ Here it is in table form:
 | `ra`-`rb` | `8A`-`8B` | Scratch or compound assembly                                | Neither      |
 | `rsp`     | `8C`      | Stack pointer (last data pushed onto stack)                 | Callee       |
 | `rfp`     | `8D`      | Frame pointer (start of stack frame)                        | Callee       |
-| `rpp`     | `8E`      | Program pointer (start of program)                          | Callee       |
+| `rpp`     | `8E`      | Program pointer (start of program)                          | Callee\*     |
 | `rip`     | `8F`      | Instruction pointer (next instruction to be executed)       | Caller       |
+
+\* The program pointer is callee-preserved, except on an external function call where it is altered by the caller and preserved by both. See the Calling Convention section below.
 
 There is no status or flags register. Detecting overflow, underflow and other such conditions must be done manually. Instructions such as `ltu` (less than unsigned) and `jz` (jump if zero) can read or write the predicate in any register.
 
@@ -129,9 +170,9 @@ The process information table is an array of 32-bit words. Here's a quick refere
 
 | Index | Value                  | type   | Description
 |-------|------------------------|--------|------------------------------------------------------------------------|
-| 0     | Version                | int    | Always 1 for this version.                                             |
+| 0     | Version                | int    | Always 2 for this version.                                             |
 | 1     | Program Break          | void*  | Address of one past the last byte in the program.                      |
-| 2     | Exit Address           | void*  | Address to which to jump to exit the program.                          |
+| 2     | System Call Table      | int    | Table of system calls.                                                 |
 | 3     | Input stream handle    | int    | File handle of input stream, or -1 if input is not supported           |
 | 4     | Output stream handle   | int    | File handle of output stream, can match input                          |
 | 5     | Error stream handle    | int    | File handle of error stream, can match output and input                |
@@ -139,6 +180,10 @@ The process information table is an array of 32-bit words. Here's a quick refere
 | 7     | Environment Variables  | char** | Null-terminated array of null-terminated strings of form "key=value".  |
 | 8     | Working directory      | char*  | Directory in which the program is being run.                           |
 | 9     | Capabilities           | int    | Flags indicating the capabilities and environment of the VM.           |
+
+
+
+### Capabilities
 
 The capabilities entry is an int containing a set of 1-bit flags. They are numbered from least to most significant bit:
 
@@ -150,11 +195,11 @@ The capabilities entry is an int containing a set of 1-bit flags. They are numbe
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`.
 
-The version field contains the version of the Onramp VM. The information table is intended to be forward-compatible, so to perform a version check, ensure the version is at least as large as the version you need. The current version is 0 so you can ignore this field.
+The version field contains the version of the Onramp VM. The information table is intended to be forward-compatible, so to perform a version check, ensure the version is at least as large as the version you need.
 
 The program break is the address of one past the last byte of the program bytecode. In other words it's the start of the heap, which programs typically use for `malloc()`.
 
-The exit address contains an address that the program should assign to `rip` in order to exit. The program must first place an 8-bit unsigned exit code in `r0`.
+The syscall table is described in the section [System Call Table](#system-call-table).
 
 Handles for the input, output and error streams may have any value (and may even all have the same value.) The program must use these handles to communicate with the outside world. If a handle has value 0xFFFFFFFF, this indicates that the stream does not exist, and the program should avoid using it.
 
@@ -216,7 +261,7 @@ The compound assembler has a `call` instruction which expands to the above:
 call ^some_function
 ```
 
-(This would of course be done after preparing the arguments; see the function call convention below.)
+(This would of course be done after preparing the arguments; see the Calling Convention section below.)
 
 There is only one instruction that takes an address relative to the instruction pointer: the conditional jump-if-zero instruction (`jz`). It takes a signed 16-bit relative address, making it very useful for hand-writing loops in bytecode.
 
@@ -286,43 +331,40 @@ Here's a quick reference table for all supported instruction opcodes:
 
 Arithmetic:
 
-| Opcode        | Name          | Arguments                       | Operation                        |
-|---------------|---------------|---------------------------------|----------------------------------|
-| `0x70` `add`  | Add           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 + arg2`             |
-| `0x71` `sub`  | Subtract      | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 - arg2`             |
-| `0x72` `mul`  | Multiply      | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 * arg2`             |
-| `0x73` `div`  | Divide        | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 / arg2` (unsigned)  |
+| Opcode        | Name              | Arguments                       | Operation                        |
+|---------------|-------------------|---------------------------------|----------------------------------|
+| `0x70` `add`  | [Add]             | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 + arg2`             |
+| `0x71` `sub`  | [Subtract]        | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 - arg2`             |
+| `0x72` `mul`  | [Multiply]        | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 * arg2`             |
+| `0x73` `div`  | [Divide Unsigned] | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 / arg2` (unsigned)  |
 
 Logic:
 
-| Opcode         | Name                 | Arguments                       | Operation                                     |
-|----------------|----------------------|---------------------------------|-----------------------------------------------|
-| `0x74` `and`   | Bitwise And          | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 & arg2`                          |
-| `0x75` `or`    | Bitwise Or           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 \| arg2`                         |
-| `0x76` `shl`   | Shift Left           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 << arg2`                         |
-| `0x77` `shru`  | Shift Right Unsigned | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 >> arg2` (unsigned)              |
+| Opcode         | Name                   | Arguments                       | Operation                                     |
+|----------------|------------------------|---------------------------------|-----------------------------------------------|
+| `0x74` `and`   | [Bitwise And]          | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 & arg2`                          |
+| `0x75` `or`    | [Bitwise Or]           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 \| arg2`                         |
+| `0x76` `shl`   | [Shift Left]           | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 << arg2`                         |
+| `0x77` `shru`  | [Shift Right Unsigned] | `<r:dest> <m:arg1> <m:arg2>`    | `dest = arg1 >> arg2` (unsigned)              |
 
 Memory:
 
-| Opcode        | Name          | Arguments                       | Operation                                  |
-|---------------|---------------|---------------------------------|--------------------------------------------|
-| `0x78` `ldw`  | Load Word     | `<r:dest> <m:base> <m:offset>`  | `dest = *(int*)(base + offset)`            |
-| `0x79` `stw`  | Store Word    | `<m:src> <m:base> <m:offset>`   | `*(int*)(base + offset) = src`             |
-| `0x7A` `ldb`  | Load Byte     | `<r:dest> <m:base> <m:offset>`  | `dest = *(char*)(base + offset)`           |
-| `0x7B` `stb`  | Store Byte    | `<m:src> <m:base> <m:offset>`   | `*(char*)(base + offset) = src & 0xFF`     |
+| Opcode        | Name         | Arguments                       | Operation                                  |
+|---------------|--------------|---------------------------------|--------------------------------------------|
+| `0x78` `ldw`  | [Load Word]  | `<r:dest> <m:base> <m:offset>`  | `dest = *(int*)(base + offset)`            |
+| `0x79` `stw`  | [Store Word] | `<m:src> <m:base> <m:offset>`   | `*(int*)(base + offset) = src`             |
+| `0x7A` `ldb`  | [Load Byte]  | `<r:dest> <m:base> <m:offset>`  | `dest = *(char*)(base + offset)`           |
+| `0x7B` `stb`  | [Store Byte] | `<m:src> <m:base> <m:offset>`   | `*(char*)(base + offset) = src & 0xFF`     |
 
 Control:
 
-| Opcode       | Name               | Arguments                       | Operation                                                |
-|--------------|--------------------|---------------------------------|----------------------------------------------------------|
-| `0x7C` `ims` | Immediate Short    | `<r:dest> <i:low> <i:high>`     | `dest = (dest << 16) \| (high << 8) \| low`              |
-| `0x7D` `ltu` | Less Than Unsigned | `<r:dest> <m:arg1> <m:arg2>`    | `dest = (arg1 < arg2) ? 1 : 0` (unsigned)                |
-| `0x7E` `jz`  | Jump If Zero       | `<m:pred> <i:low> <i:high>`     | `if !pred: rip += 4 * signext16((high << 8) \| low)`     |
-| `0x7F` `sys` | System Call        | `<i:syscall> 00 00`             | system call                                              |
+| Opcode       | Name                 | Arguments                       | Operation                                                |
+|--------------|----------------------|---------------------------------|----------------------------------------------------------|
+| `0x7C` `ims` | [Immediate Short]    | `<r:dest> <i:low> <i:high>`     | `dest = (dest << 16) \| (high << 8) \| low`              |
+| `0x7D` `ltu` | [Less Than Unsigned] | `<r:dest> <m:arg1> <m:arg2>`    | `dest = (arg1 < arg2) ? 1 : 0` (unsigned)                |
+| `0x7E` `jz`  | [Jump If Zero]       | `<m:pred> <i:low> <i:high>`     | `if !pred: rip += 4 * signext16((high << 8) \| low)`     |
 
 All arithmetic and logic opcodes have the same format. They take a destination register and two mix-type arguments. They perform a mathematical operation on the arguments and place the result in the given register. All operations are unsigned.
-
-WARNING: `sys` will be replaced by `iret` soon. This will require changing all the VMs and bytecode programs. If you implement a VM now be aware that you will need to update it later.
 
 
 
@@ -577,33 +619,29 @@ The predicate is mix-type. A predicate of 0 can be used to perform an unconditio
 
 
 
-### System Call
-
-- opcode: `0x7E`
-- assembly syntax: `sys <i:syscall> 0 0`
-- behaviour: system call
-
-The given system call is invoked. See the [system call reference](virtual-machine-syscalls.md).
-
-The last two bytes of the instruction must be zero. (The VM may ignore them.)
-
-Note that the syscall number argument is not mix-type. It is not possible to perform an indirect syscall.
-
-WARNING: The system call instruction will be removed soon and replaced with an `iret` (interrupt return) instruction. System calls will be performed through a system call function pointer table in the process info table. System calls currently must preserve all registers; this will change soon as well so that system calls use the standard calling convention.
-
-
-
-## Function Call Convention
+## Calling Convention
 
 Bytecode can use any mechanism for performing function calls, but there is a standard calling convention used by the Onramp C compiler and by most of the hand-written assembly and bytecode programs. This section describes the standard calling convention.
 
-Arguments that are larger than a register (32 bits) are always passed on the stack (never in multiple registers.) The first four register-sized or smaller arguments are passed in registers r0-r3 (even if they appear after larger arguments.) All other arguments are pushed on the stack right-to-left (with their size rounded up to the nearest word.)
+Arguments that are larger than a register (32 bits) are always passed on the stack, never in multiple registers. The first four register-sized or smaller arguments are passed in order in registers r0-r3 (even if they appear after larger arguments.) All other arguments are pushed on the stack in reverse order with their size rounded up to the nearest word.
 
 If a function's return type is larger than a register, the caller must provide storage for the return value, and its address is pushed on the stack after all arguments (it is never passed in a register.) Finally, the return address is pushed last onto the stack before jumping into the callee.
 
-The first thing most functions do is to set up a stack frame: they push the previous frame pointer (rfp) onto the stack, then store the current stack pointer (rsp) as their own frame pointer. The frame pointers therefore form a linked list of stack frames. The area above each frame pointer contains the stack-passed arguments and the area below it contains local variables. (Stack frame setup is done with the `enter` and `leave` assembly instructions; see the [assembly specification](assembly.md) for details.)
+The typical instruction sequence for the caller is:
 
-Registers r0-r9 (and ra-rb) are available for use within the function; the callee does not need to preserve them. Only rsp, rfp and rpp must be restored to their original values when the function returns, and the caller is responsible for popping the arguments from the stack. (A change to rpp is rare: it is only used when a program spawns another program inside the VM.)
+- Push whatever registers you want to preserve to the stack;
+- Push non-register arguments to the stack right-to-left;
+- Place the first four word-size arguments left-to-right in `r0`-`r3`;
+- Push `rip + 12` to the stack (the return address of the function)
+- Load the program-relative address of the symbol into `ra`
+- Jump to `ra + rpp`
+- Move the return value from `r0` if necessary
+- Restore registers from the stack
+- Pop everything else from the stack
+
+The callee typically begins by setting up a stack frame. The previous frame pointer (rfp) is pushed onto the stack, then the current stack pointer (rsp) is stored as the function's own frame pointer. The frame pointers therefore form a linked list of stack frames. The area above each frame pointer contains the stack-passed arguments and the area below it contains local variables. (Stack frame setup is done with the `enter` and `leave` assembly instructions; see the [assembly specification](assembly.md) for details.)
+
+Registers r0-r9 (and ra-rb) are available for use within the function; the callee does not need to preserve them. The callee is also allowed to modify its non-register arguments on the stack, but it does not pop its arguments or return address. When the function returns, the stack pointer must have the same value as when it started (as do the frame pointer and program pointer.)
 
 If the return type fits in a register, the return value is passed in register r0; otherwise, the return value is stored at the return address that was pushed to the stack by the caller.
 
@@ -613,86 +651,114 @@ Handwritten bytecode programs that violate this convention describe the differen
 
 
 
+### External Function Calls
+
+An external function call is a function call that passes control to another program.
+
+The external calling convention is used when making system calls. This allows system calls to be implemented by other programs running inside the Onramp VM or by the VM itself. For example, system calls are implemented by the VM, by the Onramp OS, and for child programs by the Onramp libc. (This could also in theory be used to implement dynamically linked libraries, although Onramp does not support them at this time.)
+
+To make an external function call, the caller needs two words: the absolute address of the function and the base address of the program that contains it. The caller must set `rpp` to that of the external program before making the call. This also means it must preserve its own `rpp` along with its other registers so it can be restored afterwards. The caller typically pushes its `rpp` to the stack along with any other registers it preserves, and this must be done before pushing any function arguments and the return address. The caller then follows the normal calling convention, and restores its `rpp` afterwards along with its other registers.
+
+From the perspective of the callee, an external function call is identical to a normal function call. The callee must preserve `rpp` as in a normal function call. (The caller is therefore allowed to repeat an external function call without resetting `rpp`.)
+
+In other words, the only difference in an external function call is that both caller and callee preserve `rpp`. The caller simply needs to preserve and restore `rpp` along with its numbered registers.
+
+The Onramp C compiler has no support for `rpp` manipulations or alternate calling conventions. External function calls must be implemented in assembly or bytecode.
+
+
+
 ## System Calls
 
-The `sys` instruction is used to perform a system call. This is a request to the VM to perform some special operation. (This will be changed soon for the next version of the VM spec.)
+A system call (or "syscall") is the mechanism by which a program accesses and modifies the outside environment.
 
-In a hosted environment, these are typically implemented by the VM. A freestanding VM may implement only some system calls, passing most others to an OS running inside the VM.
+A program makes system calls to perform input and output; access files and directories; get the current time; sleep; launch external programs; and more.
 
-Making a system call is similar to making a function call. The main difference is that you do not push a return address. Arguments are passed in registers and on the stack, not in the instruction itself; the additional two bytes in the `sys` instruction must be zero.
-
-- Push whatever registers you want to preserve;
-- Place the arguments in `r0`-`r3`;
-- Push additional arguments to the stack right-to-left;
-- Perform the `sys` instruction
-- Retrieve the return value in `r0`-`r3`
-- Restore your registers from the stack and clean it up.
-
-Note that you do not push a return address as you would with a function call. System calls also preserve all registers (except for the instruction pointer and return value registers.)
-
-TODO: The above will likely change soon; system calls will be more like function calls, requiring a return address and not preserving registers. The `sys` instruction might be removed as well, instead being replaced by a function call table passed in the process info table. This will require changes to a few bytecode programs and to the libc. These changes are necessary to simplify the Onramp OS.
+The VM provides the program with a table of system calls at startup. The program consults this table to determine what system calls are available, and then performs these calls to modify its environment.
 
 
 
-### System Call Quick Reference Table
+### System Call Table
 
-All system calls return a word that contains either an error code, a return value, or 0 indicating success without a value. If a return value is listed as "none" in the below table, the system call returns 0 on success.
+The process info table contains a pointer to the system call table. The system call table is an array of external function pointers; see the [external calling convention](#external-function-calls) above.
 
-Misc:
+The length of the array is the number of syscalls. Each entry in the array is an external function pointer, which is two words. The first word is the absolute address of the function (i.e. the address to put in `rip`) and the second word is the base pointer of the external program (i.e. the address to put in `rpp`.)
 
-| Hex | Name     | Arguments            | Return Value             |  Description                    |
-|-----|----------|----------------------|--------------------------|---------------------------------|
-| 00  | halt     | exit code            | n/a (doesn't return)     | halts the VM                    |
-| 01  | time     | out\_time[3]         | none                     | gets the current time           |
-| 02  | spawn    | path, in, out, err   | none                     | runs a program outside the VM   |
+For example, if the syscall table is at `0x2000`, the memory would look like this:
 
-Files:
+| Address   | Value             |
+|-----------|-------------------|
+| 0x2000    | `rip` of `exit`   |
+| 0x2004    | `rpp` of `exit`   |
+| 0x2008    | `rip` of `time`   |
+| 0x200C    | `rpp` of `time`   |
+| 0x2010    | `rip` of `panic`  |
+| 0x2014    | `rpp` of `panic`  |
+| 0x2018    | `rip` of `fopen`  |
+| 0x201C    | `rpp` of `fopen`  |
+| ...       | ...               |
 
-| Hex | Name     | Arguments                | Return Value             |  Description                    |
-|-----|----------|--------------------------|--------------------------|---------------------------------|
-| 03  | fopen    | path, writeable          | handle                   | opens a file                    |
-| 04  | fclose   | handle                   | none                     | closes a file                   |
-| 05  | fread    | handle, buffer, size     | number of bytes read     | reads from a file or stream     |
-| 06  | fwrite   | handle, buffer, size     | number of bytes written  | writes to a file or stream      |
-| 07  | fseek    | handle, base, pos (x2)   | none                     | seeks to a position in a file   |
-| 08  | ftell    | handle, out\_pos[2]      | current position         | gets the current position in a file   |
-| 09  | ftrunc   | handle, size (x2)        | none                     | truncates a file                |
+If a syscall is unimplemented, the function address is `0`, and the base pointer may have any value.
 
-Directories:
+To make a syscall, the program performs an external function call. It preserves its registers including `rpp`; pushes a return address; puts the syscall's base pointer into `rpp`; and puts the syscall's function address into `rip`. Upon returning, the program pops the stack and restores its `rpp` and other registers.
 
-| Hex | Name     | Arguments            | Return Value             |  Description                          |
-|-----|----------|----------------------|--------------------------|---------------------------------------|
-| 0A  | dopen    | path                 | handle or error code     | opens a directory                     |
-| 0B  | dclose   | handle               | none                     | closes a directory                    |
-| 0C  | dread    | handle, buffer       | error code               | reads one file entry from a directory |
+When syscalls are implemented by a parent program (such as the Onramp OS), typically the function address is the absolute address of the function within the parent, and the base pointer is the parent's `rpp`. All syscalls implemented by a particular parent program therefore typically have the same base pointer and different function addresses. The syscalls are then implemented as ordinary functions.
 
-Filesystem:
+When syscalls are implemented by the VM, both the function address and base pointer can be set to arbitrary values (except that the function address cannot be 0.) Typically the function address is set to some sentinel value (e.g. `0xEEEEEEEE`) or to a mapped address with an invalid opcode (e.g. `7F` which is otherwise unused). The `rpp` is set to the syscall number. All syscalls implemented by VMs therefore typically have the same function address and different base pointers. When `rip` reaches the sentinel value, the VM loads the syscall number from `rpp`, performs the syscall, sets `r0` to the result and sets `rip` to the value at the top of the stack.
 
-| Hex | Name     | Arguments            | Return Value            |  Description                    |
-|-----|----------|----------------------|-------------------------|---------------------------------|
-| 0D  | stat     | path, buffer         | none                    | gets file metadata              |
-| 0E  | rename   | path, path           | none                    | renames a file                  |
-| 0F  | symlink  | path, path           | none                    | creats a symlink                |
-| 10  | unlink   | path                 | none                    | deletes a file                  |
-| 11  | chmod    | path, mode           | none                    | changes permissions of a file   |
-| 12  | mkdir    | path                 | none                    | creates a directory             |
-| 13  | rmdir    | path                 | none                    | deletes an empty directory      |
+When a program is nested deep within other programs in a VM, the system call table will contain a mix of function pointers from various parents. For example, consider the Onramp assembler, running in the Onramp driver, running in the Onramp shell, running in the Onramp OS, running on a freestanding Onramp VM. Typically the direct parent (in this case the driver) will provide exit; the VM will implement time and fread/fwrite for terminal input/output; the OS will implement the file and directory syscalls; and both the OS and shell will proxy fread/fwrite to redirect to files or to the VM's terminal streams.
+
+
+
+### System Call Quick Reference
+
+All system calls return a word that contains either an error code, a return value, or 0 indicating success without a value. If a return value is omitted in the below table, the system call returns 0 on success and an error code on error.
+
+Arguments are passed in `r0`, `r1`, `r2` and `r3`. The return value is placed in `r0`.
+
+| Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
+|--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
+| 0      | yes       | exit     | exit code                | n/a (doesn't return)     | exits the program                        |
+| 1      |           | time     | out\_time[3]             |                          | gets the current time                    |
+| 2      |           | panic    | exit code                | n/a (doesn't return)     | halts the VM                             |
+| 3      | hosted    | fopen    | path, writeable          | handle                   | opens a file                             |
+| 4      | hosted    | fclose   | handle                   |                          | closes a file                            |
+| 5      | hosted    | fread    | handle, buffer, size     | bytes read               | reads from a file or stream              |
+| 6      | yes       | fwrite   | handle, buffer, size     | bytes written            | writes to a file or stream               |
+| 7      | hosted\*  | fseek    | handle, base, pos (x2)   |                          | seeks to a position in a file            |
+| 8      | hosted\*  | ftell    | handle, out\_pos[2]      |                          | gets the current position in a file      |
+| 9      |           | ftrunc   | handle, size (x2)        |                          | truncates a file                         |
+| 10     | hosted    | dopen    | path                     | handle                   | opens a directory                        |
+| 11     | hosted    | dclose   | handle                   |                          | closes a directory                       |
+| 12     | hosted    | dread    | handle, buffer           |                          | reads one file entry from a directory    |
+| 13     | hosted\*  | stat     | path, buffer             |                          | gets file metadata                       |
+| 14     |           | rename   | path, path               |                          | renames a file                           |
+| 15     |           | symlink  | path, path               |                          | creates a symlink                        |
+| 16     | hosted    | unlink   | path                     |                          | deletes a file                           |
+| 17     |           | chmod    | path, mode               |                          | changes permissions of a file            |
+| 18     | hosted    | mkdir    | path                     |                          | creates a directory                      |
+| 19     | hosted    | rmdir    | path                     |                          | deletes an empty directory               |
+| 20     |           | spawn    | path, args, env, fds     | pid                      | runs a program outside the VM            |
+| 21     |           | waitpid  | pid                      | exit code                | waits until an outside program exits     |
+
+\*: Entries marked "hosted\*" are currently required in a hosted environment but may not be required in future VM specs.
 
 A description of each system call with a C-style prototype follows. (The C prototypes described below are declared by the libc in `#include <__onramp/__syscalls.h>`. They can be called as ordinary C functions, although such use is discouraged outside of the libc.)
 
 
 
-### halt
+### exit
 
 ```c
-[[noreturn]] void __sys_halt(int exit_code);
+[[noreturn]] void __sys_exit(int exit_code);
 ```
 
 - syscall number: 0
 - argument in r0: exit code
 - return value: n/a (does not return)
 
-Halts the VM, returning to a host environment (if any) with the given exit code. This system call does not return.
+Exits the program with the given exit code.
+
+This system call does not return.
 
 
 
@@ -718,18 +784,22 @@ If this system call is implemented, it cannot fail. It must always set register 
 
 
 
-### spawn
-
+### panic
 
 ```c
-int __sys_spawn(TODO);
+int __sys_panic(int exit_code);
 ```
 
 - syscall number: 2
+- argument in r0: exit code
 
-Spawns an external program in a hosted environment.
+Halts the VM, exiting with the given non-zero error code.
 
-This is not yet implemented.
+This kills all programs running in the instance of the VM. It should only be used in case an error occurs that is unrecoverable by normal program exit. For example, this is called when memory corruption is detected by `malloc()`, because the memory of other processes in the VM may be corrupted as well.
+
+The given exit code must be non-zero. (The VM is allowed to ignore this and does not need to check.)
+
+This system call is optional and is not typically implemented by Onramp VMs. If not implemented, the Onramp libc uses the exit syscall instead. (This system call mainly exists so that programs can pass along the VM's exit to child programs so they can take down the whole VM if a critical error occurs.)
 
 
 
@@ -1083,6 +1153,21 @@ Deletes an empty directory at the given path.
 If the directory is not empty, this returns an error. If the directory does not exist, this returns an error. If the path is not a directory, this returns an error.
 
 
+
+### spawn
+
+
+```c
+int __sys_spawn(TODO);
+```
+
+- syscall number: 20
+
+Spawns an external program in a hosted environment.
+
+This is not yet implemented.
+
+
 ## Filesystem
 
 A filesystem is made up of directories and files. Directories can contain other directories and files. Files contain data of arbitrary type and length, and grow automatically as data is written to them.
@@ -1148,7 +1233,7 @@ If a system call is used incorrectly (e.g. an invalid argument value is passed),
 
 
 
-## Debug info
+## Debug Info
 
 Debug info can be emitted by the final stages of the Onramp toolchain (and some earlier stage tools as well.) It is enabled by passing `-g` to the driver or to individual tools.
 
@@ -1184,3 +1269,37 @@ On some hosted platforms, Onramp bytecode can also be wrapped in a script that e
 This script automatically launches the program in the VM (as long as it's on your PATH.)
 
 VMs that support these platforms check for a script preamble (e.g. `#!` or `REM`). If found, they skip the first 128 bytes.
+
+
+
+## Rationale
+
+The Onramp VM is designed to balance the following constraints:
+
+- The machine must be easy to implement:
+    - In both raw machine code and in high-level languages;
+    - In both freestanding and hosted environments;
+
+- The bytecode must be easy to read and write by hand:
+    - In raw hex bytes, in a powerful assembly language, and any step in between;
+
+- The bytecode must be easy to produce as the output of a compiler.
+
+It has a few additional requirements:
+
+- The VM must bridge the filesystem in a hosted environment;
+
+- The VM must make it easy for programs to run other programs.
+
+Non-goals are efficiency, memory safety, and suitability for implementation in hardware. The VM is designed primarily for non-interactive bootstrapping of a real native compiler. Interrupts are also not a priority at this time, although there is the possibility of implementing them later.
+
+Onramp's VM design takes inspiration from such projects as Robert Elder's [one page CPU](https://recc.robertelder.org/op-cpu-programmer-reference-manual.txt), the [TOY machine](https://introcs.cs.princeton.edu/java/62toy/) from Sedgewick and Wayne, the design of [MessagePack](https://msgpack.org/), classic architectures like PDP-11 (designed to be programmed directly in octal), and of course modern RISC ISAs like RISC-V. See the [inspiration](inspiration.md) page for details.
+
+
+## Version History
+
+Version 2: Added syscall table, replacing exit address in PIT. Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall.
+
+Version 1: Replaced `cmpu` instruction with `ltu`. (The `cmpu` instruction took a destination register and two source mix-type bytes. It performed a three-way comparison between the sources. It placed 1 in the register if the first source argument was greater than the second; 0xFFFFFFFF if the first was less than the second; and 0 if the source arguments matched.)
+
+Version 0: Initial version.
