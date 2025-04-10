@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 # The MIT License (MIT)
 #
@@ -27,20 +27,22 @@
 # This is an Onramp VM implemented in Python.
 #
 # All values are unsigned. Registers store 32-bit unsigned values. All
-# functions (including parseMix()) return unsigned values.
+# functions (including mix()) return unsigned values.
 #
-# Error checking is minimal in order to keep it simple and improve performance.
-# Some errors (like an out-of-bounds memory access or an invalid file handle)
-# will result in a Python exception. Other errors (such as unaligned
-# load/store) may work for some addresses and not others.
+# Error checking is mostly omitted in order to keep it simple and to improve
+# performance. Some errors (like an out-of-bounds memory access or an invalid
+# file handle) will result in a Python exception. Other errors (such as invalid
+# opcodes or invalid register arguments) will produce nonsense results.
 #
 # There are a handful of optimizations below, some of which compromise
-# readability. Nevertheless, this VM is about 50x slower than a handwritten
+# readability. Nevertheless, this VM is about 35x slower than a handwritten
 # machine code VM, and about 100x slower than a VM in a compiled language.
 # This is probably as good as it will get. Python is just very slow
 # unfortunately.
 
 
+
+from __future__ import print_function
 
 import sys, os, struct, traceback, time
 
@@ -56,10 +58,32 @@ RFP = 0xD
 RPP = 0xE
 RIP = 0xF
 
-# vm state
+# Memory and registers
 memory = bytearray(2**24)
 registers = [0] * 16
-handles = [sys.stdin.buffer, sys.stdout.buffer, sys.stderr.buffer] + [None] * 13
+
+# File handles.
+handles = [
+    hasattr(sys.stdin, "buffer") and sys.stdin.buffer or sys.stdin,
+    hasattr(sys.stdout, "buffer") and sys.stdout.buffer or sys.stdout,
+    hasattr(sys.stderr, "buffer") and sys.stderr.buffer or sys.stderr,
+] + [None] * 13
+
+# int view of byte array. Use memoryview.cast() if we have it (added in Python
+# 3.3); fallback to a manual implementation if we don't.
+if hasattr(memoryview, "cast"):
+    memory_ints = memoryview(memory).cast("@I")
+else:
+    class IntMemoryWrapper(object):
+        def __init__(self, memory):
+            self.memory = memory
+        def __getitem__(self, index):
+            address = index << 2
+            return struct.unpack("<I", self.memory[address:address+4])[0]
+        def __setitem__(self, index, value):
+            address = index << 2
+            self.memory[address:address+4] = struct.pack("<I", value)
+    memory_ints = IntMemoryWrapper(memory)
 
 # memory layout
 BASE_ADDR = 0x10000
@@ -75,15 +99,16 @@ def loadByte(address):
     return memory[(address & 0xFFFFFFFF) - BASE_ADDR]
 
 def storeByte(address, value):
+    # Workaround for str/bytes in Python 2
+    if type(value) == type(""):
+        value = ord(value)
     memory[(address & 0xFFFFFFFF) - BASE_ADDR] = (value & 0xFF)
 
 def loadWord(address):
-    address = ((address & 0xFFFFFFFF) - BASE_ADDR)
-    return struct.unpack("<I", memory[address:address+4])[0]
+    return memory_ints[((address & 0xFFFFFFFF) - BASE_ADDR) >> 2]
 
 def storeWord(address, value):
-    address = ((address & 0xFFFFFFFF) - BASE_ADDR)
-    memory[address:address+4] = struct.pack("<I", value)
+    memory_ints[((address & 0xFFFFFFFF) - BASE_ADDR) >> 2] = value & 0xFFFFFFFF
 
 def loadString(address):
     s = bytearray()
@@ -95,18 +120,13 @@ def loadString(address):
         address += 1
     return s.decode("utf-8", "replace")
 
-def parseMix(value):
+def mix(value):
     if value >= 0x80 and value <= 0x8F:
         return registers[value & 0xF]
     if value >= 0x90:
         # Note we're returning 32-bit unsigned. We do sign extension manually.
         return value | 0xFFFFFF00
     return value
-
-def parseRegister(value):
-    if value >= 0x80 and value <= 0x8F:
-        return value & 0xF
-    raise Exception("Argument is not a register")
 
 def syscall(number):
     if number == 0x00:  # halt
@@ -155,7 +175,7 @@ def syscall(number):
             if not b:
                 break
             for j in range(len(b)):
-                storeByte(address + i + j, b[j])
+                memory[((address + i + j) & 0xFFFFFFFF) - BASE_ADDR] = b[j]
             i += len(b)
         registers[0] = i
         return
@@ -214,106 +234,76 @@ def run():
 
     # These local aliases seem to improve performance
     memory = globals()["memory"]
+    memory_ints = globals()["memory_ints"]
     registers = globals()["registers"]
-    parseMix = globals()["parseMix"]
-    parseRegister = globals()["parseRegister"]
-    loadWord = globals()["loadWord"]
-    loadByte = globals()["loadByte"]
-    storeWord = globals()["storeWord"]
-    storeByte = globals()["storeByte"]
+    mix = globals()["mix"]
     syscall = globals()["syscall"]
 
-    # We've also inlined the loadByte() function in a handful of places below,
-    # basically anywhere you see BASE_ADDR. It's much quicker to access memory
-    # and registers directly.
-
     while True:
-        #print(f"address {hex(registers[RIP])[2:]} "
-        #        f"relative {hex(registers[RIP] - registers[RPP])[2:]} instruction "
-        #        f"{hex(memory[registers[RIP] - BASE_ADDR])[2:]} "
-        #        f"{hex(memory[registers[RIP] - BASE_ADDR + 1])[2:]} "
-        #        f"{hex(memory[registers[RIP] - BASE_ADDR + 2])[2:]} "
-        #        f"{hex(memory[registers[RIP] - BASE_ADDR + 3])[2:]}"
-        #      )
+        offset = registers[RIP] - BASE_ADDR
 
-        opcode = memory[registers[RIP] - BASE_ADDR]
+        # Note that we ignore the upper 4 bits of the opcode. We assume it
+        # starts with 0x7. Skipping this check gives a ~5% performance
+        # improvement.
+        opcode = memory[offset] & 0xF
+        a = memory[offset + 1]
+        b = memory[offset + 2]
+        c = memory[offset + 3]
         registers[RIP] += 4
 
-        if (opcode & 0xF0) != 0x70:
-            raise Exception("Invalid opcode: " + str(opcode) + " addr " + str(registers[RIP]-4))
-        opcode = opcode & 0xF
-        mask = 1 << opcode
+        # Note also that we ignore the upper 4 bits of any destination
+        # register below. We assume it starts with 0x8.
 
-        # Eleven basic instructions share the same argument types: they all take a
-        # destination register and two mix-type arguments. We handle them all
-        # together here.
-        if mask & 0b0010010111111111:
-            dest = parseRegister(memory[registers[RIP] - BASE_ADDR - 3])
-            left = parseMix(memory[registers[RIP] - BASE_ADDR - 2])
-            right = parseMix(memory[registers[RIP] - BASE_ADDR - 1])
-            if opcode == 0: # add
-                registers[dest] = (left + right) & 0xFFFFFFFF
-            elif opcode == 1: # sub
-                registers[dest] = (left - right) & 0xFFFFFFFF
-            elif opcode == 2: # mul
-                registers[dest] = (left * right) & 0xFFFFFFFF
-            elif opcode == 3: # divu
-                registers[dest] = left // right
-            elif opcode == 4: # and
-                registers[dest] = left & right
-            elif opcode == 5: # or
-                registers[dest] = left | right
-            elif opcode == 6: # shl
-                registers[dest] = (left << right) & 0xFFFFFFFF
-            elif opcode == 7: # shru
-                registers[dest] = left >> right
-            elif opcode == 8: # ldw
-                registers[dest] = loadWord(left + right)
-            elif opcode == 0xA: # ldb
-                registers[dest] = loadByte(left + right)
-            elif opcode == 0xD: # ltu
-                registers[dest] = left < right and 1 or 0
+        # Python doesn't optimize a flat sequence of if statements (and the
+        # match statement is compiled to an if sequence) so we manually search
+        # for the opcode in blocks of 4. (This also gives a ~5% performance
+        # improvement. A full binary search is not significantly faster and
+        # makes this much harder to read.)
+
+        if opcode < 4:
+            if opcode == 0:
+                registers[a & 0xF] = (mix(b) + mix(c)) & 0xFFFFFFFF    # add
+            elif opcode == 1:
+                registers[a & 0xF] = (mix(b) - mix(c)) & 0xFFFFFFFF    # sub
+            elif opcode == 2:
+                registers[a & 0xF] = (mix(b) * mix(c)) & 0xFFFFFFFF    # mul
             else:
-                raise Exception("Internal error")
-
-        # Our two store instructions take three mix-type arguments.
-        elif mask & 0b0000101000000000:
-            value = parseMix(memory[registers[RIP] - BASE_ADDR - 3])
-            base = parseMix(memory[registers[RIP] - BASE_ADDR - 2])
-            offset = parseMix(memory[registers[RIP] - BASE_ADDR - 1])
-            if opcode == 9: # stw
-                storeWord(base + offset, value)
-            elif opcode == 0xB: # stb
-                storeByte(base + offset, value & 0xFF)
+                registers[a & 0xF] = (mix(b) // mix(c)) & 0xFFFFFFFF   # divu
+        elif opcode < 8:
+            if opcode == 4:
+                registers[a & 0xF] = (mix(b) & mix(c))                 # and
+            elif opcode == 5:
+                registers[a & 0xF] = (mix(b) | mix(c))                 # or
+            elif opcode == 6:
+                registers[a & 0xF] = (mix(b) << mix(c)) & 0xFFFFFFFF   # shl
             else:
-                raise Exception("Internal error")
-
-        # Immediate short and jump if zero both take two literal bytes.
-        elif mask & 0b0101000000000000:
-            value = memory[registers[RIP] - BASE_ADDR - 2] | \
-                    (memory[registers[RIP] - BASE_ADDR - 1] << 8)
-            arg1 = memory[registers[RIP] - BASE_ADDR - 3]
-            if opcode == 0xC: # ims
-                dest = parseRegister(arg1)
-                registers[dest] = ((registers[dest] << 16) & 0xFFFFFFFF) | value
-            elif opcode == 0xE: # jz
-                if 0 == parseMix(arg1):
-                    if value > 0x7FFF:
-                        #value |= 0xFFFF0000
-                        value -= 0x10000
-                    registers[RIP] += value * 4
+                registers[a & 0xF] = (mix(b) >> mix(c))                # shru
+        elif opcode < 12:
+            if opcode == 8:
+                registers[a & 0xF] = memory_ints[(((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR) >> 2]    # ldw
+            elif opcode == 9:
+                memory_ints[(((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR) >> 2] = mix(a) & 0xFFFFFFFF   # stw
+            elif opcode == 10:
+                registers[a & 0xF] = memory[((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR]  # ldb
             else:
-                raise Exception("Internal error")
-
-        # System call takes only a single argument, the syscall number. The other
-        # arguments must be zero (but we don't bother to check.)
-        elif opcode == 0xF: # sys
-            syscall(loadByte(registers[RIP] - 3))
-
+                memory[((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR] = mix(a) & 0xFF       # stb
         else:
-            raise Exception("Internal error")
+            if opcode == 12:
+                registers[a & 0xF] = (registers[a & 0xF] & 0xFFFF) << 16 | b | c << 8  # ims
+            elif opcode == 13:
+                registers[a & 0xF] = (mix(b) < mix(c)) and 1 or 0  # ltu
+            elif opcode == 14:
+                # A bit of magic here to do sign extension without branching.
+                # This is the same algorithm the assembler does to implement
+                # the sxs instruction. It might be faster to just branch.
+                if 0 == mix(a): registers[RIP] = (registers[RIP] +
+                        ((0x7FFF - ((0x7FFF - (b | c << 8)) & 0xFFFF)) << 2)) & 0xFFFFFFFF  # jz
+            else:
+                syscall(a)
 
 def start():
+    # Python 2 doesn't support nonlocal so we just make this global.
+    global pos
 
     # Parse args
     args = sys.argv
@@ -329,7 +319,7 @@ def start():
 
     # Helper to copy string into VM heap
     def copyString(string):
-        nonlocal pos
+        global pos
         stringAddress = pos
         for b in string.encode("UTF-8") + b'\0':
             storeByte(pos, b)
@@ -338,7 +328,7 @@ def start():
 
     # Helper to copy string table to VM heap
     def copyStrings(strings):
-        nonlocal pos
+        global pos
         tableAddress = pos
         pos += (len(strings) + 1) * 4
         for i in range(len(strings)):

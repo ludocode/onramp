@@ -26,6 +26,18 @@
 # environment.
 #
 # If a corresponding .skip file exists, the test is skipped.
+#
+# If a corresponding .strict file exists and --lax is passed, the test is
+# skipped.
+#
+# You can pass --lax to skip test cases that check for illegal instructions.
+# Checking for illegal instructions is not required.
+
+LAX=0
+if [ "$1" == "--lax" ]; then
+    LAX=1
+    shift
+fi
 
 if [ "$1" == "" ]; then
     echo "Need command to test."
@@ -53,7 +65,12 @@ for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'); do
     BASENAME=$(echo $HEXNAME|sed 's/\.oe\.ohx$//')
 
     if [ -e $BASENAME.skip ]; then
-        echo "Skipping $BASENAME"
+        echo "Skipping $BASENAME due to .skip"
+        continue
+    fi
+
+    if [ $LAX -eq 1 ] && [ -e $BASENAME.strict ]; then
+        echo "Skipping $BASENAME due to --lax"
         continue
     fi
 

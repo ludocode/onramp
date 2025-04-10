@@ -28,4 +28,4 @@
 
 set -e
 cd "$(dirname "$0")/../../.."
-test/vm/run.sh platform/vm/python/vm.py
+test/vm/run.sh --lax platform/vm/python/vm.py
