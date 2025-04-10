@@ -150,7 +150,7 @@ def syscall(number):
                 try:
                     handles[i] = open(loadString(registers[0]), registers[1] and "wb" or "rb")
                     registers[0] = i
-                except FileNotFoundError:
+                except:
                     registers[0] = VM_ERR_PATH
                 return
         registers[0] = VM_ERR_GENERIC
