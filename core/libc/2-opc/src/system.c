@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -84,20 +84,6 @@ static void __argv_setup(void) {
 #ifdef __onramp__
 _Noreturn
 void __start_c(unsigned* process_info, unsigned stack_base) {
-
-    // check version
-    // version history:
-    // - 0: last experimental version before numbering
-    // - 1: replaced cmpu with ltu
-    if (process_info[__ONRAMP_PIT_VERSION] != 1) {
-        // If the VM version doesn't match the version of the libc, we try to
-        // print an error message and exit. Anything might have changed
-        // (instructions, syscall interface) so this won't necessarily work but
-        // we try anyway.
-        const char* message = "ERROR: Incompatible version of the Onramp VM.\n";
-        __sys_fwrite(process_info[__ONRAMP_PIT_ERROR], message, strlen(message));
-        __end(1, process_info[__ONRAMP_PIT_EXIT]);
-    }
 
     // initialize the libc
     __process_info_table = process_info;
