@@ -77,7 +77,7 @@ static void panic(const char* e) {
 #define VM_ADD  0x70  /* add */
 #define VM_SUB  0x71  /* subtract */
 #define VM_MUL  0x72  /* multiply */
-#define VM_DIV  0x73  /* divide */
+#define VM_DIVU 0x73  /* divide unsigned */
 #define VM_AND  0x74  /* bitwise and */
 #define VM_OR   0x75  /* bitwise or */
 #define VM_SHL  0x76  /* shift left */
@@ -89,36 +89,38 @@ static void panic(const char* e) {
 #define VM_IMS  0x7C  /* immediate short */
 #define VM_LTU  0x7D  /* less than unsigned */
 #define VM_JZ   0x7E  /* jump if zero */
-#define VM_SYS  0x7F  /* interrupt */
 
 /* syscalls */
-#define VM_HALT      0x00
-#define VM_TIME      0x01
-#define VM_SPAWN     0x02
-#define VM_FOPEN     0x03
-#define VM_FCLOSE    0x04
-#define VM_FREAD     0x05
-#define VM_FWRITE    0x06
-#define VM_FSEEK     0x07
-#define VM_FTELL     0x08
-#define VM_FTRUNC    0x09
-#define VM_DOPEN     0x0A
-#define VM_DCLOSE    0x0B
-#define VM_DREAD     0x0C
-#define VM_STAT      0x0D
-#define VM_RENAME    0x0E
-#define VM_SYMLINK   0x0F
-#define VM_UNLINK    0x10
-#define VM_CHMOD     0x11
-#define VM_MKDIR     0x12
-#define VM_RMDIR     0x13
+#define VM_EXIT      0
+#define VM_TIME      1
+#define VM_PANIC     2
+#define VM_FOPEN     3
+#define VM_FCLOSE    4
+#define VM_FREAD     5
+#define VM_FWRITE    6
+#define VM_FSEEK     7
+#define VM_FTELL     8
+#define VM_FTRUNC    9
+#define VM_DOPEN     10
+#define VM_DCLOSE    11
+#define VM_DREAD     12
+#define VM_STAT      13
+#define VM_RENAME    14
+#define VM_SYMLINK   15
+#define VM_UNLINK    16
+#define VM_CHMOD     17
+#define VM_MKDIR     18
+#define VM_RMDIR     19
+#define VM_SPAWN     20
+#define VM_WAITPID   21
+#define VM_SYSCALL_COUNT 22u
 
 #define VM_VERSION_NUMBER 1
 
 /* process info table */
 #define VM_PIT_VERSION 0
 #define VM_BREAK 4
-#define VM_EXIT 8
+#define VM_SYSCALL_TABLE 8
 #define VM_INPUT 12
 #define VM_OUTPUT 16
 #define VM_ERROR 20
@@ -136,6 +138,9 @@ static void panic(const char* e) {
 
 /* register and memory value on start */
 #define VM_DEFAULT_MEMORY 0xDEADDEAD
+
+/* address to be assigned to rip to make a syscall */
+#define VM_SYSCALL_ADDRESS 0xAAAAAAAA
 
 /* Files. We offset the file count in order to ensure programs are using them
  * correctly (and not just assuming 1 is stdout for example.) */
@@ -411,31 +416,6 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t add
     return addr;
 }
 
-#if 0
-static uint32_t vm_setup_syscall_table(vm_t* vm, uint32_t addr) {
-
-    printf("setup syscall table addr 0x%X membase 0x%X end 0x%X\n",addr,vm->memory_base,vm->memory_base+vm->memory_size);
-
-    vm->syscall_table = addr;
-    uint32_t syscall_count = 128; // TODO
-    if (!vm_is_buffer_valid(vm, addr, syscall_count * 4)) {
-        panic("Out of memory setting up syscall table");
-    }
-    uint32_t ret = addr + syscall_count * 4;
-
-    //printf("setting up syscalls\n");
-    #define SETUP_SYSCALL(x) vm_store_u32(vm, addr + x, vm->syscall_addr + x);
-    SETUP_SYSCALL(VM_HALT)
-    SETUP_SYSCALL(VM_INPUT)
-    SETUP_SYSCALL(VM_OUTPUT)
-    SETUP_SYSCALL(VM_ERROR)
-    #undef SETUP_SYSCALL
-    //printf("done setting up syscalls\n");
-
-    return ret;
-}
-#endif
-
 static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     memset(vm, 0, sizeof(*vm));
 
@@ -461,6 +441,26 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     uint32_t addr = vm->memory_base + VM_PIT_SIZE;
     addr = vm_parse_args(vm, argc, argv, addr);
 
+    // Setup syscall table
+    //
+    // The syscall table is a list of external function pointers. All syscalls
+    // share the same function address; the program address is the syscall
+    // number.
+    uint32_t syscall_table = addr;
+    vm_store_u32(vm, vm->memory_base + VM_SYSCALL_TABLE, syscall_table);
+    addr += VM_SYSCALL_COUNT * 8u;
+    for (uint32_t i = 0; i < VM_SYSCALL_COUNT; ++i) {
+        // TODO these syscalls are not implemented yet. We leave them null in
+        // the table in the meantime.
+        if (i == VM_RENAME || i == VM_SYMLINK || i == VM_SPAWN || i == VM_WAITPID) {
+            vm_store_u32(vm, syscall_table + i * 8, 0);
+            vm_store_u32(vm, syscall_table + i * 8 + 4, 0);
+        } else {
+            vm_store_u32(vm, syscall_table + i * 8, VM_SYSCALL_ADDRESS);
+            vm_store_u32(vm, syscall_table + i * 8 + 4, i);
+        }
+    }
+
     /* setup files */
     vm->files[0] = stdin;
     vm->files[1] = stdout;
@@ -468,11 +468,6 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm_store_u32(vm, vm->memory_base + VM_INPUT, FILES_OFFSET);
     vm_store_u32(vm, vm->memory_base + VM_OUTPUT, FILES_OFFSET + 1);
     vm_store_u32(vm, vm->memory_base + VM_ERROR, FILES_OFFSET + 2);
-
-    /* add a halt instruction */
-    vm_store_u32(vm, addr, 0x0000007F);
-    vm_store_u32(vm, vm->memory_base + VM_EXIT, addr);
-    addr += 4;
 
     /* add some padding so a user isn't confused when viewing their program in
      * the debugger */
@@ -534,8 +529,8 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
             0 // no echo, non-blocking, non-canonical
             );
 
-    // push the halt syscall as the _start return address
-    // TODO halt address is now in the PIT, but we may put it back on the stack later
+    // push the exit syscall as the _start return address
+    // TODO exit address is now in the PIT, but we may put it back on the stack later
     //end -= 4;
     //vm_store_u32(vm, end, vm->syscall_addr);
 
@@ -588,9 +583,9 @@ static FILE* vm_file(vm_t* vm, uint32_t handle) {
     return file;
 }
 
-static uint32_t vm_halt(vm_t* vm) {
+static uint32_t vm_exit(vm_t* vm) {
     // TODO pause debugger
-    strace("sys halt() %i\n", vm->registers[0]);
+    strace("sys exit() %i\n", vm->registers[0]);
     exit(vm_parse_mix(vm, vm->registers[0]));
     return VM_ERR_GENERIC;
 }
@@ -612,6 +607,10 @@ static uint32_t vm_time(vm_t* vm) {
 static uint32_t vm_spawn(vm_t* vm) {
     strace("sys spawn()\n");
     panic("TODO spawn syscall not yet implemented");
+}
+
+static uint32_t vm_waitpid(vm_t* vm) {
+    panic("TODO waitpid syscall not yet implemented");
 }
 
 static uint32_t vm_fopen(vm_t* vm) {
@@ -886,18 +885,15 @@ static uint32_t vm_rmdir(vm_t* vm) {
 }
 
 vm_ghost_noinline
-static void vm_sys(vm_t* vm, uint8_t syscall_number, uint8_t arg1, uint8_t arg2) {
-    //fprintf(stderr, "vm_sys %u %u %u\n", syscall_number, arg1, arg2);
-    if (arg1 != 0 || arg2 != 0) {
-        panic("Extra arguments to syscall must be 0");
-    }
-
+static void vm_syscall(vm_t* vm) {
+    uint32_t syscall_number = vm->registers[VM_RPP];
     int ret = 0;
+
     switch (syscall_number) {
         // misc
-        case VM_HALT:      ret = vm_halt(vm); break;
+        case VM_EXIT:      ret = vm_exit(vm); break;
         case VM_TIME:      ret = vm_time(vm); break;
-        case VM_SPAWN:     ret = vm_spawn(vm); break;
+        case VM_PANIC:     ret = vm_exit(vm); break; // panic forwarded to exit
         // file
         case VM_FOPEN:     ret = vm_fopen(vm); break;
         case VM_FCLOSE:    ret = vm_fclose(vm); break;
@@ -918,6 +914,8 @@ static void vm_sys(vm_t* vm, uint8_t syscall_number, uint8_t arg1, uint8_t arg2)
         case VM_CHMOD:     ret = vm_chmod(vm); break;
         case VM_MKDIR:     ret = vm_mkdir(vm); break;
         case VM_RMDIR:     ret = vm_rmdir(vm); break;
+        case VM_SPAWN:     ret = vm_spawn(vm); break;
+        case VM_WAITPID:   ret = vm_waitpid(vm); break;
         default:
             panic("Unrecognized syscall");
     }
@@ -929,50 +927,10 @@ static void vm_sys(vm_t* vm, uint8_t syscall_number, uint8_t arg1, uint8_t arg2)
     for (size_t i = 1; i <= 0xB; ++i) {
         vm->registers[i] = 0xDEADDEAD;
     }
-}
-
-#if 0
-//ghost_noinline
-static bool vm_syscall(vm_t* vm) {
-    uint32_t rip = vm->registers[VM_RIP];
-    //printf("TRYING SYSCALL 0x%x 0x%x 0x%x\n", rip, vm->syscall_addr,rip - vm->syscall_addr);
-    switch (rip - vm->syscall_addr) {
-        case VM_OUTPUT: {
-            uint32_t buffer = vm->registers[0];
-            uint32_t count = vm->registers[1];
-            //printf("buffer 0x%X count %u\n",buffer,count);
-            if (!vm_is_buffer_valid(vm, buffer, count)) {
-                panic("Invalid buffer for output");
-                return false;
-            }
-            fwrite(vm->memory + buffer - vm->memory_base, 1, count, stdout);
-            break;
-        }
-
-        case VM_HALT:
-            exit(vm->registers[0]);
-            break;
-
-        case VM_INPUT:
-        case VM_ERROR:
-            printf("SYSCALL %s\n", vm_syscall_to_string(rip - vm->syscall_addr));
-            break;
-        default:
-            return false;
-    }
-
-    // Registers don't need to be preserved by syscalls (since they may be
-    // normal functions.) To ensure programs don't rely on this we clear all
-    // caller-saved registers.
-    for (int i = 0x0; i <= 0xB; ++i) {
-        vm->registers[i] = VM_DEFAULT_MEMORY;
-    }
 
     // jump to return address
     vm->registers[VM_RIP] = vm_load_u32(vm, vm->registers[VM_RSP]);
-    return true;
 }
-#endif
 
 static void vm_step(vm_t* vm) {
     /*
@@ -981,7 +939,13 @@ static void vm_step(vm_t* vm) {
             return;
             */
 
-    uint32_t instruction = vm_load_u32(vm, vm->registers[VM_RIP]);
+    uint32_t rip = vm->registers[VM_RIP];
+    if (rip == VM_SYSCALL_ADDRESS) {
+        vm_syscall(vm);
+        return;
+    }
+
+    uint32_t instruction = vm_load_u32(vm, rip);
     vm->registers[VM_RIP] += 4;
     uint8_t opcode = (uint8_t)instruction;
     uint8_t arg1 = (uint8_t)(instruction >> 8);
@@ -1045,7 +1009,7 @@ static void vm_step(vm_t* vm) {
             vm->registers[vm_parse_register(vm, arg1)] =
                     vm_parse_mix(vm, arg2) * vm_parse_mix(vm, arg3);
             break;
-        case VM_DIV: {
+        case VM_DIVU: {
             uint32_t divisor = vm_parse_mix(vm, arg3);
             if (divisor == 0) {
                 panic("Divide by zero");
@@ -1113,9 +1077,6 @@ static void vm_step(vm_t* vm) {
                 vm->registers[VM_RIP] = (uint32_t)((int32_t)vm->registers[VM_RIP] +
                         ((int32_t)(int16_t)(uint16_t)((uint16_t)arg2 | ((uint16_t)arg3 << 8)) << 2));
             break;
-        case VM_SYS:
-            vm_sys(vm, arg1, arg2, arg3);
-            break;
         default:
             panic("Invalid instruction");
             break;
@@ -1137,7 +1098,7 @@ static const char* vm_instruction_to_string(uint8_t instruction) {
         case VM_ADD:  return "add";
         case VM_SUB:  return "sub";
         case VM_MUL:  return "mul";
-        case VM_DIV:  return "div";
+        case VM_DIVU: return "divu";
         case VM_AND:  return "and";
         case VM_OR:   return "or";
         case VM_SHL:  return "shl";
@@ -1149,7 +1110,6 @@ static const char* vm_instruction_to_string(uint8_t instruction) {
         case VM_IMS:  return "ims";
         case VM_LTU:  return "ltu";
         case VM_JZ:   return "jz";
-        case VM_SYS:  return "sys";
         default: break;
     }
     return "?";
@@ -1178,10 +1138,11 @@ static const char* vm_register_to_string(uint8_t r) {
     return "?";
 }
 
+#if 0
 static const char* vm_syscall_to_string(uint32_t syscall) {
     switch (syscall) {
         // system
-        case VM_HALT: return "halt";
+        case VM_EXIT: return "exit";
         case VM_TIME: return "time";
         case VM_SPAWN: return "spawn";
         // files
@@ -1208,6 +1169,7 @@ static const char* vm_syscall_to_string(uint32_t syscall) {
     }
     return "?";
 }
+#endif
 
 static void vm_print_mix(uint8_t b) {
     if (b >= 0x90) {
@@ -1223,7 +1185,7 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
     uint8_t bytes[4];
     vm_ghost_store_le_u32(bytes, u);
     printf("%02X %02X %02X %02X  ", bytes[0], bytes[1], bytes[2], bytes[3]);
-    if (bytes[0] < 0x70 || bytes[0] > 0x7F) {
+    if (bytes[0] < 0x70 || bytes[0] > 0x7E) {
         fputs("<invalid>", stdout);
         return;
     }
@@ -1236,7 +1198,7 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
         case VM_ADD:
         case VM_SUB:
         case VM_MUL:
-        case VM_DIV:
+        case VM_DIVU:
         case VM_AND:
         case VM_OR:
         case VM_SHL:
@@ -1270,11 +1232,6 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
             vm_print_mix(bytes[1]);
             putchar(' ');
             printf("%i", (int)(int16_t)((uint16_t)bytes[2] | ((uint16_t)bytes[3] << 8)));
-            break;
-
-        case VM_SYS:
-            fputs(vm_syscall_to_string(bytes[1]), stdout);
-            printf(" '%02X '%02X", bytes[2], bytes[3]);
             break;
 
         default:

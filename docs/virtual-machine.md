@@ -448,9 +448,11 @@ Programs compiled with Onramp try to use shifts in place of multiplications wher
 - assembly syntax: `divu <r:dest> <m:arg1> <m:arg2>`
 - behaviour: `dest = arg1 / arg2` (unsigned)
 
-The `divu` instruction divides the 32-bit values `arg1` by `arg2`, placing the result in a register.
+The `divu` instruction divides the numerator `arg1` by the denominator `arg2`, placing the result in a register.
 
 Note that a 32-bit two's complement signed division produces different results; you must be careful to perform unsigned division. Signed division is simulated by the `divs` instruction in compound assembly.
+
+If arg2 is 0, the result is undefined; the VM may halt, corrupt memory, or produce incorrect results.
 
 Programs compiled with Onramp try to use other instructions (shift, multiply) in place of divide where possible. The divide instruction is assumed to be the slowest opcode in an Onramp VM.
 
@@ -1298,7 +1300,7 @@ Onramp's VM design takes inspiration from such projects as Robert Elder's [one p
 
 ## Version History
 
-Version 2: Added syscall table, replacing exit address in PIT. Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall.
+Version 2: Added syscall table, replacing the exit address in the PIT (an address that was assigned to `rip` to exit the program.). Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall.
 
 Version 1: Replaced `cmpu` instruction with `ltu`. (The `cmpu` instruction took a destination register and two source mix-type bytes. It performed a three-way comparison between the sources. It placed 1 in the register if the first source argument was greater than the second; 0xFFFFFFFF if the first was less than the second; and 0 if the source arguments matched.)
 
