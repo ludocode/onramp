@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; format indicator `~Onr~amp~   `
@@ -10,8 +10,13 @@
 ; move process info table to r9
 70 89 00 80   ; add r9 0 r0
 
+; get syscall table into r8
+78 88 89 08   ; ldw r8 r9 8
+
 ; set exit status to 0
 70 80 00 00   ; add r0 0 0
 
-; move exit address into rip
-78 8F 89 08   ; ldw rip r9 8  (exit address)
+; load rpp and rip of exit function
+; (note that we don't push a return address. exit doesn't return.)
+78 8E 88 04   ; ldw rpp r8 4
+78 8F 88 00   ; ldw rip r8 0

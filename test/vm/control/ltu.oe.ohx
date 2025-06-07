@@ -11,40 +11,49 @@
     ; store process info vector in r9
     70 89 80 00   ; add r9 r0 0
 
+    ; push invalid return address on the stack in case exit returns
+    71 8C 8C 04   ; sub rsp rsp 4
+    79 FF 8C 00   ; stw -1 rsp 0    ; return address = 0xFFFFFFFF
+
 
 
     ; compare 1 to 3
     70 8A 02 02   ; add ra 2 2   ; clear register to make sure ltu writes it
     7D 8A 01 03   ; ltu ra 1 3
     71 8A 8A 01   ; sub ra ra 1
-    7E 8A 03 00   ; jz ra +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-1)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 01   ; add r0 0 1
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 1
+    70 80 00 01   ; add r0 0 1    ; exit code 1
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+
 
 
     ; compare 3 to 1
     70 82 02 02   ; add r2 2 2   ; clear register to make sure ltu writes it
     7D 82 03 01   ; ltu r2 3 1
-    7E 82 03 00   ; jz r2 +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-2)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 02   ; add r0 0 2
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 2
+    70 80 00 02   ; add r0 0 2    ; exit code 2
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+
 
 
     ; compare 3 to 3
     70 87 02 02   ; add r7 2 2   ; clear register to make sure ltu writes it
     7D 87 03 03   ; ltu r7 3 3
-    7E 87 03 00   ; jz r7 +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-3)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 03   ; add r0 0 3
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 3
+    70 80 00 03   ; add r0 0 3    ; exit code 3
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 
 
@@ -53,35 +62,38 @@
     70 8D 02 02   ; add rfp 2 2   ; clear register to make sure ltu writes it
     7D 8D 03 FD   ; ltu rfp 3 -3
     71 8D 01 8D   ; sub rfp 1 rfp
-    7E 8A 03 00   ; jz ra +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-4)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 04   ; add r0 0 4
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 4
+    70 80 00 04   ; add r0 0 4    ; exit code 4
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 
 
     ; compare -3 to 3  (comparison is unsigned, 0xFFFFFFFD > 3)
     7D 8A FD 03   ; ltu ra -3 3
-    7E 8A 03 00   ; jz ra +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-5)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 05   ; add r0 0 5
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 5
+    70 80 00 05   ; add r0 0 5    ; exit code 5
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 
 
     ; compare -3 to -3
     70 8D 02 02   ; add rfp 2 2   ; clear register to make sure ltu writes it
     7D 8A FD FD   ; ltu ra -3 -3
-    7E 8A 03 00   ; jz ra +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-6)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 06   ; add r0 0 6
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 6
+    70 80 00 06   ; add r0 0 6    ; exit code 6
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 
 
@@ -92,12 +104,13 @@
     70 81 00 01   ; add r1 0 1
     70 84 05 00   ; add r4 5 0   ; clear register to make sure ltu writes it
     7D 84 80 81   ; ltu r4 r0 r1
-    7E 84 03 00   ; jz r4 +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-7)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 07   ; add r0 0 7
-    70 8F 8A 00   ; add rip ra 0
+    ; fail. exit 7
+    70 80 00 07   ; add r0 0 7    ; exit code 7
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
     ; compare 0x40000000 to 0x80000000 in descending registers
     76 83 01 1E   ; shl r3 1 30
@@ -105,18 +118,18 @@
     70 85 05 00   ; add r5 5 0   ; clear register to make sure ltu writes it
     7D 85 83 82   ; ltu r5 r3 r2
     71 85 01 85   ; sub r5 1 r5
-    7E 85 03 00   ; jz r5 +3
+    7E 8A 04 00   ; jz ra 4
 
-    ; compare failed, exit(-8)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 08   ; add r0 0 8
-    70 8F 8A 00   ; add rip ra 0
-
-
-
+    ; fail. exit 8
+    80 80 00 08   ; add r0 0 8    ; exit code 8
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 
-    ; exit(0)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
-    70 8F 8A 00   ; add rip ra 0      ; jump to exit address
+
+    ; success. exit 0
+    70 80 00 00   ; add r0 0 0    ; exit code 0
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip

@@ -1,16 +1,16 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; Calculates Fibonacci sequence, printing out first 20 entries.
 
 ; function table:
-;   hex  dec  function
-;     0    0  _start
-;    30   48  process_info_table
-;    34   52  exit_address
-;    40   64  main
-;    C0  192  output_int
+;   hex  function
+;     0  _start
+;    60  process_info_table
+;    70  main
+;    F0  output_int
+;   1C0  putchar
 
 
 
@@ -25,20 +25,27 @@
     7E 20 20 20   ; jz 32 8224
 
     ; store process info table
-    79 80 8E 30   ; stw r0 rpp ^30
+    79 80 8E 60   ; stw r0 rpp '60 (process_info_table)
 
     ; call main
-    70 8A 00 40   ; add ra 0 ^40     ; imm ra main
+    70 8A 00 70   ; add ra 0 ^70     ; imw ra ^main
     70 8B 8F 0C   ; add rb rip 12    ; compute return address
     71 8C 8C 04   ; sub rsp rsp 4    ; push stack
     79 8B 8C 00   ; stw rb rsp 0     ; store return address
     70 8F 8E 8A   ; add rip rpp ra   ; jump main
 
-    ; jump to exit
-    78 8A 8E 30   ; ldw ra rpp ^30   ; load process info table
-    78 8F 8A 08   ; ldw rip ra 8     ; load exit address into rip
+    ; exit with return value of main
+    78 89 8E 60   ; ldw r9 rpp '60 (process_info_table)
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
     ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00
 
 
@@ -46,7 +53,7 @@
 ;==========================================
 ; globals
 ;==========================================
-@0x30 =process_info_table
+@0x60 =process_info_table
     FF FF FF FF
 
 
@@ -58,9 +65,9 @@
 
 
 ;==========================================
-; main
+; int main(void);
 ;==========================================
-@0x40 =main
+@0x70 =main
 
     ; set up stack frame
     71 8C 8C 04 ; sub rsp rsp 4
@@ -86,7 +93,7 @@
         79 84 8C 08         ; store r4 rsp 8    ; preserve i
         79 80 8C 04         ; store r0 rsp 4    ; push argument a
         7C 8A 00 00         ; imm ra 0
-        7C 8A C0 00         ; imm ra 192        ; ra <- output_int
+        7C 8A F0 00         ; imm ra 0xF0       ; ra <- output_int
         70 8B 8F 08         ; add rb rip 8      ; compute return address
         79 8B 8C 00         ; store rb rsp 0    ; push return address
         70 8F 8E 8A         ; add rip rpp ra    ; jump output_int
@@ -121,7 +128,12 @@
 ; (This is using an alternate calling convention where all arguments are pushed
 ; to the stack.)
 ;==========================================
-@0xC0 =output_int
+; vars:
+; - string pos: rfp-4
+; - bytes left: rfp-8
+; - string bytes: written backwards starting at rfp-9
+;==========================================
+@0xF0 =output_int
 
     ; r0: a  ; remaining decimal to convert
     ; r1: b  ; a / 10
@@ -136,8 +148,8 @@
     70 8D 8C 00 ; add rfp rsp 0    ; mov rfp rsp
 
     ; make room for our string
-    70 84 8C 00 ; add r4 rsp 0
-    71 8C 8C 0C ; sub rsp rsp 12
+    71 8C 8C 14 ; sub rsp rsp 20
+    70 84 8D F8 ; add r4 rfp -8    ; this is the end of the string; we write backwards
 
     ; load argument
     78 80 8D 08   ; ldw r0 rfp 8    ; argument a
@@ -161,13 +173,41 @@
     ; calculate string length into r5
     70 85 8C 0C   ; add r5 rsp 12
     71 85 85 84   ; sub r5 r5 r4
+;;;
+;;;    ; syscall write(stdout, string, length)
+;;;    78 8A 8E 30   ; ldw ra rpp ^30   ; load process info table
+;;;    78 80 8A 10   ; ldw r0 ra 16     ; r0 = stdout
+;;;    70 81 00 84   ; mov r1 r4        ; r1 = string address
+;;;    70 82 00 85   ; mov r2 r5        ; r2 = string length
+;;;    7F 06 00 00   ; sys write 0 0
 
-    ; syscall write(stdout, string, length)
-    78 8A 8E 30   ; ldw ra rpp ^30   ; load process info table
-    78 80 8A 10   ; ldw r0 ra 16     ; r0 = stdout
-    70 81 00 84   ; mov r1 r4        ; r1 = string address
-    70 82 00 85   ; mov r2 r5        ; r2 = string length
-    7F 06 00 00   ; sys write 0 0
+    ; in order to simplify this, we just call our putchar() function for each
+    ; character.
+    ; TODO it would be nice to have an fwrite() function in our test cases.
+
+;:output_int_char_loop
+
+    ; preserve data
+    79 84 8D FC    ; stw r4 rfp -4
+    79 85 8D F8    ; stw r5 rfp -8
+
+    ; write a character
+    7A 80 84 00       ; ldb r0 r4 0
+    7C 8A 00 00       ; ims ra <putchar
+    7C 8A C0 01       ; ims ra >putchar (0x1C0)
+    71 8C 8C 04       ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra    ; jump
+    70 8C 8C 04       ; add rsp rsp 4     ; pop return address
+
+    ; next character
+    78 84 8D FC    ; ldw r4 rfp -4
+    78 85 8D F8    ; ldw r5 rfp -8
+    70 84 84 01    ; add r4 r4 1
+    71 85 85 01    ; sub r5 r5 1
+    7E 85 01 00    ; jz r5 1        ; jnz r5 &output_int_char_loop
+    7E 00 F0 FF    ; jz 0 -16       ; ^^^
 
     ; return
     70 8C 8D 00   ; add rsp rfp 0   ; reset stack pointer
@@ -175,3 +215,74 @@
     70 8C 8C 04   ; add rsp rsp 4   ; pop old frame pointer
     78 8F 8C 00   ; ldw r0 rsp 0    ; jump to return address
 
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1C0
+
+
+
+; ==========================================================
+; int putchar(int c);
+; ==========================================================
+
+@0x1C0 putchar
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; push the character so we can get a pointer to it
+    71 8C 8C 04     ; sub rsp rsp 4     ; push c
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; prepare args for fwrite(stdout, rsp, 1);
+    78 89 8E 60    ; ldw r9 rpp '60 (process_info_table)
+    78 80 89 10    ; ldw r0 r9 16     ; r0 = pit[STDOUT]
+    70 81 00 8C    ; add r1 0 rsp   ; mov r1 rsp
+    70 82 00 01    ; add r2 0 1     ; mov r2 1
+
+    ; get syscall fwrite into r7
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+
+    ; make the syscall (external call convention)
+    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
+    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
+    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fwrite
+    70 8A 8F 08   ; add ra rip 8      ; ra = return address
+    79 8A 8C 00   ; stw ra rsp 0      ; store return address
+    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fwrite
+    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
+    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &test_write_no_error (+4)
+    ; fail, exit(1)
+    70 80 00 01   ; add r0 0 1    ; exit code 1
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+;:test_write_no_error
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x260

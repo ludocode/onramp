@@ -10,24 +10,35 @@
 ; move process info table to r9
 70 89 00 80   ; add r9 0 r0
 
-; put 1 into r0 now, we'll exit if an error occurs
-70 80 00 01   ; add r0 0 1
-
 ; make sure we can push things to the stack
 71 8C 8C 04   ; sub rsp rsp 4    ; push -1
 79 FF 8C 00   ; stw -1 rsp 0
 71 8C 8C 04   ; sub rsp rsp 4    ; push -3
 79 FD 8C 00   ; stw -3 rsp 0
 
-# make sure we can read them back out again
-78 8A 8C 00   ; ldw ra rsp 0
-71 8A 8A FD   ; sub ra ra -3
-7E 8A 01 00   ; jz ra 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
-78 8A 8C 04   ; ldw ra rsp 4
-71 8A 8A FF   ; sub ra ra -1
-7E 8A 01 00   ; jz ra 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+; make sure we can read them back out again (in reverse order)
+
+    ; read -3
+    78 8A 8C 00   ; ldw ra rsp 0
+    71 8A 8A FD   ; sub ra ra -3
+    7E 8A 04 00   ; jz ra 4
+
+    ; fail, exit 1
+    70 80 00 01   ; add r0 0 1    ; exit code 1
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+
+    ; read -1
+    78 8A 8C 04   ; ldw ra rsp 4
+    71 8A 8A FF   ; sub ra ra -1
+    7E 8A 04 00   ; jz ra 4
+
+    ; fail, exit 2
+    70 80 00 02   ; add r0 0 2    ; exit code 2
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 ; make sure we can create a stack frame
 71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
@@ -36,18 +47,32 @@
 
 ; write some stuff to it
 71 8C 8C 04   ; sub rsp rsp 8     ; make room for two words
-79 15 8D F8   ; stw 21 rfp -8
-79 07 8D FC   ; stw 7 rfp -4
+79 15 8D F8   ; stw 21 rfp -8     ; store 21 at rfp-8
+79 07 8D FC   ; stw 7 rfp -4      ; store 7 at rfp-4
 
 ; read it back out again
-78 8A 8D F8   ; ldw ra rfp -8
-71 8A 8A 15   ; sub ra ra 21
-7E 8A 01 00   ; jz ra 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
-78 8A 8D FC   ; ldw ra rfp -4
-71 8A 8A 07   ; sub ra ra 7
-7E 8A 01 00   ; jz ra 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+
+    ; make sure 21 is at rfp-8
+    78 8A 8D F8   ; ldw ra rfp -8
+    71 8A 8A 15   ; sub ra ra 21
+    7E 8A 04 00   ; jz ra 4
+
+    ; fail, exit 3
+    70 80 00 03   ; add r0 0 3    ; exit code 3
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+
+    ; make sure 7 is at rfp-4
+    78 8A 8D FC   ; ldw ra rfp -4
+    71 8A 8A 07   ; sub ra ra 7
+    7E 8A 04 00   ; jz ra 4
+
+    ; fail, exit 4
+    70 80 00 04   ; add r0 0 4    ; exit code 4
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 ; leave our stack frame
 70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
@@ -55,5 +80,7 @@
 70 8C 8C 04     ; add rsp rsp 4     ; ...
 
 ; success. exit 0
-70 80 00 00   ; add r0 0 0
-78 8F 89 08   ; ldw rip r9 8  (exit address)
+70 80 00 00   ; add r0 0 0    ; exit code 0
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip

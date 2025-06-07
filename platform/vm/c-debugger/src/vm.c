@@ -115,7 +115,7 @@ static void panic(const char* e) {
 #define VM_WAITPID   21
 #define VM_SYSCALL_COUNT 22u
 
-#define VM_VERSION_NUMBER 1
+#define VM_VERSION_NUMBER 2
 
 /* process info table */
 #define VM_PIT_VERSION 0

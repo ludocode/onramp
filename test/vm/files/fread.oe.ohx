@@ -81,12 +81,18 @@
 ;==========================================
 
 @0x70 =exit
-    78 8A 89 08   ; ldw ra r9 8    ; get exit address
-    70 8F 8A 00   ; add rip ra 0   ; jump to it
+
+    ; push invalid return address on the stack in case exit returns
+    71 8C 8C 04   ; sub rsp rsp 4
+    79 FF 8C 00   ; stw -1 rsp 0    ; return address = 0xFFFFFFFF
+
+    ; syscall exit
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    78 8E 88 04   ; ldw rpp r8 4      ; rpp = rpp of syscall exit
+    78 8F 88 00   ; ldw rpp r8 0      ; rip = rip of syscall exit
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x90
 
@@ -120,7 +126,7 @@
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
     ; get process info
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process info table
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 80 89 04   ; ldw r0 r9 4       ; r0 = program break
     78 81 89 20   ; ldw r1 r9 32      ; r1 = working directory
 
@@ -162,9 +168,25 @@
     7E 00 FA FF   ; jz 0 &open_file_path_loop  ; jmp &open_file_path_loop (-6)
 ;:open_file_path_done
 
-    ; syscall fopen
-    70 81 00 00   ; add r1 0 0   ; zero r1   ; not writeable
-    7F 03 00 00   ; sys fopen 0 0
+    ; args for fopen
+    ; filename is in r0
+    70 81 00 00   ; add r1 0 0        ; zero r1   ; not writeable
+
+    ; get syscall fopen into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fopen syscall
+
+    ; make the syscall (external call convention)
+    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
+    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
+    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fopen
+    70 8A 8F 08   ; add ra rip 8      ; ra = return address
+    79 8A 8C 00   ; stw ra rsp 0      ; store return address
+    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fopen
+    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
+    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
@@ -183,12 +205,7 @@
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x160
 
 
@@ -221,14 +238,28 @@
 
 ;:read_file_loop
 
-    ; syscall fread(fd, break + total, 127);
+    ; args for fread(fd, break + total, 127);
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process info table
     78 81 89 04   ; ldw r1 r9 4       ; r1 = program break
     78 8A 8D F8   ; ldw ra rfp -8     ; ra = total
     70 81 81 8A   ; add r1 r1 ra      ; r1 = break + total
     78 80 8D FC   ; ldw r0 rfp -4     ; r0 = fd
     70 82 00 7F   ; add r2 0 127      ; r2 = 127
-    7F 05 00 00   ; sys fread
+
+    ; get syscall fread into r7
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fread syscall
+
+    ; make the syscall (external call convention)
+    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
+    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
+    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fread
+    70 8A 8F 08   ; add ra rip 8      ; ra = return address
+    79 8A 8C 00   ; stw ra rsp 0      ; store return address
+    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fread
+    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
+    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
@@ -247,7 +278,7 @@
     78 81 8D F8   ; ldw r1 rfp -8
     70 81 81 80   ; add r1 r1 r0
     79 81 8D F8   ; stw r1 rfp -8
-    7E 00 EE FF   ; jz 0 &read_file_loop (-18)
+    7E 00 E4 FF   ; jz 0 &read_file_loop (-28)
 
 ;:read_file_done
 
@@ -259,11 +290,6 @@
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00
 @0x200
 
@@ -372,9 +398,15 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; close the file, syscall fclose(fd)
-    78 80 8D FC   ; ldw r0 rfp -4
-    7F 04 00 00   ; sys fclose
+    ; call close_file(fd)
+    78 80 8D FC    ; ldw r0 rfp -4
+    7C 8A 00 00    ; ims ra <close_file
+    7C 8A 70 03    ; ims ra >close_file (0x370)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; call compare_file(fd)
     78 80 8D FC    ; ldw r0 rfp -4
@@ -397,9 +429,54 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00
-
 @0x370
+
+
+
+;==========================================
+; void close_file(int fd);
+;==========================================
+; Closes the file.
+;==========================================
+
+@0x370 =close_file
+    ; don't bother with stack frame
+
+    ; get syscall fclose into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 04 03   ; shl ra 4 3        ; ra = offset of fclose syscall (4<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fclose syscall
+
+    ; make the syscall (external call convention)
+    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
+    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
+    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fclose
+    70 8A 8F 08   ; add ra rip 8      ; ra = return address
+    79 8A 8C 00   ; stw ra rsp 0      ; store return address
+    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fclose
+    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
+    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+
+    ; make sure it returned 0
+    7E 80 04 00   ; jz r0 &close_file_ok (+4)
+    ; fail, exit(3)
+    70 80 03 00   ; add r0 3 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A 70 00   ; ims ra >exit
+    70 8F 8E 8A   ; add rip rpp ra
+;:close_file_ok
+
+    ; success
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x3F0

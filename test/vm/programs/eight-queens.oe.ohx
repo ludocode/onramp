@@ -63,13 +63,14 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; jump to exit with status 0
+    ; exit with status 0
+    70 80 00 00    ; add r0 0 0        ; exit code 0
     78 89 8E 60    ; ldw r9 rpp '60 (process_info_table)
-    70 80 00 00    ; add r0 0 0
-    78 8F 89 08    ; ldw rip r9 8     ; load exit address into rip
+    78 88 89 08    ; ldw r8 r9 8       ; syscall table
+    78 8E 88 04    ; ldw rpp r8 4      ; syscall exit rpp
+    78 8F 88 00    ; ldw rpp r8 0      ; syscall exit rip
 
     ; padding
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -415,14 +416,36 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push c
     79 80 00 8C     ; stw r0 0 rsp      ; ...
 
-    ; get standard output handle
+    ; prepare args for fwrite(stdout, rsp, 1);
     78 89 8E 60    ; ldw r9 rpp '60 (process_info_table)
     78 80 89 10    ; ldw r0 r9 16     ; r0 = pit[STDOUT]
-
-    ; make the syscall
     70 81 00 8C    ; add r1 0 rsp   ; mov r1 rsp
     70 82 00 01    ; add r2 0 1     ; mov r2 1
-    7F 06 00 00    ; sys write 0 0
+
+    ; get syscall fwrite into r7
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+
+    ; make the syscall (external call convention)
+    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
+    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
+    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fwrite
+    70 8A 8F 08   ; add ra rip 8      ; ra = return address
+    79 8A 8C 00   ; stw ra rsp 0      ; store return address
+    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fwrite
+    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
+    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &test_write_no_error (+4)
+    ; fail, exit(1)
+    70 80 00 01   ; add r0 0 1    ; exit code 1
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+;:test_write_no_error
 
     ; return
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
@@ -436,4 +459,4 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-@0x350
+@0x390

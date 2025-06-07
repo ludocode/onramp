@@ -10,9 +10,6 @@
 ; move process info table to r9
 70 89 00 80   ; add r9 0 r0
 
-; put 1 into r0 now, we'll exit if an error occurs
-70 80 00 01   ; add r0 0 1
-
 ; get argv into r1
 78 81 89 18   ; ldw r1 r9 24
 
@@ -22,15 +19,22 @@
 7E 8A 02 00   ; jz ra 2
 70 82 82 04   ; add r2 r2 4
 7E 00 FC FF   ; jz 0 -4
-77 82 82 02   ; ror r2 r2 2   ; divide by 4
+77 82 82 02   ; shru r2 r2 2   ; divide by 4
 
 ; make sure we have 5 args
 71 8A 82 05   ; sub ra r2 5
-7E 8A 01 00   ; jz ra 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+7E 8A 04 00   ; jz ra 4
+
+; fail, exit 1
+70 80 00 01   ; add r0 0 1    ; exit code 1
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 ;TODO check args
 
 ; success. exit 0
-70 80 00 00   ; add r0 0 0
-78 8F 89 08   ; ldw rip r9 8  (exit address)
+70 80 00 00   ; add r0 0 0    ; exit code 0
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip

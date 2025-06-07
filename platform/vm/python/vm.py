@@ -161,6 +161,7 @@ def syscall_fclose():
     # Shouldn't be able to close standard streams, we don't bother to check
     handles[registers[0]].close()
     handles[registers[0]] = None
+    registers[0] = 0
 
 def syscall_fread():
     file = handles[registers[0]]
@@ -255,6 +256,14 @@ def run():
         a = memory[offset + 1]
         b = memory[offset + 2]
         c = memory[offset + 3]
+
+        # Debug helpers
+        #print(f"rip {hex(registers[RIP])} {hex(memory[offset])[2:]}" +
+        #        f" {hex(a)[2:]} {hex(b)[2:]} {hex(c)[2:]}", file=sys.stderr)
+        #if memory[offset] & 0xF0 != 0x70:
+        #    print(f"Invalid instruction at {hex(offset)}")
+        #    sys.exit(125)
+
         registers[RIP] += 4
 
         # Note also that we ignore the upper 4 bits of any destination
@@ -309,6 +318,7 @@ def run():
                 if syscall not in syscalls:
                     raise Exception("Invalid opcode or unsupported syscall.")
                 syscalls[syscall]()
+                registers[RIP] = loadWord(registers[RSP])
 
 def initialize():
     # We use breakAddress as a cursor into the heap where we append data.
@@ -391,7 +401,7 @@ def initialize():
     registers[RSP] = BASE_ADDR + MEMORY_SIZE
 
     # Fill process info table
-    storeWord(tableAddress, 1) # version
+    storeWord(tableAddress, 2) # version
     storeWord(tableAddress + 4, breakAddress)  # program break
     storeWord(tableAddress + 8, syscallTableAddress)  # syscall table
     storeWord(tableAddress + 12, 0)  # input stream handle

@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 @0x00 =_start
@@ -11,21 +11,27 @@
     ; store process info vector in r9
     70 89 80 00   ; add r9 r0 0
 
+    ; push invalid return address on the stack in case exit returns
+    71 8C 8C 04   ; sub rsp rsp 4
+    79 FF 8C 00   ; stw -1 rsp 0    ; return address = 0xFFFFFFFF
+
     ; put -112 in r0 using positive mix-type bytes
     71 80 00 7F   ; sub ra 0 127     ; test largest positive mix-type
     70 80 80 0F   ; add ra r0 15
 
     ; compare it to -128 using a negative mix-type byte
     71 8A 80 90   ; sub ra r0 -112   ; test smallest negative mix-type
-    7E 8A 03 00   ; jz ra &mix_type_ok (+3)
+    7E 8A 04 00   ; jz ra &mix_type_ok (+4)
 
-    ; compare failed, exit(-1)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 01   ; add r0 0 1
-    70 8F 8A 00   ; add rip ra 0
+    ; compare failed, exit(1)
+    70 80 00 01   ; add r0 0 1    ; exit code 1
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 ;:mix_type_ok
 
     ; exit(0)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
-    70 8F 8A 00   ; add rip ra 0      ; jump to exit address
+    70 80 00 00   ; add r0 0 0    ; exit code 0
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip

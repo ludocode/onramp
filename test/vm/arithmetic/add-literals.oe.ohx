@@ -10,15 +10,23 @@
 ; move process info table to r9
 70 89 00 80   ; add r9 0 r0
 
-; put 1 into r0 now, we'll exit if an error occurs
-70 80 00 01   ; add r0 0 1
+; push invalid return address on the stack in case exit returns
+71 8C 8C 04   ; sub rsp rsp 4
+79 FF 8C 00   ; stw -1 rsp 0    ; return address = 0xFFFFFFFF
 
 ; add 2 + 3 into r1. the result must be 5
 70 81 02 03   ; add r1 2 3
 71 8A 81 05   ; sub ra r1 5
-7E 8A 01 00   ; jz ra 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+7E 8A 04 00   ; jz ra 4
+
+; fail. exit 1
+70 80 00 01   ; add r0 0 1    ; exit code 1
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
 
 ; success. exit 0
-70 80 00 00   ; add r0 0 0
-78 8F 89 08   ; ldw rip r9 8  (exit address)
+70 80 00 00   ; add r0 0 0    ; exit code 0
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
