@@ -27,11 +27,12 @@ fi
 
 COMMAND="$@"
 TEMPFILE=$(mktemp)
-ERROR=0
+ANY_ERROR=0
 
 echo "Running hex tests on: $COMMAND"
 
 for TESTCASE in $(find "$(dirname $0)"/* -name '*.ohx'); do
+    THIS_ERROR=0
     EXPECTED=$(echo $TESTCASE|sed 's/\.ohx$/.stdout/')
 
     if ! [ -e $EXPECTED ] && [ $LAX -eq 1 ]; then
@@ -46,25 +47,31 @@ for TESTCASE in $(find "$(dirname $0)"/* -name '*.ohx'); do
     if [ -e $EXPECTED ]; then
         if [ $RET -ne 0 ]; then
             echo "ERROR: $TESTCASE failed; expected success."
-            echo "Command: $COMMAND $TESTCASE -o $TEMPFILE"
-            ERROR=1
+            THIS_ERROR=1
         elif ! diff -q $EXPECTED $TEMPFILE > /dev/null; then
             echo "ERROR: $TESTCASE did not match expected $EXPECTED"
-            echo "Command: $COMMAND $TESTCASE -o $TEMPFILE"
-            ERROR=1
+            THIS_ERROR=1
         fi
     else
         if [ $RET -eq 0 ]; then
             echo "ERROR: $TESTCASE succeeded; expected error."
-            echo "Command: $COMMAND $TESTCASE -o $TEMPFILE"
-            ERROR=1
+            THIS_ERROR=1
         fi
+    fi
+
+    if [ $THIS_ERROR -eq 1 ]; then
+        ANY_ERROR=1
+        echo -n "Command: $COMMAND $TESTCASE -o $TEMPFILE"
+        if [ -e $EXPECTED ]; then
+            echo -n " && diff $EXPECTED $TEMPFILE"
+        fi
+        echo
     fi
 
     rm -f $TEMFILE
 done
 
-if [ $ERROR -eq 1 ]; then
+if [ $ANY_ERROR -eq 1 ]; then
     echo "Errors occurred."
     exit 1
 fi

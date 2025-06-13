@@ -128,7 +128,7 @@
     ; get syscall fwrite into r7
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
     76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fwrite syscall
 
     ; make the syscall (external call convention)
     71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
