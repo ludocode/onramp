@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,9 @@
  * It implements address assertions, checks for trailing backslashes, and
  * provides rich error messages with line numbers and expected addresses. It
  * passes all tests.
+ *
+ * This tool can also output debug info for hex files. The first word after an
+ * address assertion is used as a symbol name in debug info.
  *
  * You should use this tool to develop and verify your hex files.
  */
@@ -71,6 +74,58 @@ static void flush_output(FILE* file, const char* buffer, size_t count) {
     }
 }
 
+static BOOL debug_info = FALSE;
+static FILE* debug_file = NULL;
+static BOOL in_symbol = FALSE;
+static char symbol_buffer[128];
+static char* symbol_pos;
+static long address = 0;
+static long last_symbol_address = -1;
+static long last_debug_line_address = 0;
+static int line = 1;
+static int last_debug_line = 1;
+
+static void emit_debug_line(void) {
+    if (!debug_info || last_debug_line == line) {
+        return;
+    }
+
+    if (address != last_debug_line_address) {
+        fprintf(debug_file, "%li\n", address - last_debug_line_address);
+        last_debug_line_address = address;
+    }
+
+    if (line == last_debug_line + 1) {
+        fprintf(debug_file, "#\n");
+    } else {
+        fprintf(debug_file, "#line %i\n", line);
+    }
+    last_debug_line = line;
+}
+
+static void end_symbol(void) {
+    if (!in_symbol) {
+        return;
+    }
+    in_symbol = FALSE;
+
+    /* if symbol buffer is empty, or we're not debugging, nothing to do */
+    if (symbol_pos == symbol_buffer || !debug_info) {
+        return;
+    }
+
+    /* if the address hasn't changed since the last symbol, we issue a warning */
+    if (address == last_symbol_address) {
+        return;
+    }
+
+    /* output debug info */
+    emit_debug_line();
+    *symbol_pos = 0;
+    fprintf(debug_file, "#symbol %s\n", symbol_buffer);
+    last_symbol_address = address;
+}
+
 int main(int argc, const char** argv) {
     int i;
     const char* input_filename = NULL;
@@ -91,6 +146,10 @@ int main(int argc, const char** argv) {
                 usage(argv[0]);
             }
             output_filename = argv[i];
+
+        /* debug info */
+        } else if (0 == strcmp("-g", argv[i])) {
+            debug_info = TRUE;
 
         /* unrecognized argument */
         } else if (argv[i][0] == '-') {
@@ -127,16 +186,30 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
 
+    if (debug_info) {
+        size_t output_filename_len = strlen(output_filename);
+        char* debug_filename = malloc(output_filename_len + 4);
+        memcpy(debug_filename, output_filename, output_filename_len);
+        strcpy(debug_filename + output_filename_len, ".od");
+
+        debug_file = fopen(debug_filename, "wb");
+        if (debug_file == NULL) {
+            fputs("ERROR: Failed to open debug file.\n", stderr);
+            exit(EXIT_FAILURE);
+        }
+
+        fprintf(debug_file, "; Onramp debug info for hex file\n");
+        fprintf(debug_file, "#line 0 \"%s\"\n", input_filename);
+    }
+
     /* do hex conversion */
     {
         char input_buffer[128];
         char output_buffer[128];
         char address_assertion[11];
-        long address = 0;
         size_t output_pos = 0;
         size_t input_pos = 0;
         size_t input_count = 0;
-        int line = 1;
         int address_assertion_length = 0;
         char first_hex_char = 0;
         BOOL in_comment = FALSE;
@@ -214,9 +287,14 @@ int main(int argc, const char** argv) {
                 }
                 in_address_assertion = FALSE;
 
-                /* The rest of the line is a comment. We haven't handled the */
-                /* character yet so we keep going. */
+                /* The rest of the line is a comment, which we will use as a
+                 * symbol name if debug output is on. We haven't handled the
+                 * character yet so we keep going. */
                 in_comment = TRUE;
+                if (debug_info) {
+                    in_symbol = TRUE;
+                    symbol_pos = symbol_buffer;
+                }
             }
 
             /* a backslash can only appear in a comment and not at the end of a */
@@ -237,6 +315,7 @@ int main(int argc, const char** argv) {
 
             /* if we've reached the end of the file, we're done */
             if (b == -1) {
+                end_symbol();
                 break;
             }
 
@@ -252,6 +331,7 @@ int main(int argc, const char** argv) {
                 }
 
                 /* we have two consecutive hex chars */
+                emit_debug_line();
                 {
                     uint8_t value = (hex_char_to_value(first_hex_char) << 4) | hex_char_to_value(b);
                     output_buffer[output_pos++] = value;
@@ -277,12 +357,14 @@ int main(int argc, const char** argv) {
             /* as newlines, except when they are together, in which case we */
             /* increment the line only once. */
             if (b == '\r') {
+                end_symbol();
                 in_comment = FALSE;
                 ++line;
                 was_carriage_return = TRUE;
                 continue;
             }
             if (b == '\n') {
+                end_symbol();
                 in_comment = FALSE;
                 if (!was_carriage_return)
                     ++line;
@@ -290,6 +372,20 @@ int main(int argc, const char** argv) {
                 continue;
             }
             was_carriage_return = FALSE;
+
+            /* if we're in a symbol, append the character. */
+            if (in_symbol) {
+                if (isspace(b)) {
+                    if (symbol_pos != symbol_buffer) {
+                        end_symbol();
+                    }
+                } else if (b != '=') { /* skip leading '=' if any */
+                    *symbol_pos++ = b;
+                    if (symbol_pos == symbol_buffer + sizeof(symbol_buffer) - 1) {
+                        end_symbol();
+                    }
+                }
+            }
 
             /* if we're in a comment, discard until newline */
             if (in_comment)
