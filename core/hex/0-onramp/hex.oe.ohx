@@ -1420,7 +1420,7 @@
     78 89 8E 20   ; ldw r9 rpp 0x20  (process_info_table)
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
     78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
     ; padding
     00 00 00 00 00 00 00 00
@@ -1472,7 +1472,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fwrite
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fwrite
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fwrite
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
@@ -1631,7 +1631,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fopen
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fopen
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fopen
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
@@ -1698,7 +1698,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fopen
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fopen
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fopen
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
@@ -1750,7 +1750,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall ftrunc
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall ftrunc
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall ftrunc
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
@@ -1848,7 +1848,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fread
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fread
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fread
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
@@ -2012,7 +2012,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fclose
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fclose
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fclose
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
@@ -2048,7 +2048,7 @@
     78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fclose
     70 8A 8F 08   ; add ra rip 8      ; ra = return address
     79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fclose
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fclose
     78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
