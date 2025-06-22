@@ -113,7 +113,10 @@ _Noreturn void _Exit(int status) {
     __io_destroy();
 
     // we're done. end the process
-    __end(status, __process_info_table[__ONRAMP_PIT_EXIT]);
+    //__end(status, __process_info_table[__ONRAMP_PIT_EXIT]);
+    //TODO
+    *(volatile int*)0=1;
+    abort();
 }
 
 

@@ -967,7 +967,7 @@ static void vm_step(vm_t* vm) {
         uint32_t rsp = vm->registers[VM_RSP];
         uint32_t rip = vm->registers[VM_RIP];
 
-        if (vm_is_addr_valid(vm, rsp)) {
+        if (result != VM_SYSCALL_ADDRESS && vm_is_addr_valid(vm, rsp)) {
             uint32_t top = vm_load_u32(vm, rsp);
             //printf("ins %X rip 0x%X result 0x%X top 0x%X\n", instruction, rip-4, result, top);
 

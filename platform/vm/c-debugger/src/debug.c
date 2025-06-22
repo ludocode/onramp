@@ -359,17 +359,17 @@ bool debug_print_location(uint32_t address, bool hide_path) {
         }
     }
 
-    printf("%s() %s", symbol, filename);
+    fprintf(stderr, "%s() %s", symbol, filename);
     if (line > 0) {
-        printf(":%i", line);
+        fprintf(stderr, ":%i", line);
     }
     return true;
 }
 
 void debug_callstack_print_line(uint32_t address, bool tail_call) {
-    printf("  %s 0x%X ", tail_call ? "*" : " ", address);
+    fprintf(stderr, "  %s 0x%X ", tail_call ? "*" : " ", address);
     debug_print_location(address, false);
-    putchar('\n');
+    fputc('\n', stderr);
 }
 
 void debug_callstack_print(uint32_t current_address) {

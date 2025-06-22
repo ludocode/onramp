@@ -50,6 +50,9 @@
 
 
 
+; TODO this is not done yet, we need to craft a syscall table that has our
+; function as exit
+
 ; TODO above doc is wrong, args are pit, start, end
 
 =__onramp_spawn
@@ -67,6 +70,7 @@
     ; change the program pointer
     70 8E 81 00    ; add rpp r1 0    ; mov rpp r1
 
+            ; TODO this can be removed now, we can provide our own exit in the syscall table
     ; Our method of exiting programs is rather terrible at the moment. The
     ; child program just jumps to the address in the PIT without having to fix
     ; up the stack pointer or anything else. We therefore have no reasonable

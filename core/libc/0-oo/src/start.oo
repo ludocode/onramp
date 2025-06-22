@@ -159,10 +159,9 @@
     70 8F 8E 8A   ; add rip rpp ra         ; jump
     70 8C 8C 04   ; add rsp rsp 4          ; pop return address
 
-    ; If main() returned, jump to _Exit() (and not exit(), because we don't
+    ; If main() returned, tail-call _Exit() (and not exit(), because we don't
     ; have it!) The return value of main() is in r0 so we just forward it
-    ; along. (Don't bother to push a return address because exit() never
-    ; returns.)
+    ; along.
     7C 8A <_Exit   ; ims ra <_Exit
     7C 8A >_Exit   ; ims ra >_Exit
     70 8F 8E 8A    ; add rip rpp ra   ; jump
@@ -203,17 +202,15 @@
     78 80 00 8C     ; ldw r0 0 rsp      ; pop r0
     70 8C 8C 04     ; add rsp rsp 4     ; ...
 
-    ; get the process info table
+    ; syscall exit
+    ; TODO exit is supposed to be optional, also need error checks against it
+    ; returning, should harmonize this with panic below
     7C 8A <__process_info_table    ; ims ra <__process_info_table
     7C 8A >__process_info_table    ; ims ra >__process_info_table
-    78 8A 8E 8A                    ; ldw ra rpp ra
-
-    ; get the exit address
-    78 8A 8A 08    ; ldw ra ra 8
-
-    ; (exit status is already in r0)
-    ; jump to it
-    70 8F 00 8A    ; add rip 0 ra   ; jmp 0 ra
+    78 89 8E 8A                    ; ldw r9 rpp ra
+    78 88 89 08   ; ldw r8 r9 8   ; syscall table
+    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -248,3 +245,35 @@
     7C 8A <_Exit   ; ims ra <_Exit
     7C 8A >_Exit   ; ims ra >_Exit
     70 8F 8E 8A    ; add rip rpp ra   ; jump
+
+
+
+; ==========================================================
+; [[noreturn]] void abort(void);
+; ==========================================================
+; Aborts the program and all other programs running in this VM.
+;
+; This is a wrapper around the panic syscall.
+; ==========================================================
+
+=abort
+
+    ; TODO panic should be optional, we need to fallback to exit or loop
+
+    70 80 00 01   ; exit code 1  (TODO or 125?)
+
+    ; get syscall panic into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 05 03   ; shl ra 2 3        ; ra = offset of panic syscall (2<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of panic syscall
+
+    ; make the syscall (external call convention)
+    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
+    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
+    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall panic
+    70 8A 8F 08   ; add ra rip 8      ; ra = return address
+    79 8A 8C 00   ; stw ra rsp 0      ; store return address
+    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall panic
+    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
+    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
