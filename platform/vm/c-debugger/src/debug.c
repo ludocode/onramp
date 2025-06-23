@@ -49,10 +49,9 @@ typedef struct debug_block_t {
     size_t program_base;
 } debug_block_t;
 
-static void debug_block_delete(debug_block_t* block) {
+static void debug_block_destroy(debug_block_t* block) {
     string_deref(block->symbol);
     string_deref(block->filename);
-    free(block);
 }
 
 debug_block_t* debug_blocks;
@@ -110,9 +109,9 @@ void debug_unload(size_t program_base) {
     debug_block_t* p = debug_blocks;
     debug_block_t* end = debug_blocks + debug_blocks_count;
     for (debug_block_t* q = p; q != end; ++q) {
-        // Delete any block whose program base matches that given.
+        // Destroy any block whose program base matches that given.
         if (q->program_base == program_base) {
-            debug_block_delete(q);
+            debug_block_destroy(q);
         } else {
             *p++ = *q;
         }

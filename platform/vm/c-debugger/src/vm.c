@@ -635,7 +635,7 @@ static uint32_t vm_debug(vm_t* vm) {
     uint32_t path_addr = vm->registers[1];
 
     strace(" addr 0x%x", program_addr);
-    if (!vm_is_addr_valid(vm, path_addr)) {
+    if (!vm_is_addr_valid(vm, program_addr)) {
         strace(" not mapped!");
         return VM_ERR_GENERIC;
     }
@@ -679,15 +679,14 @@ static uint32_t vm_fopen(vm_t* vm) {
         exit(125);
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
+    strace("sys fopen() path \"%s\" mode %i", full_path, mode);
 
     // open it
     vm->files[file_index] = fopen(full_path, mode ? "w+b" : "rb");
     //printf("OPENING %s %zi\n",full_path,(size_t)vm->files[file_index]);
     if (vm->files[file_index] == vm_ghost_null) {
-        strace("sys fopen() path %s mode %i failed.", full_path, mode);
         return VM_ERR_PATH;
     }
-    strace("sys fopen() path %s mode %u returning handle 0x%x", full_path, mode, file_index + FILES_OFFSET);
 
     // if writeable, seek to the beginning
     if (mode) {

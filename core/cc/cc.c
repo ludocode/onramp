@@ -857,58 +857,49 @@ static void run_onramp(size_t argc, char** argv) {
     // child process modifies them. We happen to know that none of our Onramp
     // tools modify them so for now we don't worry about it.
 
+    // open the child program
+    FILE* file = fopen(*argv, "rb");
+
+    // get the program size
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    fseek(file, 0, SEEK_SET);
+
+    // allocate the program
+    // TODO eventually this should allocate the program plus stack space. For
+    // now the program image is copied into a new heap by __onramp_spawn_pit().
+    char* program = malloc(size);
+    if (program == NULL) {
+        fatal_cleanup("Out of memory.");
+    }
+
+    // read the program into the child memory
+    char* p = program;
+    char* end = (p + size);
+    while (p != end) {
+        size_t step = fread(p, 1, end - p, file);
+        if (step == 0) {
+            fatal_cleanup("Failed to read child program.");
+        }
+        p = (p + step);
+    }
+    fclose(file);
+
     // allocate a process information table for the child as a copy of ours
     int* parent_pit = __process_info_table;
     int* child_pit = __memdup(parent_pit, sizeof(int) * 11);
 
-    // open the child program (before getting the heap since this may allocate)
-    FILE* file = fopen(*argv, "rb");
-    // TODO alternatively, file could lazily create buffer, set unbuffered
-    // before reading to ensure it doesn't allocate a buffer
-
-    // Get the largest free memory region to use as the child's memory. We have
-    // to make sure not to allocate anything after calling this otherwise we'll
-    // corrupt it.
-    size_t child_size;
-    char* child_start = __malloc_largest_unused_region(&child_size);
-    char* child_end = (child_start + child_size);
-    char* child_break = child_start;
-
-    // read the program into the child memory
-    while (1) {
-        if (child_break == child_end) {
-            fatal_cleanup("Out of memory.");
-        }
-        size_t step = fread(child_break, 1, child_end - child_break, file);
-        if (step == 0) {
-            // TODO error check, for now assume eof
-            break;
-        }
-        child_break = (child_break + step);
-    }
-
-//    fputs("spawn region: ", stdout);
-//    fputd(child_start, stdout);
-//    putchar(' ');
-//    fputd(child_break, stdout);
-//    putchar(' ');
-//    fputd(child_end, stdout);
-//    putchar('\n');
-//    fputs("stack: ", stdout);
-//    fputd(&child_break, stdout);
-//    putchar('\n');
-
     // setup the child pit
-    *(child_pit + PIT_BREAK) = (int)child_break;
     *(child_pit + PIT_ARGS) = (int)argv;
     *(child_pit + PIT_ENVIRON) = (int)environ;
 
     // run it
-    int ret = __onramp_spawn(child_pit, child_start, child_end);
+    int ret = __onramp_spawn_pit(program, size, child_pit, *argv);
 
-    // close the file (after running to avoid corrupting the free memory region)
-    // TODO our malloc_largest should just allocate to prevent most of these problems
-    fclose(file);
+    // clean up
+    //free(child_pit);
+    __onramp_load_debug(program, NULL);
+    //free(program);
 
     if (ret != 0) {
         // Child program failed. Assume it printed an error message; just clean

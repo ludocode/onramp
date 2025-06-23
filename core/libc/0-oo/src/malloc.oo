@@ -25,8 +25,6 @@
 ; This file contains the implementation of malloc for the first stage Onramp
 ; libc. It is a simple bump allocator that does not reclaim memory; free() does
 ; nothing.
-;
-; This file is overridden by stdlib_malloc.c in libc/1.
 
 
 
@@ -197,7 +195,7 @@
 
 
 ; ==========================================================
-; void* __malloc_largest_unused(size_t* out_size);
+; void* __malloc_largest_unused_region(size_t* out_size);
 ; ==========================================================
 ; Returns the bounds of the largest region of memory that is currently
 ; unallocated.
@@ -205,7 +203,7 @@
 ; This can be used as the heap for child processes.
 ; ==========================================================
 
-; TODO nothing uses this until libc/1 is bootstrapped.
-;=__malloc_largest
-
-;    FF;TODO
+; TODO nothing uses this until libc/1 is bootstrapped. but spawn.oo refers to
+; it. TODO spawn.oo should move to libc/1
+=__malloc_largest_unused_region
+    FFFFFFFF;TODO
