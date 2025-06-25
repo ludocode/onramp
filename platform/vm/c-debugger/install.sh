@@ -28,9 +28,10 @@
 
 
 set -e
+cd "$(dirname "$0")/../../.."
 
 if ! [ -e build/test/vm-c-debugger/vm ]; then
-    echo "$0: ERROR: VM not build yet. Run platform/vm/c-debugger/build.sh" >&1
+    echo "$0: ERROR: VM not built yet. Run platform/vm/c-debugger/build.sh" >&1
     exit 1
 fi
 

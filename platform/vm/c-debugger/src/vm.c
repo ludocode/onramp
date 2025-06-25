@@ -147,12 +147,19 @@ static void panic(const char* e) {
 #define FILES_COUNT 16
 #define FILES_OFFSET (INT_MAX-FILES_COUNT-1)
 
-#define VM_STRACE 0
-#if VM_STRACE
-    #define strace(...) fprintf(stderr, __VA_ARGS__)
-#else
-    #define strace(...) ((void)0)
-#endif
+
+
+static bool strace_enabled = false;
+
+static void strace(const char* format, ...) {
+    if (!strace_enabled)
+        return;
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+}
+
 
 
 /*
@@ -317,6 +324,7 @@ static void usage(const char* command) {
     fputs("    -b <location>     add a breakpoint at the given location\n", stderr);
     //fputs("    -m <size>         size of program-accessible address space\n", stderr);
     fputs("    -r <path>         path to root of filesystem\n", stderr);
+    fputs("    -s                trace system calls\n", stderr);
     fputs("\n", stderr);
 
     fputs("Breakpoint location syntax:\n", stderr);
@@ -377,14 +385,20 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t add
 
     // parse vm args
     for (i = 1; i < argc; ++i) {
-        if (0 == strcmp(argv[i], "-d")) {
-            // TODO we need to either turn on non-blocking or poll on input
-            // when waiting for debugger commands
-            fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
-            vm->running = false;
-        } else {
-            break;
+        if (argv[i][0] == '-') {
+            if (0 == strcmp(argv[i], "-s")) {
+                strace_enabled = true;
+                continue;
+            }
+            if (0 == strcmp(argv[i], "-d")) {
+                // TODO we need to either turn on non-blocking or poll on input
+                // when waiting for debugger commands
+                fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
+                vm->running = false;
+                continue;
+            }
         }
+        break;
     }
 
     // parse filename
@@ -585,7 +599,7 @@ static FILE* vm_file(vm_t* vm, uint32_t handle) {
 
 static uint32_t vm_exit(vm_t* vm) {
     // TODO pause debugger
-    strace("sys exit() %i\n", vm->registers[0]);
+    strace("sys exit() %i", vm->registers[0]);
     exit(vm_parse_mix(vm, vm->registers[0]));
     return VM_ERR_GENERIC;
 }
@@ -595,7 +609,7 @@ static uint32_t vm_time(vm_t* vm) {
     if (0 != clock_gettime(CLOCK_REALTIME, &time)) {
         return VM_ERR_UNSUPPORTED;
     }
-    strace("sys time() %" PRIi64 " s %u ns\n", (uint64_t)time.tv_sec, (unsigned)time.tv_nsec);
+    strace("sys time() %" PRIi64 " s %u ns", (uint64_t)time.tv_sec, (unsigned)time.tv_nsec);
 
     uint32_t addr = vm->registers[0];
     vm_store_u32(vm, addr, (uint32_t)time.tv_sec);
@@ -605,7 +619,7 @@ static uint32_t vm_time(vm_t* vm) {
 }
 
 static uint32_t vm_spawn(vm_t* vm) {
-    strace("sys spawn()\n");
+    strace("sys spawn()");
     panic("TODO spawn syscall not yet implemented");
 }
 
@@ -639,10 +653,10 @@ static uint32_t vm_fopen(vm_t* vm) {
     vm->files[file_index] = fopen(full_path, mode ? "a+b" : "rb");
     //printf("OPENING %s %zi\n",full_path,(size_t)vm->files[file_index]);
     if (vm->files[file_index] == vm_ghost_null) {
-        strace("sys fopen() path %s mode %i failed.\n", full_path, mode);
+        strace("sys fopen() path %s mode %i failed.", full_path, mode);
         return VM_ERR_PATH;
     }
-    strace("sys fopen() path %s mode %u returning handle 0x%x\n", full_path, mode, file_index + FILES_OFFSET);
+    strace("sys fopen() path %s mode %u returning handle 0x%x", full_path, mode, file_index + FILES_OFFSET);
 
     // if writeable, seek to the beginning
     if (mode) {
@@ -655,7 +669,7 @@ static uint32_t vm_fopen(vm_t* vm) {
 static uint32_t vm_fclose(vm_t* vm) {
     uint32_t handle = vm->registers[0];
     FILE* file = vm_file(vm, handle);
-    strace("sys fclose() handle 0x%x\n", handle);
+    strace("sys fclose() handle 0x%x", handle);
     if (file == vm_ghost_null) {
         panic("File is not open.");
     }
@@ -671,7 +685,7 @@ static uint32_t vm_fread(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
-    strace("sys fread() handle 0x%x addr 0x%x count %u\n", vm->registers[0], addr, count);
+    strace("sys fread() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
 
     if (file == stdin) {
         fflush(stderr);
@@ -725,7 +739,7 @@ static uint32_t vm_fwrite(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
-    strace("sys fwrite() handle 0x%x addr 0x%x count %u\n", vm->registers[0], addr, count);
+    strace("sys fwrite() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
 
     if (count == 0) {
         // nothing to do, addr does not need to be valid
@@ -787,7 +801,7 @@ static uint32_t vm_fseek(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t base = vm->registers[1];
     int64_t offset = (int64_t)((uint64_t)vm->registers[2] | ((uint64_t)vm->registers[3] << 32));
-    strace("sys fseek() handle 0x%x base %u offset %" PRIi64 "\n", vm->registers[0], base, offset);
+    strace("sys fseek() handle 0x%x base %u offset %" PRIi64, vm->registers[0], base, offset);
 
     if (base > 2) {
         panic("Invalid base given to syscall fseek.");
@@ -805,7 +819,7 @@ static uint32_t vm_ftell(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     long pos = ftell(file);
-    strace("sys ftell() handle 0x%x position %" PRIu64 "\n", vm->registers[0], (uint64_t)pos);
+    strace("sys ftell() handle 0x%x position %" PRIu64, vm->registers[0], (uint64_t)pos);
     vm_store_u32(vm, addr, (uint32_t)pos);
     vm_store_u32(vm, addr + 4, (uint32_t)(pos >> 32));
     return 0;
@@ -815,9 +829,11 @@ static uint32_t vm_ftrunc(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     fflush(file);
     uint64_t length = (uint64_t)vm->registers[1] | ((uint64_t)vm->registers[2] << 32);
-    strace("sys ftrunc() handle 0x%x length %" PRIu64 "\n", vm->registers[0], (uint64_t)length);
-    if (0 == ftruncate(fileno(file), length))
+    strace("sys ftrunc() handle 0x%x fileno %i length %" PRIu64, vm->registers[0], fileno(file), (uint64_t)length);
+    int ret = ftruncate(fileno(file), length);
+    if (ret == 0)
         return 0;
+    strace(" failed, ret %i errno %i", ret, errno);
     // TODO error codes
     return VM_ERR_GENERIC;
 }
@@ -920,6 +936,7 @@ static void vm_syscall(vm_t* vm) {
             panic("Unrecognized syscall");
     }
 
+    strace(" == %i\n", ret); // TODO parse into error code
     vm->registers[0] = ret;
 
     // We quash all other caller-preserved registers to ensure that programs do
