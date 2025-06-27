@@ -80,7 +80,7 @@
 ;    F0  error_invalid_character
 ;   110  error_out_of_memory
 ;   130  strlen
-;   180  fnv1a
+;   180  fnv1a_cstr
 ;   1C0  error_invalid_arguments
 ;   220  exit
 ;   240  error_invocation_not_found
@@ -444,12 +444,12 @@
 
 
 ;==========================================
-; uint32_t fnv1a(const char* str);
+; uint32_t fnv1a_cstr(const char* str);
 ;==========================================
-; Calculates the fnv1a hash of the given string.
+; Calculates the FNV-1a hash of the given string.
 ;
 ; We use FNV-1a as our hash function because it's extremely simple to
-; implement (only 15 instructions.)
+; implement (only 14 instructions.)
 ;
 ; params:
 ; - str: r0
@@ -460,7 +460,7 @@
 ; - fnv_prime: r3
 ;==========================================
 
-@0x180 =fnv1a
+@0x180 =fnv1a_cstr
     ; don't bother to set up a stack frame
 
 ; test with hashing disabled: return 0
@@ -483,8 +483,7 @@
     70 81 81 01    ; add r1 r1 1       ; inc r1
 
     ; see if it's the end of the string
-    71 8A 82 00    ; sub ra r2 0
-    7E 8A 05 00    ; jz ra &fnv1a_done (+5)
+    7E 82 05 00    ; jz r2 &fnv1a_done (+5)
 
     ; update the hash
     75 8A 80 82    ; or ra r0 r2    ; xor r0 r0 r2
@@ -493,13 +492,13 @@
     72 80 80 83    ; mul r0 r0 r3
 
     ; loop
-    7E 00 F7 FF    ; jz 0 &fnv1a_loop (-9)
+    7E 00 F8 FF    ; jz 0 &fnv1a_loop (-8)
 
 ;:fnv1a_done
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
-    00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x1C0
 
 
@@ -1740,9 +1739,9 @@
     71 8C 8C 04    ; sub rsp rsp 4      ; push r0
     79 80 00 8C    ; stw r0 0 rsp       ; ...
 
-    ; call fnv1a
-    7C 8A 00 00    ; ims ra <fnv1a
-    7C 8A 80 01    ; ims ra >fnv1a
+    ; call fnv1a_cstr
+    7C 8A 00 00    ; ims ra <fnv1a_cstr
+    7C 8A 80 01    ; ims ra >fnv1a_cstr (0x180)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
