@@ -1,0 +1,17 @@
+; The MIT License (MIT)
+; Copyright (c) 2025 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+>a
+>b
+>c
+&d
+
+=a
+ff ff ff ff
+=b
+ff ff ff ff
+=c
+ff ff ff ff
+=d
+ff ff ff ff

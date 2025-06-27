@@ -34,6 +34,10 @@
 ; Global variables start at 0x20 and end at 0x50, except for the input and
 ; output buffers which are at 0xD00 and 0xE00. This allows most globals to be
 ; accessed with mix-type bytes.
+;
+; The I/O buffers are allocated statically because eventually we will allow VMs
+; to provide a memory allocation syscall instead of an initial heap. We don't
+; want to bother making a syscall to allocate our buffers.
 
 
 
@@ -342,7 +346,7 @@
 
     ; call write_all
     7C 8A 00 00    ; ims ra <write_all
-    7C 8A A0 0B    ; ims ra >write_all
+    7C 8A A0 0B    ; ims ra >write_all (0xBA0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1552,7 +1556,7 @@
 ; The input buffer.
 ;
 ; input_buffer_pos and input_buffer_end point into this buffer. The portion of
-; the buffer that contains data is the range between these two pointers.
+; the buffer that contains data is the range between the two pointers.
 ;==========================================
 
 @0xD00
@@ -1582,7 +1586,7 @@
 ; The output buffer.
 ;
 ; output_buffer_pos points into this buffer. The portion of the buffer that
-; contains data is the range from the start of the buffer to this pointer.
+; contains data is the range from the start of this buffer to the pointer.
 ;==========================================
 
 @0xE00
@@ -1642,7 +1646,7 @@
     ; failed to open input file. fatal
 ;:open_input_file_fail
     7C 80 00 00    ; ims r0 <error_input_file
-    7C 80 90 00    ; ims r0 >error_input_file
+    7C 80 90 00    ; ims r0 >error_input_file (0x90)
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 30 01    ; ims ra >fatal
@@ -1858,7 +1862,7 @@
 
     ; failed to read from input file. fatal
     7C 80 00 00    ; ims r0 <error_input_file
-    7C 80 C0 00    ; ims r0 >error_input_file
+    7C 80 90 00    ; ims r0 >error_input_file (0x90)
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 30 01    ; ims ra >fatal
@@ -1941,7 +1945,7 @@
 
     ; call write_all
     7C 8A 00 00    ; ims ra <write_all
-    7C 8A A0 0B    ; ims ra >write_all
+    7C 8A A0 0B    ; ims ra >write_all (0xBA0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2017,6 +2021,7 @@
     70 8C 8C 08   ; add rsp rsp 8     ; free stack space
 
     ; high bit indicates error
+    ; TODO any non-zero value should probably be considered an error
     77 8A 80 1F    ; shru ra r0 31
     7E 00 06 00    ; jz 0 &end_parsing_output_ok (+6)
 
@@ -2059,7 +2064,7 @@
     ; failed to close input file. fatal
 ;:end_parsing_input_fail
     7C 80 00 00    ; ims r0 <error_input_file
-    7C 80 90 00    ; ims r0 >error_input_file
+    7C 80 90 00    ; ims r0 >error_input_file (0x90)
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 30 01    ; ims ra >fatal

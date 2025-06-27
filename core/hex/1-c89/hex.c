@@ -47,7 +47,7 @@ typedef int BOOL;
 #define FALSE 0
 
 static void usage(const char* name) {
-    printf("\nUsage: %s <input_file> -o <output_file>\n", name);
+    printf("\nUsage: %s [-g] <input_file> -o <output_file>\n", name);
     exit(EXIT_FAILURE);
 }
 

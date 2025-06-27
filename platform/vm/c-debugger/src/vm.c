@@ -650,7 +650,7 @@ static uint32_t vm_fopen(vm_t* vm) {
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
 
     // open it
-    vm->files[file_index] = fopen(full_path, mode ? "a+b" : "rb");
+    vm->files[file_index] = fopen(full_path, mode ? "w+b" : "rb");
     //printf("OPENING %s %zi\n",full_path,(size_t)vm->files[file_index]);
     if (vm->files[file_index] == vm_ghost_null) {
         strace("sys fopen() path %s mode %i failed.", full_path, mode);
@@ -1256,6 +1256,7 @@ static void vm_print_instruction(uint32_t addr, uint32_t u) {
     }
 
     fputs("    ", stdout);
+    fflush(stdout);
     debug_print_location(addr, true);
 }
 

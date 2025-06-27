@@ -439,13 +439,13 @@
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
-    7E 8A 04 00   ; jz ra &test_write_no_error (+4)
+    7E 8A 04 00   ; jz ra &putchar_no_error (+4)
     ; fail, exit(1)
     70 80 00 01   ; add r0 0 1    ; exit code 1
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
     78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
     78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
-;:test_write_no_error
+;:putchar_no_error
 
     ; return
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp    ; leave
