@@ -349,7 +349,7 @@
     70 8C 8C 04        ; add rsp rsp 4     ; pop return address
 
     ; make sure it's good
-    7E 8A &add_input_error  ; jz ra &add_input_error
+    7E 80 &add_input_error  ; jz r0 &add_input_error
     7E 00 &add_input_ok     ; jz 0 &add_input_ok
 
     ; opening input failed, fatal error
