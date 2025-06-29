@@ -37,36 +37,46 @@
  *
  * We store each run of bytes in a particular source location as a "debug
  * block". Blocks are stored in order in a flat array which we can binary
- * search. Strings are interned (or they are string literals) to avoid
- * duplicating memory for every block.
- *
- * TODO need to be able to load and unload at runtime. Will be adding an
- * optional syscall to load/unload debug info for spawned programs. Need to
- * replace the below string interning with libo which supports deleting
- * interned strings (when refcount reaches zero.)
+ * search. Strings are interned to avoid duplicating memory for every block.
  */
 
-// TODO be able to unload debug info, properly deref these strings
-// TODO libo now has an intern table, just use that
-static const char* intern(const char* cstr) {
-    string_t* string = string_intern_cstr(cstr);
-    return string->bytes;
-}
-
 typedef struct debug_block_t {
-    const char* symbol;
-    const char* filename;
+    string_t* symbol;
+    string_t* filename;
     int line;
     size_t start_address;
     size_t end_address;
+    size_t program_base;
 } debug_block_t;
+
+static void debug_block_delete(debug_block_t* block) {
+    string_deref(block->symbol);
+    string_deref(block->filename);
+    free(block);
+}
 
 debug_block_t* debug_blocks;
 size_t debug_blocks_capacity;
 size_t debug_blocks_count;
 
-static void debug_add_block(const char* symbol, const char* filename,
-        int line, size_t address, size_t byte_count)
+static int debug_blocks_cmp(const void* vleft, const void* vright) {
+    const debug_block_t* left = (const debug_block_t*)vleft;
+    const debug_block_t* right = (const debug_block_t*)vright;
+    // Blocks shouldn't overlap. In case they do, since we binary search by end
+    // address, we sort by end address first.
+    if (left->end_address < right->end_address)
+        return -1;
+    if (left->end_address > right->end_address)
+        return 1;
+    if (left->start_address < right->start_address)
+        return -1;
+    if (left->start_address > right->start_address)
+        return 1;
+    return 0;
+}
+
+static void debug_add_block(string_t* symbol, string_t* filename,
+        int line, size_t address, size_t byte_count, size_t program_base)
 {
     if (byte_count == 0) {
         return;
@@ -88,14 +98,33 @@ static void debug_add_block(const char* symbol, const char* filename,
     }
 
     debug_block_t* block = debug_blocks + debug_blocks_count++;
-    block->filename = filename;
-    block->symbol = symbol;
+    block->filename = string_ref(filename);
+    block->symbol = string_ref(symbol);
     block->line = line;
     block->start_address = address;
     block->end_address = address + byte_count;
+    block->program_base = program_base;
 }
 
-void debug_load(const char* executable_filename, size_t address) {
+void debug_unload(size_t program_base) {
+    debug_block_t* p = debug_blocks;
+    debug_block_t* end = debug_blocks + debug_blocks_count;
+    for (debug_block_t* q = p; q != end; ++q) {
+        // Delete any block whose program base matches that given.
+        if (q->program_base == program_base) {
+            debug_block_delete(q);
+        } else {
+            *p++ = *q;
+        }
+    }
+    debug_blocks_count = p - debug_blocks;
+}
+
+debug_block_t* debug_blocks;
+size_t debug_blocks_capacity;
+size_t debug_blocks_count;
+
+void debug_load(const char* executable_filename, size_t program_base) {
     char* debug_filename = 0;
     if (-1 == asprintf(&debug_filename, "%s.od", executable_filename)) {
         fatal("Out of memory.");
@@ -107,14 +136,11 @@ void debug_load(const char* executable_filename, size_t address) {
         //printf("No debug info.\n");
         return;
     }
-    if (debug_blocks_count > 0) {
-        fatal("Debug info already loaded.");
-    }
 
-    const char* current_filename = "<unknown>";
-    const char* current_symbol = "<unknown>";
+    string_t* current_filename = string_intern_cstr("<unknown>");
+    string_t* current_symbol = string_intern_cstr("<unknown>");
     int current_linenum = 0;
-    size_t current_address = address;
+    size_t current_address = program_base;
 
     /*
     size_t buffer_capacity = 256;
@@ -173,7 +199,7 @@ void debug_load(const char* executable_filename, size_t address) {
 
         // if it's a bare #, it's a line increment. finish the previous block.
         if (*line == 0) {
-            debug_add_block(current_symbol, current_filename, current_linenum, current_address, byte_count);
+            debug_add_block(current_symbol, current_filename, current_linenum, current_address, byte_count, program_base);
             current_address += byte_count;
             byte_count = 0;
             ++current_linenum;
@@ -193,7 +219,7 @@ void debug_load(const char* executable_filename, size_t address) {
             }
 
             // finish the previous block
-            debug_add_block(current_symbol, current_filename, current_linenum, current_address, byte_count);
+            debug_add_block(current_symbol, current_filename, current_linenum, current_address, byte_count, program_base);
             current_address += byte_count;
             byte_count = 0;
 
@@ -203,7 +229,8 @@ void debug_load(const char* executable_filename, size_t address) {
                 ++line;
             }
             *line = 0;
-            current_symbol = intern(new_symbol);
+            string_deref(current_symbol);
+            current_symbol = string_intern_cstr(new_symbol);
             continue;
         }
 
@@ -251,16 +278,22 @@ void debug_load(const char* executable_filename, size_t address) {
         }
 
         // finish the previous block
-        debug_add_block(current_symbol, current_filename, current_linenum, current_address, byte_count);
+        debug_add_block(current_symbol, current_filename, current_linenum, current_address, byte_count, program_base);
         current_address += byte_count;
         byte_count = 0;
         if (new_filename) {
-            current_filename = intern(new_filename);
+            string_deref(current_filename);
+            current_filename = string_intern_cstr(new_filename);
         }
         current_linenum = new_linenum;
     }
 
+    string_deref(current_filename);
+    string_deref(current_symbol);
     fclose(file);
+
+    // since we may have loaded multiple programs, sort blocks
+    qsort(debug_blocks, debug_blocks_count, sizeof(*debug_blocks), debug_blocks_cmp);
 }
 
 bool debug_find(size_t address, const char** out_symbol, const char** out_filename, int* out_line) {
@@ -291,8 +324,8 @@ bool debug_find(size_t address, const char** out_symbol, const char** out_filena
 
     // found
     debug_block_t* block = debug_blocks + left;
-    *out_symbol = block->symbol;
-    *out_filename = block->filename;
+    *out_symbol = block->symbol->bytes;
+    *out_filename = block->filename->bytes;
     *out_line = block->line;
     return true;
 }

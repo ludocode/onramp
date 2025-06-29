@@ -741,6 +741,7 @@ Arguments are passed in `r0`, `r1`, `r2` and `r3`. The return value is placed in
 | 19     | hosted    | rmdir    | path                     |                          | deletes an empty directory               |
 | 20     |           | spawn    | path, args, env, fds     | pid                      | runs a program outside the VM            |
 | 21     |           | waitpid  | pid                      | exit code                | waits until an outside program exits     |
+| 22     |           | debug    | address, path            |                          | loads debug info for a child program     |
 
 \*: Entries marked "hosted\*" are currently required in a hosted environment but may not be required in future VM specs.
 
@@ -1168,6 +1169,27 @@ int __sys_spawn(TODO);
 Spawns an external program in a hosted environment.
 
 This is not yet implemented.
+
+
+
+### debug
+
+```c
+int __sys_debug(const void* address, const char* /*nullable*/ executable_path);
+```
+
+Loads or unloads debug info for a child program at the given address.
+
+If the given path is null, previously loaded debug info is unloaded.
+
+If the given path is non-null, corresponding debug info is loaded for the executable at the given path.
+
+Note that if a path is given, it must point to the executable, not to the debug info file. This allows VMs to store debug info in custom formats or locations. (The standard debug info format appends `.od` to the executable path.)
+
+Returns 0 if successful and an error code otherwise.
+
+This syscall is optional and most VMs do not implement it. The [c-debugger](../platform/vm/c-debugger) VM is the main consumer of this syscall.
+
 
 
 ## Filesystem

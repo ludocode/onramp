@@ -96,7 +96,7 @@ VM_ERR_IO          = 0xFFFFFFFD
 VM_ERR_UNSUPPORTED = 0xFFFFFFFC
 
 # syscalls
-SYSCALL_COUNT = 22
+SYSCALL_COUNT = 23
 
 def loadByte(address):
     return memory[(address & 0xFFFFFFFF) - BASE_ADDR]

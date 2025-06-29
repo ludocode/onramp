@@ -37,6 +37,11 @@ void debug_destroy(void);
 void debug_load(const char* executable_filename, size_t address);
 
 /**
+ * Unloads debug info at the given address.
+ */
+void debug_unload(size_t program_base);
+
+/**
  * Finds the source filename and line location for a given code address in
  * memory.
  */

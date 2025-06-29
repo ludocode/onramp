@@ -113,7 +113,8 @@ static void panic(const char* e) {
 #define VM_RMDIR     19
 #define VM_SPAWN     20
 #define VM_WAITPID   21
-#define VM_SYSCALL_COUNT 22u
+#define VM_DEBUG     22
+#define VM_SYSCALL_COUNT 23u
 
 #define VM_VERSION_NUMBER 2
 
@@ -627,6 +628,36 @@ static uint32_t vm_waitpid(vm_t* vm) {
     panic("TODO waitpid syscall not yet implemented");
 }
 
+static uint32_t vm_debug(vm_t* vm) {
+    strace("sys debug()");
+
+    uint32_t program_addr = vm->registers[0];
+    uint32_t path_addr = vm->registers[1];
+
+    strace(" addr 0x%x", program_addr);
+    if (!vm_is_addr_valid(vm, path_addr)) {
+        strace(" not mapped!");
+        return VM_ERR_GENERIC;
+    }
+
+    if (path_addr == 0) {
+        strace(" unload");
+        debug_unload(program_addr);
+        return 0;
+    }
+
+    if (!vm_is_string_valid(vm, path_addr)) {
+        strace(" load path not mapped!", program_addr, path_addr);
+        // TODO report error in some way
+        return VM_ERR_GENERIC;
+    }
+    const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
+    strace(" load path \"%s\"", full_path);
+    debug_load(full_path, program_addr);
+
+    return 0;
+}
+
 static uint32_t vm_fopen(vm_t* vm) {
     uint32_t path_addr = vm->registers[0];
     uint32_t mode = vm->registers[1];
@@ -932,6 +963,7 @@ static void vm_syscall(vm_t* vm) {
         case VM_RMDIR:     ret = vm_rmdir(vm); break;
         case VM_SPAWN:     ret = vm_spawn(vm); break;
         case VM_WAITPID:   ret = vm_waitpid(vm); break;
+        case VM_DEBUG:     ret = vm_debug(vm); break;
         default:
             panic("Unrecognized syscall");
     }
