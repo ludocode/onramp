@@ -1232,6 +1232,7 @@
 =remove
     ; TODO call unlink for directories, rmdir for files. in this stage we only
     ; support files.
-    7F 10 00 00    ; sys unlink 0 0
+    ;7F 10 00 00    ; sys unlink 0 0
     ; TODO error check
-    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+    ;78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+    FF FF FF FF   ; TODO
