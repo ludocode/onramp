@@ -314,7 +314,7 @@ def run():
                 if 0 == mix(a): registers[RIP] = (registers[RIP] +
                         ((0x7FFF - ((0x7FFF - (b | c << 8)) & 0xFFFF)) << 2)) & 0xFFFFFFFF  # jz
             else:
-                syscall = registers[RPP]
+                syscall = registers[9]
                 if syscall not in syscalls:
                     raise Exception("Invalid opcode or unsupported syscall.")
                 syscalls[syscall]()
@@ -374,7 +374,7 @@ def initialize():
     breakAddress += SYSCALL_COUNT * 8
     for i in syscalls:
         storeWord(syscallTableAddress + i * 8, syscallAddress)  # rip
-        storeWord(syscallTableAddress + i * 8 + 4, i)           # rpp
+        storeWord(syscallTableAddress + i * 8 + 4, i)           # r9
 
     # Write halt bytecode into VM heap
     haltAddress = breakAddress
