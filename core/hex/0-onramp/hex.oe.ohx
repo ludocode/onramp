@@ -1748,7 +1748,7 @@
     70 81 00 00   ; add r1 0 0
     70 82 00 00   ; add r2 0 0
 
-    ; make the syscall (external call convention)
+    ; make the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
     71 8C 8C 04    ; sub rsp rsp 4    ; push return address
     70 8B 8F 08    ; add rb rip 8     ; ^^^
