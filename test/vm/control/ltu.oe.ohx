@@ -26,8 +26,8 @@
     ; fail. exit 1
     70 80 00 01   ; add r0 0 1    ; exit code 1
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -39,8 +39,8 @@
     ; fail. exit 2
     70 80 00 02   ; add r0 0 2    ; exit code 2
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -52,8 +52,8 @@
     ; fail. exit 3
     70 80 00 03   ; add r0 0 3    ; exit code 3
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -67,8 +67,8 @@
     ; fail. exit 4
     70 80 00 04   ; add r0 0 4    ; exit code 4
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -79,8 +79,8 @@
     ; fail. exit 5
     70 80 00 05   ; add r0 0 5    ; exit code 5
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -92,8 +92,8 @@
     ; fail. exit 6
     70 80 00 06   ; add r0 0 6    ; exit code 6
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
@@ -109,8 +109,8 @@
     ; fail. exit 7
     70 80 00 07   ; add r0 0 7    ; exit code 7
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
     ; compare 0x40000000 to 0x80000000 in descending registers
     76 83 01 1E   ; shl r3 1 30
@@ -123,13 +123,13 @@
     ; fail. exit 8
     80 80 00 08   ; add r0 0 8    ; exit code 8
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 
 
     ; success. exit 0
     70 80 00 00   ; add r0 0 0    ; exit code 0
     78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip

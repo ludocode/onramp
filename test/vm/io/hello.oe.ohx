@@ -77,8 +77,8 @@
     ; syscall exit
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    78 8E 88 04   ; ldw rpp r8 4      ; rpp = rpp of syscall exit
-    78 8F 88 00   ; ldw rpp r8 0      ; rip = rip of syscall exit
+    78 89 88 04   ; ldw r9 r8 4       ; r9 = r9 of syscall exit
+    78 8F 88 00   ; ldw rip r8 0      ; rip = rip of syscall exit
 
     ; padding
     00 00 00 00 00 00 00 00
@@ -92,6 +92,7 @@
 ; vars:
 ;     - string position: r1, rfp-4
 ;     - bytes left: r2, rfp-8
+;     - loop address: rfp-12
 ;==========================================
 
 @0x60 =test
@@ -100,7 +101,7 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
-    71 8C 8C 08     ; sub rsp rsp 8
+    71 8C 8C 0C     ; sub rsp rsp 12
 
     ; get the string
     70 81 8E 30     ; add r1 rpp 0x30 (^hello_world)
@@ -116,7 +117,8 @@
 ;:test_length_loop_exit
     79 82 8D F8     ; stw r2 rfp -8
 
-    ; loop to write the string
+    ; store the address to loop
+    79 8F 8D F4    ; stw rip rfp -12
 ;:test_write_loop
 
     ; args for fwrite(fd, string pos, bytes left);
@@ -130,15 +132,13 @@
     76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
     70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fwrite syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fwrite
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fwrite
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
@@ -175,7 +175,7 @@
 
     ; if bytes remaining is zero, we're done. otherwise loop
     7E 82 01 00   ; jz r2 &test_write_loop_exit (+1)
-    7E 00 DD FF   ; jz 0 &test_write_loop (-35)
+    78 8F 8D F4   ; ldw rip rfp -12   ; jump to :test_write_loop
 
 ;:test_write_loop_exit
 

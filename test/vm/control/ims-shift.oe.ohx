@@ -33,8 +33,8 @@ BC 9A 78 56  ; 0x56789ABC
 ; fail. exit 1
 70 80 00 01   ; add r0 0 1    ; exit code 1
 78 88 89 08   ; ldw r8 r9 8   ; syscall table
-78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; load 0x56789ABC into r0 with double ims, make sure it matches our data
 70 81 00 00   ; add r1 0 0   ; zero r1
@@ -48,11 +48,11 @@ BC 9A 78 56  ; 0x56789ABC
 ; fail. exit 2
 70 80 00 02   ; add r0 0 2    ; exit code 2
 78 88 89 08   ; ldw r8 r9 8   ; syscall table
-78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; success. exit 0
 70 80 00 00   ; add r0 0 0    ; exit code 0
 78 88 89 08   ; ldw r8 r9 8   ; syscall table
-78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip

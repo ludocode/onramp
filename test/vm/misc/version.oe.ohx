@@ -20,6 +20,6 @@
     7D 80 00 81   ; ltu r0 0 r1    ; bool r0 r1
 
     ; syscall exit
-    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    78 8E 88 04   ; ldw rpp r8 4      ; rpp = rpp of syscall exit
-    78 8F 88 00   ; ldw rpp r8 0      ; rip = rip of syscall exit
+    78 88 89 08   ; ldw r8 r9 8   ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4   ; r9 = syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; rip = syscall exit rip

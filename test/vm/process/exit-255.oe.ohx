@@ -17,7 +17,7 @@
 ; as unsigned, resulting in 255.
 70 80 00 FF   ; add r0 0 -1
 
-; load rpp and rip of exit function
+; load r9 and rip of exit function
 ; (note that we don't push a return address. exit doesn't return.)
-78 8E 88 04   ; ldw rpp r8 4
-78 8F 88 00   ; ldw rip r8 0
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip

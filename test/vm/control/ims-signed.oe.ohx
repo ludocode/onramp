@@ -30,8 +30,8 @@
 ; fail. exit 1
 70 80 00 01   ; add r0 0 1    ; exit code 1
 78 88 89 08   ; ldw r8 r9 8   ; syscall table
-78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; load 0xFFFFFFFF into r0 containing negative value, make sure shifting negative works correctly
 70 81 00 FE   ; add r1 0 -2   ; start out with -2
@@ -43,11 +43,11 @@
 ; fail. exit 2
 70 80 00 02   ; add r0 0 2    ; exit code 2
 78 88 89 08   ; ldw r8 r9 8   ; syscall table
-78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; success. exit 0
 70 80 00 00   ; add r0 0 0    ; exit code 0
 78 88 89 08   ; ldw r8 r9 8   ; syscall table
-78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
