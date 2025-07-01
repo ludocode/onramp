@@ -457,9 +457,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     addr = vm_parse_args(vm, argc, argv, addr);
 
     // Setup syscall table
-    //
-    // The syscall table is a list of external function pointers. All syscalls
-    // share the same function address; the program address is the syscall
+    // All syscalls share the same function address. The context is the syscall
     // number.
     uint32_t syscall_table = addr;
     vm_store_u32(vm, vm->memory_base + VM_SYSCALL_TABLE, syscall_table);
@@ -543,11 +541,6 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm_store_u32(vm, vm->memory_base + VM_CAPABILITIES,
             0 // no echo, non-blocking, non-canonical
             );
-
-    // push the exit syscall as the _start return address
-    // TODO exit address is now in the PIT, but we may put it back on the stack later
-    //end -= 4;
-    //vm_store_u32(vm, end, vm->syscall_addr);
 
     vm->registers[0] = vm->memory_base;
     for (size_t i = 1; i <= VM_RFP; ++i)
@@ -932,7 +925,7 @@ static uint32_t vm_rmdir(vm_t* vm) {
 
 vm_ghost_noinline
 static void vm_syscall(vm_t* vm) {
-    uint32_t syscall_number = vm->registers[VM_RPP];
+    uint32_t syscall_number = vm->registers[9];
     int ret = 0;
 
     switch (syscall_number) {
