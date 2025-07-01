@@ -1421,10 +1421,10 @@
 ;==========================================
 
 @0xB70 =exit
-    78 89 8E 20   ; ldw r9 rpp 0x20  (process_info_table)
-    78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4       ; r9 = r9 of syscall exit
+    78 8F 88 00   ; ldw rip r8 0      ; rip = rip of syscall exit
 
     ; padding
     00 00 00 00 00 00 00 00
@@ -1446,6 +1446,7 @@
 ; - io_handle: rfp-4
 ; - data: rfp-8
 ; - remaining: rfp-12
+; - loop address: rfp-16
 ;==========================================
 
 @0xBA0 =write_all
@@ -1456,13 +1457,14 @@
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
     ; store args
-    71 8C 8C 0C     ; sub rsp rsp 12
+    71 8C 8C 10     ; sub rsp rsp 16
     79 80 8D FC     ; stw r0 rfp -4
     79 81 8D F8     ; stw r1 rfp -8
     79 82 8D F4     ; stw r2 rfp -12
 
-    ; loop to write the data
-;:test_write_loop
+    ; store the address to loop
+    79 8F 8D F0    ; stw rip rfp -16
+;:write_all_loop
 
     ; get syscall fwrite into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
@@ -1470,30 +1472,28 @@
     76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
     70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fwrite
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fwrite
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
-    7E 8A 04 00   ; jz ra &test_write_no_error (+4)
+    7E 8A 04 00   ; jz ra &write_all_no_error (+4)
     ; fail, return the error code
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:test_write_no_error
+;:write_all_no_error
 
     ; check if we got zero
-    7E 80 01 00   ; jz r0 &test_write_zero (+1)
-    7E 00 05 00   ; jz 0 &test_write_not_zero (+5)
-;:test_write_zero
+    7E 80 01 00   ; jz r0 &write_all_zero (+1)
+    7E 00 05 00   ; jz 0 &write_all_not_zero (+5)
+;:write_all_zero
     ; zero bytes written. this should not be possible; the vm is
     ; malfunctioning. fail, return generic error -1
     70 80 00 FF     ; add r0 0 -1
@@ -1501,7 +1501,7 @@
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:test_write_not_zero
+;:write_all_not_zero
 
     ; adjust pointer and bytes remaining
     78 81 8D F8   ; ldw r1 rfp -8
@@ -1512,13 +1512,13 @@
     79 82 8D F4   ; stw r2 rfp -12
 
     ; if bytes remaining is zero, we're done
-    7E 82 02 00   ; jz r2 &test_write_loop_exit (+2)
+    7E 82 02 00   ; jz r2 &write_all_loop_exit (+2)
 
     ; otherwise loop.
     78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
-    7E 00 DE FF   ; jz 0 &test_write_loop (-34)
+    78 8F 8D F0   ; ldw rip rfp -16   ; jump to :write_all_loop
 
-;:test_write_loop_exit
+;:write_all_loop_exit
 
     ; done, return zero
     70 80 00 00     ; add r0 0 0        ; zero r0
@@ -1535,6 +1535,7 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00
 @0xC90
 
 
@@ -1629,15 +1630,13 @@
     76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
     70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fopen
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fopen
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
@@ -1660,6 +1659,7 @@
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1696,15 +1696,13 @@
     76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
     70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fopen
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fopen
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
@@ -1744,19 +1742,19 @@
 
     ; check if the syscall is supported
     78 8A 87 00   ; ldw ra r7 0       ; ra = syscall ftrunc
-    7E 8A 0A 00   ; jz ra &open_output_file_skip_truncate (+10)
+    7E 8A 08 00   ; jz ra &open_output_file_skip_truncate (+8)
 
-    ; make the syscall (external call convention)
+    ; prepare args for syscall
     70 81 00 00   ; add r1 0 0
     70 82 00 00   ; add r2 0 0
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall ftrunc
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall ftrunc
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+
+    ; make the syscall (external call convention)
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; TODO check for errors (making sure not to break streams)
 
@@ -1766,6 +1764,8 @@
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
 
     ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1846,15 +1846,13 @@
     76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
     70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fread syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fread
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fread
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
@@ -1904,6 +1902,7 @@
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
 
     ; padding
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -2010,15 +2009,13 @@
     76 8A 04 03   ; shl ra 4 3        ; ra = offset of fclose syscall (4<<3)
     70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fclose syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fclose
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fclose
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; high bit indicates error
     ; TODO any non-zero value should probably be considered an error
@@ -2047,15 +2044,13 @@
     76 8A 04 03   ; shl ra 4 3        ; ra = offset of fclose syscall (4<<3)
     70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fclose syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fclose
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rip r7 0      ; rip = syscall fclose
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
@@ -2080,6 +2075,8 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
     ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
