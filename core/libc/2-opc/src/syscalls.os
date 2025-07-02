@@ -61,24 +61,16 @@
 
 @__syscall
 
-    ; get the syscall into r8
+    ; get the syscall into r7
     imw r8 ^__process_info_table
     ldw r8 rpp r8     ; r8 = process_info_table
     ldw r8 r8 8       ; r8 = syscall table
     shl r7 r9 3       ; r7 = byte offset of syscall (r9 << 3)
     add r7 r8 r7      ; r7 = address of syscall
 
-    ; make the syscall (external call convention)
-    sub rsp rsp 8     ; make stack space
-    stw rpp rsp 4     ; preserve rpp
-    ldw rpp r7 4      ; rpp = syscall rpp
-    add r9 rip 8      ; ra = return address
-    stw r9 rsp 0      ; store return address
+    ; tail-call it
+    ldw r9 r7 4       ; r9 = syscall context
     ldw rip r7 0      ; rip = syscall rip
-    ldw rpp rsp 4     ; restore rpp
-    add rsp rsp 8     ; free stack space
-
-    ret
 
 
 
