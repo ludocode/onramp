@@ -53,13 +53,13 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; exit
-    70 80 00 00    ; add r0 0 0        ; exit code 0
+    70 80 00 00    ; add r0 0 0       ; exit code 0
     7C 89 <process_info_table
     7C 89 >process_info_table
-    78 89 8E 89    ; ldw r9 rpp r9
-    78 88 89 08    ; ldw r8 r9 8       ; syscall table
-    78 8E 88 04    ; ldw rpp r8 4      ; syscall exit rpp
-    78 8F 88 00    ; ldw rpp r8 0      ; syscall exit rip
+    78 89 8E 89    ; ldw r9 rpp r9    ; r9 = process_info_table
+    78 88 89 08    ; ldw r8 r9 8      ; r8 = syscall table
+    78 89 88 04    ; ldw r9 r8 4      ; r9 = r9 of syscall exit
+    78 8F 88 00    ; ldw rip r8 0     ; rip = rip of syscall exit
 
 
 
@@ -393,24 +393,25 @@
     76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
     70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
 
-    ; make the syscall (external call convention)
-    71 8C 8C 08   ; sub rsp rsp 8     ; make stack space
-    79 8E 8C 04   ; stw rpp rsp 4     ; preserve rpp
-    78 8E 87 04   ; ldw rpp r7 4      ; rpp = syscall fwrite
-    70 8A 8F 08   ; add ra rip 8      ; ra = return address
-    79 8A 8C 00   ; stw ra rsp 0      ; store return address
-    78 8F 87 00   ; ldw rpp r7 0      ; rip = syscall fwrite
-    78 8E 8C 04   ; ldw rpp rsp 4     ; restore rpp
-    70 8C 8C 08   ; add rsp rsp 8     ; free stack space
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; check the high bit for error
     77 8A 80 1F               ; shru ra r0 31
     7E 8A &putchar_no_error   ; jz ra &putchar_no_error
     ; fail, exit(1)
     70 80 00 01   ; add r0 0 1    ; exit code 1
-    78 88 89 08   ; ldw r8 r9 8   ; syscall table
-    78 8E 88 04   ; ldw rpp r8 4  ; syscall exit rpp
-    78 8F 88 00   ; ldw rpp r8 0  ; syscall exit rip
+    7C 89 <process_info_table
+    7C 89 >process_info_table
+    78 89 8E 89   ; ldw r9 rpp r9     ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4       ; r9 = r9 of syscall exit
+    78 8F 88 00   ; ldw rip r8 0      ; rip = rip of syscall exit
 :putchar_no_error
 
     ; return

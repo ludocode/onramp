@@ -2,31 +2,26 @@
 
 
 
-
 =main 
 
 
-7C89<__process_info_table 
-7C89>__process_info_table 
-78898E89
-78808910
-
-
-7C81<hello_world 
-7C81>hello_world 
-70818E81
+7C80<hello_world 
+7C80>hello_world 
+70808E80
+70810001
 7082000D
-7F060000
 
 
-7C89<__process_info_table 
-7C89>__process_info_table 
-78898E89
-788A8908
+7C8A<fwrite 
+7C8A>fwrite 
+718C8C04
+708B8F08
+798B008C
+708F8E8A
+708C8C04
 
 
-70800000
-708F8A00
+788F008C
 
 =hello_world 
 48656C6C6F20776F726C64210A
