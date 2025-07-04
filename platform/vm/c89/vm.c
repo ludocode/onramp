@@ -28,7 +28,8 @@
  * This is a simple implementation of the Onramp virtual machine in ANSI C.
  *
  * It does not load debug info or do any debugging. It otherwise performs all
- * required checks and many optional checks and implements all system calls.
+ * required checks and many optional checks. It implements all necessary system
+ * calls for bootstrapping a compiler.
  *
  * If you're trying to port Onramp to an old system that only has a C89
  * compiler, this is probably the best place to start. There's a good chance
@@ -144,7 +145,12 @@ static file_t vm_files[VM_MAX_FILES];
 #define VM_ERR_IO          0xFFFFFFFD
 #define VM_ERR_UNSUPPORTED 0xFFFFFFFC
 
+#define VM_SYSCALL_COUNT 23
+
 static uint8_t vm_load_u8(uint32_t addr);
+
+typedef void syscall_fn_t(void);
+static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT];
 
 
 
@@ -166,6 +172,7 @@ static void vm_hexdump(const char* p, int32_t count) {
 #endif
 
 static void vm_panic(const char* msg) {
+    fflush(stdout);
     fprintf(stderr, "VM ERROR: %s\n", msg);
     #if 0
         #ifdef __GNUC__
@@ -419,7 +426,9 @@ static void io_setup(void) {
 static void vm_init(int argc, char** argv) {
     const char* filename = NULL;
     int i;
-    uint32_t address, process_info_address, halt_address, program_start, program_break;
+    uint32_t address, process_info_address,
+             syscall_address, syscall_table_address,
+             program_start, program_break;
     char** env = 0;
     char* cwd = 0;
     char cwd_buffer[256];
@@ -450,17 +459,31 @@ static void vm_init(int argc, char** argv) {
     process_info_address = address;
     address += 40;
 
-    /* write halt instruction */
-    halt_address = address;
-    vm_store_u32(address, 0x0000007f);
-    address += 4;
-
     /* configure process info table */
-    vm_store_u32(process_info_address + 0, 1); /* version */
-    vm_store_u32(process_info_address + 8, halt_address);
+    vm_store_u32(process_info_address + 0, 2); /* version */
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
     vm_store_u32(process_info_address + 20, 2); /* stderr */
+
+    /* make an instruction with opcode 0x7F to use for syscalls */
+    syscall_address = address;
+    vm_store_u8(syscall_address, 0x7F);
+    address += 4;
+
+    /* build syscall table */
+    syscall_table_address = address;
+    vm_store_u32(process_info_address + 8, syscall_table_address);
+    for (i = 0; i < VM_SYSCALL_COUNT; ++i) {
+        /* If we implement this syscall, pass the address of our 0x7F opcode as
+         * the syscall address and the syscall number as the context. */
+        if (vm_syscall_table[i] != NULL) {
+            vm_store_u32(syscall_table_address + i * 8, syscall_address);
+            vm_store_u32(syscall_table_address + i * 8 + 4, i);
+        } else {
+            vm_store_u32(syscall_table_address + i * 8, 0);
+        }
+        address += 8;
+    }
 
     /* args */
     vm_store_u32(process_info_address + 24, address);
@@ -541,7 +564,7 @@ static void vm_init(int argc, char** argv) {
  * System Calls
  */
 
-static void vm_halt(void) {
+static void vm_exit(void) {
     exit(vm_registers[0]);
 }
 
@@ -831,102 +854,89 @@ static void vm_ftell(void) {
     #endif
 }
 
-static void vm_ftrunc(void) {
-    uint32_t size_low = vm_registers[1];
-    uint32_t size_high = vm_registers[2];
 
     /*
      * There is no standard C way to truncate an open file. For now we use
      * platform-specific functions.
      */
 
-    #ifdef VM_POSIX
-        /* On POSIX systems we call ftruncate(). */
-        int fd = vm_file(vm_registers[0]);
-        off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
-        int ret = ftruncate(fd, upos);
-
-    #elif defined _WIN32
-        /* On Windows we have _chsize(). There is also _chsize_s() which is
-         * 64-bit but our fseek()/ftell() functions aren't currently using
-         * corresponding 64-bit functions so right now there's no point. */
-        FILE* file = vm_file(vm_registers[0]);
-        unsigned long upos = (unsigned long)size_low |
-                (((unsigned long)size_high << 16) << 16);
-        int ret;
-        fflush(file);
-        ret = _chsize(fileno(file), upos);
-
-    #else
-        /* TODO make this work with only standard C. If size is zero, freopen()
-         * the file in "wb" mode; otherwise rename the file to a temporary and
-         * copy the desired bytes. The Onramp bootstrap process only ever calls
-         * this with size zero. */
-        #error "ftrunc is not implemented on this platform."
-    #endif
-
+#ifdef VM_POSIX
+static void vm_ftrunc(void) {
+    /* On POSIX systems we call ftruncate(). */
+    uint32_t size_low = vm_registers[1];
+    uint32_t size_high = vm_registers[2];
+    int fd = vm_file(vm_registers[0]);
+    off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
+    int ret = ftruncate(fd, upos);
     vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
 }
+#elif
+static void vm_ftrunc(void) {
+    /* On Windows we have _chsize(). There is also _chsize_s() which is
+     * 64-bit but our fseek()/ftell() functions aren't currently using
+     * corresponding 64-bit functions so right now there's no point. */
+    uint32_t size_low = vm_registers[1];
+    uint32_t size_high = vm_registers[2];
+    FILE* file = vm_file(vm_registers[0]);
+    unsigned long upos = (unsigned long)size_low |
+            (((unsigned long)size_high << 16) << 16);
+    int ret;
+    fflush(file);
+    ret = _chsize(fileno(file), upos);
+    vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
+}
+#else
+#define vm_ftrunc NULL
+#endif
 
+#ifdef VM_POSIX
 static void vm_chmod(void) {
-
     /* There is nothing like chmod() in standard C. It's only relevant for
      * better integration into UNIX systems. */
-
-    #ifdef VM_POSIX
-        uint32_t path_addr = vm_registers[0];
-        uint32_t mode = vm_registers[1];
-        const char* path;
-        vm_check_string(path_addr);
-        path = (const char*)vm_memory + path_addr;
-        vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
-
-    #else
-        vm_registers[0] = 0;
-    #endif
+    uint32_t path_addr = vm_registers[0];
+    uint32_t mode = vm_registers[1];
+    const char* path;
+    vm_check_string(path_addr);
+    path = (const char*)vm_memory + path_addr;
+    vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
 }
+#else
+#define vm_chmod NULL
+#endif
 
-static void vm_sys(uint8_t syscall) {
-    /*printf("%u %u\n",arg1,arg2);*/
+static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
+    vm_exit,
+    NULL, /* panic */
+    vm_time,
+    vm_fopen,
+    vm_fclose,
+    vm_fread,
+    vm_fwrite,
+    vm_fseek,
+    vm_ftell,
+    vm_ftrunc, /* may be NULL */
+    NULL, /* dopen */
+    NULL, /* dclose */
+    NULL, /* dread */
+    NULL, /* stat */
+    NULL, /* rename */
+    NULL, /* symlink */
+    NULL, /* unlink */
+    vm_chmod, /* may be NULL */
+    NULL, /* mkdir */
+    NULL, /* rmdir */
+    NULL, /* spawn */
+    NULL, /* waitpid */
+    NULL, /* debug */
+};
 
-    switch (syscall) {
-        case 0x00: /* halt */
-            vm_halt();
-            return;
-        case 0x01: /* time */
-            vm_time();
-            return;
-        case 0x03: /* fopen */
-            vm_fopen();
-            return;
-        case 0x04: /* fclose */
-            vm_fclose();
-            return;
-        case 0x05: /* fread */
-            vm_fread();
-            return;
-        case 0x06: /* fwrite */
-            vm_fwrite();
-            return;
-        case 0x07: /* fseek */
-            vm_fseek();
-            return;
-        case 0x08: /* ftell */
-            vm_ftell();
-            return;
-        case 0x09: /* ftrunc */
-            vm_ftrunc();
-            return;
-        case 0x11: /* chmod */
-            vm_chmod();
-            return;
-        default:
-            break;
+static void vm_sys(void) {
+    uint32_t syscall = vm_registers[9];
+    if (syscall >= VM_SYSCALL_COUNT) {
+        vm_panic("Invalid syscall number.");
     }
-
-    /* Unhandled syscall */
-    /*vm_registers[0] = (uint32_t)(int32_t)(-1);*/
-    vm_panic("Invalid syscall number");
+    vm_syscall_table[syscall]();
+    vm_registers[VM_RIP] = vm_load_u32(vm_registers[VM_RSP]);
 }
 
 
@@ -947,7 +957,6 @@ next:
     vm_check_aligned(rip);
     vm_check_valid(rip);
     opcode = vm_memory[rip];
-    vm_check((opcode & 0xF0) == 0x70, "Invalid instruction");
     arg1 = vm_memory[rip + 1];
     arg2 = vm_memory[rip + 2];
     arg3 = vm_memory[rip + 3];
@@ -972,9 +981,8 @@ next:
             if (0 == vm_parse_mix(arg1))
                 vm_registers[VM_RIP] += ((uint32_t)arg2 | (uint32_t)((int32_t)(int8_t)arg3 << 8)) << 2;
             goto next;
-        case 0x7F: /* sys */
-            vm_check(arg2 == 0 && arg3 == 0, "Invalid instruction");
-            vm_sys(arg1);
+        case 0x7F: /* special internal syscall opcode */
+            vm_sys();
             goto next;
 
         default: break;
@@ -982,6 +990,7 @@ next:
 
     /* The remaining opcodes all place the result of an operation on two
      * mix-type arguments into a destination register. */
+    vm_check((opcode & 0xF0) == 0x70, "Invalid instruction");
     reg = vm_registers + vm_parse_register(arg1);
     mix1 = vm_parse_mix(arg2);
     mix2 = vm_parse_mix(arg3);

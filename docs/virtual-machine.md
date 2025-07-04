@@ -714,6 +714,8 @@ All system calls return a word that contains either an error code, a return valu
 
 Arguments are passed in `r0`, `r1`, `r2` and `r3` (plus the context in `r9`.) The return value is placed in `r0`.
 
+The system call table has **23** entries:
+
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
 | 0      | yes       | exit     | exit code                | n/a (doesn't return)     | exits the program                        |
