@@ -36,8 +36,8 @@ Here's an index of sections in this document:
     - [System Call Table](#system-call-table)
     - [System Call Quick Reference](#system-call-quick-reference)
     - [`halt`](#halt)
-    - [`time`](#time)
     - [`panic`](#panic)
+    - [`time`](#time)
     - [`fopen`](#fopen)
     - [`fclose`](#fclose)
     - [`fread`](#fread)
@@ -680,10 +680,10 @@ For example, if the syscall table is at `0x2000`, the memory would look like thi
 |-----------|-------------------|
 | 0x2000    | `rip` of `exit`   |
 | 0x2004    | `r9` of `exit`    |
-| 0x2008    | `rip` of `time`   |
-| 0x200C    | `r9` of `time`    |
-| 0x2010    | `rip` of `panic`  |
-| 0x2014    | `r9` of `panic`   |
+| 0x2008    | `rip` of `panic`  |
+| 0x200C    | `r9` of `panic`   |
+| 0x2010    | `rip` of `time`   |
+| 0x2014    | `r9` of `time`    |
 | 0x2018    | `rip` of `fopen`  |
 | 0x201C    | `r9` of `fopen`   |
 | ...       | ...               |
@@ -717,8 +717,8 @@ Arguments are passed in `r0`, `r1`, `r2` and `r3` (plus the context in `r9`.) Th
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
 | 0      | yes       | exit     | exit code                | n/a (doesn't return)     | exits the program                        |
-| 1      |           | time     | out\_time[3]             |                          | gets the current time                    |
-| 2      |           | panic    | exit code                | n/a (doesn't return)     | halts the VM                             |
+| 1      |           | panic    | exit code                | n/a (doesn't return)     | halts the VM                             |
+| 2      |           | time     | out\_time[3]             |                          | gets the current time                    |
 | 3      | hosted    | fopen    | path, writeable          | handle                   | opens a file                             |
 | 4      | hosted    | fclose   | handle                   |                          | closes a file                            |
 | 5      | hosted    | fread    | handle, buffer, size     | bytes read               | reads from a file or stream              |
@@ -766,13 +766,32 @@ Most platforms restrict the exit code to a maximum of 7 or 8 bits. Such platform
 
 
 
+### panic
+
+```c
+[[noreturn]] int __sys_panic(int exit_code);
+```
+
+- syscall number: 1
+- argument in r0: non-zero exit code
+
+Halts the VM, exiting with the given non-zero error code.
+
+This kills all programs running in the instance of the VM. It should only be used in case an error occurs that is unrecoverable by normal program exit. For example, this is called when memory corruption is detected by `malloc()`, because the memory of other processes in the VM may be corrupted as well.
+
+The given exit code must be non-zero. (The VM is allowed to ignore this and does not need to check.) See the notes on exit codes in [exit](#exit) above.
+
+This system call is optional and is not typically implemented by Onramp VMs. If not implemented, the Onramp libc uses the exit syscall instead. (This system call mainly exists so that programs can pass along the VM's exit to child programs so they can take down the whole VM if a critical error occurs.)
+
+
+
 ### time
 
 ```c
 int __sys_time(unsigned time[3]);
 ```
 
-- syscall number: 1
+- syscall number: 2
 - argument in r0: address at which to write the time
 - return value in r0: always 0
 
@@ -785,25 +804,6 @@ The current time consists of a 64-bit number of seconds plus a 32-bit number of 
 - r0 + 8: The number of nanoseconds (0 to 999,999,999)
 
 If this system call is implemented, it cannot fail. It must always set register r0 to 0.
-
-
-
-### panic
-
-```c
-[[noreturn]] int __sys_panic(int exit_code);
-```
-
-- syscall number: 2
-- argument in r0: non-zero exit code
-
-Halts the VM, exiting with the given non-zero error code.
-
-This kills all programs running in the instance of the VM. It should only be used in case an error occurs that is unrecoverable by normal program exit. For example, this is called when memory corruption is detected by `malloc()`, because the memory of other processes in the VM may be corrupted as well.
-
-The given exit code must be non-zero. (The VM is allowed to ignore this and does not need to check.) See the notes on exit codes in [exit](#exit) above.
-
-This system call is optional and is not typically implemented by Onramp VMs. If not implemented, the Onramp libc uses the exit syscall instead. (This system call mainly exists so that programs can pass along the VM's exit to child programs so they can take down the whole VM if a critical error occurs.)
 
 
 
@@ -1321,7 +1321,7 @@ Onramp's VM design takes inspiration from such projects as Robert Elder's [one p
 
 ## Version History
 
-Version 2: Added syscall table, replacing the exit address in the PIT (an address that was assigned to `rip` to exit the program.). Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall.
+Version 2: Added syscall table, replacing the exit address in the PIT (an address that was assigned to `rip` to exit the program.). Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall, displacing `time`.
 
 Version 1: Replaced `cmpu` instruction with `ltu`. (The `cmpu` instruction took a destination register and two source mix-type bytes. It performed a three-way comparison between the sources. It placed 1 in the register if the first source argument was greater than the second; 0xFFFFFFFF if the first was less than the second; and 0 if the source arguments matched.)
 

@@ -265,7 +265,7 @@
     ; get syscall panic into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 05 03   ; shl ra 2 3        ; ra = offset of panic syscall (2<<3)
+    76 8A 01 03   ; shl ra 1 3        ; ra = offset of panic syscall (1<<3)
     70 87 88 8A   ; add r7 r8 8a      ; r7 = address of panic syscall
 
     ; make the syscall

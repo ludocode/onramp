@@ -92,8 +92,8 @@ static void panic(const char* e) {
 
 /* syscalls */
 #define VM_EXIT      0
-#define VM_TIME      1
-#define VM_PANIC     2
+#define VM_PANIC     1
+#define VM_TIME      2
 #define VM_FOPEN     3
 #define VM_FCLOSE    4
 #define VM_FREAD     5
@@ -930,9 +930,9 @@ static void vm_syscall(vm_t* vm) {
 
     switch (syscall_number) {
         // misc
+        case VM_PANIC: // panic forwarded to exit (TODO shouldn't forward, need to check that exit code is non-zero)
         case VM_EXIT:      ret = vm_exit(vm); break;
         case VM_TIME:      ret = vm_time(vm); break;
-        case VM_PANIC:     ret = vm_exit(vm); break; // panic forwarded to exit
         // file
         case VM_FOPEN:     ret = vm_fopen(vm); break;
         case VM_FCLOSE:    ret = vm_fclose(vm); break;

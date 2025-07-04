@@ -85,20 +85,20 @@
 
 
 ; ==========================================================
-; int __sys_time(unsigned buffer[3]);
+; int __sys_panic(int exit_code);
 ; ==========================================================
 
-=__sys_time
+=__sys_panic
     mov r9 1
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; int __sys_panic(int exit_code);
+; int __sys_time(unsigned buffer[3]);
 ; ==========================================================
 
-=__sys_panic
+=__sys_time
     mov r9 2
     jmp ^__syscall
 

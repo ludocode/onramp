@@ -225,7 +225,7 @@ def syscall_chmod():
 
 syscalls = {
     0: syscall_exit,
-    1: syscall_time,
+    2: syscall_time,
     3: syscall_fopen,
     4: syscall_fclose,
     5: syscall_fread,
