@@ -350,7 +350,7 @@
 ; int convert_keyword(char* table);
 ; ==========================================================
 ; Converts the given identifier to its bytecode value using the given
-; conversion table (either `registers` or `syscalls`.)
+; conversion table. (Currently only `registers` is supported.)
 ;
 ; Returns -1 if not found.
 ;

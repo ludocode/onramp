@@ -47,7 +47,6 @@
 #define IMS   0x7C
 #define LTU   0x7D
 #define JZ    0x7E
-#define SYS   0x7F
 
 #define R0    0x80
 #define RA    0x8A
@@ -599,23 +598,6 @@ static void opcode_ims(void) {
     fatal("Expected ims value: short invocation, number, or two quoted bytes or single-character strings.");
 }
 
-static void opcode_sys(void) {
-    uint8_t number = parse_syscall_number();
-
-    // make sure sys is followed by two quoted bytes
-    uint8_t arg1, arg2;
-    if (!try_parse_quoted_byte(&arg1) || !try_parse_quoted_byte(&arg2) ||
-            arg1 != 0 || arg2 != 0)
-    {
-        fatal("Expected sys instruction to end in two quoted zero bytes.");
-    }
-
-    uint8_t bytes[] = {
-        SYS, number, 0x00, 0x00,  // sys number 0 0
-    };
-    emit_hex_bytes(bytes, sizeof(bytes));
-}
-
 static void opcode_imw(void) {
     uint8_t reg = parse_register();
     if (reg == RIP) {
@@ -896,7 +878,6 @@ static opcode_fn_t opcodes_list[] = {
     {"ret", opcode_ret},
     {"enter", opcode_enter},
     {"leave", opcode_leave},
-    {"sys", opcode_sys},
 
 };
 
