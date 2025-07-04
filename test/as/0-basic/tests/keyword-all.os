@@ -12,12 +12,7 @@ rsp rfp rpp rip
 add sub mul divu
 and or shl shru
 ldw stw ldb stb
-ims ltu jz sys
-; syscalls
-halt time spawn
-fopen fclose fread fwrite fseek ftell ftrunc
-dopen dclose dread
-stat rename symlink unlink chmod mkdir rmdir
+ims ltu jz
 
 =main
     add r0 '00 '00      ; zero r0

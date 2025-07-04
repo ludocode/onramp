@@ -1036,7 +1036,7 @@
     add rip rpp ra
 
 @opcode_sys_template
-    sys fopen '00 '00
+    '7F '03 '00 '00
 
 
 

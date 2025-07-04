@@ -26,8 +26,8 @@
 ; in Onramp object code.
 ;
 ; Its main purpose is simply to replace keywords with bytes. Keywords are the
-; names of opcodes, registers and syscalls. When it encounters a keyword, it
-; finds it in the replacement map and emits the corresponding byte as hex.
+; names of opcodes and registers. When it encounters a keyword, it finds it in
+; the replacement map and emits the corresponding byte as hex.
 ;
 ; In addition:
 ;
@@ -96,33 +96,6 @@
     69 6d 73      00      7c    ; ims
     6c 74 75      00      7d    ; ltu
     6a 7a         00      7e    ; jz
-    73 79 73      00      7f    ; sys
-
-    ; syscalls
-    ;  system
-    68 61 6c 74               00   00    ; halt
-    74 69 6d 65               00   01    ; time
-    73 70 61 77 6e            00   02    ; spawn
-    ;  io handles
-    66 6f 70 65 6e            00   03    ; fopen
-    66 63 6c 6f 73 65         00   04    ; fclose
-    66 72 65 61 64            00   05    ; fread
-    66 77 72 69 74 65         00   06    ; fwrite
-    66 73 65 65 6b            00   07    ; fseek
-    66 74 65 6c 6c            00   08    ; ftell
-    66 74 72 75 6e 63         00   09    ; ftrunc
-    ;  directories
-    64 6f 70 65 6e            00   0A    ; dopen
-    64 63 6c 6f 73 65         00   0B    ; dclose
-    64 72 65 61 64            00   0C    ; dread
-    ;  filesystem
-    73 74 61 74               00   0D    ; stat
-    72 65 6e 61 6d 65         00   0E    ; rename
-    73 79 6d 6c 69 6e 6b      00   0F    ; symlink
-    75 6e 6c 69 6e 6b         00   10    ; unlink
-    63 68 6d 6f 64            00   11    ; chmod
-    6d 6b 64 69 72            00   12    ; mkdir
-    72 6d 64 69 72            00   13    ; rmdir
 
     ; end of list
     00
