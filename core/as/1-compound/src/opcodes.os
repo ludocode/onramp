@@ -120,7 +120,6 @@
     ^opcode_str_ret ^opcode_ret
     ^opcode_str_enter ^opcode_enter
     ^opcode_str_leave ^opcode_leave
-    ^opcode_str_sys ^opcode_sys
     '00 '00 '00 '00
 
 ; arithmetic
@@ -169,7 +168,6 @@
 ; control
 :opcode_str_ims "ims" '00
 :opcode_str_jz "jz" '00
-:opcode_str_sys "sys" '00
 :opcode_str_imw "imw" '00
 :opcode_str_cmpu "cmpu" '00
 :opcode_str_cmps "cmps" '00

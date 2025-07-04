@@ -57,42 +57,6 @@
 
 
 ; ==========================================================
-; char* syscalls;
-; ==========================================================
-; A null-terminated list of syscall names. Each name is followed by its
-; replacement byte.
-; ==========================================================
-
-=syscalls
-    ;  system
-    "halt"      '00 '00
-    "time"      '00 '01
-    "spawn"     '00 '02
-    ;  files
-    "fopen"      '00 '03
-    "fclose"     '00 '04
-    "fread"      '00 '05
-    "fwrite"     '00 '06
-    "fseek"      '00 '07
-    "ftell"      '00 '08
-    "ftrunc"     '00 '09
-    ;directories
-    "dopen"      '00 '0A
-    "dclose"     '00 '0B
-    "dread"      '00 '0C
-    ;  filesystem
-    "stat"      '00 '0D
-    "rename"    '00 '0E
-    "symlink"   '00 '0F
-    "unlink"    '00 '10
-    "chmod"     '00 '11
-    "mkdir"     '00 '12
-    "rmdir"     '00 '13
-    '00
-
-
-
-; ==========================================================
 ; char identifier[128];
 ; ==========================================================
 ; A fixed-size buffer for storing keywords and label names.
