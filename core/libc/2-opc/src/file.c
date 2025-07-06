@@ -573,11 +573,25 @@ size_t fread(void* restrict vout, size_t element_size, size_t element_count,
     }
 
 // TODO all of the below is disabled until buffering works
-int x = read(file->fd, vout, element_size*element_count);
-if (x < (int)element_size) {
-    file->eof = true; return 0;
+{
+int total = element_size * element_count;
+int count = 0;
+while (count < total) {
+    int step = read(file->fd, (char*)vout + count, total - count);
+    if (step < 0) {
+        file->error = true;
+        return count / element_size;
+    }
+    if (step == 0) {
+        break;
+    }
+    count += step;
 }
-return x/element_size;
+if (count < total) {
+    file->eof = true;
+}
+return count/element_size;
+}
 
 
 
