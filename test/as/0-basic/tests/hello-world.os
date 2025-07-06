@@ -10,6 +10,9 @@
     add r0 rpp r0   ; r0 = "Hello world!"
     add r1 '00 '01  ; r1 = 1
     add r2 '00 '0D  ; r2 = 13
+    ims r3 <stdout
+    ims r3 >stdout
+    ldw r3 rpp r3
 
     ; call fwrite()
     ims ra <fwrite
@@ -21,6 +24,7 @@
     add rsp rsp '04     ; pop return address
 
     ; return 0
+    add r0 '00 '00
     ldw rip '00 rsp     ; ret
 
 =hello_world
