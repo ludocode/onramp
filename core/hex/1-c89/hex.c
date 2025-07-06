@@ -181,7 +181,7 @@ int main(int argc, const char** argv) {
         exit(EXIT_FAILURE);
     }
     output_file = fopen(output_filename, "wb");
-    if (input_file == NULL) {
+    if (output_file == NULL) {
         fputs("ERROR: Failed to open output file.\n", stderr);
         exit(EXIT_FAILURE);
     }
