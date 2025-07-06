@@ -97,15 +97,17 @@
 ;   vm heap
 ; 0x1000000 start of heap
 ;     0x1000000 process info table
-;         0x1000000 version (0)
+;         0x1000000 version
 ;         0x1000004 program break
-;         0x1000008 exit address
+;         0x1000008 syscall table
 ;         0x100000C input stream handle
 ;         0x1000010 output stream handle
 ;         0x1000014 error stream handle
 ;         0x1000018 command-line arguments
 ;         0x100001C environment variables
 ;         0x1000020 working directory
+;         0x1000024 capabilities bits
+;     0x1000028 syscall instruction (custom 0x7F opcode)
 ; 0x1FFFFFF last byte in heap (16 MB)
 ;
 ;   function table
@@ -120,9 +122,9 @@
 ; 0x400770 load_program
 ; 0x400800 check_buffer
 ; 0x400810 check_string
-; 0x400820 setup_halt
+; 0x400820 [padding]
 ; 0x400870 load_working_directory
-; 0x4008D0 initialize
+; 0x4008C0 initialize
 ; 0x400980 check_byte
 ; 0x4009B0 check_word
 ; 0x4009F0 parse_register
@@ -131,8 +133,7 @@
 ; 0x400B40 opcode_table
 ; 0x400D40 store_helper
 ; 0x400D90 opcode_jz
-; 0x400DC0 opcode_sys
-; 0x400E20 syscall_halt
+; 0x400E20 syscall_exit
 ; 0x400E30 parse_io_handle
 ; 0x400E60 syscall_fwrite
 ; 0x400ED0 syscall_fread
@@ -146,7 +147,7 @@
 ; 0x4012F0 io_setup
 ; 0x401410 io_teardown
 ; 0x401460 signal_handler
-; 0x4014B0 end of program
+; 0x401580   end of program
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -160,7 +161,7 @@
 ; 0x500350 "ERROR: Invalid register.\n\0"
 ; 0x500370 "ERROR: Invalid mix-type argument.\n\0"
 ; 0x5003A0 "ERROR: Invalid I/O handle.\n\0"
-; 0x500480 syscall_table
+; 0x500420 syscall_table
 
 
 
@@ -228,8 +229,8 @@
     00 05 00 00 00 00 00 00  ; offset within the file: 0x500
     00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
     00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
-    B0 0F 00 00 00 00 00 00  ; size of the segment in the file: 0xFB0 (0x14B0-0x500)
-    B0 0F 00 00 00 00 00 00  ; size of the segment in memory: 0xFB0 (0x14B0-0x500)
+    80 10 00 00 00 00 00 00  ; size of the segment in the file: 0x1080 (0x1580-0x500)
+    80 10 00 00 00 00 00 00  ; size of the segment in memory: 0x1080 (0x1580-0x500)
     00 10 00 00 00 00 00 00  ; required alignment: 4 KB
 @0x78
 
@@ -385,49 +386,65 @@
 
 00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 
-; Our syscall table contains the low two bytes of the address of the syscall
-; function, i.e. the address in this file. The opcode_sys function adds
-; 0x400000 to the value.
-@0x480 syscall_table
+; The syscall table.
+;
+; The address of this table is passed directly to the program in the process
+; info table.
+;
+; Each entry in the syscall table is two words: the instruction pointer and the
+; context for an external function call.
+;
+; For each syscall, we pass the address of our syscall instruction (0x1000028)
+; as the function address, and the native function address as the context. The
+; syscall instruction is a custom opcode with value 0x7F in VM space which we
+; interpret as a syscall. When this opcode is reached, we jump to the native
+; function in r9.
+;
+; Note that this means the program could cause the VM to jump to any arbitrary
+; address by setting r9 manually. Security is not an issue here; the program
+; already has access to filesystem and spawn syscalls so it could already break
+; out of the sandbox and do whatever it wants. In any case the VM heap is not
+; executable which reduces the likelyhood of accidentally executing arbitrary
+; instructions.
+@0x420 syscall_table
+  ; rip          r9
 ; system
-    20 0E  ; 0x00 halt (0xE20)
-    00 12  ; 0x01 time (0x1200)
-    00 00  ; 0x02 spawn (not yet implemented)
+    28 00 00 01  20 0E 40 00   ; 0x00 halt (0x400E20)
+    00 00 00 00  00 00 00 00   ; 0x01 panic (not implemented)
+    28 00 00 01  00 12 40 00   ; 0x02 time (0x401200)
 ; files
-    90 0F  ; 0x03 fopen (0xF90)
-    40 0F  ; 0x04 fclose (0xF40)
-    D0 0E  ; 0x05 fread (0xED0)
-    60 0E  ; 0x06 fwrite (0xE60)
-    10 10  ; 0x07 fseek (0x1010)
-    A0 10  ; 0x08 ftell (0x10A0)
-    30 11  ; 0x09 ftrunc (0x1130)
+    28 00 00 01  90 0F 40 00   ; 0x03 fopen (0x400F90)
+    28 00 00 01  40 0F 40 00   ; 0x04 fclose (0x400F40)
+    28 00 00 01  D0 0E 40 00   ; 0x05 fread (0x400ED0)
+    28 00 00 01  60 0E 40 00   ; 0x06 fwrite (0x400E60)
+    28 00 00 01  10 10 40 00   ; 0x07 fseek (0x401010)
+    28 00 00 01  A0 10 40 00   ; 0x08 ftell (0x4010A0)
+    28 00 00 01  30 11 40 00   ; 0x09 ftrunc (0x401130)
 ; directories
-    00 00  ; 0x0A dopen (not yet implemented)
-    00 00  ; 0x0B dclose (not yet implemented)
-    00 00  ; 0x0C dread (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x0A dopen (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x0B dclose (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x0C dread (not yet implemented)
 ; filesystem
-    00 00  ; 0x0D stat (not yet implemented)
-    00 00  ; 0x0E rename (not yet implemented)
-    00 00  ; 0x0F symlink (not yet implemented)
-    00 00  ; 0x10 unlink (not yet implemented)
-    A0 11  ; 0x11 chmod (0x11A0)
-    00 00  ; 0x12 mkdir (not yet implemented)
-    00 00  ; 0x13 rmdir (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x0D stat (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x0E rename (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x0F symlink (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x10 unlink (not yet implemented)
+    28 00 00 01  A0 11 40 00   ; 0x11 chmod (0x4011A0)
+    00 00 00 00  00 00 40 00   ; 0x12 mkdir (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x13 rmdir (not yet implemented)
+; misc
+    00 00 00 00  00 00 40 00   ; 0x14 spawn (not yet implemented)
+    00 00 00 00  00 00 40 00   ; 0x14 waitpid (not yet implemented)
+    00 00 00 00  00 00 00 00   ; 0x14 debug (not implemented
+@0x4D8
 
-; padding
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    ; padding (room for more syscalls)
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
 @0x500
 
 ; end of rodata
@@ -453,7 +470,7 @@
 
     ; call initialize
     48 89 E7          ; mov rdi, rsp
-    B8 D0 08 40 00    ; mov eax, initialize (0x4008D0)
+    B8 C0 08 40 00    ; mov eax, initialize (0x4008C0)
     FF D0             ; call rax
 
     ; go!
@@ -868,7 +885,7 @@
 ; ==========================================================
 ; void load_program(const char* path);
 ; ==========================================================
-; Loads the base program into the VM heap.
+; Loads the base program into the VM heap, skipping any script header.
 ; ==========================================================
 
 @0x770 load_program
@@ -988,64 +1005,18 @@
 
 
 
-; ==========================================================
-; void setup_halt(void);
-; ==========================================================
-; Places an instruction to halt into the VM heap and places its address as the
-; exit address in the process info table.
-; ==========================================================
-
-@0x820 setup_halt
-    ; set up stack frame
-    55                             ; push rbp
-    48 89 E5                       ; mov rbp, rsp
-
-    ; we'll put the halt instructions at the current break
-    B8 04 00 00 01    ; mov eax, program break (0x1000004)
-    8B 00             ; mov eax, dword [rax]
-
-    ; syscall is 0x7F and syscall number 0 is halt.
-    C7 00 7F 00 00 00      ; mov dword [rax],   0x0000007F  ; syscall 0
-
-    ; the address goes in the process info table
-    BF 08 00 00 01    ; mov edi, exit address (0x1000008)
-    89 07             ; mov [rdi], eax
-            ;
-            ;    ; the address of the halt code needs to be pushed on the VM stack. this
-            ;    ; makes it the return address of __start. it's the only thing on the stack
-            ;    ; which makes it the last word in the heap.
-            ;    BF FC FF FF 01    ; mov edi, 0x1FFFFFC (last word in heap)
-            ;    89 07             ; mov [rdi], eax
-            ;
-            ;    ; we also need to put this value into rsp, the initial stack pointer.
-            ;    BF 30 00 60 00     ; mov edi, rsp (0x600030)
-            ;    C7 07 FC FF FF 01  ; mov dword [rdi], 0x1FFFFFC (last word in heap)
-            ;
-
-                ; TODO no, we shouldn't be halting with 0
-                ; The halt code consists of two bytecode instructions:
-                ;     70 80 00 00  ; add r0 0 0
-                ;     7F 00 00 00  ; sys halt
-                ; This halts with an exit code of 0.
-            ;    C7 40 04 7F 00 00 00   ; mov dword [rax+4], 0x0000007F
-
-    ; finally, we increment the break past our bytecode and store it
-    83 C0 04          ; add eax, 4
-    BF 04 00 00 01    ; mov edi, program break (0x1000004)
-    89 07             ; mov [rdi], eax
-
-    ; return
-    48 89 EC  ; mov rsp, rbp
-    5D        ; pop rbp
-    C3        ; ret
-
-    ; padding
+; padding for a removed function
+@0x820
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
 @0x870
 
 
@@ -1063,7 +1034,7 @@
     BF 04 00 00 01   ; mov edi, program break (0x1000004)
     8B 3F            ; mov edi, [rdi]
 
-    ; store it in the process info table
+    ; store it as the working directory in the process info table
     B8 20 00 00 01   ; mov eax, working directory (0x1000020)
     89 38            ; mov [rax], edi
 
@@ -1106,10 +1077,8 @@
     C3        ; ret
 
     ; padding
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
     90 90 90 90 90
-@0x8D0
+@0x8C0
 
 
 ; ==========================================================
@@ -1119,7 +1088,7 @@
 ; - [rbp-4]: current position in the heap
 ; ==========================================================
 
-@0x8D0 initialize
+@0x8C0 initialize
     ; set up stack frame
     55                             ; push rbp
     48 89 E5                       ; mov rbp, rsp
@@ -1128,12 +1097,23 @@
     57   ; push rdi
 
 
+    ; Create the syscall instruction
+    ; This address is used as rip in the syscall table. The program will jump
+    ; here when it wants to make a syscall.
+    ; TODO if the syscall table isn't in the VM heap, this instruction doesn't
+    ; need to be either. We should decide on one or the other.
+    BE 28 00 00 01   ; mov esi, address of syscall instruction (0x1000028)
+    B8 7F 00 00 00   ; mov eax, 0x7F (custom opcode for syscall)
+    89 06            ; mov [rsi], eax
+
+
     ; copy stuff into the vm heap
 
-    ; set the program break to after the process info table. other
-    ; initialization functions will use this to add stuff to the vm heap.
+    ; set the program break to after the process info table and syscall
+    ; instruction. other initialization functions will use this to add stuff to
+    ; the vm heap.
     BE 04 00 00 01   ; mov esi, program break (0x1000004)
-    B8 28 00 00 01   ; mov eax, end of process info table (0x1000028)
+    B8 2C 00 00 01   ; mov eax, end of syscall instruction (0x100002C)
     89 06            ; mov [rsi], eax
 
     ; load command line and environment vars into vm heap
@@ -1142,10 +1122,6 @@
 
     ; load the working directory into vm heap
     B8 70 08 40 00    ; mov eax, load_working_directory (0x400870)
-    FF D0             ; call rax
-
-    ; load the halt instruction into the heap
-    B8 20 08 40 00    ; mov eax, setup_halt (0x400820)
     FF D0             ; call rax
 
     ; we will load the program next, set the break into rip and rpp
@@ -1157,20 +1133,23 @@
     89 07            ; mov [rdi], eax
 
     ; load the program into the vm heap (load_args_env above checked that it was given)
+    ; this also skips the wrap header if any
     488B7DF8          ; mov rdi, [rbp - 8]
     488B7F10          ; mov rdi, [rdi + 16]    ; program path from command line
     B8 70 07 40 00    ; mov eax, load_program (0x400770)
     FF D0             ; call rax
 
 
-    ; check for a wrap header
-
-
     ; load the remaining data into the process info table
 
     ; version
     BF 00 00 00 01   ; mov edi, version (0x1000000)
-    B8 01 00 00 00   ; mov eax, 1
+    B8 02 00 00 00   ; mov eax, 2
+    89 07            ; mov [rdi], eax
+
+    ; syscall table
+    BF 08 00 00 01   ; mov edi, syscall table (0x1000008)
+    B8 20 04 50 00   ; mov eax, syscall_table (0x500420)
     89 07            ; mov [rdi], eax
 
     ; input stream handle
@@ -1222,7 +1201,7 @@
 
     ; padding
     90 90 90 90 90 90 90 90
-    90 90 90 90 90
+    90 90 90 90
 @0x980
 
 
@@ -1427,12 +1406,15 @@
 
 @0xA80 run_instruction
     ; set up stack frame
-    55                             ; push rbp
-    48 89 E5                       ; mov rbp, rsp
+    ;55                             ; push rbp
+    ;48 89 E5                       ; mov rbp, rsp
 
     ; fetch rip into edi
     BF 3C 00 60 00   ; mov edi, rip (0x60003C)
+    ; TODO should check_word on rip
     8B 3F            ; mov edi, [rdi]
+
+;run_instruction_not_syscall:
 
     ; ensure rip is valid
     57                ; push rdi
@@ -1462,6 +1444,8 @@
     83 F8 70         ; cmp eax, 0x70
     74 0C            ; je run_instruction_opcode_ok (+12)
 
+    ; TODO also need to check that the opcode is not 0x7F
+
     ; if the opcode is bad, bail out
     BF E0 02 50 00   ; mov edi, "ERROR: Invalid instruction" (0x5002E0)
     B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
@@ -1476,7 +1460,7 @@
     ;     0b0010'0101'1111'1111 == 9727 == 0x25FF
     ;       0sys 0stb 1ror 1div
     ;        0jz  1ldb 1xor 1mul
-    ;         1cmp 0stw 1or  1sub
+    ;         1ltu 0stw 1or  1sub
     ;          0ims 1ldw 1and 1add
     ; (we have to put the shift amount in cl so we push it)
     51               ; push rcx
@@ -1531,11 +1515,12 @@
     ; just return.
 
     ; return
-    48 89 EC  ; mov rsp, rbp
-    5D        ; pop rbp
+    ;48 89 EC  ; mov rsp, rbp
+    ;5D        ; pop rbp
     C3        ; ret
 
     ; padding
+    90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90
@@ -1640,8 +1625,23 @@
     89 D7             ; mov edi, edx
     57                ; push rdi
     56                ; push rsi
-    B8 B0 09 40 00    ; mov eax, check_word (0x4009B0)
-    FF D0             ; call rax
+
+; TODO we're disabling memory checking on load for now because we want to
+; be able to access the syscall table in rodata. there's not much point in
+; doing memory checks on load considering we're allowing arbitrary native
+; addresses to be passed to the syscall instruction in r9.
+;
+; this can be fixed later, either by copying the syscall table into the vm heap
+; or, more likely, modifying the check functions to allow reading rodata. but
+; we should only really bother doing that if we're also going to fix all the
+; other possible memory corruption issues, which means not passing the syscall
+; function address as r9. it might keep everything a lot simpler if we remove
+; much of the checking code and just allow the VM to segfault on an invalid
+; address.
+
+    ;B8 B0 09 40 00    ; mov eax, check_word (0x4009B0)
+    ;FF D0             ; call rax
+
     5E                ; pop rsi
     5F                ; pop rdi
     ; fetch it into the register
@@ -1650,6 +1650,7 @@
     C3          ; ret
     90 90 90 90 90 90 90 90
     90 90 90 90
+90 90 90 90 90 90 90
 
 @0xC60 stw
     ; parse the args
@@ -1674,8 +1675,12 @@
     89 D7             ; mov edi, edx
     57                ; push rdi
     56                ; push rsi
-    B8 80 09 40 00    ; mov eax, check_byte (0x400980)
-    FF D0             ; call rax
+
+; TODO see ldw above, we're disabling load checks for now so programs can read
+; the syscall table
+    ;B8 80 09 40 00    ; mov eax, check_byte (0x400980)
+    ;FF D0             ; call rax
+
     5E                ; pop rsi
     5F                ; pop rdi
     ; fetch it into the register
@@ -1684,6 +1689,7 @@
     C3          ; ret
     90 90 90 90 90 90 90 90
     90 90 90
+90 90 90 90 90 90 90
 
 @0xCA0 stb
     ; parse the args
@@ -1742,12 +1748,33 @@
     90
 
 @0xD20 sys
-    B8 C0 0D 40 00   ; mov eax, opcode_sys (0x400DC0)
-    FF E0            ; jmp rax
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90
+
+    ; fetch r9 into eax
+    B8 24 00 60 00   ; mov eax, r9 (0x600024)
+    8B 00            ; mov eax, [rax]
+
+    ; call the syscall
+    ; (We're jumping to a native address given by the program! See the security
+    ; implications in the comments above the syscall table above.)
+    FF D0             ; call rax
+
+    ; load the top of the stack into rip
+    B8 30 00 60 00   ; mov eax, rsp (0x600030)
+    8B 00            ; mov eax, [rax]
+    ; TODO should check_word on this value
+    8B 00            ; mov eax, [rax]
+    BF 3C 00 60 00   ; mov edi, rip (0x60003C)
+    89 07            ; mov [rdi], eax
+
+    90 90 90 90 90 90 90
+
+
+    ;B8 C0 0D 40 00   ; mov eax, opcode_sys (0x400DC0)
+    ;FF E0            ; jmp rax
+    ;90 90 90 90 90 90 90 90
+    ;90 90 90 90 90 90 90 90
+    ;90 90 90 90 90 90 90 90
+    ;90
 
 
 
@@ -1828,6 +1855,10 @@
 
 @0xD90 opcode_jz
 
+    ; TODO we should parse the predicate first and ret immediately if it's
+    ; non-zero, no need for a +13 jump or all the register mixing. might make
+    ; this short enough to fit in the opcode table
+
     ; form the offset
     ; (it's in instructions, not in bytes, so we multiply by four)
     C1 E1 08         ; shl ecx, 8
@@ -1858,79 +1889,97 @@
 
 
 
-; ==========================================================
-; opcode_sys
-; ==========================================================
-; Performs a syscall.
-;
-; params:
-; - (edi is reserved for the parsed opcode number)
-; - arg1: esi  (syscall number)
-; - arg2: edx  (must be zero)
-; - arg3: ecx  (must be zero)
-; ==========================================================
-
-@0xDC0 opcode_sys
-    ; set up stack frame
-    55           ; push rbp
-    48 89 E5     ; mov rbp, rsp
-
-    ; the second and third arguments to syscall must both be zero.
-    09 CA      ; or edx, ecx
-    83 FA 00   ; cmp edx, 0
-    74 0C      ; je opcode_sys_no_extra_args (+12)
-    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-    FF D0            ; call rax
-;opcode_sys_no_extra_args:
-
-    ; our syscall table has 64 entries
-    83 FE 40         ; cmp esi, 0x40
-    72 0C            ; jb opcode_sys_in_range (+12)
-    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-    FF D0            ; call rax
-;opcode_sys_in_range:
-
-    ; get the syscall function address
-    B8 80 04 50 00    ; mov eax, syscall_table (0x500480)
-    C1 E6 01          ; shl esi, 1
-    01 F0             ; add eax, esi
-    0F BF 00          ; movsx eax, word [rax]
-
-    ; if the syscall is zero, we don't support it
-    83 F8 00         ; cmp eax, 0
-    75 0C            ; jne opcode_sys_not_zero (+12)
-    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-    FF D0            ; call rax
-;opcode_sys_not_zero:
-
-    ; call it
-    05 00 00 40 00    ; add eax, text section (0x400000)
-    FF D0             ; call rax
-
-    ; return
-    48 89 EC     ; mov rsp, rbp
-    5D           ; pop rbp
-    C3           ; ret
-
-    ; padding (nop)
+; padding for a removed function
+@0xDC0
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
 @0xE20
 
 
 
+;;;; ==========================================================
+;;;; opcode_sys
+;;;; ==========================================================
+;;;; Performs a syscall.
+;;;;
+;;;; params:
+;;;; - (edi is reserved for the parsed opcode number)
+;;;; - arg1: esi  (syscall number)
+;;;; - arg2: edx  (must be zero)
+;;;; - arg3: ecx  (must be zero)
+;;;; ==========================================================
+;;;
+;;;@0xDC0 opcode_sys
+;;;    ; set up stack frame
+;;;    55           ; push rbp
+;;;    48 89 E5     ; mov rbp, rsp
+;;;
+;;;    ; the second and third arguments to syscall must both be zero.
+;;;    09 CA      ; or edx, ecx
+;;;    83 FA 00   ; cmp edx, 0
+;;;    74 0C      ; je opcode_sys_no_extra_args (+12)
+;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
+;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+;;;    FF D0            ; call rax
+;;;;opcode_sys_no_extra_args:
+;;;
+;;;    ; our syscall table has 64 entries
+;;;    83 FE 40         ; cmp esi, 0x40
+;;;    72 0C            ; jb opcode_sys_in_range (+12)
+;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
+;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+;;;    FF D0            ; call rax
+;;;;opcode_sys_in_range:
+;;;
+;;;    ; get the syscall function address
+;;;    B8 80 04 50 00    ; mov eax, syscall_table (0x500480)
+;;;    C1 E6 01          ; shl esi, 1
+;;;    01 F0             ; add eax, esi
+;;;    0F BF 00          ; movsx eax, word [rax]
+;;;
+;;;    ; if the syscall is zero, we don't support it
+;;;    83 F8 00         ; cmp eax, 0
+;;;    75 0C            ; jne opcode_sys_not_zero (+12)
+;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
+;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+;;;    FF D0            ; call rax
+;;;;opcode_sys_not_zero:
+;;;
+;;;    ; call it
+;;;    05 00 00 40 00    ; add eax, text section (0x400000)
+;;;    FF D0             ; call rax
+;;;
+;;;    ; return
+;;;    48 89 EC     ; mov rsp, rbp
+;;;    5D           ; pop rbp
+;;;    C3           ; ret
+;;;
+;;;    ; padding (nop)
+;;;    90 90 90 90 90 90 90 90
+;;;    90 90 90 90 90 90
+;;;@0xE20
+
+
+
 ; ==========================================================
-; void syscall_halt(void)
+; void syscall_exit(void)
 ; ==========================================================
 ; Halts the VM.
 ;
 ; r0 contains the exit code. It must be in the range of 0 to 255.
 ; ==========================================================
 
-@0xE20 syscall_halt
+@0xE20 syscall_exit
     ; don't bother with a stack frame
 
     ; get the exit code from r0
@@ -2146,6 +2195,11 @@
     5F               ; pop rdi       ; file descriptor
     0F 05            ; syscall
 
+    ; zero r0
+    31 C0            ; xor eax, eax
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    67 89 07         ; mov [edi], eax
+
     ; return
     48 89 EC     ; mov rsp, rbp
     5D           ; pop rbp
@@ -2157,8 +2211,7 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90
+    90 90 90 90 90
 @0xF90
 
 
@@ -2832,7 +2885,39 @@
 
 
 
+@0x14B0
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+@0x1580
+
+
+
 ; Note: When extending the text segment, the sizes in the header at 0x40 must
 ; be incremented to include it!
 
-@0x14B0  ; end of program, corresponds to size in ELF text header
+@0x1580  ; end of program, corresponds to size in ELF text header
