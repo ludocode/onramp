@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2024 Fraser Heavy Software
+; Copyright (c) 2024-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; format indicator `~Onr~amp~   `
@@ -10,13 +10,15 @@
 ; move process info table to r9
 70 89 00 80   ; add r9 0 r0
 
-; put 1 into r0 now, we'll exit if an error occurs
-70 80 00 01   ; add r0 0 1
-
 ; 1 >> 1 == 0
 77 81 01 01   ; shru r1 1 1
-7E 81 01 00   ; jz r1 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+7E 81 04 00   ; jz r1 4
+
+; fail, exit 1
+70 80 00 01   ; add r0 0 1    ; exit code 1
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; 0x80000000u >> 1 == 0x40000000u
 7C 82 00 80   ; ims r2 0x8000
@@ -25,25 +27,42 @@
 7C 83 00 40   ; ims r3 0x4000
 7C 83 00 00   ; ims r3 0x0000
 71 84 81 83   ; sub r4 r1 r3
-7E 84 01 00   ; jz r4 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+7E 84 04 00   ; jz r4 4
+
+; fail, exit 2
+70 80 00 02   ; add r0 0 2    ; exit code 2
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; 0x80000000u >> 31 == 1u
 7C 82 00 80   ; ims r2 0x8000
 7C 82 00 00   ; ims r2 0x0000
 77 81 82 1F   ; shru r1 r2 31
 71 81 81 01   ; sub r1 r1 1
-7E 81 01 00   ; jz r1 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+7E 81 04 00   ; jz r1 4
+
+; fail, exit 3
+70 80 00 03   ; add r0 0 3    ; exit code 3
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; 21 >> 2 == 5 (using different registers)
 70 82 02 00   ; add r2 2 0    ; mov r2 2
 70 8B 00 15   ; add rb 0 15   ; mov rb 15
 77 8A 8B 82   ; shru ra rb r2
 71 8B 8A 05   ; sub rb ra 5
-7E 8B 01 00   ; jz rb 1
-78 8F 89 08   ; ldw rip r9 8   ; error, exit(1)
+7E 8B 04 00   ; jz rb 4
+
+; fail, exit 4
+70 80 00 04   ; add r0 0 4    ; exit code 4
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip
 
 ; success. exit 0
-70 80 00 00   ; add r0 0 0
-78 8F 89 08   ; ldw rip r9 8  (exit address)
+70 80 00 00   ; add r0 0 0    ; exit code 0
+78 88 89 08   ; ldw r8 r9 8   ; syscall table
+78 89 88 04   ; ldw r9 r8 4   ; syscall exit r9
+78 8F 88 00   ; ldw rip r8 0  ; syscall exit rip

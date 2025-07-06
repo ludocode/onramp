@@ -95,6 +95,9 @@ VM_ERR_PATH        = 0xFFFFFFFE
 VM_ERR_IO          = 0xFFFFFFFD
 VM_ERR_UNSUPPORTED = 0xFFFFFFFC
 
+# syscalls
+SYSCALL_COUNT = 23
+
 def loadByte(address):
     return memory[(address & 0xFFFFFFFF) - BASE_ADDR]
 
@@ -128,107 +131,111 @@ def mix(value):
         return value | 0xFFFFFF00
     return value
 
-def syscall(number):
-    if number == 0x00:  # halt
-        sys.exit(registers[0])
+def syscall_exit():
+    sys.exit(registers[0])
 
-    if number == 0x01:  # time
-        addr = registers[0]
-        curtime = time.time()
-        storeWord(addr, int(curtime) & 0xFFFFFFFF)
-        storeWord(addr + 4, (int(curtime) >> 32) & 0xFFFFFFFF)
-        storeWord(addr + 8, int((curtime * 1000000000) % 1000000000))
+def syscall_time():
+    addr = registers[0]
+    curtime = time.time()
+    storeWord(addr, int(curtime))
+    storeWord(addr + 4, int(curtime) >> 32)
+    storeWord(addr + 8, int((curtime * 1000000000) % 1000000000))
+    registers[0] = 0
+
+def syscall_fopen():
+    for i in range(len(handles)):
+        if handles[i] is None:
+            try:
+                handles[i] = open(loadString(registers[0]), registers[1] and "wb" or "rb")
+                registers[0] = i
+            except:
+                # TODO: VM_ERR_PATH is for file not found, and other errors
+                # should be VM_ERR_IO. We could catch FileNotFoundError but
+                # this is Python 3 only. For now we just give the generic
+                # error; this is allowed in the Onramp spec.
+                registers[0] = VM_ERR_GENERIC
+            return
+    registers[0] = VM_ERR_GENERIC
+
+def syscall_fclose():
+    # Shouldn't be able to close standard streams, we don't bother to check
+    handles[registers[0]].close()
+    handles[registers[0]] = None
+    registers[0] = 0
+
+def syscall_fread():
+    file = handles[registers[0]]
+    address = registers[1]
+    count = registers[2]
+    i = 0
+    while i < count:
+        b = file.read(count - i)
+        # TODO try to handle errors gracefully. A read at EOF will return a
+        # size of 0 which we handle correctly but a read error will throw
+        # an exception. For now we let it take down the whole VM.
+        if not b:
+            break
+        for j in range(len(b)):
+            memory[((address + i + j) & 0xFFFFFFFF) - BASE_ADDR] = b[j]
+        i += len(b)
+    registers[0] = i
+
+def syscall_fwrite():
+    addr = registers[1] - BASE_ADDR
+    handles[registers[0]].write(memory[addr:addr + registers[2]])
+    handles[registers[0]].flush()
+    # TODO try to handle errors gracefully. For now a write error takes
+    # down the whole VM.
+    registers[0] = registers[2]
+
+def syscall_fseek():
+    file = handles[registers[0]]
+    base = registers[1]
+    offset = registers[2] | (registers[3] << 32)
+    if offset >= 2**63:
+        offset = offset - 2**64
+    file.seek(offset, base)
+    registers[0] = 0
+
+def syscall_ftell():
+    position = handles[registers[0]].tell()
+    addr = registers[1]
+    storeWord(addr, position)
+    storeWord(addr + 4, position >> 32)
+    registers[0] = 0
+
+def syscall_ftrunc():
+    handles[registers[0]].truncate(registers[1] | (registers[2] << 32))
+    registers[0] = 0
+    return
+
+def syscall_unlink():
+    try:
+        os.remove(loadString(registers[0]))
         registers[0] = 0
-        return
-
-    if number == 0x02:  # spawn
-        raise Exception("spawn syscall not yet implemented")
-
-    if number == 0x03:  # fopen
-        for i in range(len(handles)):
-            if handles[i] is None:
-                try:
-                    handles[i] = open(loadString(registers[0]), registers[1] and "wb" or "rb")
-                    registers[0] = i
-                except:
-                    registers[0] = VM_ERR_PATH
-                return
+    except:
         registers[0] = VM_ERR_GENERIC
-        return
 
-    if number == 0x04:  # fclose
-        # Shouldn't be able to close standard streams, we don't bother to check
-        handles[registers[0]].close()
-        handles[registers[0]] = None
-        return
-
-    if number == 0x05:  # fread
-        file = handles[registers[0]]
-        address = registers[1]
-        count = registers[2]
-        i = 0
-        while i < count:
-            b = file.read(count - i)
-            # TODO try to handle errors gracefully. A read at EOF will return a
-            # size of 0 which we handle correctly but a read error will throw
-            # an exception. For now we let it take down the whole VM.
-            if not b:
-                break
-            for j in range(len(b)):
-                memory[((address + i + j) & 0xFFFFFFFF) - BASE_ADDR] = b[j]
-            i += len(b)
-        registers[0] = i
-        return
-
-    if number == 0x06:  # fwrite
-        addr = registers[1] - BASE_ADDR
-        handles[registers[0]].write(memory[addr:addr + registers[2]])
-        handles[registers[0]].flush()
-        # TODO try to handle errors gracefully. For now a write error takes
-        # down the whole VM.
-        registers[0] = registers[2]
-        return
-
-    if number == 0x07:  # fseek
-        file = handles[registers[0]]
-        base = registers[1]
-        offset = registers[2] | (registers[3] << 32)
-        if offset >= 2**63:
-            offset = offset - 2**64
-        file.seek(offset, base)
+def syscall_chmod():
+    try:
+        os.chmod(loadString(registers[0]), registers[1])
         registers[0] = 0
-        return
+    except:
+        registers[0] = VM_ERR_GENERIC
 
-    if number == 0x08:  # ftell
-        position = handles[registers[0]].tell()
-        addr = registers[1]
-        storeWord(addr, position)
-        storeWord(addr + 4, position >> 32)
-        registers[0] = 0
-        return
-
-    if number == 0x09:  # ftrunc
-        handles[registers[0]].truncate(registers[1] | (registers[2] << 32))
-        registers[0] = 0
-        return
-
-    if number == 0x10:  # unlink
-        try:
-            os.remove(loadString(registers[0]))
-            registers[0] = 0
-        except:
-            registers[0] = VM_ERR_GENERIC
-        return
-
-    if number == 0x11:  # chmod
-        try:
-            os.chmod(loadString(registers[0]), registers[1])
-            registers[0] = 0
-        except:
-            registers[0] = VM_ERR_GENERIC
-        return
-
-    raise Exception("Invalid or unimplemented syscall: " + str(number))
+syscalls = {
+    0: syscall_exit,
+    2: syscall_time,
+    3: syscall_fopen,
+    4: syscall_fclose,
+    5: syscall_fread,
+    6: syscall_fwrite,
+    7: syscall_fseek,
+    8: syscall_ftell,
+    9: syscall_ftrunc,
+    16: syscall_unlink,
+    17: syscall_chmod,
+}
 
 def run():
 
@@ -237,18 +244,26 @@ def run():
     memory_ints = globals()["memory_ints"]
     registers = globals()["registers"]
     mix = globals()["mix"]
-    syscall = globals()["syscall"]
 
     while True:
-        offset = registers[RIP] - BASE_ADDR
 
+        # Load the instruction.
         # Note that we ignore the upper 4 bits of the opcode. We assume it
         # starts with 0x7. Skipping this check gives a ~5% performance
         # improvement.
+        offset = registers[RIP] - BASE_ADDR
         opcode = memory[offset] & 0xF
         a = memory[offset + 1]
         b = memory[offset + 2]
         c = memory[offset + 3]
+
+        # Debug helpers
+        #print(f"rip {hex(registers[RIP])} {hex(memory[offset])[2:]}" +
+        #        f" {hex(a)[2:]} {hex(b)[2:]} {hex(c)[2:]}", file=sys.stderr)
+        #if memory[offset] & 0xF0 != 0x70:
+        #    print(f"Invalid instruction at {hex(offset)}")
+        #    sys.exit(125)
+
         registers[RIP] += 4
 
         # Note also that we ignore the upper 4 bits of any destination
@@ -282,11 +297,11 @@ def run():
             if opcode == 8:
                 registers[a & 0xF] = memory_ints[(((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR) >> 2]    # ldw
             elif opcode == 9:
-                memory_ints[(((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR) >> 2] = mix(a) & 0xFFFFFFFF   # stw
+                memory_ints[(((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR) >> 2] = mix(a)  # stw
             elif opcode == 10:
                 registers[a & 0xF] = memory[((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR]  # ldb
             else:
-                memory[((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR] = mix(a) & 0xFF       # stb
+                memory[((mix(b) + mix(c)) & 0xFFFFFFFF) - BASE_ADDR] = mix(a) & 0xFF  # stb
         else:
             if opcode == 12:
                 registers[a & 0xF] = (registers[a & 0xF] & 0xFFFF) << 16 | b | c << 8  # ims
@@ -299,11 +314,16 @@ def run():
                 if 0 == mix(a): registers[RIP] = (registers[RIP] +
                         ((0x7FFF - ((0x7FFF - (b | c << 8)) & 0xFFFF)) << 2)) & 0xFFFFFFFF  # jz
             else:
-                syscall(a)
+                syscall = registers[9]
+                if syscall not in syscalls:
+                    raise Exception("Invalid opcode or unsupported syscall.")
+                syscalls[syscall]()
+                registers[RIP] = loadWord(registers[RSP])
 
-def start():
+def initialize():
+    # We use breakAddress as a cursor into the heap where we append data.
     # Python 2 doesn't support nonlocal so we just make this global.
-    global pos
+    global breakAddress
 
     # Parse args
     args = sys.argv
@@ -313,47 +333,60 @@ def start():
     args = args[1:]
 
     # Make space for the process info table
-    pos = BASE_ADDR
-    tableAddress = pos
-    pos += 4 * 10
+    breakAddress = BASE_ADDR
+    tableAddress = breakAddress
+    breakAddress += 4 * 10
 
     # Helper to copy string into VM heap
     def copyString(string):
-        global pos
-        stringAddress = pos
+        global breakAddress
+        stringAddress = breakAddress
         for b in string.encode("UTF-8") + b'\0':
-            storeByte(pos, b)
-            pos += 1
+            storeByte(breakAddress, b)
+            breakAddress += 1
         return stringAddress
 
     # Helper to copy string table to VM heap
     def copyStrings(strings):
-        global pos
-        tableAddress = pos
-        pos += (len(strings) + 1) * 4
+        global breakAddress
+        tableAddress = breakAddress
+        breakAddress += (len(strings) + 1) * 4
         for i in range(len(strings)):
             storeWord(tableAddress + i * 4, copyString(strings[i]))
         storeWord(tableAddress + len(strings) * 4, 0)
-        pos = (pos + 3) & ~3  # keep memory position aligned
+        breakAddress = (breakAddress + 3) & ~3  # keep memory position aligned
         return tableAddress
 
     # Copy args, env vars, working directory to VM heap
     argsAddress = copyStrings(args)
     envAddress = copyStrings([key + "=" + value for key, value in os.environ.items()])
     dirAddress = copyString(os.getcwd())
-    pos = (pos + 3) & ~3  # keep memory position aligned
+    breakAddress = (breakAddress + 3) & ~3  # keep memory position aligned
+
+    # Put a 0x7F opcode into mapped memory. We'll use this to detect syscalls.
+    # (This is faster than checking for a fixed address on every instruction.)
+    syscallAddress = breakAddress
+    breakAddress += 4
+    storeByte(syscallAddress, 0x7F)
+
+    # Write syscall table
+    syscallTableAddress = breakAddress
+    breakAddress += SYSCALL_COUNT * 8
+    for i in syscalls:
+        storeWord(syscallTableAddress + i * 8, syscallAddress)  # rip
+        storeWord(syscallTableAddress + i * 8 + 4, i)           # r9
 
     # Write halt bytecode into VM heap
-    haltAddress = pos
-    pos += 4
+    haltAddress = breakAddress
+    breakAddress += 4
     storeWord(haltAddress, 0x0000007F)
 
     # Load program into VM heap
-    programAddress = pos
+    programAddress = breakAddress
     with open(filename, "rb") as f:
         for b in f.read():
-            storeByte(pos, b)
-            pos += 1
+            storeByte(breakAddress, b)
+            breakAddress += 1
 
     # Skip any #! or REM wrap header
     programIndex = programAddress - BASE_ADDR
@@ -368,22 +401,21 @@ def start():
     registers[RSP] = BASE_ADDR + MEMORY_SIZE
 
     # Fill process info table
-    storeWord(tableAddress, 1) # version
-    storeWord(tableAddress + 4, pos)  # break
-    storeWord(tableAddress + 8, haltAddress)  # exit address
+    storeWord(tableAddress, 2) # version
+    storeWord(tableAddress + 4, breakAddress)  # program break
+    storeWord(tableAddress + 8, syscallTableAddress)  # syscall table
     storeWord(tableAddress + 12, 0)  # input stream handle
     storeWord(tableAddress + 16, 1)  # output stream handle
     storeWord(tableAddress + 20, 2)  # error stream handle
     storeWord(tableAddress + 24, argsAddress)  # command-line args
-    storeWord(tableAddress + 28, envAddress)  # environment vars
-    storeWord(tableAddress + 32, dirAddress)  # working directory
+    storeWord(tableAddress + 28, envAddress)   # environment vars
+    storeWord(tableAddress + 32, dirAddress)   # working directory
     storeWord(tableAddress + 36, 7)  # capabilities = echo | blocking | line-oriented
-
-    run()
 
 if __name__ == "__main__":
     try:
-        start()
+        initialize()
+        run()
     except SystemExit:
         raise
     except:

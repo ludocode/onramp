@@ -590,61 +590,6 @@ uint8_t parse_mix_non_scratch(void) {
     return value;
 }
 
-static uint8_t syscall_number(const char* name) {
-    // we don't bother with a hashtable; sys is rarely used.
-
-    // system
-    if (0 == strcmp(name, "halt")) return 0x00;
-    if (0 == strcmp(name, "time")) return 0x01;
-    if (0 == strcmp(name, "spawn")) return 0x02;
-
-    // files
-    if (0 == strcmp(name, "fopen")) return 0x03;
-    if (0 == strcmp(name, "fclose")) return 0x04;
-    if (0 == strcmp(name, "fread")) return 0x05;
-    if (0 == strcmp(name, "fwrite")) return 0x06;
-    if (0 == strcmp(name, "fseek")) return 0x07;
-    if (0 == strcmp(name, "ftell")) return 0x08;
-    if (0 == strcmp(name, "ftrunc")) return 0x09;
-
-    // directories
-    if (0 == strcmp(name, "dopen")) return 0x0A;
-    if (0 == strcmp(name, "dclose")) return 0x0B;
-    if (0 == strcmp(name, "dread")) return 0x0C;
-
-    // filesystem
-    if (0 == strcmp(name, "stat")) return 0x0D;
-    if (0 == strcmp(name, "rename")) return 0x0E;
-    if (0 == strcmp(name, "symlink")) return 0x0F;
-    if (0 == strcmp(name, "unlink")) return 0x10;
-    if (0 == strcmp(name, "chmod")) return 0x11;
-    if (0 == strcmp(name, "mkdir")) return 0x12;
-    if (0 == strcmp(name, "rmdir")) return 0x13;
-
-    fatal("Argument to sys instruction is not a syscall.");
-}
-
-uint8_t parse_syscall_number(void) {
-    consume_whitespace_and_comments();
-    if (try_parse_identifier()) {
-        return syscall_number(identifier);
-    }
-
-    int32_t value;
-    if (try_parse_number(&value)) {
-        if (value < 0 || value > UINT8_MAX)
-            fatal("Syscall number out of bounds.");
-        return (uint8_t)value;
-    }
-
-    uint8_t byte;
-    if (try_parse_quoted_byte(&byte)) {
-        return byte;
-    }
-
-    fatal("Expected a syscall name, number or quoted byte.");
-}
-
 static bool is_string_char_valid(char c) {
     // we don't check for double-quote, that should have been checked first
 

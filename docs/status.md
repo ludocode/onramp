@@ -55,7 +55,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 | Debugger breakpoints                                          |        |
 | Profiling                                                     |        |
 
-\* Syscalls are currently implemented as an instruction. This will be changed to a table of foreign function pointers where NULL can be used for unimplemented optional syscalls. This is the most pressing issue at the moment which is blocking many other features.
+\* Syscalls are currently implemented as an instruction. This will be changed to a table of external function pointers where NULL can be used for unimplemented optional syscalls. This is the most pressing issue at the moment which is blocking many other features.
 
 \* Debug info works well in the c-debugger for a single program, but spawned programs are ignored. A new syscall is needed so that a program can inform the debugger when it loads another program.
 
@@ -198,6 +198,7 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 | wide character support: `<wchar.h>`, `<wctype.h>`             |        |
 | wide character I/O                                            |        |
 | `<iso646.h>` alternate macros                                 |    ✓   |
+
 
 
 

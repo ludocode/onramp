@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,11 @@ void debug_destroy(void);
  * address.
  */
 void debug_load(const char* executable_filename, size_t address);
+
+/**
+ * Unloads debug info at the given address.
+ */
+void debug_unload(size_t program_base);
 
 /**
  * Finds the source filename and line location for a given code address in

@@ -40,7 +40,7 @@
  * optionally.
  */
 
-long strtol_impl(const char* restrict p, char** restrict end, int base, bool set_errno) {
+static long strtol_impl(const char* restrict p, char** restrict end, int base, bool set_errno) {
 
     // base check
     if (((base < 0) | (base == 1)) | (base > 36)) {

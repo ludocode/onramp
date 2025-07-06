@@ -165,7 +165,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
         echo "Commands:"
         echo "    make build && \\"
         echo "    $COMMAND $ARGS && \\"
-        echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-0-oo/libc.oa $TEMP_OO -o $TEMP_OE && \\"
+        echo "    $ROOT/build/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE >$TEMP_STDOUT && \\"
         echo "    diff -u $BASENAME.oo $TEMP_OO"
         if [ -e $BASENAME.stdout ]; then

@@ -28,7 +28,7 @@
 ; Calculates the fnv1a hash of the given null-terminated string.
 ;
 ; We use FNV-1a as our hash function because it's extremely simple to
-; implement (only 15 instructions.)
+; implement (only 14 instructions.)
 ;
 ; params:
 ; - str: r0
@@ -62,8 +62,7 @@
     70 81 81 01    ; add r1 r1 1       ; inc r1
 
     ; see if it's the end of the string
-    71 8A 82 00          ; sub ra r2 0
-    7E 8A &fnv1a_cstr_done    ; jz ra &fnv1a_cstr_done
+    7E 82 &fnv1a_cstr_done    ; jz r2 &fnv1a_cstr_done
 
     ; update the hash
     75 8A 80 82     ; or ra r0 r2    ; xor r0 r0 r2

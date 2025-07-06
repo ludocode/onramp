@@ -40,7 +40,9 @@ The `;` character starts a line comment. The rest of the line until the next car
 
 ## Debug Info
 
-A `#` character is intended to be used for debug info. Currently all hex tools treat this as another kind of line comment.
+A `#` character is intended to be used for debug info. No debug directives are currently defined for hex files. Currently all hex tools treat this as another kind of line comment.
+
+(The [hex/c89](../core/hex/1-c89/) tool generates line and symbol debug info without the need for debug directives in the input file.)
 
 
 
@@ -70,19 +72,28 @@ An address assertion is a special kind of comment that a hex tool can use to ver
 
 The `@` character starts an address assertion. It is followed by `0x` and a hexadecimal address. A hex tool that supports address assertions verifies that the value of the address assertion matches the number of bytes that have been emitted so far.
 
-The address must be followed by a line ending or by horizontal whitespace. After horizontal whitespace, the rest of the line (until the next carriage return or line feed) is ignored. Onramp hexadecimal files sometimes follow the address by the name of the symbol or label being defined or the string being encoded.
+The address must be followed by a line ending or by horizontal whitespace. After horizontal whitespace, the rest of the line is treated as a comment, except that it may be used for the generation of debug info.
 
 ```asm
-@0x100 "Hello"
+@0x100 hello
+; "Hello"
 48 65 6c 6c 6f
+@0x105
 
-@0x105 main (comment comment comment)
+@0x105 =main (comment comment comment)
 ; ...
 ; ...
 ; ...
+@0x140
 ```
 
 Address assertions are optional. Implementations of `hex` can instead treat the entire line starting from `@` as a comment, the same as `;` and `#`.
+
+### Debug Info Generation
+
+When generating debug info, if an address assertion is followed by an identifier on the same line, the [hex/c89](../core/hex/1-c89/) tool will use this as the symbol name for subsequent bytes. Onramp hexadecimal bytecode files typically start each symbol with an address assertion containing the name of the symbol being defined, as seen in the example above.
+
+This allows the [debugger VM](../platform/vm/c-debugger/) to provide rich stack traces and location information even for handwritten hexadecimal bytecode.
 
 
 

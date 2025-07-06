@@ -29,12 +29,24 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__size_t.h>
+
 int posix_spawn(void); //TODO
 
+void __onramp_load_debug(const void* address, const char* /*optional*/ path);
+
+int __onramp_spawn_pit(
+         const void* program,
+         const size_t size,
+         void* process_info_table,
+         const char* filename);
+
+/*
 int __onramp_spawn(
         int* process_info_table,
         char* memory_start,
         char* memory_end);
+        */
 
 /**
  * Runs an Onramp executable as a child process within this VM.

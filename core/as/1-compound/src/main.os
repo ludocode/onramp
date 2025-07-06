@@ -92,9 +92,6 @@
 =error_jmp_linker
     "The linker directive for `jmp` must be a 16-bit relative or 32-bit absolute invocation." '00
 
-=error_sys
-    "Expected a syscall name and double zeroes."
-
 
 
 ; ==========================================================

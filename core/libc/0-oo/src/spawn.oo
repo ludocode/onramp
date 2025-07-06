@@ -22,6 +22,244 @@
 
 
 
+; TODO nothing uses this until libc/1 is bootstrapped so this should be moved
+; to libc/1 and converted to assembly. but we will need this bytecode spawn
+; code for the onramp shell so for now we keep it in bytecode.
+
+
+
+; ==========================================================
+; void __onramp_load_debug(const void* address, const char* /*optional*/ path);
+; ==========================================================
+; Loads debug info for a child program if supported by the VM.
+;
+; The return value of the syscall is ignored.
+; ==========================================================
+
+=__onramp_load_debug
+
+    ; get syscall debug into r7
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 16 03   ; shl ra 22 3       ; ra = offset of debug syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of debug syscall
+
+    ; check if the syscall exists
+    78 86 87 00   ; ldw r6 r7 0    ; r6 = rip of debug syscall
+    7E 86 &__onramp_load_debug_not_supported
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+:__onramp_load_debug_not_supported
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int __onramp_spawn_pit(
+;         const void* program,
+;         const size_t size,
+;         void* process_info_table,
+;         const char* filename);
+; ==========================================================
+; Runs an Onramp executable as a child process within this VM using the given
+; process info table.
+;
+; The given process info table is used for the child. The syscall table will be
+; replaced with one allocated by this function. The rest of the process info
+; table must be valid before calling this.
+;
+; vars:
+;     program_bytes: rfp-4
+;     child_pit: rfp-8
+;     exit_code: rfp-12
+;     heap_start: rfp-16
+;     heap_end: rfp-20
+;     program_size: rfp-24
+;     filename: rfp-28
+;     parent program pointer: rfp-32
+; ==========================================================
+
+=__onramp_spawn_pit
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store vars
+    71 8C 8C 20     ; sub rsp rsp 32
+    79 80 8D FC     ; stw r0 rfp -4
+    79 82 8D F8     ; stw r2 rfp -8
+    79 81 8D E8     ; stw r1 rfp -24
+    79 83 8D E4     ; stw r3 rfp -28
+    79 8E 8D E0     ; stw rpp rfp -32
+
+    ; duplicate our syscall table. as of this writing there are 23 syscalls. we
+    ; need 8 bytes per syscall.
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 80 8E 8A                    ; ldw r0 rpp ra    ; __process_info_table
+    78 80 80 08                    ; ldw r0 r0 8      ; __process_info_table[SYSCALLS]
+    76 81 17 03                    ; shl r1 23 3      ; r1 = 23 << 3
+
+    ; call __memdup()
+    7C 8A <__memdup   ; ims ra <__memdup
+    7C 8A >__memdup   ; ims ra >__memdup
+    71 8C 8C 04       ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra         ; jump
+    70 8C 8C 04       ; add rsp rsp 4          ; pop return address
+
+    ; TODO check for out-of-memory
+
+    ; store the child syscall_table in the child process info table
+    78 81 8D F8     ; ldw r1 rfp -8   ; child_pit
+    79 80 81 08     ; stw r0 r1 8     ; child_pit[SYSCALLS] = child_syscall_table
+
+    ; replace the exit syscall with our own. the child will call this it when
+    ; it wants to exit. we pass the stack pointer as the context so we can
+    ; share this stack frame.
+    7C 8A <__onramp_spawn_syscall_exit   ; ims ra <__onramp_spawn_syscall_exit
+    7C 8A >__onramp_spawn_syscall_exit   ; ims ra >__onramp_spawn_syscall_exit
+    70 8A 8E 8A     ; add ra rpp ra
+    79 8A 80 00     ; stw ra r0 0
+    79 8C 80 04     ; stw rsp r0 4
+
+    ; TODO we also need to replace fopen/fclose and malloc/free so we can close
+    ; any open files and free any allocated memory when the program exits. We
+    ; might not bother doing this in bootstrapping.
+
+    ; call __malloc_largest_unused_region()
+    70 80 8D F0     ; add r0 rfp -16
+    7C 8A <__malloc_largest_unused_region   ; ims ra <__malloc_largest_unused_region
+    7C 8A >__malloc_largest_unused_region   ; ims ra >__malloc_largest_unused_region
+    71 8C 8C 04       ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra         ; jump
+    70 8C 8C 04       ; add rsp rsp 4          ; pop return address
+
+    ; calculate child heap dimensions
+    78 81 8D F0     ; ldw r1 rfp -16
+    70 81 80 81     ; add r1 r0 r1
+    79 80 8D F0     ; stw r0 rfp -16   ; heap_start
+    79 81 8D EC     ; stw r1 rfp -20   ; heap_end
+
+    ; write the child program break into the pit
+    78 82 8D E8     ; ldw r2 rfp -24   ; program_size
+    70 82 80 82     ; add r2 r0 r2
+    78 81 8D F8     ; ldw r1 rfp -8   ; child_pit
+    79 82 81 04     ; stw r2 r1 4     ; child_pit[PROGRAM_BREAK] = heap_start + program_size
+
+    ; prepare arguments to copy the program into the new heap
+    ; TODO we should separate the program from the heap and stack so we don't
+    ; need to do this.
+    78 80 8D F0     ; ldw r0 rfp -16   ; heap_start
+    78 81 8D FC     ; ldw r1 rfp -4    ; program_bytes
+    78 82 8D E8     ; ldw r2 rfp -24   ; program_size
+
+    ; call memcpy()
+    7C 8A <memcpy     ; ims ra <memcpy
+    7C 8A >memcpy     ; ims ra >memcpy
+    71 8C 8C 04       ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra         ; jump
+    70 8C 8C 04       ; add rsp rsp 4          ; pop return address
+
+    ; call __onramp_load_debug(heap_start, filename)
+    ; r0 already contains the heap start
+    78 81 8D E4       ; ldw r1 rfp -28
+    7C 8A <__onramp_load_debug     ; ims ra <__onramp_load_debug
+    7C 8A >__onramp_load_debug     ; ims ra >__onramp_load_debug
+    71 8C 8C 04       ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra         ; jump
+    70 8C 8C 04       ; add rsp rsp 4          ; pop return address
+
+    ; set registers for the new program. note we're switching stacks here
+    78 8E 8D F0     ; ldw rpp rfp -16   ; heap_start
+    78 80 8D F8     ; ldw r0 rfp -8     ; child_pit
+    78 8C 8D EC     ; ldw rsp rfp -20   ; heap_end
+    70 8D 00 00     ; add rfp 0 0       ; zero rfp     ; not really necessary but helps debugging
+
+    ; jump to the program
+    70 8F 8E 00     ; add rip rpp 0    ; mov rip rpp
+
+
+
+; ==========================================================
+; static void __onramp_spawn_syscall_exit(int exit_code);
+; ==========================================================
+; A syscall called by a child process to exit.
+;
+; This shares the stack frame layout of __onramp_spawn_pit().
+; ==========================================================
+
+@__onramp_spawn_syscall_exit
+
+    ; This is called by the child via the system call call convention. It has
+    ; placed the context, our original stack pointer, in r9.
+
+    ; restore our stack pointer
+    70 8C 89 00     ; add rsp r9 0
+
+    ; restore our frame pointer
+    70 8D 8C 20     ; add rfp rsp 32
+
+    ; restore our program pointer
+    78 8E 8D E0     ; ldw rpp rfp -32
+
+    ; We've now restored the stack frame of __onramp_spawn_pit(), so we can
+    ; access all of its variables.
+
+    ; store the exit code
+    79 80 8D F4     ; stw r0 rfp -12   ; exit_code
+
+    ; call __onramp_load_debug(heap_start, NULL)
+    78 80 8D F0     ; ldw r0 rfp -16   ; heap_start
+    70 81 00 00     ; add r1 0 0       ; filename (NULL)
+    7C 8A <__onramp_load_debug     ; ims ra <__onramp_load_debug
+    7C 8A >__onramp_load_debug     ; ims ra >__onramp_load_debug
+    71 8C 8C 04       ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08       ; add rb rip 8
+    79 8B 00 8C       ; stw rb 0 rsp
+    70 8F 8E 8A       ; add rip rpp ra         ; jump
+    70 8C 8C 04       ; add rsp rsp 4          ; pop return address
+
+    ; get the new syscall table
+    78 81 8D F8     ; ldw r1 rfp -8   ; child_pit
+    78 80 81 08     ; ldw r0 r1 8     ; child_pit[SYSCALLS]
+
+    ; call free()
+    7C 8A <free     ; ims ra <free
+    7C 8A >free     ; ims ra >free
+    71 8C 8C 04     ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra         ; jump
+    70 8C 8C 04     ; add rsp rsp 4          ; pop return address
+
+    ; return exit_code
+    78 80 8D F4     ; ldw r0 rfp -12    ; exit_code
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
 ; ==========================================================
 ; int __onramp_spawn(
 ;         const char* executable,
@@ -47,68 +285,3 @@
     ; - push a return address to the stack
     ; - jump to the program
     ;FF
-
-
-
-; TODO above doc is wrong, args are pit, start, end
-
-=__onramp_spawn
-
-    ; switch stacks
-    70 8A 8C 00    ; add ra rsp 0      ; mov ra rsp
-    70 8C 82 00    ; add rsp r2 0      ; mov rsp r2
-
-    ; store the old stack, frame and program pointers
-    71 8C 8C 0C    ; sub rsp rsp 12
-    79 8A 8C 00    ; stw ra rsp 0
-    79 8D 8C 04    ; stw rfp rsp 4
-    79 8E 8C 08    ; stw rpp rsp 8
-
-    ; change the program pointer
-    70 8E 81 00    ; add rpp r1 0    ; mov rpp r1
-
-    ; Our method of exiting programs is rather terrible at the moment. The
-    ; child program just jumps to the address in the PIT without having to fix
-    ; up the stack pointer or anything else. We therefore have no reasonable
-    ; way of recovering our state; we can't even store it in global variables
-    ; because we can't resolve them without restoring rpp.
-    ;
-    ; Until this is fixed, we're going to do this hack where we stash the rsp
-    ; at a rip-relative address within this symbol.
-    70 8A 00 00                 ; add ra 0 0
-    7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
-    76 8A 8A 02                 ; shl ra ra 2   (convert words to bytes)
-    70 8A 8A 8F                 ; add ra ra rip
-    79 8C 8A F4                 ; stw rsp ra -12
-
-    ; store the return address (after the jump)
-    70 8A 8F 08    ; add ra rip 8
-    79 8A 80 08    ; stw ra r0 8
-
-    ; jump!
-    70 8F 81 00    ; add rip r1 0    ; mov rip r1
-
-    ; hack to recover rsp
-    70 8A 00 00                 ; add ra 0 0
-    7C 8A &__onramp_spawn_rsp   ; ims ra &__onramp_spawn_rsp
-    76 8A 8A 02                 ; shl ra ra 2   (convert words to bytes)
-    70 8A 8A 8F                 ; add ra ra rip
-    78 8C 8A F4                 ; ldw rsp ra -12
-
-    ; restore the old stack, frame and program pointers
-    78 8E 8C 08    ; ldw rpp rsp 8
-    78 8D 8C 04    ; ldw rfp rsp 4
-    78 8C 8C 00    ; ldw rsp rsp 0
-
-    ; done
-    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
-
-; TODO some safety padding around here because the numbers above don't look right
-    FF FF FF FF
-    FF FF FF FF
-    FF FF FF FF
-:__onramp_spawn_rsp
-    FF FF FF FF
-    FF FF FF FF
-    FF FF FF FF
-    FF FF FF FF

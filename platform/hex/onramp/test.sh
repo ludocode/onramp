@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -34,5 +34,7 @@ if ! command -v onrampvm >/dev/null; then
     exit 1
 fi
 
-"$(dirname "$0")/build.sh"
+platform/hex/c89/build.sh
+mkdir -p build/test/hex-onramp
+build/test/hex-c89/hex -g core/hex/0-onramp/hex.oe.ohx -o build/test/hex-onramp/hex.oe
 test/hex/run.sh onrampvm build/test/hex-onramp/hex.oe

@@ -27,9 +27,11 @@
 
 #include <stdbool.h>
 
-_Noreturn void __sys_halt(int exit_code);
+bool __syscall_is_supported(int __syscall_number);
+
+_Noreturn void __sys_exit(int __exit_code);
 int __sys_time(unsigned out_buffer[3]);
-int __sys_spawn(void /*TODO*/);
+_Noreturn void __sys_panic(int __exit_code);
 int __sys_fopen(const char* path, bool writeable);
 int __sys_fclose(int handle);
 int __sys_fread(int handle, void* out_buffer, unsigned size);

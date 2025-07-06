@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -45,7 +45,7 @@ $(HEX): FORCE
 $(OUT)/ld.oe: $(SRC)/ld.oe.ohx Makefile $(HEX)
 	@rm -f $@
 	@mkdir -p $(OUT)
-	$(HEX) $(SRC)/ld.oe.ohx -o $@
+	$(HEX) -g $(SRC)/ld.oe.ohx -o $@
 
 test: build FORCE $(VM)
 	../run.sh . $(VM) $(OUT)/ld.oe

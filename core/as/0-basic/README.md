@@ -4,7 +4,7 @@ This is the implementation of the first stage (primitive) assembler. It is writt
 
 It takes primitive [Onramp assembly](../../../docs/assembly.md) as input and outputs Onramp object code.
 
-The primitive assembler does basic keyword replacement. It contains a list of the names of registers, opcodes and syscalls, and each one is mapped to a byte. When the assember encounters an identifier, it simply finds the keyword in the list by linear seach and outputs the corresponding byte. That's it.
+The primitive assembler does basic keyword replacement. It contains a list of the names of registers and opcodes, each of which is mapped to a byte. When the assember encounters an identifier, it simply finds the keyword in the list by linear seach and outputs the corresponding byte. That's it.
 
 This does not check that the keyword makes sense in the context in which it is used. It has almost no error checking at all in fact. The later stage assemblers, in combination with manual auditing, should be used to verify that an assembly file has the correct syntax.
 

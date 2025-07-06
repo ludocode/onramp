@@ -94,8 +94,15 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
     fi
 
     if [ $ERROR = 0 ] && [ -e $BASENAME.stdout ]; then
+        set +e
         onrampvm $TEMP_OE > $TEMP_STDOUT
-        if ! diff $TEMP_STDOUT $BASENAME.stdout > /dev/null; then
+        RET=$?
+        set -e
+        if [ $RET -ne 0 ]; then
+            echo "ERROR: $TESTFILE failed to run."
+            echo "Command: make build && $COMMAND $ARGS && onrampvm $TEMP_OE"
+            ERROR=1
+        elif ! diff $TEMP_STDOUT $BASENAME.stdout > /dev/null; then
             echo "ERROR: $TESTFILE output did not match expected $BASENAME.stdout"
             echo "Command: make build && $COMMAND $ARGS && onrampvm $TEMP_OE"
             ERROR=1

@@ -1,0 +1,55 @@
+; The MIT License (MIT)
+; Copyright (c) 2025 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+; This test ensures that the whole syscall table is accessible with ldb. This
+; occurs when the syscall table is copied with memcpy(), for example when a
+; subprogram is spawned by cc.
+;
+; vars:
+;     size: r0
+;     pos: r1
+;     accumulator: r2
+;     temp: r3
+;     syscall table: r8
+;     process info table: r9
+
+@0x00 =__start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info vector in r9
+    70 89 80 00   ; add r9 r0 0
+
+    ; get the syscall table
+    78 88 89 08   ; ldw r8 r9 8   ; r8 = syscall table
+
+    ; calculate the size of the syscall table.
+    ; there are 23 syscalls and each is eight bytes.
+    72 80 17 08   ; mul r0 23 8
+
+    ; clear other vars
+    70 81 00 00   ; add r1 0 0
+    70 82 00 00   ; add r2 0 0
+
+;:loop
+    ; Load a byte. We don't care what it contains; we just want to make sure
+    ; the VM doesn't crash. We add them up into an accumulator just in case the
+    ; VM is optimizing the bytecode.
+    7A 83 88 81   ; ldb r3 r8 r1
+    70 82 82 83   ; add r2 r2 r3
+
+    ; Next byte, exiting the loop when done
+    70 81 81 01   ; add r1 r1 1
+    71 83 80 81   ; sub r3 r0 r1
+    7E 83 01 00   ; jz r3 &done (+1)
+    7E 00 FA FF   ; jz 0 &loop (-6)
+;:done
+
+    ; syscall exit(0)
+    70 80 00 00   ; add r0 0 0
+    78 89 88 04   ; ldw r9 r8 4   ; r9 = syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; rip = syscall exit rip
+

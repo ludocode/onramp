@@ -15,15 +15,11 @@
     78 81 89 00   ; ldw r1 r9 0
 
     ; make sure the version matches
-    71 81 81 01   ; sub r1 r1 1
-    7E 81 03 00   ; jz r1 +3
+    ; (set r0 to 0 if match, 1 if no match)
+    71 81 81 02   ; sub r1 r1 2
+    7D 80 00 81   ; ltu r0 0 r1    ; bool r0 r1
 
-    ; wrong version, exit(1)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 01   ; add r0 0 1
-    70 8F 8A 00   ; add rip ra 0
-
-    ; exit(0)
-    78 8A 89 08   ; ldw ra r9 8  (exit address)
-    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
-    70 8F 8A 00   ; add rip ra 0      ; jump to exit address
+    ; syscall exit
+    78 88 89 08   ; ldw r8 r9 8   ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4   ; r9 = syscall exit r9
+    78 8F 88 00   ; ldw rip r8 0  ; rip = syscall exit rip

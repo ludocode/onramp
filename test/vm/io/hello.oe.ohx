@@ -1,6 +1,14 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+; The entry point of the program.
+;==========================================
 
 @0x00 =_start
     ; format indicator `~Onr~amp~   `
@@ -8,34 +16,169 @@
     7E 61 6D 70   ; jz 97 28781
     7E 20 20 20   ; jz 32 8224
 
-    ; push process info vector
-    71 8C 8C 04   ; sub rsp rsp 4
-    79 80 8C 00   ; stw r0 rsp 0
+    ; store process info table
+    79 80 8E 20   ; stw r0 rpp 0x20
 
-    ; get the output file descriptor
-    70 8A 80 10   ; add ra r0 16  (output stream handle)
-    78 80 8A 00   ; ldw r0 ra 0
-
-    ; output("Hello world!")
-    70 81 8E 40   ; add r1 rpp 0x40   ; set output buffer parameter ("Hello world!")
-    70 82 0D 00   ; add r2 12 0       ; set output length parameter (12)
-    7F 06 00 00   ; sys write 0 0
-
-    ; get the exit address
-    78 89 8C 00   ; ldw r9 rsp 0
-    70 8A 89 08   ; add ra r9 8  (exit address)
-    78 8A 8A 00   ; ldw ra ra 0
-
-    ; exit(0)
-    70 80 00 00   ; add r0 0 0        ; set exit parameter to 0 (success)
-    70 8F 8A 00   ; add rip ra 0      ; jump to exit address
+    ; jump to test
+    70 8F 8E 60   ; add rip rpp 0x60
 
     ; padding
     00 00 00 00
+    00 00 00 00
+    00 00 00 00
+@0x20
 
-@0x40 =hello_world
+
+
+;==========================================
+; uint32_t* process_info_table;
+;==========================================
+
+@0x20 =process_info_table
+    00 00 00 00
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x30
+
+
+
+;==========================================
+; const char hello_world[];
+;==========================================
+; The null-terminated string to print.
+;==========================================
+
+@0x30 =hello_world
     48 65 6c 6c 6f  ; Hello
     20              ; <space>
     77 6f 72 6c 64  ; world
     21              ; !
     0a              ; \n
+    00              ; null-terminator
+
+    ; padding
+    00 00
+@0x40
+
+
+
+;==========================================
+; [[noreturn]] void exit(int);
+;==========================================
+
+@0x40 =exit
+
+    ; push invalid return address on the stack in case exit returns
+    71 8C 8C 04   ; sub rsp rsp 4
+    79 FF 8C 00   ; stw -1 rsp 0    ; return address = 0xFFFFFFFF
+
+    ; syscall exit
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4       ; r9 = r9 of syscall exit
+    78 8F 88 00   ; ldw rip r8 0      ; rip = rip of syscall exit
+
+    ; padding
+    00 00 00 00 00 00 00 00
+@0x60
+
+
+
+;==========================================
+; void test(void);
+;==========================================
+; vars:
+;     - string position: r1, rfp-4
+;     - bytes left: r2, rfp-8
+;     - loop address: rfp-12
+;==========================================
+
+@0x60 =test
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; get the string
+    70 81 8E 30     ; add r1 rpp 0x30 (^hello_world)
+    79 81 8D FC     ; stw r1 rfp -4
+
+    ; get its length
+    70 82 00 00     ; add r2 0 0   ; zero r1
+;:test_length_loop
+    7A 83 81 82     ; ldb r3 r1 r2
+    7E 83 02 00     ; jz r3 &test_length_loop_exit (+?)
+    70 82 82 01     ; add r2 r2 1
+    7E 00 FC FF     ; jz 0 &test_length_loop (-4)
+;:test_length_loop_exit
+    79 82 8D F8     ; stw r2 rfp -8
+
+    ; store the address to loop
+    79 8F 8D F4    ; stw rip rfp -12
+;:test_write_loop
+
+    ; args for fwrite(fd, string pos, bytes left);
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 10   ; ldw r0 r9 16      ; r0 = stdout
+    78 81 8D FC   ; ldw r1 rfp -4     ; r1 = string postiion
+    78 82 8D F8   ; ldw r2 rfp -8     ; r2 = bytes left
+
+    ; get syscall fwrite into r7
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fwrite syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 02 00   ; jz ra &test_write_no_error (+2)
+    ; fail, exit(1)
+    70 80 01 00   ; add r0 1 0
+    70 8F 8E 40   ; add rip rpp ^exit (0x40)
+;:test_write_no_error
+
+    ; check if we got zero
+    7E 80 01 00   ; jz r0 &test_write_zero (+1)
+    7E 00 02 00   ; jz 0 &test_write_not_zero (+2)
+;:test_write_zero
+    ; zero bytes written. fail, exit(2)
+    70 80 02 00   ; add r0 2 0
+    70 8F 8E 40   ; add rip rpp ^exit (0x40)
+;:test_write_not_zero
+
+    ; check if we got too many bytes written
+    78 82 8D F8   ; ldw r2 rfp -8     ; r2 = bytes left
+    7D 8A 82 80   ; ltu ra r2 r0
+    7E 8A 02 00   ; jz ra &test_write_not_too_large (+2)
+    ; too many bytes written. fail, exit(3)
+    70 80 03 00   ; add r0 3 0
+    70 8F 8E 40   ; add rip rpp ^exit (0x40)
+;:test_write_not_too_large
+
+    ; adjust pointer and bytes remaining
+    78 81 8D FC   ; ldw r1 rfp -4     ; r1 = string postiion
+    70 81 81 80   ; add r1 r1 r0
+    71 82 82 80   ; sub r2 r2 r0
+    79 81 8D FC   ; stw r1 rfp -4
+    79 82 8D F8   ; stw r2 rfp -8
+
+    ; if bytes remaining is zero, we're done. otherwise loop
+    7E 82 01 00   ; jz r2 &test_write_loop_exit (+1)
+    78 8F 8D F4   ; ldw rip rfp -12   ; jump to :test_write_loop
+
+;:test_write_loop_exit
+
+    ; success! exit(0)
+    70 80 00 00   ; add r0 0 0
+    70 8F 8E 40   ; add rip rpp ^exit (0x40)

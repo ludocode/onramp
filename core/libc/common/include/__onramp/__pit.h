@@ -37,7 +37,7 @@ extern unsigned* __process_info_table;
 
 #define __ONRAMP_PIT_VERSION 0
 #define __ONRAMP_PIT_BREAK 1
-#define __ONRAMP_PIT_EXIT 2
+#define __ONRAMP_PIT_SYSCALLS 2
 #define __ONRAMP_PIT_INPUT 3
 #define __ONRAMP_PIT_OUTPUT 4
 #define __ONRAMP_PIT_ERROR 5
@@ -45,6 +45,7 @@ extern unsigned* __process_info_table;
 #define __ONRAMP_PIT_ENVIRON 7
 #define __ONRAMP_PIT_WORKDIR 8
 #define __ONRAMP_PIT_CAPABILITIES 9
+#define __ONRAMP_PIT_COUNT 10
 
 /**
  * Capabilities flags

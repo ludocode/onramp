@@ -60,7 +60,7 @@ HEX=$(dirname $0)/../../build/test/hex-c89/hex
 
 echo "Running vm tests on: $COMMAND"
 
-for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'); do
+for HEXNAME in $(find $(dirname $0)/* -name '*.oe.ohx'|sort); do
     THIS_ERROR=0
     BASENAME=$(echo $HEXNAME|sed 's/\.oe\.ohx$//')
 

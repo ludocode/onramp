@@ -28,12 +28,69 @@
 
 
 ; ==========================================================
-; [[noreturn]] void __sys_halt(int exit_code);
+; bool __syscall_is_supported(int syscall_number);
+; ==========================================================
+; Returns true if the given syscall is supported; false otherwise.
 ; ==========================================================
 
-=__sys_halt
-    sys halt '00 '00
+=__syscall_is_supported
+
+    ; get the syscall table
+    imw r8 ^__process_info_table
+    ldw r8 rpp r8     ; r8 = process_info_table
+    ldw r8 r8 8       ; r8 = syscall table
+
+    ; load the syscall's address
+    shl r7 r0 3       ; r7 == offset of syscall (r0 << 3)
+    ldw r0 r8 r7
+
+    ; non-zero address means the syscall is supported
+    bool r0 r0
     ret
+
+
+
+; ==========================================================
+; void __syscall(...);
+; ==========================================================
+; The syscall handler.
+;
+; The system call number is passed in r9. Arguments to the syscall are passed
+; in r0-r3 as normal.
+; ==========================================================
+
+@__syscall
+
+    ; get the syscall into r7
+    imw r8 ^__process_info_table
+    ldw r8 rpp r8     ; r8 = process_info_table
+    ldw r8 r8 8       ; r8 = syscall table
+    shl r7 r9 3       ; r7 = byte offset of syscall (r9 << 3)
+    add r7 r8 r7      ; r7 = address of syscall
+
+    ; tail-call it
+    ldw r9 r7 4       ; r9 = syscall context
+    ldw rip r7 0      ; rip = syscall rip
+
+
+
+; ==========================================================
+; [[noreturn]] void __sys_exit(int exit_code);
+; ==========================================================
+
+=__sys_exit
+    mov r9 0
+    jmp ^__syscall
+
+
+
+; ==========================================================
+; int __sys_panic(int exit_code);
+; ==========================================================
+
+=__sys_panic
+    mov r9 1
+    jmp ^__syscall
 
 
 
@@ -42,18 +99,8 @@
 ; ==========================================================
 
 =__sys_time
-    sys time '00 '00
-    ret
-
-
-
-; ==========================================================
-; int __sys_spawn(TODO);
-; ==========================================================
-
-=__sys_spawn
-    sys spawn '00 '00
-    ret
+    mov r9 2
+    jmp ^__syscall
 
 
 
@@ -62,8 +109,8 @@
 ; ==========================================================
 
 =__sys_fopen
-    sys fopen '00 '00
-    ret
+    mov r9 3
+    jmp ^__syscall
 
 
 
@@ -72,8 +119,8 @@
 ; ==========================================================
 
 =__sys_fclose
-    sys fclose '00 '00
-    ret
+    mov r9 4
+    jmp ^__syscall
 
 
 
@@ -82,8 +129,8 @@
 ; ==========================================================
 
 =__sys_fread
-    sys fread '00 '00
-    ret
+    mov r9 5
+    jmp ^__syscall
 
 
 
@@ -92,8 +139,8 @@
 ; ==========================================================
 
 =__sys_fwrite
-    sys fwrite '00 '00
-    ret
+    mov r9 6
+    jmp ^__syscall
 
 
 
@@ -102,8 +149,8 @@
 ; ==========================================================
 
 =__sys_fseek
-    sys fseek '00 '00
-    ret
+    mov r9 7
+    jmp ^__syscall
 
 
 
@@ -112,8 +159,8 @@
 ; ==========================================================
 
 =__sys_ftell
-    sys ftell '00 '00
-    ret
+    mov r9 8
+    jmp ^__syscall
 
 
 
@@ -122,8 +169,8 @@
 ; ==========================================================
 
 =__sys_ftrunc
-    sys ftrunc '00 '00
-    ret
+    mov r9 9
+    jmp ^__syscall
 
 
 
@@ -132,8 +179,8 @@
 ; ==========================================================
 
 =__sys_stat
-    sys stat '00 '00
-    ret
+    mov r9 13
+    jmp ^__syscall
 
 
 
@@ -142,8 +189,8 @@
 ; ==========================================================
 
 =__sys_rename
-    sys rename '00 '00
-    ret
+    mov r9 14
+    jmp ^__syscall
 
 
 
@@ -152,8 +199,8 @@
 ; ==========================================================
 
 =__sys_symlink
-    sys symlink '00 '00
-    ret
+    mov r9 15
+    jmp ^__syscall
 
 
 
@@ -162,8 +209,8 @@
 ; ==========================================================
 
 =__sys_unlink
-    sys unlink '00 '00
-    ret
+    mov r9 16
+    jmp ^__syscall
 
 
 
@@ -172,8 +219,8 @@
 ; ==========================================================
 
 =__sys_chmod
-    sys chmod '00 '00
-    ret
+    mov r9 17
+    jmp ^__syscall
 
 
 
@@ -182,8 +229,8 @@
 ; ==========================================================
 
 =__sys_mkdir
-    sys mkdir '00 '00
-    ret
+    mov r9 18
+    jmp ^__syscall
 
 
 
@@ -192,8 +239,8 @@
 ; ==========================================================
 
 =__sys_rmdir
-    sys rmdir '00 '00
-    ret
+    mov r9 19
+    jmp ^__syscall
 
 
 
@@ -202,8 +249,8 @@
 ; ==========================================================
 
 =__sys_dopen
-    sys dopen '00 '00
-    ret
+    mov r9 10
+    jmp ^__syscall
 
 
 
@@ -212,8 +259,8 @@
 ; ==========================================================
 
 =__sys_dclose
-    sys dclose '00 '00
-    ret
+    mov r9 11
+    jmp ^__syscall
 
 
 
@@ -222,5 +269,5 @@
 ; ==========================================================
 
 =__sys_dread
-    sys dread '00 '00
-    ret
+    mov r9 12
+    jmp ^__syscall
