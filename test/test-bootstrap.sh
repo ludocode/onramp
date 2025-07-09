@@ -91,8 +91,9 @@ make -C test/ld/2-full build
     ../run.sh --nonstd .        full onrampvm ../../../build/intermediate/cci-2-full/cci.oe )
 
 # Build the rest of the C toolchain
-# TODO cpp/2 not done yet, only running cpp/1 tests
-( core/cpp/2-full/build.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe )
+( core/cpp/2-full/build.sh && \
+    ( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) && \
+    ( cd test/cpp/2-full && ../run.sh --nonstd . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) )
 ( core/libc/3-full/build.sh && cd test/libc/3-full && \
     ../run.sh ../0-oo  full ../../../build/intermediate/libc-3-full/libc.oa && \
     ../run.sh ../1-omc full ../../../build/intermediate/libc-3-full/libc.oa && \
@@ -121,8 +122,9 @@ core/libc/common/build.sh
     ../run.sh          ../0-omc full onrampvm ../../../build/output/bin/cci.oe && \
     ../run.sh          ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
     ../run.sh --nonstd .        full onrampvm ../../../build/output/bin/cci.oe )
-# TODO cpp/2 not done yet, only running cpp/1 tests
-( core/cpp/2-full/rebuild.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
+( core/cpp/2-full/rebuild.sh && \
+    ( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe ) && \
+    ( cd test/cpp/2-full && ../run.sh --nonstd . onrampvm ../../../build/output/bin/cpp.oe ) )
 
 # Build the last few tools we need
 ( core/hex/1-c89/build.sh && test/hex/run.sh onrampvm build/output/bin/hex.oe )

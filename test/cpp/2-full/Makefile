@@ -83,10 +83,7 @@ test-2: build FORCE
 	@# TODO add --strict
 	../run.sh --nonstd . $(OUT)/cpp
 
-# TODO final stage tests are not passing yet. For now they're disabled here
-# and in test-bootstrap.sh.
-#test: test-0 test-1 test-2 FORCE
-test: test-0 test-1 FORCE
+test: test-0 test-1 test-2 FORCE
 
 generate: build FORCE $(VM)
 	../generate.sh . $(OUT)/cpp
