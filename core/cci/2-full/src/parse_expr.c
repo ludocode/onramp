@@ -991,11 +991,23 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
 
         case NODE_SHL:
         case NODE_SHR:
-            // TODO shl, shr don't use usual arithmetic conversions. for now we
-            // just promote. probably we need to forbid floats, cast right side
-            // to int, etc.
+            // Left and right must both be integers.
+            if (!type_is_integer(left->type)) {
+                fatal_token(left->token, "Left side of shift assignment must be an integer.");
+            }
+            if (!type_is_integer(right->type)) {
+                fatal_token(right->token, "Right side of shift assignment must be an integer.");
+            }
+
+            // Left side undergoes integer promotion.
             left = node_promote(left);
-            right = node_promote(right);
+
+            // Right side must be cast to an int (the right argument to
+            // __llong_shl() and friends.) This will silently truncate a long
+            // long if it's larger than 32 bits. Shifting by more than the
+            // width of the left type is undefined behaviour.
+            right = node_cast_base(right, BASE_UNSIGNED_INT, NULL);
+
             op->type = type_ref(left->type);
             break;
 
@@ -1177,11 +1189,27 @@ node_t* parse_assignment_expression(void) {
     token_t* token = lexer_take();
     node_t* right = parse_assignment_expression();
 
-    if (type_is_pointer(left->type) && kind != NODE_ASSIGN) {
+    if (kind == NODE_SHL_ASSIGN || kind == NODE_SHR_ASSIGN) {
+        // Left and right must both be integers.
+        if (!type_is_integer(left->type)) {
+            fatal_token(left->token, "Left side of shift assignment must be an integer.");
+        }
+        if (!type_is_integer(right->type)) {
+            fatal_token(right->token, "Right side of shift assignment must be an integer.");
+        }
+
+        // Right side must be cast to an int (the right argument to
+        // __llong_shl() and friends.) This will silently truncate a long long
+        // if it's larger than 32 bits. Shifting by more than the width of the
+        // left type is undefined behaviour.
+        right = node_cast_base(right, BASE_UNSIGNED_INT, NULL);
+
+    } else if (type_is_pointer(left->type) && kind != NODE_ASSIGN) {
         // In a compound assignment to a pointer, the value should be treated
         // as an pointer-size integer (i.e. we are shifting or masking a
         // pointer.)
         right = node_cast_base(right, BASE_UNSIGNED_INT, NULL);
+
     } else {
         // In all other cases the value must be convertible to the target. This
         // is an implicit cast so it'll warn or error if the types don't match.

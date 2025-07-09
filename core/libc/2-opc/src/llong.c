@@ -533,7 +533,7 @@ bool __llong_lts(const unsigned* a, const unsigned* b) {
     return *a < *b;
 }
 
-unsigned* __llong_shl(unsigned* out, const unsigned* a, int bits) {
+unsigned* __llong_shl(unsigned* out, const unsigned* a, unsigned bits) {
     if (bits >= 32) {
         if (bits == 32) {
             *(out + 1) = *a;
@@ -560,7 +560,7 @@ unsigned* __llong_shl(unsigned* out, const unsigned* a, int bits) {
     return out;
 }
 
-unsigned* __llong_shru(unsigned* out, const unsigned* a, int bits) {
+unsigned* __llong_shru(unsigned* out, const unsigned* a, unsigned bits) {
     if (bits >= 32) {
         if (bits == 32) {
             *(out + 1) = 0;
@@ -587,7 +587,7 @@ unsigned* __llong_shru(unsigned* out, const unsigned* a, int bits) {
     return out;
 }
 
-unsigned* __llong_shrs(unsigned* out, const unsigned* a, int bits) {
+unsigned* __llong_shrs(unsigned* out, const unsigned* a, unsigned bits) {
     unsigned a0 = *a;
     unsigned a1 = *(a + 1);
 
