@@ -859,6 +859,9 @@ static void run_onramp(size_t argc, char** argv) {
 
     // open the child program
     FILE* file = fopen(*argv, "rb");
+    if (!file) {
+        fatal_cleanup("Child program not found.");
+    }
 
     // get the program size
     fseek(file, 0, SEEK_END);
