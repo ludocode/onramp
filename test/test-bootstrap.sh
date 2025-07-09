@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -62,11 +62,13 @@ make -C test/ld/2-full build
     ../run.sh               .          onrampvm ../../../build/intermediate/as-1-compound/as.oe )
 
 # Next build our omC compiler
-( core/cpp/0-strip/build.sh && cd test/cpp/0-strip && ../run.sh . onrampvm ../../../build/intermediate/cpp-0-strip/cpp.oe )
+( core/cpp/0-strip/build.sh && cd test/cpp/0-strip && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-0-strip/cpp.oe )
 ( core/cci/0-omc/build.sh && cd test/cci/0-omc && ../run.sh --nonstd . omc onrampvm ../../../build/intermediate/cci-0-omc/cci.oe )
 
 # Build the rest of the omC toolchain
-( core/cpp/1-omc/build.sh && cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe )
+( core/cpp/1-omc/build.sh && \
+    ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) && \
+    ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) )
 ( core/ld/1-omc/build.sh && cd test/ld/1-omc && ../run.sh . onrampvm ../../../build/intermediate/ld-1-omc/ld.oe )
 ( core/libc/1-omc/build.sh && cd test/libc/1-omc && \
     ../run.sh ../0-oo omc ../../../build/intermediate/libc-1-omc/libc.oa && \
@@ -92,8 +94,10 @@ make -C test/ld/2-full build
 
 # Build the rest of the C toolchain
 ( core/cpp/2-full/build.sh && \
-    ( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) && \
-    ( cd test/cpp/2-full && ../run.sh --nonstd . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) )
+    ( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) && \
+    ( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) && \
+    ( cd test/cpp/2-full  && ../run.sh --nonstd . onrampvm ../../../build/intermediate/cpp-2-full/cpp.oe ) )
+                                      # TODO add --strict
 ( core/libc/3-full/build.sh && cd test/libc/3-full && \
     ../run.sh ../0-oo  full ../../../build/intermediate/libc-3-full/libc.oa && \
     ../run.sh ../1-omc full ../../../build/intermediate/libc-3-full/libc.oa && \
@@ -123,8 +127,10 @@ core/libc/common/build.sh
     ../run.sh          ../1-opc full onrampvm ../../../build/output/bin/cci.oe && \
     ../run.sh --nonstd .        full onrampvm ../../../build/output/bin/cci.oe )
 ( core/cpp/2-full/rebuild.sh && \
-    ( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe ) && \
-    ( cd test/cpp/2-full && ../run.sh --nonstd . onrampvm ../../../build/output/bin/cpp.oe ) )
+    ( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../build/output/bin/cpp.oe ) && \
+    ( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../build/output/bin/cpp.oe ) && \
+    ( cd test/cpp/2-full  && ../run.sh --nonstd . onrampvm ../../../build/output/bin/cpp.oe ) )
+                                      # TODO add --strict
 
 # Build the last few tools we need
 ( core/hex/1-c89/build.sh && test/hex/run.sh onrampvm build/output/bin/hex.oe )

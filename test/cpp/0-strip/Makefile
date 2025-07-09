@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -65,7 +65,7 @@ $(OUT)/cpp.oe: $(OUT)/cpp.oo Makefile $(LD) $(LIBC)
 	$(LD) -g $(LIBC) $(OUT)/cpp.oo -o $@
 
 test: build FORCE $(VM)
-	../run.sh . $(VM) $(OUT)/cpp.oe
+	../run.sh --strict --nonstd . $(VM) $(OUT)/cpp.oe
 
 generate: build FORCE
 	../generate.sh . $(VM) $(OUT)/cpp.oe

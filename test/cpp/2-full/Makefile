@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,8 +73,7 @@ $(OUT)/cpp: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test-0: build FORCE
-	@# TODO most cpp/0 tests need to be marked .nonstd
-	@true #( cd ../0-strip ; ../run.sh . $(OUT)/cpp )
+	( cd ../0-strip ; ../run.sh . $(OUT)/cpp )
 
 test-1: build FORCE
 	( cd ../1-omc ; ../run.sh . $(OUT)/cpp )

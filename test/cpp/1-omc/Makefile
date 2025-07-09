@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -56,8 +56,13 @@ $(OUT)/cpp: $(SRCS) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-test: build FORCE
+test-0: build FORCE
+	( cd ../0-strip ; ../run.sh . $(OUT)/cpp )
+
+test-1: build FORCE
 	../run.sh --strict --nonstd . $(OUT)/cpp
+
+test: test-0 test-1 FORCE
 
 generate: build FORCE
 	../generate.sh . $(OUT)/cpp
