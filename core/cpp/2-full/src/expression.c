@@ -185,7 +185,7 @@ static void expression_binary_evaluate(token_t* operator, number_t* left, const 
         return;
     }
 
-    // The remainng operators must be computed differently based on sign.
+    // The remaining operators must be computed differently based on sign.
     if (is_signed) {
         if (token_is_punctuation(operator, STR_GREATER_GREATER)) {
             left->s >>= right->s;

@@ -218,7 +218,7 @@ void preprocess(void) {
     lexer_current = file_current->lexer;
     string_deref(infile);
 
-//stream_dump_tokens(stream);
+    //stream_dump_tokens(&stream);
     preprocess_run(&stream);
 
     assert(vector_is_empty(&files));

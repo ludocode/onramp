@@ -474,7 +474,7 @@ static void lexer_complete_token(lexer_t* lexer, token_type_t type) {
         case lexer_include_state_directive:
             if (type == token_type_alphanumeric && string_equal(lexer->token->value, lexer_string_include)) {
                 lexer->include_state = lexer_include_state_include;
-            } else {
+            } else if (type != token_type_space) {
                 lexer->include_state = lexer_include_state_none;
             }
             break;
