@@ -33,11 +33,14 @@ mkdir -p build/output/include/sys
 
 cp core/libc/common/include/__onramp/__arithmetic.h build/output/include/__onramp/__arithmetic.h
 cp core/libc/common/include/__onramp/__bool.h build/output/include/__onramp/__bool.h
+cp core/libc/common/include/__onramp/__fatal.h build/output/include/__onramp/__fatal.h
 cp core/libc/common/include/__onramp/__mode_t.h build/output/include/__onramp/__mode_t.h
 cp core/libc/common/include/__onramp/__null.h build/output/include/__onramp/__null.h
 cp core/libc/common/include/__onramp/__pit.h build/output/include/__onramp/__pit.h
 cp core/libc/common/include/__onramp/__predef.h build/output/include/__onramp/__predef.h
 cp core/libc/common/include/__onramp/__size_t.h build/output/include/__onramp/__size_t.h
+cp core/libc/common/include/__onramp/__time_t.h build/output/include/__onramp/__time_t.h
+cp core/libc/common/include/__onramp/__timespec.h build/output/include/__onramp/__timespec.h
 cp core/libc/common/include/__onramp/__useconds_t.h build/output/include/__onramp/__useconds_t.h
 cp core/libc/common/include/__onramp/__va_list.h build/output/include/__onramp/__va_list.h
 cp core/libc/common/include/__onramp/__wchar_limits.h build/output/include/__onramp/__wchar_limits.h
@@ -53,6 +56,7 @@ cp core/libc/common/include/iso646.h build/output/include/iso646.h
 cp core/libc/common/include/limits.h build/output/include/limits.h
 cp core/libc/common/include/malloc.h build/output/include/malloc.h
 cp core/libc/common/include/math.h build/output/include/math.h
+cp core/libc/common/include/semaphore.h build/output/include/semaphore.h
 cp core/libc/common/include/setjmp.h build/output/include/setjmp.h
 cp core/libc/common/include/signal.h build/output/include/signal.h
 cp core/libc/common/include/spawn.h build/output/include/spawn.h

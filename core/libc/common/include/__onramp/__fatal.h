@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,25 +22,15 @@
  * SOFTWARE.
  */
 
-#ifndef INTERNAL_H_INCLUDED
-#define INTERNAL_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_FATAL_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_FATAL_H_INCLUDED
 
-#include <__onramp/__fatal.h>
-#include <assert.h>
-
-#ifdef __onramp_cpp_omc__
-    #define libc_assert assert
-#endif
-#ifndef __onramp_cpp_omc__
-    #define libc_assert(expression) \
-        ((expression) ? ((void)0) : \
-            __assert_fail(#expression, __FILE__, __LINE__, __func__))
+#ifndef __onramp_libc__
+    #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-int __fd_handle(int __fd);
-
-void __call_atexit(void);
-void __call_at_quick_exit(void);
-void __time_setup(void);
+// An internal function to exit with the given error message. This is used when
+// a program error is detected by the libc.
+_Noreturn void __fatal(const char* __message);
 
 #endif

@@ -32,6 +32,8 @@
 #include <__onramp/__size_t.h>
 #include <__onramp/__null.h>
 #include <__onramp/__useconds_t.h>
+#include <__onramp/__time_t.h>
+#include <__onramp/__timespec.h>
 
 /**
  * The number of virtual clock ticks per second of real time.
@@ -63,16 +65,6 @@ clock_t clock(void);
 
 
 
-// TODO time_t is C11 or POSIX
-
-/**
- * A UNIX timestamp in seconds.
- *
- * UNIX time is measured as the number of seconds since the start of January 1st, 1970.
- *
- * On Onramp, time_t is always 64 bits.
- */
-typedef long long time_t;
 
 typedef int suseconds_t;
 
@@ -87,14 +79,8 @@ time_t time(time_t* /*nullable*/ __out_time);
 
 
 // TODO require C11 (for timespec_get) or POSIX (for clock_gettime)
-
-/**
- * A timestamp in seconds and nanoseconds.
- */
-struct timespec {
-    time_t tv_sec; //!< number of seconds as an offset from the base of the given clock
-    long tv_nsec;  //!< number of additional nanoseconds in range 0 to 999'999'999
-};
+// TODO if neither of those, don't include <__onramp/__timespec.h> either
+// TODO time_t is also C11 or POSIX
 
 /**
  * The clock to query, either CLOCK_REALTIME or CLOCK_MONOTIC.
