@@ -29,8 +29,9 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#include <__onramp/__size_t.h>
 #include <__onramp/__null.h>
+#include <__onramp/__seek.h>
+#include <__onramp/__size_t.h>
 #include <__onramp/__va_list.h>
 
 
@@ -76,10 +77,6 @@ typedef long fpos_t;
 #define FILENAME_MAX 256
 #define L_tmpnam 256 // TODO
 #define TMP_MAX 1000 // TODO
-
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#define SEEK_END 2
 
 
 

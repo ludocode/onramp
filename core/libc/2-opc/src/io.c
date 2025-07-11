@@ -264,6 +264,41 @@ int close(int fd) {
     return 0;
 }
 
+// lseek() requires long long for off_t. We don't use it during bootstrapping
+// so we only need this when the final toolchain is rebuilt. We don't bother to
+// put it in libc/3.
+#ifndef __onramp_cci_opc__
+off_t lseek(int fd, off_t offset, int whence) {
+    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+        errno = EBADF; // no such file descriptor
+        return -1;
+    }
+    posixfile_t* posixfile = posixfiles[fd];
+
+    // perform the seek (if necessary)
+    if (whence != SEEK_CUR || offset != 0) {
+        int ret = __sys_fseek(posixfile->handle,
+                whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
+                (unsigned)offset, (unsigned)(offset >> 32));
+        if (ret != 0) {
+            // TODO for now we assume stream isn't seekable
+            errno = ESPIPE;
+            return -1;
+        }
+    }
+
+    // return the current position
+    off_t result;
+    int ret = __sys_ftell(posixfile->handle, (void*)&result);
+    if (ret != 0) {
+        // TODO for now we assume stream isn't seekable
+        errno = ESPIPE;
+        return -1;
+    }
+    return result;
+}
+#endif
+
 ssize_t read(int fd, void* buffer, size_t count) {
     if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
         errno = EBADF; // no such file descriptor

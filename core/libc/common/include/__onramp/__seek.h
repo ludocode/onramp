@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,40 +22,15 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_UNISTD_H_INCLUDED
-#define __ONRAMP_LIBC_UNISTD_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_SEEK_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_SEEK_H_INCLUDED
 
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-#include <__onramp/__seek.h>
-#include <__onramp/__size_t.h>
-#include <__onramp/__useconds_t.h>
-
-#include <sys/types.h> // TODO should include the whole header? or just some types?
-
-#define STDIN_FILENO 0
-#define STDOUT_FILENO 1
-#define STDERR_FILENO 2
-
-//_Noreturn void _exit(int __status) __asm__("_Exit");
-
-int close(int __fd);
-ssize_t write(int __fd, const void* __buffer, size_t __count);
-ssize_t read(int __fd, void* __buffer, size_t __count);
-
-#ifndef __onramp_cci_omc__
-#ifndef __onramp_cci_opc__
-off_t lseek(int __fd, off_t __offset, int __whence);
-#endif
-#endif
-
-#ifndef __onramp_cci_omc__
-/**
- * Sleeps for the given number of microseconds.
- */
-int usleep(useconds_t usec);
-#endif
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
 
 #endif
