@@ -1324,6 +1324,15 @@ void generate_location(node_t* node, int reg_out) {
         case NODE_ARRAY_SUBSCRIPT: generate_location_array_subscript(node, reg_out); break;
         case NODE_BUILTIN: generate_builtin_location(node, reg_out); break;
         case NODE_STRING: generate_string(node, reg_out); break;
+        case NODE_CAST:
+            // We can generate the location of a struct or union cast for the
+            // purpose of the member-of operator.
+            if (type_matches_base(node->type, BASE_RECORD)) {
+                generate_location(node->first_child, reg_out);
+                break;
+            }
+            fatal("Internal error, cannot generate location of non-struct cast.");
+            break;
         default:
             fatal("Internal error, cannot generate location of non-value node: %s.", node_kind_to_string(node->kind));
             break;

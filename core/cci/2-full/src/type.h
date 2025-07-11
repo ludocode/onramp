@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -185,7 +185,10 @@ static inline bool type_is_declarator(type_t* type) {
 }
 
 /**
- * Returns true if the given type's base is that given.
+ * Returns true if the given type is a base type that matches that given.
+ *
+ * This ignores the type's cv-qualifiers, so for example `const char` will
+ * return true for BASE_CHAR.
  */
 bool type_matches_base(type_t* type, base_t base);
 

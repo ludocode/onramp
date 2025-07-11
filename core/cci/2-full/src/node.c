@@ -609,9 +609,6 @@ size_t node_child_count(node_t* node) {
 
 // Check if this type is valid as either side of a cast
 static void node_check_cast_type(type_t* type, token_t* token) {
-    if (type_matches_base(type, BASE_RECORD)) {
-        fatal_token(token, "Cannot cast to or from a struct or union type.");
-    }
     if (type_is_declarator(type) && type->declarator == DECLARATOR_FUNCTION) {
         fatal_token(token, "Cannot cast to or from a function type.");
     }
@@ -626,6 +623,25 @@ static void node_check_cast(type_t* to, type_t* from, bool explicit, token_t* to
 
     node_check_cast_type(to, token);
     node_check_cast_type(from, token);
+
+    // Handle struct and union casts.
+    // TODO there is an extension to cast a union to its first element and vice
+    // versa. This needs to be implemented here.
+    if (type_matches_base(to, BASE_RECORD)) {
+        if (!type_matches_base(from, BASE_RECORD)) {
+            fatal_token(token, "Cannot cast from a struct or union type to a non-struct non-union type.");
+        }
+
+        // Both are structs or unions. They must have the same base type; only
+        // qualifier casts are allowed.
+        if (to->record != from->record) {
+            fatal_token(token, "Cannot cast between different struct or union types.");
+        }
+    } else {
+        if (type_matches_base(from, BASE_RECORD)) {
+            fatal_token(token, "Cannot cast from a struct or union type to a non-struct non-union type.");
+        }
+    }
 
     if (to->is_declarator) {
         if (to->declarator != DECLARATOR_POINTER) { // TODO probably flexible as well
