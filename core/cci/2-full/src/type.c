@@ -733,11 +733,6 @@ bool type_is_pointer(type_t* type) {
 
 bool type_is_passed_indirectly(type_t* type) {
     if (type_is_declarator(type)) {
-        if (type->declarator == DECLARATOR_FUNCTION) {
-            // TODO see if this is still needed. We could generate functions as
-            // pointers the same as arrays.
-            fatal("Internal error: functions cannot be passed by value.");
-        }
         // Note: Arrays are not passed indirectly because when arrays are
         // passed, we are actually passing a pointer to the first element.
         return false;

@@ -96,7 +96,7 @@ void register_free(token_t* /*nullable*/ token, int reg) {
         block_append(current_block, token, POP, reg);
 }
 
-static void generate_sequence(node_t* node, int reg_out) {
+static void generate_sequence(node_t* node, bool location, int reg_out) {
     assert(node->kind == NODE_SEQUENCE);
     if (node->first_child == NULL)
         return;
@@ -152,7 +152,12 @@ static void generate_sequence(node_t* node, int reg_out) {
 
     // Generate the last child. (Note that it may itself be a defer node.)
     if (node->last_child->kind == NODE_DEFER) {
+        if (location) {
+            fatal("Internal error: cannot generate the location of a sequence that ends in a defer node.");
+        }
         generate_defer(node->last_child, reg_last);
+    } else if (location) {
+        generate_location(node->last_child, reg_last);
     } else {
         generate_node(node->last_child, reg_last);
     }
@@ -1294,7 +1299,7 @@ void generate_node(node_t* node, int reg_out) {
 
         // other expressions
         case NODE_IF: generate_if(node, reg_out); break;
-        case NODE_SEQUENCE: generate_sequence(node, reg_out); break;
+        case NODE_SEQUENCE: generate_sequence(node, false, reg_out); break;
         case NODE_CHARACTER: generate_character(node, reg_out); break;
         case NODE_STRING: generate_string(node, reg_out); break;
         case NODE_NUMBER: generate_number(node, reg_out); break;
@@ -1324,6 +1329,7 @@ void generate_location(node_t* node, int reg_out) {
         case NODE_ARRAY_SUBSCRIPT: generate_location_array_subscript(node, reg_out); break;
         case NODE_BUILTIN: generate_builtin_location(node, reg_out); break;
         case NODE_STRING: generate_string(node, reg_out); break;
+        case NODE_SEQUENCE: generate_sequence(node, true, reg_out); break;
         case NODE_CAST:
             // We can generate the location of a struct or union cast for the
             // purpose of the member-of operator.
