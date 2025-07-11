@@ -954,8 +954,9 @@ static void parse_binary_conversions(node_t* op, node_t* left, node_t* right) {
             if (type_is_pointer(right->type)) {
                 if (!type_is_pointer(left->type))
                     fatal_token(op->token, "Cannot subtract a pointer from a non-pointer.");
-                if (!type_compatible_unqual(left->type, right->type))
+                if (!type_compatible_unqual(left->type->ref, right->type->ref)) {
                     fatal_token(op->token, "Cannot subtract two pointers of incompatible types.");
+                }
                 op->type = type_new_base(BASE_SIGNED_INT);
 
             // Left side pointer
