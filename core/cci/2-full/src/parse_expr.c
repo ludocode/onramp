@@ -1062,8 +1062,10 @@ static node_t* parse_binary_expression(int min_precedence) {
  * Applies type conversion rules to the two sides of a conditional expression.
  *
  * Rules are in the C17 spec, 6.5.15 .
+ *
+ * Returns a strong reference.
  */
-static void parse_conditional_expression_types(node_t** left, node_t** right) {
+static type_t* parse_conditional_expression_types(node_t** left, node_t** right) {
     *left = node_decay(*left);
     *right = node_decay(*right);
 
@@ -1072,13 +1074,22 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
     token_t* left_token = (*right)->token;
     token_t* right_token = (*right)->token;
 
-    // One side is a pointer.
+    // One side is an indirection.
     if (type_is_indirection(left_type) || type_is_indirection(right_type)) {
 
-        // Check if pointers are equal
-        if (type_equal_unqual(left_type, right_type)) {
-            // TODO apply qualifiers to both types
-            return;
+        // Check if both are indirections and they point to compatible types
+        if (type_is_indirection(left_type) && type_is_indirection(right_type)
+                && type_equal_unqual(left_type->ref, right_type->ref))
+        {
+            // Merge qualifiers of pointed-to types
+            type_t* common = type_qualify(type_ref(left_type->ref),
+                    left_type->ref->is_const || right_type->ref->is_const,
+                    left_type->ref->is_volatile || right_type->ref->is_volatile);
+
+            // Decay to pointer
+            type_t* ptr = type_new_pointer(common, false, false, false);
+            type_deref(common);
+            return ptr;
         }
 
         node_t** ptr;
@@ -1097,7 +1108,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
                     type_matches_base(other_type->ref, BASE_VOID)))
         {
             *other = node_cast(*other, (*ptr)->type, NULL);
-            return;
+            return type_ref((*ptr)->type);
         }
 
         fatal("TODO find compatible ptr type");
@@ -1109,7 +1120,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
     }
     if (type_is_arithmetic(left_type)) {
         parse_usual_arithmetic_conversions(left, right);
-        return;
+        return type_ref(left_type);
     }
 
     // Both sides are structs
@@ -1120,7 +1131,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
         if (left_type->record != right_type->record) {
             fatal_token(right_token, "The sides of a conditional expression cannot have different struct or union types.");
         }
-        return;
+        return type_ref(left_type);
     }
 
     // Both sides are enums
@@ -1131,7 +1142,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
         if (left_type->enum_ != right_type->enum_) {
             fatal_token(right_token, "The sides of a conditional expression cannot have different enum types.");
         }
-        return;
+        return type_ref(left_type);
     }
 
     // Both sides are void
@@ -1140,7 +1151,7 @@ static void parse_conditional_expression_types(node_t** left, node_t** right) {
         fatal_token(right_token, "Both or neither side of this conditional expression can be void.");
     }
     if (type_matches_base(left_type, BASE_VOID)) {
-        return;
+        return type_ref(left_type);
     }
 
     fatal_token(left_token, "Incompatible types in conditional expression.");
@@ -1163,13 +1174,11 @@ static node_t* parse_conditional_expression(void) {
     lexer_expect(STR_COLON, "Expected `:` after true branch of conditional `?` expression.");
     node_t* right = parse_conditional_expression();
 
-    parse_conditional_expression_types(&left, &right);
+    conditional->type = parse_conditional_expression_types(&left, &right);
 
     node_append(conditional, node_make_predicate(condition));
     node_append(conditional, left);
     node_append(conditional, right);
-
-    conditional->type = type_ref(left->type);
 
     token_deref(colon);
     return conditional;

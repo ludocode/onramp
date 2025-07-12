@@ -332,6 +332,8 @@ static bool warning_parse(const char* arg) {
 static void warning_apply_spec(warning_t warning, warning_spec_t spec) {
     switch (spec) {
         case warning_spec_none:
+            if (werror && warning_levels[warning] == warning_level_warn)
+                warning_levels[warning] = warning_level_error;
             return;
         case warning_spec_on:
             warning_levels[warning] = werror ? warning_level_error : warning_level_warn;
