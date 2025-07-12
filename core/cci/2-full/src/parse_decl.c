@@ -1092,8 +1092,8 @@ static void parse_local_extern_variable_declaration(node_t* parent,
     }
 }
 
-static void parse_local_variable_declaration(node_t* parent, specifiers_t* specifiers,
-        symbol_t* symbol, node_t* initializer)
+static node_t* parse_local_variable_declaration(node_t* parent, specifiers_t* specifiers,
+        symbol_t* symbol)
 {
     // Check to see if there's already a symbol with this name in this scope.
     symbol_t* previous = scope_find_symbol(scope_current, symbol->name, false);
@@ -1113,11 +1113,7 @@ static void parse_local_variable_declaration(node_t* parent, specifiers_t* speci
             node->type = type_new_base(BASE_VOID);
             node->symbol = symbol_ref(symbol);
             node_append(parent, node);
-            if (initializer) {
-                node_append(node, initializer);
-            }
-
-            break;
+            return node;
         }
 
         case storage_specifier_typedef:
@@ -1143,14 +1139,15 @@ static void parse_local_variable_declaration(node_t* parent, specifiers_t* speci
         }
     }
 
+    return NULL;
 }
 
-static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t* symbol, node_t* initializer) {
+static void parse_global_variable_declaration(specifiers_t* specifiers, symbol_t* symbol, bool has_initializer) {
     symbol->linkage = (specifiers->storage_specifier == storage_specifier_static) ?
             symbol_linkage_internal : symbol_linkage_external;
-    symbol->is_tentative = (initializer == NULL) &&
+    symbol->is_tentative = !has_initializer &&
         (specifiers->storage_specifier != storage_specifier_extern);
-    symbol->is_defined = initializer != NULL;
+    symbol->is_defined = has_initializer;
 
     // Check to see if there's already a symbol with this name.
     assert(scope_global == scope_current);
@@ -1193,35 +1190,41 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
         fatal("Cannot initialize a variable with `{`.");
     }
 
-    // Collect the initializer
-    node_t* initializer = NULL;
-    if (lexer_is(STR_ASSIGN)) {
-        if (specifiers->storage_specifier == storage_specifier_extern) {
-            fatal_token(lexer_token, "Cannot initialize a variable with `extern` storage specifier.");
-        }
-        lexer_consume();
-        initializer = parse_initializer(type);
-    }
-
+    // Create the symbol
     symbol_t* symbol = symbol_new(symbol_kind_variable, type, name, asm_name);
-    type_deref(type);
+
+    // Check if we have an initializer
+    bool has_initializer = lexer_accept(STR_ASSIGN);
 
     // Handle file scope, block scope non-extern, and block scope extern separately
+    node_t* var = NULL;
     if (parent) {
         if (specifiers->storage_specifier == storage_specifier_extern) {
             parse_local_extern_variable_declaration(parent, specifiers, symbol);
         } else {
-            parse_local_variable_declaration(parent, specifiers, symbol, initializer);
+            var = parse_local_variable_declaration(parent, specifiers, symbol);
         }
     } else {
-        parse_global_variable_declaration(specifiers, symbol, initializer);
+        parse_global_variable_declaration(specifiers, symbol, has_initializer);
     }
+
+    // Collect the initializer
+    node_t* initializer = NULL;
+    if (has_initializer) {
+        if (specifiers->storage_specifier == storage_specifier_extern) {
+            fatal_token(lexer_token, "Cannot initialize a variable with `extern` storage specifier.");
+        }
+        initializer = parse_initializer(type);
+        if (var) {
+            node_append(var, initializer);
+        }
+    }
+
+    type_deref(type);
+    type = symbol->type;
 
     // If we have an initializer for an array of indeterminate size, we can now
     // set its size.
-    // (This has to happen after the lookup for a previous symbol since the
-    // previous symbol might declare a size.)
-    type = symbol->type;
     if (initializer && type_is_declarator(type) && type->declarator == DECLARATOR_INDETERMINATE) {
         size_t count;
         if (initializer->kind == NODE_INITIALIZER_LIST) {
