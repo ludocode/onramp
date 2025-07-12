@@ -470,6 +470,10 @@ char* gets(char* s) {
 }
 
 int fgetc(FILE* file) {
+
+    // TODO optimize this for the buffering case. We should be able to quickly
+    // pop a byte off the buffer if it is not empty.
+
     char x;
     if (1 == fread(&x, 1, 1, file)) {
         return x;
@@ -478,20 +482,22 @@ int fgetc(FILE* file) {
 }
 
 char* fgets(char* restrict s, int n, FILE* restrict file) {
-    if (n == 0) {
-        // TODO errno? EINVAL?
-        return s;
+    if (n <= 0) {
+        // In the C23 spec 7.23.7.2, passing a negative or zero n to fgets() is
+        // undefined behaviour. This wording is not in previous specs but we
+        // assume it is true there as well.
+        __fatal("A negative or zero value was passed as buffer size to fgets().");
     }
 
-    // TODO we have to stop on a newline so we read character by character.
-    // once we fix buffering we can scan forward in the buffer to a newline or
-    // eof.
     char* p = s;
     char* end = p + n - 1;
     while (p != end) {
-        if (fread(p, 1, 1, file) != 1) {
-            // TODO we need to report an appropriate error here.
-            // In particular if input is non-blocking this should fail.
+        int c = fgetc(file);
+        if (c == -1) {
+            if (p == s) {
+                // No characters have been read.
+                return NULL;
+            }
             break;
         }
         if (*p++ == '\n') {
