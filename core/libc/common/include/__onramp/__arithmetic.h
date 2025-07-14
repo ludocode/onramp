@@ -54,6 +54,12 @@ _Bool __llong_ltu(const unsigned* a, const unsigned* b);
 _Bool __llong_lts(const unsigned* a, const unsigned* b);
 _Bool __llong_ne(const unsigned* a, const unsigned* b);
 
+int __float_to_int(unsigned a);
+void __float_to_llong(unsigned* out, unsigned a);
+unsigned __float_from_int(int a);
+unsigned __float_from_llong(unsigned* a);
+void __float_to_double(unsigned* out, unsigned a);
+
 unsigned __float_add(unsigned a, unsigned b);
 unsigned __float_sub(unsigned a, unsigned b);
 unsigned __float_mul(unsigned a, unsigned b);
@@ -63,6 +69,12 @@ unsigned __float_modu(unsigned a, unsigned b);
 unsigned __float_mods(unsigned a, unsigned b);
 _Bool __float_lt(unsigned a, unsigned b);
 _Bool __float_ne(unsigned a, unsigned b);
+
+int __double_to_int(unsigned* a);
+void __double_to_llong(unsigned* out, unsigned* a);
+void __double_from_int(unsigned* out, int a);
+void __double_from_llong(unsigned* out, unsigned* a);
+unsigned __double_to_float(unsigned* a);
 
 unsigned* __double_add(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_sub(unsigned* out, const unsigned* a, const unsigned* b);

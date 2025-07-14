@@ -71,6 +71,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/file.c \
     -o build/intermediate/libc-3-full-re/file.oo
 
+echo Compiling libc/2-opc float.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/float.c \
+    -o build/intermediate/libc-3-full-re/float.oo
+
 echo Compiling libc/2-opc format.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -208,6 +214,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full-re/ctype.oo \
     build/intermediate/libc-3-full-re/environ.oo \
     build/intermediate/libc-3-full-re/file.oo \
+    build/intermediate/libc-3-full-re/float.oo \
     build/intermediate/libc-3-full-re/format.oo \
     build/intermediate/libc-3-full-re/io.oo \
     build/intermediate/libc-3-full-re/llong.oo \

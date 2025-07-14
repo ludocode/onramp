@@ -58,6 +58,7 @@ OBJS=\
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/file.oo \
+		$(OUT)/float.oo \
 		$(OUT)/format.oo \
 		$(OUT)/io.oo \
 		$(OUT)/llong.oo \
@@ -176,6 +177,12 @@ $(OUT)/file.oo: $(SRC2)/file.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/file.c -o $(OUT)/file.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/file.c -o $@
+
+$(OUT)/float.oo: $(SRC2)/float.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/float.c -o $(OUT)/float.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/float.c -o $@
 
 $(OUT)/format.oo: $(SRC2)/format.c Makefile
 	@rm -f $@

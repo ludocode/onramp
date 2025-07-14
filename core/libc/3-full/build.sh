@@ -98,6 +98,7 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/ctype.oo \
     build/intermediate/libc-2-opc/environ.oo \
     build/intermediate/libc-2-opc/file.oo \
+    build/intermediate/libc-2-opc/float.oo \
     build/intermediate/libc-2-opc/format.oo \
     build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/llong.oo \

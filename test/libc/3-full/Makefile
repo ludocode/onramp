@@ -72,6 +72,7 @@ OBJS_ALL=\
 		$(BUILD2)/ctype.oo \
 		$(BUILD2)/environ.oo \
 		$(BUILD2)/file.oo \
+		$(BUILD2)/float.oo \
 		$(BUILD2)/format.oo \
 		$(BUILD2)/io.oo \
 		$(BUILD2)/llong.oo \
