@@ -74,18 +74,32 @@ if ! command -v onrampvm > /dev/null; then
     exit 1
 fi
 
+# Create a directory for temp files
+ONRAMP_TMPDIR=
+cleanup() {
+    if ! [ -z "$ONRAMP_TMPDIR" ]; then
+        rm -r "$ONRAMP_TMPDIR"
+    fi
+}
+trap cleanup EXIT
+ONRAMP_TMPDIR=$(mktemp -d)
+if [ -z "$ONRAMP_TMPDIR" ]; then
+    echo "$0: ERROR: Failed to create a temporary directory." >&1
+    exit 1
+fi
+
 SOURCE_FOLDER="$1"
 shift
 COMPILER_ID="$1"
 shift
 COMMAND="$@"
-TEMP_I=/tmp/onramp-test.i
-TEMP_OS=/tmp/onramp-test.os
-TEMP_OO=/tmp/onramp-test.oo
-TEMP_OE=/tmp/onramp-test.oe
-TEMP_STDOUT=/tmp/onramp-test.stdout
-TEMP_STDERR=/tmp/onramp-test.stderr
-TEMP_FILES=/tmp/onramp-test-files
+TEMP_I=$ONRAMP_TMPDIR/onramp-test.i
+TEMP_OS=$ONRAMP_TMPDIR/onramp-test.os
+TEMP_OO=$ONRAMP_TMPDIR/onramp-test.oo
+TEMP_OE=$ONRAMP_TMPDIR/onramp-test.oe
+TEMP_STDOUT=$ONRAMP_TMPDIR/onramp-test.stdout
+TEMP_STDERR=$ONRAMP_TMPDIR/onramp-test.stderr
+TEMP_FILES=$ONRAMP_TMPDIR/onramp-test-files
 TOTAL_ERRORS=0
 
 # we want address sanitizer to return the same error code as the vm so we can

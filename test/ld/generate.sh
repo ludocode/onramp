@@ -15,11 +15,25 @@ fi
 
 ROOT=$(dirname $0)/../..
 
+# Create a directory for temp files
+ONRAMP_TMPDIR=
+cleanup() {
+    if ! [ -z "$ONRAMP_TMPDIR" ]; then
+        rm -r "$ONRAMP_TMPDIR"
+    fi
+}
+trap cleanup EXIT
+ONRAMP_TMPDIR=$(mktemp -d)
+if [ -z "$ONRAMP_TMPDIR" ]; then
+    echo "$0: ERROR: Failed to create a temporary directory." >&1
+    exit 1
+fi
+
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
-TEMP_OE=/tmp/onramp-test.oe
-TEMP_STDOUT=/tmp/onramp-test.stdout
+TEMP_OE=$ONRAMP_TMPDIR/onramp-test.oe
+TEMP_STDOUT=$ONRAMP_TMPDIR/onramp-test.stdout
 
 make -C $ROOT/test/libc/0-oo/ build
 LIBC=$ROOT/build/test/libc-0-oo/libc.oa

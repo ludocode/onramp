@@ -35,6 +35,20 @@ if ! command -v onrampvm > /dev/null; then
     exit 1
 fi
 
+# Create a directory for temp files
+ONRAMP_TMPDIR=
+cleanup() {
+    if ! [ -z "$ONRAMP_TMPDIR" ]; then
+        rm -r "$ONRAMP_TMPDIR"
+    fi
+}
+trap cleanup EXIT
+ONRAMP_TMPDIR=$(mktemp -d)
+if [ -z "$ONRAMP_TMPDIR" ]; then
+    echo "$0: ERROR: Failed to create a temporary directory." >&1
+    exit 1
+fi
+
 # build some dependencies
 set -e
 ROOT=$(dirname $0)/../..
@@ -42,8 +56,8 @@ ROOT=$(dirname $0)/../..
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
-TEMP_OE=/tmp/onramp-test.oe
-TEMP_STDOUT=/tmp/onramp-test.stdout
+TEMP_OE=$ONRAMP_TMPDIR/onramp-test.oe
+TEMP_STDOUT=$ONRAMP_TMPDIR/onramp-test.stdout
 ERROR=0
 
 # Some tests link against the libc. They provide arguments that use it here. We

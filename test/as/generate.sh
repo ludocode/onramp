@@ -18,10 +18,24 @@ if [ "$2" == "" ]; then
     exit 1
 fi
 
+# Create a directory for temp files
+ONRAMP_TMPDIR=
+cleanup() {
+    if ! [ -z "$ONRAMP_TMPDIR" ]; then
+        rm -r "$ONRAMP_TMPDIR"
+    fi
+}
+trap cleanup EXIT
+ONRAMP_TMPDIR=$(mktemp -d)
+if [ -z "$ONRAMP_TMPDIR" ]; then
+    echo "$0: ERROR: Failed to create a temporary directory." >&1
+    exit 1
+fi
+
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
-TEMP_OO=/tmp/onramp-test.oo
+TEMP_OO=$ONRAMP_TMPDIR/onramp-test.oo
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Generating $TESTS_PATH with: $COMMAND"

@@ -14,10 +14,24 @@ if [ "$1" == "" ]; then
     exit 1
 fi
 
+# Create a directory for temp files
+ONRAMP_TMPDIR=
+cleanup() {
+    if ! [ -z "$ONRAMP_TMPDIR" ]; then
+        rm -r "$ONRAMP_TMPDIR"
+    fi
+}
+trap cleanup EXIT
+ONRAMP_TMPDIR=$(mktemp -d)
+if [ -z "$ONRAMP_TMPDIR" ]; then
+    echo "$0: ERROR: Failed to create a temporary directory." >&1
+    exit 1
+fi
+
 SOURCE_FOLDER="$1"
 shift
 COMMAND="$@"
-TEMP_I=/tmp/onramp-test.i
+TEMP_I=$ONRAMP_TMPDIR/onramp-test.i
 
 for TESTCASE in $(find $SOURCE_FOLDER/* -name '*.c'); do
     echo -n "Running $TESTCASE... "

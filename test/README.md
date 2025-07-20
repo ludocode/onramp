@@ -5,7 +5,7 @@ Onramp is designed to be tested in a POSIX development environment. The test sui
 - a native C compiler (not Onramp);
 - a `make` tool (GNU or BSD);
 - a POSIX shell and coreutils;
-- a `/tmp` directory;
+- a `$TMPDIR` or `/tmp` directory;
 - and probably some other assumptions not listed here.
 
 There are two ways to test components: using the *best* available toolchain, and using the *boot*strapping toolchain. Both ways are important to fully test Onramp.

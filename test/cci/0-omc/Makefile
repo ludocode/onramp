@@ -111,8 +111,5 @@ test: build FORCE $(VM)
 generate: build FORCE $(VM)
 	../generate.sh . omc $(VM) $(OUT)/cci.oe
 
-debug: build FORCE
-	onrampvm $(OUT)/cci.oe /tmp/a.i -o /dev/stdout
-
 # TODO why does this cause rebuilding of assembly files?
 #.DELETE_ON_ERROR:

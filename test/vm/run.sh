@@ -49,10 +49,24 @@ if [ "$(realpath $(dirname $0)/../..)" != "$(realpath $(pwd))" ]; then
     exit 1
 fi
 
+# Create a directory for temp files
+ONRAMP_TMPDIR=
+cleanup() {
+    if ! [ -z "$ONRAMP_TMPDIR" ]; then
+        rm -r "$ONRAMP_TMPDIR"
+    fi
+}
+trap cleanup EXIT
+ONRAMP_TMPDIR=$(mktemp -d)
+if [ -z "$ONRAMP_TMPDIR" ]; then
+    echo "$0: ERROR: Failed to create a temporary directory." >&1
+    exit 1
+fi
+
 COMMAND="$@"
-TEMP_OE=/tmp/onramp-test.oe
-TEMP_STDOUT=/tmp/onramp-test.stdout
-TEMP_STDERR=/tmp/onramp-test.stderr
+TEMP_OE=$TMPDIR/onramp-test.oe
+TEMP_STDOUT=$TMPDIR/onramp-test.stdout
+TEMP_STDERR=$TMPDIR/onramp-test.stderr
 ANY_ERROR=0
 
 ( $(dirname $0)/../../platform/hex/c89/build.sh ) || exit $?
