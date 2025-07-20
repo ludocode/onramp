@@ -95,7 +95,7 @@ static FILE* output_file;
 static FILE* input_file;
 static long file_start_pos;
 static int pass;
-static char file_first_char;
+static int file_first_char;
 static const char* wrap_header;
 
 static char* buffer;
@@ -265,13 +265,16 @@ fputs("\n",stderr);
 static void next_char(void) {
     //printf("last char %x\n",current_char);
     //fputs("reading char...\n",stderr);
-    if (1 != fread(&current_char, 1, 1, input_file)) {
+    unsigned char c;
+    if (1 != fread(&c, 1, 1, input_file)) {
         //fputs("EOF\n",stderr);
         if (!feof(input_file)) {
             fatal("Failed to read input file.");
         }
         current_char = EOF;
+        return;
     }
+    current_char = c;
     //printf("read char %x\n",current_char);
 }
 
