@@ -36,9 +36,9 @@ extern FILE* input_file;
 //! The most recently parsed identifier or label name
 extern char* identifier;
 
-//! The current character (the last read, not yet consumed), or -1 at the end
+//! The current character (the last read, not yet consumed), or EOF at the end
 //! of the file
-extern char current_char;
+extern int current_char;
 
 extern int label_flags;
 extern label_type_t label_type;

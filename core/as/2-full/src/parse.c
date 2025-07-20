@@ -42,7 +42,7 @@ FILE* input_file;
 char* identifier;
 static size_t identifier_capacity;
 
-char current_char;
+int current_char;
 
 int label_flags;
 label_type_t label_type;
@@ -149,17 +149,19 @@ void consume_whitespace_and_comments(void) {
 }
 
 void read_char(void) {
-    if (current_char == -1) {
+    if (current_char == EOF) {
         fatal("Internal error: cannot consume EOF");
     }
-    size_t count = fread(&current_char, 1, 1, input_file);
+    unsigned char c;
+    size_t count = fread(&c, 1, 1, input_file);
     if (count != 1) {
         if (feof(input_file)) {
-            current_char = -1;
+            current_char = EOF;
             return;
         }
         fatal("Failed to read from input file");
     }
+    current_char = c;
 }
 
 static label_type_t label_type_from_char(char c) {
@@ -662,7 +664,7 @@ static bool try_parse_character(uint8_t* out) {
 
 bool parse(void) {
     consume_whitespace_and_comments();
-    if (current_char == -1)
+    if (current_char == EOF)
         return false;
 
     // parse an identifier. if found, it must be an opcode.
