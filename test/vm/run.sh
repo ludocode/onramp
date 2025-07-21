@@ -64,9 +64,9 @@ if [ -z "$ONRAMP_TMPDIR" ]; then
 fi
 
 COMMAND="$@"
-TEMP_OE=$TMPDIR/onramp-test.oe
-TEMP_STDOUT=$TMPDIR/onramp-test.stdout
-TEMP_STDERR=$TMPDIR/onramp-test.stderr
+TEMP_OE=$ONRAMP_TMPDIR/onramp-test.oe
+TEMP_STDOUT=$ONRAMP_TMPDIR/onramp-test.stdout
+TEMP_STDERR=$ONRAMP_TMPDIR/onramp-test.stderr
 ANY_ERROR=0
 
 ( $(dirname $0)/../../platform/hex/c89/build.sh ) || exit $?
