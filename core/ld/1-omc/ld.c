@@ -265,7 +265,34 @@ fputs("\n",stderr);
 static void next_char(void) {
     //printf("last char %x\n",current_char);
     //fputs("reading char...\n",stderr);
-    unsigned char c;
+
+    // TODO we should be reading into unsigned char but cci/0 doesn't support
+    // it. This means the code can't currently distinguish EOF from a 255 byte
+    // during bootstrapping. This doesn't really matter because only ASCII is
+    // used in bootstrapping but it would be nice to fix this at some point.
+    //
+    // Maybe we should only support `unsigned char` and not `char` in cci/0. It
+    // might be a bit more code to accept the 'unsigned' keyword in cci/0 but
+    // it would make this a lot cleaner and would also make the compiled code
+    // faster (e.g. no sxb instructions.)
+    //
+    // Another option would be to make char unsigned on Onramp (like it is on
+    // aarch64 for example), although we would still need a workaround like
+    // this to build natively if we want the behaviour to exactly match even
+    // for non-ASCII bytes.
+    //
+    // Finally we could just use a char and do `& 0xFF` when converting the
+    // char to an int. This is maybe the simplest fix but the code is a bit
+    // ugly and it's the slowest option (it's essentially sxb followed by trb
+    // which is totally redundant.) This function is run for every character
+    // parsed and ld/1 is used to link some fairly big programs during
+    // bootstrapping (e.g. cci/2, cpp/2, ld/2) so it would be nice to make it
+    // as fast as possible.
+    #ifndef __onramp_cci_omc__
+    unsigned
+    #endif
+        char c;
+
     if (1 != fread(&c, 1, 1, input_file)) {
         //fputs("EOF\n",stderr);
         if (!feof(input_file)) {
