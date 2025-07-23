@@ -61,10 +61,11 @@
     ; - 0: last experimental version before numbering
     ; - 1: replaced cmpu instruction with ltu
     ; - 2: replaced exit address with syscall table at pit[2]
+    ; - 3: added pit count and syscall count to pit
 
-    ; Check that VM version is 2
+    ; Check that VM version is 3
     ldw r1 r0 0
-    sub r2 r1 2
+    sub r2 r1 3
     jnz r2 &__start_version_fail
 
     ; Version is good, jump into C
@@ -86,8 +87,8 @@
     jmp ^__vm_version_0_or_1
 :__start_vm_not_1
 
-    ; Unknown version
-    jmp ^__vm_version_unknown
+    ; Version 2 or unknown version
+    jmp ^__vm_version_other
 
 
 
@@ -261,14 +262,15 @@
 
 
 ; ==========================================================
-; [[noreturn]] void __vm_version_unknown(uint32_t* process_info_table);
+; [[noreturn]] void __vm_version_other(uint32_t* process_info_table);
 ; ==========================================================
-; Exits on an unknown VM version with an error indicating that the VM version
-; is not supported.
+; Exits with an error indicating that the VM version is not supported.
 ;
-; This is called on VM versions higher than expected. This won't work correctly
-; if anything used below is changed. Hopefully future VM versions will remain
-; backwards compatible with the below instructions.
+; This is called on VM version 2, or VM versions higher than expected. It
+; prints an error message and exits through the system call table.
+;
+; This won't work correctly if anything used below is changed. Hopefully future
+; VM versions will remain backwards compatible with the below instructions.
 ;
 ; There aren't automated tests for unsupported VM versions so don't change this
 ; without lots of manual testing.
@@ -281,7 +283,7 @@
 ; - rfp-20: rpp
 ; ==========================================================
 
-=__vm_version_unknown
+=__vm_version_other
 
     ; set up a stack frame
     enter
@@ -302,7 +304,7 @@
     call ^strlen
     stw r0 rfp -16
 
-:__vm_version_unknown_write_loop
+:__vm_version_other_write_loop
 
     ; get the fwrite syscall
     ldw r0 rfp -4  ; r0 = process_info_table
@@ -318,9 +320,9 @@
     ldw rpp rfp -20 ; restore rpp
 
     ; if no bytes were written, or if an error occurs, we're done
-    jz r0 &__vm_version_unknown_write_done
+    jz r0 &__vm_version_other_write_done
     shru r3 r0 31                      ; check high bit for write error
-    jnz r3 &__vm_version_unknown_write_done
+    jnz r3 &__vm_version_other_write_done
 
     ; increment string pointer
     ldw r1 rfp -12
@@ -333,12 +335,12 @@
     stw r2 rfp -16
 
     ; if no bytes left we're done
-    jz r2 &__vm_version_unknown_write_done
+    jz r2 &__vm_version_other_write_done
 
     ; write again
-    jmp &__vm_version_unknown_write_loop
+    jmp &__vm_version_other_write_loop
 
-:__vm_version_unknown_write_done
+:__vm_version_other_write_done
 
     ; get the exit syscall
     ldw r0 rfp -4  ; r0 = process_info_table
@@ -353,7 +355,6 @@
     call r4
 
     ; Use an invalid instruction in a loop in case the program doesn't exit.
-    ; TODO we didn't push a return value, this is pointless
-:__vm_version_unknown_exit_loop
+:__vm_version_other_exit_loop
     'FF 'FF 'FF 'FF
-    jmp &__vm_version_unknown_exit_loop
+    jmp &__vm_version_other_exit_loop

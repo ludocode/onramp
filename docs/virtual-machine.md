@@ -1,8 +1,8 @@
-# Onramp Virtual Machine and Bytecode
+# Onramp Virtual Machine
 
 The Onramp Virtual Machine is a simple virtual machine designed for portable bootstrapping.
 
-This document specifies version 2 of the virtual machine and its bytecode. For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
+This document specifies version 3 of the virtual machine. For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
 
 Here's an index of sections in this document:
 
@@ -10,6 +10,18 @@ Here's an index of sections in this document:
 - [Registers](#registers)
 - [Memory Layout](#memory-layout)
 - [Process Info Table](#process-info-table)
+    - [Version](#version)
+    - [Program Break](#program-break)
+    - [System Call Table][pit-system-call-table]
+    - [Input Stream Handle](#input-stream-handle)
+    - [Output Stream Handle](#output-stream-handle)
+    - [Error Stream Handle](#error-stream-handle)
+    - [Command-Line Arguments](#command-line-arguments)
+    - [Environment Variables](#environment-variables)
+    - [Working Directory](#working-directory)
+    - [Capabilities](#capabilities)
+    - [System Call Count](#system-call-count)
+    - [Process Info Count](#process-info-count)
 - [Position-Independence](#position-independence)
 - [Instructions](#instructions)
 - [Negative Values](#negative-values)
@@ -33,7 +45,7 @@ Here's an index of sections in this document:
 - [Calling Convention](#calling-convention)
     - [System Call Convention](#system-call-convention)
 - [System Calls](#system-calls)
-    - [System Call Table](#system-call-table)
+    - [System Call Table][system-call-table]
     - [System Call Quick Reference](#system-call-quick-reference)
     - [`halt`](#halt)
     - [`panic`](#panic)
@@ -56,6 +68,8 @@ Here's an index of sections in this document:
     - [`mkdir`](#mkdir)
     - [`rmdir`](#rmdir)
     - [`spawn`](#spawn)
+    - [`alloc`](#alloc)
+    - [`free`](#free)
 - [Filesystem](#filesystem)
     - [I/O Handles](#io-handles)
     - [Input/Output Streams](#inputoutput-streams)
@@ -70,7 +84,7 @@ Here's an index of sections in this document:
 
 ## Overview
 
-The Onramp VM is a register-based reduced instruction set computer (RISC). It uses 32-bit words addressed over 8-bit memory.
+The Onramp VM is a register-based reduced instruction set computer (RISC). It uses 32-bit little-endian words addressed over 8-bit memory.
 
 A large contiguous region of memory is available to the program which stores both code and data. The memory region is initialized with the program code, along with a process info table (PIT) containing information about the environment: command-line arguments, environment variables and so on. Programs typically divide the remainder of memory into a heap and a stack.
 
@@ -84,7 +98,7 @@ There are (currently) no interrupts. The VM is designed for non-interactive comp
 
 All programs are position-independent. This makes it possible for programs to run other programs without the need for virtual memory. The program pointer (`rpp`) contains the base address of the currently running program.
 
-The VM accesses the outside environment via system calls. These are provided by the VM to the program as a table of function pointers which the program calls using a special calling convention. System calls include input and output streams; file and directory access; time and more.
+The VM accesses the outside environment via system calls (or "syscalls".) These are provided by the VM to the program as a table of function pointers which the program calls using a special calling convention. System calls include input and output streams; file and directory access; time and more.
 
 An Onramp VM can run hosted or freestanding. When hosted, the platform's filesystem is bridged into the virtual machine. This requires the VM to implement the file and directory system calls. When freestanding, an OS runs inside the Onramp VM. The contained OS receives most system calls and implements the filesystem.
 
@@ -94,7 +108,9 @@ When writing C programs and compiling them for Onramp, you do not need to worry 
 
 ## Registers
 
-There are sixteen registers numbered `0x80` to `0x8F`. All instructions can operate on all registers, but some registers have special behaviour (such as the instruction pointer and stack pointer) and others have strong conventions on their use (such as the frame pointer and program pointer.) These latter registers are given special names.
+There are sixteen registers numbered `0x80` to `0x8F`. Their names are `r0`-`r9`, `ra`, `rb`, `rsp`, `rfp`, `rpp` and `rip`.
+
+All instructions can operate on all registers, but some registers have special behaviour (such as the instruction pointer and stack pointer) and others have strong conventions on their use (such as the frame pointer and program pointer.)
 
 - Registers `r0` through `r9` are general-purpose caller-preserved registers. They are used for local variables. Some of them have special purposes:
 
@@ -128,7 +144,7 @@ Here it is in table form:
 | `rpp`     | `8E`      | Program pointer (start of program)                          | Callee       | Start of program   |
 | `rip`     | `8F`      | Instruction pointer (next instruction to be executed)       | Caller       | Start of program   |
 
-There is no status or flags register. Detecting overflow, underflow and other such conditions must be done manually. Instructions such as `ltu` (less than unsigned) and `jz` (jump if zero) can read or write the predicate in any register.
+There is no status or flags register. Detecting overflow, underflow and other such conditions must be done manually. Instructions such as [`ltu` (less than unsigned)][ltu] and [`jz` (jump if zero)][jz] can read or write the predicate in any register.
 
 Note that although `rip` is initially set to the start of the program, it will move past the first instruction before that instruction actually executes. `rpp` should be used as the start of the program.
 
@@ -161,57 +177,156 @@ There is no memory protection for the running program. If the program accesses m
 
 ## Process Info Table
 
-The process information table is an array of 32-bit words. Here's a quick reference table of its contents:
+The process information table is an array of twelve 32-bit words. Here's a quick reference table of its contents:
 
-| Index | Value                  | type   | Description
-|-------|------------------------|--------|------------------------------------------------------------------------|
-| 0     | Version                | int    | Always 2 for this version.                                             |
-| 1     | Program Break          | void*  | Address of one past the last byte in the program.                      |
-| 2     | System Call Table      | int    | Table of system calls.                                                 |
-| 3     | Input stream handle    | int    | File handle of input stream, or -1 if input is not supported           |
-| 4     | Output stream handle   | int    | File handle of output stream, can match input                          |
-| 5     | Error stream handle    | int    | File handle of error stream, can match output and input                |
-| 6     | Command-Line Arguments | char** | Null-terminated array of null-terminated strings.                      |
-| 7     | Environment Variables  | char** | Null-terminated array of null-terminated strings of form "key=value".  |
-| 8     | Working directory      | char*  | Directory in which the program is being run.                           |
-| 9     | Capabilities           | int    | Flags indicating the capabilities and environment of the VM.           |
+| Index | Value                  | type     | Description                                                            |
+|-------|------------------------|----------|------------------------------------------------------------------------|
+| 0     | Version                | `int`    | Always 2 for this version.                                             |
+| 1     | Program Break          | `void*`  | Address of one past the last byte in the program.                      |
+| 2     | System Call Table      | `int`    | Table of system calls.                                                 |
+| 3     | Input Stream Handle    | `int`    | File handle of input stream, or -1 if input is not supported           |
+| 4     | Output Stream Handle   | `int`    | File handle of output stream, can match input                          |
+| 5     | Error Stream Handle    | `int`    | File handle of error stream, can match output and input                |
+| 6     | Command-Line Arguments | `char**` | Null-terminated array of null-terminated strings.                      |
+| 7     | Environment Variables  | `char**` | Null-terminated array of null-terminated strings of form "key=value".  |
+| 8     | Working Directory      | `char*`  | Directory in which the program is being run.                           |
+| 9     | Capabilities           | `int`    | Flags indicating the capabilities and environment of the VM.           |
+| 10    | System Call Count      | `int`    | Number of entries in the system call table.                            |
+| 11    | Process Info Count     | `int`    | Number of entries in the process info table.                           |
+
+The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
+
+The process info table and its associated information cannot be written to by the program except that command-line arguments and environment variables may be modified in-place (for example with `strtok()`.) Any other changes are undefined behaviour, and may crash the VM or corrupt the parent process.
+
+
+
+### Version
+
+The version field contains the version of the Onramp VM.
+
+The version of the Onramp VM described by this document is 3. This field must contain the value 3 as a 32-bit little-endian word (`03 00 00 00`).
+
+
+
+### Program Break
+
+The program break is the address of one past the last byte in the program, which is the first byte of free memory usable by the program. In other words it's the start of the heap, which programs typically use for `malloc()`.
+
+
+
+### System Call Table
+
+The system call table field contains the address of the [System Call Table][system-call-table]. The number of entries in the table is contained in the [System Call Count](#system-call-count) field of the process info table.
+
+
+
+### Input Stream Handle
+
+The input stream handle is an I/O handle that provides a stream of input to the program. It is used as a handle to `fread` for the program to get input data.
+
+For programs run interactively, this is typically connected to an input terminal (such as a keyboard). For programs run as part of a pipeline, the input of the program may be the contents of a file or the output of another program.
+
+The input stream is optional. If input is not supported by the VM, this field should contain 0xFFFFFFFF. This is normal for example for non-interactive bootstrapping in a freestanding environment.
+
+Valid handles for the input, output and error streams may have any value (and may even all have the same value) as long as the high bit is not set. The program can use these handles to communicate with the outside world. If a handle has value 0xFFFFFFFF, this indicates that the stream does not exist, and the program should avoid using it.
+
+
+
+### Output Stream Handle
+
+The error stream handle is an I/O handle to which the program can write its output. It is used as a handle to `fwrite` for the program to write output data.
+
+For programs run interactively, the output stream is displayed to the user (for example in a graphical terminal or on a printer.) For programs run as part of a pipeline, the output of the program may be redirected to a file or may be the input of another program.
+
+The output stream is optional. If not supported by the VM, this field should contain 0xFFFFFFFF.
+
+
+
+### Error Stream Handle
+
+The error stream handle is an I/O handle to which the program can write error messages. It is used as a handle to `fwrite` for the program to write output data.
+
+The error stream is typically displayed to the user. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
+
+The error stream is optional. If a separate error stream is not supported by the VM, this field should contain 0xFFFFFFFF. If this has value 0xFFFFFFFF and the output stream handle is valid, the program will write error messages to the output stream handle instead.
+
+
+
+### Command-Line Arguments
+
+Command-line arguments are stored in a null-terminated array of null-terminated strings.
+
+In a hosted environment, the command-line typically has at least one string, which is the path to the program being run. The program can use this path to find its program image, and can use the last component of this path to determine its name.
+
+This field is optional. If not supported, it can be null (zero) or it can be an empty array (i.e. it can be the address of a zero.) This indicates to the program that the program name and command line arguments are not available.
+
+
+
+### Environment Variables
+
+Environment variables are stored in a null-terminated array of null-terminated strings.
+
+Environment variables are key-value pairs delimited by `=`. The substring to the left of the first `=` is the key, while the substring to the right is the value.
+
+This field is optional. If not supported, or if there are no environment variables, this field can be null (zero) or it can be an empty array (i.e. it can be the address of a zero.)
+
+
+
+### Working Directory
+
+The working directory is the initial base directory that the program should use for relative paths.
+
+Note that VM syscalls have no concept of a working directory. It is up to the program to track its own working directory and append relative paths to it before calling VM syscalls. (This is handled by the Onramp libc.) (TODO this is not done yet, currently the VMs all support paths relative to the initial working directory.)
+
+If a working directory is provided, Onramp programs will normalize all paths to it when making system calls. In this case all paths passed to system calls will be absolute.
+
+The working directory may be null (zero.) In this case the Onramp VM may pass relative or absolute paths to system calls.
 
 
 
 ### Capabilities
 
-The capabilities entry is an int containing a set of 1-bit flags. They are numbered from least to most significant bit:
+The capabilities entry is a 32-bit word containing a set of 1-bit flags. They are numbered from least to most significant bit:
 
 | Bit Position | Value               |                                                            |
 |--------------|---------------------|------------------------------------------------------------|
-| 0            | Input Echo          | 0 if Onramp should echo output to the input.               |
+| 0            | Input Echo          | 0 if the program should echo output to the input.          |
 | 1            | Input Blocks        | 1 if fread(input) blocks until input is available.         |
 | 2            | Input Line-Oriented | 1 if VM buffers input in lines (i.e. POSIX canonical)      |
-
-The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`.
-
-The version field contains the version of the Onramp VM. The information table is intended to be forward-compatible, so to perform a version check, ensure the version is at least as large as the version you need.
-
-The program break is the address of one past the last byte of the program bytecode. In other words it's the start of the heap, which programs typically use for `malloc()`.
-
-The syscall table is described in the section [System Call Table](#system-call-table).
-
-Handles for the input, output and error streams may have any value (and may even all have the same value.) The program must use these handles to communicate with the outside world. If a handle has value 0xFFFFFFFF, this indicates that the stream does not exist, and the program should avoid using it.
-
-Command-line arguments and environment variables are stored in null-terminated arrays of null-terminated strings. In a hosted environment, the command-line always has at least one string, which is the path to the program being run. Environment variables are typically key-value pairs delimited by `=`. The substring to the left of the first `=` is the key, while the substring to the right is the value.
-
-The working directory is the base directory that the program should use for relative paths. Note that VM syscalls have no concept of a working directory: all paths must be absolute. It is up to the program to track its own working directory and append relative paths to it before calling VM syscalls. (This is handled by the Onramp libc.) (TODO this is not done yet, currently the VMs all support paths relative to the initial working directory.)
-
-In a freestanding environment, the command-line, environment variables and working directory may all be null.
 
 The capabilities field contains a set of flags describing what features are supported by the VM. The following flags exist, with bits numbered from low to high:
 
 - bit 0: input echo. 1 if the input stream is echoed to the output; 0 otherwise. If possible the VM should not echo input.
+
 - bit 1: input blocks. 1 if the read syscall blocks until a byte is available; 0 if it doesn't, instead reading zero bytes successfully when no input data exists. If possible the VM should not block on input. If you are unsure whether the input blocks, set this to 1 to prevent programs from setting the input to non-blocking.
+
 - bit 2: input line-oriented (i.e. [POSIX canonical](https://en.wikipedia.org/wiki/POSIX_terminal_interface#Canonical_mode_processing)). 1 if input is only available once a full line has been processed; 0 if input is available immediately on each keystroke. If possible the VM should not line-buffer input. If you are unsure whether the input is line-oriented, set this to 1 to prevent programs from turning off canonical mode.
 
-Note that the process info table and its associated information must not be written to except that command-line arguments and environment variables may be modified (for example with `strtok()`.) Any other changes are undefined behaviour, and may crash the VM or corrupt the parent process.
 
+
+### System Call Count
+
+The System Call Count field contains the number of entries in the [System Call Table][system-call-table].
+
+Note that this is not the number of *supported* system calls. Most of the system calls are optional and do not need to be implemented by the VM. However, space for them must nevertheless be reserved in the system call table so that programs can determine whether they are supported.
+
+The value of this field should be 25 (`19 00 00 00`), which is the current number of system calls. The system call table contains eight bytes per entry, so the system call table should be 200 bytes in size.
+
+The minimum number of supported system calls is 25. (The Onramp libc does not check the system call table size before accessing system calls 24 and under.)
+
+The purpose of this field is to allow the system call table to be expanded in a backwards-compatible way without breaking compatibility with existing programs and VMs. Additional system calls can be added to the spec later without bumping the VM version.
+
+
+
+### Process Info Count
+
+The Process Info Count field contains the number of entries in the [Process Info Table](#process-info-table).
+
+The value of this field should be 12 (`0C 00 00 00`). The process info table contains four bytes per entry, so the process info table should be 48 bytes in size.
+
+The minimum number of entries for the process info table is 12. (The Onramp libc does not check the process info table size before accessing entries 11 and under.)
+
+The purpose of this field is to allow the process info table to be expanded in a backwards-compatible way without breaking compatibility with existing programs and VMs. Additional process info table fields can be added to the spec later without bumping the VM version.
 
 
 
@@ -258,7 +373,7 @@ call ^some_function
 
 (This would of course be done after preparing the arguments; see the Calling Convention section below.)
 
-There is only one instruction that takes an address relative to the instruction pointer: the conditional jump-if-zero instruction (`jz`). It takes a sign-extended 16-bit relative address, making it very useful for hand-writing loops in bytecode.
+There is only one instruction that takes an address relative to the instruction pointer: the conditional [jump if zero instruction (`jz`)][jz]. It takes a sign-extended 16-bit relative address, making it very useful for hand-writing loops in bytecode.
 
 
 
@@ -306,7 +421,7 @@ The only thing the VM needs to be able to do in relation to negative numbers is 
 
 - When a mix-type byte is in the range `0x90`-`0xFF`, the upper 24 bits must be set to 1 to extend it to 32 bits. In order words, when a mix-type byte is not a register, the 8th bit must be copied to the upper 24 bits.
 
-- The high bit of the two-byte offset in the [conditional jump instruction (`jz`)][jz] must be copied to the upper 16 bits to extend it to a full 32-bit word. It can then be added to the instruction pointer using an ordinary unsigned addition that wraps to 32 bits.
+- The high bit of the two-byte offset in the [jump if zero instruction (`jz`)][jz] must be copied to the upper 16 bits to extend it to a full 32-bit word. It can then be added to the instruction pointer using an ordinary unsigned addition that wraps to 32 bits.
 
 Programs compiled by the Onramp compiler and assembler use two's complement to represent signed numbers. All signed operations are reduced to unsigned VM instructions by the assembler.
 
@@ -499,7 +614,7 @@ This is equivalent to dividing `arg1` by two to the power of `arg2`.
 
 Note that a 32-bit two's complement arithmetic right shift produces different results; you must be careful to perform an unsigned (logical) shift. Signed right shift is simulated by the `shrs` instruction in compound assembly.
 
-The VM is allowed to assume that `arg2` is always in the range of 0 to 31 inclusive; for example, it may ignore all but the low five bits. (Debugging VMs halt the program and report an error if `arg2` is 32 or larger.)
+The behaviour is undefined if `arg2` is 32 or larger. (The VM can assume that `arg2` is always in the range of 0 to 31 inclusive; for example, it may ignore all but the low five bits. The VM may also crash or corrupt memory if `arg2` is 32 or larger. Debugging VMs halt and report an error if `arg` is 32 or larger.)
 
 
 
@@ -704,7 +819,7 @@ When syscalls are implemented by a parent program, the context is typically the 
 
 In any case, after the syscall is performed, the implementer of the syscall must place a return value in r0 and then return control to the address pointed to by the stack pointer. In other words, a VM returns control to the program by loading the address pointed to by `rsp` into `rip`. For a syscall implemented in a parent program, this is the ordinary mechanism by which a function returns to the caller.
 
-When a program is nested deep within other programs in a VM, the system call table will contain a mix of function pointers from various parents. For example, consider the Onramp assembler, running in the Onramp driver, running in the Onramp shell, running in the Onramp OS, running on a freestanding Onramp VM. Typically the direct parent (in this case the driver) will provide exit; the VM will implement time and fread/fwrite for terminal input/output; the OS will implement the file and directory syscalls; and both the OS and shell will proxy fread/fwrite to redirect to files or to the VM's terminal streams.
+When a program is nested deep within other programs in a VM, the system call table will contain a mix of function pointers from various parents. For example, consider the Onramp assembler, running in the Onramp driver, running in the Onramp shell, running in the Onramp OS, running on a freestanding Onramp VM. Typically the direct parent (in this case the driver) will provide exit; the VM will implement fread/fwrite for terminal input/output; the OS will implement the file and directory syscalls; and both the OS and shell will proxy fread/fwrite to redirect to files or to the VM's terminal streams.
 
 
 
@@ -712,9 +827,9 @@ When a program is nested deep within other programs in a VM, the system call tab
 
 All system calls return a word that contains either an error code, a return value, or 0 indicating success without a value. If a return value is omitted in the below table, the system call returns 0 on success and an error code on error.
 
-Arguments are passed in `r0`, `r1`, `r2` and `r3` (plus the context in `r9`.) The return value is placed in `r0`.
+Arguments are passed in `r0`, `r1`, `r2` and `r3`, plus the context in `r9`. The return value is placed in `r0`.
 
-The system call table has **23** entries:
+The system call table currently has **25** entries:
 
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
@@ -741,6 +856,8 @@ The system call table has **23** entries:
 | 20     |           | spawn    | path, args, env, fds     | pid                      | runs a program outside the VM            |
 | 21     |           | waitpid  | pid                      | exit code                | waits until an outside program exits     |
 | 22     |           | debug    | address, path            |                          | loads debug info for a child program     |
+| 23     |           | alloc    | size (ptr)               | address                  | allocates a block of memory              |
+| 24     |           | free     | address, size            |                          | frees an allocated block of memory       |
 
 \*: Entries marked "hosted\*" are currently required in a hosted environment but may not be required in future VM specs.
 
@@ -842,9 +959,9 @@ int __sys_fclose(int file_handle);
 - argument in r0: the handle of the file to close
 - return value in r0: always 0
 
-Closes the given file handle.
+Closes the given file handle or input/output/error streams.
 
-This can only be used to close files, not the input/output/error streams.
+The VM may ignore a request to close the input, output and error streams.
 
 This system call must return 0; an `fclose` call cannot fail. If the given file handle is a standard stream or is invalid, the behaviour is undefined.
 
@@ -1195,6 +1312,38 @@ This syscall is optional and most VMs do not implement it. The [c-debugger](../p
 
 
 
+### alloc
+
+```c
+void* __sys_alloc(size_t* /*in-out*/ size);
+```
+
+Allocates a large block of memory of at least the given size.
+
+The desired size should be stored in the size pointer; the actual size of the allocation is written out to it. The address of the block is returned.
+
+The VM may allocate a block of any size as long as it is at least the given size. For example, it may round up the size to a multiple of 4 MB.
+
+If sufficient memory is not available, the VM may return 0 or an error code. (Note that values with the high bit set that are not error codes can be valid addresses so the caller cannot just check the high bit for error. The caller generally checks that the returned address is not zero and that the returned address plus the size does not overflow.)
+
+The Onramp libc uses this to request large blocks of memory to back program calls to `malloc()`. It generally does not request blocks of memory smaller than 1 MB, although the bootstrap process may request as little as 256 kB.
+
+This system call is optional. The VM may instead simply provide as much initial memory to the program as possible.
+
+
+
+### free
+
+```c
+void* __sys_free(void* address, size_t size);
+```
+
+Frees a block of memory previously allocated with `alloc` of the given size.
+
+The value passed as the size parameter must exactly match the actual size (not the requested size) in the corresponding call to `alloc`. The VM may ignore it, or it may use it to free only the given chunk of memory without checking whether it is valid. (The host program is required to store the size so that the VM doesn't have to. This is handled internally by the Onramp libc.)
+
+
+
 ## Filesystem
 
 A filesystem is made up of directories and files. Directories can contain other directories and files. Files contain data of arbitrary type and length, and grow automatically as data is written to them.
@@ -1284,7 +1433,7 @@ However, by convention, Onramp VM programs start with the following instructions
 7E 20 20 20   ; jz 32 8224
 ```
 
-These are conditional jump-if-zero instructions, and since their predicates are non-zero constants, they do nothing. However, their encoding in ASCII is "`~Onr~amp~   `". This serves as a format indicator that identifies a file as containing an Onramp program. This preamble is not required but VM implementations may warn if a program does not start with it.
+These are conditional [jump if zero][jz] instructions, and since their predicates are non-zero constants, they do nothing. However, their encoding in ASCII is "`~Onr~amp~   `". This serves as a format indicator that identifies a file as containing an Onramp program. This preamble is not required but VM implementations may warn if a program does not start with it.
 
 On some hosted platforms, Onramp bytecode can also be wrapped in a script that executes the Onramp virtual machine. This allows them to be executed like normal programs. For example, the POSIX wrapper looks like this:
 
@@ -1321,9 +1470,12 @@ Non-goals are efficiency, memory safety, and suitability for implementation in h
 Onramp's VM design takes inspiration from such projects as Robert Elder's [one page CPU](https://recc.robertelder.org/op-cpu-programmer-reference-manual.txt), the [TOY machine](https://introcs.cs.princeton.edu/java/62toy/) from Sedgewick and Wayne, the design of [MessagePack](https://msgpack.org/), classic architectures like PDP-11 (designed to be programmed directly in octal), and of course modern RISC ISAs like RISC-V. See the [inspiration](inspiration.md) page for details.
 
 
+
 ## Version History
 
-Version 2: Added syscall table, replacing the exit address in the PIT (an address that was assigned to `rip` to exit the program.). Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall, displacing `time`.
+Version 3: Added system call count and process info count fields to the PIT. Added `alloc` and `free` system calls.
+
+Version 2: Added system call table, replacing the exit address in the PIT (an address that was assigned to `rip` to exit the program.). Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall, displacing `time`.
 
 Version 1: Replaced `cmpu` instruction with `ltu`. (The `cmpu` instruction took a destination register and two source mix-type bytes. It performed a three-way comparison between the sources. It placed 1 in the register if the first source argument was greater than the second; 0xFFFFFFFF if the first was less than the second; and 0 if the source arguments matched.)
 
@@ -1350,3 +1502,6 @@ Markdown link references follow.
 [ims]: #immediate-short
 [ltu]: #less-than-unsigned
 [jz]: #jump-if-zero
+
+[system-call-table]: #system-call-table-1
+[pit-system-call-table]: #system-call-table

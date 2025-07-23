@@ -96,7 +96,7 @@ VM_ERR_IO          = 0xFFFFFFFD
 VM_ERR_UNSUPPORTED = 0xFFFFFFFC
 
 # syscalls
-SYSCALL_COUNT = 23
+SYSCALL_COUNT = 25
 
 def loadByte(address):
     return memory[(address & 0xFFFFFFFF) - BASE_ADDR]
@@ -335,7 +335,7 @@ def initialize():
     # Make space for the process info table
     breakAddress = BASE_ADDR
     tableAddress = breakAddress
-    breakAddress += 4 * 10
+    breakAddress += 4 * 12
 
     # Helper to copy string into VM heap
     def copyString(string):
@@ -401,7 +401,7 @@ def initialize():
     registers[RSP] = BASE_ADDR + MEMORY_SIZE
 
     # Fill process info table
-    storeWord(tableAddress, 2) # version
+    storeWord(tableAddress, 3) # version
     storeWord(tableAddress + 4, breakAddress)  # program break
     storeWord(tableAddress + 8, syscallTableAddress)  # syscall table
     storeWord(tableAddress + 12, 0)  # input stream handle
@@ -411,6 +411,8 @@ def initialize():
     storeWord(tableAddress + 28, envAddress)   # environment vars
     storeWord(tableAddress + 32, dirAddress)   # working directory
     storeWord(tableAddress + 36, 7)  # capabilities = echo | blocking | line-oriented
+    storeWord(tableAddress + 40, SYSCALL_COUNT)  # syscall count
+    storeWord(tableAddress + 44, 12)  # process info count
 
 if __name__ == "__main__":
     try:

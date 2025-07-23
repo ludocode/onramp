@@ -107,7 +107,9 @@
 ;         0x100001C environment variables
 ;         0x1000020 working directory
 ;         0x1000024 capabilities bits
-;     0x1000028 syscall instruction (custom 0x7F opcode)
+;         0x1000028 syscall count
+;         0x100002C process info count
+;     0x1000030 syscall instruction (custom 0x7F opcode)
 ; 0x1FFFFFF last byte in heap (16 MB)
 ;
 ;   function table
@@ -125,7 +127,6 @@
 ; 0x400820 [padding]
 ; 0x400870 load_working_directory
 ; 0x4008C0 initialize
-; 0x400980 check_byte
 ; 0x4009B0 check_word
 ; 0x4009F0 parse_register
 ; 0x400A30 parse_mix
@@ -147,7 +148,8 @@
 ; 0x4012F0 io_setup
 ; 0x401410 io_teardown
 ; 0x401460 signal_handler
-; 0x401580   end of program
+; 0x401580 check_byte
+; 0x4015C0   end of program
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -229,8 +231,8 @@
     00 05 00 00 00 00 00 00  ; offset within the file: 0x500
     00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
     00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
-    80 10 00 00 00 00 00 00  ; size of the segment in the file: 0x1080 (0x1580-0x500)
-    80 10 00 00 00 00 00 00  ; size of the segment in memory: 0x1080 (0x1580-0x500)
+    C0 10 00 00 00 00 00 00  ; size of the segment in the file: 0x10C0 (0x15C0-0x500)
+    C0 10 00 00 00 00 00 00  ; size of the segment in memory: 0x10C0 (0x15C0-0x500)
     00 10 00 00 00 00 00 00  ; required alignment: 4 KB
 @0x78
 
@@ -395,7 +397,7 @@
 ; Each entry in the syscall table is two words: the instruction pointer and the
 ; context for an external function call.
 ;
-; For each syscall, we pass the address of our syscall instruction (0x1000028)
+; For each syscall, we pass the address of our syscall instruction (0x1000030)
 ; as the function address, and the native function address as the context. The
 ; syscall instruction is a custom opcode with value 0x7F in VM space which we
 ; interpret as a syscall. When this opcode is reached, we jump to the native
@@ -410,17 +412,17 @@
 @0x420 syscall_table
   ; rip          r9
 ; system
-    28 00 00 01  20 0E 40 00   ; 0x00 halt (0x400E20)
+    30 00 00 01  20 0E 40 00   ; 0x00 halt (0x400E20)
     00 00 00 00  00 00 00 00   ; 0x01 panic (not implemented)
-    28 00 00 01  00 12 40 00   ; 0x02 time (0x401200)
+    30 00 00 01  00 12 40 00   ; 0x02 time (0x401200)
 ; files
-    28 00 00 01  90 0F 40 00   ; 0x03 fopen (0x400F90)
-    28 00 00 01  40 0F 40 00   ; 0x04 fclose (0x400F40)
-    28 00 00 01  D0 0E 40 00   ; 0x05 fread (0x400ED0)
-    28 00 00 01  60 0E 40 00   ; 0x06 fwrite (0x400E60)
-    28 00 00 01  10 10 40 00   ; 0x07 fseek (0x401010)
-    28 00 00 01  A0 10 40 00   ; 0x08 ftell (0x4010A0)
-    28 00 00 01  30 11 40 00   ; 0x09 ftrunc (0x401130)
+    30 00 00 01  90 0F 40 00   ; 0x03 fopen (0x400F90)
+    30 00 00 01  40 0F 40 00   ; 0x04 fclose (0x400F40)
+    30 00 00 01  D0 0E 40 00   ; 0x05 fread (0x400ED0)
+    30 00 00 01  60 0E 40 00   ; 0x06 fwrite (0x400E60)
+    30 00 00 01  10 10 40 00   ; 0x07 fseek (0x401010)
+    30 00 00 01  A0 10 40 00   ; 0x08 ftell (0x4010A0)
+    30 00 00 01  30 11 40 00   ; 0x09 ftrunc (0x401130)
 ; directories
     00 00 00 00  00 00 40 00   ; 0x0A dopen (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x0B dclose (not yet implemented)
@@ -430,7 +432,7 @@
     00 00 00 00  00 00 40 00   ; 0x0E rename (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x0F symlink (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x10 unlink (not yet implemented)
-    28 00 00 01  A0 11 40 00   ; 0x11 chmod (0x4011A0)
+    30 00 00 01  A0 11 40 00   ; 0x11 chmod (0x4011A0)
     00 00 00 00  00 00 40 00   ; 0x12 mkdir (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x13 rmdir (not yet implemented)
 ; misc
@@ -1102,7 +1104,7 @@
     ; here when it wants to make a syscall.
     ; TODO if the syscall table isn't in the VM heap, this instruction doesn't
     ; need to be either. We should decide on one or the other.
-    BE 28 00 00 01   ; mov esi, address of syscall instruction (0x1000028)
+    BE 30 00 00 01   ; mov esi, address of syscall instruction (0x1000030)
     B8 7F 00 00 00   ; mov eax, 0x7F (custom opcode for syscall)
     89 06            ; mov [rsi], eax
 
@@ -1113,7 +1115,7 @@
     ; instruction. other initialization functions will use this to add stuff to
     ; the vm heap.
     BE 04 00 00 01   ; mov esi, program break (0x1000004)
-    B8 2C 00 00 01   ; mov eax, end of syscall instruction (0x100002C)
+    B8 34 00 00 01   ; mov eax, end of syscall instruction (0x1000034)
     89 06            ; mov [rsi], eax
 
     ; load command line and environment vars into vm heap
@@ -1144,7 +1146,7 @@
 
     ; version
     BF 00 00 00 01   ; mov edi, version (0x1000000)
-    B8 02 00 00 00   ; mov eax, 2
+    B8 03 00 00 00   ; mov eax, 3
     89 07            ; mov [rdi], eax
 
     ; syscall table
@@ -1170,6 +1172,16 @@
     ; capabilities
     BF 24 00 00 01   ; mov edi, capabilities (0x1000024)
     B8 00 00 00 00   ; mov eax, 0   ; no echo, non-blocking, non-canonical
+    89 07            ; mov [rdi], eax
+
+    ; syscall count
+    BF 28 00 00 01   ; mov edi, syscall count (0x1000028)
+    B8 19 00 00 00   ; mov eax, 25
+    89 07            ; mov [rdi], eax
+
+    ; process info count
+    BF 2C 00 00 01   ; mov edi, process info count (0x100002C)
+    B8 0C 00 00 00   ; mov eax, 12
     89 07            ; mov [rdi], eax
 
 
@@ -1201,47 +1213,10 @@
 
     ; padding
     90 90 90 90 90 90 90 90
-    90 90 90 90
-@0x980
-
-
-
-; ==========================================================
-; void check_byte(void* address)
-; ==========================================================
-; Checks that the given address points to a valid byte in VM memory.
-;
-; The address must be in bounds. If any checks fail, the VM aborts.
-;
-; params:
-;     address: edi
-; ==========================================================
-
-@0x980 check_byte
-    ; set up stack frame
-    55                             ; push rbp
-    48 89 E5                       ; mov rbp, rsp
-
-    ; check that the address is in bounds
-    B8 00 00 00 01    ; mov eax, 0x1000000
-    39 C7             ; cmp edi, eax
-    7C 0E             ; jl check_byte_fail (+14)
-    B8 00 00 00 02    ; mov eax, 0x2000000
-    39 C7             ; cmp edi,eax
-    7D 05             ; jge check_byte_fail (+5)
-
-    ; everything's ok; return
-    48 89 EC  ; mov rsp, rbp
-    5D        ; pop rbp
-    C3        ; ret
-
-;check_byte_fail:
-    BF 20 03 50 00   ; mov edi, "ERROR: A memory access..." (0x500320)
-    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-    FF D0            ; call rax
-
     90 90 90 90 90 90 90 90
-    90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90
 @0x9B0
 
 
@@ -1678,7 +1653,7 @@
 
 ; TODO see ldw above, we're disabling load checks for now so programs can read
 ; the syscall table
-    ;B8 80 09 40 00    ; mov eax, check_byte (0x400980)
+    ;B8 80 15 40 00    ; mov eax, check_byte (0x401580)
     ;FF D0             ; call rax
 
     5E                ; pop rsi
@@ -1698,7 +1673,7 @@
     ; check the address
     57                ; push rdi
     56                ; push rsi
-    B8 80 09 40 00    ; mov eax, check_byte (0x400980)
+    B8 80 15 40 00    ; mov eax, check_byte (0x400980)
     FF D0             ; call rax
     5E                ; pop rsi
     5F                ; pop rdi
@@ -2917,7 +2892,49 @@
 
 
 
+; ==========================================================
+; void check_byte(void* address)
+; ==========================================================
+; Checks that the given address points to a valid byte in VM memory.
+;
+; The address must be in bounds. If any checks fail, the VM aborts.
+;
+; params:
+;     address: edi
+; ==========================================================
+
+@0x1580 check_byte
+    ; set up stack frame
+    55                             ; push rbp
+    48 89 E5                       ; mov rbp, rsp
+
+    ; check that the address is in bounds
+    B8 00 00 00 01    ; mov eax, 0x1000000
+    39 C7             ; cmp edi, eax
+    7C 0E             ; jl check_byte_fail (+14)
+    B8 00 00 00 02    ; mov eax, 0x2000000
+    39 C7             ; cmp edi,eax
+    7D 05             ; jge check_byte_fail (+5)
+
+    ; everything's ok; return
+    48 89 EC  ; mov rsp, rbp
+    5D        ; pop rbp
+    C3        ; ret
+
+;check_byte_fail:
+    BF 20 03 50 00   ; mov edi, "ERROR: A memory access..." (0x500320)
+    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
+    FF D0            ; call rax
+
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x15C0
+
+
+
 ; Note: When extending the text segment, the sizes in the header at 0x40 must
 ; be incremented to include it!
 
-@0x1580  ; end of program, corresponds to size in ELF text header
+@0x15C0  ; end of program, corresponds to size in ELF text header

@@ -3,8 +3,8 @@
 ; This test case is part of the Onramp compiler project.
 
 ; This test ensures that the whole syscall table is accessible with ldb. This
-; occurs when the syscall table is copied with memcpy(), for example when a
-; subprogram is spawned by cc.
+; occurs when the syscall table is copied with a primitive memcpy(), for
+; example when a subprogram is spawned by cc during bootstrapping.
 ;
 ; vars:
 ;     size: r0
@@ -26,9 +26,9 @@
     ; get the syscall table
     78 88 89 08   ; ldw r8 r9 8   ; r8 = syscall table
 
-    ; calculate the size of the syscall table.
-    ; there are 23 syscalls and each is eight bytes.
-    72 80 17 08   ; mul r0 23 8
+    ; calculate the size of the syscall table. each syscall is eight bytes.
+    78 87 89 28   ; ldw r1 r9 40   ; r7 = pit[10]
+    72 80 87 08   ; mul r0 r7 8
 
     ; clear other vars
     70 81 00 00   ; add r1 0 0

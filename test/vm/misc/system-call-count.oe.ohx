@@ -11,12 +11,12 @@
     ; store process info vector in r9
     70 89 80 00   ; add r9 r0 0
 
-    ; load version
-    78 81 89 00   ; ldw r1 r9 0
+    ; load system call count (pit[10])
+    78 81 89 28   ; ldw r1 r9 40
 
-    ; the current version is 3. make sure the version matches
+    ; the current syscall count is 25. make sure the count matches
     ; (set r0 to 0 if match, 1 if no match)
-    71 81 81 03   ; sub r1 r1 3
+    71 81 81 19   ; sub r1 r1 25
     7D 80 00 81   ; ltu r0 0 r1    ; bool r0 r1
 
     ; syscall exit

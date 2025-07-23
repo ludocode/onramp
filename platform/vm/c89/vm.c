@@ -457,13 +457,15 @@ static void vm_init(int argc, char** argv) {
 
     /* Reserve space for process info table */
     process_info_address = address;
-    address += 40;
+    address += 48;
 
     /* configure process info table */
-    vm_store_u32(process_info_address + 0, 2); /* version */
+    vm_store_u32(process_info_address + 0, 3); /* version */
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
     vm_store_u32(process_info_address + 20, 2); /* stderr */
+    vm_store_u32(process_info_address + 40, 25); /* syscall count */
+    vm_store_u32(process_info_address + 44, 12); /* process info count */
 
     /* make an instruction with opcode 0x7F to use for syscalls */
     syscall_address = address;

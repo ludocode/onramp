@@ -41,7 +41,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 |:--------------------------------------------------------------|:------:|
 | Basic instruction set                                         |    ✓   |
 | Command-line args, environment vars                           |    ✓   |
-| Syscall table, optional syscalls                              |   \*   |
+| Syscall table, optional syscalls                              |    ✓   |
 | Syscalls: File I/O                                            |    ✓   |
 | Syscalls: Stat                                                |        |
 | Syscalls: Directories                                         |        |
@@ -49,15 +49,11 @@ A feature is checked here if it is well-specified and it is implemented in the d
 | Syscalls: Time, Sleep                                         |    ½   |
 | Syscalls: External Spawn                                      |        |
 | Interrupts, compare-and-swap                                  |        |
-| Debug info                                                    |   ½\*  |
+| Debug info                                                    |    ✓   |
 | Stack traces                                                  |    ✓   |
 | Debugger single-stepping                                      |    ✓   |
 | Debugger breakpoints                                          |        |
 | Profiling                                                     |        |
-
-\* Syscalls are currently implemented as an instruction. This will be changed to a table of external function pointers where NULL can be used for unimplemented optional syscalls. This is the most pressing issue at the moment which is blocking many other features.
-
-\* Debug info works well in the c-debugger for a single program, but spawned programs are ignored. A new syscall is needed so that a program can inform the debugger when it loads another program.
 
 ### Compiler
 

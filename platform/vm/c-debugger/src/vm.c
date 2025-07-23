@@ -114,9 +114,11 @@ static void panic(const char* e) {
 #define VM_SPAWN     20
 #define VM_WAITPID   21
 #define VM_DEBUG     22
-#define VM_SYSCALL_COUNT 23u
+#define VM_ALLOC     23
+#define VM_FREE      24
+#define VM_SYSCALL_COUNT 25u
 
-#define VM_VERSION_NUMBER 2
+#define VM_VERSION_NUMBER 3
 
 /* process info table */
 #define VM_PIT_VERSION 0
@@ -129,7 +131,10 @@ static void panic(const char* e) {
 #define VM_ENVIRON 28
 #define VM_WORKDIR 32
 #define VM_CAPABILITIES 36
-#define VM_PIT_SIZE 40
+#define VM_PIT_SYSCALL_COUNT_FIELD 40
+#define VM_PIT_COUNT_FIELD 44
+#define VM_PIT_COUNT 12
+#define VM_PIT_SIZE 48
 
 // errors
 #define VM_ERR_GENERIC     0xFFFFFFFF
@@ -453,6 +458,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     }
 
     /* parse arguments and environment variables */
+    uint32_t pit = vm->memory_base;
     uint32_t addr = vm->memory_base + VM_PIT_SIZE;
     addr = vm_parse_args(vm, argc, argv, addr);
 
@@ -460,7 +466,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     // All syscalls share the same function address. The context is the syscall
     // number.
     uint32_t syscall_table = addr;
-    vm_store_u32(vm, vm->memory_base + VM_SYSCALL_TABLE, syscall_table);
+    vm_store_u32(vm, pit + VM_SYSCALL_TABLE, syscall_table);
     addr += VM_SYSCALL_COUNT * 8u;
     for (uint32_t i = 0; i < VM_SYSCALL_COUNT; ++i) {
         // TODO these syscalls are not implemented yet. We leave them null in
@@ -478,9 +484,9 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm->files[0] = stdin;
     vm->files[1] = stdout;
     vm->files[2] = stderr;
-    vm_store_u32(vm, vm->memory_base + VM_INPUT, FILES_OFFSET);
-    vm_store_u32(vm, vm->memory_base + VM_OUTPUT, FILES_OFFSET + 1);
-    vm_store_u32(vm, vm->memory_base + VM_ERROR, FILES_OFFSET + 2);
+    vm_store_u32(vm, pit + VM_INPUT, FILES_OFFSET);
+    vm_store_u32(vm, pit + VM_OUTPUT, FILES_OFFSET + 1);
+    vm_store_u32(vm, pit + VM_ERROR, FILES_OFFSET + 2);
 
     /* add some padding so a user isn't confused when viewing their program in
      * the debugger */
@@ -536,13 +542,15 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     }
 
     /* set up the rest of the process info table */
-    vm_store_u32(vm, vm->memory_base + VM_PIT_VERSION, VM_VERSION_NUMBER);
-    vm_store_u32(vm, vm->memory_base + VM_BREAK, addr);
-    vm_store_u32(vm, vm->memory_base + VM_CAPABILITIES,
+    vm_store_u32(vm, pit + VM_PIT_VERSION, VM_VERSION_NUMBER);
+    vm_store_u32(vm, pit + VM_BREAK, addr);
+    vm_store_u32(vm, pit + VM_CAPABILITIES,
             0 // no echo, non-blocking, non-canonical
             );
+    vm_store_u32(vm, pit + VM_PIT_SYSCALL_COUNT_FIELD, VM_SYSCALL_COUNT);
+    vm_store_u32(vm, pit + VM_PIT_COUNT_FIELD, VM_PIT_COUNT);
 
-    vm->registers[0] = vm->memory_base;
+    vm->registers[0] = pit;
     for (size_t i = 1; i <= VM_RFP; ++i)
         vm->registers[i] = VM_DEFAULT_MEMORY;
     vm->registers[VM_RSP] = end;
