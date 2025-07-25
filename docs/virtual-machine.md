@@ -11,8 +11,8 @@ Here's an index of sections in this document:
 - [Memory Layout](#memory-layout)
 - [Process Info Table](#process-info-table)
     - [Version](#version)
-    - [Program Break](#program-break)
-    - [System Call Table][pit-system-call-table]
+    - [Heap Start Address](#heap-start-address)
+    - [System Call Table Address][pit-system-call-table]
     - [Input Stream Handle](#input-stream-handle)
     - [Output Stream Handle](#output-stream-handle)
     - [Error Stream Handle](#error-stream-handle)
@@ -152,26 +152,38 @@ Note that although `rip` is initially set to the start of the program, it will m
 
 ## Memory Layout
 
-A large contiguous block of memory is provided for the program at an arbitrary 32-bit address range. This area is bounded by the initial values of `rpp` (the program pointer) and `rsp` (the stack pointer.) The program code is loaded into the start of this region, and the end of the program code is called the program break. Programs typically divide the remaining memory into a heap (which grows up) and a stack (which grows down.)
+Onramp uses a flat memory architecture in which instructions and data are stored in the same address space. All addresses are 32 bits, so the maximum amount of addressible memory is 4 GiB.
 
-Information about the process and VM is also made available to the program. This includes the command-line arguments and environment variables of the process, as well as the VM's capabilities and input/output ports. This information is accessible to the program but sits outside its dedicated memory region.
+The VM loads the initial program and maps it to an arbitrary address in memory. The initial value of registers `rpp` and `rip` are the address of the start of the program, where bytecode execution begins.
 
-Here's a diagram showing the regions of memory, the initial values of the registers, and some of the addresses in the information table:
+Additionally, the VM must provide some amount of free memory to the program. Programs typically divide the free memory region into a [heap](https://en.wikipedia.org/w/index.php?title=Heap_(programming)) and a [stack](https://en.wikipedia.org/wiki/Call_stack). The heap starts at the beginning of the free memory region; the stack starts at the end and grows down. The start of the free memory region is therefore called the [heap start address](#heap-start-address) in the process info table, and the initial value of the stack pointer `rsp` is the end of the free memory region.
+
+If the VM implements the [`alloc` syscall](#alloc), the free memory region can be very small (as little as 128 bytes, even for bootstrapping.) The program will request additional memory via `alloc`. If the VM does not implement `alloc`, it must provide a large amount of memory (ideally as much memory as possible) up front in one contiguous block.a
+
+The total amount of memory required depends on the program being run. 16 MiB is a reasonable default for the initial program memory. (This needs to be updated later with requirements for bootstrapping and for compiling and running various programs.)
+
+Information about the process and VM is also made available to the program in data tables in memory. This includes the command-line arguments and environment variables of the process; the VM's capabilities and input/output file handles; and a table of system calls.
+
+Here's a diagram showing the regions of memory, the initial values of the registers, and some of the addresses in the process info table:
 
 ```
-       read only             read/write                            read/write/execute
-  ~~~~~~~~~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  |  process info   |    |  command-line   |    |  program code     :                       :         |
-  |    table,       |    |    args,        |    |      and          :         heap          :  stack  |
-  |  capabilities   |    |  environ vars   |    |  static storage   :                       :         |
-  ~~~~~~~~~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    ^-- r0                        ^-- argv      ^-- rpp             ^-- break                         ^-- rsp
-            ^-- exit       ^-- environ          ^-- rip
+       read only            read/write        read/write/execute           read/write/execute
+  ~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  |  process info   |   |  command-line  |   |                  |   |                      :         |
+  |    table,       |   |    args,       |   |  program image   |   |        heap          :  stack  |
+  |  syscall table  |   |  environ vars  |   |                  |   |                      :         |
+  ~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ^-- r0                  ^-- argv     ^-- rpp                ^-- heap_start                   ^-- rsp
+   ^-- syscall_table       ^-- environ       ^-- rip
 ```
 
-The entire memory region from `rpp` to the initial `rsp` is writable and executable. The process information table sits outside of this region and must not be written to.
+Note that the blocks do not have to appear in this order in memory. The process info can be before, after, or in between the program and free memory; the program can be before or after the free memory; and so on.
 
-There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, etc.)
+(In many VM implementations, the process info, the program, and the free memory are all placed in one contiguous region of memory. A single large block is allocated; the process info is placed at the start; the program is loaded afterwards; and the remainder of the block is the program's free memory. The end of the program is therefore the start of the heap. It was historically called the ["program break"](https://en.wikipedia.org/wiki/Sbrk) for this reason, and is still called that by some VMs. This contiguous layout is not required but it is often a convenient way to implement a VM.)
+
+The "read only", "read/write", and "read/write/execute" labels show how the memory is used, and suggests potential access limitations the VM may place on memory regions. Note that the free memory region must be executable so that the program can load and run subprograms. The VM does not need to enforce any such access restrictions. There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, etc.)
+
+All addresses above must be aligned to a multiple of 4 bytes.
 
 
 
@@ -179,20 +191,20 @@ There is no memory protection for the running program. If the program accesses m
 
 The process information table is an array of twelve 32-bit words. Here's a quick reference table of its contents:
 
-| Index | Value                  | type     | Description                                                            |
-|-------|------------------------|----------|------------------------------------------------------------------------|
-| 0     | Version                | `int`    | Always 2 for this version.                                             |
-| 1     | Program Break          | `void*`  | Address of one past the last byte in the program.                      |
-| 2     | System Call Table      | `int`    | Table of system calls.                                                 |
-| 3     | Input Stream Handle    | `int`    | File handle of input stream, or -1 if input is not supported           |
-| 4     | Output Stream Handle   | `int`    | File handle of output stream, can match input                          |
-| 5     | Error Stream Handle    | `int`    | File handle of error stream, can match output and input                |
-| 6     | Command-Line Arguments | `char**` | Null-terminated array of null-terminated strings.                      |
-| 7     | Environment Variables  | `char**` | Null-terminated array of null-terminated strings of form "key=value".  |
-| 8     | Working Directory      | `char*`  | Directory in which the program is being run.                           |
-| 9     | Capabilities           | `int`    | Flags indicating the capabilities and environment of the VM.           |
-| 10    | System Call Count      | `int`    | Number of entries in the system call table.                            |
-| 11    | Process Info Count     | `int`    | Number of entries in the process info table.                           |
+| Index | Value                      | type     | Description                                                            |
+|-------|----------------------------|----------|------------------------------------------------------------------------|
+| 0     | Version                    | `int`    | Always 2 for this version.                                             |
+| 1     | Heap Start Address         | `void*`  | Address of the free memory region provided by the VM.                  |
+| 2     | System Call Table Address  | `void*`  | Table of system calls.                                                 |
+| 3     | Input Stream Handle        | `int`    | File handle of input stream, or -1 if input is not supported           |
+| 4     | Output Stream Handle       | `int`    | File handle of output stream, can match input                          |
+| 5     | Error Stream Handle        | `int`    | File handle of error stream, can match output and input                |
+| 6     | Command-Line Arguments     | `char**` | Null-terminated array of null-terminated strings.                      |
+| 7     | Environment Variables      | `char**` | Null-terminated array of null-terminated strings of form "key=value".  |
+| 8     | Working Directory          | `char*`  | Directory in which the program is being run.                           |
+| 9     | Capabilities               | `int`    | Flags indicating the capabilities and environment of the VM.           |
+| 10    | System Call Count          | `int`    | Number of entries in the system call table.                            |
+| 11    | Process Info Count         | `int`    | Number of entries in the process info table.                           |
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
 
@@ -208,15 +220,15 @@ The version of the Onramp VM described by this document is 3. This field must co
 
 
 
-### Program Break
+### Heap Start Address
 
-The program break is the address of one past the last byte in the program, which is the first byte of free memory usable by the program. In other words it's the start of the heap, which programs typically use for `malloc()`.
+The heap start is the address of the first byte of the initial free memory region provided by the VM. In other words it's the start of the heap, because programs typically use it as backing for their own memory allocator (e.g. `malloc()`.)
 
 
 
-### System Call Table
+### System Call Table Address
 
-The system call table field contains the address of the [System Call Table][system-call-table]. The number of entries in the table is contained in the [System Call Count](#system-call-count) field of the process info table.
+The system call table address field contains the address of the [System Call Table][system-call-table]. The number of entries in the table is contained in the [System Call Count](#system-call-count) field of the process info table.
 
 
 
@@ -1503,5 +1515,5 @@ Markdown link references follow.
 [ltu]: #less-than-unsigned
 [jz]: #jump-if-zero
 
-[system-call-table]: #system-call-table-1
-[pit-system-call-table]: #system-call-table
+[system-call-table]: #system-call-table
+[pit-system-call-table]: #system-call-table-address

@@ -25,6 +25,10 @@
 ; TODO nothing uses this until libc/1 is bootstrapped so this should be moved
 ; to libc/1 and converted to assembly. but we will need this bytecode spawn
 ; code for the onramp shell so for now we keep it in bytecode.
+;
+; TODO this can be largely simplified now that the program image is separate
+; from the heap. Almost all of this can be moved into C, and the few bits that
+; remain can be in assembly in libc/1.
 
 
 
@@ -103,13 +107,15 @@
     79 83 8D E4     ; stw r3 rfp -28
     79 8E 8D E0     ; stw rpp rfp -32
 
-    ; duplicate our syscall table. as of this writing there are 23 syscalls. we
-    ; need 8 bytes per syscall.
+    ; duplicate our syscall table.
+    ; as of this writing there are 25 syscalls. we need 8 bytes per syscall.
+        ; TODO this should either use or set the syscall count field. we need to
+        ; decide whether we forward unknown syscalls to subprograms.
     7C 8A <__process_info_table    ; ims ra <__process_info_table
     7C 8A >__process_info_table    ; ims ra >__process_info_table
     78 80 8E 8A                    ; ldw r0 rpp ra    ; __process_info_table
     78 80 80 08                    ; ldw r0 r0 8      ; __process_info_table[SYSCALLS]
-    76 81 17 03                    ; shl r1 23 3      ; r1 = 23 << 3
+    76 81 17 03                    ; shl r1 25 3      ; r1 = 25 << 3
 
     ; call __memdup()
     7C 8A <__memdup   ; ims ra <__memdup
@@ -125,6 +131,7 @@
     ; store the child syscall_table in the child process info table
     78 81 8D F8     ; ldw r1 rfp -8   ; child_pit
     79 80 81 08     ; stw r0 r1 8     ; child_pit[SYSCALLS] = child_syscall_table
+    79 19 81 28     ; stw 25 r1 40    ; child_pit[SYSCALL_COUNT] = 25
 
     ; replace the exit syscall with our own. the child will call this it when
     ; it wants to exit. we pass the stack pointer as the context so we can
@@ -155,30 +162,12 @@
     79 80 8D F0     ; stw r0 rfp -16   ; heap_start
     79 81 8D EC     ; stw r1 rfp -20   ; heap_end
 
-    ; write the child program break into the pit
-    78 82 8D E8     ; ldw r2 rfp -24   ; program_size
-    70 82 80 82     ; add r2 r0 r2
+    ; write the child heap start into the pit
     78 81 8D F8     ; ldw r1 rfp -8   ; child_pit
-    79 82 81 04     ; stw r2 r1 4     ; child_pit[PROGRAM_BREAK] = heap_start + program_size
+    79 80 81 04     ; stw r0 r1 4     ; child_pit[HEAP_START] = heap_start
 
-    ; prepare arguments to copy the program into the new heap
-    ; TODO we should separate the program from the heap and stack so we don't
-    ; need to do this.
-    78 80 8D F0     ; ldw r0 rfp -16   ; heap_start
-    78 81 8D FC     ; ldw r1 rfp -4    ; program_bytes
-    78 82 8D E8     ; ldw r2 rfp -24   ; program_size
-
-    ; call memcpy()
-    7C 8A <memcpy     ; ims ra <memcpy
-    7C 8A >memcpy     ; ims ra >memcpy
-    71 8C 8C 04       ; sub rsp rsp 4          ; push return address
-    70 8B 8F 08       ; add rb rip 8
-    79 8B 00 8C       ; stw rb 0 rsp
-    70 8F 8E 8A       ; add rip rpp ra         ; jump
-    70 8C 8C 04       ; add rsp rsp 4          ; pop return address
-
-    ; call __onramp_load_debug(heap_start, filename)
-    ; r0 already contains the heap start
+    ; call __onramp_load_debug(program, filename)
+    78 80 8D FC       ; ldw r0 rfp -4
     78 81 8D E4       ; ldw r1 rfp -28
     7C 8A <__onramp_load_debug     ; ims ra <__onramp_load_debug
     7C 8A >__onramp_load_debug     ; ims ra >__onramp_load_debug
@@ -189,7 +178,7 @@
     70 8C 8C 04       ; add rsp rsp 4          ; pop return address
 
     ; set registers for the new program. note we're switching stacks here
-    78 8E 8D F0     ; ldw rpp rfp -16   ; heap_start
+    78 8E 8D FC     ; ldw rpp rfp -4    ; program_bytes
     78 80 8D F8     ; ldw r0 rfp -8     ; child_pit
     78 8C 8D EC     ; ldw rsp rfp -20   ; heap_end
     70 8D 00 00     ; add rfp 0 0       ; zero rfp     ; not really necessary but helps debugging

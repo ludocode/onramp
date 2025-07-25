@@ -122,7 +122,7 @@ static void panic(const char* e) {
 
 /* process info table */
 #define VM_PIT_VERSION 0
-#define VM_BREAK 4
+#define VM_HEAP_START 4
 #define VM_SYSCALL_TABLE 8
 #define VM_INPUT 12
 #define VM_OUTPUT 16
@@ -541,9 +541,12 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
                 vm->filename);
     }
 
+    // round up the heap address to a multiple of 0x10000 again
+    addr = (addr + 0x10000 - 1) & ~(0x10000 - 1);
+
     /* set up the rest of the process info table */
     vm_store_u32(vm, pit + VM_PIT_VERSION, VM_VERSION_NUMBER);
-    vm_store_u32(vm, pit + VM_BREAK, addr);
+    vm_store_u32(vm, pit + VM_HEAP_START, addr);
     vm_store_u32(vm, pit + VM_CAPABILITIES,
             0 // no echo, non-blocking, non-canonical
             );

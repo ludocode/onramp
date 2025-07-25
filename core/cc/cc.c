@@ -890,7 +890,7 @@ static void run_onramp(size_t argc, char** argv) {
 
     // allocate a process information table for the child as a copy of ours
     int* parent_pit = __process_info_table;
-    int* child_pit = __memdup(parent_pit, sizeof(int) * 11);
+    int* child_pit = __memdup(parent_pit, sizeof(int) * 12);
 
     // setup the child pit
     *(child_pit + PIT_ARGS) = (int)argv;
