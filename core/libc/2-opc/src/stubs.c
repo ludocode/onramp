@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,8 @@
 // example atexit() requires function pointers and clock_gettime() requires
 // long long. These functions are implemented properly in libc/3.
 
+#include "internal.h"
+
 void __call_atexit(void) {
     // nothing
 }
@@ -36,4 +38,8 @@ void __call_at_quick_exit(void) {
 
 void __time_setup(void) {
     // nothing
+}
+
+int raise(int sig) {
+    __fatal("raise() called during bootstrapping");
 }

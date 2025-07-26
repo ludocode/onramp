@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2025 Haelwenn (lanodan) Monnier
+ * Copyright (c) 2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,9 +26,7 @@
 #include <signal.h>
 #include <stdlib.h> // abort, exit, _Exit
 
-void
-(*signal(int sig, void *func))(int)
-{
+void (*signal(int __signo, void (*__func)(int)))(int) {
 	return SIG_ERR;
 }
 

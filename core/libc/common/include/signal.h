@@ -2,6 +2,7 @@
  * The MIT License (MIT)
  *
  * Copyright (c) 2025 Haelwenn (lanodan) Monnier
+ * Copyright (c) 2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,6 +26,10 @@
 #ifndef __ONRAMP_LIBC_SIGNAL_H_INCLUDED
 #define __ONRAMP_LIBC_SIGNAL_H_INCLUDED
 
+#ifndef __onramp_libc__
+    #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
+#endif
+
 /* Note: sticking to only defining what ISO C requires */
 
 /* SIG values taken from Linux */
@@ -41,8 +46,11 @@
 
 typedef int sig_atomic_t;
 
-// Different from ISO C synopsis due to lack of function pointers
-void (*signal(int, void *))(int);
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+void (*signal(int __signo, void (*__func)(int)))(int);
+#endif
+#endif
 
 int raise(int);
 

@@ -26,6 +26,24 @@ typedef union {
     float f;
 } floatunion_t;
 
+static float u2f(uint32_t u) {
+    floatunion_t xf;
+    xf.u = u;
+    return xf.f;
+}
+
+static uint32_t f2u(float f) {
+    floatunion_t xf;
+    xf.f = f;
+    return xf.u;
+}
+
+static int test_sigfpe_count = 0;
+
+static void test_sigfpe(int signo) {
+    ++test_sigfpe_count;
+}
+
 static void test_add_impl(float x, float y, float expected) {
     floatunion_t xf, yf, ef, af;
     xf.f = x;
@@ -54,6 +72,13 @@ static void test_add(void) {
     test_add_impl(((floatunion_t){.u=0x25e807}).f, ((floatunion_t){.u=0x185343}).f,
             ((floatunion_t){.u=0x25e807}).f + ((floatunion_t){.u=0x185343}).f); // both subnormal
     test_add_impl(3.00332328e+38, 1.92066509e+38, (float)INFINITY);
+
+    // infinity
+    test_add_impl((float)INFINITY, 1.f, (float)INFINITY);
+    test_add_impl(1.f, (float)INFINITY, (float)INFINITY);
+    test_add_impl((float)INFINITY, ((floatunion_t){.u=1}).f, (float)INFINITY);
+    test_add_impl(((floatunion_t){.u=1}).f, (float)INFINITY, (float)INFINITY);
+    test_add_impl((float)INFINITY, (float)INFINITY, (float)INFINITY);
 
             //((floatunion_t){.u=}).f);
     /*
@@ -120,11 +145,18 @@ static void test_add_loop(void) {
             #endif
 
 int main(void) {
-    #ifndef __onramp__
+            // TODO sigaction is not properly supported on onramp yet
+            #ifndef __onramp__
+    struct sigaction act = {.sa_handler = test_sigfpe};
+    if (0 != sigaction(SIGFPE, &act, NULL)) {
+        perror("sigaction(SIGFPE) failed");
+        exit(100);
+    }
+
     test_add();
-    #endif
 
     #ifndef __onramp__
     test_add_loop();
     #endif
+            #endif
 }

@@ -39,6 +39,7 @@
  */
 
 #include <assert.h>   // TODO define NDEBUG when compiling final stages
+#include <signal.h>
 #include <stdint.h>
 
 #ifdef __onramp__
@@ -51,7 +52,7 @@
     // test against hardware floating point math among other things.
     #include <stdio.h>
     #include <stdlib.h>
-    static void __fatal(const char* message) {
+    static void __attribute__((unused)) __fatal(const char* message) {
         fputs(message, stderr);
         fputc('\n', stderr);
         _Exit(1);
@@ -65,18 +66,23 @@
 
 #define FLOAT_EXPONENT_BITS 8u
 #define FLOAT_EXPONENT_SHIFT FLOAT_SIGNIFICAND_BITS
-#define FLOAT_EXPONENT_MASK ((1u << FLOAT_EXPONENT_BITS) - 1u)
-#define FLOAT_EXPONENT_BIAS ((1u << (FLOAT_EXPONENT_BITS - 1u)) - 1u)
+#define FLOAT_EXPONENT_MASK (((uint32_t)1u << FLOAT_EXPONENT_BITS) - 1u)
+#define FLOAT_EXPONENT_BIAS (((uint32_t)1u << (FLOAT_EXPONENT_BITS - 1u)) - 1u)
 
 #define FLOAT_SIGNIFICAND_BITS 23u
-#define FLOAT_SIGNIFICAND_MASK ((1u << FLOAT_SIGNIFICAND_BITS) - 1u)
-#define FLOAT_SIGNIFICAND_IMPLICIT_BIT (1u << FLOAT_SIGNIFICAND_BITS)
+#define FLOAT_SIGNIFICAND_MASK (((uint32_t)1u << FLOAT_SIGNIFICAND_BITS) - 1u)
+#define FLOAT_SIGNIFICAND_IMPLICIT_BIT ((uint32_t)1u << FLOAT_SIGNIFICAND_BITS)
 
 #define FLOAT_SIGN_SHIFT (FLOAT_SIGNIFICAND_BITS + FLOAT_EXPONENT_BITS)
 
-#define FLOAT_SIGN_BIT (1u << FLOAT_SIGN_SHIFT)
-#define FLOAT_HIDDEN_BIT (1u << FLOAT_SIGNIFICAND_BITS)
-#define FLOAT_SIGNALING_BIT (1u << (FLOAT_SIGNIFICAND_BITS - 1u))
+#define FLOAT_SIGN_BIT ((uint32_t)1u << FLOAT_SIGN_SHIFT)
+#define FLOAT_HIDDEN_BIT ((uint32_t)1u << FLOAT_SIGNIFICAND_BITS)
+#define FLOAT_QUIET_BIT ((uint32_t)1u << (FLOAT_SIGNIFICAND_BITS - 1u))
+
+#define FLOAT_INFINITY (FLOAT_EXPONENT_MASK << FLOAT_EXPONENT_SHIFT)
+
+// Our canonical NaN has only the quiet bit set.
+#define FLOAT_QUIET_NAN (FLOAT_INFINITY | FLOAT_QUIET_BIT)
 
 // The number of leading zeroes in the significand of a normal float (with
 // hidden bit set.)
@@ -133,36 +139,24 @@ static uint32_t __float_shru_sticky(uint32_t significand, uint32_t bits) {
     return (significand >> bits) | sticky;
 }
 
-uint32_t __float_add(uint32_t a, uint32_t b) {
+/**
+ * Add the given unpacked unsigned floats, returning the result.
+ *
+ * Neither argument may be NaN.
+ */
+static uint32_t __float_add_impl(uint32_t ae, uint32_t be, uint32_t af, uint32_t bf) {
     //printf("----------------------------------------\n");
-    //printf("a 0x%x\n", a);
-    //printf("b 0x%x\n", b);
+    //printf("add\n");
+    //printf("ae 0x%x af 0x%x\n", ae, af);
+    //printf("be 0x%x bf 0x%x\n", be, bf);
 
-    // TODO use a different algorithm for subtraction. split this into
-    // __float_add_impl() and __float_sub_impl().
-
-    // get our exponents
-    uint32_t ae = FLOAT_EXPONENT(a);
-    uint32_t be = FLOAT_EXPONENT(b);
-    //printf("ae %u\n", ae);
-    //printf("be %u\n", be);
-
-    // handle infinities and nans
+    // Handle infinity
     if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
-        // TODO figure out what to do. if both are infinities of opposite sign,
-        // what do? otherwise if one is infinity and other is not nan, return it?
-        // if either is signaling, we signal and return signaling? return quiet
-        // only if both are quiet?
-        __fatal("TODO INFINITY OR NAN");
+        // At least one argument is infinity and the other is not NaN. Since
+        // both arguments have the same sign (otherwise we'd be subtracting),
+        // the result is infinity.
+        return FLOAT_INFINITY;
     }
-
-    // unpack significand
-    uint32_t as = FLOAT_SIGNIFICAND(a);
-    uint32_t bs = FLOAT_SIGNIFICAND(b);
-    //if (ae != 0u) as |= FLOAT_HIDDEN_BIT;
-    //if (be != 0u) bs |= FLOAT_HIDDEN_BIT;
-    //printf("as 0x%x\n", as);
-    //printf("bs 0x%x\n", bs);
 
     // if not subnormal, add the hidden bit.
     // if subnormal, normalize the exponent to 1. (the exponent of subnormals
@@ -170,12 +164,12 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
     if (ae == 0u) {
         ae = 1u;
     } else {
-        as |= FLOAT_HIDDEN_BIT;
+        af |= FLOAT_HIDDEN_BIT;
     }
     if (be == 0u) {
         be = 1u;
     } else {
-        bs |= FLOAT_HIDDEN_BIT;
+        bf |= FLOAT_HIDDEN_BIT;
     }
 
     // the target exponent for the calculation is the larger of the exponents
@@ -183,21 +177,21 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
     //printf("te 0x%x\n", te);
 
     // shift significands up to add guard, round and sticky bits (grs)
-    as <<= 3u;
-    bs <<= 3u;
+    af <<= 3u;
+    bf <<= 3u;
     //printf("shifted for grs\n");
-    //printf("as 0x%x\n", as);
-    //printf("bs 0x%x\n", bs);
+    //printf("af 0x%x\n", af);
+    //printf("bf 0x%x\n", bf);
 
     // shift each significand down to match the target exponent, maintaining
     // the sticky bit
-    as = __float_shru_sticky(as, te - ae);
-    bs = __float_shru_sticky(bs, te - be);
-    //printf("as 0x%x\n", as);
-    //printf("bs 0x%x\n", bs);
+    af = __float_shru_sticky(af, te - ae);
+    bf = __float_shru_sticky(bf, te - be);
+    //printf("af 0x%x\n", af);
+    //printf("bf 0x%x\n", bf);
 
     // add the significands
-    uint32_t ts = as + bs;
+    uint32_t ts = af + bf;
     //printf("ts 0x%x\n", ts);
 
     // if our significand has grown larger than fits in this exponent, we need
@@ -207,7 +201,7 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
     //printf("max significand with grs: 0x%x\n", (1u << (FLOAT_SIGNIFICAND_BITS + 1u + 3u)));
     if (ts >= (1u << (FLOAT_SIGNIFICAND_BITS + 1u + 3u))) {
         //printf("significand has grown, shifting down\n");
-        te += 1u;
+        ++te;
         if (te == FLOAT_EXPONENT_MASK) {
             //printf("overflow\n");
             ts = 0u;
@@ -221,23 +215,23 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
     // shift off our grs bits, rounding correctly
     // TODO support other rounding modes
     uint32_t grs = ts & 7u;
+    ts >>= 3u;
     //printf("grs 0x%x %u%u%u\n", grs, grs>>2, !!(grs&2), grs&1);
     if (grs == 0b100u) {
         // round to even
-        if (ts & 8u) {
+        if (ts & 1u) {
             //printf("round up to even\n");
-            ts += 8u;
+            ++ts;
         } else {
             //printf("round down to even\n");
         }
     } else if (grs >= 0b100u) {
         //printf("round up\n");
-        ts += 8u;
+        ++ts;
     } else {
         //printf("round down\n");
     }
     //printf("ts after rounding 0x%x\n", ts);
-    ts >>= 3u;
     //printf("ts after removing grs bits 0x%x\n", ts);
 
     // Rounding may have caused it to grow again.
@@ -250,7 +244,7 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
             ts += 2u;
         }
         */
-        te += 1u;
+        ++te;
         if (te == FLOAT_EXPONENT_MASK) {
             //printf("overflow\n");
             ts = 0u;
@@ -286,15 +280,141 @@ end:
     }
 
     // Pack the float back up again, removing the hidden bit
-    // TODO sign bit, for now it's zero
-
     //printf("result 0x%x\n", (te << FLOAT_EXPONENT_SHIFT) | (ts & FLOAT_SIGNIFICAND_MASK));
     return (te << FLOAT_EXPONENT_SHIFT) | (ts & FLOAT_SIGNIFICAND_MASK);
 }
 
+/**
+ * Subtracts the given unpacked unsigned floats, returning the result.
+ *
+ * The smaller float with exponent `be` and significand (fraction) `bf` is
+ * subtracted from the larger float with exponent `ae` and significand `af`.
+ *
+ * Neither argument may be NaN, and `a` must be larger in magnitude than `b`.
+ */
+static uint32_t __float_sub_impl(uint32_t ae, uint32_t be, uint32_t af, uint32_t bf) {
+
+    // Handle infinity
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+
+        // Neither argument is NaN. The first argument must be infinity because
+        // the caller made sure it's the larger number.
+        assert(ae == FLOAT_EXPONENT_MASK);
+        assert(af == 0);
+
+        // If the second argument is also infinity, return NaN.
+        if (be == FLOAT_EXPONENT_MASK) {
+            assert(be == 0);
+            return FLOAT_QUIET_NAN;
+        }
+
+        // The first argument is infinity and the other is finite. The result
+        // is infinity.
+        return FLOAT_INFINITY;
+    }
+
+    __fatal("TODO __float_sub_impl() not implemented yet");
+    return FLOAT_QUIET_NAN;
+}
+
+uint32_t __float_add(uint32_t a, uint32_t b) {
+
+    // Unpack arguments
+    uint32_t as = a & FLOAT_SIGN_BIT;
+    uint32_t bs = b & FLOAT_SIGN_BIT;
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    uint32_t af = FLOAT_SIGNIFICAND(a);
+    uint32_t bf = FLOAT_SIGNIFICAND(b);
+
+    // Handle NaNs
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+
+        // Signal if either NaN is signaling.
+        // TODO should we signal twice if both are signaling? Assuming not but
+        // this should be tested.
+        if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
+        {
+            raise(SIGFPE);
+        }
+
+        // If either argument is NaN, we return the NaN quieted. (If both are
+        // NaN, we return the first argument quieted.)
+        if (ae == FLOAT_EXPONENT_MASK && af != 0u) {
+            return a | FLOAT_QUIET_BIT;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bf != 0u) {
+            return b | FLOAT_QUIET_BIT;
+        }
+    }
+
+    // If the signs match, it's a normal addition, preserving sign.
+    if (as == bs) {
+        return as | __float_add_impl(ae, be, af, bf);
+    }
+
+    // The signs differ so we need to subtract. We subtract the smaller
+    // magnitude from the larger and tack the larger's sign bit on afterwards.
+    uint32_t am = a & ~FLOAT_SIGN_BIT;
+    uint32_t bm = b & ~FLOAT_SIGN_BIT;
+    if (am > bm) {
+        return as | __float_sub_impl(ae, be, af, bf);
+    } else {
+        return bs | __float_sub_impl(be, ae, bf, af);
+    }
+}
+
 uint32_t __float_sub(uint32_t a, uint32_t b) {
-    // TODO this is definitely incorrect, need to split above into
-    // __float_add_impl() and __float_sub_impl()
-    b ^= FLOAT_SIGN_BIT;
-    return __float_add(a, b);
+
+    // We could just flip the sign bit of the subtrahend and forward to
+    // addition, except that we would not be returning the original subtrahend
+    // quieted if it's NaN. We need to check for NaN first.
+
+    // Unpack arguments
+    uint32_t as = a & FLOAT_SIGN_BIT;
+    uint32_t bs = b & FLOAT_SIGN_BIT;
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    uint32_t af = FLOAT_SIGNIFICAND(a);
+    uint32_t bf = FLOAT_SIGNIFICAND(b);
+
+    // Handle NaNs
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+
+        // Signal if either NaN is signaling.
+        // TODO should we signal twice if both are signaling? Assuming not but
+        // this should be tested.
+        if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
+        {
+            raise(SIGFPE);
+        }
+
+        // If either argument is NaN, we return the NaN quieted. (If both are
+        // NaN, we return the first argument quieted.)
+        if (ae == FLOAT_EXPONENT_MASK && af != 0u) {
+            return a | FLOAT_QUIET_BIT;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bf != 0u) {
+            return b | FLOAT_QUIET_BIT;
+        }
+    }
+
+    // A subtraction is the same as an addition with the sign of the subtrahend
+    // flipped. If the signs differ, it's going to be an addition with the sign
+    // of the minuend.
+    if (as != bs) {
+        return as | __float_add_impl(ae, be, af, bf);
+    }
+
+    // The signs are the same so we need to subtract. We subtract the smaller
+    // magnitude from the larger and tack the larger's sign bit on afterwards.
+    uint32_t am = a & ~FLOAT_SIGN_BIT;
+    uint32_t bm = b & ~FLOAT_SIGN_BIT;
+    if (am > bm) {
+        return as | __float_sub_impl(ae, be, af, bf);
+    } else {
+        return bs | __float_sub_impl(be, ae, bf, af);
+    }
 }
