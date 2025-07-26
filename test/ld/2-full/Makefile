@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -63,6 +63,3 @@ $(OUT)/ld: $(SRCS) Makefile
 
 test: build FORCE
 	../run.sh . $(OUT)/ld
-
-generate: build FORCE
-	../generate.sh . $(OUT)/ld
