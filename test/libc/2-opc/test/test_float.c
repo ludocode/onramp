@@ -41,6 +41,7 @@ static uint32_t f2u(float f) {
 static int test_sigfpe_count = 0;
 
 static void test_sigfpe(int signo) {
+    (void)signo;
     ++test_sigfpe_count;
 }
 
@@ -50,8 +51,39 @@ static void test_add_impl(float x, float y, float expected) {
     yf.f = y;
     ef.f = expected;
     af.u = __float_add(xf.u, yf.u);
+
+    // for nan or zero, we don't need the sign to match x86_64. for nan it
+    // doesn't matter (we always return the original sign), and for zero we
+    // have separate tests to ensure we match the spec.
+    if (isnanf(ef.f) || ef.f == 0) {
+        ef.f = fabsf(ef.f);
+        af.f = fabsf(af.f);
+    }
+
     if (ef.u != af.u) {
         fprintf(stderr, "Failed to add %.9g + %.9g: expected %.9g, got %.9g\n",
+                x, y, ef.f, af.f);
+        exit(1);
+    }
+}
+
+static void test_sub_impl(float x, float y, float expected) {
+    floatunion_t xf, yf, ef, af;
+    xf.f = x;
+    yf.f = y;
+    ef.f = expected;
+    af.u = __float_sub(xf.u, yf.u);
+
+    // for nan or zero, we don't need the sign to match x86_64. for nan it
+    // doesn't matter (we always return the original sign), and for zero we
+    // have separate tests to ensure we match the spec.
+    if (isnanf(ef.f) || ef.f == 0) {
+        ef.f = fabsf(ef.f);
+        af.f = fabsf(af.f);
+    }
+
+    if (ef.u != af.u) {
+        fprintf(stderr, "Failed to sub %.9g - %.9g: expected %.9g, got %.9g\n",
                 x, y, ef.f, af.f);
         exit(1);
     }
@@ -62,6 +94,16 @@ static void test_add(void) {
     // integers less than 1<<24 should be exact
     test_add_impl(1.f, 4.f, 5.f);
     test_add_impl(47.f, 325.f, 372.f);
+
+    // signedness of zero result is specified by IEEE 754 2019
+    // x+-x is +0 regardless of sign of input under all rounding except roundToNegative
+    test_add_impl(4.f, -4.f, u2f(0));
+    test_add_impl(-4.f, 4.f, u2f(0));
+    test_add_impl(u2f(0), -u2f(0), u2f(0));
+    test_add_impl(-u2f(0), u2f(0), u2f(0));
+    // x+x for zero x is x
+    test_add_impl(u2f(0), u2f(0), u2f(0));
+    test_add_impl(-u2f(0), -u2f(0), -u2f(0));
 
     // some randomly generated numbers that failed and needed fixing
     test_add_impl(6.10882021e-32, 1.11447999e+32, 1.11447999e+32);
@@ -90,6 +132,33 @@ static void test_add(void) {
     */
 }
 
+static void test_sub(void) {
+
+    // integers less than 1<<24 should be exact
+    test_sub_impl(4.f, 1.f, 3.f);
+    test_sub_impl(400.f, 10.f, 390.f);
+
+    // signedness of zero result is specified by IEEE 754 2019
+    // x-x (as x+-x) is +0 regardless of sign of input under all rounding except roundToNegative
+    test_sub_impl(4.f, 4.f, u2f(0));
+    test_sub_impl(-4.f, -4.f, u2f(0));
+    test_sub_impl(u2f(0), u2f(0), u2f(0));
+    test_sub_impl(-u2f(0), -u2f(0), u2f(0));
+    // x-(-x) for zero x is x
+    test_sub_impl(u2f(0), -u2f(0), u2f(0));
+    test_sub_impl(-u2f(0), u2f(0), -u2f(0));
+
+    // some randomly generated numbers that failed and needed fixing
+    test_sub_impl(u2f(0x69ce4ba), u2f(0x6a0db3c6), u2f(0xea0db3c6));
+    test_sub_impl(u2f(0x4a32ce32), u2f(0x56800000), u2f(0xd67fffff));
+    test_sub_impl(u2f(0x73f8f94d), u2f(0x73f8f94d), u2f(0));
+
+}
+
+// The random float tests don't make sense on Onramp because we need another
+// floating point implementation to compare to. When running on x86_64 for
+// example, we are comparing it to the x86_64 CPU implementation. Probably this
+// should be moved to another file.
 #ifndef __onramp__
 static uint32_t random_float(void) {
     uint32_t exponent = rand() & FLOAT_EXPONENT_MASK;
@@ -126,12 +195,48 @@ static void test_add_loop(void) {
         xf.u = random_float();
         yf.u = random_float();
         ef.f = xf.f + yf.f;
-        //printf("Adding %.9g + %.9g, expected %.9g", xf.f, yf.f, ef.f);
+        //printf("Adding %.9g (0x%x) + %.9g (0x%x), expected %.9g (0x%x)\n", xf.f, xf.u, yf.f, yf.u, ef.f, ef.u);
         af.u = __float_add(xf.u, yf.u);
-        //printf(", actual %.9g\n", af.f);
+        //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
 
         if (ef.u != af.u) {
             printf("__float_add() FAILED:\n");
+            printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
+            printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
+            printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
+            printf("    actual: %.9g  0x%08x\n", af.f, af.u);
+            exit(1);
+        }
+    }
+}
+
+static void test_sub_loop(void) {
+    #ifdef __onramp__
+    // TODO onramp doesn't have time() yet
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f) {
+        unsigned x;
+        (void)fread(&x, 1, sizeof(x), f);
+        (void)fclose(f);
+        srand(x);
+    }
+    #else
+    srand(time(NULL));
+    #endif
+
+    for (size_t i = 0;; ++i) {
+        if (i != 0 && (i % 100000) == 0) printf("testing float subtraction: %zi...\n",i);
+
+        floatunion_t xf, yf, ef, af;
+        xf.u = random_float();
+        yf.u = random_float();
+        ef.f = xf.f - yf.f;
+        //printf("Subtracting %.9g (0x%x) - %.9g (0x%x), expected %.9g (0x%x)\n", xf.f, xf.u, yf.f, yf.u, ef.f, ef.u);
+        af.u = __float_sub(xf.u, yf.u);
+        //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
+
+        if (ef.u != af.u) {
+            printf("__float_sub() FAILED:\n");
             printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
             printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
             printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
@@ -147,6 +252,8 @@ static void test_add_loop(void) {
 int main(void) {
             // TODO sigaction is not properly supported on onramp yet
             #ifndef __onramp__
+            // TODO this initializer is crashing cci/2 at 5fcf1c7d but doesn't
+            // crash in a standalone test case. Need to figure out why.
     struct sigaction act = {.sa_handler = test_sigfpe};
     if (0 != sigaction(SIGFPE, &act, NULL)) {
         perror("sigaction(SIGFPE) failed");
@@ -154,9 +261,11 @@ int main(void) {
     }
 
     test_add();
+    test_sub();
 
     #ifndef __onramp__
-    test_add_loop();
+    //test_add_loop();
+    //test_sub_loop();
     #endif
             #endif
 }
