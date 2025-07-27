@@ -31,6 +31,11 @@
 
 typedef int ssize_t;
 
+typedef int pid_t;
+typedef int uid_t;
+typedef int gid_t;
+typedef int id_t;
+
 #ifndef __onramp_cci_omc__
 #ifndef __onramp_cci_opc__
 typedef long long off_t;

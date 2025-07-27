@@ -30,28 +30,63 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
-/* Note: sticking to only defining what ISO C requires */
+#include <sys/types.h>
 
 /* SIG values taken from Linux */
+#define SIGINT  2
+#define SIGILL  4
 #define SIGABRT 6
 #define SIGFPE  8
-#define SIGILL  4
-#define SIGINT  2
 #define SIGSEGV 11
 #define SIGTERM 15
+#define __SIG_MAX 32
 
 #define SIG_ERR  ((void (*)(int))-1)
 #define SIG_DFL  ((void (*)(int)) 0)
 #define SIG_IGN  ((void (*)(int)) 1)
 
-typedef int sig_atomic_t;
-
-#ifndef __onramp_cci_omc__
-#ifndef __onramp_cci_opc__
-void (*signal(int __signo, void (*__func)(int)))(int);
-#endif
-#endif
+#define SA_SIGINFO (1 << 0)
+#define SA_RESETHAND (1 << 1)
 
 int raise(int);
+
+// Most of this file requires the final stage C compiler.
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+typedef int sigset_t; // TODO sigset properly
+
+typedef int sig_atomic_t;
+
+union sigval {
+    int sival_int;
+    void* sival_ptr;
+};
+
+typedef struct {
+    int si_signo;
+    int si_code;
+    pid_t si_pid;
+    uid_t si_uid;
+    void* si_addr;
+    int si_status;
+    union sigval si_value;
+} siginfo_t;
+
+struct sigaction {
+    union {
+        void (*sa_handler)(int __signo);
+        void (*sa_sigaction)(int __signo, siginfo_t* __info, void* __context);
+    };
+    int sa_flags;
+    sigset_t sa_mask;
+};
+
+int sigaction(int __signo,
+        const struct sigaction* restrict __action,
+        struct sigaction* restrict __previous_action);
+
+void (*signal(int __signo, void (*__handler)(int)))(int);
+#endif
+#endif
 
 #endif /* __ONRAMP_LIBC_SIGNAL_H_INCLUDED */
