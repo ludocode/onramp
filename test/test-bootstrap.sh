@@ -65,10 +65,16 @@ make -C test/ld/2-full build
 ( core/cpp/0-strip/build.sh && cd test/cpp/0-strip && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-0-strip/cpp.oe )
 ( core/cci/0-omc/build.sh && cd test/cci/0-omc && ../run.sh --nonstd . omc onrampvm ../../../build/intermediate/cci-0-omc/cci.oe )
 
-# Build the rest of the omC toolchain
+# Build our preprocessor and optimizer
 ( core/cpp/1-omc/build.sh && \
+    ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../build/intermediate/cpp-1-omc-unopt/cpp.oe ) && \
+    ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-1-omc-unopt/cpp.oe ) )
+( core/cg/0-asm/build.sh && true ) #TODO no cg tests yet
+( core/cpp/1-omc/rebuild.sh && \
     ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) )
+
+# Build the rest of the omC toolchain
 ( core/ld/1-omc/build.sh && cd test/ld/1-omc && ../run.sh . onrampvm ../../../build/intermediate/ld-1-omc/ld.oe )
 ( core/libc/1-omc/build.sh && cd test/libc/1-omc && \
     ../run.sh ../0-oo omc ../../../build/intermediate/libc-1-omc/libc.oa && \

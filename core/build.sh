@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -56,8 +56,12 @@ sh core/as/1-compound/build.sh
 sh core/cpp/0-strip/build.sh
 sh core/cci/0-omc/build.sh
 
-# Build the rest of the omC toolchain
+# Build our preprocessor and optimizer
 sh core/cpp/1-omc/build.sh
+sh core/cg/0-asm/build.sh
+sh core/cpp/1-omc/rebuild.sh
+
+# Build the rest of the omC toolchain
 sh core/ld/1-omc/build.sh
 sh core/libc/1-omc/build.sh
 sh core/cc/build.sh

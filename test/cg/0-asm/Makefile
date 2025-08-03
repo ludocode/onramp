@@ -1,8 +1,6 @@
-#!/bin/sh
-
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -22,30 +20,55 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-set -e
-mkdir -p build/intermediate/cpp-1-omc-unopt
+CFLAGS := -g
+CPPFLAGS := -Wall -Wextra -Wpedantic
 
-echo
-echo === Building cpp/1-omc
+-include ../../local.mk
 
-echo Preprocessing cpp/1-omc
-onrampvm build/intermediate/cpp-0-strip/cpp.oe \
-    core/cpp/1-omc/cpp.c \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.i
+ROOT=../../..
+BUILD=$(ROOT)/build/test
 
-echo Compiling cpp/1-omc
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/cpp-1-omc-unopt/cpp.i \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.os
+OUT=$(BUILD)/cg-0-asm
+SRC=$(ROOT)/core/cg/0-asm
+LIBO=$(ROOT)/core/libo/1-opc
+CPPFLAGS += \
+	-Wno-unused-function \
+	-include ../../portability.h \
+	-I$(LIBO)/include \
+	-D__onramp_omc__=1
 
-echo Assembling cpp/1-omc
-onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/cpp-1-omc-unopt/cpp.os \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.oo
+SRCS=\
+	$(LIBO)/src/libo-error.c \
+	$(LIBO)/src/libo-string.c \
+	$(LIBO)/src/libo-table.c \
+	$(LIBO)/src/libo-util.c \
+	\
+	$(SRC)/src/main.c \
 
-echo Linking cpp/1-omc
-onrampvm build/intermediate/ld-0-global/ld.oe \
-    build/intermediate/libc-0-oo/libc.oa \
-    build/intermediate/libo-0-oo/libo.oa \
-    build/intermediate/cpp-1-omc-unopt/cpp.oo \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.oe
+HEADERS=\
+	$(SRC)/src/common.h \
+	$(SRC)/src/parse.h \
+	$(SRC)/src/instruction.h \
+	$(SRC)/src/opcode.h \
+	$(SRC)/src/optimize.h \
+	$(SRC)/src/register.h \
+
+all: build test FORCE
+FORCE:
+build: $(OUT)/cg FORCE
+
+clean: FORCE
+	rm -rf $(OUT)
+
+$(OUT)/cg: $(SRCS) $(HEADERS) Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
+
+test: build FORCE
+	# no tests yet
+	true #./run.sh . $(OUT)/cg
+
+generate: build FORCE
+	# no tests yet
+	true #./generate.sh . $(OUT)/cg

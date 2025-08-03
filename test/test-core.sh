@@ -57,8 +57,11 @@ make -C test/as/1-compound
 make -C test/cpp/0-strip
 make -C test/cci/0-omc
 
-# omC toolchain
+# preprocessor and optimizer
 make -C test/cpp/1-omc
+make -C test/cg/0-asm
+
+# omC toolchain
 make -C test/cc
 make -C test/ld/1-omc
 make -C test/libc/1-omc

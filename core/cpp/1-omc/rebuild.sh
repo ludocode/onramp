@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,29 +23,24 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/cpp-1-omc-unopt
+mkdir -p build/intermediate/cpp-1-omc
 
 echo
-echo === Building cpp/1-omc
+echo === Rebuilding cpp/1-omc
 
-echo Preprocessing cpp/1-omc
-onrampvm build/intermediate/cpp-0-strip/cpp.oe \
-    core/cpp/1-omc/cpp.c \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.i
-
-echo Compiling cpp/1-omc
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/cpp-1-omc-unopt/cpp.i \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.os
+echo Optimizing cpp/1-omc
+onrampvm build/intermediate/cg-0-asm/cg.oe \
+    build/intermediate/cpp-1-omc-unopt/cpp.os \
+    -o build/intermediate/cpp-1-omc/cpp.os
 
 echo Assembling cpp/1-omc
 onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/cpp-1-omc-unopt/cpp.os \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.oo
+    build/intermediate/cpp-1-omc/cpp.os \
+    -o build/intermediate/cpp-1-omc/cpp.oo
 
 echo Linking cpp/1-omc
 onrampvm build/intermediate/ld-0-global/ld.oe \
     build/intermediate/libc-0-oo/libc.oa \
     build/intermediate/libo-0-oo/libo.oa \
-    build/intermediate/cpp-1-omc-unopt/cpp.oo \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.oe
+    build/intermediate/cpp-1-omc/cpp.oo \
+    -o build/intermediate/cpp-1-omc/cpp.oe
