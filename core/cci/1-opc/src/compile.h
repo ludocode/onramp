@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -49,15 +49,14 @@ void compile_global_variable(const type_t* type, const char* name, storage_t sto
 void compile_enum_value(const char* name, int value);
 
 /**
- * Compiles the prologue of a function with the given name and number of
- * arguments.
+ * Compiles the prologue of a function with the given name and linkage.
  */
-void compile_function_open(const global_t* global);
+void compile_function_open(const global_t* global, storage_t storage);
 
 /**
- * Compiles the epilogue of the current function with the given name.
+ * Compiles the epilogue of the function with the given name.
  */
-void compile_function_close(const global_t* global, storage_t storage);
+void compile_function_close(const global_t* global);
 
 /**
  * Compiles a jump to a label with a generated name.

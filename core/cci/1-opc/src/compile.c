@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -101,20 +101,36 @@ void compile_zero(void) {
     emit_newline();
 }
 
-void compile_function_open(const global_t* global) {
+void compile_function_open(const global_t* global, storage_t storage) {
     const char* name = global_name(global);
     int param_count = global_function_param_count(global);
 
-    // We don't know the stack frame size yet so we'll emit the function
-    // prologue at the end and then jump back here. (Technically we're
-    // compiling most of the function as a different symbol.)
-    emit_prefixed_label('@', "_F_", name);
+    // emit the symbol declaration
+    emit_label(compile_storage_glyph(storage), name);
+    emit_newline();
+    emit_term("enter");
+    emit_newline();
+
+    // load the frame size from separate symbol
+    emit_term("imw");
+    emit_term("r9");
+    emit_prefixed_label('^', "_F_", name);
+    emit_newline();
+    emit_term("ldw");
+    emit_term("r9");
+    emit_term("rpp");
+    emit_term("r9");
+    emit_newline();
+    emit_term("sub");
+    emit_term("rsp");
+    emit_term("rsp");
+    emit_term("r9");
     emit_newline();
 
     // The first four arguments arrive in registers, the rest come on the
     // stack. We copy them to their new offsets.
     // Note that we don't touch the variadic arguments. The user has to access
-    // the with va_arg().
+    // them with va_arg().
     int i = 0;
     while (i < param_count) {
         if (i < 4) {
@@ -141,59 +157,27 @@ void compile_function_open(const global_t* global) {
     }
 }
 
-void compile_function_close(const global_t* global, storage_t storage) {
+void compile_function_close(const global_t* global) {
     const char* name = global_name(global);
 
     // add a return to the function in case it didn't return on its own
-    // main() needs to return 0 if execution reaches the end of the function
-    // without a return statement.
-    //TODO uncomment this
-    //if (0 == strcmp(name, "main")) {
+    if (0 == strcmp(name, "main")) {
+        // main() needs to return 0 if execution reaches the end of the
+        // function without a return statement.
         emit_term("zero");
         emit_term("r0");
         emit_newline();
-    //}
+    }
     emit_term("leave");
     emit_newline();
     emit_term("ret");
     emit_newline();
-
-    // emit the function prologue
-    emit_newline();
-    emit_label(compile_storage_glyph(storage), name);
-    emit_newline();
-    emit_term("enter");
     emit_newline();
 
-    // set up the stack frame (now that we know its size)
-    //locals_pop(locals_count - arg_count);
-    //printf("closing function, %i vars left, %i max, %i vars in function\n", locals_count, compile_function_max_locals_count, compile_function_max_locals_count - locals_count);
-    if (locals_frame_size > 0) {
-        if (locals_frame_size < 0x80) {
-            // the frame size fits in a mix-type byte
-            emit_term("sub");
-            emit_term("rsp");
-            emit_term("rsp");
-            emit_int(locals_frame_size);
-            emit_newline();
-        }
-    }
-    if (locals_frame_size >= 0x80) {
-        // the frame size needs to go in a temporary register
-        emit_term("imw");
-        emit_term("r9");
-        emit_int(locals_frame_size);
-        emit_newline();
-        emit_term("sub");
-        emit_term("rsp");
-        emit_term("rsp");
-        emit_term("r9");
-        emit_newline();
-    }
-
-    // jump to the top of the function
-    emit_term("jmp");
-    emit_prefixed_label('^', "_F_", name);
+    // emit the stack frame size in a separate symbol
+    emit_prefixed_label('@', "_F_", name);
+    emit_newline();
+    emit_int(locals_frame_size);
     emit_global_divider();
 }
 

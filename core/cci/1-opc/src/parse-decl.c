@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -866,9 +866,9 @@ static void parse_function_declaration(type_t* return_type, char* name, storage_
     if (!lexer_accept(";")) {
 
         // compile the function
-        compile_function_open(global);
+        compile_function_open(global, storage);
         parse_block();
-        compile_function_close(global, storage);
+        compile_function_close(global);
 
         // output any strings that were used in the function
         output_string_literals();
