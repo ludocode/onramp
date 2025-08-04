@@ -105,28 +105,27 @@ The size of a function's stack frame can only be determined after the entire fun
 
 We treat our output file as a stream so we can't seek back and patch the frame size in after the fact. We also don't have support in our linker to fill in values for us. We need to output the value after the function is compiled.
 
-To do this, we place the preamble at the end of the function. For example, a function `foo()` is compiled like this:
+To keep things simple, we place the frame size in its own symbol after the function. The function prologue loads the frame size symbol on entry to create its stack frame. We emit the size afterwards once we've computed the stack usage of the full function.
+
+For example, a function `foo()` is compiled like this:
 
 ```asm
-@_F_foo
+=foo
+    enter
+    imw r9 ^_F_foo
+    ldw r9 rpp r9
+    sub rsp rsp r9
     ; ...
     ; ...
     ; ...
     leave
     ret
 
-=foo
-    enter
-    imw r9 <framesize>
-    sub rsp rsp r9
-    jmp ^_F_foo
+@_F_foo
+    <framesize>
 ```
 
-We start with a static symbol to contain the function's contents. Its name is the function name prefixed with `_F_`. It assumes the correct stack space has been reserved. We simply emit each statement one by one with labels to jump among `if` and `while` blocks.
-
-Once the entire function has been emitted, we now know the required size of the stack frame. We can now define the actual function, which is just a "shunt" or "trampoline". It performs the preamble, reserves the appropriate stack space, and jumps to the `_F_` symbol.
-
-The resulting function is thus technically in two separate symbols. This is of course inefficient but it is very easy to implement for bootstrapping.
+Every function compiled by this stage of compiler is structured this way so every function gets two symbols. This is a bit inefficient and adds a fair bit of linker overhead but it is very easy to implement for bootstrapping. It is also simple for our first stage code generator to optimize in cases where stack space is not needed.
 
 
 
@@ -135,7 +134,11 @@ The resulting function is thus technically in two separate symbols. This is of c
 When a literal string appears in a function, we assign the string a unique id, copy the string from the lexer and store it in an array. Once the function has been emitted, all strings are output as symbols and freed. For example, a function `bar()` that uses several strings is compiled like this:
 
 ```asm
-@_F_bar
+=bar
+    enter
+    imw r9 ^_F_bar
+    ldw r9 rpp r9
+    sub rsp rsp r9
     ; ...
     ; ...
     imw r0 ^_Sx0
@@ -153,11 +156,8 @@ When a literal string appears in a function, we assign the string a unique id, c
     leave
     ret
 
-=bar
-    enter
-    imw r9 <framesize>
-    sub rsp rsp r9
-    jmp ^_F_bar
+@_F_bar
+    <framesize>
 
 @_Sx0
     "Alice"'00

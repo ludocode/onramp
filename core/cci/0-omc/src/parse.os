@@ -1720,7 +1720,8 @@
 
     ; open the function (emitting the preamble)
     ldw r0 rfp -8
-    ldw r1 rfp -16
+    ldw r1 rfp -12
+    ldw r2 rfp -16
     call ^compile_function_open
 
     ; parse and compile the contents
@@ -1728,13 +1729,11 @@
 
     ; get the frame size and clear it for the next function
     imw r9 ^frame_size
-    ldw r3 rpp r9
+    ldw r1 rpp r9
     stw 0 rpp r9
 
     ; close the function (emitting the epilogue and trampoline)
     ldw r0 rfp -8
-    ldw r1 rfp -12
-    ldw r2 rfp -16
     call ^compile_function_close
 
     ; compile the string literals collected in the function

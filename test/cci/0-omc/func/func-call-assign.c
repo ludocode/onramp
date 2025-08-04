@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2023-2024 Fraser Heavy Software
+// Copyright (c) 2023-2025 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 int foo(int x) {
@@ -19,16 +19,16 @@ int main(void) {
         return 1;
     }
     if (x != 4) {
-        return 1;
+        return 2;
     }
     if (bar(x = 3, y = 7) != 10) {
-        return 1;
+        return 3;
     }
     if (x != 3) {
-        return 1;
+        return 4;
     }
     if (y != 7) {
-        return 1;
+        return 5;
     }
 
     return 0;

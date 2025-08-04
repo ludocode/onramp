@@ -1,3 +1,5 @@
+; The MIT License (MIT)
+;
 ; Copyright (c) 2024-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -62,33 +64,93 @@
 
 
 ; ==========================================================
-; void compile_function_open(const char* name, int arg_count);
+; void compile_function_open(const char* name, bool is_static, int arg_count);
 ; ==========================================================
-; Emits the function wrapper symbol, then emits code to move all function
+; Emits the function prologue, then emits code to move all function
 ; arguments into their proper positions in the stack frame.
 ;
-; Note that we don't emit the real function prologue here. It's emitted at the
-; end, in compile_function_close(). See the README for details.
+; The function prologue loads the function's stack size. It is stored in a
+; corresponding variable whose name is prefixed with _F_. This variable has not
+; been emitted yet because we won't know how much stack space is needed until
+; the entire function has been compiled.
 ;
 ; vars:
 ; - arg_count: rfp-4
 ; - index: rfp-8
+; - is_static: rfp-12
+; - name: rfp-16
 ; ==========================================================
 
 =compile_function_open
     enter
 
     ; setup vars
-    push r1
+    push r2
     push 0
+    push r1
+    push r0
 
-    ; emit the linker directive with _F_ prefix
-    ;     emit_prefixed_linker_string('@', "_F_", name);
-    mov r2 r0
+    ; get character for symbol linkage: "=" for extern and "@" for static
+    ldw r0 rfp -8
+    jz r0 &compile_function_close_extern
     mov r0 "@"
+    jmp &compile_function_close_static
+:compile_function_close_extern
+    mov r0 "="
+:compile_function_close_static
+
+    ; emit the symbol definition
+    ldw r1 rfp -16
+    call ^emit_label
+    call ^emit_newline
+
+    ; emit "enter"
+    imw r0 ^str_enter
+    add r0 rpp r0
+    call ^emit_term
+    call ^emit_newline
+
+    ; emit "imw r9"
+    imw r0 ^str_imw
+    add r0 rpp r0
+    call ^emit_term
+    mov r0 9
+    call ^emit_register
+
+    ; emit ^_F_<name>
+    ;     emit_prefixed_linker_string('^', "_F_", name);
+    mov r0 "^"
     imw r1 ^str_function_prefix
     add r1 rpp r1
+    ldw r2 rfp -16
     call ^emit_prefixed_linker_string
+    call ^emit_newline
+
+    ; emit "ldw r9 rpp r9"
+    imw r0 ^str_ldw
+    add r0 rpp r0
+    call ^emit_term
+    mov r0 9
+    call ^emit_register
+    imw r0 ^str_rpp
+    add r0 rpp r0
+    call ^emit_term
+    mov r0 9
+    call ^emit_register
+    call ^emit_newline
+
+    ; emit "sub rsp rsp r9"
+    imw r0 ^str_sub
+    add r0 rpp r0
+    call ^emit_term
+    imw r0 ^str_rsp
+    add r0 rpp r0
+    call ^emit_term
+    imw r0 ^str_rsp
+    add r0 rpp r0
+    call ^emit_term
+    mov r0 9
+    call ^emit_register
     call ^emit_newline
 
     ; the rest of this function emits instructions to move each argument into
@@ -136,25 +198,21 @@
 
 
 ; ==========================================================
-; void compile_function_close(const char* name, bool is_static,
-;                             int arg_count, int frame_size);
+; void compile_function_close(const char* name, int frame_size);
 ; ==========================================================
-; Compiles the epilogue of the current function, followed by a trampoline with
-; the prologue of the function.
+; Emits the function epilogue followed by its frame size.
 ;
 ; We insert code at the end of every function to return 0. main() needs to
 ; return 0 if execution reaches the end of the function without a return
 ; statement (provided it's declared with a return type of int.) We do this for
 ; all functions for simplicity.
 ;
-; We then emit the trampoline which sets up the function's stack frame. See the
-; README for details.
+; We then emit the _F_ symbol that contains the function's stack frame size.
+; See the README for details.
 ;
 ; vars:
 ; - name: rfp-4
-; - is_static: rfp-8
-; - arg_count: rfp-12
-; - frame_size: rfp-16
+; - frame_size: rfp-8
 ; ==========================================================
 
 =compile_function_close
@@ -162,8 +220,6 @@
 
     push r0
     push r1
-    push r2
-    push r3
 
     ; emit "zero r0"
     imw r0 ^str_zero
@@ -186,64 +242,18 @@
     call ^emit_newline
     call ^emit_newline
 
-    ; get character for symbol linkage: "=" for extern and "@" for static
-    ldw r0 rfp -8
-    jz r0 &compile_function_close_extern
+    ; emit a new static symbol with _F_ prefix
+    ;     emit_prefixed_linker_string('@', "_F_", name);
     mov r0 "@"
-    jmp &compile_function_close_static
-:compile_function_close_extern
-    mov r0 "="
-:compile_function_close_static
-
-    ; emit the symbol definition
-    ldw r1 rfp -4
-    call ^emit_label
-    call ^emit_newline
-
-    ; emit "enter"
-    imw r0 ^str_enter
-    add r0 rpp r0
-    call ^emit_term
-    call ^emit_newline
-
-    ; Set up the stack frame (now that we know its size)
-    ; We use a temporary register in case it doesn't fit in a mix-type byte.
-    ; Note that r0-r3 are used as function arguments.
-
-    ; emit "imw r9 <framesize>"
-    imw r0 ^str_imw
-    add r0 rpp r0
-    call ^emit_term
-    mov r0 9
-    call ^emit_register
-    ldw r0 rfp -16
-    call ^emit_int
-    call ^emit_newline
-
-    ; emit "sub rsp rsp r9"
-    imw r0 ^str_sub
-    add r0 rpp r0
-    call ^emit_term
-    imw r0 ^str_rsp
-    add r0 rpp r0
-    call ^emit_term
-    imw r0 ^str_rsp
-    add r0 rpp r0
-    call ^emit_term
-    mov r0 9
-    call ^emit_register
-    call ^emit_newline
-
-    ; emit "jmp ^_F_name", a jump to the top of the function
-    imw r0 ^str_jmp
-    add r0 rpp r0
-    call ^emit_term
-    mov r0 "^"
     imw r1 ^str_function_prefix
     add r1 rpp r1
     ldw r2 rfp -4
     call ^emit_prefixed_linker_string
     call ^emit_newline
+
+    ; emit frame size
+    ldw r0 rfp -8   ; frame_size
+    call ^emit_int
     call ^emit_newline
 
     leave
