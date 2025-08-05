@@ -10,12 +10,13 @@ The full command-line syntax is documented in the [Usage Guide](../../docs/usage
 
 The `cc` tool can perform any or all of the following transformations. When performing multiple phases, temporary files are used to pass data along from one tool to the next.
 
-| Phase         | Tool            | Operation                | Command-line option |
-|---------------|-----------------|--------------------------|---------------------|
-| Preprocessing | [`cpp`](../cpp) | `.c` -> `.i`             | `-E`                |
-| Compilation   | [`cci`](../cci) | `.i` -> `.os`            | `-S`                |
-| Assembly      | [`as`](../as)   | `.os` -> `.oo`           | `-c`                |
-| Linking       | [`ld`](../ld)   | `.oo` + `.oa` -> (exec.) | none (default)      |
+| Phase           | Tool            | Operation                | Command-line option |
+|-----------------|-----------------|--------------------------|---------------------|
+| Preprocessing   | [`cpp`](../cpp) | `.c` -> `.i`             | `-E`                |
+| Compilation     | [`cci`](../cci) | `.i` -> `.oir`           | `-S -emit-ir`       |
+| Code Generation | [`cg`](../cg)   | `.oir` -> `.os`          | `-S`                |
+| Assembly        | [`as`](../as)   | `.os` -> `.oo`           | `-c`                |
+| Linking         | [`ld`](../ld)   | `.oo` + `.oa` -> (exec.) | none (default)      |
 
 The output of linking is an Onramp bytecode executable, optionally wrapped for the user's platform, that can be run on the Onramp virtual machine.
 
@@ -27,6 +28,7 @@ By default, the compiler driver expects to use the final bootstrapped versions o
 
 - `-with-cpp=<path/to/cpp.oe>` -- Sets the path to the preprocessor
 - `-with-cci=<path/to/cci.oe>` -- Sets the path to the compiler
+- `-with-cg=<path/to/cg.oe>` -- Sets the path to the code generator
 - `-with-as=<path/to/as.oe>` -- Sets the path to the assembler
 - `-with-ld=<path/to/ld.oe>` -- Sets the path to the linker
 - `-nostdlib` -- Prevents automatically linking against the libc

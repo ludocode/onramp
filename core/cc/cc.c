@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,9 +27,9 @@
 /*
  * This is the Onramp compiler driver. It is written in omC.
  *
- * It runs the preprocessor, compiler, assembler and linker all-in-one. Its
- * command-line argument syntax is similar to POSIX-style C compilers such as
- * GCC.
+ * It runs the preprocessor, compiler, code generator, assembler and linker
+ * all-in-one. Its command-line argument syntax is similar to POSIX-style C
+ * compilers such as GCC.
  *
  * This is implemented all in one file because it was originally intended to be
  * bootstrapped before ld/1, the linker that adds file scope. This is no longer
@@ -49,6 +49,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #ifndef __onramp__
@@ -58,6 +59,14 @@
 
 #include "libo-error.h"
 #include "libo-util.h"
+
+#ifdef __onramp_libc_omc__
+// TODO we don't have strcasecmp() during bootstrapping but we probably need it
+// in case the platform doesn't support lowercase filenames. We don't
+// officially support such platforms (we require most of ASCII and long
+// filenames) but it would be nice to be able to support them anyway.
+#define strcasecmp strcmp
+#endif
 
 extern char** environ;
 
@@ -84,13 +93,15 @@ static void parse_options(char** argv);
 
 #define MODE_LINK 1
 #define MODE_ASSEMBLE 2
-#define MODE_COMPILE 3
-#define MODE_PREPROCESS 4
+#define MODE_CODEGEN 3
+#define MODE_COMPILE 4
+#define MODE_PREPROCESS 5
 
-#define TYPE_OO 1
+#define TYPE_OO 1  // .oo and .oa
 #define TYPE_OS 2
-#define TYPE_I 3
-#define TYPE_C 4
+#define TYPE_OIR 3
+#define TYPE_I 4
+#define TYPE_C 5
 
 #define FILEARGS_BUFFER_SIZE 256
 
@@ -113,12 +124,14 @@ static bool nostdlib;
 static bool nostddef;
 static bool debug_info;
 static bool optimize;
+static bool emit_ir;
 static bool dump_macros;
 static char* wrap_header;
 
 // tools and libc files to use
 static char* tool_cpp;
 static char* tool_cci;
+static char* tool_cg;
 static char* tool_as;
 static char* tool_ld;
 static char* libc_archive;
@@ -424,6 +437,7 @@ static bool try_parse_with(char*** argv) {
 
     if (try_parse_option_string(argv, "-with-cpp", &tool_cpp)) {return true;}
     if (try_parse_option_string(argv, "-with-cci", &tool_cci)) {return true;}
+    if (try_parse_option_string(argv, "-with-cg", &tool_cg)) {return true;}
     if (try_parse_option_string(argv, "-with-as", &tool_as)) {return true;}
     if (try_parse_option_string(argv, "-with-ld", &tool_ld)) {return true;}
     return false;
@@ -447,6 +461,7 @@ static bool try_parse_misc(char*** argv) {
     if (try_parse_misc_option(argv, "-nostdlib", &nostdlib)) {return true;}
     if (try_parse_misc_option(argv, "-nostddef", &nostddef)) {return true;}
     if (try_parse_misc_option(argv, "-dM", &dump_macros)) {return true;}
+    if (try_parse_misc_option(argv, "-emit-ir", &emit_ir)) {return true;}
 
     if (try_parse_misc_option(argv, "-###", &disable_run)) {
         // -### implies -v
@@ -509,12 +524,16 @@ static void set_default_options(const char* cc_filename) {
     #ifdef __onramp__
     tool_cpp = create_tool_path(cc_filename, path_len, "cpp.oe");
     tool_cci = create_tool_path(cc_filename, path_len, "cci.oe");
+    // TODO for backwards compatibility we don't run a cg tool by default. cg/1
+    // doesn't exist yet and we need to update all the build scripts first.
+    //tool_cg = create_tool_path(cc_filename, path_len, "cg.oe");
     tool_as = create_tool_path(cc_filename, path_len, "as.oe");
     tool_ld = create_tool_path(cc_filename, path_len, "ld.oe");
     #endif
     #ifndef __onramp__
     tool_cpp = create_tool_path(cc_filename, path_len, "cpp");
     tool_cci = create_tool_path(cc_filename, path_len, "cci");
+    //tool_cg = create_tool_path(cc_filename, path_len, "cg");
     tool_as = create_tool_path(cc_filename, path_len, "as");
     tool_ld = create_tool_path(cc_filename, path_len, "ld");
     #endif
@@ -643,6 +662,15 @@ static void check_options(void) {
         }
     }
 
+    // If -emit-ir was specified, -S must have been specified as well, and we
+    // change the mode to codegen.
+    if (emit_ir) {
+        if (mode != MODE_ASSEMBLE) {
+            fatal_cleanup("-emit-ir requires -S.");
+        }
+        mode = MODE_CODEGEN;
+    }
+
     if (output_filename == NULL) {
         // TODO we should default to a.out if we're wrapped for posix.
         // otherwise we should default to the input filename basename plus .exe
@@ -709,30 +737,24 @@ static int file_type(const char* name) {
 
         // We assume .C is a C file on a platform that uses uppercase filenames
         // (as opposed to, say, GCC which treats it as a C++ file.)
-        if (0 == strcmp(extension, "c")) { return TYPE_C; }
-        if (0 == strcmp(extension, "C")) { return TYPE_C; }
+        if (0 == strcasecmp(extension, "c")) { return TYPE_C; }
 
-        if (0 == strcmp(extension, "i")) { return TYPE_I; }
-        if (0 == strcmp(extension, "I")) { return TYPE_I; }
+        if (0 == strcasecmp(extension, "i")) { return TYPE_I; }
+
+        if (0 == strcasecmp(extension, "oir")) { return TYPE_OIR; }
 
         // We support `.o` and `.s` file extensions to be compatible with a
         // typical UNIX buildsystem. The files of course must contain Onramp
         // bytecode or assembly.
 
-        if (0 == strcmp(extension, "os")) { return TYPE_OS; }
-        if (0 == strcmp(extension, "OS")) { return TYPE_OS; }
-        if (0 == strcmp(extension, "s")) { return TYPE_OS; }
-        if (0 == strcmp(extension, "S")) { return TYPE_OS; }
+        if (0 == strcasecmp(extension, "os")) { return TYPE_OS; }
+        if (0 == strcasecmp(extension, "s")) { return TYPE_OS; }
 
         // We don't differentiate between .oo and .oa files.
-        if (0 == strcmp(extension, "oo")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "OO")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "o")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "O")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "oa")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "OA")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "a")) { return TYPE_OO; }
-        if (0 == strcmp(extension, "A")) { return TYPE_OO; }
+        if (0 == strcasecmp(extension, "oo")) { return TYPE_OO; }
+        if (0 == strcasecmp(extension, "o")) { return TYPE_OO; }
+        if (0 == strcasecmp(extension, "oa")) { return TYPE_OO; }
+        if (0 == strcasecmp(extension, "a")) { return TYPE_OO; }
     }
 
     fputs("In file: ", stderr);
@@ -1033,6 +1055,27 @@ static void compile_file(const char* input, const char* output) {
     free(args);
 }
 
+// TODO this is nearly identical to assemble_file(), they will also take the
+// same debug and optimize options, we should merge them
+static void codegen_file(const char* input, const char* output) {
+    char** args = 0;
+    size_t args_count = 0;
+    size_t args_capacity = 0;
+
+    string_array_append(&args, &args_count, &args_capacity, tool_cg);
+
+    // TODO debug info, optimize
+
+    string_array_append(&args, &args_count, &args_capacity, (char*)input);
+    string_array_append(&args, &args_count, &args_capacity, "-o");
+    string_array_append(&args, &args_count, &args_capacity, (char*)output);
+
+    string_array_append(&args, &args_count, &args_capacity, NULL);
+    run(args_count - 1, args);
+
+    free(args);
+}
+
 static void assemble_file(const char* input, const char* output) {
     char** args = 0;
     size_t args_count = 0;
@@ -1085,8 +1128,27 @@ static void translate_file(const char* input) {
             return;
         }
         if (mode != MODE_COMPILE) {
-            char* output = make_temp_filename(input, ".os");
+            char* extension = ".oir";
+            if (tool_cg == NULL) {
+                // If we don't have a code generator, the compiler is assumed
+                // to output assembly directly.
+                extension = ".os";
+            }
+            char* output = make_temp_filename(input, extension);
             compile_file(input, output);
+            input = output;
+        }
+    }
+
+    // codegen
+    if ((type >= TYPE_OIR) & (tool_cg != NULL)) {
+        if (mode == MODE_CODEGEN) {
+            codegen_file(input, output_filename);
+            return;
+        }
+        if (mode != MODE_COMPILE) {
+            char* output = make_temp_filename(input, ".os");
+            codegen_file(input, output);
             input = output;
         }
     }
