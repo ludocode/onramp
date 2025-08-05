@@ -150,6 +150,7 @@ The following documentation pages are available:
         - [`cc`: Driver](core/cc/README.md)
         - [`cpp`: Preprocessor](core/cpp/README.md)
         - [`cci`: Compiler](core/cci/README.md)
+        - [`cg`: Code Generator](core/cg/README.md)
         - [`as`: Assembler](core/as/README.md)
         - [`ar`: Archiver](core/ar/README.md)
         - [`ld`: Linker](core/ld/README.md)
@@ -189,6 +190,7 @@ In addition, each tool, and each stage of each tool has a `README.md` describing
 | `.oo`       | [Onramp Object File][docobj], plain-text bytecode with labels                |
 | `.oa`       | [Onramp Archive][docobj], a static library of `.oo` files                    |
 | `.os`       | [Onramp Assembly][docasm], our custom assembly language                      |
+| `.oir`      | [Onramp Intermediate Representation][docir], our compiler IR                 |
 | `.i`        | Preprocessed C source code (no comments, no preprocessor directives)         |
 | `.c`        | C source code, an Onramp Subset ([omC] or [opC]) or a standard version       |
 | `.sh`       | [Onramp Shell][docsh], our subset of POSIX shell                             |
@@ -276,6 +278,7 @@ In some cases we avoid pulling out links where they are more convenient inline, 
 [docasm]: docs/assembly.md
 [docdebug]: docs/debug-info.md
 [dochex]: docs/hexadecimal.md
+[docir]: docs/intermediate-representation.md
 [docobj]: docs/object-code.md
 [docpath]: docs/bootstrap-path.md
 [docsetup]: docs/setup-guide.md

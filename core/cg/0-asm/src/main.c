@@ -138,8 +138,8 @@ int main(int argc, char** argv) {
         // symbol. might not be any faster though
 
 
-/*
         optimize_push_pop(); // replace redundant push/pop with movs of unused registers
+/*
         optimize_load();     // replace redundant loads with movs
 
         // We limit to three iterations. This could use some tweaking.

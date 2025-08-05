@@ -219,4 +219,37 @@ static void opcode_teardown(void) {
     free(opcode_names);
 }
 
+static bool opcode_outputs_register(opcode_t opcode) {
+
+    // Virtual opcodes do not have output registers.
+    if (opcode <= OP_VIRTUAL_MAX) {
+        return false;
+    }
+
+    // All arithmetic and logic opcodes have an output register.
+    if (opcode <= OP_LOGIC_MAX) {
+        return true;
+    }
+
+    // Some memory opcodes have an output register.
+    if (opcode <= OP_MEMORY_MAX) {
+        if (opcode == OP_LDW) {return true;}
+        if (opcode == OP_LDS) {return true;}
+        if (opcode == OP_LDB) {return true;}
+        if (opcode == OP_POP) {return true;}
+        return false;
+    }
+
+    // Some control opcodes have an output register.
+    // Note that call "modifies" all registers and r0 is the function return
+    // value but an output register isn't specified in its arguments. call is
+    // always handled separately.
+    if (opcode == OP_IMW) {return true;}
+    if (opcode == OP_LTU) {return true;}
+    if (opcode == OP_LTS) {return true;}
+    if (opcode == OP_CMPS) {return true;}
+    if (opcode == OP_CMPU) {return true;}
+    return false;
+}
+
 #endif

@@ -35,7 +35,9 @@ typedef void instruction_t;
 #define INSTRUCTION_ARG2 3
 #define INSTRUCTION_LABEL 4
 #define INSTRUCTION_LABEL_PREFIX 5
-#define INSTRUCTION_SIZE 6
+#define INSTRUCTION_OPT_VP 6   // void* for optimization passes
+#define INSTRUCTION_OPT_INT 7  // int for optimization passes
+#define INSTRUCTION_SIZE 8
 
 static instruction_t** instructions;
 static size_t instructions_count;
@@ -121,6 +123,14 @@ static void instruction_set_label_prefix(instruction_t* instruction, char prefix
     *(char*)((size_t*)instruction + INSTRUCTION_LABEL_PREFIX) = prefix;
 }
 
+static void instruction_set_opt_vp(instruction_t* instruction, void* vp) {
+    *(void**)((size_t*)instruction + INSTRUCTION_OPT_VP) = vp;
+}
+
+static void instruction_set_opt_int(instruction_t* instruction, int opt_int) {
+    *(int*)((size_t*)instruction + INSTRUCTION_OPT_INT) = opt_int;
+}
+
 static opcode_t instruction_opcode(instruction_t* instruction) {
     return *(opcode_t*)((size_t*)instruction + INSTRUCTION_OPCODE);
 }
@@ -147,6 +157,14 @@ static char* instruction_label(instruction_t* instruction) {
 
 static char instruction_label_prefix(instruction_t* instruction) {
     return *(char*)((size_t*)instruction + INSTRUCTION_LABEL_PREFIX);
+}
+
+static void* instruction_opt_vp(instruction_t* instruction) {
+    return *(void**)((size_t*)instruction + INSTRUCTION_OPT_VP);
+}
+
+static int instruction_opt_int(instruction_t* instruction) {
+    return *(int*)((size_t*)instruction + INSTRUCTION_OPT_INT);
 }
 
 static void instruction_eliminate(instruction_t* instruction) {
