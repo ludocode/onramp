@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Fraser Heavy Software
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -42,11 +42,18 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
 
 echo Compiling cc
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/cc/cc.i -o build/intermediate/cc/cc.os
+    build/intermediate/cc/cc.i \
+    -o build/intermediate/cc/cc-unopt.os
+
+echo Optimizing cc
+onrampvm build/intermediate/cg-0-asm/cg.oe \
+    build/intermediate/cc/cc-unopt.os \
+    -o build/intermediate/cc/cc.os
 
 echo Assembling cc
 onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/cc/cc.os -o build/intermediate/cc/cc.oo
+    build/intermediate/cc/cc.os \
+    -o build/intermediate/cc/cc.oo
 
 echo Linking cc
 onrampvm build/intermediate/ld-1-omc/ld.oe \

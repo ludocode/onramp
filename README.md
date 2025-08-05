@@ -162,9 +162,10 @@ The following documentation pages are available:
         - [`vm`: Virtual Machine](platform/vm/)
 - Specifications
     - [Onramp Hexadecimal](docs/hexadecimal.md)
-    - [Onramp Virtual Machine and Bytecode](docs/virtual-machine.md)
+    - [Onramp Virtual Machine](docs/virtual-machine.md)
     - [Onramp Object Code](docs/object-code.md)
     - [Onramp Assembly](docs/assembly.md)
+    - [Onramp Intermediate Representation](docs/intermediate-representation.md)
     - [Onramp Minimal C](docs/minimal-c.md)
     - [Onramp Practical C](docs/practical-c.md)
     - [Onramp Shell](docs/shell.md)
