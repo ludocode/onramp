@@ -1157,7 +1157,10 @@ type_t* parse_assignment_expression(void) {
     // If it's a compound assigment, calculate the result
     if (0 != strcmp(op, "=")) {
         type_t* temp = type_clone(left);
-        compile_stack_offset(true, 0, 1);
+        // NOTE: We pop and then push again rather than load from the stack to
+        // make it easier for our code generator to optimize this.
+        compile_pop(1);
+        compile_push(1);
         *(op + (strlen(op) - 1)) = 0; // remove the `=`
         right = compile_binary_op(op, temp, right);
     }

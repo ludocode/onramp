@@ -178,6 +178,7 @@ void compile_function_close(const global_t* global) {
     emit_prefixed_label('@', "_F_", name);
     emit_newline();
     emit_int(locals_frame_size);
+    emit_newline();
     emit_global_divider();
 }
 
@@ -1036,14 +1037,6 @@ void compile_push(int register_number) {
 void compile_pop(int register_number) {
     emit_term("pop");
     emit_register(register_number);
-    emit_newline();
-}
-
-void compile_stack_load(int register_number) {
-    emit_term("ldw");
-    emit_register(register_number);
-    emit_term("rsp");
-    emit_term("0");
     emit_newline();
 }
 

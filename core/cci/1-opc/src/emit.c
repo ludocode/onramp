@@ -134,14 +134,17 @@ void emit_term(const char* keyword) {
 }
 
 void emit_register(int index) {
-    if (index < 10) {
+
+    // Only registers r0-r3 and r9 can be used. Registers r4-r8
+    // are used by the code generator.
+    if ((index <= 3) | (index == 9)) {
         emit_char('r');
         emit_char('0' + index);
         emit_char(' ');
         return;
     }
 
-    if (index < 12) {
+    if ((index == 10) | (index == 11)) {
         emit_char('r');
         emit_char('a' + (index - 10));
         emit_char(' ');
