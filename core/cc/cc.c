@@ -301,7 +301,7 @@ static bool try_parse_mode(char*** argv) {
         if (mode != MODE_LINK) {
             fatal_cleanup("Only one of -c, -E and -S can be provided.");
         }
-        mode = MODE_COMPILE;
+        mode = MODE_CODEGEN;
         *argv = (*argv + 1);
         return true;
     }
@@ -665,10 +665,10 @@ static void check_options(void) {
     // If -emit-ir was specified, -S must have been specified as well, and we
     // change the mode to codegen.
     if (emit_ir) {
-        if (mode != MODE_ASSEMBLE) {
+        if (mode != MODE_CODEGEN) {
             fatal_cleanup("-emit-ir requires -S.");
         }
-        mode = MODE_CODEGEN;
+        mode = MODE_COMPILE;
     }
 
     if (output_filename == NULL) {
@@ -1146,7 +1146,7 @@ static void translate_file(const char* input) {
             codegen_file(input, output_filename);
             return;
         }
-        if (mode != MODE_COMPILE) {
+        if (mode != MODE_CODEGEN) {
             char* output = make_temp_filename(input, ".os");
             codegen_file(input, output);
             input = output;
