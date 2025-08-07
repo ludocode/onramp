@@ -109,18 +109,46 @@
 
 #define OP_MAX    110
 
-typedef int opcode_t;
+
+/*
+ * Opcode styles. See opcode_style() below.
+ */
+
+// no arguments.
+#define STYLE_NONE 0
+
+// reg-mix*. first argument is reg output; others are mix input (e.g. add,
+// ldw, mov, most opcodes)
+#define STYLE_REG_MIX 1
+
+// mix*. all arguments (if any extras) are mix inputs except for a possible
+// label (e.g. stw, stb, jz, jmp, push)
+#define STYLE_MIX 2
+
+// reg-con. first argument is reg output; second argument is constant or label
+// (e.g. imw)
+#define STYLE_REG_CON 3
+
+// reg. single argument is output only (e.g. pop, zero)
+#define STYLE_REG 4
+
+// reg. single argument is register input and output (e.g. inc, dec)
+#define STYLE_IN_PLACE 5
+
+typedef size_t opcode_t;
+typedef size_t style_t;
 
 // hashtable of opcode names to values
 static const char** opcode_names;
 static opcode_t* opcode_values;
 #define opcodes_size 256 // power of two
 
-// array map of opcode values to names and argcounts
+// array map of opcode values to names, argcounts, styles
 static const char** opcode_value_to_name_map;
 static size_t* opcode_value_to_argcount_map;
+static style_t* opcode_value_to_style_map;
 
-static void opcode_insert(const char* name, opcode_t value, size_t argcount) {
+static void opcode_insert(const char* name, opcode_t value, size_t argcount, style_t style) {
     // simple linear probing
     size_t i = (fnv1a_cstr(name) & (opcodes_size - 1));
     while (*(opcode_names + i) != NULL) {
@@ -130,6 +158,7 @@ static void opcode_insert(const char* name, opcode_t value, size_t argcount) {
     *(opcode_values + i) = value;
     *(opcode_value_to_name_map + value) = name;
     *(opcode_value_to_argcount_map + value) = argcount;
+    *(opcode_value_to_style_map + value) = style;
 }
 
 static opcode_t opcode_name_to_value(const char* name) {
@@ -152,66 +181,72 @@ static size_t opcode_argcount(opcode_t opcode) {
 }
 
 static void opcode_setup(void) {
+
+    // allocate the hashtable
     opcode_names = calloc(opcodes_size, sizeof(char*));
     opcode_values = calloc(opcodes_size, sizeof(opcode_t));
+
+    // allocate the opcode data tables
+    // we zero these because we don't insert the virtual opcodes.
     opcode_value_to_name_map = calloc(OP_MAX, sizeof(const char*));
     opcode_value_to_argcount_map = calloc(OP_MAX, sizeof(size_t));
+    opcode_value_to_style_map = calloc(OP_MAX, sizeof(size_t));
 
     // arithmetic
-    opcode_insert("add", OP_ADD, 3);
-    opcode_insert("sub", OP_SUB, 3);
-    opcode_insert("mul", OP_MUL, 3);
-    opcode_insert("divu", OP_DIVU, 3);
-    opcode_insert("divs", OP_DIVS, 3);
-    opcode_insert("modu", OP_MODU, 3);
-    opcode_insert("mods", OP_MODS, 3);
-    opcode_insert("zero", OP_ZERO, 1);
-    opcode_insert("inc", OP_INC, 1);
-    opcode_insert("dec", OP_DEC, 1);
-    opcode_insert("sxs", OP_SXS, 2);
-    opcode_insert("sxb", OP_SXB, 2);
-    opcode_insert("trs", OP_TRS, 2);
-    opcode_insert("trb", OP_TRB, 2);
+    opcode_insert("add", OP_ADD, 3, STYLE_REG_MIX);
+    opcode_insert("sub", OP_SUB, 3, STYLE_REG_MIX);
+    opcode_insert("mul", OP_MUL, 3, STYLE_REG_MIX);
+    opcode_insert("divu", OP_DIVU, 3, STYLE_REG_MIX);
+    opcode_insert("divs", OP_DIVS, 3, STYLE_REG_MIX);
+    opcode_insert("modu", OP_MODU, 3, STYLE_REG_MIX);
+    opcode_insert("mods", OP_MODS, 3, STYLE_REG_MIX);
+    opcode_insert("zero", OP_ZERO, 1, STYLE_REG);
+    opcode_insert("inc", OP_INC, 1, STYLE_IN_PLACE);
+    opcode_insert("dec", OP_DEC, 1, STYLE_IN_PLACE);
+    opcode_insert("sxs", OP_SXS, 2, STYLE_REG_MIX);
+    opcode_insert("sxb", OP_SXB, 2, STYLE_REG_MIX);
+    opcode_insert("trs", OP_TRS, 2, STYLE_REG_MIX);
+    opcode_insert("trb", OP_TRB, 2, STYLE_REG_MIX);
 
     // logic
-    opcode_insert("and", OP_AND, 3);
-    opcode_insert("or", OP_OR, 3);
-    opcode_insert("xor", OP_XOR, 3);
-    opcode_insert("not", OP_NOT, 2);
-    opcode_insert("shl", OP_SHL, 3);
-    opcode_insert("shru", OP_SHRU, 3);
-    opcode_insert("shrs", OP_SHRS, 3);
-    opcode_insert("rol", OP_ROL, 3);
-    opcode_insert("ror", OP_ROR, 3);
-    opcode_insert("mov", OP_MOV, 2);
-    opcode_insert("bool", OP_BOOL, 2);
-    opcode_insert("isz", OP_ISZ, 2);
+    opcode_insert("and", OP_AND, 3, STYLE_REG_MIX);
+    opcode_insert("or", OP_OR, 3, STYLE_REG_MIX);
+    opcode_insert("xor", OP_XOR, 3, STYLE_REG_MIX);
+    opcode_insert("not", OP_NOT, 2, STYLE_REG_MIX);
+    opcode_insert("shl", OP_SHL, 3, STYLE_REG_MIX);
+    opcode_insert("shru", OP_SHRU, 3, STYLE_REG_MIX);
+    opcode_insert("shrs", OP_SHRS, 3, STYLE_REG_MIX);
+    opcode_insert("rol", OP_ROL, 3, STYLE_REG_MIX);
+    opcode_insert("ror", OP_ROR, 3, STYLE_REG_MIX);
+    opcode_insert("mov", OP_MOV, 2, STYLE_REG_MIX);
+    opcode_insert("bool", OP_BOOL, 2, STYLE_REG_MIX);
+    opcode_insert("isz", OP_ISZ, 2, STYLE_REG_MIX);
 
     // memory
-    opcode_insert("ldw", OP_LDW, 3);
-    opcode_insert("lds", OP_LDS, 3);
-    opcode_insert("ldb", OP_LDB, 3);
-    opcode_insert("stw", OP_STW, 3);
-    opcode_insert("sts", OP_STS, 3);
-    opcode_insert("stb", OP_STB, 3);
-    opcode_insert("push", OP_PUSH, 1);
-    opcode_insert("pop", OP_POP, 1);
-    opcode_insert("popd", OP_POPD, 0);
+    opcode_insert("ldw", OP_LDW, 3, STYLE_REG_MIX);
+    opcode_insert("lds", OP_LDS, 3, STYLE_REG_MIX);
+    opcode_insert("ldb", OP_LDB, 3, STYLE_REG_MIX);
+    opcode_insert("stw", OP_STW, 3, STYLE_MIX);
+    opcode_insert("sts", OP_STS, 3, STYLE_MIX);
+    opcode_insert("stb", OP_STB, 3, STYLE_MIX);
+    opcode_insert("push", OP_PUSH, 1, STYLE_MIX);
+    opcode_insert("pop", OP_POP, 1, STYLE_REG);
+    opcode_insert("popd", OP_POPD, 0, STYLE_NONE);
 
     // control
-    opcode_insert("imw", OP_IMW, 2);
-    opcode_insert("ltu", OP_LTU, 3);
-    opcode_insert("lts", OP_LTS, 3);
-    opcode_insert("jz", OP_JZ, 2);
-    opcode_insert("jnz", OP_JNZ, 2);
-    opcode_insert("jmp", OP_JMP, 1);
-    opcode_insert("call", OP_CALL, 1);
-    opcode_insert("ret", OP_RET, 0);
-    opcode_insert("enter", OP_ENTER, 0);
-    opcode_insert("leave", OP_LEAVE, 0);
+    opcode_insert("imw", OP_IMW, 2, STYLE_REG_CON);
+    opcode_insert("ltu", OP_LTU, 3, STYLE_REG_MIX);
+    opcode_insert("lts", OP_LTS, 3, STYLE_REG_MIX);
+    opcode_insert("jz", OP_JZ, 2, STYLE_MIX);
+    opcode_insert("jnz", OP_JNZ, 2, STYLE_MIX);
+    opcode_insert("jmp", OP_JMP, 1, STYLE_MIX);
+    opcode_insert("call", OP_CALL, 1, STYLE_MIX);
+    opcode_insert("ret", OP_RET, 0, STYLE_NONE);
+    opcode_insert("enter", OP_ENTER, 0, STYLE_NONE);
+    opcode_insert("leave", OP_LEAVE, 0, STYLE_NONE);
                 // TODO remove
-                opcode_insert("cmps", OP_CMPS, 3);
-                opcode_insert("cmpu", OP_CMPU, 3);
+                opcode_insert("cmps", OP_CMPS, 3, STYLE_REG_MIX);
+                opcode_insert("cmpu", OP_CMPU, 3, STYLE_REG_MIX);
 }
 
 static void opcode_teardown(void) {
@@ -219,37 +254,15 @@ static void opcode_teardown(void) {
     free(opcode_names);
 }
 
-static bool opcode_outputs_register(opcode_t opcode) {
-
-    // Virtual opcodes do not have output registers.
-    if (opcode <= OP_VIRTUAL_MAX) {
-        return false;
-    }
-
-    // All arithmetic and logic opcodes have an output register.
-    if (opcode <= OP_LOGIC_MAX) {
-        return true;
-    }
-
-    // Some memory opcodes have an output register.
-    if (opcode <= OP_MEMORY_MAX) {
-        if (opcode == OP_LDW) {return true;}
-        if (opcode == OP_LDS) {return true;}
-        if (opcode == OP_LDB) {return true;}
-        if (opcode == OP_POP) {return true;}
-        return false;
-    }
-
-    // Some control opcodes have an output register.
-    // Note that call "modifies" all registers and r0 is the function return
-    // value but an output register isn't specified in its arguments. call is
-    // always handled separately.
-    if (opcode == OP_IMW) {return true;}
-    if (opcode == OP_LTU) {return true;}
-    if (opcode == OP_LTS) {return true;}
-    if (opcode == OP_CMPS) {return true;}
-    if (opcode == OP_CMPU) {return true;}
-    return false;
+/**
+ * Returns the "style" of the opcode, which defines what it does with its
+ * arguments (i.e. which ones are input or output parameters, which ones are
+ * reg/mix vs. constants, etc.)
+ *
+ * See the STYLE constants above.
+ */
+static style_t opcode_style(opcode_t opcode) {
+    return *(opcode_value_to_style_map + opcode);
 }
 
 #endif

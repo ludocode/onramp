@@ -236,13 +236,13 @@ static void instruction_write(instruction_t* instruction, FILE* file) {
     // For all other opcodes, all non-label arguments are either registers or
     // mix-type. We print them all as mix-type.
     if (!args_printed) {
-        int argcount = opcode_argcount(opcode);
-        if (label != NULL) {
+        size_t argcount = opcode_argcount(opcode);
+        if ((argcount != 0) & (label != NULL)) {
             argcount = (argcount - 1);
         }
 
-        int i = 0;
-        while (i < argcount) {
+        size_t i = 0;
+        while (i != argcount) {
             int arg = instruction_arg(instruction, i);
             bool is_register = ((arg >= 0x80) & (arg <= 0x8F));
             if (is_register) {
@@ -282,7 +282,6 @@ static void instruction_print(instruction_t* instruction) {
 }
 
 static void instruction_emit(instruction_t* instruction) {
-    fputc(' ', output_file);
     instruction_write(instruction, output_file);
 }
 
@@ -319,6 +318,85 @@ static void instructions_append(instruction_t* instruction) {
     // append the instruction
     *(instructions + instructions_count) = instruction;
     instructions_count = (instructions_count + 1);
+}
+
+static bool instruction_uses_register_impl(instruction_t* instruction, int reg, bool input, bool output) {
+    opcode_t opcode = instruction_opcode(instruction);
+    style_t style = opcode_style(opcode);
+
+    if (style == STYLE_NONE) {
+        return false;
+    }
+
+    // The in-place style uses its single argument as both input and output.
+    if (style == STYLE_IN_PLACE) {
+        if (instruction_arg0(instruction) == reg) {
+            return true;
+        }
+        return false;
+    }
+
+    // The reg-con style has only a register output and no register inputs.
+    if (style == STYLE_REG_CON) {
+        if (output) {
+            if (instruction_arg0(instruction) == reg) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // get number of non-label arguments
+    size_t argcount = opcode_argcount(opcode);
+    if (instruction_label(instruction)) {
+        // We checked for STYLE_NONE above so argcount can't be zero.
+        argcount = (argcount - 1);
+    }
+    if (argcount == 0) {
+        return false;
+    }
+
+    // The first argument of the remaining styles is either input or output.
+    // Only the mix style uses it as input; all other remaining styles use it
+    // as output.
+    int arg0 = instruction_arg0(instruction);
+    if (arg0 == reg) {
+        if (style == STYLE_MIX) {
+            if (input) {
+                return true;
+            }
+        }
+        if (style != STYLE_MIX) {
+            if (output) {
+                return true;
+            }
+        }
+    }
+
+    // The rest of the arguments are inputs for all remaining styles.
+    if (input) {
+        size_t i = 1;
+        while (i != argcount) {
+            int arg = instruction_arg(instruction, i);
+            if (arg == reg) {
+                return true;
+            }
+            i = (i + 1);
+        }
+    }
+    return false;
+}
+
+static bool instruction_uses_register(instruction_t* instruction, int reg) {
+    return instruction_uses_register_impl(instruction, reg, true, true);
+}
+
+static bool instruction_reads_register(instruction_t* instruction, int reg) {
+    return instruction_uses_register_impl(instruction, reg, true, false);
+}
+
+static bool instruction_writes_register(instruction_t* instruction, int reg) {
+    return instruction_uses_register_impl(instruction, reg, false, true);
 }
 
 #endif

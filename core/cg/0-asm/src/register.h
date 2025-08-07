@@ -36,6 +36,11 @@
 
 #include "common.h"
 
+#define REG_RSP 0x8C
+#define REG_RFP 0x8D
+#define REG_RPP 0x8E
+#define REG_RIP 0x8F
+
 typedef void reg_t;
 
 #define REGISTER_ORIGINALLY_USED 0
