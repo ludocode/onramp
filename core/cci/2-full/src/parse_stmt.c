@@ -237,6 +237,7 @@ static node_t* parse_break(node_t* parent) {
     node_t* node = node_new_lexer(NODE_BREAK);
     node->container = break_container;
     node->type = type_new_base(BASE_VOID);
+    lexer_expect(STR_SEMICOLON, "Expected `;` after `break`.");
     return node;
 }
 
@@ -246,6 +247,7 @@ static node_t* parse_continue(node_t* parent) {
     node_t* node = node_new_lexer(NODE_CONTINUE);
     node->container = continue_container;
     node->type = type_new_base(BASE_VOID);
+    lexer_expect(STR_SEMICOLON, "Expected `;` after `continue`.");
     return node;
 }
 
