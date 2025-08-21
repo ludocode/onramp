@@ -334,17 +334,18 @@ static void lexer_handle_line_directive(void) {
         line = (line + (lexer_char - '0'));
         lexer_read_char();
     }
-
-    // Line number is off by 1 because the end of the #line directive will
-    // increment it.
-    current_line = (line - 1);
+    current_line = line;
 
     // Line number must be followed by space or end of line
-    if (lexer_is_end_of_line(lexer_char)) {
-        return;
+    if (!lexer_is_end_of_line(lexer_char)) {
+        lexer_consume_horizontal_whitespace();
     }
-    lexer_consume_horizontal_whitespace();
     if (lexer_is_end_of_line(lexer_char)) {
+        emit_line_directive();
+
+        // Decrement current line by 1 because we don't consume the end of line
+        // here. The line ending will increment it again.
+        current_line = (current_line - 1);
         return;
     }
 
@@ -362,9 +363,12 @@ static void lexer_handle_line_directive(void) {
     if (!lexer_is_end_of_line(lexer_char)) {
         fatal("Expected end of line after filename in #line directive");
     }
-    lexer_consume_end_of_line();
 
     emit_line_directive();
+
+    // Decrement current line by 1 because we don't consume the end of line
+    // here. The line ending will increment it again.
+    current_line = (current_line - 1);
 }
 
 static void lexer_parse_directive(void) {
