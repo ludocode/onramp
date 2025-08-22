@@ -71,6 +71,10 @@ rm -f $HOME/.local/bin/onrampvm
 rm -f $HOME/.local/bin/onrampcc
 rm -f $HOME/.local/bin/onrampar
 
+# Make directories
+mkdir -p $HOME/.local/share
+mkdir -p $HOME/.local/bin
+
 if [ $DEV -eq 1 ]; then
 
     # Link share/
@@ -86,12 +90,10 @@ if [ $DEV -eq 1 ]; then
 else
 
     # Copy share/
-    mkdir -p $HOME/.local/share/onramp
-    cp -Lr build/posix/share/onramp/* $HOME/.local/share/onramp
+    cp -Lr build/posix/share/onramp $HOME/.local/share/onramp
     echo "Installed ~/.local/share/onramp/"
 
     # Copy bin/
-    mkdir -p $HOME/.local/bin
     cp build/posix/bin/onramphex $HOME/.local/bin/onramphex  ; echo "Installed ~/.local/bin/onramphex"
     cp build/posix/bin/onrampvm  $HOME/.local/bin/onrampvm   ; echo "Installed ~/.local/bin/onrampvm"
     cp build/posix/bin/onrampcc  $HOME/.local/bin/onrampcc   ; echo "Installed ~/.local/bin/onrampcc"
