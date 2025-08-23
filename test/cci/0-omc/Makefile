@@ -106,10 +106,11 @@ $(OUT)/cci.oe: $(OBJS) Makefile $(LD) $(LIBC) $(LIBO)
 	$(LD) -g $(LIBC) $(LIBO) $(OBJS) -o $@
 
 test: build FORCE $(VM)
-	../run.sh --nonstd . omc $(VM) $(OUT)/cci.oe
-
-generate: build FORCE $(VM)
-	../generate.sh . omc $(VM) $(OUT)/cci.oe
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/0-omc \
+			--nonstd \
+			--output build/test/cci-0-omc \
+			--cci build/test/cci-0-omc/cci.oe --cci-id omc )
 
 # TODO why does this cause rebuilding of assembly files?
 #.DELETE_ON_ERROR:

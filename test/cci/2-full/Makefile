@@ -83,15 +83,22 @@ $(OUT)/cci: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test-0: build FORCE
-	../run.sh ../0-omc full $(OUT)/cci
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/0-omc \
+			--output build/test/cci-2-full \
+			--cci build/test/cci-2-full/cci --cci-id full )
 
 test-1: build FORCE
-	../run.sh ../1-opc full $(OUT)/cci
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/1-opc \
+			--output build/test/cci-2-full \
+			--cci build/test/cci-2-full/cci --cci-id full )
 
 test-2: build FORCE
-	../run.sh --nonstd . full $(OUT)/cci
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/2-full \
+			--nonstd \
+			--output build/test/cci-2-full \
+			--cci build/test/cci-2-full/cci --cci-id full )
 
 test: test-0 test-1 test-2 FORCE
-
-generate: build FORCE $(VM)
-	../generate.sh . full $(VM) $(OUT)/cci
