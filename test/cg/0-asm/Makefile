@@ -31,6 +31,9 @@ BUILD=$(ROOT)/build/test
 OUT=$(BUILD)/cg-0-asm
 SRC=$(ROOT)/core/cg/0-asm
 LIBO=$(ROOT)/core/libo/1-opc
+CCI0=$(ROOT)/build/test/cci-0-omc/cci.oe
+CCI1=$(ROOT)/build/test/cci-1-opc/cci
+
 CPPFLAGS += \
 	-Wno-unused-function \
 	-include ../../portability.h \
@@ -53,7 +56,7 @@ HEADERS=\
 	$(SRC)/src/optimize.h \
 	$(SRC)/src/register.h \
 
-all: build test FORCE
+all: build FORCE test-cci1-0 test-cci1-1 # TODO test-cci0-0 not passing yet
 FORCE:
 build: $(OUT)/cg FORCE
 
@@ -65,10 +68,31 @@ $(OUT)/cg: $(SRCS) $(HEADERS) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-test: build FORCE
-	# no tests yet
-	true #./run.sh . $(OUT)/cg
+$(CCI0): FORCE
+	@(make -C ../../cci/0-omc build)
 
-generate: build FORCE
-	# no tests yet
-	true #./generate.sh . $(OUT)/cg
+$(CCI1): FORCE
+	@(make -C ../../cci/1-opc build)
+
+test-cci0-0: build $(CCI0) FORCE
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/0-omc \
+			--nonstd \
+			--output build/test/cg-0-asm/cci0 \
+			--cg build/test/cg-0-asm/cg \
+			--cci build/test/cci-2-full/cci --cci-id full )
+
+test-cci1-0: build $(CCI1) FORCE
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/0-omc \
+			--output build/test/cg-0-asm/cci1 \
+			--cci build/test/cci-1-opc/cci --cci-id opc )
+
+test-cci1-1: build $(CCI1) FORCE
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/1-opc \
+			--nonstd \
+			--output build/test/cg-0-asm/cci1 \
+			--cci build/test/cci-1-opc/cci --cci-id opc )
+
+test: test-cci0-0 test-cci1-0 test-cci1-1

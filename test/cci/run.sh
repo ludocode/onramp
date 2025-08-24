@@ -1,15 +1,38 @@
 #!/bin/bash
 
-# This script tests the given cci compiler by running it against all .i and .c
-# files in all subfolders of a given test folder.
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
-#     Usage: run.sh <test_folder> <compiler_id> <run_commands...>
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+
+# This script tests the given cci and/or cg tool by running it against all .i
+# and .c files in all subfolders of a given test folder.
+#
+# This is used to run cci and cg tests.
 #
 # Options:
 #
 #     --tests <path>     Path to test cases to run
 #     --cci <cci>        cci to use
 #     --cci-id <id>      Identifier of cci bootstrapping stage (omc, opc or full)
+#     --cg <cg>          cg to use
 #     --noskip           Don't skip tests marked skip
 #     --nonstd           Run tests marked non-standard
 #     --output <path>    Output intermediate files to the given path
@@ -28,6 +51,7 @@ NONSTD_ARG=
 NOSKIP_ARG=
 CCI=
 CCI_ID=
+CG_ARG=
 
 # parse command-line options
 set +e
@@ -43,6 +67,7 @@ while true; do
         --noskip) NOSKIP_ARG=--noskip ;;
         --cci-id) CCI_ID="$1"; shift ;;
         --cci) CCI="$1"; shift ;;
+        --cg) CG_ARG="--cg $1"; shift ;;
         *)
             echo "$0: ERROR: Invalid command-line argument: $ARG" >&2
             exit 1
@@ -83,6 +108,7 @@ make -C test/libc/3-full build
 # unclosed string and character literals.) Almost all tests are .c files.
 TEMP_FILES=$OUTPUT_PATH/onramp-test-files
 rm -f $TEMP_FILES
+mkdir -p $OUTPUT_PATH
 find $SOURCE_FOLDER/* -name '*.c' >> $TEMP_FILES
 find $SOURCE_FOLDER/* -name '*.i' >> $TEMP_FILES
 FILES="$(cat $TEMP_FILES | sort)"
@@ -97,6 +123,7 @@ for TESTFILE in $FILES; do
         --output "$TEST_OUTPUT" \
         --cci "$CCI" \
         --cci-id "$CCI_ID" \
+        $CG_ARG \
         $NONSTD_ARG \
         $NOSKIP_ARG"
     if ! $COMMAND ; then
