@@ -70,7 +70,9 @@ core/cci/0-omc/build.sh && \
 ( core/cpp/1-omc/build.sh && \
     ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../build/intermediate/cpp-1-omc-unopt/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-1-omc-unopt/cpp.oe ) )
-( core/cg/0-asm/build.sh && true ) #TODO no cg tests yet
+core/cg/0-asm/build.sh && \
+	test/cci/run.sh --tests test/cci/0-omc --nonstd --output build/intermediate/cg-0-asm/cci0 \
+            --cg build/intermediate/cg-0-asm/cg.oe --cci build/intermediate/cci-0-omc/cci.oe --cci-id omc
 ( core/cpp/1-omc/rebuild.sh && \
     ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) )
@@ -85,7 +87,11 @@ core/cci/0-omc/build.sh && \
 # Build the opC toolchain
 core/cci/1-opc/build.sh && \
     test/cci/run.sh --tests test/cci/0-omc          --output build/intermediate/cci-1-opc --cci build/intermediate/cci-1-opc/cci.oe --cci-id opc && \
-    test/cci/run.sh --tests test/cci/1-opc --nonstd --output build/intermediate/cci-1-opc --cci build/intermediate/cci-1-opc/cci.oe --cci-id opc
+    test/cci/run.sh --tests test/cci/1-opc --nonstd --output build/intermediate/cci-1-opc --cci build/intermediate/cci-1-opc/cci.oe --cci-id opc && \
+    test/cci/run.sh --tests test/cci/0-omc          --output build/intermediate/cg-0-asm/cci1 \
+            --cg build/intermediate/cg-0-asm/cg.oe --cci build/intermediate/cci-1-opc/cci.oe --cci-id opc && \
+    test/cci/run.sh --tests test/cci/1-opc --nonstd --output build/intermediate/cg-0-asm/cci1 \
+            --cg build/intermediate/cg-0-asm/cg.oe --cci build/intermediate/cci-1-opc/cci.oe --cci-id opc
 ( core/libc/2-opc/build.sh && cd test/libc/2-opc && \
     ../run.sh ../0-oo  opc ../../../build/intermediate/libc-2-opc/libc.oa && \
     ../run.sh ../1-omc opc ../../../build/intermediate/libc-2-opc/libc.oa && \

@@ -56,7 +56,7 @@ HEADERS=\
 	$(SRC)/src/optimize.h \
 	$(SRC)/src/register.h \
 
-all: build FORCE test-cci1-0 test-cci1-1 # TODO test-cci0-0 not passing yet
+all: build test FORCE
 FORCE:
 build: $(OUT)/cg FORCE
 
@@ -80,7 +80,7 @@ test-cci0-0: build $(CCI0) FORCE
 			--nonstd \
 			--output build/test/cg-0-asm/cci0 \
 			--cg build/test/cg-0-asm/cg \
-			--cci build/test/cci-2-full/cci --cci-id full )
+			--cci build/test/cci-0-omc/cci.oe --cci-id omc )
 
 test-cci1-0: build $(CCI1) FORCE
 	( cd ../../.. && test/cci/run.sh \
