@@ -500,7 +500,8 @@ char* fgets(char* restrict s, int n, FILE* restrict file) {
             }
             break;
         }
-        if (*p++ == '\n') {
+        *p++ = c;
+        if (c == '\n') {
             break;
         }
     }
