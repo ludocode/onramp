@@ -528,10 +528,9 @@ static void generate_call(node_t* call, int reg_out) {
 
     // compute register args into registers r0-r3
     for (node_t* arg = call->first_child->right_sibling; arg; arg = arg->right_sibling) {
-        int reg_num = register_alloc(arg->token);
         if (type_is_passed_indirectly(arg->type))
             continue;
-        generate_node(arg, reg_num);
+        generate_node(arg, register_alloc(arg->token));
         if (arg == last_register_arg)
             break;
     }
