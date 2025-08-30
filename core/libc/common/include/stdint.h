@@ -205,13 +205,11 @@ typedef int64_t int_fast64_t;
     #define INT8_C(x) x
     #define INT16_C(x) x
     #define INT32_C(x) x
-/* TODO cpp/1 breaks on ## even in untaken conditionals
     #define INT64_C(x) x ## LL
     #define UINT8_C(x) x ## U
     #define UINT16_C(x) x ## U
     #define UINT32_C(x) x ## U
     #define UINT64_C(x) x ## ULL
-    */
 #endif
 
 
