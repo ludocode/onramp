@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
     }
 
     opcode_setup();
+    register_setup();
     parse_setup();
     optimize_setup();
 
@@ -134,27 +135,19 @@ int main(int argc, char** argv) {
     read_char();
 
     while (parse_function()) {
-        // TODO we could skip all this if no instructions were found in the
-        // symbol. might not be any faster though
 
+        // Replace push/pop pairs with movs to unused registers
+        optimize_push_pop();
 
-        optimize_push_pop(); // replace redundant push/pop with movs of unused registers
-/*
-        optimize_load();     // replace redundant loads with movs
+        // Scan forward: propagate constants and registers, eliminate unreachable code
+        optimize_forward();
 
-        // We limit to three iterations. This could use some tweaking.
-        int i = 0;
-        while (i < 3) {
-            i = (i + 1);
+        // Scan backward: perform dead store elimination, register renaming
+        optimize_backward();
 
-            optimize_propagate();        // propagate movs
-            //optimize_eliminate_dead();   // eliminate dead stores
-            //optimize_eliminate_mov();    // remove unnecessary movs by changing output registers of previous instructions
+        // Eliminate unnecessary stack frames
+        optimize_frame();
 
-            // TODO if nothing changed break
-        }
-        optimize_leaf(); // remove stack frame around branchless stackless leaf functions
-*/
         emit_function();
         parse_clear();
     }
@@ -164,6 +157,7 @@ int main(int argc, char** argv) {
 
     optimize_teardown();
     parse_teardown();
+    register_teardown();
     opcode_teardown();
 
     return 0;

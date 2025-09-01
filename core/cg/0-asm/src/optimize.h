@@ -31,7 +31,8 @@
  * An optimization pass walks through the `instructions` array (see
  * instruction.h) and manipulates it in place. Each pass is independent and
  * self-contained; it takes in valid assembly and it must leave the array as
- * valid assembly with observable behaviour unchanged.
+ * valid assembly with observable behaviour unchanged (except of course for
+ * performance.)
  */
 
 #include <stdbool.h>
@@ -92,10 +93,10 @@
  *
  * Note that we don't bother to optimize things like `popd` since cci/0 doesn't
  * emit those. We avoid generic optimizations in general; the transformations
- * are highly tailored to cci/0's output.
+ * are highly tailored to cci/0's output. TODO we should not even parse popd
  */
 
-static bool optimize_push_pop_blocked(instruction_t* ins, opcode_t opcode) {
+static bool optimize_push_pop_blocked(instruction_t* instruction, opcode_t opcode) {
 
     // These instructions either do not preserve registers or require us to
     // preserve the stack. If any of these are encountered, we block any
@@ -109,7 +110,7 @@ static bool optimize_push_pop_blocked(instruction_t* ins, opcode_t opcode) {
     if (opcode == OP_POPD) {return true;}
 
     // If anything reads or writes rsp, we discard the push stack.
-    if (instruction_uses_register(ins, REG_RSP)) {return true;}
+    if (instruction_uses_register(instruction, REG_RSP)) {return true;}
 
     return false;
 }
@@ -119,25 +120,25 @@ static void optimize_push_pop(void) {
 
     size_t i = 0;
     while (i < instructions_count) {
-        instruction_t* ins = *(instructions + i);
-        opcode_t opcode = instruction_opcode(ins);
+        instruction_t* instruction = *(instructions + i);
+        opcode_t opcode = instruction_opcode(instruction);
         i = (i + 1);
 
         // If we encounter anything that could touch rsp, we dump our push
         // stack. This includes jumps, labels, calls, and any instruction that
         // takes rsp as an argument.
-        if (optimize_push_pop_blocked(ins, opcode)) {
+        if (optimize_push_pop_blocked(instruction, opcode)) {
             last_push = NULL;
             continue;
         }
 
         // On a push, insert the instruction to the front of the stack.
         if (opcode == OP_PUSH) {
-            instruction_set_opt_vp(ins, last_push);
-            last_push = ins;
+            instruction_set_opt_vp(instruction, last_push);
+            last_push = instruction;
             // We don't know about any nested pushes yet. The lowest numbered
             // register we can use is r4.
-            instruction_set_opt_int(ins, 0x84);
+            instruction_set_opt_int(instruction, 0x84);
             continue;
         }
 
@@ -159,8 +160,8 @@ static void optimize_push_pop(void) {
         instruction_set_opcode(last_push, OP_MOV);
 
         // Convert the pop to a mov from the temporary register
-        instruction_set_arg1(ins, reg);
-        instruction_set_opcode(ins, OP_MOV);
+        instruction_set_arg1(instruction, reg);
+        instruction_set_opcode(instruction, OP_MOV);
 
         // We're done with the original push instruction
         last_push = instruction_opt_vp(last_push);
@@ -186,49 +187,852 @@ static void optimize_push_pop(void) {
 
 
 /*
- * Redundant load optimization
+ * Forward propagation
  *
- * (replace unnecessary ldw with mov)
- */
-
-static void optimize_load(void) {
-}
-
-
-
-/*
- * Constant propagation
- */
-
-static void optimize_propagate(void) {
-}
-
-
-
-/*
- * Leaf stack frame elimination
+ * The forward propagation pass includes the following optimizations:
  *
- * Eliminates stack frames from branchless leaf functions that do not require
- * stack space.
+ * - propagation of registers
+ * - propagation of inline additions
+ * - constant folding
+ * - unreachable code elimination
+ *
+ * As we walk through the function, we keep track of the "horizon", which is
+ * the index of one past the last instruction that quashed all registers. In
+ * other words, it's the index of the first instruction we can use for
+ * optimizations.
+ *
+ * Instructions that change the horizon include labels and calls: control flow
+ * jumps to them and all registers have indeterminate values afterwards. If a
+ * register was last written to before the horizon, we can't use it for
+ * optimization. This saves us from having to clear all registers every time we
+ * reach a label or call.
+ *
+ *
+ * Propagation of registers
+ *
+ * We keep track of when a register contains the value of another register in
+ * order to replace a duplicate register.
+ *
+ * For example if we see `mov r0 r1`, we record that r0 is a copy of r1. If r0
+ * is used in a later instruction and r1 has not been modified in between, we
+ * can replace r0 with r1.
+ *
+ * Note that this does not remove the potentially redundant `mov r0 r1` on its
+ * own. If after this pass there are no more reads of r0, the `mov r0 r1`
+ * instruction will be removed in the next pass by dead store elimination.
+ *
+ * This optimizes a lot of redundant register moves that happen due to our
+ * push/pop optimization. TODO we may need to repeat this pass in reverse in
+ * order to optimize function arguments, i.e. to be able to calculate function
+ * arguments directly in their target registers instead of having to mov them
+ * into place. Or maybe we should only do it in reverse.
+ *
+ *
+ * Propagation of inline additions
+ *
+ * This optimization takes advantage of the fact that memory instructions take
+ * two arguments (conventionally a base and offset) and add them together. It
+ * is used to optimize code like this:
+ *
+ *     add rb rpp ra
+ *     ldw r0 rb 0
+ *
+ * We keep track of the last instruction that wrote to each register. When we
+ * scan `ldw r0 ra 0`, we can see that one of its arguments is zero and the
+ * other is a register, so we look at what wrote to that register. If it's an
+ * add, and neither of its arguments have been modified in between, we can
+ * substitute it. The result is:
+ *
+ *     add rb rpp ra
+ *     ldw r0 rpp rb
+ *
+ * Assuming rb is otherwise unused, the add instruction will be removed in the
+ * next pass by dead store elimination.
+ *
+ * TODO This optimization is pretty limited at the moment. It can't optimize
+ * this:
+ *
+ *     add ra rpp ra
+ *     ldw r0 ra 0
+ *
+ * The reason is because ra is both read and written by the add instruction.
+ * Probably it would need to reorder them into this:
+ *
+ *     ldw r0 rpp ra
+ *     add ra rpp ra
+ *
+ * This isn't implemented yet. Probably we can do this safely as long as there
+ * are no instructions in between (or, as long as there are no instructions
+ * that touch r0 in between. It's not like we make any promises about memory
+ * ordering, and we don't support fences or anything at this stage; as long as
+ * we check that none of the used registers change in between, we're safe to
+ * swap.)
+ *
+ *
+ * Constant folding
+ *
+ * This is very straightforward constant folding optimization. We keep track of
+ * when a constant value is written to a register and replace later reads of
+ * that register with the constant.
+ *
+ * For example if an instruction is `add r0 5 3`, we record that r0 contains 8,
+ * which fits in a mix-type byte. If r0 is then used in a later instruction,
+ * say `mov r1 r0`, we can substitute it: the mov becomes `mov r1 8`.
+ *
+ * Note that the original `add r0 5 3` is not touched by this optimization in
+ * case r0 is used somewhere else where it can't be substituted (for example,
+ * if a later instruction is `ret`.) If r0 is actually unused, the instruction
+ * will be removed by dead store elimination in the reverse pass.
+ *
+ * We also do a few other minor optimizations related to constant arithmetic
+ * and logic operations. If an instruction contains an operation that doesn't
+ * change the result, for example `shrs r1 r0 0` or `divs r1 r0 1`, we replace
+ * it with `mov r1 r0`. This can eliminate some expensive instructions
+ * (especially signed instructions). It also improves the results of the
+ * register renaming pass.
+ *
+ *
+ * Dead code elimination
+ *
+ * If we reach a jmp or ret instruction, the rest of the block is dead: we set
+ * a flag that trims all instructions up to the next label. This isn't really
+ * related to the rest of the forward pass optimizations but it helps shrink
+ * the code a bit which speeds up the assembler and linker and it's quicker to
+ * do it here rather than in its own pass.
+ *
+ * When a function ends in a statement like `return x;`, cci/0 often produces
+ * code that looks like this:
+ *
+ *     ldw r0 rfp -4
+ *     leave
+ *     ret
+ *     zero r0
+ *     leave
+ *     ret
+ *
+ * It does this because an implicit return is required at the end of functions,
+ * and for main(), it must return 0. When closing a function, cci/0 doesn't
+ * check whether a return was already made, or whether the function is
+ * `main()`, or whether the function returns `void`. It just adds `return 0;`
+ * unconditionally. Dead code elimination removes these redundant returns.
+ *
+ * Constant propagation may transform a `jz` or `jnz` into a `jmp`, in which
+ * case unreachable code elimination will apply. Note however that this stage
+ * is not powerful enough to remove unreachable blocks. It will only trim the
+ * rest of the current block, not blocks that are no longer reachable. It's not
+ * great at removing dead branches but it does eliminate some boilerplate
+ * basically for free.
  */
 
-static void optimize_leaf(void) {
+/*
+ * Called by constant folding when we've detected that an instruction writes a
+ * constant value to a register.
+ *
+ * If the register already had this value, the instruction is eliminated.
+ *
+ * If we can make the instruction shorter, or if we can eliminate a register
+ * dependency (the force parameter), the instruction is replaced by MOV or IMW
+ * depending on whether it fits in a mix-type byte.
+ *
+ * Finally we record the fact that the register contains this constant for
+ * later optimizations.
+ */
+void optimize_constant(instruction_t* instruction, int value, bool force, size_t horizon) {
+
+    //printf("Found a constant value %i for: ", value); instruction_print(instruction);
+
+    // This instruction must write to arg0
+    assert((opcode_style(instruction_opcode(instruction)) == STYLE_REG_MIX) |
+        ((opcode_style(instruction_opcode(instruction)) == STYLE_REG_CON) |
+        (opcode_style(instruction_opcode(instruction)) == STYLE_REG)));
+    int arg0 = instruction_arg0(instruction);
+    assert(is_register(arg0));
+
+    // Check if the last assignment to the destination register gave it this
+    // same constant value. If it does, and it was assigned later than the
+    // horizon, this instruction is redundant.
+    reg_t* dest = register_get(arg0);
+    if (register_content_type(dest) == REGISTER_CONTENT_CONSTANT) {
+        if (register_value(dest) == value) {
+            if (instruction_index(register_instruction(dest)) > horizon) {
+                instruction_set_opcode(instruction, OP_NOP);
+                return;
+            }
+        }
+    }
+
+    // If the instruction would be smaller, or if we can eliminate a register
+    // dependency (force is true), replace it with IMW or MOV.
+    if (force | (opcode_size(instruction_opcode(instruction)) != 1)) {
+        opcode_t opcode = OP_NOP;
+        if ((value <= 0x7F) | (value >= (int)0xFFFFFF90)) {
+            opcode = OP_MOV;
+        }
+        if (opcode == OP_NOP) {
+            opcode = OP_IMW;
+        }
+        instruction_set_opcode(instruction, opcode);
+        instruction_set_arg1(instruction, value);
+    }
+
+    // Record the fact that this register contains this constant for later
+    // optimizations.
+    register_set_constant(dest, value, instruction);
+}
+
+/**
+ * Called by constant folding when we detect that an instruction is equivalent
+ * to a mov from one register to another.
+ *
+ * If the register already contained a mov from that register and that register
+ * hasn't changed, the instruction is eliminated.
+ *
+ * Otherwise the instruction is replaced by mov, and we record the fact that
+ * the register contains the value of another register.
+ */
+void optimize_register_mov(instruction_t* instruction, int src_name, size_t horizon) {
+
+    // This instruction must write to arg0
+    assert((opcode_style(instruction_opcode(instruction)) == STYLE_REG_MIX) |
+        ((opcode_style(instruction_opcode(instruction)) == STYLE_REG_CON) |
+        (opcode_style(instruction_opcode(instruction)) == STYLE_REG)));
+
+    // Check if the last assignment to the destination register was already a
+    // mov from the source register. If it was, and we assigned later than the
+    // horizon, and the source register hasn't been modified since, this
+    // instruction is redundant.
+    int arg0 = instruction_arg0(instruction);
+    reg_t* dest = register_get(arg0);
+    if (register_content_type(dest) == REGISTER_CONTENT_REGISTER) {
+        if (register_value(dest) == src_name) {
+            if (instruction_index(register_instruction(dest)) > horizon) {
+                reg_t* src = register_get(src_name);
+                if (instruction_index(register_instruction(src)) <
+                        instruction_index(register_instruction(dest)))
+                {
+                    instruction_set_opcode(instruction, OP_NOP);
+                    return;
+                }
+            }
+        }
+    }
+
+    // Turn this into a mov
+    instruction_set_opcode(instruction, OP_MOV);
+    instruction_set_arg1(instruction, src_name);
+
+    // Record the fact that this register contains the contents of another
+    // register for later optimizations.
+    register_set_register(dest, src_name, instruction);
+}
+
+/*
+ * Performs constant folding.
+ *
+ * If the instruction writes a constant value to a register, we record that the
+ * register contains that value for later optimizations. Furthurmore, if the
+ * resulting instruction would be shorter or takes register arguments, it is
+ * replaced with IMW or MOV or ZERO in order to eliminate register dependencies
+ * and minimize bytecode.
+ *
+ * If the instruction performs arithmetic with a constant that has the effect
+ * of assigning another register to a destination register, it is replaced with
+ * MOV, eliminating the unnecessary constant argument. (For example `divs r0 r1
+ * 1` is replaced by `mov r0 r1`, eliminating the constant.)
+ *
+ * This also replaces jnz and jz with jmp if the predicate is a constant, and
+ * simplifies some other bitwise operations with constants (e.g. xor -1 is
+ * replaced with not.)
+ */
+static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, size_t horizon) {
+    if (opcode <= OP_VIRTUAL_MAX) {
+        return;
+    }
+    //int arg0 = instruction_arg0(instruction);
+
+    if (opcode <= OP_ARITHMETIC_MAX) {
+
+        if (opcode == OP_ADD) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                optimize_constant(instruction, mix_to_int(arg1) + mix_to_int(arg2), false, horizon);
+                return;
+            }
+            if (arg1 == 0) {
+                // first argument is zero, second is register
+                optimize_register_mov(instruction, arg2, horizon);
+                return;
+            }
+            if (arg2 == 0) {
+                // second argument is zero, first is register
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        if (opcode == OP_SUB) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                optimize_constant(instruction, mix_to_int(arg1) - mix_to_int(arg2), false, horizon);
+                return;
+            }
+            if (arg2 == 0) {
+                // second argument is zero, first is register
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        if (opcode == OP_MUL) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                optimize_constant(instruction, mix_to_int(arg1) * mix_to_int(arg2), false, horizon);
+                return;
+            }
+            if ((arg1 == 0) | (arg2 == 0)) {
+                // an argument is zero; result is zero
+                optimize_constant(instruction, 0, true, horizon);
+                return;
+            }
+            if (arg1 == 1) {
+                // first argument is one, second is register
+                optimize_register_mov(instruction, arg2, horizon);
+                return;
+            }
+            if (arg2 == 1) {
+                // second argument is one, first is register
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        if ((opcode == OP_DIVU) | (opcode == OP_DIVS)) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                // TODO we need unsigned in cci/0. in the meantime we can't
+                // constant fold divu.
+                if (opcode != OP_DIVU) {
+                    optimize_constant(instruction, mix_to_int(arg1) / mix_to_int(arg2), false, horizon);
+                    return;
+                }
+            }
+            if (arg1 == 0) {
+                // dividend is 0. quotient is always 0.
+                optimize_constant(instruction, 0, true, horizon);
+                return;
+            }
+            if (arg2 == 1) {
+                // divisor is 1. quotient is always the dividend (which is a
+                // register.)
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        // TODO we don't constant fold modu/mods yet, we could but there's
+        // probably no point right now, simpler to add it after we add unsigned
+        // to cci/0
+
+        // TODO zero should be converted to imw and inc and dec should be
+        // converted to add and sub before optimization. we could probably
+        // convert them at parse time. or maybe the push/pop pass should do it.
+        // or maybe we should do it at the start of the forward pass.
+
+        // nothing to optimize for inc, dec
+
+        // TODO eventually we should remove sxs and trs. cci/1 supports them so
+        // we keep them for now. but if we upgrade cci/0 and downgrade cci/2
+        // enough to skip cci/1, probably this would be done by adding short
+        // in cci/2 rather than in cci/0, so there would be no need for these
+        // instructions in cg/0.
+
+        if ((opcode == OP_SXS) | (opcode == OP_SXB)) {
+            int arg1 = instruction_arg1(instruction);
+            if (!is_register(arg1)) {
+                // argument is constant
+                optimize_constant(instruction, mix_to_int(arg1), false, horizon);
+                return;
+            }
+        }
+
+        if ((opcode == OP_TRS) | (opcode == OP_TRB)) {
+            int arg1 = instruction_arg1(instruction);
+            if (!is_register(arg1)) {
+                // argument is constant
+                int mask;
+                if (opcode == OP_TRS) {
+                    mask = 0xFFFF;
+                }
+                if (opcode != OP_TRS) {
+                    mask = 0xFF;
+                }
+                optimize_constant(instruction, mix_to_int(arg1) & mask, false, horizon);
+                return;
+            }
+        }
+
+        return;
+    }
+
+    if (opcode <= OP_LOGIC_MAX) {
+
+        // TODO it would be nice to clean up some of the duplication here.
+        // Maybe we should improve our "style" enum to handle all reg-mix-mix
+        // instructions together. This would also make this code run faster
+        // since we don't have a switch.
+
+        if (opcode == OP_AND) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                optimize_constant(instruction, mix_to_int(arg1) & mix_to_int(arg2), false, horizon);
+                return;
+            }
+            if ((arg1 == 0) | (arg2 == 0)) {
+                // either argument is zero, result is zero
+                optimize_constant(instruction, 0, true, horizon);
+            }
+            if (!is_register(arg1)) {
+                // TODO the mix_to_int() here is redundant, we should be able
+                // to just check against 0xFF, same with all the other checks
+                // below. The problem is we don't have unsigned in cci/0 and
+                // char is signed, if any char conversions happen in our args
+                // they would sign extend. This needs to be fixed, that should
+                // never happen, and later we'll make char unsigned anyway.
+                if (mix_to_int(arg1) == (int)0xFFFFFFFF) {
+                    // first argument is -1, second is register
+                    optimize_register_mov(instruction, arg2, horizon);
+                }
+                return;
+            }
+            if (!is_register(arg2)) {
+                if (mix_to_int(arg2) == (int)0xFFFFFFFF) {
+                    // second argument is -1, first is register
+                    optimize_register_mov(instruction, arg1, horizon);
+                }
+            }
+            return;
+        }
+
+        if (opcode == OP_OR) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                optimize_constant(instruction, mix_to_int(arg1) | mix_to_int(arg2), false, horizon);
+            }
+            if (!is_register(arg1)) {
+                if (arg1 == 0) {
+                    // first argument is 0, result is second argument register
+                    optimize_register_mov(instruction, arg2, horizon);
+                    return;
+                }
+                arg1 = mix_to_int(arg1);
+                if (arg1 == (int)0xFFFFFFFF) {
+                    // first argument is -1, result is -1
+                    optimize_constant(instruction, 0xFFFFFFFF, true, horizon);
+                }
+                return;
+            }
+            if (!is_register(arg2)) {
+                if (arg2 == 0) {
+                    // second argument is 0, result is first argument register
+                    optimize_register_mov(instruction, arg1, horizon);
+                    return;
+                }
+                arg2 = mix_to_int(arg2);
+                if (arg2 == (int)0xFFFFFFFF) {
+                    // second argument is -1, result is -1
+                    optimize_constant(instruction, 0xFFFFFFFF, true, horizon);
+                }
+            }
+            return;
+        }
+
+        if (opcode == OP_XOR) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                optimize_constant(instruction, mix_to_int(arg1) ^ mix_to_int(arg2), false, horizon);
+            }
+            if (!is_register(arg1)) {
+                if (arg1 == 0) {
+                    // first argument is 0, second is register
+                    optimize_register_mov(instruction, arg2, horizon);
+                    return;
+                }
+                if (mix_to_int(arg1) == (int)0xFFFFFFFF) {
+                    // first argument is -1, second is register. not is shorter than xor.
+                    instruction_set_opcode(instruction, OP_NOT);
+                    instruction_set_arg1(instruction, arg2);
+                }
+            }
+            if (!is_register(arg2)) {
+                if (arg2 == 0) {
+                    // second argument is 0, first is register
+                    optimize_register_mov(instruction, arg1, horizon);
+                    return;
+                }
+                if (mix_to_int(arg2) == (int)0xFFFFFFFF) {
+                    // second argument is -1, first is register. not is shorter than xor.
+                    instruction_set_opcode(instruction, OP_NOT);
+                }
+            }
+            return;
+        }
+
+        if (opcode == OP_NOT) {
+            int arg1 = instruction_arg1(instruction);
+            if (!is_register(arg1)) {
+                // argument is constant
+                optimize_constant(instruction, ~mix_to_int(arg1), false, horizon);
+            }
+            return;
+        }
+
+        if (opcode == OP_SHL) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                if (arg2 & ~0x1f) {
+                    fatal("A shl instruction shifts by a constant outside the range 0-31.");
+                }
+                optimize_constant(instruction, mix_to_int(arg1) << arg2, false, horizon);
+                return;
+            }
+            if (arg2 == 0) {
+                // first is register, second is zero. no shift.
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        if (opcode == OP_SHRS) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                if (arg2 & ~0x1f) {
+                    fatal("A shrs instruction shifts by a constant outside the range 0-31.");
+                }
+                // TODO we don't do shru yet, need unsigned
+                //instruction_set_arg1(instruction, mix_to_int(arg1) >> arg2);
+                //return;
+            }
+            if (arg2 == 0) {
+                // first is register, second is zero. no shift.
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        if (opcode == OP_SHRS) {
+            int arg1 = instruction_arg1(instruction);
+            int arg2 = instruction_arg2(instruction);
+            if (!is_register(arg1) & !is_register(arg2)) {
+                // arguments are constants
+                if (arg2 & ~0x1f) {
+                    fatal("A shrs instruction shifts by a constant outside the range 0-31.");
+                }
+                instruction_set_arg1(instruction, mix_to_int(arg1) >> arg2);
+                return;
+            }
+            if (arg2 == 0) {
+                // first is register, second is zero. no shift.
+                optimize_register_mov(instruction, arg1, horizon);
+            }
+            return;
+        }
+
+        // TODO no rol/ror, shouldn't even parse them, cci/0 and cci/1 don't
+        // emit them. probably even remove them from as/1, we will only emit
+        // them from cci/2 from rotate builtins or optimizations
+
+        // nothing to optimize for mov
+
+        if (opcode == OP_BOOL) {
+            int arg1 = instruction_arg1(instruction);
+            if (!is_register(arg1)) {
+                // argument is constant
+                optimize_constant(instruction, !!arg1, false, horizon);
+                return;
+            }
+            return;
+        }
+
+        if (opcode == OP_ISZ) {
+            int arg1 = instruction_arg1(instruction);
+            if (!is_register(arg1)) {
+                // argument is constant
+                optimize_constant(instruction, !arg1, false, horizon);
+                return;
+            }
+            return;
+        }
+
+        return;
+    }
+
+    if (opcode <= OP_MEMORY_MAX) {
+        // none of these instructions can do constant folding.
+        return;
+    }
+
+    // the rest are control instructions.
+
+    // nothing to do for imw
+
+    if (opcode == OP_LTU) {
+        int arg2 = instruction_arg2(instruction);
+        if (arg2 == 0) {
+            // result is always false
+            optimize_constant(instruction, 0, false, horizon);
+            return;
+        }
+        int arg1 = instruction_arg1(instruction);
+        if (arg1 == 0xFF) {
+            // result is always false
+            optimize_constant(instruction, 0, true, horizon);
+            return;
+        }
+        if (!is_register(arg1) & !is_register(arg2)) {
+            // arguments are constants
+            arg1 = mix_to_int(arg1);
+            arg2 = mix_to_int(arg2);
+            // TODO I need to add unsigned to cci/0, this is totally ridiculous
+            arg1 = (arg1 - (1 << 31));
+            arg2 = (arg2 - (1 << 31));
+            optimize_constant(instruction, arg1 < arg2, true, horizon);
+        }
+        return;
+    }
+
+    if (opcode == OP_LTS) {
+        int arg1 = instruction_arg1(instruction);
+        int arg2 = instruction_arg2(instruction);
+        if (!is_register(arg1) & !is_register(arg2)) {
+            // arguments are constants
+            arg1 = mix_to_int(arg1);
+            arg2 = mix_to_int(arg2);
+            optimize_constant(instruction, arg1 < arg2, true, horizon);
+        }
+        return;
+    }
+
+    if ((opcode == OP_JZ) | (opcode == OP_JNZ)) {
+        int pred = instruction_arg0(instruction);
+        if (!is_register(pred)) {
+            if (opcode == OP_JZ) {
+                pred = !pred;
+            }
+            if (pred) {
+                // result is always true
+                instruction_set_opcode(instruction, OP_JMP);
+            }
+            if (pred) {
+                // result is always false
+                instruction_set_opcode(instruction, OP_NOP);
+            }
+        }
+        return;
+    }
+
+    // no optimizations possible for jmp, call, ret, enter, leave
+}
+
+// This is called on instructions that take two arguments and add them
+// together, i.e. add, ld* and st*.
+static void optimize_add(instruction_t* target, size_t horizon) {//, opcode_t opcode, style_t style) {
+return;
+
+    // We need one of our arguments to be a register and the other to be a
+    // mix-type constant. We permute the args if necessary. If both are
+    // constants we skip it; it will be handled by constant folding.
+    int reg = instruction_arg1(target);
+    int zero = instruction_arg2(target);
+    if (is_register(zero)) {
+        if (is_register(reg)) {
+            return;
+        }
+        int temp = reg;
+        reg = zero;
+        zero = temp;
+    }
+    if (!is_register(reg)) {
+        return;
+    }
+    if (zero != 0) {
+        return;
+    }
+
+    // Find the last instruction that wrote to this register.
+    instruction_t* src = register_instruction(register_get(reg));
+    if (!src) {
+        return;
+    }
+
+    // If we can't find one since the horizon, we can't use it.
+    size_t src_index = instruction_index(src);
+    if (src_index < horizon) {
+        return;
+    }
+
+    // If it's not an add instruction, we can't use it.
+    if (instruction_opcode(src) != OP_ADD) {
+        return;
+    }
+
+    // We need to make sure each register argument has not been written to
+    // in or after this instruction. If they have, we can't use it.
+    int arg1 = instruction_arg1(src);
+    int arg2 = instruction_arg2(src);
+    if (is_register(arg1)) {
+        if (instruction_index(register_instruction(register_get(arg1))) >= src_index) {
+            return;
+        }
+        assert(arg1 != reg); // shouldn't be possible, index check should catch it
+    }
+    if (is_register(arg2)) {
+        if (instruction_index(register_instruction(register_get(arg2))) >= src_index) {
+            return;
+        }
+        assert(arg1 != reg); // shouldn't be possible, index check should catch it
+    }
+
+    // Success! Substitute the arguments.
+    instruction_set_arg1(target, arg1);
+    instruction_set_arg2(target, arg2);
+}
+
+static void optimize_propagate_single_input(instruction_t* instruction, opcode_t opcode, int arg_index) {
+    int arg = instruction_arg(instruction, arg_index);
+    if (!is_register(arg)) {
+        return;
+    }
+    // TODO:
+    // - check if register contains instruction (if not stop)
+    // - check if that instruction assigns register from constant (if so, propagate constant and we're done)
+    // - check if that instruction is a simple mov (if not stop)
+    // - check if that instruction is before the horizon (if so stop)
+    // - walk up to the instruction looking for any args that write to its input register (if so stop)
+    // - replace the register with its input
+}
+
+static void optimize_propagate_single_inputs(instruction_t* instruction, opcode_t opcode, style_t style) {
+    // TODO check style to see if first instruction is input. loop over
+    // arg count. for each arg call above func
+}
+
+static void optimize_forward(void) {
+    size_t horizon = 0;
+    size_t i = 0;
+
+    while (i < instructions_count) {
+        instruction_t* instruction = *(instructions + i);
+        opcode_t opcode = instruction_opcode(instruction);
+        style_t style = opcode_style(opcode);
+        i = (i + 1);
+
+        // Label declarations and call instructions change our horizon
+        if ((opcode == OP_DECLARATION) | (opcode == OP_CALL)) {
+            horizon = i;
+            continue;
+        }
+        if (opcode <= OP_VIRTUAL_MAX) {
+            continue;
+        }
+
+        // If this function writes a register, mark it non-constant
+        /* TODO no, do this at end
+        if ((style == STYLE_REG_MIX) |
+                ((style == STYLE_REG_CON) | (style == STYLE_REG)))
+        {
+            regsiter_clear_constant(register_get(instruction_arg0(instruction)));
+        }
+        */
+
+        // If this function takes two inputs that it adds together, see if we
+        // can replace both. (Optimizes add, load and store instructions.)
+        if (opcode_adds(opcode)) {
+            optimize_add(instruction, horizon);
+        }
+
+        // For each input of this instruction, see if we can replace that input.
+        //optimize_propagate_single_inputs(instruction, opcode, style);
+        (void)horizon;
+
+        // Optimize instructions that have register outputs.
+        if ((style == STYLE_REG_MIX) |
+                ((style == STYLE_REG_CON) | (style == STYLE_REG)))
+        {
+            optimize_constant_fold(instruction, opcode, horizon);
+
+            // If the instruction hasn't been eliminated, record the fact that
+            // it writes to its arg0 register.
+            opcode = instruction_opcode(instruction);
+            if (opcode != OP_NOP) {
+                // TODO register_set_instruction
+            }
+        }
+
+
+
+        if (style == STYLE_REG_MIX) {
+            // TODO set register instruction to this
+            //reg_t* reg = register_get(arg0);
+            //register_set_instruction(reg, instruction);
+            //register_set_instruction_index(reg, instruction); //TODO
+        }
+        if (style == STYLE_REG_CON) {
+            if (instruction_label(instruction) == NULL) {
+                // TODO set constant value
+            }
+        }
+        if (style == STYLE_REG) {
+            // TODO, zero is constant; inc/dec are in/out, probably have to clear optimization
+        }
+
+        /*
+        if (reg != -1) {
+            register_set_instruction(instruction);
+        }
+        */
+    }
+}
+
+
+
+
+static void optimize_backward(void) {
 }
 
 
 
 /*
- * Dead store elimination
+ * Stack frame elimination
+ *
+ * Eliminates stack frames from functions that do not require stack space.
  */
 
-static void optimize_eliminate_dead_stores(void) {
+static void optimize_frame(void) {
 }
 
 
 
 // TODO: It would be better if each pass just allocated whatever memory it
 // needs while it's running. libc/0 doesn't reclaim memory yet so for now we
-// allocate all this up front.
+// allocate any needed memory up front.
 
 static void optimize_setup(void) {
 }

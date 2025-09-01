@@ -879,6 +879,19 @@
 
 
 ; ==========================================================
+; int fflush(FILE* file);
+; ==========================================================
+; Flushes the given stream.
+; ==========================================================
+
+=fflush
+    ; libc/0 stdio is currently unbuffered so this does nothing.
+    ; TODO this will need to flush when we add buffering to libc/0.
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
 ; long ftell(FILE* file);
 ; ==========================================================
 ; Writes the current position in the given file as a 64 bit number to the given

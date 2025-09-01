@@ -72,6 +72,8 @@ core/cci/0-omc/build.sh && \
     ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../build/intermediate/cpp-1-omc-unopt/cpp.oe ) )
 core/cg/0-asm/build.sh && \
 	test/cci/run.sh --tests test/cci/0-omc --nonstd --output build/intermediate/cg-0-asm/cci0 \
+            --cg build/intermediate/cg-0-asm-unopt/cg.oe --cci build/intermediate/cci-0-omc/cci.oe --cci-id omc && \
+	test/cci/run.sh --tests test/cci/0-omc --nonstd --output build/intermediate/cg-0-asm/cci0 \
             --cg build/intermediate/cg-0-asm/cg.oe --cci build/intermediate/cci-0-omc/cci.oe --cci-id omc
 ( core/cpp/1-omc/rebuild.sh && \
     ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../build/intermediate/cpp-1-omc/cpp.oe ) && \

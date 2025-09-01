@@ -87,6 +87,7 @@ size_t fread(void* restrict ptr, size_t element_size, size_t element_count, FILE
 size_t fwrite(const void* restrict ptr, size_t element_size, size_t element_count, FILE* restrict file);
 int fclose(FILE* file);
 int feof(FILE* file);
+int fflush(FILE* file);
 
 int fgetc(FILE* file);
 int fputc(int c, FILE* file);
@@ -111,7 +112,6 @@ int chmod(const char* filename, int mode); // TODO this belongs in sys/stat.h
 int rename(const char* old, const char* new);
 FILE* tmpfile(void);
 char* tmpnam(char* s);
-int fflush(FILE* file);
 FILE* freopen(const char* restrict filename, const char* restrict mode, FILE* restrict file);
 int setvbuf(FILE* restrict file, char* restrict buf, int mode, size_t size);
 

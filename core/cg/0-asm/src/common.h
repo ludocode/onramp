@@ -27,7 +27,7 @@
 
 #include <ctype.h>
 #include <stdio.h>
-//#include <assert.h>
+#include <assert.h>
 #include <stdbool.h>
 
 #include "libo-error.h"
@@ -78,5 +78,29 @@ static char int_to_hex(int value) { // TODO unsigned
     }
     fatal("Internal error: invalid hex value");
 }
+
+// Returns true if the given mix-type byte is a register, false otherwise.
+static bool is_register(int reg) {
+    return ((reg & 0xFFFFFFF0) == 0x80);
+}
+
+// Converts the given non-register mix-type argument to an integer.
+static int mix_to_int(int x) {
+    assert((x & 0xF0) != 0x80); // cannot be a register
+    return (int)(char)x; // sxb, sign-extend byte
+}
+
+// TODO hack, __assert() is not defined in libc/0 which cg/0 is linked against.
+// Probably we should just define this straight in libc/0 so we can use asserts
+// everywhere.
+#ifdef __onramp_libc_oo__
+void __assert(int expression) {
+    if (!expression) {
+        fputs("Assertion failed.", stderr);
+        fflush(stderr);
+        abort();
+    }
+}
+#endif
 
 #endif

@@ -326,12 +326,14 @@ fi
 # Compile the test
 ###########################
 
+TOOL_LOG="$OUTPUT_PATH/$BASENAME.tool-log"
+
 # Preprocess (if not .i)
 CPP_OUTPUT=$OUTPUT_PATH/$BASENAME.i
 INPUT="$TESTFILE"
 if echo "$TESTFILE" | grep -q '\.c$'; then
     OUTPUT=$CPP_OUTPUT
-    if ! $CPP_PREFIX $CPP $MACROS $INPUT -o $OUTPUT; then
+    if ! $CPP_PREFIX $CPP $MACROS $INPUT -o $OUTPUT &> $TOOL_LOG; then
         echo "$0: ERROR: Preprocessing failed." >&2
         exit 1
     fi
@@ -349,11 +351,10 @@ if [ "$CG" != "" ]; then
 else
     CCI_OUTPUT="$OUTPUT_PATH/$BASENAME.os"
 fi
-CCI_STDERR="$OUTPUT_PATH/$BASENAME.cci-stderr"
 OUTPUT=$CCI_OUTPUT
 set +e
 COMMAND="$CCI_PREFIX $CCI $(eval echo $ARGS)"
-$COMMAND 1>/dev/null 2>$CCI_STDERR
+$COMMAND &> $TOOL_LOG
 RET=$?
 set -e
 
@@ -361,14 +362,14 @@ set -e
 if [ $RET -eq 125 ]; then
     echo "$0: ERROR: Compiler crashed on: $TESTFILE" >&2
     echo "Command: $COMMAND" >&2
-    cat $CCI_STDERR >&2
+    cat $TOOL_LOG >&2
     exit 1
 fi
 if [ $FAIL -eq 0 ]; then
     if [ $RET -ne 0 ]; then
         echo "$0: ERROR: Compiler failed; expected success on: $TESTFILE" >&2
         echo "Command: $COMMAND" >&2
-        cat $CCI_STDERR >&2
+        cat $TOOL_LOG >&2
         exit 1
     fi
 else
@@ -378,7 +379,7 @@ else
         exit 1
     fi
     # Failure is expected here. The test passes.
-    rm -f $CPP_OUTPUT $CCI_OUTPUT $CCI_STDERR
+    rm -f $CPP_OUTPUT $CCI_OUTPUT $TOOL_LOG
     exit 0
 fi
 
@@ -388,8 +389,9 @@ if [ "$CG" != "" ]; then
     CG_OUTPUT=$OUTPUT_PATH/$BASENAME.os
     INPUT=$OUTPUT
     OUTPUT=$CG_OUTPUT
-    if ! $CG_PREFIX $CG $INPUT -o $OUTPUT &> /dev/null; then
+    if ! $CG_PREFIX $CG $INPUT -o $OUTPUT &> $TOOL_LOG; then
         echo "$0: ERROR: Failed to codegen: $TESTFILE" >&2
+        cat $TOOL_LOG >&2
         exit 1
     fi
 fi
@@ -398,8 +400,9 @@ fi
 AS_OUTPUT=$OUTPUT_PATH/$BASENAME.oo
 INPUT=$OUTPUT
 OUTPUT=$AS_OUTPUT
-if ! $AS_PREFIX $AS $INPUT -o $OUTPUT &> /dev/null; then
+if ! $AS_PREFIX $AS $INPUT -o $OUTPUT &> $TOOL_LOG; then
     echo "$0: ERROR: Failed to assemble: $TESTFILE" >&2
+    cat $TOOL_LOG >&2
     exit 1
 fi
 
@@ -409,10 +412,11 @@ INPUT=$OUTPUT
 OUTPUT=$LD_OUTPUT
 if ! $LD_PREFIX $LD \
         -g $LIBC \
-        $INPUT -o $OUTPUT &> /dev/null
+        $INPUT -o $OUTPUT &> $TOOL_LOG
 then
     echo "$0: ERROR: Failed to link: $TESTFILE" >&2
     echo $LD_PREFIX $LD -g $LIBC $INPUT -o $OUTPUT >&2
+    cat $TOOL_LOG >&2
     exit 1
 fi
 
@@ -453,8 +457,10 @@ fi
 
 # Success. Clean up all temp files.
 # (We don't clean up temp files on failure to make it easier to debug.)
-rm -f $CPP_OUTPUT \
-    $CCI_OUTPUT $CCI_STDERR \
+rm -f \
+    $TOOL_LOG \
+    $CPP_OUTPUT \
+    $CCI_OUTPUT \
     $CG_OUTPUT \
     $AS_OUTPUT \
     $LD_OUTPUT $LD_OUTPUT.od \

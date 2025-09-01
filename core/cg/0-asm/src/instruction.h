@@ -37,7 +37,9 @@ typedef void instruction_t;
 #define INSTRUCTION_LABEL_PREFIX 5
 #define INSTRUCTION_OPT_VP 6   // void* for optimization passes
 #define INSTRUCTION_OPT_INT 7  // int for optimization passes
-#define INSTRUCTION_SIZE 8
+#define INSTRUCTION_INDEX 8
+//#define INSTRUCTION_IMMEDIATE 9 // value of imw instruction (not an arg) TODO using arg1 for now
+#define INSTRUCTION_SIZE 9
 
 static instruction_t** instructions;
 static size_t instructions_count;
@@ -54,7 +56,7 @@ static instruction_t* instruction_pool;
 static char* instruction_label(instruction_t* instruction);
 
 //static instruction_t* instruction_new(opcode_t opcode, int arg0, int arg1, int arg2) {
-static instruction_t* instruction_new(void) {
+static instruction_t* instruction_new(int index) {
 
     // pop an instruction off the free list
     instruction_t* instruction;
@@ -73,6 +75,7 @@ static instruction_t* instruction_new(void) {
     *(int*)((size_t*)instruction + INSTRUCTION_ARG1) = arg1;
     *(int*)((size_t*)instruction + INSTRUCTION_ARG2) = arg2;
     */
+    *(size_t*)((size_t*)instruction + INSTRUCTION_INDEX) = index;
     *(char**)((size_t*)instruction + INSTRUCTION_LABEL) = NULL;
     return instruction;
 }
@@ -131,6 +134,12 @@ static void instruction_set_opt_int(instruction_t* instruction, int opt_int) {
     *(int*)((size_t*)instruction + INSTRUCTION_OPT_INT) = opt_int;
 }
 
+/*
+static void instruction_set_immediate(instruction_t* instruction, int immediate) {
+    *(int*)((size_t*)instruction + INSTRUCTION_IMMEDIATE) = immediate;
+}
+*/
+
 static opcode_t instruction_opcode(instruction_t* instruction) {
     return *(opcode_t*)((size_t*)instruction + INSTRUCTION_OPCODE);
 }
@@ -167,9 +176,31 @@ static int instruction_opt_int(instruction_t* instruction) {
     return *(int*)((size_t*)instruction + INSTRUCTION_OPT_INT);
 }
 
-static void instruction_eliminate(instruction_t* instruction) {
-    *(opcode_t*)((size_t*)instruction + INSTRUCTION_OPCODE) = OP_NOP;
+static size_t instruction_index(instruction_t* instruction) {
+    return *(size_t*)((size_t*)instruction + INSTRUCTION_INDEX);
 }
+
+/*
+static int instruction_immediate(instruction_t* instruction) {
+    return *(int*)((size_t*)instruction + INSTRUCTION_IMMEDIATE);
+}
+*/
+
+/**
+ * Replaces this instruction with one that sets its arg0 to a constant value.
+ *
+ * If the value fits in a mix-type byte, mov will be used; otherwise imw will
+ * be used.
+ *
+ * Note that we don't change the instruction's arg0. This can only be used to
+ * change instructions that write to their arg0.
+ */
+/*
+static void instruction_set_constant(instruction_t* instruction, int value) {
+
+
+}
+*/
 
 static void print_register(int b, FILE* file) {
     fputc('r', file);
@@ -244,13 +275,13 @@ static void instruction_write(instruction_t* instruction, FILE* file) {
         size_t i = 0;
         while (i != argcount) {
             int arg = instruction_arg(instruction, i);
-            bool is_register = ((arg >= 0x80) & (arg <= 0x8F));
-            if (is_register) {
+            bool is_reg = is_register(arg);
+            if (is_reg) {
                 print_register(arg, file);
             }
-            if (!is_register) {
+            if (!is_reg) {
                 // TODO should output in hex usually, unless 0<=number<=9
-                fputd(arg, file);
+                fputd(mix_to_int(arg), file);
             }
             fputc(' ', file);
             i = (i + 1);
@@ -336,8 +367,9 @@ static bool instruction_uses_register_impl(instruction_t* instruction, int reg, 
         return false;
     }
 
-    // The reg-con style has only a register output and no register inputs.
-    if (style == STYLE_REG_CON) {
+    // The reg and reg-con styles have only a register output and no register
+    // inputs.
+    if ((style == STYLE_REG) | (style == STYLE_REG_CON)) {
         if (output) {
             if (instruction_arg0(instruction) == reg) {
                 return true;
@@ -352,6 +384,10 @@ static bool instruction_uses_register_impl(instruction_t* instruction, int reg, 
         // We checked for STYLE_NONE above so argcount can't be zero.
         argcount = (argcount - 1);
     }
+    // TODO we should also check here if this instruction is imw, and if so,
+    // also decrement the argcount because the arg is an immediate value, not a
+    // mix-type byte. Then we could get rid of the STYLE_REG and STYLE_REG_CON
+    // styles and collapse them both into STYLE_REG_MIX.
     if (argcount == 0) {
         return false;
     }
