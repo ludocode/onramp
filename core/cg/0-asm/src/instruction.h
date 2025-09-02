@@ -180,6 +180,8 @@ static size_t instruction_index(instruction_t* instruction) {
     return *(size_t*)((size_t*)instruction + INSTRUCTION_INDEX);
 }
 
+// TODO for now immediate is stored in arg1
+#define instruction_immediate instruction_arg1
 /*
 static int instruction_immediate(instruction_t* instruction) {
     return *(int*)((size_t*)instruction + INSTRUCTION_IMMEDIATE);

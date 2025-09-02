@@ -365,7 +365,7 @@ void optimize_constant(instruction_t* instruction, int value, bool force, size_t
     // dependency (force is true), replace it with IMW or MOV.
     if (force | (opcode_size(instruction_opcode(instruction)) != 1)) {
         opcode_t opcode = OP_NOP;
-        if ((value <= 0x7F) | (value >= (int)0xFFFFFF90)) {
+        if ((value >= -0x70) & (value <= 0x7F)) {
             opcode = OP_MOV;
         }
         if (opcode == OP_NOP) {
@@ -443,6 +443,10 @@ void optimize_register_mov(instruction_t* instruction, int src_name, size_t hori
  * This also replaces jnz and jz with jmp if the predicate is a constant, and
  * simplifies some other bitwise operations with constants (e.g. xor -1 is
  * replaced with not.)
+ *
+ * This optimization relies on constant propagation having replaced any
+ * register arguments with constants. Unfortunately that means it only works
+ * when the input constants fit in a mix-type byte.
  */
 static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, size_t horizon) {
     if (opcode <= OP_VIRTUAL_MAX) {
@@ -541,12 +545,15 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
         // probably no point right now, simpler to add it after we add unsigned
         // to cci/0
 
-        // TODO zero should be converted to imw and inc and dec should be
-        // converted to add and sub before optimization. we could probably
-        // convert them at parse time. or maybe the push/pop pass should do it.
-        // or maybe we should do it at the start of the forward pass.
+        if (opcode == OP_ZERO) {
+            // Record the fact that this register contains zero for later
+            // optimizations.
+            reg_t* dest = register_get(instruction_arg0(instruction));
+            register_set_constant(dest, instruction_immediate(instruction), instruction);
+            return;
+        }
 
-        // nothing to optimize for inc, dec
+        // nothing we can do for inc and dec
 
         // TODO eventually we should remove sxs and trs. cci/1 supports them so
         // we keep them for now. but if we upgrade cci/0 and downgrade cci/2
@@ -759,7 +766,17 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
         // emit them. probably even remove them from as/1, we will only emit
         // them from cci/2 from rotate builtins or optimizations
 
-        // nothing to optimize for mov
+        if (opcode == OP_MOV) {
+            // Record the fact that the destination register contains another
+            // register or a constant for later optimizations.
+            int arg1 = instruction_arg1(instruction);
+            if (is_register(arg1)) {
+                optimize_register_mov(instruction, arg1, horizon);
+                return;
+            }
+            optimize_constant(instruction, mix_to_int(arg1), false, horizon);
+            return;
+        }
 
         if (opcode == OP_BOOL) {
             int arg1 = instruction_arg1(instruction);
@@ -791,7 +808,14 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
 
     // the rest are control instructions.
 
-    // nothing to do for imw
+    if (opcode == OP_IMW) {
+        if (instruction_label(instruction) == NULL) {
+            // Pass to optimize_constant(). This will change it to MOV if it
+            // fits in a mix-type byte and records it for later optimizations.
+            optimize_constant(instruction, instruction_immediate(instruction), false, horizon);
+        }
+        return;
+    }
 
     if (opcode == OP_LTU) {
         int arg2 = instruction_arg2(instruction);
@@ -840,7 +864,7 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
                 // result is always true
                 instruction_set_opcode(instruction, OP_JMP);
             }
-            if (pred) {
+            if (!pred) {
                 // result is always false
                 instruction_set_opcode(instruction, OP_NOP);
             }
@@ -915,29 +939,95 @@ return;
     instruction_set_arg2(target, arg2);
 }
 
-static void optimize_propagate_single_input(instruction_t* instruction, opcode_t opcode, int arg_index) {
-    int arg = instruction_arg(instruction, arg_index);
-    if (!is_register(arg)) {
+/**
+ * For each input register, check if we can replace it with a known value.
+ *
+ * If the input register is an alias of another register, and the register
+ * hasn't been modified since, replace it with that register.
+ *
+ * If the input register is a constant, and it fits in a mix-type byte, replace
+ * it with that constant. Unfortunately this means constant propagation will
+ * only work for constants that fit in a mix-type byte.
+ */
+static void optimize_propagate_single_inputs(instruction_t* instruction,
+        opcode_t opcode, style_t style, size_t horizon)
+{
+    int i = 0;
+
+    if (opcode <= OP_VIRTUAL_MAX) {
         return;
     }
-    // TODO:
-    // - check if register contains instruction (if not stop)
-    // - check if that instruction assigns register from constant (if so, propagate constant and we're done)
-    // - check if that instruction is a simple mov (if not stop)
-    // - check if that instruction is before the horizon (if so stop)
-    // - walk up to the instruction looking for any args that write to its input register (if so stop)
-    // - replace the register with its input
-}
 
-static void optimize_propagate_single_inputs(instruction_t* instruction, opcode_t opcode, style_t style) {
-    // TODO check style to see if first instruction is input. loop over
-    // arg count. for each arg call above func
+    // imw takes an immediate input and no mix-type inputs.
+    if (opcode == OP_IMW) {
+        return;
+    }
+
+    // If the first argument is a destination register, skip it.
+    if (((style == STYLE_REG_MIX) | (style == STYLE_IN_PLACE)) |
+            ((style == STYLE_REG_CON) | (style == STYLE_REG)))
+    {
+        i = 1;
+    }
+
+    // If we have a label, we have one less mix-type argument.
+    int argcount = opcode_argcount(opcode);
+    if (instruction_label(instruction)) {
+        argcount = (argcount - 1);
+    }
+
+    // For each input argument, if it's a register, see if we can replace it.
+    while (i < argcount) {
+        int arg = instruction_arg(instruction, i);
+        if (!is_register(arg)) {
+            i = (i + 1);
+            continue;
+        }
+
+        // Make sure the register was set after the horizon
+        reg_t* reg = register_get(arg);
+        instruction_t* src_instruction = register_instruction(reg);
+        if (!src_instruction) {
+            i = (i + 1);
+            continue;
+        }
+        if (instruction_index(src_instruction) <= horizon) {
+            i = (i + 1);
+            continue;
+        }
+
+        int type = register_content_type(reg);
+
+        if (type == REGISTER_CONTENT_CONSTANT) {
+            int value = register_value(reg);
+            if ((value >= -0x70) & (value <= 0x7F)) {
+                // Register contains a constant that fits. Replace it.
+                instruction_set_arg(instruction, i, value & 0xFF);
+            }
+        }
+
+        if (type == REGISTER_CONTENT_REGISTER) {
+            int src_name = register_value(reg);
+            reg_t* src = register_get(src_name);
+            if (instruction_index(register_instruction(src)) <
+                    instruction_index(register_instruction(reg)))
+            {
+                // Register contains another register that has not been
+                // modified. Replace it.
+                instruction_set_arg(instruction, i, src_name);
+            }
+        }
+
+        i = (i + 1);
+        continue;
+    }
 }
 
 static void optimize_forward(void) {
+    registers_clear();
     size_t horizon = 0;
-    size_t i = 0;
 
+    size_t i = 0;
     while (i < instructions_count) {
         instruction_t* instruction = *(instructions + i);
         opcode_t opcode = instruction_opcode(instruction);
@@ -969,24 +1059,28 @@ static void optimize_forward(void) {
         }
 
         // For each input of this instruction, see if we can replace that input.
-        //optimize_propagate_single_inputs(instruction, opcode, style);
-        (void)horizon;
+        optimize_propagate_single_inputs(instruction, opcode, style, horizon);
+
+        // Perform constant folding and related optimizations (e.g. `jnz 1` -> `jmp`)
+        optimize_constant_fold(instruction, opcode, horizon);
 
         // Optimize instructions that have register outputs.
-        if ((style == STYLE_REG_MIX) |
+        // TODO put this in a function or change style to an output flag or something, this is copy-pasted in a few places
+        if (((style == STYLE_REG_MIX) | (style == STYLE_IN_PLACE)) |
                 ((style == STYLE_REG_CON) | (style == STYLE_REG)))
         {
-            optimize_constant_fold(instruction, opcode, horizon);
-
-            // If the instruction hasn't been eliminated, record the fact that
-            // it writes to its arg0 register.
+            // If the instruction hasn't been eliminated and we haven't
+            // already recorded what it does to its destination register,
+            // record the fact that the destination register now contains an
+            // unknown value.
             opcode = instruction_opcode(instruction);
             if (opcode != OP_NOP) {
-                // TODO register_set_instruction
+                reg_t* dest = register_get(instruction_arg0(instruction));
+                if (register_instruction(dest) != instruction) {
+                    register_set_unknown(dest, instruction);
+                }
             }
         }
-
-
 
         if (style == STYLE_REG_MIX) {
             // TODO set register instruction to this

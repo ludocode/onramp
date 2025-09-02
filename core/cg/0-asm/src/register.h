@@ -146,9 +146,9 @@ static void register_clear(reg_t* reg) {
  * Records the fact that this register was assigned a constant value by the
  * given instruction.
  */
-static void register_set_constant(reg_t* reg, bool constant_value, instruction_t* instruction) {
+static void register_set_constant(reg_t* reg, int constant_value, instruction_t* instruction) {
     *(int*)((size_t*)reg + REGISTER_CONTENT_TYPE) = REGISTER_CONTENT_CONSTANT;
-    *(bool*)((size_t*)reg + REGISTER_VALUE) = constant_value;
+    *(int*)((size_t*)reg + REGISTER_VALUE) = constant_value;
     *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION) = instruction;
 }
 
@@ -157,8 +157,9 @@ static void register_set_constant(reg_t* reg, bool constant_value, instruction_t
  * register by the given instruction.
  */
 static void register_set_register(reg_t* reg, int src, instruction_t* instruction) {
+    assert(is_register(src));
     *(int*)((size_t*)reg + REGISTER_CONTENT_TYPE) = REGISTER_CONTENT_REGISTER;
-    *(bool*)((size_t*)reg + REGISTER_VALUE) = src;
+    *(int*)((size_t*)reg + REGISTER_VALUE) = src;
     *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION) = instruction;
 }
 
@@ -166,11 +167,10 @@ static void register_set_write_expected(reg_t* reg, bool write_expected) {
     *(bool*)((size_t*)reg + REGISTER_WRITE_EXPECTED) = write_expected;
 }
 
-/*
-static void register_set_instruction(reg_t* reg, instruction_t* instruction) {
+static void register_set_unknown(reg_t* reg, instruction_t* instruction) {
+    *(int*)((size_t*)reg + REGISTER_CONTENT_TYPE) = REGISTER_CONTENT_UNKNOWN;
     *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION) = instruction;
 }
-*/
 
 /*
 static reg_t* register_new(void) {
@@ -183,6 +183,10 @@ static void register_delete(reg_t* reg) {
 */
 
 static reg_t* registers;
+
+static void registers_clear(void) {
+    memset(registers, 0, 16 * (REGISTER_SIZE * sizeof(size_t)));
+}
 
 /**
  * Returns the register with the given bytecode value (0x80-0x8F).
