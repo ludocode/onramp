@@ -101,9 +101,9 @@
 #define OP_IMW     80
 #define OP_LTU     81
 #define OP_LTS     82
-#define OP_JZ      83
-#define OP_JNZ     84
-#define OP_JMP     85
+#define OP_JZ      83    // don't re-order these, see optimize_dead_store()
+#define OP_JNZ     84    // ^^^
+#define OP_JMP     85    // ^^^
 #define OP_CALL    86
 #define OP_RET     87
 #define OP_ENTER   88

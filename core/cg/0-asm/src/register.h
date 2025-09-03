@@ -53,10 +53,10 @@ typedef void instruction_t;
 #define REGISTER_CONTENT_CONSTANT 1
 #define REGISTER_CONTENT_REGISTER 2
 
-#define REGISTER_ORIGINALLY_USED 0
+//#define REGISTER_ORIGINALLY_USED 0
 #define REGISTER_CONTENT_TYPE 1 // One of the REGISTER_CONTENT_* constants
 #define REGISTER_VALUE 2 // The constant or other register this register contains
-#define REGISTER_WRITE_EXPECTED 5
+#define REGISTER_USED 5
 #define REGISTER_INSTRUCTION 6 // The last instruction that wrote to this register
 #define REGISTER_SIZE 7
 
@@ -66,9 +66,11 @@ typedef void instruction_t;
  * Registers that are not used in the original function can be used for
  * optimizations.
  */
+/*
 static bool register_originally_used(reg_t* reg) {
     return *(bool*)((size_t*)reg + REGISTER_ORIGINALLY_USED);
 }
+*/
 
 /**
  * Returns one of the REGISTER_CONTENT_* constants indicating what we know
@@ -108,16 +110,23 @@ static int register_variable_offset(reg_t* reg) {
 */
 
 /**
- * When walking backwards through a block, this is true if a write to this
+ * Returns true if this register is possibly used.
+ *
+ * If a register is possibly used, a preceding store to it must be preserved by
+ * dead store elimination. If a register is not used, stores to the register
+ * can be eliminated.
+ *
+ * When walking backwards through a block, this returns true if a write to this
  * register is expected (because it is possibly read), and false if no write is
  * expected (because it was written to later in the block without a read in
  * between, or because its value is discarded by a call or ret.)
- *
- * This is used for dead store elimination. (If a register is written to twice
- * without a read in between, the first write can be eliminated.)
  */
-static bool register_write_expected(reg_t* reg) {
-    return *(bool*)((size_t*)reg + REGISTER_WRITE_EXPECTED);
+static bool register_used(reg_t* reg) {
+    return *(bool*)((size_t*)reg + REGISTER_USED);
+}
+
+static void register_set_used(reg_t* reg, bool used) {
+    *(bool*)((size_t*)reg + REGISTER_USED) = used;
 }
 
 /**
@@ -126,10 +135,6 @@ static bool register_write_expected(reg_t* reg) {
  */
 static instruction_t* register_instruction(reg_t* reg) {
     return *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION);
-}
-
-static void register_set_originally_used(reg_t* reg, bool originally_used) {
-    *(bool*)((size_t*)reg + REGISTER_ORIGINALLY_USED) = originally_used;
 }
 
 /*
@@ -163,9 +168,11 @@ static void register_set_register(reg_t* reg, int src, instruction_t* instructio
     *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION) = instruction;
 }
 
+/*
 static void register_set_write_expected(reg_t* reg, bool write_expected) {
     *(bool*)((size_t*)reg + REGISTER_WRITE_EXPECTED) = write_expected;
 }
+*/
 
 static void register_set_unknown(reg_t* reg, instruction_t* instruction) {
     *(int*)((size_t*)reg + REGISTER_CONTENT_TYPE) = REGISTER_CONTENT_UNKNOWN;
@@ -194,6 +201,29 @@ static void registers_clear(void) {
 static reg_t* register_get(int name) {
     assert(is_register(name));
     return (reg_t*)((size_t*)registers + ((name - 0x80) * REGISTER_SIZE));
+}
+
+/**
+ * Returns the register with the given index.
+ */
+static reg_t* register_at(int index) {
+    return (reg_t*)((size_t*)registers + (index * REGISTER_SIZE));
+}
+
+/**
+ * Sets all registers up to and including the given index as used, and sets all
+ * other numbered registers as unused.
+ */
+static void registers_set_used_up_to(size_t index) {
+    size_t i = 0;
+    while (i <= index) {
+        register_set_used(register_at(i), true);
+        i = (i + 1);
+    }
+    while (i <= 9) {
+        register_set_used(register_at(i), false);
+        i = (i + 1);
+    }
 }
 
 static void register_setup(void) {

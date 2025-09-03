@@ -61,6 +61,7 @@
 # --cg-opts <opts>   Pass extra arguments to cg (e.g. -O)
 # --nonstd           Run the test even if it is marked non-standard
 # --noskip           Run the test even if it is marked skip
+# --noclean          Don't delete intermediate files after passing.
 #
 # The cg tool is optional, but note that testing of cci/2 requires (or will
 # soon require) cg/1 to translate its IR.
@@ -141,6 +142,7 @@ RUN_NONSTD=0
 RUN_SKIP=0
 OUTPUT_PATH=
 TESTFILE=
+CLEAN=1
 
 # Parse command-line options
 set +e
@@ -161,7 +163,7 @@ while true; do
         --output) OUTPUT_PATH="$1"; shift ;;
         --test) TESTFILE="$1"; shift ;;
         --nonstd) RUN_NONSTD=1 ;;
-        --noskip) RUN_SKIP=1 ;;
+        --noclean) CLEAN=0 ;;
         *)
             echo "$0: ERROR: Invalid command-line argument: $ARG" >&2
             exit 1
@@ -456,13 +458,16 @@ if [ $HAS_STDOUT -ne 0 ]; then
 fi
 
 # Success. Clean up all temp files.
-# (We don't clean up temp files on failure to make it easier to debug.)
-rm -f \
-    $TOOL_LOG \
-    $CPP_OUTPUT \
-    $CCI_OUTPUT \
-    $CG_OUTPUT \
-    $AS_OUTPUT \
-    $LD_OUTPUT $LD_OUTPUT.od \
-    $ACTUAL_STDERR $ACTUAL_STDOUT $TEMP_EXPECTED_STDOUT
+# (We don't clean up temp files on failure to make it easier to debug. We also
+# support --noclean to keep files on a pass.)
+if [ $CLEAN -ne 0 ]; then
+    rm -f \
+        $TOOL_LOG \
+        $CPP_OUTPUT \
+        $CCI_OUTPUT \
+        $CG_OUTPUT \
+        $AS_OUTPUT \
+        $LD_OUTPUT $LD_OUTPUT.od \
+        $ACTUAL_STDERR $ACTUAL_STDOUT $TEMP_EXPECTED_STDOUT
+fi
 exit 0

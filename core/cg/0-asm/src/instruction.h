@@ -227,6 +227,10 @@ static void print_register(int b, FILE* file) {
 static void instruction_write(instruction_t* instruction, FILE* file) {
     opcode_t opcode = instruction_opcode(instruction);
     if (opcode == OP_NOP) {
+        // TODO for now we print the nops into the output. It makes it much
+        // easier to debug since the optimized output lines up exactly with the
+        // unoptimized input.
+        fputs("; nop\n", file);
         return;
     }
 
@@ -307,11 +311,21 @@ static void instruction_write(instruction_t* instruction, FILE* file) {
 }
 
 static void instruction_print(instruction_t* instruction) {
+    /*
     if (instruction_opcode(instruction) == OP_NOP) {
         puts("; nop");
         return;
     }
+    */
     instruction_write(instruction, stdout);
+}
+
+static void instructions_print(void) {
+    size_t i = 0;
+    while (i < instructions_count) {
+        instruction_print(*(instructions + i));
+        i = (i + 1);
+    }
 }
 
 static void instruction_emit(instruction_t* instruction) {
