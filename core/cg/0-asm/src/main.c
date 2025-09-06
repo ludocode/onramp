@@ -150,9 +150,6 @@ int main(int argc, char** argv) {
         // Scan backward: perform dead store elimination, register renaming
         optimize_backward();
 
-        // Eliminate unnecessary stack frames
-        optimize_frame();
-
         emit_function();
         parse_clear();
     }

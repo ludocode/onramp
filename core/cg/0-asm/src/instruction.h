@@ -41,6 +41,7 @@ typedef void instruction_t;
 //#define INSTRUCTION_IMMEDIATE 9 // value of imw instruction (not an arg) TODO using arg1 for now
 #define INSTRUCTION_SIZE 9
 
+// The full instruction listing of the current function.
 static instruction_t** instructions;
 static size_t instructions_count;
 static size_t instructions_capacity;
@@ -60,7 +61,6 @@ static instruction_t* instruction_pool;
 
 static char* instruction_label(instruction_t* instruction);
 
-//static instruction_t* instruction_new(opcode_t opcode, int arg0, int arg1, int arg2) {
 static instruction_t* instruction_new(int index) {
 
     // pop an instruction off the free list
@@ -71,17 +71,10 @@ static instruction_t* instruction_new(int index) {
     if (instruction_pool) {
         instruction = instruction_pool;
         instruction_pool = *(instruction_t**)instruction;
+        memset(instruction, 0, INSTRUCTION_SIZE * sizeof(size_t));
     }
 
-    // initialize it
-    /*
-    *(opcode_t*)((size_t*)instruction + INSTRUCTION_OPCODE) = opcode;
-    *(int*)((size_t*)instruction + INSTRUCTION_ARG0) = arg0;
-    *(int*)((size_t*)instruction + INSTRUCTION_ARG1) = arg1;
-    *(int*)((size_t*)instruction + INSTRUCTION_ARG2) = arg2;
-    */
     *(size_t*)((size_t*)instruction + INSTRUCTION_INDEX) = index;
-    *(char**)((size_t*)instruction + INSTRUCTION_LABEL) = NULL;
     return instruction;
 }
 
@@ -193,22 +186,7 @@ static int instruction_immediate(instruction_t* instruction) {
 }
 */
 
-/**
- * Replaces this instruction with one that sets its arg0 to a constant value.
- *
- * If the value fits in a mix-type byte, mov will be used; otherwise imw will
- * be used.
- *
- * Note that we don't change the instruction's arg0. This can only be used to
- * change instructions that write to their arg0.
- */
-/*
-static void instruction_set_constant(instruction_t* instruction, int value) {
-
-
-}
-*/
-
+// TODO move to register.h or common.h, need to make sure there isn't a circular dependency
 static void print_register(int b, FILE* file) {
     fputc('r', file);
 
@@ -240,7 +218,7 @@ static void instruction_write(instruction_t* instruction, FILE* file) {
     }
 
     if (opcode == OP_NUMBER) {
-        // TODO should output in hex usually, unless 0<=number<=9
+        // TODO should output in hex usually, unless -9<=number<=9
         fputd(instruction_arg(instruction, 0), file);
         fputc('\n', file);
         return;
@@ -316,12 +294,6 @@ static void instruction_write(instruction_t* instruction, FILE* file) {
 }
 
 static void instruction_print(instruction_t* instruction) {
-    /*
-    if (instruction_opcode(instruction) == OP_NOP) {
-        puts("; nop");
-        return;
-    }
-    */
     instruction_write(instruction, stdout);
 }
 

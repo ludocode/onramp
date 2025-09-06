@@ -53,24 +53,13 @@ typedef void instruction_t;
 #define REGISTER_CONTENT_CONSTANT 1
 #define REGISTER_CONTENT_REGISTER 2
 
-//#define REGISTER_ORIGINALLY_USED 0
-#define REGISTER_CONTENT_TYPE 1 // One of the REGISTER_CONTENT_* constants
-#define REGISTER_VALUE 2 // The constant or other register this register contains
-#define REGISTER_USED 5
-#define REGISTER_INSTRUCTION 6 // The last instruction that wrote to this register
-#define REGISTER_SIZE 7
+#define REGISTER_CONTENT_TYPE 0 // One of the REGISTER_CONTENT_* constants
+#define REGISTER_VALUE 1 // The constant or other register this register contains
+#define REGISTER_USED 2 // Whether the register is used (for dead store elimination)
+#define REGISTER_INSTRUCTION 3 // The last instruction that wrote to this register
+#define REGISTER_SIZE 4
 
-/**
- * True if the register was originally used in this function.
- *
- * Registers that are not used in the original function can be used for
- * optimizations.
- */
-/*
-static bool register_originally_used(reg_t* reg) {
-    return *(bool*)((size_t*)reg + REGISTER_ORIGINALLY_USED);
-}
-*/
+static reg_t* registers;
 
 /**
  * Returns one of the REGISTER_CONTENT_* constants indicating what we know
@@ -81,33 +70,11 @@ static int register_content_type(reg_t* reg) {
 }
 
 /**
- * Returns the constant or other register this register contains
+ * Returns the constant or other register this register contains.
  */
 static int register_value(reg_t* reg) {
     return *(int*)((size_t*)reg + REGISTER_VALUE);
 }
-
-/**
- * True if the register contains the value of a variable (i.e. it was last
- * assigned by a load from a particular stack offset.)
- *
- * This is used for load elimination.
- */
-/*
-static bool register_contains_variable(reg_t* reg) {
-    return *(bool*)((size_t*)reg + REGISTER_CONTAINS_VARIABLE);
-}
-    */
-
-/**
- * The frame offset of the variable contained in a register (if it contains a
- * variable.)
- */
-/*
-static int register_variable_offset(reg_t* reg) {
-    return *(int*)((size_t*)reg + REGISTER_VARIABLE_OFFSET);
-}
-*/
 
 /**
  * Returns true if this register is possibly used.
@@ -137,12 +104,6 @@ static instruction_t* register_instruction(reg_t* reg) {
     return *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION);
 }
 
-/*
-static void register_set_contains_constant(reg_t* reg, bool contains_constant) {
-    *(bool*)((size_t*)reg + REGISTER_CONTAINS_CONSTANT) = contains_constant;
-}
-*/
-
 static void register_clear(reg_t* reg) {
     *(int*)((size_t*)reg + REGISTER_CONTENT_TYPE) = REGISTER_CONTENT_UNKNOWN;
 }
@@ -168,28 +129,10 @@ static void register_set_register(reg_t* reg, int src, instruction_t* instructio
     *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION) = instruction;
 }
 
-/*
-static void register_set_write_expected(reg_t* reg, bool write_expected) {
-    *(bool*)((size_t*)reg + REGISTER_WRITE_EXPECTED) = write_expected;
-}
-*/
-
 static void register_set_unknown(reg_t* reg, instruction_t* instruction) {
     *(int*)((size_t*)reg + REGISTER_CONTENT_TYPE) = REGISTER_CONTENT_UNKNOWN;
     *(instruction_t**)((size_t*)reg + REGISTER_INSTRUCTION) = instruction;
 }
-
-/*
-static reg_t* register_new(void) {
-    reg_t* reg = calloc(REGISTER_SIZE, sizeof(size_t));
-}
-
-static void register_delete(reg_t* reg) {
-    free(reg);
-}
-*/
-
-static reg_t* registers;
 
 static void registers_clear(void) {
     memset(registers, 0, 16 * (REGISTER_SIZE * sizeof(size_t)));

@@ -152,8 +152,8 @@ static bool is_linker_directive(char c) {
 }
 
 static void instruction_collect_label(instruction_t* instruction) {
-    //assert(is_linker_directive(current_char));
-    //assert(instruction_label(instruction) == NULL);
+    assert(is_linker_directive(current_char));
+    assert(instruction_label(instruction) == NULL);
     instruction_set_label_prefix(instruction, current_char);
     read_char();
     if (!try_parse_identifier()) {
