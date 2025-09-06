@@ -46,8 +46,11 @@
 function_t* current_function;
 block_t* current_block;
 int next_label;
+
+#ifndef CCI2_IR
 int register_next;       // next register to allocate
 int register_loop_count; // number of times we've looped back to r0 while allocating registers
+#endif
 
 static void generate_location_array_subscript(node_t* node, int reg_out);
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
@@ -55,12 +58,16 @@ static void generate_builtin(node_t* node, int reg_out);
 static void generate_builtin_location(node_t* node, int reg_out);
 
 void generate_setup(void) {
+    #ifndef CCI2_IR
     register_next = R0;
+    #endif
 }
 
 void generate_teardown(void) {
     // nothing
 }
+
+#ifndef CCI2_IR
 
 int register_alloc(token_t* /*nullable*/ token) {
     //printf("register alloc %i\n", register_next);
@@ -376,7 +383,10 @@ static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
     return frame_size;
 }
 
+#endif // CCI2_IR
+
 void generate_function(function_t* function) {
+#ifndef CCI2_IR
     node_t* root = function->root;
     emit_source_location(root->token);
 
@@ -435,7 +445,10 @@ void generate_function(function_t* function) {
         block_append(current_block, end_token, LEAVE);
         block_append(current_block, end_token, RET);
     }
+#endif // CCI2_IR
 }
+
+#ifndef CCI2_IR
 
 /**
  * Generates a function call.
@@ -1411,7 +1424,10 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     token_deref(name);
 }
 
+#endif // !CCI2_IR
+
 void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
+#ifndef CCI2_IR
 
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
 
@@ -1438,7 +1454,10 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
     }
 
     emit_global_divider();
+#endif // !CCI2_IR
 }
+
+#ifndef CCI2_IR
 
 static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
 
@@ -1504,3 +1523,5 @@ static void generate_builtin_location(node_t* node, int reg_out) {
     }
     fatal("Internal error: cannot generate location of this builtin.");
 }
+
+#endif // !CCI2_IR

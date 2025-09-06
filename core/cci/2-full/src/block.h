@@ -62,6 +62,7 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
     return block->instructions + index;
 }
 
+#ifndef CCI2_IR
 /**
  * Appends a new instruction to the end of the block.
  */
@@ -86,5 +87,6 @@ void block_add_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t of
  */
 void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
         int reg_out, int reg_in, int value);
+#endif
 
 #endif

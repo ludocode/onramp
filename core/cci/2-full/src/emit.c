@@ -220,6 +220,7 @@ void emit_string_literal(const string_t* str) {
  * outside the main code path.
  */
 static void emit_blocks(function_t* function, block_t* block) {
+#ifndef CCI2_IR
     for (;;) {
         assert(!block->emitted);
         block->emitted = true;
@@ -268,6 +269,7 @@ static void emit_blocks(function_t* function, block_t* block) {
         }
         break;
     }
+#endif
 }
 
 void emit_function(function_t* function) {

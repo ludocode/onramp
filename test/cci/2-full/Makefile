@@ -102,3 +102,45 @@ test-2: build FORCE
 			--cci build/test/cci-2-full/cci --cci-id full )
 
 test: test-0 test-1 test-2 FORCE
+
+
+
+
+# These are added temporarily to build a version of the compiler that emits IR
+# instead of assembly.
+
+CG2: FORCE
+	make -C ../../cg/1-full build
+
+$(OUT)/cci-ir: $(SRCS) CG2 Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) \
+		-Wno-unused-function -Wfatal-errors -DCCI2_IR \
+		$(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
+
+build-ir: $(OUT)/cci-ir FORCE
+
+test-0-ir: build-ir FORCE
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/0-omc \
+			--output build/test/cci-2-full \
+			--cg build/test/cg-1-full/cg \
+			--cci build/test/cci-2-full/cci-ir --cci-id full )
+
+test-1-ir: build-ir FORCE
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/1-opc \
+			--output build/test/cci-2-full \
+			--cg build/test/cg-1-full/cg \
+			--cci build/test/cci-2-full/cci-ir --cci-id full )
+
+test-2-ir: build-ir FORCE
+	( cd ../../.. && test/cci/run.sh \
+			--tests test/cci/2-full \
+			--nonstd \
+			--output build/test/cci-2-full \
+			--cg build/test/cg-1-full/cg \
+			--cci build/test/cci-2-full/cci-ir --cci-id full )
+
+test-ir: test-0-ir test-1-ir test-2-ir FORCE

@@ -65,6 +65,7 @@ void block_delete(block_t* block) {
     free(block);
 }
 
+#ifndef CCI2_IR
 void block_append(block_t* block, token_t* token, opcode_t opcode, ...) {
     if (block->instructions_count == block->instructions_capacity) {
         // grow
@@ -116,3 +117,4 @@ void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
     block_append(block, token, opcode, reg_out, reg_in, reg_value);
     register_free(token, reg_value);
 }
+#endif

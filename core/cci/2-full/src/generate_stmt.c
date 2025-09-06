@@ -32,6 +32,8 @@
 #include "generate.h"
 #include "function.h"
 
+#ifndef CCI2_IR
+
 void generate_return(node_t* node, int reg_out) {
 
     // reg_out is ignored. We aren't returning a value to the parent
@@ -564,3 +566,5 @@ void generate_switch(node_t* switch_, int reg_out) {
     current_block = block_new(switch_->break_label);
     function_add_block(current_function, current_block);
 }
+
+#endif // CCI2_IR

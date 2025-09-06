@@ -8,6 +8,8 @@ The compiler itself also has some optimizations in its implementation. For examp
 
 The compiler implements a command-line interface similar to GCC and friends, but extension usage causes errors by default. Pass `-fgnu-extensions` or a `-std=gnu*` mode to make it behave more like GCC. (When passed to the driver, these also define `__GNUC__`.) See the [Usage Guide](../../../docs/usage-guide.md) for details.
 
+NOTE: The compiler is currently being converted to generate [intermediate representation](../../../docs/intermediate-representation.md) instead of assembly. In the meantime you'll see lots of `#ifdef CCI2_IR` in the code. The assembly generation will be removed once the IR is complete.
+
 
 
 ## Components

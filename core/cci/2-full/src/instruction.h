@@ -26,7 +26,14 @@
 #define INSTRUCTION_H_INCLUDED
 
 #include <stdint.h>
+
+#ifndef CCI2_IR
+// The IR generation won't use variadic functions. This is just here
+// temporarily to support the old generator.
 #include <stdarg.h>
+#endif
+
+#include "common.h"
 
 struct token_t;
 
@@ -93,6 +100,7 @@ typedef enum opcode_t {
 
 } opcode_t;
 
+#ifndef CCI2_IR
 #define R0 0x80
 #define R1 0x81
 #define R2 0x82
@@ -109,7 +117,9 @@ typedef enum opcode_t {
 #define RFP 0x8D
 #define RPP 0x8E
 #define RIP 0x8F
+#endif
 
+#ifndef CCI2_IR
 // Some instructions support multiple arg types. In that case they take this
 // enum value first which describes the remaining arguments.
 typedef enum instruction_argtypes_t {
@@ -118,6 +128,7 @@ typedef enum instruction_argtypes_t {
     ARGTYPE_NAME,        // A named symbol
     ARGTYPE_GENERATED,   // A generated name (prefix + number)
 } instruction_argtypes_t;
+#endif
 
 /**
  * An assembly instruction.
@@ -134,6 +145,7 @@ typedef struct instruction_t {
     struct token_t* /*nullable*/ token;
     opcode_t opcode;
 
+    #ifndef CCI2_IR
     instruction_argtypes_t argtypes;
     int8_t arg1;
     int8_t arg2;
@@ -148,11 +160,13 @@ typedef struct instruction_t {
         };
         int number;
     };
+    #endif
 } instruction_t;
 
 void instruction_init(instruction_t* instruction);
 void instruction_destroy(instruction_t* instruction);
 
+#ifndef CCI2_IR
 /**
  * Configures an instruction.
  */
@@ -161,6 +175,7 @@ void instruction_set(instruction_t* instruction, struct token_t* /*nullable*/ to
 
 void instruction_vset(instruction_t* instruction, struct token_t* /*nullable*/ token,
         opcode_t opcode, va_list args);
+#endif
 
 void instruction_emit(instruction_t* instruction);
 

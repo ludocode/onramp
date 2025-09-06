@@ -32,6 +32,8 @@
 #include "type.h"
 #include "token.h"
 
+#ifndef CCI2_IR
+
 /**
  * Generates an arithmetic or other binary calculation that must be done with a
  * libc function. This is used for long long, float and double.
@@ -967,3 +969,5 @@ void generate_unary_minus(node_t* node, int reg_out) {
         block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
     }
 }
+
+#endif // CCI2_IR

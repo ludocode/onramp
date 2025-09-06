@@ -104,6 +104,7 @@ void instruction_destroy(instruction_t* instruction) {
         token_deref(instruction->token);
 }
 
+#ifndef CCI2_IR
 void instruction_vset(instruction_t* instruction, token_t* token,
         opcode_t opcode, va_list args)
 {
@@ -382,3 +383,4 @@ void instruction_emit(instruction_t* instruction) {
 
     emit_newline();
 }
+#endif
