@@ -49,7 +49,11 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
 
 echo Compiling libc/1-omc malloc.c
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/malloc.i -o build/intermediate/libc-1-omc/malloc.os
+    build/intermediate/libc-1-omc/malloc.i -o build/intermediate/libc-1-omc/malloc.oir
+
+echo Optimizing libc/1-omc malloc.c
+onrampvm build/intermediate/cg-0-asm/cg.oe \
+    build/intermediate/libc-1-omc/malloc.oir -o build/intermediate/libc-1-omc/malloc.os
 
 echo Assembling libc/1-omc malloc.c
 onrampvm build/intermediate/as-1-compound/as.oe \
@@ -70,7 +74,11 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
 
 echo Compiling libc/1-omc strtol.c
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/strtol.i -o build/intermediate/libc-1-omc/strtol.os
+    build/intermediate/libc-1-omc/strtol.i -o build/intermediate/libc-1-omc/strtol.oir
+
+echo Optimizing libc/1-omc strtol.c
+onrampvm build/intermediate/cg-0-asm/cg.oe \
+    build/intermediate/libc-1-omc/strtol.oir -o build/intermediate/libc-1-omc/strtol.os
 
 echo Assembling libc/1-omc strtol.c
 onrampvm build/intermediate/as-1-compound/as.oe \
@@ -91,7 +99,11 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
 
 echo Compiling libc/1-omc strrchr.c
 onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/strrchr.i -o build/intermediate/libc-1-omc/strrchr.os
+    build/intermediate/libc-1-omc/strrchr.i -o build/intermediate/libc-1-omc/strrchr.oir
+
+echo Optimizing libc/1-omc strrchr.c
+onrampvm build/intermediate/cg-0-asm/cg.oe \
+    build/intermediate/libc-1-omc/strrchr.oir -o build/intermediate/libc-1-omc/strrchr.os
 
 echo Assembling libc/1-omc strrchr.c
 onrampvm build/intermediate/as-1-compound/as.oe \

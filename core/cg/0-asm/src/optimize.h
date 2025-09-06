@@ -364,7 +364,7 @@ void optimize_constant(instruction_t* instruction, int value, bool force, size_t
     // If the instruction would be smaller, or if we can eliminate a register
     // dependency (force is true), replace it with IMW or MOV.
     if (force | (opcode_size(instruction_opcode(instruction)) != 1)) {
-        opcode_t opcode = OP_NOP;
+        opcode_t opcode = OP_NOP; // TODO use else here once we get it in cci/0, this is confusing
         if ((value >= -0x70) & (value <= 0x7F)) {
             opcode = OP_MOV;
         }
@@ -406,10 +406,12 @@ void optimize_register_mov(instruction_t* instruction, int src_name, size_t hori
     if (register_content_type(dest) == REGISTER_CONTENT_REGISTER) {
         if (register_value(dest) == src_name) {
             if (instruction_index(register_instruction(dest)) > horizon) {
-                reg_t* src = register_get(src_name);
-                if (instruction_index(register_instruction(src)) <
-                        instruction_index(register_instruction(dest)))
-                {
+                instruction_t* src = register_instruction(register_get(src_name));
+                size_t src_index = 0;
+                if (src) {
+                    src_index = instruction_index(src);
+                }
+                if (src_index < instruction_index(register_instruction(dest))) {
                     instruction_set_opcode(instruction, OP_NOP);
                     return;
                 }
@@ -448,7 +450,8 @@ void optimize_register_mov(instruction_t* instruction, int src_name, size_t hori
  * register arguments with constants. Unfortunately that means it only works
  * when the input constants fit in a mix-type byte.
  */
-static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, size_t horizon) {
+static void optimize_constant_fold(instruction_t* instruction, size_t horizon) {
+    opcode_t opcode = instruction_opcode(instruction);
     if (opcode <= OP_VIRTUAL_MAX) {
         return;
     }
@@ -725,7 +728,7 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
             return;
         }
 
-        if (opcode == OP_SHRS) {
+        if (opcode == OP_SHRU) {
             int arg1 = instruction_arg1(instruction);
             int arg2 = instruction_arg2(instruction);
             if (!is_register(arg1) & !is_register(arg2)) {
@@ -734,8 +737,12 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
                     fatal("A shrs instruction shifts by a constant outside the range 0-31.");
                 }
                 // TODO we don't do shru yet, need unsigned
-                //instruction_set_arg1(instruction, mix_to_int(arg1) >> arg2);
-                //return;
+                //optimize_constant(instruction, (unsigned)mix_to_int(arg1) << arg2, false, horizon);
+                // in the meantime just optimize zero
+                if (arg2 == 0) {
+                    optimize_constant(instruction, mix_to_int(arg1), false, horizon);
+                }
+                return;
             }
             if (arg2 == 0) {
                 // first is register, second is zero. no shift.
@@ -752,7 +759,7 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
                 if (arg2 & ~0x1f) {
                     fatal("A shrs instruction shifts by a constant outside the range 0-31.");
                 }
-                instruction_set_arg1(instruction, mix_to_int(arg1) >> arg2);
+                optimize_constant(instruction, mix_to_int(arg1) >> arg2, false, horizon);
                 return;
             }
             if (arg2 == 0) {
@@ -877,22 +884,37 @@ static void optimize_constant_fold(instruction_t* instruction, opcode_t opcode, 
 
 // This is called on instructions that take two arguments and add them
 // together, i.e. add, ld* and st*.
-static void optimize_add(instruction_t* target, size_t horizon) {//, opcode_t opcode, style_t style) {
-return;
+static void optimize_add(instruction_t* target, opcode_t opcode, size_t horizon) {//, opcode_t opcode, style_t style) {
 
     // We need one of our arguments to be a register and the other to be a
-    // mix-type constant. We permute the args if necessary. If both are
-    // constants we skip it; it will be handled by constant folding.
-    int reg = instruction_arg1(target);
-    int zero = instruction_arg2(target);
-    if (is_register(zero)) {
-        if (is_register(reg)) {
-            return;
-        }
-        int temp = reg;
-        reg = zero;
-        zero = temp;
+    // plain zero. (We could improve this to handle a register plus a constant
+    // in some cases but it would complicate this too much so it's not worth
+    // doing.)
+    int reg;
+    int zero;
+
+    // If this is a MOV, it's implicitly an add of a register and zero.
+    if (opcode == OP_MOV) {
+        reg = instruction_arg1(target);
+        zero = 0;
     }
+
+    // Otherwise we have two arguments.
+    // We permute the args if necessary. If both are constants we skip it; it
+    // will be handled by constant folding.
+    if (opcode != OP_MOV) {
+        reg = instruction_arg1(target);
+        zero = instruction_arg2(target);
+        if (is_register(zero)) {
+            if (is_register(reg)) {
+                return;
+            }
+            int temp = reg;
+            reg = zero;
+            zero = temp;
+        }
+    }
+
     if (!is_register(reg)) {
         return;
     }
@@ -900,7 +922,7 @@ return;
         return;
     }
 
-    // Find the last instruction that wrote to this register.
+    // Find the last instruction that wrote to the source register.
     instruction_t* src = register_instruction(register_get(reg));
     if (!src) {
         return;
@@ -919,24 +941,29 @@ return;
 
     // We need to make sure each register argument has not been written to
     // in or after this instruction. If they have, we can't use it.
-    int arg1 = instruction_arg1(src);
-    int arg2 = instruction_arg2(src);
-    if (is_register(arg1)) {
-        if (instruction_index(register_instruction(register_get(arg1))) >= src_index) {
-            return;
+    int i = 1;
+    while (i <= 2) {
+        int arg = instruction_arg(src, i);
+        if (is_register(arg)) {
+            instruction_t* instruction = register_instruction(register_get(arg));
+            if (instruction) {
+                if (instruction_index(instruction) >= src_index) {
+                    return;
+                }
+            }
+            assert(arg != reg); // shouldn't be possible, index check should catch it
         }
-        assert(arg1 != reg); // shouldn't be possible, index check should catch it
-    }
-    if (is_register(arg2)) {
-        if (instruction_index(register_instruction(register_get(arg2))) >= src_index) {
-            return;
-        }
-        assert(arg1 != reg); // shouldn't be possible, index check should catch it
+        i = (i + 1);
     }
 
     // Success! Substitute the arguments.
-    instruction_set_arg1(target, arg1);
-    instruction_set_arg2(target, arg2);
+    //printf("Found an add substitution for: "); instruction_print(target);
+    if (opcode == OP_MOV) {
+        instruction_set_opcode(target, OP_ADD);
+    }
+    instruction_set_arg1(target, instruction_arg1(src));
+    instruction_set_arg2(target, instruction_arg2(src));
+    //printf("Add substitution result: "); instruction_print(target);
 }
 
 /**
@@ -949,9 +976,9 @@ return;
  * it with that constant. Unfortunately this means constant propagation will
  * only work for constants that fit in a mix-type byte.
  */
-static void optimize_propagate_single_inputs(instruction_t* instruction,
-        opcode_t opcode, style_t style, size_t horizon)
-{
+static void optimize_propagate_single_inputs(instruction_t* instruction, size_t horizon) {
+    opcode_t opcode = instruction_opcode(instruction);
+    style_t style = opcode_style(opcode);
     int i = 0;
 
     if (opcode <= OP_VIRTUAL_MAX) {
@@ -1008,10 +1035,12 @@ static void optimize_propagate_single_inputs(instruction_t* instruction,
 
         if (type == REGISTER_CONTENT_REGISTER) {
             int src_name = register_value(reg);
-            reg_t* src = register_get(src_name);
-            if (instruction_index(register_instruction(src)) <
-                    instruction_index(register_instruction(reg)))
-            {
+            instruction_t* src = register_instruction(register_get(src_name));
+            size_t src_index = 0;
+            if (src) {
+                src_index = instruction_index(src);
+            }
+            if (src_index < instruction_index(register_instruction(reg))) {
                 // Register contains another register that has not been
                 // modified. Replace it.
                 instruction_set_arg(instruction, i, src_name);
@@ -1030,42 +1059,51 @@ static void optimize_forward(void) {
     size_t i = 0;
     while (i < instructions_count) {
         instruction_t* instruction = *(instructions + i);
-        opcode_t opcode = instruction_opcode(instruction);
-        style_t style = opcode_style(opcode);
         i = (i + 1);
 
-        // Label declarations and call instructions change our horizon
-        if ((opcode == OP_DECLARATION) | (opcode == OP_CALL)) {
-            horizon = i;
-            continue;
-        }
-        if (opcode <= OP_VIRTUAL_MAX) {
-            continue;
-        }
+        //puts("");
+        //instruction_print(instruction);
 
-        // If this function writes a register, mark it non-constant
-        /* TODO no, do this at end
-        if ((style == STYLE_REG_MIX) |
-                ((style == STYLE_REG_CON) | (style == STYLE_REG)))
         {
-            regsiter_clear_constant(register_get(instruction_arg0(instruction)));
-        }
-        */
+            opcode_t opcode = instruction_opcode(instruction);
 
-        // If this function takes two inputs that it adds together, see if we
-        // can replace both. (Optimizes add, load and store instructions.)
-        if (opcode_adds(opcode)) {
-            optimize_add(instruction, horizon);
+            // Label declarations and call instructions change our horizon
+            if ((opcode == OP_DECLARATION) | (opcode == OP_CALL)) {
+                horizon = instruction_index(instruction);
+                continue;
+            }
+            if (opcode <= OP_VIRTUAL_MAX) {
+                continue;
+            }
+
+            // If this function writes a register, mark it non-constant
+            /* TODO no, do this at end
+            if ((style == STYLE_REG_MIX) |
+                    ((style == STYLE_REG_CON) | (style == STYLE_REG)))
+            {
+                regsiter_clear_constant(register_get(instruction_arg0(instruction)));
+            }
+            */
+
+            // If this function takes two inputs that it adds together, see if we
+            // can replace both. (Optimizes add, load and store instructions.)
+            if (opcode_adds(opcode) | (opcode == OP_MOV)) {
+                optimize_add(instruction, opcode, horizon);
+            }
         }
 
         // For each input of this instruction, see if we can replace that input.
-        optimize_propagate_single_inputs(instruction, opcode, style, horizon);
+        optimize_propagate_single_inputs(instruction, horizon);
 
         // Perform constant folding and related optimizations (e.g. `jnz 1` -> `jmp`)
-        optimize_constant_fold(instruction, opcode, horizon);
+        optimize_constant_fold(instruction, horizon);
 
         // Optimize instructions that have register outputs.
+        // (opcode and style might have changed due to above optimizations so
+        // we need to get them again.)
         // TODO put this in a function or change style to an output flag or something, this is copy-pasted in a few places
+        opcode_t opcode = instruction_opcode(instruction);
+        style_t style = opcode_style(opcode);
         if (((style == STYLE_REG_MIX) | (style == STYLE_IN_PLACE)) |
                 ((style == STYLE_REG_CON) | (style == STYLE_REG)))
         {
@@ -1073,7 +1111,6 @@ static void optimize_forward(void) {
             // already recorded what it does to its destination register,
             // record the fact that the destination register now contains an
             // unknown value.
-            opcode = instruction_opcode(instruction);
             if (opcode != OP_NOP) {
                 reg_t* dest = register_get(instruction_arg0(instruction));
                 if (register_instruction(dest) != instruction) {
