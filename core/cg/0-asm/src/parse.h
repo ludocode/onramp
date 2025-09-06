@@ -420,6 +420,13 @@ static bool parse_function(void) {
         return false;
     }
 
+    // clear the block table
+    size_t i = 0;
+    while (i < BLOCKS_BUCKETS) {
+        *(blocks + i) = NULL;
+        i = (i + 1);
+    }
+
     parse_declaration();
     //printf("parsing function: %s\n", string_buffer);
     function_name = strdup(string_buffer);
@@ -440,9 +447,18 @@ static bool parse_function(void) {
         }
 
         // parse an instruction
-        instructions_append(parse_instruction(index));
+        instruction_t* instruction = parse_instruction(index);
+        instructions_append(instruction);
         index = (index + 1);
         //printf("  parsed instruction: "); instruction_print(*(instructions + (instructions_count - 1)));
+
+        // if this instruction is a label declaration, add it to the block table
+        if (instruction_opcode(instruction) == OP_DECLARATION) {
+            size_t bucket = (fnv1a_cstr(instruction_label(instruction)) & (BLOCKS_BUCKETS - 1));
+            //printf("inserting declaration %s into bucket %zi\n", instruction_label(instruction), bucket);
+            instruction_set_opt_vp(instruction, *(blocks + bucket));
+            *(blocks + bucket) = instruction;
+        }
     }
 
     //printf("returning true\n");

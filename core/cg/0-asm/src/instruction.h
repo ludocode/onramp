@@ -45,6 +45,11 @@ static instruction_t** instructions;
 static size_t instructions_count;
 static size_t instructions_capacity;
 
+// A closed hashtable of label declarations (using opt_vp links for collision
+// resolution.)
+#define BLOCKS_BUCKETS 32
+static instruction_t** blocks;
+
 // TODO free() does nothing in libc/0. I have plans to fix this in libc/0;
 // in the meantime we pool instructions. This can be removed once libc/0
 // has some means of reclaiming memory.
@@ -332,13 +337,13 @@ static void instruction_emit(instruction_t* instruction) {
     instruction_write(instruction, output_file);
 }
 
-/*
 static void instruction_setup(void) {
+    blocks = malloc(BLOCKS_BUCKETS * sizeof(instruction_t*));
 }
 
 static void instruction_teardown(void) {
+    free(blocks);
 }
-*/
 
 static void instructions_append(instruction_t* instruction) {
 

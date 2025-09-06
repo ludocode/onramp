@@ -4,8 +4,6 @@ This is the code for the first stage Onramp code generator.
 
 The first stage code generator takes a form of [Onramp assembly](../../../docs/assembly.md) emitted by early stage [Onramp compilers](../../cci/) as input, optimizes it, and outputs it in general Onramp assembly.
 
-The code generator is still somewhat limited. The goal is to make enough optimizations that it reduces the instruction count of the compiler output by 2x or more, which should more than make up for the time it takes to run the code generator after every compilation. It will be worth the couple thousand extra lines of code if it can significantly reduce the overall time it takes to bootstrap Onramp.
-
 
 
 ## Bootstrapping a Code Generator
@@ -25,3 +23,24 @@ The first stage code generator is bootstrapped before the second stage linker. T
 This means the code layout is a bit unconventional: almost all of the code is in header files only. These still include each other naturally. If there would be a circular dependency between header files, we move the necessary declarations into `common.h`, which is ultimately included first.
 
 This code is written in [Onramp Minimal C (omC)](../docs/minimal-c.md). Since we don't have structs, it uses "emulated structs" [as described in cci/1](../../cci/1-opc/README.md#emulated-structs) to store instructions.
+
+
+
+## Optimizations
+
+The optimizations performed are organized into passes. We try to combine as many optimizations into each pass as possible in order to minimize the number of passes.
+
+These are the passes and optimizations implemented so far:
+
+- Forward scan
+    - Push/pop optimization
+- Forward propagation
+    - Add propagation
+    - Constant propagation
+    - Constant folding
+    - Dead code elimination
+- Block scan
+    - Dead block elimination
+- Backward propagation
+    - Dead store elimination
+    - Trivial jump elimination

@@ -315,13 +315,6 @@ static void optimize_push_pop(void) {
  * check whether a return was already made, or whether the function is
  * `main()`, or whether the function returns `void`. It just adds `return 0;`
  * unconditionally. Dead code elimination removes these redundant returns.
- *
- * Constant propagation may transform a `jz` or `jnz` into a `jmp`, in which
- * case unreachable code elimination will apply. Note however that this stage
- * is not powerful enough to remove unreachable blocks. It will only trim the
- * rest of the current block, not blocks that are no longer reachable. It's not
- * great at removing dead branches but it does eliminate some boilerplate
- * basically for free.
  */
 
 /*
@@ -1055,6 +1048,7 @@ static void optimize_propagate_single_inputs(instruction_t* instruction, size_t 
 static void optimize_forward(void) {
     registers_clear();
     size_t horizon = 0;
+    bool dead = false;
 
     size_t i = 0;
     while (i < instructions_count) {
@@ -1064,32 +1058,35 @@ static void optimize_forward(void) {
         //puts("");
         //instruction_print(instruction);
 
-        {
-            opcode_t opcode = instruction_opcode(instruction);
+        opcode_t opcode = instruction_opcode(instruction);
 
-            // Label declarations and call instructions change our horizon
-            if ((opcode == OP_DECLARATION) | (opcode == OP_CALL)) {
-                horizon = instruction_index(instruction);
+        // When we reach a label, intra-block dead code elimination ends.
+        if (opcode == OP_DECLARATION) {
+            if (!dead) {
+                // We've fallen through to this block. Mark it used.
+                instruction_set_opt_int(instruction, 1);
+            }
+            dead = false;
+        }
+
+        // Otherwise, if we're eliminating dead code, remove it.
+        if (dead) {
+            if (opcode != OP_DECLARATION) {
+                //printf("eliminating instruction dead code\n");
+                instruction_set_opcode(instruction, OP_NOP);
                 continue;
             }
-            if (opcode <= OP_VIRTUAL_MAX) {
-                continue;
-            }
+        }
 
-            // If this function writes a register, mark it non-constant
-            /* TODO no, do this at end
-            if ((style == STYLE_REG_MIX) |
-                    ((style == STYLE_REG_CON) | (style == STYLE_REG)))
-            {
-                regsiter_clear_constant(register_get(instruction_arg0(instruction)));
-            }
-            */
+        // Label declarations and call instructions change our horizon
+        if ((opcode == OP_DECLARATION) | (opcode == OP_CALL)) {
+            horizon = instruction_index(instruction);
+        }
 
-            // If this function takes two inputs that it adds together, see if we
-            // can replace both. (Optimizes add, load and store instructions.)
-            if (opcode_adds(opcode) | (opcode == OP_MOV)) {
-                optimize_add(instruction, opcode, horizon);
-            }
+        // If this function takes two inputs that it adds together, see if we
+        // can replace both. (Optimizes add, load and store instructions.)
+        if (opcode_adds(opcode) | (opcode == OP_MOV)) {
+            optimize_add(instruction, opcode, horizon);
         }
 
         // For each input of this instruction, see if we can replace that input.
@@ -1102,7 +1099,7 @@ static void optimize_forward(void) {
         // (opcode and style might have changed due to above optimizations so
         // we need to get them again.)
         // TODO put this in a function or change style to an output flag or something, this is copy-pasted in a few places
-        opcode_t opcode = instruction_opcode(instruction);
+        opcode = instruction_opcode(instruction);
         style_t style = opcode_style(opcode);
         if (((style == STYLE_REG_MIX) | (style == STYLE_IN_PLACE)) |
                 ((style == STYLE_REG_CON) | (style == STYLE_REG)))
@@ -1119,26 +1116,31 @@ static void optimize_forward(void) {
             }
         }
 
-        if (style == STYLE_REG_MIX) {
-            // TODO set register instruction to this
-            //reg_t* reg = register_get(arg0);
-            //register_set_instruction(reg, instruction);
-            //register_set_instruction_index(reg, instruction); //TODO
-        }
-        if (style == STYLE_REG_CON) {
-            if (instruction_label(instruction) == NULL) {
-                // TODO set constant value
+        // If the final instruction has a label, and that label references a
+        // block in this function, mark the block used.
+        if ((opcode != OP_DECLARATION) & (opcode != OP_STRING)) {
+            const char* label = instruction_label(instruction);
+            if (label) {
+                size_t bucket = (fnv1a_cstr(label) & (BLOCKS_BUCKETS - 1));
+                //printf("found label %s, looking in bucket %zi\n", label, bucket);
+                instruction_t* block = *(blocks + bucket);
+                while (block) {
+                    if (0 == strcmp(label, instruction_label(block))) {
+                        // Mark the block used.
+                        //printf("found block %s, marking used: ", label); instruction_print(block);
+                        instruction_set_opt_int(block, 1);
+                        break;
+                    }
+                    block = instruction_opt_vp(block);
+                }
             }
         }
-        if (style == STYLE_REG) {
-            // TODO, zero is constant; inc/dec are in/out, probably have to clear optimization
-        }
 
-        /*
-        if (reg != -1) {
-            register_set_instruction(instruction);
+        // If the final instruction is a jmp or ret, the rest of this block is
+        // unreachable.
+        if ((opcode == OP_JMP) | (opcode == OP_RET)) {
+            dead = true;
         }
-        */
     }
 }
 
@@ -1147,17 +1149,47 @@ static void optimize_forward(void) {
 /**
  * Backwards optimizations
  *
- * The backward optimization pass performs dead store elimination.
+ * The backward optimization pass performs dead store elimination and trivial
+ * jump optimizations.
  *
  * We could also do register renaming again (to calculate function call
  * arguments directly into their destination registers for example) but I
  * haven't bothered yet.
  */
 
+/*
+ * Trivial jump optimization
+ *
+ * When a jmp to a label is immediately followed by that label, the jmp can be
+ * eliminated; control flow can simply fall through to the label.
+ *
+ * Occasionally, and especially in unit tests, constant folding on a false `if`
+ * statement turns a jz/jnz into a jmp to the next label. Since the rest of the
+ * block is eliminated, the jmp is immediately followed by the label, which
+ * means the jmp is eliminated by this optimization.
+ *
+ * For example, consider the cci/0 test case expr/expr-shift.c:
+ *
+ *      int main(void) {
+ *          if ((5 >> 2) != 1) { return 1; }
+ *          if ((5 >> 0) != 5) { return 2; }
+ *          if ((5 << 2) != 20) { return 3; }
+ *          if ((5 << 0) != 5) { return 4; }
+ *      }
+ *
+ * Since the `return N;` error handling code is inside the if statement, the
+ * compiler emits a conditional jump (jnz) after it, then emits the contents.
+ * Constant folding turns the jnz into a jmp, eliminating the error handling
+ * code. Since the jmp now immediately precedes its label, it is eliminated as
+ * well, and dead store elimination deletes everything else. This entire
+ * function is turned into the equivalent of `return 0;`.
+ */
+
 /**
  * Perform dead store elimination on this instruction.
  */
-static void optimize_dead_store(instruction_t* instruction, opcode_t opcode) {
+static void optimize_dead_store(instruction_t* instruction) {
+    opcode_t opcode = instruction_opcode(instruction);
 
     // Jumps may be passing along any registers so we need to preserve all of
     // them.
@@ -1246,13 +1278,86 @@ static void optimize_backward(void) {
     while (i > 0) {
         i = (i - 1);
         instruction_t* instruction = *(instructions + i);
-        opcode_t opcode = instruction_opcode(instruction);
 
         //puts("");
         //instruction_print(instruction);
 
-        // Currently we only have dead store elimination in this pass.
-        optimize_dead_store(instruction, opcode);
+        // Perform dead store elimination
+        optimize_dead_store(instruction);
+
+        // Perform trivial jump elimination. If this is a label and the
+        // previous instruction is a jmp to it, we can eliminate the jmp.
+        if (instruction_opcode(instruction) == OP_DECLARATION) {
+            size_t j = i;
+            while (j > 1) {
+                j = (j - 1);
+                instruction_t* previous = *(instructions + j);
+                opcode_t opcode = instruction_opcode(previous);
+                if ((opcode == OP_NOP) | (opcode == OP_DECLARATION)) {
+                    i = j;
+                    continue;
+                }
+                if (instruction_opcode(previous) == OP_JMP) {
+                    if (0 == strcmp(instruction_label(instruction), instruction_label(previous))) {
+                        i = j;
+                        instruction_set_opcode(previous, OP_NOP);
+                    }
+                }
+                break;
+            }
+        }
+    }
+}
+
+
+
+/*
+ * Block elimination pass
+ *
+ * In the forward propagation pass, whenever we find an instruction that
+ * references a label, or whenever control flow falls through to a label, we
+ * mark that label declaration used.
+ *
+ * If any labels are unused, they are unreachable. All code from that label to
+ * the next can be eliminated.
+ *
+ * Label declaration instructions are stored in the `blocks` hashtable. The
+ * instruction's opt_int is the used flag and the opt_vp pointer is the next
+ * block in the hashtable collision sequence.
+ */
+
+/**
+ * Eliminates a block.
+ *
+ * All instructions from this label to the next are changed to NOP.
+ */
+static void optimize_eliminate_block(instruction_t* instruction) {
+    //printf("eliminating block %s\n", instruction_label(instruction));
+    size_t i = instruction_index(instruction);
+    while (1) {
+        instruction_set_opcode(instruction, OP_NOP);
+        i = (i + 1);
+        if (i == instructions_count) {
+            break;
+        }
+        instruction = *(instructions + i);
+        if (instruction_opcode(instruction) == OP_DECLARATION) {
+            break;
+        }
+    }
+}
+
+static void optimize_blocks(void) {
+    size_t bucket = 0;
+    while (bucket < BLOCKS_BUCKETS) {
+        instruction_t* block = *(blocks + bucket);
+        while (block) {
+            if (!instruction_opt_int(block)) {
+                optimize_eliminate_block(block);
+            }
+            block = instruction_opt_vp(block);
+        }
+        bucket = (bucket + 1);
     }
 }
 

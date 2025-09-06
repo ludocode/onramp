@@ -31,6 +31,7 @@
 #include <stdbool.h>
 
 #include "libo-error.h"
+#include "libo-util.h"
 
 static FILE* input_file;
 static FILE* output_file;

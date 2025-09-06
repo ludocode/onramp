@@ -60,7 +60,6 @@ static void open_input(const char* input_filename) {
 }
 
 static void emit_function(void) {
-    fputs("\n\n", output_file);
     fputc(function_prefix, output_file);
     fputs(function_name, output_file);
     fputc('\n', output_file);
@@ -70,6 +69,8 @@ static void emit_function(void) {
         instruction_emit(*(instructions + i));
         i = (i + 1);
     }
+
+    fputs("\n\n", output_file);
 }
 
 int main(int argc, char** argv) {
@@ -124,6 +125,7 @@ int main(int argc, char** argv) {
     }
 
     opcode_setup();
+    instruction_setup();
     register_setup();
     parse_setup();
     optimize_setup();
@@ -142,6 +144,9 @@ int main(int argc, char** argv) {
         // Scan forward: propagate constants and registers, eliminate unreachable code
         optimize_forward();
 
+        // Eliminate any blocks that are unused
+        optimize_blocks();
+
         // Scan backward: perform dead store elimination, register renaming
         optimize_backward();
 
@@ -158,6 +163,7 @@ int main(int argc, char** argv) {
     optimize_teardown();
     parse_teardown();
     register_teardown();
+    instruction_teardown();
     opcode_teardown();
 
     return 0;
