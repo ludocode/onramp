@@ -38,6 +38,7 @@ We now have a rich [assembly language](assembly.md). It's powerful enough both t
 We can now write everything in [omC](minimal-c.md)! To complete our omC implementation, we still need a (real) preprocessor, linker, and driver, plus libc upgrades.
 
 - [cpp/1-omc](../core/cpp/0-omc), the basic omC preprocessor
+- [cg/0-asm](../core/cg/0-asm), a code generator (optimizer) for assembly
 - [ld/1-omc](../core/ld/1-omc), a new linker that adds file scope
 - [libc/1-omc](../core/libc/1-omc), a more featureful libc
 - [cc](../core/cc), the compiler driver
@@ -54,6 +55,7 @@ We can now build our feature-complete C compiler. It requires the final linker a
 - [libo/1-opc](../core/libo/1-opc), additional utilities for compiler development
 - [ld/2-full](../core/ld/2-full), the full linker (contructors, bss, weak symbols, garbage collection, etc.)
 - [cci/2-full](../core/cci/2-full), the full C compiler
+- [cg/1-full](../core/cg/1-full), the full code generator
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor (`#if`, variadic function-like macros, `#embed`, `__has_include`, etc.)
 
 Now that we have a full C compiler, we can build up the last few bits of our toolchain.
@@ -61,7 +63,7 @@ Now that we have a full C compiler, we can build up the last few bits of our too
 - [libc/3-full](../core/libc/3-full), the missing libc components (things that need function pointers for example)
 - [as/2-full](../core/as/2-full), the full assembler (improved error checking, debug output and minor optimizations)
 
-With our full toolchain built, we rebuild everything to take advantage of the (few) optimizations in the final stage compiler, linker, assembler and libc. This creates smaller and faster binaries and it's a good test of compiler self-hosting.
+With our full toolchain built, we rebuild everything to take advantage of optimizations and to update the ABI with more features. This creates smaller and faster binaries and it's a good test of compiler self-hosting.
 
 We build libraries first because they are statically linked into the remaining components.
 
@@ -71,6 +73,7 @@ We build libraries first because they are statically linked into the remaining c
 - [cc](../core/cc), the driver again
 - [ld/2-full](../core/ld/2-full), the full linker again
 - [as/2-full](../core/as/2-full), the full assembler again
+- [cg/1-full](../core/cg/1-full), the full code generator again
 - [cci/2-full](../core/cci/2-full), the full C compiler again
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor again
 
@@ -239,17 +242,25 @@ We don't have a real preprocessor yet, and our linker can't link multiple C file
 
 The basic omC preprocessor. Only `#include`, `#ifdef`/`#ifndef` and object-like `#define` are supported. This is just enough to support typical C header files with include guards, allowing us to write large-scale programs with idiomatic code organization.
 
+#### [cg/0-asm](../core/cg/0-asm/)
+
+The first stage code generator. This is essentially just a peephole optimizer for our compiler-generated assembly. Our single-pass bootstrapping compiler emits terrible bytecode so this cleans it up and makes it much faster.
+
+It's not really necessary, but it significantly reduces the instruction count of compiled programs which saves a lot of time in the bootstrap (much more than the cost of running it.) It's only about 1500 lines of very simple omC so it's worth it to speed up the bootstrap.
+
+Once we have this compiled and linked, we immediately run it on itself and on the cpp/1 preprocessor we just built in order to get optimized binaries for them.
+
 #### [ld/1-omc](../core/ld/1-omc/)
 
 Our new linker adds support for file scope.
 
 Until now we've been able to get away with all labels being global because we've been manually giving each label a unique name. We now have a compiler that generates labels, so we need file scope. This new linker uses file scope to avoid clashes between compiled translation units.
 
-This also correctly handles variables and functions with `static` linkage. We can now write multi-file C programs.
+This also correctly handles variables and functions with `static` linkage. We can now write C programs with multiple translation units (`.c` files.)
 
 #### [libc/1-omc](../core/libc/1-omc/)
 
-Now that we can link multiple `.c` files we can re-implement parts of our libc in omC.
+Now that we can properly link `.c` files we can re-implement parts of our libc in omC.
 
 This gives us a more featureful libc. It adds a real `malloc()` with a coalescing `free()`, which is important because our programs will start to use quite a bit more memory.
 
@@ -259,7 +270,7 @@ Most of the functionality of the first-stage libc doesn't need to be re-implemen
 
 The compiler driver. We no longer need to manually run all the individual steps to compile something.
 
-The driver runs the various programs: `cpp`, `cci`, `as`, `ld`. It also links against the libc and provides access to its headers. By default it expects all of these to be their final stages, installed in their final locations. None of these exist yet!
+The driver runs the various programs that provide the phases of translation: `cpp`, `cci`, `cg`, `as`, `ld`. It also links against the libc and provides access to its headers. By default it expects all of these to be their final stages, installed in their final locations. None of these exist yet!
 
 Therefore, we need to pass options to `cc` to manually specific each tool it should use: `-with-cpp`, `-with-cci`, `-nostdlib` and so on. To shorten our build scripts, `cc` can take command-line arguments from a file.
 
@@ -279,7 +290,7 @@ We still have some important limitations. There are no function pointers, no com
 
 #### [libc/2-opc](../core/libc/2-opc/)
 
-The nearly full libc. It adds some features we need for our full C compiler, in particular `printf()`, and 64-bit and floating-point math functions. It adds buffered file I/O which is much faster under certain (unbuffered) VMs.
+The nearly full libc. It adds some features we need for our full C compiler, in particular `printf()`, and 64-bit and floating-point math functions.
 
 This is again structured like an overlay. We only build the files that are new; we link in previously compiled objects from libc/1 and hand-written objects from libc/0 into a new `libc.oa`.
 
@@ -303,15 +314,21 @@ We break this dependency by manually writing the symbols into the C code that wo
 
 This is the full C compiler.
 
-This is the only program where the limitations of opC really matter. The compiler can't use `long long`, `float` or `double` in its own implementation; instead it has a `u64_t` struct to store 64-bit values, and it makes and emits manual calls to math functions in libc/2 (e.g. `__llong_add()`, `__float_mul()`, etc.) We also can't use function pointers; in cases where they'd be useful (like tables of builtins), we have to use enums and switches instead.
+The code is structured to work around the limitations of opC. The compiler can't use `long long`, `float` or `double` in its own implementation; instead it has a `u64_t` struct to store 64-bit values, and it makes and emits manual calls to math functions in libc/2 (e.g. `__llong_add()`, `__float_mul()`, etc.) We also can't use function pointers; in cases where they'd be useful (like tables of builtins), we have to use enums and switches instead.
 
-This is the last time we have these limitations. From here on out, we have full, modern C.
+#### [cg/1-full](../core/cg/1-full/)
+
+The final stage code generator. It converts the intermediate representation emitted by the final stage compiler into assembly.
+
+(This is not implemented yet. For now cci/2 outputs assembly directly.)
+
+This is the last time we have opC limitations. From here on out, we have full, modern C.
 
 
 
 ### Modern C
 
-We finally can write real C! Well, the language anyway. We don't have the full preprocessor yet, and we're missing lots of libc functions. We build those next.
+We finally can write real C! Well, the core language anyway. We don't have the full preprocessor yet, and we're missing lots of libc functions. We build those next.
 
 #### [cpp/2-full](../core/cpp/2-full/)
 
@@ -337,16 +354,9 @@ Unlike our full linker which is written in opC, the full assembler requires the 
 
 ### Rebuilding Everything
 
-Now that we've bootstrapped all our final stage core tools, we recompile the entire toolchain.
+Now that we've bootstrapped all our final stage core tools, we recompile the entire toolchain. This is important because we need to make some ABI changes to eliminate some limitations of our bootstrap. For example we want a 1-byte bool, and we want to dynamically allocate uninitialized data ("[bss](https://en.wikipedia.org/wiki/.bss)".)
 
-This step isn't technically necessary but there are good reasons to do this. For one, it proves that the final toolchain is self-hosting. More importantly, we can build everything with optimizations!
-
-- Our final preprocessor can inline small accessor macros that were previously functions.
-- Our final compiler doesn't produce great code but it's a lot better than the simple stack machines of previous stages.
-- Our final assembler can perform some small peephole optimizations.
-- Our linker can garbage collect unused symbols.
-
-The toolchain will be significantly smaller and faster if we rebuild it.
+Additionally, we want to rebuild everything with optimizations! The final toolchain will be significantly smaller and faster than our bootstrap stages.
 
 We build libraries first because they're statically linked into the executables. Since our libc stages are overlaid, we previously only built the additional files in each stage. This time we rebuild all necessary parts from all stages all at once.
 
@@ -361,6 +371,7 @@ We build the driver first so we can stop using `-nostdinc` and `-nostdlib` durin
 - [cc](../core/cc), the driver again
 - [ld/2-full](../core/ld/2-full), the full linker again
 - [as/2-full](../core/as/2-full), the full assembler again
+- [cg/1-full](../core/cg/1-full), the full code generator again
 - [cci/2-full](../core/cci/2-full), the full C compiler again
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor again
 
@@ -375,7 +386,7 @@ Lastly, we build some additional tools that we provide as part of the Onramp too
 
 Our first hex tool was native and platform specific; our second was in Onramp bytecode. This final hex tool is written in C. This is wrapped as `onramphex` and installed as part of the toolchain.
 
-The compiled code is not necessarily faster than what we had previously handwritten (since our compiler isn't great at optimization) but this one will use the buffered I/O functions in our final libc. This can make a dramatic difference in performance on unbuffered VMs, where reading and writing would otherwise require a kernel system call for each individual byte. It also provides much better error messages, making it easier to create new Onramp hex files.
+The compiled code is not necessarily faster than what we had previously handwritten (since our compiler isn't great at optimization) but it will provide much better error messages, making it easier to create and edit Onramp hex files.
 
 It is useful to extend Onramp, for example with machine code implementations of `hex` and `vm` for new platforms. It could also be useful if you want to use Onramp Hexadecimal to write your own binary files unrelated to Onramp.
 
