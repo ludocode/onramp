@@ -42,8 +42,6 @@ CPPFLAGS += \
 
 SRCS=\
 	$(LIBO)/src/libo-error.c \
-	$(LIBO)/src/libo-string.c \
-	$(LIBO)/src/libo-table.c \
 	$(LIBO)/src/libo-util.c \
 	\
 	$(SRC)/src/main.c \
@@ -86,6 +84,7 @@ test-cci1-0: build $(CCI1) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
 			--output build/test/cg-0-asm/cci1 \
+			--cg build/test/cg-0-asm/cg \
 			--cci build/test/cci-1-opc/cci --cci-id opc )
 
 test-cci1-1: build $(CCI1) FORCE
@@ -93,6 +92,7 @@ test-cci1-1: build $(CCI1) FORCE
 			--tests test/cci/1-opc \
 			--nonstd \
 			--output build/test/cg-0-asm/cci1 \
+			--cg build/test/cg-0-asm/cg \
 			--cci build/test/cci-1-opc/cci --cci-id opc )
 
 test: test-cci0-0 test-cci1-0 test-cci1-1
