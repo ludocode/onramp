@@ -386,21 +386,24 @@ static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
 #endif // CCI2_IR
 
 void generate_function(function_t* function) {
-#ifndef CCI2_IR
     node_t* root = function->root;
     emit_source_location(root->token);
 
+    #ifndef CCI2_IR
     // walk the tree, genererating frame offsets for each variable
     int frame_size = generate_parameter_offsets(function);
     frame_size = generate_variable_offsets(root, -frame_size, frame_size);
     frame_size = (frame_size + 3) & ~3;
+    #endif
 
-    // generate the preamble
+    // create the entry block
     current_function = function;
-    current_block = block_new(-1);
+    current_block = block_new(next_label++);
     function_add_block(function, current_block);
-    block_append(current_block, root->token, ENTER);
 
+    #ifndef CCI2_IR
+    // create the stack frame
+    block_append(current_block, root->token, ENTER);
     // note: we don't use block_append_op_imm() because we haven't allocated
     // any registers or saved our arguments yet, so if the stack size is too
     // big, it will clobber r0.
@@ -433,7 +436,21 @@ void generate_function(function_t* function) {
     int reg = register_alloc(root->token);
     generate_node(root->last_child, reg);
     register_free(root->token, reg);
+    #endif // CCI2_IR
 
+    #ifdef CCI2_IR
+    // We always add a return at the end of the function in case control flow
+    // falls off the end. If the function is main, we have to return 0.
+    token_t* ret_token = root->first_child->end_token;
+    instruction_t* ret = block_append(current_block, ret_token, RET, 1);
+    if (string_equal_cstr(function->asm_name, "main")) {
+        instruction_set_arg_number(ret, 0, 0);
+    } else {
+        instruction_set_arg_sentinel(ret, 0);
+    }
+    #endif
+
+    #ifndef CCI2_IR
     // If the last block doesn't end in 'ret', we add a return. If the function
     // is main, we have to return 0.
     size_t count = block_count(current_block);
@@ -445,7 +462,7 @@ void generate_function(function_t* function) {
         block_append(current_block, end_token, LEAVE);
         block_append(current_block, end_token, RET);
     }
-#endif // CCI2_IR
+    #endif
 }
 
 #ifndef CCI2_IR

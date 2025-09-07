@@ -62,11 +62,21 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
     return block->instructions + index;
 }
 
+#ifdef CCI2_IR
+/*
+ * Appends a new instruction to a block with the given number of arguments,
+ * returning it.
+ *
+ * The arguments must be set separately.
+ */
+instruction_t* block_append(block_t* block, struct token_t* token, opcode_t opcode, size_t arg_count);
+#endif
+
 #ifndef CCI2_IR
 /**
  * Appends a new instruction to the end of the block.
  */
-void block_append(block_t* block, struct token_t* token, opcode_t opcode, ...);
+instruction_t* block_append(block_t* block, struct token_t* token, opcode_t opcode, ...);
 
 /**
  * Appends instructions to subtract a value from the stack pointer, keeping the

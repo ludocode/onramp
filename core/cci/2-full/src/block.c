@@ -65,8 +65,15 @@ void block_delete(block_t* block) {
     free(block);
 }
 
-#ifndef CCI2_IR
-void block_append(block_t* block, token_t* token, opcode_t opcode, ...) {
+instruction_t* block_append(block_t* block, token_t* token, opcode_t opcode,
+        #ifndef CCI2_IR
+        // block_append() was variadic when generating assembly.
+        ...
+        #endif
+        #ifdef CCI2_IR
+        size_t arg_count
+        #endif
+) {
     if (block->instructions_count == block->instructions_capacity) {
         // grow
         size_t new_capacity = block->instructions_capacity * 2;
@@ -84,13 +91,23 @@ void block_append(block_t* block, token_t* token, opcode_t opcode, ...) {
     }
 
     instruction_t* instruction = block->instructions + block->instructions_count++;
+
+    #ifndef CCI2_IR
     va_list args;
     va_start(args, opcode);
     instruction_init(instruction);
     instruction_vset(instruction, token, opcode, args);
     va_end(args);
+    #endif
+
+    #ifdef CCI2_IR
+    instruction_init(instruction, token, opcode, arg_count);
+    #endif
+
+    return instruction;
 }
 
+#ifndef CCI2_IR
 void block_sub_rsp(block_t* block, token_t* token, size_t offset) {
     offset = ((offset + 3u) & ~3u);
     block_append_op_imm(block, token, SUB, RSP, RSP, (int)offset);

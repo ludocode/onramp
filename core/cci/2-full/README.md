@@ -1,6 +1,6 @@
 # Onramp Compiler -- Final Stage
 
-The final stage Onramp compiler is simple and fairly traditional. It uses a handwritten recursive-descent parser, it generates a simple parse tree, and it compiles it (poorly) to basic blocks in memory. Minor optimizations are performed on both the parse tree and the blocks of assembly.
+The final stage Onramp compiler is simple and fairly traditional. It uses a handwritten recursive-descent parser, it generates a simple parse tree, and it compiles it (poorly) to basic blocks in memory. Minor optimizations are performed on the parse tree.
 
 Despite its simplicity, we aim to implement most of C11 with many C23 features and many GNU and other extensions.
 
@@ -15,12 +15,12 @@ NOTE: The compiler is currently being converted to generate [intermediate repres
 ## Components
 
 - `arithmetic` - Wrappers for `long long`, `float` and `double` math.
-- `block` - A basic block of assembly instructions, starting with a label and ending in a `jmp` or `ret`.
+- `block` - A basic block of instructions, starting with a label and ending in a `jmp` or `ret`.
 - `common` - Common utility code such as error handling functions.
 - `emit` - Low-level functions for writing the output file: bytes and numbers, opcode and register names, etc.
 - `enum` - The container for an enum and its values.
 - `function` - The container for a function. Contains its parse tree and its list of basic blocks.
-- `generate` - Code generation. Converts the parse tree into basic blocks of assembly.
+- `generate` - Code generation. Converts the parse tree into basic blocks of instructions.
 - `instruction` - A single instruction in a basic block.
 - `lexer` - Converts the input stream into tokens.
 - `node` - A node in a parse tree, along with functions to manipulate it.
@@ -55,11 +55,8 @@ For each function in the input file, the following phases are performed:
 
 - The function is parsed into a tree;
 - An optional optimization pass runs on the tree;
-- The tree is compiled into basic blocks containing assembly code;
-- An optional optimization pass runs on each basic block;
+- The tree is compiled into basic blocks of instructions;
 - The complete function is emitted to the output file.
-
-Note that, to keep the compiler simple, there currently isn't an intermediate representation. The tree is compiled directly into assembly. See the Code Generation section below.
 
 Global variable initializers are compiled as constructor functions where necessary so they also follow the above steps. See the Relative Relocations section below.
 

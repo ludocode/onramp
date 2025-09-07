@@ -25,6 +25,7 @@
 #ifndef INSTRUCTION_H_INCLUDED
 #define INSTRUCTION_H_INCLUDED
 
+#include <assert.h>
 #include <stdint.h>
 
 #ifndef CCI2_IR
@@ -34,6 +35,7 @@
 #endif
 
 #include "common.h"
+#include "token.h"
 
 struct token_t;
 
@@ -119,6 +121,27 @@ typedef enum opcode_t {
 #define RIP 0x8F
 #endif
 
+#ifdef CCI2_IR
+typedef enum argument_type_t {
+    argument_type_sentinel,
+    argument_type_temporary,
+    argument_type_number,
+    argument_type_absolute, // absolute label invocation (uses label field)
+    argument_type_relative, // relative numbered label invocation (uses number field)
+} argument_type_t;
+
+typedef struct argument_t {
+    argument_type_t type;
+    union {
+        // String references in arguments are unowned in order to minimize
+        // per-instruction memory management. The names of strings and
+        // temporaries are held in a pool in the function.
+        string_t* string;
+        uint32_t number;
+    };
+} argument_t;
+#endif
+
 #ifndef CCI2_IR
 // Some instructions support multiple arg types. In that case they take this
 // enum value first which describes the remaining arguments.
@@ -131,10 +154,9 @@ typedef enum instruction_argtypes_t {
 #endif
 
 /**
- * An assembly instruction.
+ * A generated instruction in the intermediate representation.
  *
- * An instruction consists of an opcode and up to three arguments of various
- * types. The fields in use depend on the opcode.
+ * An instruction consists of an opcode and a list of arguments.
  *
  * The instruction contains a strong reference to the nearest token from which
  * the instruction was generated (typically the token of the tree node, for
@@ -144,6 +166,11 @@ typedef enum instruction_argtypes_t {
 typedef struct instruction_t {
     struct token_t* /*nullable*/ token;
     opcode_t opcode;
+
+    #ifdef CCI2_IR
+    argument_t* arguments;
+    size_t argument_count;
+    #endif
 
     #ifndef CCI2_IR
     instruction_argtypes_t argtypes;
@@ -163,8 +190,31 @@ typedef struct instruction_t {
     #endif
 } instruction_t;
 
+#ifdef CCI2_IR
+void instruction_init(instruction_t* instruction, token_t* token, opcode_t opcode, size_t arg_count);
+#endif
+#ifndef CCI2_IR
 void instruction_init(instruction_t* instruction);
+#endif
+
 void instruction_destroy(instruction_t* instruction);
+
+#ifdef CCI2_IR
+static inline argument_t* instruction_argument(instruction_t* instruction, size_t arg) {
+    assert(arg < instruction->argument_count);
+    return instruction->arguments + arg;
+}
+
+void instruction_set_arg_number(instruction_t* instruction, size_t arg, uint32_t number);
+
+void instruction_set_arg_sentinel(instruction_t* instruction, size_t arg);
+
+void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, string_t* temporary);
+
+void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label);
+
+void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label);
+#endif
 
 #ifndef CCI2_IR
 /**

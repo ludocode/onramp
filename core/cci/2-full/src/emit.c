@@ -220,7 +220,6 @@ void emit_string_literal(const string_t* str) {
  * outside the main code path.
  */
 static void emit_blocks(function_t* function, block_t* block) {
-#ifndef CCI2_IR
     for (;;) {
         assert(!block->emitted);
         block->emitted = true;
@@ -240,12 +239,17 @@ static void emit_blocks(function_t* function, block_t* block) {
         instruction_t* last = block_at(block, count - 1);
 
         // make sure the block ends properly
-        if (last->opcode != JMP && last->opcode != RET) {
+        if (last->opcode != JMP && last->opcode != RET
+                #ifdef CCI2_IR
+                //&& last->opcode != BR
+                #endif
+                ) {
             fatal("Internal error: a basic block must end in JMP or RET.");
         }
 
         // check if we end in an unconditional jump
         block_t* next = NULL;
+        #ifndef CCI2_IR
         if (optimization && last->opcode == JMP && last->invocation_type == '&') {
             // see if we can emit the target of the jump
             size_t block_count = vector_count(&function->blocks);
@@ -258,6 +262,7 @@ static void emit_blocks(function_t* function, block_t* block) {
                 }
             }
         }
+        #endif
 
         for (size_t i = 0; i < count; ++i) {
             instruction_emit(block_at(block, i));
@@ -269,7 +274,6 @@ static void emit_blocks(function_t* function, block_t* block) {
         }
         break;
     }
-#endif
 }
 
 void emit_function(function_t* function) {

@@ -25,6 +25,7 @@
 #include "instruction.h"
 
 #include <assert.h>
+#include <stdlib.h>
 
 #include "libo-error.h"
 #include "emit.h"
@@ -95,14 +96,68 @@ static const char* opcode_to_string(opcode_t opcode) {
     fatal("Internal error: no such opcode: %i", (int)opcode);
 }
 
+#ifdef CCI2_IR
+void instruction_init(instruction_t* instruction, token_t* token, opcode_t opcode, size_t arg_count) {
+    instruction->token = token ? token_ref(token) : NULL;
+    instruction->opcode = opcode;
+    instruction->argument_count = arg_count;
+    if (arg_count == 0) {
+        instruction->arguments = NULL;
+    } else {
+        instruction->arguments = malloc(arg_count * sizeof(argument_t));
+        if (!instruction->arguments) {
+            fatal("Out of memory.");
+        }
+    }
+}
+#endif // CCI2_IR
+
+#ifndef CCI2_IR
 void instruction_init(instruction_t* instruction) {
     memset(instruction, 0, sizeof(*instruction));
 }
+#endif // !CCI2_IR
 
 void instruction_destroy(instruction_t* instruction) {
-    if (instruction->token)
+    if (instruction->token) {
         token_deref(instruction->token);
+    }
+
+    #ifdef CCI2_IR
+    free(instruction->arguments);
+    #endif
 }
+
+#ifdef CCI2_IR
+void instruction_set_arg_number(instruction_t* instruction, size_t arg, uint32_t number) {
+    argument_t* argument = instruction_argument(instruction, arg);
+    argument->type = argument_type_number;
+    argument->number = number;
+}
+
+void instruction_set_arg_sentinel(instruction_t* instruction, size_t arg) {
+    argument_t* argument = instruction_argument(instruction, arg);
+    argument->type = argument_type_sentinel;
+}
+
+void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, string_t* temporary) {
+    argument_t* argument = instruction_argument(instruction, arg);
+    argument->type = argument_type_temporary;
+    argument->string = temporary;
+}
+
+void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label) {
+    argument_t* argument = instruction_argument(instruction, arg);
+    argument->type = argument_type_absolute;
+    argument->string = label;
+}
+
+void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label) {
+    argument_t* argument = instruction_argument(instruction, arg);
+    argument->type = argument_type_relative;
+    argument->number = label;
+}
+#endif // CCI2_IR
 
 #ifndef CCI2_IR
 void instruction_vset(instruction_t* instruction, token_t* token,
@@ -246,6 +301,7 @@ void instruction_set(instruction_t* instruction, token_t* token, opcode_t opcode
     instruction_vset(instruction, token, opcode, args);
     va_end(args);
 }
+#endif // !CCI2_IR
 
 void instruction_emit(instruction_t* instruction) {
     if (instruction->opcode == NOP)
@@ -257,13 +313,51 @@ void instruction_emit(instruction_t* instruction) {
     if (instruction->opcode == VALUE) {
         // need to decide what types can value have, probably need number and absolute invocation
         fatal("TODO emit VALUE instruction");
-        emit_number(instruction->number);
+        //emit_number(instruction->number);
         emit_newline();
         return;
     }
 
     emit_cstr(opcode_to_string(instruction->opcode));
 
+    #ifdef CCI2_IR
+    for (size_t i = 0; i < instruction->argument_count; ++i) {
+        emit_char(' ');
+        argument_t* argument = instruction_argument(instruction, i);
+        switch (argument->type) {
+            case argument_type_sentinel:
+                emit_char('$');
+                break;
+            case argument_type_temporary:
+                emit_string(argument->string);
+                break;
+            case argument_type_number:
+                // Small numbers are printed in decimal for readability. Large
+                // numbers are printed in hexadecimal for efficiency.
+                if (argument->number <= 9 || argument->number >= (uint32_t)(-9)) {
+                    emit_number(argument->number);
+                } else {
+                    emit_cstr("0x");
+                    emit_hex_number(argument->number);
+                }
+                break;
+            case argument_type_absolute:
+                emit_char('^');
+                emit_string(argument->string);
+                break;
+            case argument_type_relative:
+                emit_char('&');
+                emit_string(argument->string);
+                break;
+        }
+    }
+
+    if (instruction->opcode == CALL) {
+        emit_cstr(" end");
+    }
+    #endif
+
+    #ifndef CCI2_IR
     switch (instruction->opcode) {
         case NOP:
         case VALUE:
@@ -380,7 +474,7 @@ void instruction_emit(instruction_t* instruction) {
         default:
             fatal("Internal error: no such opcode: %i", (int)instruction->opcode);
     }
+    #endif
 
     emit_newline();
 }
-#endif
