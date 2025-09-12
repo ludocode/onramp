@@ -22,51 +22,35 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#include "instruction.h"
 
 #include <stdlib.h>
 
 #include "libo-error.h"
+#include "argument.h"
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
-}
-
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
-    }
-}
-
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
+instruction_t* instruction_new(const location_t* location, opcode_t opcode) {
+    instruction_t* instruction = malloc(sizeof(instruction_t));
+    if (!instruction) {
         fatal("Out of memory.");
     }
-    location_init(location, filename, line, source);
-    return location;
+
+    instruction->location = location_new_copy(location);
+    instruction->opcode = opcode;
+    vector_init(&instruction->arguments);
+
+    return instruction;
 }
 
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
+void instruction_delete(instruction_t* instruction) {
+    location_delete(instruction->location);
+    for (size_t i = 0; i < vector_count(&instruction->arguments); ++i) {
+        argument_delete(vector_at(&instruction->arguments, i));
+    }
+    vector_destroy(&instruction->arguments);
+    free(instruction);
 }
 
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
+void instruction_append(instruction_t* instruction, argument_t* argument) {
+    vector_append(&instruction->arguments, argument);
 }

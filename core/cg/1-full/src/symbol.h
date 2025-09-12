@@ -22,51 +22,27 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#ifndef SYMBOL_H_INCLUDED
+#define SYMBOL_H_INCLUDED
 
-#include <stdlib.h>
+struct block_t;
+struct vector_t;
 
-#include "libo-error.h"
+/**
+ * All data for the current symbol being compiled.
+ *
+ * This is mostly gathered together as a convenience so we don't have stuff
+ * scattered everywhere.
+ */
+typedef struct symbol_t {
+    char* name;
+    struct vector_t* blocks;
+} symbol_t;
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
-}
+//extern symbol_t* current_symbol;
 
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
-    }
-}
+symbol_t* symbol_new(const char* name);
 
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
-        fatal("Out of memory.");
-    }
-    location_init(location, filename, line, source);
-    return location;
-}
+void symbol_delete(symbol_t* symbol);
 
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
-}
-
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
-}
+#endif

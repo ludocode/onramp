@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,16 @@
 #ifndef PARSE_H_INCLUDED
 #define PARSE_H_INCLUDED
 
-bool parse_function(void);
+struct symbol_t;
 
-void parse_clear(void);
+void parse_setup(const char* input_filename);
+void parse_teardown(void);
+
+/**
+ * Consumes the current character, reading a new one into current_char.
+ */
+void parse_next_char(void);
+
+struct symbol_t* /*nullable*/ try_parse_symbol(void);
 
 #endif

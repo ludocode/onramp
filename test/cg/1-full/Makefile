@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2025 Fraser Heavy Software
+# Copyright (c) 2025-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,21 +40,36 @@ CPPFLAGS += \
 
 SRCS=\
 	$(LIBO)/src/libo-error.c \
+	$(LIBO)/src/libo-reader.c \
 	$(LIBO)/src/libo-string.c \
 	$(LIBO)/src/libo-table.c \
+	$(LIBO)/src/libo-unicode.c \
 	$(LIBO)/src/libo-util.c \
+	$(LIBO)/src/libo-vector.c \
 	\
+	$(SRC)/src/argument.c \
+	$(SRC)/src/block.c \
+	$(SRC)/src/common.c \
 	$(SRC)/src/emit.c \
+	$(SRC)/src/instruction.c \
 	$(SRC)/src/location.c \
 	$(SRC)/src/main.c \
+	$(SRC)/src/opcode.c \
 	$(SRC)/src/optimize.c \
 	$(SRC)/src/parse.c \
+	$(SRC)/src/symbol.c \
 
 HEADERS=\
+	$(SRC)/src/argument.h \
+	$(SRC)/src/block.h \
+	$(SRC)/src/common.h \
 	$(SRC)/src/emit.h \
+	$(SRC)/src/instruction.h \
 	$(SRC)/src/location.h \
+	$(SRC)/src/opcode.h \
 	$(SRC)/src/optimize.h \
 	$(SRC)/src/parse.h \
+	$(SRC)/src/symbol.h \
 
 all: build test FORCE
 FORCE:
@@ -70,6 +85,12 @@ $(OUT)/cg: $(SRCS) $(HEADERS) Makefile
 
 $(CCI2): FORCE
 	@(make -C ../../cci/2-full build-ir)
+
+test-cg1: build FORCE
+	( cd ../../.. && test/cg/run.sh \
+			--tests test/cg/1-full \
+			--output output/test/cg-1-full \
+			--cg output/test/cg-1-full/cg )
 
 test-cci0: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
@@ -93,4 +114,4 @@ test-cci2: build $(CCI2) FORCE
 			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
-test: test-cci0 test-cci1 test-cci2
+test: test-cg1 test-cci0 test-cci1 test-cci2

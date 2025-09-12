@@ -22,51 +22,48 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#ifndef ARGUMENT_H_INCLUDED
+#define ARGUMENT_H_INCLUDED
 
-#include <stdlib.h>
+#include "libo-string.h"
 
-#include "libo-error.h"
+typedef enum argument_type_t {
+    argument_type_sentinel = 0,
+    argument_type_register, // number is register (0-15)
+    argument_type_temporary,
+    argument_type_number,
+    argument_type_absolute, // absolute symbol invocation (uses string field)
+    argument_type_relative, // relative numbered label invocation (uses number field)
+} argument_type_t;
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
-}
+/**
+ * An argument to an instruction.
+ */
+typedef struct argument_t {
+    argument_type_t type;
+    union {
+        string_t* string; // strong reference
+        uint32_t number;
+    };
+} argument_t;
 
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
-    }
-}
+/**
+ * Creates a sentinel argument.
+ */
+argument_t* argument_new_sentinel(void);
 
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
-        fatal("Out of memory.");
-    }
-    location_init(location, filename, line, source);
-    return location;
-}
+/**
+ * Creates a register or number argument.
+ */
+argument_t* argument_new_number(argument_type_t type, uint32_t number);
 
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
-}
+/**
+ * Creates an invocation or temporary argument.
+ *
+ * Takes ownership of the given string.
+ */
+argument_t* argument_new_string(argument_type_t type, string_t* string);
 
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
-}
+void argument_delete(argument_t* argument);
+
+#endif

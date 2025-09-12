@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,16 @@
  */
 
 #include "emit.h"
+
+#include "common.h"
+
+void emit_char(char c) {
+    fputc(c, output_file);
+}
+
+void emit_cstr(const char* cstr) {
+    fputs(cstr, output_file);
+}
 
 void emit_function(void) {
     // TODO

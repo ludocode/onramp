@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,27 +30,44 @@
 /**
  * A source location.
  *
- * This will eventually be moved to libo/1, but cpp/2 has to be converted to
- * match this first.
+ * The location contains a reference to its source. This is used to display the
+ * chain of include files leading to a particular error.
+ *
+ * Note that memory management for source locations is not handled by the
+ * location itself. It is up to the owner of the location to also maintain
+ * ownership of the source chain (by reference counting tokens for example.)
+ *
+ * TODO: This should be moved to libo/1, but cpp/2 and cci/2 have to be
+ * converted to match first.
  */
 typedef struct location_t {
-    unsigned refcount;
     string_t* /*nullable*/ filename;
     unsigned line;
     unsigned column;
     struct location_t* /*nullable*/ source;
 } location_t;
 
-location_t* location_new(string_t* filename, int line, int column,
+/**
+ * Initializes a source location.
+ * 
+ * This doesn't take a column number to keep the argument count at 4 (the limit
+ * of cci/0.) It is initialized to 0 and can be set separately if used.
+ */
+void location_init(
+        location_t* location,
+        string_t* /*nullable*/ filename,
+        int line,
         location_t* /*nullable*/ source);
 
-location_t* location_new_copy(location_t* other);
+void location_destroy(location_t* location);
 
-static inline location_t* location_ref(location_t* location) {
-    ++location->refcount;
-    return location;
-}
+location_t* location_new(
+        string_t* /*nullable*/ filename,
+        int line,
+        location_t* /*nullable*/ source);
 
-void location_deref(location_t* location);
+location_t* location_new_copy(const location_t* other);
+
+void location_delete(location_t* location);
 
 #endif

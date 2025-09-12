@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025-2026 Fraser Heavy Software
+ * Copyright (c) 2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,12 +22,23 @@
  * SOFTWARE.
  */
 
-#ifndef EMIT_H_INCLUDED
-#define EMIT_H_INCLUDED
+#ifndef OPCODE_INCLUDED
+#define OPCODE_INCLUDED
 
-void emit_char(char c);
-void emit_cstr(const char* cstr);
+typedef enum opcode_t {
+    opcode_ret,
+    opcode_jmp,
+    opcode_br,
+} opcode_t;
 
-void emit_function(void);
+/**
+ * Returns true if the opcode is valid for the end of a block.
+ */
+bool opcode_is_block_end(opcode_t opcode);
+
+opcode_t opcode_from_identifier(const char* identifier);
+
+void opcode_setup(void);
+void opcode_teardown(void);
 
 #endif

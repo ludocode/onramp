@@ -22,51 +22,25 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#ifndef BLOCK_H_INCLUDED
+#define BLOCK_H_INCLUDED
 
-#include <stdlib.h>
+struct vector_t;
+struct instruction_t;
 
-#include "libo-error.h"
+typedef struct block_t {
+    // TODO location
+    char* name;
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
-}
+    // The list of instructions. Upon parsing the input, the last instruction
+    // must be a block end instruction (ret, jmp, br), and no other
+    // instructions can be block ends. The instructions are then transformed in
+    // place into assembly.
+    struct vector_t* instructions;
+} block_t;
 
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
-    }
-}
+block_t* block_new(const char* name);
 
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
-        fatal("Out of memory.");
-    }
-    location_init(location, filename, line, source);
-    return location;
-}
+void block_delete(block_t* block);
 
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
-}
-
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
-}
+#endif

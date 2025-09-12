@@ -22,51 +22,17 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#ifndef COMMON_H_INCLUDED
+#define COMMON_H_INCLUDED
 
-#include <stdlib.h>
+#include <stdio.h>
 
-#include "libo-error.h"
+extern FILE* input_file;
+extern FILE* output_file;
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
-}
+struct location_t;
 
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
-    }
-}
+_Noreturn
+void fatal_loc(struct location_t* location, const char* message);
 
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
-        fatal("Out of memory.");
-    }
-    location_init(location, filename, line, source);
-    return location;
-}
-
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
-}
-
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
-}
+#endif

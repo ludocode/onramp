@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,14 +31,15 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
+#include "common.h"
 #include "emit.h"
 #include "libo-error.h"
+#include "opcode.h"
 #include "optimize.h"
 #include "parse.h"
-
-static FILE* input_file;
-static FILE* output_file;
+#include "symbol.h"
 
 static void usage(const char* name) {
     fputs("\nUsage: ", stderr);
@@ -116,21 +117,33 @@ int main(int argc, char** argv) {
         usage(argv[0]);
     }
 
+    opcode_setup();
+
+    // setup files
     open_output(output_filename);
     open_input(input_filename);
-    current_filename = input_filename;
-    current_line = 1;
-    //read_char();
+    parse_setup(input_filename);
 
-    while (parse_function()) {
+    // prime parser
+    parse_next_char();
+
+    // parse, optimize, codegen and emit symbols
+    for (;;) {
+        symbol_t* symbol = try_parse_symbol();
+        if (!symbol) {
+            break;
+        }
         // TODO optimizations
         // TODO conversion to assembly
         emit_function();
-        parse_clear();
+        symbol_delete(symbol);
     }
 
+    parse_teardown();
     fclose(input_file);
     fclose(output_file);
+
+    opcode_teardown();
 
     return 0;
 }

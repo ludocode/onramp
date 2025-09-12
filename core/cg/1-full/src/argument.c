@@ -22,51 +22,51 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#include "argument.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
 #include "libo-error.h"
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
-}
-
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
+void argument_delete(argument_t* argument) {
+    switch (argument->type) {
+        case argument_type_temporary:
+        case argument_type_absolute:
+        case argument_type_relative:
+            string_deref(argument->string);
+            break;
+        default:
+            break;
     }
+    free(argument);
 }
 
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
+static argument_t* argument_new_type(argument_type_t type) {
+    argument_t* argument = malloc(sizeof(argument_t));
+    if (!argument) {
         fatal("Out of memory.");
     }
-    location_init(location, filename, line, source);
-    return location;
+    argument->type = type;
+    return argument;
 }
 
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
+argument_t* argument_new_sentinel(void) {
+    return argument_new_type(argument_type_sentinel);
 }
 
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
+argument_t* argument_new_number(argument_type_t type, uint32_t number) {
+    assert(type == argument_type_number || type == argument_type_register);
+    argument_t* argument = argument_new_type(type);
+    argument->number = number;
+    return argument;
+}
+
+argument_t* argument_new_string(argument_type_t type, string_t* string) {
+    assert(type == argument_type_temporary
+            || type == argument_type_relative
+            || type == argument_type_absolute);
+    argument_t* argument = argument_new_type(type);
+    argument->string = string;
+    return argument;
 }

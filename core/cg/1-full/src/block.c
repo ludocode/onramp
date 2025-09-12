@@ -22,51 +22,27 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#include "block.h"
 
 #include <stdlib.h>
+#include <string.h>
 
-#include "libo-error.h"
+#include "instruction.h"
+#include "libo-vector.h"
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
+block_t* block_new(const char* name) {
+    block_t* block = malloc(sizeof(block_t));
+    block->name = strdup(name);
+    block->instructions = vector_new();
+    return block;
 }
 
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
+void block_delete(block_t* block) {
+    for (size_t i = vector_count(block->instructions); i-- > 0;) {
+        instruction_delete(vector_at(block->instructions, i));
     }
+    vector_delete(block->instructions);
+    free(block->name);
+    free(block);
 }
 
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
-        fatal("Out of memory.");
-    }
-    location_init(location, filename, line, source);
-    return location;
-}
-
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
-}
-
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
-}

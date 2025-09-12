@@ -22,51 +22,28 @@
  * SOFTWARE.
  */
 
-#include "location.h"
+#include "symbol.h"
 
 #include <stdlib.h>
+#include <string.h>
 
-#include "libo-error.h"
+#include "block.h"
+#include "libo-vector.h"
 
-void location_init(
-        location_t* location,
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location->filename = filename ? string_ref(filename) : NULL;
-    location->line = line;
-    location->column = 0;
-    location->source = source;
+//symbol_t* current_symbol;
+
+symbol_t* symbol_new(const char* name) {
+    symbol_t* symbol = malloc(sizeof(symbol_t));
+    symbol->name = strdup(name);
+    symbol->blocks = vector_new();
+    return symbol;
 }
 
-void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
+void symbol_delete(symbol_t* symbol) {
+    for (size_t i = vector_count(symbol->blocks); i-- > 0;) {
+        block_delete(vector_at(symbol->blocks, i));
     }
-}
-
-location_t* location_new(
-        string_t* /*nullable*/ filename,
-        int line,
-        location_t* /*nullable*/ source)
-{
-    location_t* location = malloc(sizeof(location_t));
-    if (!location) {
-        fatal("Out of memory.");
-    }
-    location_init(location, filename, line, source);
-    return location;
-}
-
-location_t* location_new_copy(const location_t* other) {
-    return location_new(
-            other->filename,
-            other->line,
-            other->source);
-}
-
-void location_delete(location_t* location) {
-    location_destroy(location);
-    free(location);
+    vector_delete(symbol->blocks);
+    free(symbol->name);
+    free(symbol);
 }
