@@ -147,7 +147,8 @@ static node_t* parse_do(void) {
     lexer_expect(STR_WHILE, "Expected `while` after statement of `do` loop.");
     lexer_expect(STR_PAREN_OPEN, "Expected `(` after `while`.");
     node_append(node_do, parse_predicate());
-    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after condition for `while`.");
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after predicate of `do` ... `while`.");
+    lexer_expect(STR_SEMICOLON, "Expected `;` after closing parenthesis of `do` ... `while` predicate.");
 
     return node_do;
 }
