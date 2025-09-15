@@ -746,7 +746,11 @@ bool try_parse_declaration(
 static void parse_local_declaration(type_t* type, char* /*nullable*/ name) {
     if (name == NULL) {
         // We ignore useless variable declarations.
+        if (!lexer_accept(";")) {
+            fatal("Expected an identifier or `;` for this declaration.");
+        }
         type_delete(type);
+        return;
     }
 
     //printf("defining new variable %s\n",name);

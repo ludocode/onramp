@@ -203,7 +203,7 @@ EXPECTED_STDOUT=
 EXPECTED_STDOUT_STRING=
 
 # Check for //% comments
-while read COMMMENT DIRECTIVE VALUE; do
+while read COMMENT DIRECTIVE VALUE; do
     LINE=$(($LINE + 1))
     if [ "$COMMENT" != "//%" ]; then
         continue
