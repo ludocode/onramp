@@ -44,7 +44,7 @@ DEST=build/build.ninja
 
 
 # Core POSIX setup
-# This is duplicated from scripts/posix/build.sh
+# This is duplicated from scripts/posix/native.sh
 
 echo "Cleaning build/"
 rm -rf build
@@ -269,13 +269,13 @@ comment "libc/3-full"
 srcs_onramp libc-3-full \
     core/libc/2-opc/src/start.os \
     \
-    core/libc/1-omc/src/malloc.c \
     core/libc/1-omc/src/strtol.c \
     \
     core/libc/2-opc/src/assert.c \
     core/libc/2-opc/src/ctype.c \
     core/libc/2-opc/src/environ.c \
     core/libc/2-opc/src/file.c \
+    core/libc/2-opc/src/float.c \
     core/libc/2-opc/src/format.c \
     core/libc/2-opc/src/io.c \
     core/libc/2-opc/src/llong.c \
@@ -290,6 +290,7 @@ srcs_onramp libc-3-full \
     \
     core/libc/3-full/src/atexit.c \
     core/libc/3-full/src/bsearch.c \
+    core/libc/3-full/src/malloc.c \
     core/libc/3-full/src/qsort.c \
     core/libc/3-full/src/rand.c \
     core/libc/3-full/src/signal.c \
@@ -298,10 +299,10 @@ srcs_onramp libc-3-full \
     core/libc/3-full/src/time.c
     # TODO just include libc/3/*.c once malloc works
 # TODO shouldn't depend on ar.oe, necessary until we have native ar
-build archive_onramp build/output/lib/libc.oa "native build/output/bin/ar.oe" \
+build archive_onramp build/output/lib/libc.oa \
+    "native build/output/bin/ar.oe" \
     $OBJS \
     core/libc/0-oo/src/errno.oo \
-    core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo
 
 comment "sh/1 TODO"
