@@ -76,7 +76,7 @@ void scope_deref(scope_t* scope) {
 
     // free records
     for (size_t i = 0; i < vector_count(&scope->records); ++i) {
-        record_delete(vector_at(&scope->records, i));
+        record_deref(vector_at(&scope->records, i));
     }
     vector_destroy(&scope->records);
 

@@ -513,6 +513,10 @@ static void parse_record(specifiers_t* specifiers) {
                     tag,
                     type);
         }
+
+        if (current_function) {
+            function_add_record(current_function, record);
+        }
     }
 
     specifiers->type = type;

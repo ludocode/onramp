@@ -61,8 +61,16 @@ typedef struct member_t {
  *
  * Named members, as well as the named members of anonymous nested structs and
  * unions, are stored in a hashtable for quick lookups.
+ *
+ * Records are reference counted but types do not store strong references to
+ * records because this would create circular references. Instead, strong
+ * references to records are owned by scopes (including the global scope) as
+ * well as functions (for all records defined in it.) Local scopes disappear
+ * during parsing but we need locally declared records to continue to exist
+ * until after the function is generated.
  */
 typedef struct record_t {
+    unsigned refcount;
     bool is_struct;
     bool is_defined;
     struct token_t* tag; // NULL if anonymous
@@ -81,10 +89,12 @@ typedef struct record_t {
  */
 record_t* record_new(struct token_t* tag, bool is_struct);
 
-/**
- * Deletes the given record.
- */
-void record_delete(record_t* record);
+static inline record_t* record_ref(record_t* record) {
+    ++record->refcount;
+    return record;
+}
+
+void record_deref(record_t* record);
 
 /**
  * Returns the members of this record.

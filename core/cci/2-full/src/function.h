@@ -34,6 +34,7 @@ struct type_t;
 struct token_t;
 struct symbol_t;
 struct node_t;
+struct record_t;
 
 /**
  * A function.
@@ -48,6 +49,7 @@ typedef struct function_t {
     int variadic_offset; // offset above rfp where variadic args start
     int name_label; // label for __func__ string
     struct symbol_t* symbol;
+    vector_t records;
 } function_t;
 
 function_t* function_new(struct type_t* type, struct token_t* name,
@@ -60,5 +62,7 @@ void function_add_block(function_t* function, struct block_t* block);
 void function_add_label(function_t* function, struct node_t* label);
 
 struct node_t* function_find_label(function_t* function, struct string_t* name);
+
+void function_add_record(function_t* function, struct record_t* record);
 
 #endif

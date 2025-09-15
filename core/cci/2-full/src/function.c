@@ -27,9 +27,10 @@
 #include <stdlib.h>
 
 #include "block.h"
-#include "type.h"
 #include "node.h"
+#include "record.h"
 #include "token.h"
+#include "type.h"
 
 typedef struct label_node_t {
     table_entry_t entry;
@@ -62,10 +63,17 @@ function_t* function_new(type_t* type, token_t* name,
     table_init(&function->labels);
     function->variadic_offset = -1;
     function->name_label = -1;
+    vector_init(&function->records);
     return function;
 }
 
 void function_delete(function_t* function) {
+
+    // free records
+    for (size_t i = 0; i < vector_count(&function->records); ++i) {
+        record_deref(vector_at(&function->records, i));
+    }
+    vector_destroy(&function->records);
 
     // free labels
     for (table_entry_t** bucket = table_first_bucket(&function->labels);
@@ -121,4 +129,8 @@ node_t* function_find_label(function_t* function, string_t* name) {
         }
     }
     return NULL;
+}
+
+void function_add_record(function_t* function, record_t* record) {
+    vector_append(&function->records, record_ref(record));
 }
