@@ -800,6 +800,8 @@ static uint32_t vm_fwrite(vm_t* vm) {
         // Setting stdin to non-blocking apparently causes stdout to fail on
         // fwrite() calls.  TODO the debugger pretty much requires POSIX so we
         // should get rid of the C file API entirely and just use POSIX.
+        // TODO finally figured out why this is, setting stdin to nonblock sets
+        // it for stdout as well.
         ssize_t sret = write(fileno(file), buffer, count);
         if (sret < 0) {
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
@@ -1394,9 +1396,19 @@ static struct termios saved_termios;
 static bool saved_termios_valid;
 
 static void io_teardown(void) {
+
+    // Restore the original terminal state
     if (saved_termios_valid) {
         tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
     }
+
+    // Clear the non-blocking flag
+    // (This is critical on macOS because setting stdout to non-blocking also
+    // sets it on stdin, and unlike on Linux, on macOS file status flags are
+    // shared with all copies of the file descriptor. Other processes in a
+    // pipeline may not be expecting their output to be non-blocking and
+    // will fail when they get EWOULDBLOCK.)
+    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
 }
 
 static void signal_handler(int signal) {
