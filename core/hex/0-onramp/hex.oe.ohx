@@ -77,12 +77,12 @@
 ;   B70  exit
 ;   BA0  write_all
 ;   D00  input_buffer
-;   E00  output_buffer
 ;   F00  open_input_file
 ;   F90  open_output_file
 ;  1060  read_char
 ;  11A0  flush
 ;  1230  end_parsing
+;  1320  output_buffer
 
 
 
@@ -451,7 +451,7 @@
 
     ; clear the output buffer
     7C 8A 00 00   ; ims ra <output_buffer
-    7C 8A 00 0E   ; ims ra >output_buffer
+    7C 8A 20 13   ; ims ra >output_buffer (0x1320)
     70 8A 8A 8E   ; add ra ra rpp
     79 8A 8E 3C   ; stw ra rpp 0x3C    ; output_buffer_pos = &output_buffer
 
@@ -834,11 +834,11 @@
 
     ; get the output buffer
     7C 8A 00 00    ; ims ra <output_buffer
-    7C 8A 00 0E    ; ims ra >output_buffer (0xE00)
+    7C 8A 20 13    ; ims ra >output_buffer (0x1320)
     70 82 8E 8A    ; add r2 rpp ra
 
     ; get the end of the output buffer
-    76 83 01 08    ; shl r3 1 8     ; r3 = 256
+    76 83 01 09    ; shl r3 1 9     ; r3 = 512
     70 83 82 83    ; add r3 r2 r3
 
     ; check if there is space left in the buffer
@@ -861,7 +861,7 @@
 
     ; reset the buffer pos to the start
     7C 8A 00 00    ; ims ra <output_buffer
-    7C 8A 00 0E    ; ims ra >output_buffer (0xE00)
+    7C 8A 20 13    ; ims ra >output_buffer (0x1320)
     70 82 8E 8A    ; add r2 rpp ra
     79 82 8E 3C    ; stw r2 rpp 0x3C   ; output_buffer_pos
 
@@ -1552,7 +1552,7 @@
 
 
 ;==========================================
-; char input_buffer[256];
+; char input_buffer[512];
 ;==========================================
 ; The input buffer.
 ;
@@ -1577,20 +1577,7 @@
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
-@0xE00
 
-
-
-;==========================================
-; char output_buffer[256];
-;==========================================
-; The output buffer.
-;
-; output_buffer_pos points into this buffer. The portion of the buffer that
-; contains data is the range from the start of this buffer to the pointer.
-;==========================================
-
-@0xE00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
@@ -1838,7 +1825,7 @@
     7C 8A 00 00    ; ims ra <input_buffer
     7C 8A 00 0D    ; ims ra >input_buffer (0xD00)
     70 81 8E 8A    ; add r1 rpp ra
-    76 82 01 08    ; shl r2 1 8     ; r2 = 256
+    76 82 01 09    ; shl r2 1 9     ; r2 = 512
 
     ; get syscall fread into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
@@ -1925,7 +1912,7 @@
 
     ; get the output buffer
     7C 8A 00 00    ; ims ra <output_buffer
-    7C 8A 00 0E    ; ims ra >output_buffer (0xE00)
+    7C 8A 20 13    ; ims ra >output_buffer (0x1320)
     70 81 8E 8A    ; add r1 rpp ra
 
     ; get the byte count
@@ -2082,3 +2069,50 @@
     00 00 00 00 00 00 00 00
     00 00 00 00
 @0x1320
+
+
+
+;==========================================
+; char output_buffer[512];
+;==========================================
+; The output buffer.
+;
+; output_buffer_pos points into this buffer. The portion of the buffer that
+; contains data is the range from the start of this buffer to the pointer.
+;==========================================
+
+@0x1320
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+@0x1520
