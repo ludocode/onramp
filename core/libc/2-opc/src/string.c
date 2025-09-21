@@ -508,10 +508,10 @@ char* strstr(const char* haystack, const char* needle) {
     return (char*)memmem(haystack, strlen(haystack), needle, strlen(needle));
 }
 
-static char** strtok_state;
+static char* strtok_state;
 
 char* strtok(char* restrict string, const char* restrict delimiters) {
-    return strtok_r(string, delimiters, strtok_state);
+    return strtok_r(string, delimiters, &strtok_state);
 }
 
 char* strtok_r(char* restrict v_str,
