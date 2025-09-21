@@ -173,11 +173,6 @@
 ; ==========================================================
 ; Exits without closing anything or cleaning anything up.
 ;
-; You must close file descriptors yourself before exiting the program!
-;
-; TODO we should probably try to close files, especially if we're
-; exiting from __fatal().
-;
 ; params:
 ;     status: r0
 ; ==========================================================
@@ -188,15 +183,6 @@
     ; push exit status
     71 8C 8C 04     ; sub rsp rsp 4     ; push r0
     79 80 00 8C     ; stw r0 0 rsp      ; ...
-
-    ; call __close_all_files
-    7C 8A <__close_all_files   ; ims ra <__close_all_files
-    7C 8A >__close_all_files   ; ims ra >__close_all_files
-    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
-    70 8B 8F 08          ; add rb rip 8
-    79 8B 00 8C          ; stw rb 0 rsp
-    70 8F 8E 8A          ; add rip rpp ra         ; jump
-    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
 
     ; pop exit status
     78 80 00 8C     ; ldw r0 0 rsp      ; pop r0

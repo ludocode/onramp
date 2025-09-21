@@ -61,7 +61,7 @@ static void print_callstack(void);
 // but break into it if something goes wrong
 vm_ghost_noreturn
 static void panic(const char* e) {
-    fprintf(stderr, "%s\n", e);
+    fprintf(stderr, "VM PANIC: %s\n", e);
     print_callstack();
     //vm_ghost_debugbreak();
     exit(125);
@@ -515,6 +515,9 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
             panic("Error reading program!");
         }
         addr += (uint32_t)ret;
+    }
+    if (addr == start) {
+        panic("Program is empty.");
     }
 
     // if the program starts with "#!" or "REM", skip the first 128 bytes
