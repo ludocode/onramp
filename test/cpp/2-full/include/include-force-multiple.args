@@ -1,0 +1,1 @@
+-include include/include-force-multiple-a.h -include include/include-force-multiple-b.h $INPUT -o $OUTPUT

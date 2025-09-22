@@ -84,7 +84,6 @@ static void preprocess_prepare_include(void) {
  * new file and then returns.
  */
 static void preprocess_include_file(string_t* filename, FILE* file, struct token_t* source) {
-    //trace("pushing file %s\n", filename->bytes);
     if (file_current != NULL) {
         emit_pragma_file_push();
         vector_append(&files, file_current);
@@ -92,6 +91,7 @@ static void preprocess_include_file(string_t* filename, FILE* file, struct token
     file_current = file_new(filename, file, source);
     lexer_current = file_current->lexer;
     emit_location_start(filename);
+    //trace("pushed file %s %p\n", filename->bytes, (void*)file_current);
 }
 
 /*
@@ -158,7 +158,7 @@ static void preprocess_run(stream_t* stream) {
         token_t* token = stream_peek(stream);
         //trace("\npreprocessing token: "); token_print(token);
         if (token->type == token_type_end) {
-            //trace("popping file %s\n", file_current->lexer->reader.filename->bytes);
+            //trace("popping file %s %p\n", file_current->lexer->reader.filename->bytes, (void*)file_current);
             file_delete(file_current);
 
             // Always end all include files in a newline. (Otherwise if a
@@ -168,6 +168,7 @@ static void preprocess_run(stream_t* stream) {
 
             // If there are no more files, we're done
             if (vector_is_empty(&files)) {
+                file_current = NULL;
                 break;
             }
 
