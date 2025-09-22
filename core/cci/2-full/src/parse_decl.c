@@ -842,10 +842,6 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
             *out_name = lexer_take();
             found = true;
         }
-
-        if (!found) {
-            return false;
-        }
     }
 
     // Function and array declarators have left-to-right associativity, so each
@@ -855,6 +851,7 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
 
         // Square brackets are arrays
         if (lexer_accept(STR_SQUARE_OPEN)) {
+            found = true;
             type_t* array;
             if (lexer_accept(STR_SQUARE_CLOSE)) {
                 array = type_new_declarator(DECLARATOR_INDETERMINATE);
@@ -874,6 +871,7 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
 
         // Parens after another direct declarator are function arguments.
         if (lexer_accept(STR_PAREN_OPEN)) {
+            found = true;
             parse_function_arguments(brackets);
             brackets = &(*brackets)->ref;
             if (lexer_is(STR_PAREN_OPEN)) {
