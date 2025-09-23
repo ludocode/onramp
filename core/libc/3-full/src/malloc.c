@@ -230,26 +230,13 @@ void __malloc_init(void) {
         // aligned below.)
         __heap_start = __process_info_table[__ONRAMP_PIT_BREAK];
 
-        // The heap end is the bottom of the stack. For now we reserve 32kB for
-        // the stack. We just subtract it from the address of a local variable,
-        // close enough.
+        // The heap end is the bottom of the stack. For now we reserve 128 kB
+        // for the stack which is the same as musl.
+        // TODO use the real stack base, for now we just subtract it from the
+        // address of a local variable.
         char* dummy;
-        __heap_end = (char*)&dummy - 32768;
+        __heap_end = (char*)&dummy - 128 * 1024;
         //printf("__heap_start 0x%p __heap_end 0x%p dummy stack var 0x%p\n", __heap_start, __heap_end, &dummy);
-
-        // TODO when assigning the heap_end we need to reserve space for the
-        // stack. For the full libc we need to decide a stack size. Probably we
-        // could do the smaller of 128 kB or, say, 1/32 the available memory.
-        // So the stack tops out at 128kB, but if there is less than 4 MB of
-        // RAM, the stack will be less than 128 kB. (128 kB is the stack size
-        // for musl, most other sytems are larger, e.g. Windows is 1 MB, glibc
-        // is 8 MB.)
-        //
-        // At 1/32 of 256 kB, the stack will be 8 kB. This matches what we
-        // bootstrap in 1-omC so our compiler should run but the software we
-        // compile with it might not. (We should also have a minimum stack
-        // size, probably of 8 kB.)
-
 
     #elif defined(__linux__)
         // On Linux we allocate a big chunk to the heap.
@@ -265,10 +252,9 @@ void __malloc_init(void) {
     __heap_end = (char*)((int)__heap_end & (~3));
 
     if (__heap_end < __heap_start || (uintptr_t)(__heap_end - __heap_start) < (uintptr_t)(4 * sizeof(size_t))) {
-        // Not enough heap to do anything useful. We simply return without
-        // creating any free allocations so all attempts at allocating will
-        // fail.
-        return;
+        // Not enough heap to do anything useful. We will need an allocator to
+        // setup stdio so we can't do anything.
+        // TODO we need to use the alloc syscall if available to grow the heap.
     }
 
     // Place sentinel tags at either end of the heap. This eliminates special
