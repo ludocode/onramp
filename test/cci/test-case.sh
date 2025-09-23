@@ -62,6 +62,7 @@
 # --nonstd           Run the test even if it is marked non-standard
 # --noskip           Run the test even if it is marked skip
 # --noclean          Don't delete intermediate files after passing.
+# -v, --verbose      Print commands, print all output
 #
 # The cg tool is optional, but note that testing of cci/2 requires (or will
 # soon require) cg/1 to translate its IR.
@@ -143,6 +144,7 @@ RUN_SKIP=0
 OUTPUT_PATH=
 TESTFILE=
 CLEAN=1
+VERBOSE=0
 
 # Parse command-line options
 set +e
@@ -164,6 +166,8 @@ while true; do
         --test) TESTFILE="$1"; shift ;;
         --nonstd) RUN_NONSTD=1 ;;
         --noclean) CLEAN=0 ;;
+        -v) VERBOSE=1 ;;
+        --verbose) VERBOSE=1 ;;
         *)
             echo "$0: ERROR: Invalid command-line argument: $ARG" >&2
             exit 1
@@ -329,14 +333,26 @@ fi
 ###########################
 
 TOOL_LOG="$OUTPUT_PATH/$BASENAME.tool-log"
+rm -f "$TOOL_LOG"
+touch "$TOOL_LOG"
 
 # Preprocess (if not .i)
 CPP_OUTPUT=$OUTPUT_PATH/$BASENAME.i
 INPUT="$TESTFILE"
 if echo "$TESTFILE" | grep -q '\.c$'; then
     OUTPUT=$CPP_OUTPUT
-    if ! $CPP_PREFIX $CPP $MACROS $INPUT -o $OUTPUT &> $TOOL_LOG; then
+    COMMAND="$CPP_PREFIX $CPP $MACROS $INPUT -o $OUTPUT"
+    set +e
+    if [ $VERBOSE -eq 1 ]; then
+        echo Running preprocessor: $COMMAND
+        $COMMAND
+    else
+        $COMMAND &> $TOOL_LOG
+    fi
+    set -e
+    if [ $? -ne 0 ]; then
         echo "$0: ERROR: Preprocessing failed." >&2
+        cat $TOOL_LOG
         exit 1
     fi
     INPUT="$OUTPUT"
@@ -356,28 +372,31 @@ fi
 OUTPUT=$CCI_OUTPUT
 set +e
 COMMAND="$CCI_PREFIX $CCI $(eval echo $ARGS)"
-$COMMAND &> $TOOL_LOG
+if [ $VERBOSE -eq 1 ]; then
+    echo Running compiler: $COMMAND
+    $COMMAND
+else
+    $COMMAND &> $TOOL_LOG
+fi
 RET=$?
 set -e
 
 # Check compile status
 if [ $RET -eq 125 ]; then
     echo "$0: ERROR: Compiler crashed on: $TESTFILE" >&2
-    echo "Command: $COMMAND" >&2
     cat $TOOL_LOG >&2
     exit 1
 fi
 if [ $FAIL -eq 0 ]; then
     if [ $RET -ne 0 ]; then
         echo "$0: ERROR: Compiler failed; expected success on: $TESTFILE" >&2
-        echo "Command: $COMMAND" >&2
         cat $TOOL_LOG >&2
         exit 1
     fi
 else
     if [ $RET -eq 0 ]; then
         echo "$0: ERROR: Compiler succeeded; expected failure on: $TESTFILE" >&2
-        echo "Command: $COMMAND" >&2
+        cat $TOOL_LOG >&2
         exit 1
     fi
     # Failure is expected here. The test passes.
@@ -391,7 +410,14 @@ if [ "$CG" != "" ]; then
     CG_OUTPUT=$OUTPUT_PATH/$BASENAME.os
     INPUT=$OUTPUT
     OUTPUT=$CG_OUTPUT
-    if ! $CG_PREFIX $CG $INPUT -o $OUTPUT &> $TOOL_LOG; then
+    COMMAND="$CG_PREFIX $CG $INPUT -o $OUTPUT"
+    if [ $VERBOSE -eq 1 ]; then
+        echo Running code generator: $COMMAND
+        $COMMAND
+    else
+        $COMMAND &> $TOOL_LOG
+    fi
+    if [ $? -ne 0 ]; then
         echo "$0: ERROR: Failed to codegen: $TESTFILE" >&2
         cat $TOOL_LOG >&2
         exit 1
@@ -402,7 +428,14 @@ fi
 AS_OUTPUT=$OUTPUT_PATH/$BASENAME.oo
 INPUT=$OUTPUT
 OUTPUT=$AS_OUTPUT
-if ! $AS_PREFIX $AS $INPUT -o $OUTPUT &> $TOOL_LOG; then
+COMMAND="$AS_PREFIX $AS $INPUT -o $OUTPUT"
+if [ $VERBOSE -eq 1 ]; then
+    echo Running assembler: $COMMAND
+    $COMMAND
+else
+    $COMMAND &> $TOOL_LOG
+fi
+if [ $? -ne 0 ]; then
     echo "$0: ERROR: Failed to assemble: $TESTFILE" >&2
     cat $TOOL_LOG >&2
     exit 1
@@ -412,10 +445,14 @@ fi
 LD_OUTPUT=$OUTPUT_PATH/$BASENAME.oe
 INPUT=$OUTPUT
 OUTPUT=$LD_OUTPUT
-if ! $LD_PREFIX $LD \
-        -g $LIBC \
-        $INPUT -o $OUTPUT &> $TOOL_LOG
-then
+COMMAND="$LD_PREFIX $LD -g $LIBC $INPUT -o $OUTPUT"
+if [ $VERBOSE -eq 1 ]; then
+    echo Running linker: $COMMAND
+    $COMMAND
+else
+    $COMMAND &> $TOOL_LOG
+fi
+if [ $? -ne 0 ]; then
     echo "$0: ERROR: Failed to link: $TESTFILE" >&2
     echo $LD_PREFIX $LD -g $LIBC $INPUT -o $OUTPUT >&2
     cat $TOOL_LOG >&2
@@ -431,8 +468,14 @@ fi
 # Run it
 ACTUAL_STDOUT=$OUTPUT_PATH/$BASENAME.actual-stdout
 ACTUAL_STDERR=$OUTPUT_PATH/$BASENAME.actual-stderr
+rm -f "$ACTUAL_STDOUT" "$ACTUAL_STDERR"
 set +e
-onrampvm $OUTPUT >"$ACTUAL_STDOUT" 2>"$ACTUAL_STDERR"
+if [ $VERBOSE -eq 1 ]; then
+    echo Running program: onrampvm $OUTPUT
+    onrampvm $OUTPUT | tee "$ACTUAL_STDOUT"
+else
+    onrampvm $OUTPUT >"$ACTUAL_STDOUT" 2>"$ACTUAL_STDERR"
+fi
 RET=$?
 set -e
 

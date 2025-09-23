@@ -538,7 +538,7 @@ void generate_not_equal(node_t* node, int reg_out) {
 
 /*
  * Generates code to zero out memory for the given type with the given number
- * of bytes at the address stored in the given register.
+ * of elements at the address stored in the given register.
  *
  * We check both size and alignment to decide on a step size because this is
  * used to zero out strings in initializers among other things.
@@ -551,18 +551,14 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
     // choose a step size
     size_t step;
     size_t steps;
-    int store;
+    opcode_t store;
     if (0 == (total & 3) && 0 == (align & 3)) {
         step = 4;
-        steps = count >> 2;
+        steps = total >> 2;
         store = STW;
-    } else if (0 == (total & 1) && 0 == (align & 1)) {
-        step = 2;
-        steps = count >> 1;
-        store = STS;
     } else {
         step = 1;
-        steps = count;
+        steps = total;
         store = STB;
     }
 
@@ -580,7 +576,7 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
         function_add_block(current_function, loop_block);
         function_add_block(current_function, end_block);
 
-        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, count);
+        block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, total);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
 
         current_block = loop_block;
@@ -617,18 +613,13 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
     // used to copy strings in initializers among other things.
     uint32_t step;
     uint32_t steps;
-    int load;
-    int store;
+    opcode_t load;
+    opcode_t store;
     if (0 == (total & 3) && 0 == (align & 3)) {
         step = 4;
         steps = total >> 2;
         load = LDW;
         store = STW;
-    } else if (0 == (total & 1) && 0 == (align & 1)) {
-        step = 2;
-        steps = total >> 1;
-        load = LDS;
-        store = STS;
     } else {
         step = 1;
         steps = total;
@@ -672,7 +663,7 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
 // plus the given small offset.
 static void generate_store_direct(token_t* token, size_t size, int reg_val, int reg_base, int offset) {
     assert(offset < 128 && offset >= -112);
-    int opcode;
+    opcode_t opcode;
     switch (size) {
         case 1: opcode = STB; break;
         case 2: opcode = STS; break;

@@ -874,7 +874,7 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
         // to zero out the rest of the array.
         if (array_count > string_count) {
             block_append_op_imm(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
-            generate_zero_array(expr->token, target, array_count - string_count, reg_loc);
+            generate_zero_array(expr->token, target->ref, array_count - string_count, reg_loc);
         }
 
         register_free(expr->token, reg_loc);
