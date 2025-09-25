@@ -918,3 +918,11 @@ char* tmpnam(char* s) {
     // TODO
     return NULL;
 }
+
+int fileno(FILE* file) {
+    if (file->fd < 0) {
+        errno = EBADF;
+        return -1;
+    }
+    return file->fd;
+}
