@@ -785,9 +785,16 @@ static uint32_t node_eval_32_binary(node_t* node) {
 uint32_t node_eval_32(node_t* node) {
     assert(type_is_integer(node->type) || type_matches_base(node->type, BASE_ENUM));
 
-    // TODO type size should be at most 4, want to be able to evaluate char and
-    // short nodes with this as well
-    assert(type_size(node->type) == 4);
+    // Constant expressions where a 32-bit value is expected are allowed to
+    // have type `long long` as long as the actual value fits in 32 bits.
+    if (type_size(node->type) > 4) {
+        u64_t llong;
+        node_eval_64(node, &llong);
+        if (u64_high(&llong) != 0) {
+            fatal_token(node->token, "This constant expression is out of range. A 32-bit result is expected.");
+        }
+        return u64_low(&llong);
+    }
 
     switch (node->kind) {
 
@@ -853,14 +860,13 @@ uint32_t node_eval_32(node_t* node) {
 
             // integer casts
             if (type_is_integer(child->type) || type_matches_base(child->type, BASE_ENUM)) {
-                if (type_size(child->type) == 4)
-                    return node_eval_32(child);
-
                 if (type_size(child->type) == 8) {
                     u64_t llong;
                     node_eval_64(child, &llong);
                     return u64_low(&llong);
                 }
+
+                return node_eval_32(child);
             }
 
             // float to int casts are allowed but we don't support them yet.
