@@ -859,7 +859,11 @@ static bool try_parse_direct_declarator(type_t** type, token_t** /*nullable*/ ou
             } else {
                 // TODO if this is not a constant expression, it's a variable-length array
                 node_t* expr = parse_assignment_expression();
-                array = type_new_array(*brackets, node_eval_32(expr));
+                uint32_t count = node_eval_32(expr);
+                if (count > (uint32_t)INT32_MAX) {
+                    fatal_token(expr->token, "Array size is negative or too large.");
+                }
+                array = type_new_array(*brackets, count);
                 type_deref(*brackets);
                 node_delete(expr);
                 lexer_expect(STR_SQUARE_CLOSE, "Expected `]` after array length in declarator.");
