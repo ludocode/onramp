@@ -34,6 +34,7 @@
 
 #include <time.h>
 #include <inttypes.h>
+#include <poll.h>
 
 #include <termios.h>
 #include <unistd.h>
@@ -748,28 +749,34 @@ static uint32_t vm_fread(vm_t* vm) {
     }
 
     if (file == stdin) {
-        // We have non-blocking input so we don't use fread(). Instead we use
-        // POSIX read().
-        ssize_t ret = read(STDIN_FILENO, buffer, count);
+        // We want our input to be non-blocking. We use poll() to check if
+        // input is available.
+        struct pollfd fds = {STDIN_FILENO, POLLIN, 0};
+        int ret;
+        do {
+            ret = poll(&fds, 1, 0);
+        } while (ret == EINTR);
         if (ret < 0) {
-            if (errno == EWOULDBLOCK) {
-                return 0;
+            return VM_ERR_GENERIC;
+        }
+        if (fds.revents == POLLERR) {
+            return VM_ERR_IO;
+        }
+        if (fds.revents != POLLIN) {
+            if (fds.revents == POLLHUP) {
+                // TODO we need to return a different error code for closed input
             }
-            // TODO handle closed input stream gracefully
-            return VM_ERR_IO;
+            return 0;
         }
-        return (uint32_t)ret;
-
-    } else {
-        // On ordinary files we can use fread().
-        size_t ret = fread(buffer, 1, count, file);
-        if (ret == 0) {
-            if (feof(file))
-                return 0;
-            return VM_ERR_IO;
-        }
-        return (uint32_t)ret;
     }
+
+    size_t ret = fread(buffer, 1, count, file);
+    if (ret == 0) {
+        if (feof(file))
+            return 0;
+        return VM_ERR_IO;
+    }
+    return (uint32_t)ret;
 }
 
 static uint32_t vm_fwrite(vm_t* vm) {
@@ -1404,14 +1411,6 @@ static void io_teardown(void) {
     if (saved_termios_valid) {
         tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
     }
-
-    // Clear the non-blocking flag
-    // (This is critical on macOS because setting stdout to non-blocking also
-    // sets it on stdin, and unlike on Linux, on macOS file status flags are
-    // shared with all copies of the file descriptor. Other processes in a
-    // pipeline may not be expecting their output to be non-blocking and
-    // will fail when they get EWOULDBLOCK.)
-    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
 }
 
 static void signal_handler(int signal) {
@@ -1432,9 +1431,6 @@ static void io_setup(void) {
 
     // Unbuffered input
     setvbuf(stdin, NULL, _IONBF, BUFSIZ);
-
-    // Non-blocking input
-    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
 
     // Non-canonical input, no input echo
     struct termios termios;
