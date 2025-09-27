@@ -31,12 +31,12 @@
 
 #include "vmcommon.h"
 #include "debug.h"
+#include "terminal.h"
 
 #include <time.h>
 #include <inttypes.h>
 #include <poll.h>
 
-#include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
 
@@ -749,8 +749,8 @@ static uint32_t vm_fread(vm_t* vm) {
     }
 
     if (file == stdin) {
-        // We want our input to be non-blocking. We use poll() to check if
-        // input is available.
+        // We want our input to be non-blocking. We use poll() with zero
+        // timeout to check if input is available.
         struct pollfd fds = {STDIN_FILENO, POLLIN, 0};
         int ret;
         do {
@@ -1402,48 +1402,8 @@ static void vm_loop(vm_t* vm) {
     }
 }
 
-static struct termios saved_termios;
-static bool saved_termios_valid;
-
-static void io_teardown(void) {
-
-    // Restore the original terminal state
-    if (saved_termios_valid) {
-        tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
-    }
-}
-
-static void signal_handler(int signal) {
-    io_teardown();
-    _Exit(128 + signal);
-}
-
-static void io_setup(void) {
-
-    // Set up our signal handlers first so we can restore the terminal state on
-    // exit.
-    atexit(io_teardown);
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-
-    // We fully buffer output so as not to flicker when animating our debug info.
-    setvbuf(stdout, NULL, _IOFBF, BUFSIZ);
-
-    // Unbuffered input
-    setvbuf(stdin, NULL, _IONBF, BUFSIZ);
-
-    // Non-canonical input, no input echo
-    struct termios termios;
-    tcgetattr(STDIN_FILENO, &termios);
-    saved_termios = termios;
-    saved_termios_valid = true;
-    termios.c_lflag &= ~(ECHO | ICANON);
-    tcsetattr(STDIN_FILENO, TCSANOW, &termios);
-
-}
-
 int main(int argc, const char* argv[]) {
-    io_setup();
+    terminal_setup();
 
     common_init();
     debug_init();

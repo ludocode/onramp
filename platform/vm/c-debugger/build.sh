@@ -39,6 +39,7 @@ SRCS="
     platform/vm/c-debugger/src/vm.c
     platform/vm/c-debugger/src/debug.c
     platform/vm/c-debugger/src/vmcommon.c
+    platform/vm/c-debugger/src/terminal.c
     core/libo/1-opc/src/libo-error.c
     core/libo/1-opc/src/libo-string.c
     core/libo/1-opc/src/libo-table.c

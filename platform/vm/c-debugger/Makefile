@@ -44,6 +44,7 @@ SRCS=\
 	 $(SRC)/vm.c \
 	 $(SRC)/vmcommon.c \
 	 $(SRC)/debug.c \
+	 $(SRC)/terminal.c \
 
 all: build test FORCE
 FORCE:
