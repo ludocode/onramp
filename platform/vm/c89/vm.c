@@ -25,20 +25,12 @@
 
 
 /**
- * This is a simple implementation of the Onramp virtual machine in ANSI C.
- *
- * It does not load debug info or do any debugging. It otherwise performs all
- * required checks and many optional checks. It implements all necessary system
- * calls for bootstrapping a compiler.
+ * This is a simple-as-possible implementation of the Onramp virtual machine in
+ * ANSI C. It implements the minimum necessary system calls for bootstrapping a
+ * compiler.
  *
  * If you're trying to port Onramp to an old system that only has a C89
- * compiler, this is probably the best place to start. There's a good chance
- * you'll need to modify this; in particular, there is currently no
- * implementation of the ftrunc syscall in standard C.
- *
- * The VM attempts to enable raw input mode on POSIX platforms. If this is
- * causing problems on older UNIX you can disable the detection of VM_POSIX
- * below.
+ * compiler, this is probably the best place to start.
  *
  * TODO there's some Windows portability stuff here but it's incomplete. We
  * still need to translate paths from Windows-style to UNIX style.
@@ -46,29 +38,20 @@
 
 
 
-/*
- * Portability
- */
-
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
-    /* We currently rely on ftruncate(), clock_gettime(), environ, and terminal
-     * settings on POSIX systems. */
-    #define VM_POSIX
     #define _POSIX_C_SOURCE 200809L
-    #include <errno.h>
-    #include <fcntl.h>
-    #include <signal.h>
-    #include <sys/stat.h>
-    #include <sys/types.h>
-    #include <termios.h>
+    #define VM_POSIX
     #include <unistd.h>
+    #include <sys/stat.h>
     extern char** environ;
-#endif
-
-#ifdef _WIN32
+#elif defined _WIN32
     #include <direct.h>
-    #include <io.h>
+    #define getcwd _getcwd
+    #define environ _environ
     extern char** _environ;
+#else
+    #define NO_ENVIRON
+    #define NO_GETCWD
 #endif
 
 #include <limits.h>
@@ -77,7 +60,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-
 
 /* Onramp requires an 8-bit char and a 32-bit int or long. */
 #ifdef __STDC_VERSION__
@@ -101,36 +83,18 @@
 #endif
 
 
-#ifdef _WIN32
-    #define getcwd _getcwd
-    #define environ _environ
-#endif
-
-
 
 /*
  * Globals
  */
 
 #define VM_MEMORY_SIZE (16 * 1024 * 1024) /* 16 MB */
-#define VM_MAX_FILES 16
-#define VM_MAX_DIRECTORIES 16
-
-/* We use platform-specific file APIs where possible. This allows us to provide
- * features that aren't possible in standard C (such as non-blocking input.) */
-#ifdef VM_POSIX
-    typedef int file_t;
-    #define INVALID_FILE -1
-#elif defined _WIN32
-    #error TODO windows file API
-#else
-    typedef FILE* file_t;
-    #define INVALID_FILE NULL
-#endif
+#define VM_MAX_FILES 16u
+#define VM_MAX_DIRECTORIES 16u
 
 static uint32_t vm_registers[16];
 static uint8_t vm_memory[VM_MEMORY_SIZE];
-static file_t vm_files[VM_MAX_FILES];
+static FILE* vm_files[VM_MAX_FILES];
 /*static uint32_t vm_directories[VM_MAX_DIRECTORIES];*/
 
 /* array indices of named registers */
@@ -172,58 +136,8 @@ static void vm_hexdump(const char* p, int32_t count) {
 #endif
 
 static void vm_panic(const char* msg) {
-    fflush(stdout);
     fprintf(stderr, "VM ERROR: %s\n", msg);
-    #if 0
-        #ifdef __GNUC__
-            __builtin_trap();
-        #endif
-    #endif
     exit(125);
-}
-
-static void usage(const char* command) {
-    fprintf(stderr, "Usage: %s [vm options] <program> [program options]\n", command);
-    fputs("\n", stderr);
-    /* TODO no options are currently supported.
-    fprintf(stderr, "VM options:\n");
-    fprintf(stderr, "    -e NAME=VAR       define environment variable\n"); // TODO probably don't need this since we now forward env vars from the environment
-    */
-    exit(125);
-}
-
-
-
-/*
- * Memory Checks
- */
-
-#define vm_check(expr, msg) (!(expr) ? vm_panic(msg) : (void)0)
-
-#define vm_check_aligned(addr) \
-    vm_check(((addr) & 3) == 0, "Misaligned address")
-
-/* Our virtual memory starts at 0 but we disable access to the first word to
- * prevent null pointer dereferences. */
-#define vm_check_valid(addr) \
-    vm_check((addr) >= 4 && (addr) < VM_MEMORY_SIZE, "Address out of bounds")
-
-#define vm_check_file(handle) \
-    vm_check((uint32_t)(handle) < VM_MAX_FILES && vm_files[(handle)] != INVALID_FILE, \
-            "Invalid file descriptor")
-
-#define vm_check_directory(dd) \
-    vm_check((uint32_t)(dd) < VM_MAX_FILES && vm_directories[(dd)] != INVALID_FILE, \
-            "Invalid directory descriptor")
-
-static void vm_check_string(uint32_t addr) {
-    while (vm_load_u8(addr++) != '\0') {}
-}
-
-static void vm_check_buffer(uint32_t addr, uint32_t size) {
-    vm_check(size > 0, "Invalid size of zero for syscall buffer");
-    vm_check_valid(addr);
-    vm_check_valid(addr + size - 1);
 }
 
 
@@ -233,8 +147,6 @@ static void vm_check_buffer(uint32_t addr, uint32_t size) {
  */
 
 static uint32_t vm_load_u32(uint32_t addr) {
-    vm_check_aligned(addr);
-    vm_check_valid(addr);
     /* VM memory is little-endian. */
     return (uint32_t)vm_memory[addr] |
             ((uint32_t)vm_memory[addr + 1] << 8) |
@@ -243,8 +155,6 @@ static uint32_t vm_load_u32(uint32_t addr) {
 }
 
 static void vm_store_u32(uint32_t addr, uint32_t value) {
-    vm_check_aligned(addr);
-    vm_check_valid(addr);
     /* VM memory is little-endian. */
     vm_memory[addr]     = (uint8_t)value;
     vm_memory[addr + 1] = (uint8_t)(value >> 8);
@@ -253,18 +163,15 @@ static void vm_store_u32(uint32_t addr, uint32_t value) {
 }
 
 static uint8_t vm_load_u8(uint32_t addr) {
-    vm_check_valid(addr);
     return vm_memory[addr];
 }
 
 static void vm_store_u8(uint32_t addr, uint8_t value) {
-    vm_check_valid(addr);
     vm_memory[addr] = value;
 }
 
 static size_t vm_store_string(uint32_t addr, const char* str) {
     uint32_t size = (uint32_t)strlen(str) + 1;
-    vm_check_buffer(addr, size);
     memcpy(vm_memory + addr, str, size);
     return addr + (uint32_t)size;
 }
@@ -280,7 +187,6 @@ static uint32_t vm_store_string_array(uint32_t addr, char** strings) {
     /* make space for array */
     array = addr;
     addr += (count + 1) * 4;
-    vm_check_buffer(array, addr - array);
 
     /* load strings */
     for (; *strings; ++strings) {
@@ -319,8 +225,7 @@ static uint8_t vm_parse_register(uint8_t b) {
     return b & 0x0F;
 }
 
-static file_t vm_file(uint32_t handle) {
-    vm_check_file(handle);
+static FILE* vm_file(uint32_t handle) {
     return vm_files[handle];
 }
 
@@ -379,60 +284,6 @@ static void vm_load_program(uint32_t* /*in-out*/ start, uint32_t* /*out*/ end, c
     }
 }
 
-#ifdef VM_POSIX
-static struct termios saved_termios;
-
-static void io_teardown(void) {
-
-    /* Restore the original terminal state */
-    tcsetattr(STDIN_FILENO, TCSANOW, &saved_termios);
-
-    /* Clear the non-blocking flag
-     * (This is critical on macOS because setting stdout to non-blocking also
-     * sets it on stdin, and unlike on Linux, on macOS file status flags are
-     * shared with all copies of the file descriptor. Other processes in a
-     * pipeline may not be expecting their output to be non-blocking and
-     * will fail when they get EWOULDBLOCK.) */
-    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
-}
-
-static void signal_handler(int signal) {
-    io_teardown();
-    _Exit(128 + signal);
-}
-
-static void io_setup(void) {
-    /* Save the terminal state first before setting our cleanup callbacks */
-    tcgetattr(STDIN_FILENO, &saved_termios);
-
-    /* Restore terminal state on exit */
-    atexit(io_teardown);
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-
-    /* Set unbuffered, non-blocking input */
-    setvbuf(stdin, NULL, _IONBF, BUFSIZ);
-    fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
-
-    /* Set non-canonical input, no input echo */
-    {
-        struct termios termios = saved_termios;
-        termios.c_lflag &= ~(ECHO | ICANON);
-        tcsetattr(STDIN_FILENO, TCSANOW, &termios);
-    }
-}
-#elif defined _WIN32
-static void io_setup(void) {
-    /* TODO set windows to raw input mode */
-}
-#else
-static void io_setup(void) {
-    /* There isn't much we can do in standard C to set up raw input mode. We
-     * can at least ask the libc not to buffer input. */
-    setvbuf(stdin, NULL, _IONBF, BUFSIZ);
-}
-#endif
-
 static void vm_init(int argc, char** argv) {
     const char* filename = NULL;
     int i;
@@ -441,25 +292,13 @@ static void vm_init(int argc, char** argv) {
              program_start, program_break;
     char** env = 0;
     char* cwd = 0;
-    char cwd_buffer[256];
+    char cwd_buffer[512];
 
-    io_setup();
-
-    for (i = 1; i < argc; ++i) {
-        /* TODO parse args */
-
-        if (filename != NULL) {
-            fprintf(stderr, "ERROR: Only one program image can be specified.");
-            usage(argv[0]);
-        }
-        filename = argv[i];
-        break;
-    }
-
-    if (filename == NULL) {
+    if (argc <= 1) {
         fputs("ERROR: No program filename specified.\n", stderr);
-        usage(argv[0]);
+        exit(125);
     }
+    filename = argv[1];
 
     /* Our process info table starts after zero to make sure it isn't
      * interpreted as a null pointer. */
@@ -502,8 +341,8 @@ static void vm_init(int argc, char** argv) {
     address = vm_store_string_array(address, argv + 1); /* skip vm name */
 
     /* environment variables */
-    #if defined(_WIN32) || defined(VM_POSIX)
-        env = environ;
+    #ifndef NO_ENVIRON
+    env = environ;
     #endif
     if (env) {
         vm_store_u32(process_info_address + 28, address);
@@ -513,8 +352,8 @@ static void vm_init(int argc, char** argv) {
     }
 
     /* working directory */
-    #if defined(_WIN32) || defined(VM_POSIX)
-        cwd = getcwd(cwd_buffer, sizeof(cwd_buffer));
+    #ifndef NO_GETCWD
+    cwd = getcwd(cwd_buffer, sizeof(cwd_buffer));
     #endif
     if (cwd) {
         vm_store_u32(process_info_address + 32, address);
@@ -526,35 +365,16 @@ static void vm_init(int argc, char** argv) {
 
     /* capabilities */
     vm_store_u32(process_info_address + 36,
-            #ifdef VM_POSIX
-            0 /* no echo, non-blocking, non-canonical */
-            #elif defined _WIN32
-            7 /* TODO set windows to raw input mode */
-            #else
-            /* We're not sure of the platform but we'll assume the terminal
-             * echoes, blocks, and buffers lines. Even if it doesn't, the
-             * Onramp libc will handle it gracefully, except that it will
-             * reject attempts to turn these off. This is the safest option. */
-            7
-            #endif
-            );
+            /* We'll assume the terminal echoes, blocks, and buffers lines.
+             * Even if it doesn't, the Onramp libc will handle it gracefully,
+             * except that it will reject attempts to turn these off. This is
+             * the safest option for POSIX systems. */
+            7);
 
     /* files */
-    #ifdef VM_POSIX
-        vm_files[0] = STDIN_FILENO;
-        vm_files[1] = STDOUT_FILENO;
-        vm_files[2] = STDERR_FILENO;
-        {
-            size_t i;
-            for (i = 3; i < VM_MAX_FILES; ++i) {
-                vm_files[i] = INVALID_FILE;
-            }
-        }
-    #else
-        vm_files[0] = stdin;
-        vm_files[1] = stdout;
-        vm_files[2] = stderr;
-    #endif
+    vm_files[0] = stdin;
+    vm_files[1] = stdout;
+    vm_files[2] = stderr;
 
     /* Load the program */
     program_start = address;
@@ -580,208 +400,71 @@ static void vm_exit(void) {
     exit(vm_registers[0]);
 }
 
-static void vm_time(void) {
-    uint32_t addr = vm_registers[0];
-
-    /* We can get a timespec under POSIX systems or C11. This matches what
-     * Onramp expects. (We assume TIME_UTC is relative to the UNIX timestamp.) */
-    #if defined(VM_POSIX) || __STDC_VERSION__ >= 201112L
-    struct timespec ts;
-    if (
-        #if defined(VM_POSIX)
-        0 == clock_gettime(CLOCK_REALTIME, &ts)
-        #else
-        TIME_UTC == timespec_get(&ts, TIME_UTC)
-        #endif
-    ) {
-        vm_store_u32(addr, (uint32_t)ts.tv_sec);
-        vm_store_u32(addr + 4, sizeof(ts.tv_sec) > 4 ? (uint32_t)(ts.tv_sec >> 32) : 0);
-        vm_store_u32(addr + 8, (uint32_t)ts.tv_nsec);
-    }
-    #else
-
-    /* If we have only C89 and not POSIX, we have to approximate it using
-     * time() and clock(). We start with time() and then add the clock() delta
-     * to it on each call. We're careful to avoid 64-bit integer math here in
-     * case we only have 32 bits. */
-    static int initialized = 0;
-    static time_t secs;
-    static clock_t nanos = 0;
-    static clock_t last_clock;
-
-    clock_t current_clock = clock();
-    clock_t delta = current_clock - last_clock;
-    clock_t delta_secs = delta / CLOCKS_PER_SEC;
-    clock_t delta_remainder = delta % CLOCKS_PER_SEC;
-
-    if (!initialized) {
-        initialized = 1;
-        secs = time(NULL);
-        last_clock = current_clock;
-    }
-
-    secs += delta_secs;
-    nanos += (uint32_t)(delta_remainder * (1000000000 / CLOCKS_PER_SEC));
-    if (nanos > 1000000000) {
-        nanos -= 1000000000;
-        ++secs;
-    }
-    last_clock = current_clock;
-
-    /* time_t is allowed to be a floating point type on non-POSIX systems. The
-     * implementation might have only 64-bit doubles or only 64-bit integer
-     * math, not both. We need to do this somewhat roundabout calculation to
-     * divide by 2^32 that works in both cases. */
-    vm_store_u32(addr, (uint32_t)secs);
-    vm_store_u32(addr + 4, sizeof(secs) > 4 ? (uint32_t)(secs / (2 * (time_t)((uint32_t)1 << 31))) : 0);
-    vm_store_u32(addr + 8, (uint32_t)nanos);
-    #endif
-
-    vm_registers[0] = 0;
-}
-
 static void vm_fopen(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
+    FILE* file;
 
     const char* path;
-    uint32_t handle;
-    size_t i;
+    size_t handle;
 
-    vm_check_string(path_addr);
     path = (const char*)vm_memory + path_addr;
     /*fprintf(stderr, "open %s %u\n", path, mode);*/
 
     /* find a free handle (not the standard streams 0,1,2) */
-    handle = UINT32_MAX;
-    for (i = 3; i < (size_t)VM_MAX_FILES; ++i) {
-        if (vm_files[i] == INVALID_FILE) {
-            handle = i;
-            break;
-        }
-    }
-    vm_check(handle != UINT32_MAX, "No free file descriptors"); /* TODO this should not be a fatal error */
-
-    /* open it */
-    #ifdef VM_POSIX
-        vm_files[handle] = open(path, mode ? (O_CREAT | O_APPEND | O_RDWR) : O_RDONLY, 0644);
-    #elif defined _WIN32
-        #error TODO _WIN32 fopen
-    #else
-        vm_files[handle] = fopen(path, mode ? "a+b" : "rb");
-    #endif
-    if (vm_files[handle] == INVALID_FILE) {
-        vm_registers[0] = VM_ERR_PATH;
+    for (handle = 3; handle < VM_MAX_FILES &&
+            vm_files[handle] != NULL; ++handle) {}
+    if (handle == VM_MAX_FILES) {
+        /* too many open files */
+        vm_registers[0] = VM_ERR_GENERIC;
         return;
     }
 
-    /* if writeable, seek to the beginning */
-    if (mode) {
-        #ifdef VM_POSIX
-        lseek
-        #else
-        fseek
-        #endif
-            (vm_files[handle], 0, SEEK_SET);
+    /* open it */
+    file = fopen(path, mode ? "a+b" : "rb");
+    if (file == NULL) {
+        vm_registers[0] = VM_ERR_PATH;
+        return;
     }
-
+    vm_files[handle] = file;
     vm_registers[0] = handle;
+
+    /* seek to the beginning (in case of append mode) */
+    fseek(file, 0, SEEK_SET);
 }
 
 static void vm_fclose(void) {
     uint32_t handle = vm_registers[0];
-    vm_check_file(handle);
-    vm_check(handle > 2, "Cannot close standard streams.");
-
-    #ifdef VM_POSIX
-        close(vm_files[handle]);
-    #elif defined _WIN32
-        #error TODO _WIN32 fclose
-    #else
-        fclose(vm_files[handle]);
-    #endif
-
-    vm_files[handle] = INVALID_FILE;
+    fclose(vm_files[handle]);
+    vm_files[handle] = NULL;
     vm_registers[0] = 0;
 }
 
 static void vm_fread(void) {
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
-
-    vm_check_buffer(addr, count);
-
-    #ifdef VM_POSIX
-    {
-        int fd = vm_file(vm_registers[0]);
-        ssize_t ret = read(fd, vm_memory + addr, count);
-        if (ret < 0) {
-            if (errno == EWOULDBLOCK) {
-                ret = 0;
-            } else {
-                /* TODO handle closed input stream gracefully */
-                ret = VM_ERR_IO;
-            }
-        }
-        vm_registers[0] = (uint32_t)ret;
+    FILE* file = vm_file(vm_registers[0]);
+    size_t ret = fread(vm_memory + addr, 1, count, file);
+    if (ret == 0 && !feof(file)) {
+        vm_registers[0] = VM_ERR_IO;
+        return;
     }
-
-    #elif defined _WIN32
-        #error TODO _WIN32 fread
-
-    #else
-    {
-        FILE* file = vm_file(vm_registers[0]);
-        size_t ret = fread(vm_memory + addr, 1, count, file);
-        if (ret == 0 && !feof(file)) {
-            vm_registers[0] = VM_ERR_IO;
-            return;
-        }
-        vm_registers[0] = (uint32_t)ret;
-    }
-    #endif
+    vm_registers[0] = (uint32_t)ret;
 }
 
 static void vm_fwrite(void) {
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
-
-    vm_check_buffer(addr, count);
-
-    #ifdef VM_POSIX
-    {
-        int fd = vm_file(vm_registers[0]);
-        ssize_t ret = write(fd, vm_memory + addr, count);
-        if (ret < 0) {
-            if (errno == EWOULDBLOCK || errno == EAGAIN) {
-                ret = 0;
-            } else {
-                ret = VM_ERR_IO;
-            }
-        }
-        vm_registers[0] = (uint32_t)ret;
+    FILE* file = vm_file(vm_registers[0]);
+    size_t ret = fwrite(vm_memory + addr, 1, count, file);
+    if (ret == count) {
+        vm_registers[0] = count;
+    } else {
+        vm_registers[0] = VM_ERR_IO;
     }
-
-    #elif defined _WIN32
-        #error TODO _WIN32 fwrite
-
-    #else
-    {
-        FILE* file = vm_file(vm_registers[0]);
-        size_t ret = fwrite(vm_memory + addr, 1, count, file);
-        if (ret == count) {
-            fflush(file);
-            vm_registers[0] = count;
-        } else {
-            vm_registers[0] = VM_ERR_IO;
-        }
-    }
-    #endif
 }
 
 static void vm_fseek(void) {
-    uint32_t base = vm_registers[1]; /* TODO check valid */
-
     /*
      * We don't know how long `long` or `off_t` are. If they're only 32 bits we
      * won't have enough space for the high bits. We try anyway; we just won't
@@ -790,96 +473,44 @@ static void vm_fseek(void) {
      * In case they are only 32 bits, we have to shift twice since a shift by
      * the word size is undefined behaviour.
      */
-
-    #ifdef VM_POSIX
-    {
-        /* TODO we should try to detect whether lseek64() and off64_t are available. */
-        int fd = vm_file(vm_registers[0]);
-        off_t offset = (off_t)vm_registers[2] | (((off_t)vm_registers[3] << 16) << 16);
-        offset = lseek(fd, offset, base);
-        vm_registers[0] = (offset == -1) ? VM_ERR_IO : 0;
-    }
-
-    #elif defined _WIN32
-        #error TODO _WIN32 fseek
-
-    #else
-    {
-        /*
-         * There are platform-specific extensions for 64-bit seek. POSIX 2001 has
-         * fseeko() and ftello() for example. These are not in C89, and they
-         * require `long long` which is not in C89 either. If we have POSIX
-         * we'll be using lseek() (or lseek64()) anyway so there's no point in
-         * trying to use them.
-         */
-        FILE* file = vm_file(vm_registers[0]);
-        long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
-        int ret = fseek(file, offset, base);
-        vm_registers[0] = ret ? VM_ERR_IO : 0;
-    }
-    #endif
+    uint32_t base = vm_registers[1];
+    FILE* file = vm_file(vm_registers[0]);
+    long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
+    int ret = fseek(file, offset, base);
+    vm_registers[0] = ret ? VM_ERR_IO : 0;
 }
 
 static void vm_ftell(void) {
+    FILE* file = vm_file(vm_registers[0]);
+    uint32_t addr = vm_registers[1];
+    unsigned long upos;
+    long pos = ftell(file);
 
-    #ifdef VM_POSIX
-    {
-        uint32_t addr = vm_registers[1];
-        int fd = vm_file(vm_registers[0]);
-        off_t pos = lseek(fd, 0, SEEK_CUR);
-        if (pos == -1) {
-            vm_registers[0] = VM_ERR_IO;
-            return;
-        }
-
-        vm_store_u32(addr, (uint32_t)pos);
-        vm_store_u32(addr + 4,
-                (sizeof(off_t) >= 8) ?
-                    (uint32_t)(pos >> 32) :
-                    0);
-        vm_registers[0] = 0;
+    if (pos < 0) {
+        vm_registers[0] = VM_ERR_IO;
+        return;
     }
 
-
-    #elif defined _WIN32
-        #error TODO _WIN32 fseek
-
-    #else
-    {
-        FILE* file = vm_file(vm_registers[0]);
-        long pos = ftell(file);
-        if (pos == -1) {
-            vm_registers[0] = VM_ERR_IO;
-            return;
-        }
-
-        {
-            /* As with fseek() we shift twice in case `long` or `off_t` is only
-             * 32 bits. We convert to unsigned first to get an unsigned shift. */
-            unsigned long upos = (unsigned long)pos;
-            uint32_t addr = vm_registers[1];
-            vm_store_u32(addr, (uint32_t)upos);
-            vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
-            vm_registers[0] = 0;
-        }
-    }
-    #endif
+    /* As with fseek() we shift twice in case `long` or `off_t` is only
+     * 32 bits. We convert to unsigned first to get an unsigned shift. */
+    upos = (unsigned long)pos;
+    vm_store_u32(addr, (uint32_t)upos);
+    vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
+    vm_registers[0] = 0;
 }
 
-
-    /*
-     * There is no standard C way to truncate an open file. For now we use
-     * platform-specific functions.
-     */
-
+/* TODO ftrunc is currently required. should be optional. */
 #ifdef VM_POSIX
 static void vm_ftrunc(void) {
     /* On POSIX systems we call ftruncate(). */
     uint32_t size_low = vm_registers[1];
     uint32_t size_high = vm_registers[2];
-    int fd = vm_file(vm_registers[0]);
+    FILE* file = vm_file(vm_registers[0]);
+    int fd = fileno(file);
     off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
-    int ret = ftruncate(fd, upos);
+    int ret;
+    fflush(file);
+    ret = ftruncate(fd, upos);
     vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
 }
 #elif
@@ -908,7 +539,6 @@ static void vm_chmod(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
     const char* path;
-    vm_check_string(path_addr);
     path = (const char*)vm_memory + path_addr;
     vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
 }
@@ -919,7 +549,7 @@ static void vm_chmod(void) {
 static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
     vm_exit,
     NULL, /* panic */
-    vm_time,
+    NULL, /* time */
     vm_fopen,
     vm_fclose,
     vm_fread,
@@ -966,8 +596,6 @@ next:
 
     /* Parse instruction */
     rip = vm_registers[VM_RIP];
-    vm_check_aligned(rip);
-    vm_check_valid(rip);
     opcode = vm_memory[rip];
     arg1 = vm_memory[rip + 1];
     arg2 = vm_memory[rip + 2];
@@ -1002,7 +630,6 @@ next:
 
     /* The remaining opcodes all place the result of an operation on two
      * mix-type arguments into a destination register. */
-    vm_check((opcode & 0xF0) == 0x70, "Invalid instruction");
     reg = vm_registers + vm_parse_register(arg1);
     mix1 = vm_parse_mix(arg2);
     mix2 = vm_parse_mix(arg3);
@@ -1034,7 +661,6 @@ int main(int argc, char** argv) {
         fputs("ERROR: A 32-bit integer type is required.\n", stderr);
         exit(1);
     }
-
     vm_init(argc, argv);
     vm_run();
     return 1;
