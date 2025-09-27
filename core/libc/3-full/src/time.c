@@ -29,17 +29,24 @@
 #include "syscalls.h"
 
 // We store these timestamps in order to implement clock() and CLOCK_MONOTONIC.
+static bool time_initialized;
 static struct timespec __start_time; // real time at start of process
 static struct timespec __last_time;  // real time at last query of monotonic clock
 static struct timespec __mono_time;  // mono time at last query of monotonic clock
 
 // Called on process start before main() and before user constructors.
 void __time_setup(void) {
+    if (!__syscall_is_supported(__SYS_TIME)) {
+        return;
+    }
+
     int e = __sys_time((unsigned*)&__start_time);
     if (e != 0) {
-        // TODO handle the case of VM not giving us time
+        return;
     }
+
     __last_time = __start_time;
+    time_initialized = true;
 }
 
 // Adds two timespecs.
@@ -64,6 +71,11 @@ static void timespec_subtract(struct timespec* out, struct timespec* left, struc
 }
 
 static int clock_realtime(struct timespec* out) {
+    if (!time_initialized) {
+        errno = ENOTSUP;
+        return -1;
+    }
+
     int e = __sys_time((unsigned*)out);
     if (e != 0) {
         // TODO set errno properly based on syscall return value
