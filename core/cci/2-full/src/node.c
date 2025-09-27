@@ -897,13 +897,13 @@ static void node_eval_64_binary(node_t* node, u64_t* out) {
 
     switch (node->kind) {
         case NODE_BIT_OR:
-            llong_bit_or(out, &temp);
+            llong_or(out, &temp);
             return;
         case NODE_BIT_XOR:
-            llong_bit_xor(out, &temp);
+            llong_xor(out, &temp);
             return;
         case NODE_BIT_AND:
-            llong_bit_and(out, &temp);
+            llong_and(out, &temp);
             return;
         case NODE_ADD:
             llong_add(out, &temp);
@@ -980,7 +980,7 @@ void node_eval_64(node_t* node, u64_t* out) {
 
         case NODE_BIT_NOT:
             node_eval_64(node->first_child, out);
-            llong_bit_not(out);
+            llong_compl(out);
             return;
 
         // TODO we also need to support lots more stuff, e.g. member or array

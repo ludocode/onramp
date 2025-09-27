@@ -628,9 +628,6 @@ unsigned* __llong_xor(unsigned* out, const unsigned* a, const unsigned* b) {
     return out;
 }
 
-// TODO this is not actually used by the compiler; it does this inline. Not
-// sure if we want to keep this. Should probably also do the other bit
-// operations (and, or, xor) inline as well.
 unsigned* __llong_compl(unsigned* out, const unsigned* src) {
     *out = ~*src;
     *(out + 1) = ~*(src + 1);
