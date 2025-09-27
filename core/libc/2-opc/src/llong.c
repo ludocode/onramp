@@ -610,25 +610,28 @@ unsigned* __llong_shrs(unsigned* out, const unsigned* a, unsigned bits) {
     return out;
 }
 
-unsigned* __llong_bit_and(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_and(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a & *b);
     *(out + 1) = (*(a + 1) & *(b + 1));
     return out;
 }
 
-unsigned* __llong_bit_or(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_or(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a | *b);
     *(out + 1) = (*(a + 1) | *(b + 1));
     return out;
 }
 
-unsigned* __llong_bit_xor(unsigned* out, const unsigned* a, const unsigned* b) {
+unsigned* __llong_xor(unsigned* out, const unsigned* a, const unsigned* b) {
     *out = (*a ^ *b);
     *(out + 1) = (*(a + 1) ^ *(b + 1));
     return out;
 }
 
-unsigned* __llong_bit_not(unsigned* out, const unsigned* src) {
+// TODO this is not actually used by the compiler; it does this inline. Not
+// sure if we want to keep this. Should probably also do the other bit
+// operations (and, or, xor) inline as well.
+unsigned* __llong_compl(unsigned* out, const unsigned* src) {
     *out = ~*src;
     *(out + 1) = ~*(src + 1);
     return out;

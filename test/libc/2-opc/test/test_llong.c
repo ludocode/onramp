@@ -186,36 +186,36 @@ static void test_shrs(void) {
     }
 }
 
-static void test_bit_and(void) {
+static void test_and(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     unsigned long long b = 0x9abcdef012345678ULL;
-    __llong_bit_and((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    __llong_and((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
     if (a != 0x1014589002044610ULL) {
         exit(1);
     }
 }
 
-static void test_bit_or(void) {
+static void test_or(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     unsigned long long b = 0x9abcdef012345678ULL;
-    __llong_bit_or((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    __llong_or((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
     if (a != 0xbefefef0bbfdff7aULL) {
         exit(1);
     }
 }
 
-static void test_bit_xor(void) {
+static void test_xor(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
     unsigned long long b = 0x9abcdef012345678ULL;
-    __llong_bit_xor((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
+    __llong_xor((unsigned*)&a, (unsigned*)&a, (unsigned*)&b);
     if (a != 0xaeeaa660b9f9b96aULL) {
         exit(1);
     }
 }
 
-static void test_bit_not(void) {
+static void test_compl(void) {
     unsigned long long a = 0x34567890abcdef12ULL;
-    __llong_bit_not((unsigned*)&a, (unsigned*)&a);
+    __llong_compl((unsigned*)&a, (unsigned*)&a);
     if (a != 0xcba9876f543210edULL) {
         exit(1);
     }
@@ -312,10 +312,10 @@ int main(void) {
     test_shl();
     test_shru();
     test_shrs();
-    test_bit_and();
-    test_bit_or();
-    test_bit_xor();
-    test_bit_not();
+    test_and();
+    test_or();
+    test_xor();
+    test_compl();
     test_negate();
 
     #ifdef TEST_DIV_LOOP

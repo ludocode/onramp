@@ -790,15 +790,15 @@ void generate_mod_assign(struct node_t* node, int reg_out) {
 }
 
 void generate_and_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, AND, "__llong_bit_and", NULL, NULL);
+    generate_compound_assign(node, reg_out, AND, "__llong_and", NULL, NULL);
 }
 
 void generate_or_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, OR, "__llong_bit_or", NULL, NULL);
+    generate_compound_assign(node, reg_out, OR, "__llong_or", NULL, NULL);
 }
 
 void generate_xor_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, XOR, "__llong_bit_xor", NULL, NULL);
+    generate_compound_assign(node, reg_out, XOR, "__llong_xor", NULL, NULL);
 }
 
 void generate_shl_assign(struct node_t* node, int reg_out) {
