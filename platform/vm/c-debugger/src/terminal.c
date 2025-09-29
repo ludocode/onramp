@@ -85,9 +85,10 @@ static void set_signal_handler(int signal, void (*handler)(int)) {
     sigaction(signal, &action, NULL);
 }
 
-static void sigttou_ignore(int) {
+static void sigttou_ignore(int signal) {
     // Ignored. (We can't use SIG_IGN because it's restartable even if
     // SA_RESTART isn't specified. We need this empty function instead.)
+    (void)signal;
 }
 
 // Sets raw input mode if we're in the foreground of a terminal.
@@ -156,11 +157,13 @@ static void exit_signal(int signal) {
     _Exit(128 + signal);
 }
 
-static void sigcont(int) {
+static void sigcont(int signal) {
+    (void)signal;
     set_raw_input();
 }
 
-static void sigtstp(int) {
+static void sigtstp(int sig) {
+    (void)sig;
     clear_raw_input();
 
     // We need to raise SIGTSTP again with the default handler so that we stop
@@ -204,9 +207,7 @@ void terminal_setup(void) {
     set_signal_handler(SIGILL, exit_signal);
     set_signal_handler(SIGINT, exit_signal);
     set_signal_handler(SIGPIPE, exit_signal);
-    set_signal_handler(SIGPOLL, exit_signal);
     set_signal_handler(SIGPROF, exit_signal);
-    set_signal_handler(SIGPWR, exit_signal);
     set_signal_handler(SIGQUIT, exit_signal);
     set_signal_handler(SIGSEGV, exit_signal);
     set_signal_handler(SIGSYS, exit_signal);
@@ -217,6 +218,23 @@ void terminal_setup(void) {
     set_signal_handler(SIGVTALRM, exit_signal);
     set_signal_handler(SIGXCPU, exit_signal);
     set_signal_handler(SIGXFSZ, exit_signal);
+
+    // On Linux, SIGINFO is an alias of SIGPWR, which by default terminates the
+    // program. On macOS, SIGINFO by default is ignored. We register for SIGPWR
+    // only on Linux.
+    #ifdef __linux__
+    #ifdef SIGPWR
+    set_signal_handler(SIGPWR, exit_signal);
+    #endif
+    #endif
+
+    // Same is true for SIGPOLL which terminates on Linux, which is SIGIO and
+    // is ignored on macOS.
+    #ifdef __linux__
+    #ifdef SIGPOLL
+    set_signal_handler(SIGPOLL, exit_signal);
+    #endif
+    #endif
 
     // Listen to SIGCONT to set raw input mode when we're foregrounded.
     set_signal_handler(SIGCONT, sigcont);
