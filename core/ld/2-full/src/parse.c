@@ -59,13 +59,14 @@ static void restore_file_state(void) {
 static void next_char(void) {
     //printf("last char %x\n",current_char);
     //printf("reading char...\n");
-    if (1 != fread(&current_char, 1, 1, input_file)) {
-        //printf("EOF\n");
+
+    current_char = fgetc(input_file);
+    if (current_char == EOF) {
         if (!feof(input_file)) {
             fatal("Failed to read input file.");
         }
-        current_char = EOF;
     }
+
     //printf("read char %x\n",current_char);
 }
 

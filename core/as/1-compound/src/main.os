@@ -342,40 +342,27 @@
 =next_char
     ; don't bother to set up a stack frame
 
-    ; get the address of current_char into r0
-    ims ra <current_char
-    ims ra >current_char
-    add r0 rpp ra
-
-    ; element_size and count are both 1
-    add r1 '00 '01
-    add r2 '00 '01
-
-    ; input file goes in r3
+    ; get the input file
     ims ra <input_file
     ims ra >input_file
-    ldw r3 rpp ra
+    ldw r0 rpp ra
 
-    ; call fread
-    ims ra <fread
-    ims ra >fread
+    ; call fgetc
+    ims ra <fgetc
+    ims ra >fgetc
     sub rsp rsp '04     ; push return address
     add rb rip '08
     stw rb '00 rsp
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
 
-    ; if return value is 0, assume it's the end of the file
-    jz r0 &next_char_eof
-    jz '00 &next_char_done
+    ; TODO check feof()/ferror() on EOF
 
-    ; on end-of-file set current_char to -1
-:next_char_eof
+    ; store the result in current_char
     ims ra <current_char
     ims ra >current_char
-    stw 'FF rpp ra
+    stw r0 rpp ra
 
-:next_char_done
     ldw rip '00 rsp     ; ret
 
 

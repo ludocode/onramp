@@ -152,16 +152,13 @@ void read_char(void) {
     if (current_char == EOF) {
         fatal("Internal error: cannot consume EOF");
     }
-    unsigned char c;
-    size_t count = fread(&c, 1, 1, input_file);
-    if (count != 1) {
-        if (feof(input_file)) {
-            current_char = EOF;
-            return;
+
+    current_char = fgetc(input_file);
+    if (current_char == EOF) {
+        if (!feof(input_file)) {
+            fatal("Failed to read input file.");
         }
-        fatal("Failed to read from input file");
     }
-    current_char = c;
 }
 
 static label_type_t label_type_from_char(char c) {

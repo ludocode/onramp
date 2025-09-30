@@ -208,28 +208,14 @@
 =next_char
     ; don't bother to set up a stack frame
 
-    ; TODO should just call fgetc()
+    ; call fgetc(input_file)
+    imw r0 ^input_file
+    ldw r0 r0 rpp
+    call ^fgetc
 
-    ; read one character from input_file into current_char
-    imw r0 ^current_char
-    add r0 r0 rpp
-    mov r1 1
-    mov r2 1
-    imw r3 ^input_file
-    ldw r3 r3 rpp
-    call ^fread
-
-    ; if return value is 0, assume it's the end of the file
-    jz r0 &next_char_eof
-
-    ; otherwise we're done
-    ret
-
-:next_char_eof
-
-    ; on end-of-file set current_char to -1
-    imw r0 ^current_char
-    stw -1 rpp r0
+    ; store it in current_char
+    imw r1 ^current_char
+    stw r0 rpp r1
     ret
 
 

@@ -610,40 +610,27 @@
 =read_char
     ; don't bother to set up a stack frame
 
-    ; get the address of current_char into r0
-    7C 8A <current_char   ; ims ra <current_char
-    7C 8A >current_char   ; ims ra >current_char
-    70 80 8E 8A           ; add r0 rpp ra
-
-    ; element_size and count are both 1
-    70 81 00 01           ; add r1 0 1
-    70 82 00 01           ; add r2 0 1
-
-    ; input file goes in r3
+    ; get the input file
     7C 8A <input_file     ; ims ra <input_file
     7C 8A >input_file     ; ims ra >input_file
-    78 83 8E 8A           ; ldw r3 rpp ra
+    78 80 8E 8A           ; ldw r0 rpp ra
 
-    ; call fread
-    7C 8A <fread   ; ims ra <fread
-    7C 8A >fread   ; ims ra >fread
+    ; call fgetc
+    7C 8A <fgetc   ; ims ra <fgetc
+    7C 8A >fgetc   ; ims ra >fgetc
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; if return value is 0, assume it's the end of the file
-    7E 80 &read_char_eof
-    7E 00 &read_char_done
+    ; TODO check feof()/ferror() on EOF
 
-    ; on end-of-file set current_char to -1
-:read_char_eof
+    ; store the result in current_char
     7C 8A <current_char   ; ims ra <current_char
     7C 8A >current_char   ; ims ra >current_char
-    79 FF 8E 8A           ; stw -1 rpp ra
+    79 80 8E 8A           ; stw r0 rpp ra
 
-:read_char_done
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 

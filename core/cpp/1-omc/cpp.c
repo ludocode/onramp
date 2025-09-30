@@ -90,7 +90,7 @@
     typedef void FILE;
     FILE* fopen(const char* name, const char* mode);
     int fclose(FILE* file);
-    size_t fread(void* buffer, size_t size, size_t count, FILE* file);
+    int fgetc(FILE* file);
     size_t fwrite(const void* buffer, size_t size, size_t count, FILE* file);
     int feof(FILE* file);
     int fputc(int c, FILE* file);
@@ -213,8 +213,8 @@ static void emit_line_directive(void) {
  * bytes.)
  */
 static char read_char(void) {
-    char c;
-    if (1 != fread(&c, 1, 1, current_file)) {
+    char c = fgetc(current_file);
+    if (c == -1) {
         if (!feof(current_file)) {
             fatal("Failed to read input file.");
         }
