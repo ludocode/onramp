@@ -97,14 +97,14 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/assert.oo \
     build/intermediate/libc-2-opc/ctype.oo \
     build/intermediate/libc-2-opc/environ.oo \
-    build/intermediate/libc-2-opc/file.oo \
     build/intermediate/libc-2-opc/float.oo \
     build/intermediate/libc-2-opc/format.oo \
-    build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/llong.oo \
     build/intermediate/libc-2-opc/multibyte.oo \
+    build/intermediate/libc-2-opc/posixio.oo \
     build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/stdbit.oo \
+    build/intermediate/libc-2-opc/stdio.oo \
     build/intermediate/libc-2-opc/stdlib.oo \
     build/intermediate/libc-2-opc/string.oo \
     build/intermediate/libc-2-opc/strings.oo \

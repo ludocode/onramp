@@ -53,12 +53,6 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/environ.c \
     -o build/intermediate/libc-2-opc/environ.oo
 
-echo Compiling libc/2-opc file.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/file.c \
-    -o build/intermediate/libc-2-opc/file.oo
-
 echo Compiling libc/2-opc float.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -70,12 +64,6 @@ onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/format.c \
     -o build/intermediate/libc-2-opc/format.oo
-
-echo Compiling libc/2-opc io.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/io.c \
-    -o build/intermediate/libc-2-opc/io.oo
 
 echo Compiling libc/2-opc llong.c
 onrampvm build/intermediate/cc/cc.oe \
@@ -89,6 +77,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/multibyte.c \
     -o build/intermediate/libc-2-opc/multibyte.oo
 
+echo Compiling libc/2-opc posixio.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/posixio.c \
+    -o build/intermediate/libc-2-opc/posixio.oo
+
 echo Assembling libc/2-opc setjmp.os
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -100,6 +94,12 @@ onrampvm build/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/stdbit.c \
     -o build/intermediate/libc-2-opc/stdbit.oo
+
+echo Compiling libc/2-opc stdio.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/stdio.c \
+    -o build/intermediate/libc-2-opc/stdio.oo
 
 echo Compiling libc/2-opc stdlib.c
 onrampvm build/intermediate/cc/cc.oe \
@@ -154,14 +154,14 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-2-opc/assert.oo \
     build/intermediate/libc-2-opc/ctype.oo \
     build/intermediate/libc-2-opc/environ.oo \
-    build/intermediate/libc-2-opc/file.oo \
     build/intermediate/libc-2-opc/float.oo \
     build/intermediate/libc-2-opc/format.oo \
-    build/intermediate/libc-2-opc/io.oo \
     build/intermediate/libc-2-opc/llong.oo \
     build/intermediate/libc-2-opc/multibyte.oo \
+    build/intermediate/libc-2-opc/posixio.oo \
     build/intermediate/libc-2-opc/setjmp.oo \
     build/intermediate/libc-2-opc/stdbit.oo \
+    build/intermediate/libc-2-opc/stdio.oo \
     build/intermediate/libc-2-opc/stdlib.oo \
     build/intermediate/libc-2-opc/string.oo \
     build/intermediate/libc-2-opc/strings.oo \

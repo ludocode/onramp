@@ -57,14 +57,14 @@ OBJS=\
 		$(OUT)/assert.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
-		$(OUT)/file.oo \
 		$(OUT)/float.oo \
 		$(OUT)/format.oo \
-		$(OUT)/io.oo \
 		$(OUT)/llong.oo \
 		$(OUT)/multibyte.oo \
+		$(OUT)/posixio.oo \
 		$(OUT)/setjmp.oo \
 		$(OUT)/stdbit.oo \
+		$(OUT)/stdio.oo \
 		$(OUT)/stdlib.oo \
 		$(OUT)/string.oo \
 		$(OUT)/strings.oo \
@@ -172,12 +172,6 @@ $(OUT)/environ.oo: $(SRC2)/environ.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/environ.c -o $(OUT)/environ.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/environ.c -o $@
 
-$(OUT)/file.oo: $(SRC2)/file.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/file.c -o $(OUT)/file.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/file.c -o $@
-
 $(OUT)/float.oo: $(SRC2)/float.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
@@ -189,12 +183,6 @@ $(OUT)/format.oo: $(SRC2)/format.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/format.c -o $(OUT)/format.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/format.c -o $@
-
-$(OUT)/io.oo: $(SRC2)/io.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/io.c -o $(OUT)/io.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/io.c -o $@
 
 $(OUT)/llong.oo: $(SRC2)/llong.c Makefile
 	@rm -f $@
@@ -208,11 +196,23 @@ $(OUT)/multibyte.oo: $(SRC2)/multibyte.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/multibyte.c -o $(OUT)/multibyte.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/multibyte.c -o $@
 
+$(OUT)/posixio.oo: $(SRC2)/posixio.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/posixio.c -o $(OUT)/posixio.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/posixio.c -o $@
+
 $(OUT)/stdbit.oo: $(SRC2)/stdbit.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/stdbit.c -o $(OUT)/stdbit.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stdbit.c -o $@
+
+$(OUT)/stdio.oo: $(SRC2)/stdio.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/stdio.c -o $(OUT)/stdio.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stdio.c -o $@
 
 $(OUT)/stdlib.oo: $(SRC2)/stdlib.c Makefile
 	@rm -f $@
