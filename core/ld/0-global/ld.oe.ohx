@@ -2803,7 +2803,7 @@
 
     ; store the address to loop
     79 8F 8D F0    ; stw rip rfp -16
-;:test_write_loop
+;:write_all_loop
 
     ; get syscall fwrite into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
@@ -2821,18 +2821,18 @@
 
     ; check the high bit for error
     77 8A 80 1F   ; shru ra r0 31
-    7E 8A 04 00   ; jz ra &test_write_no_error (+4)
+    7E 8A 04 00   ; jz ra &write_all_no_error (+4)
     ; fail, return the error code
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:test_write_no_error
+;:write_all_no_error
 
     ; check if we got zero
-    7E 80 01 00   ; jz r0 &test_write_zero (+1)
-    7E 00 05 00   ; jz 0 &test_write_not_zero (+5)
-;:test_write_zero
+    7E 80 01 00   ; jz r0 &write_all_zero (+1)
+    7E 00 05 00   ; jz 0 &write_all_not_zero (+5)
+;:write_all_zero
     ; zero bytes written. this should not be possible; the vm is
     ; malfunctioning. fail, return generic error -1
     70 80 00 FF     ; add r0 0 -1
@@ -2840,7 +2840,7 @@
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:test_write_not_zero
+;:write_all_not_zero
 
     ; adjust pointer and bytes remaining
     78 81 8D F8   ; ldw r1 rfp -8
@@ -2851,13 +2851,13 @@
     79 82 8D F4   ; stw r2 rfp -12
 
     ; if bytes remaining is zero, we're done
-    7E 82 02 00   ; jz r2 &test_write_loop_exit (+2)
+    7E 82 02 00   ; jz r2 &write_all_loop_exit (+2)
 
     ; otherwise loop.
     78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
     78 8F 8D F0   ; ldw rip rfp -16   ; jump to :write_all_loop
 
-;:test_write_loop_exit
+;:write_all_loop_exit
 
     ; done, return zero
     70 80 00 00     ; add r0 0 0        ; zero r0
