@@ -896,11 +896,12 @@
 
 
 ;==========================================
-; int __write_all(int handle, const char* data, size_t count);
+; void __write_all(int handle, const char* data, size_t count);
 ;==========================================
 ; Writes all of the given data to the given I/O handle.
 ;
-; Returns zero if successful, or the syscall error code if it fails.
+; Calls __fatal() on failure. We don't attempt to recover from write failures
+; during bootstrapping.
 ;
 ; vars
 ; - io_handle: rfp-4
@@ -942,12 +943,7 @@
     ; check the high bit for error
     77 8A 80 1F                   ; shru ra r0 31
     7E 8A &__write_all_no_error   ; jz ra &__write_all_no_error
-
-    ; fail, return the error code
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
-    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
-    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
-    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+    7E 00 &__write_all_fail       ; jz 0 &__write_all_fail
 :__write_all_no_error
 
     ; check if we got zero
@@ -987,6 +983,15 @@
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:__write_all_fail
+    ; fwrite syscall failed
+    7C 80 <__files_error_fwrite_failed   ; ims r0 <__files_error_fwrite_failed
+    7C 80 >__files_error_fwrite_failed   ; ims r0 >__files_error_fwrite_failed
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
 
 
 
@@ -1100,8 +1105,6 @@
     70 8F 8E 8A         ; add rip rpp ra    ; jump
     70 8C 8C 04         ; add rsp rsp 4     ; pop return address
 
-    ; TODO check return value. see fflush()
-
     ; done
     7E 00 &__fwrite_return  ; jz 0 &__fwrite_return
 
@@ -1193,9 +1196,6 @@
     79 8B 00 8C         ; stw rb 0 rsp
     70 8F 8E 8A         ; add rip rpp ra    ; jump
     70 8C 8C 04         ; add rsp rsp 4     ; pop return address
-
-    ; TODO error check. if fflush failed we should consider it a fatal error,
-    ; but we may not be able to print an error message.
 
     ; reset the buffer
     78 80 00 8C     ; stw r0 0 rsp     ; file
