@@ -184,6 +184,40 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push r0
     79 80 00 8C     ; stw r0 0 rsp      ; ...
 
+    ; TODO: streams are not supposed to be flushed on _Exit(), but we don't
+    ; have exit(), and we also fully buffer instead of line buffer stderr.
+    ; We should add exit() and move this flushing to it; we just have to make
+    ; sure everything is calling it instead of _Exit(). We should also probably
+    ; add an option to disable buffering stderr.
+
+    ; get stdout
+    7C 8A <stdout        ; ims ra <stdout
+    7C 8A >stdout        ; ims ra >stdout
+    78 80 8E 8A          ; ldw r0 rpp ra
+
+    ; call fflush(stdout)
+    7C 8A <fflush        ; ims ra <fflush
+    7C 8A >fflush        ; ims ra >fflush
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; get stderr
+    7C 8A <stderr        ; ims ra <stderr
+    7C 8A >stderr        ; ims ra >stderr
+    78 80 8E 8A          ; ldw r0 rpp ra
+
+    ; call fflush(stderr)
+    7C 8A <fflush        ; ims ra <fflush
+    7C 8A >fflush        ; ims ra >fflush
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
     ; pop exit status
     78 80 00 8C     ; ldw r0 0 rsp      ; pop r0
     70 8C 8C 04     ; add rsp rsp 4     ; ...
@@ -201,16 +235,45 @@
 
 
 ; ==========================================================
+; int __fatal_called;
+; ==========================================================
+; A flag to make sure we don't try to print an error message in __fatal()
+; recursively.
+;
+; The printing of the error message in __fatal() can itself cause __fatal() to
+; be called. We set this flag to make sure we don't try it again and cause an
+; infinite loop.
+; ==========================================================
+
+@__fatal_called
+    00 00 00 00
+
+
+
+; ==========================================================
 ; [[noreturn]] void __fatal(const char* message);
 ; ==========================================================
 ; Prints the given error message and exits the program with status 1.
 ;
-; Note that this is different from `fatal()` in libo which prints current line
-; and file.
+; This is used for fatal errors in libc functions. Note that this is different
+; from `fatal()` in libo which prints current line and file.
 ; ==========================================================
 
 =__fatal
     ; don't bother to set up a stack frame, we're exiting
+
+    ; if this was already called, skip printing this time
+    7C 8A <__fatal_called     ; ims ra <__fatal_called
+    7C 8A >__fatal_called     ; ims ra >__fatal_called
+    78 81 8E 8A      ; ldw r1 rpp ra
+    7E 81 &__fatal_print
+    ;FF FF FF FF  ; uncomment to get a stack trace on recursive fatal
+    7E 00 &__fatal_no_print
+
+:__fatal_print
+
+    ; set the flag so we don't try to print twice
+    79 01 8E 8A      ; stw 1 rpp ra
 
     ; get stderr
     7C 8A <stderr        ; ims ra <stderr
@@ -225,6 +288,22 @@
     79 8B 00 8C          ; stw rb 0 rsp
     70 8F 8E 8A          ; add rip rpp ra         ; jump
     70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+    ; get stderr
+    7C 8A <stderr        ; ims ra <stderr
+    7C 8A >stderr        ; ims ra >stderr
+    78 80 8E 8A          ; ldw r0 rpp ra
+
+    ; call fflush(stderr)
+    7C 8A <fflush        ; ims ra <fflush
+    7C 8A >fflush        ; ims ra >fflush
+    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
+    70 8B 8F 08          ; add rb rip 8
+    79 8B 00 8C          ; stw rb 0 rsp
+    70 8F 8E 8A          ; add rip rpp ra         ; jump
+    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+
+:__fatal_no_print
 
     ; call _Exit(1)
     70 80 00 01    ; add r0 0 1

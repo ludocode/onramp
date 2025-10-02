@@ -992,6 +992,14 @@ static void run(size_t argc, char** argv) {
         return;
     }
 
+    // flush our streams before running the subprogram to make sure our output
+    // isn't mixed with it.
+    // TODO probably this should move to the libc __onramp_spawn_pit; or if not
+    // libc/0, at least libc/2 should flush any streams associated with the
+    // file descriptors given to the subprogram
+    fflush(stdout);
+    fflush(stderr);
+
     // TODO we should probably check here that the tool actually exists, would
     // make for nicer error messages
 

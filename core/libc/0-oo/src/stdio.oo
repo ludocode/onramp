@@ -30,7 +30,7 @@
 ;     int handle; // underlying I/O handle
 ;     int mode; // 0 for read, 1 for write
 ;     char* buffer; // pointer to allocated 4 KB buffer
-;     char* start; // position of first valid byte in buffer (only for reading)
+;     char* start; // position of first valid byte in buffer
 ;     char* end; // one past last valid byte in buffer
 ; } FILE;
 ;
@@ -39,6 +39,9 @@
 ;
 ; The data between start and end is the valid data in the buffer. In this
 ; stage, files can only be opened for reading or writing, not both.
+;
+; (In a file opened for writing, the start pointer never moves; it always
+; points to the start of the buffer.)
 
 
 
@@ -368,11 +371,6 @@
     79 81 80 0C     ; stw r1 r0 12     ; file->start = buffer
     79 81 80 10     ; stw r1 r0 16     ; file->end = buffer
 
-    ; clear buffer
-    ; (we don't initialize handle and mode; they're initialized by the caller.)
-    79 00 80 0C     ; stw 0 r0 12
-    79 00 80 10     ; stw 0 r0 16
-
     ; done
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
@@ -601,9 +599,6 @@
 ; ==========================================================
 ; Closes the given file.
 ;
-; If this is called on the standard streams (stdin, stdout and stderr), the
-; call is ignored.
-;
 ; args:
 ; - file: r0
 ; vars:
@@ -620,8 +615,18 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push r0
     79 80 00 8C     ; stw r0 0 rsp      ; ^^^
 
+    ; call fflush()
+    7C 8A <fflush    ; ims ra <fflush
+    7C 8A >fflush    ; ims ra >fflush
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
     ; prepare args for syscall fclose(handle)
-    78 80 00 80         ; ldw r0 0 r0
+    78 80 00 8C     ; ldw r0 0 rsp   ; file
+    78 80 00 80     ; ldw r0 0 r0    ; file->handle
 
     ; get syscall fclose into r7
     7C 8A <__process_info_table    ; ims ra <__process_info_table
@@ -890,71 +895,33 @@
 
 
 
-; ==========================================================
-; size_t fwrite(const void* data, size_t element_size, size_t element_count, FILE* file);
-; ==========================================================
-; Writes bytes.
+;==========================================
+; int __write_all(int handle, const char* data, size_t count);
+;==========================================
+; Writes all of the given data to the given I/O handle.
 ;
-; We match the C prototype but the element size must be 1. (This restriction is
-; lifted in a later libc stage.)
+; Returns zero if successful, or the syscall error code if it fails.
 ;
-; (Element sizes other than 1 would require buffering which we don't do yet,
-; plus there are overflow checks and other considerations needed to do it
-; correctly. It's better to just forbid it during bootstrapping.)
-;
-; vars:
-; - file: rfp-4
-; - i/o handle: rfp-8
+; vars
+; - io_handle: rfp-4
+; - data: rfp-8
 ; - remaining: rfp-12
-; - data: rfp-16
-; - total: rfp-20
-; ==========================================================
+;==========================================
 
-=fwrite
-    ; If the element count is zero, don't do anything. We never want to make an
-    ; fwrite syscall with zero bytes.
-    7E 82 &__fwrite_count_zero      ; jz r2 &__fwrite_count_zero
-    7E 00 &__fwrite_count_not_zero  ; jz 0 &__fwrite_count_not_zero
-:__fwrite_count_zero
-    70 80 00 00                     ; add r0 0 0        ; mov r0 0
-    78 8F 00 8C                     ; ldw rip 0 rsp     ; ret
-:__fwrite_count_not_zero
+=__write_all
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
-    71 8C 8C 10     ; sub rsp rsp 16
 
-    ; initialize vars
-    79 83 8D FC     ; stw r3 rfp -4    ; file
-    79 82 8D F4     ; stw r2 rfp -12   ; remaining (element_count)
-    79 82 8D EC     ; stw r2 rfp -20   ; total (element_count)
-    79 80 8D F0     ; stw r0 rfp -16   ; data
+    ; store args
+    71 8C 8C 10     ; sub rsp rsp 12
+    79 80 8D FC     ; stw r0 rfp -4
+    79 81 8D F8     ; stw r1 rfp -8
+    79 82 8D F4     ; stw r2 rfp -12
 
-    ; store i/o handle
-    78 80 00 83     ; ldw r0 0 r3
-    79 80 8D F8     ; stw r0 rfp -8
-
-    ; make sure the element size is 1
-    71 81 81 01     ; sub r1 r1 1
-    7E 81 &__fwrite_size_ok
-
-    ; element size is not 1, fatal error
-    7C 80 <__files_error_bad_element_size   ; ims r0 <__files_error_bad_element_size
-    7C 80 >__files_error_bad_element_size   ; ims r0 >__files_error_bad_element_size
-    70 80 8E 80        ; add r0 rpp r0
-    7C 8A <__fatal     ; ims ra <__fatal
-    7C 8A >__fatal     ; ims ra >__fatal
-    70 8F 8E 8A        ; add rip rpp ra
-:__fwrite_size_ok
-
-:__fwrite_loop
-
-    ; prepare syscall arguments
-    78 80 8D F8     ; ldw r0 rfp -8    ; i/o handle
-    78 81 8D F0     ; ldw r1 rfp -16   ; data
-    78 82 8D F4     ; ldw r2 rfp -12   ; remaining (element_count)
+:__write_all_loop
 
     ; get syscall fwrite into r7
     7C 8A <__process_info_table    ; ims ra <__process_info_table
@@ -972,42 +939,215 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; if nothing was returned, we're done
-    7E 80 &__fwrite_done  ; jz r0 &__fwrite_done
+    ; check the high bit for error
+    77 8A 80 1F                   ; shru ra r0 31
+    7E 8A &__write_all_no_error   ; jz ra &__write_all_no_error
 
-    ; high bit indicates error
-    77 8A 80 1F    ; shru ra r0 31
-    7E 8A &__fwrite_syscall_ok     ; jz ra &__fwrite_syscall_ok
-    7E 00 &__fwrite_syscall_failed ; jz ra &__fwrite_syscall_failed
-:__fwrite_syscall_ok
-
-    ; subtract written bytes from remaining. if it's zero, we're done
-    78 82 8D F4           ; ldw r2 rfp -12
-    71 82 82 80           ; sub r2 r2 r0
-    7E 82 &__fwrite_done  ; jz r2 &__fwrite_done
-    79 82 8D F4           ; stw r2 rfp -12
-
-    ; adjust the write position
-    78 81 8D F0     ; ldw r1 rfp -16
-    70 81 81 80     ; add r1 r1 r0
-    79 81 8D F0     ; stw r1 rfp -16
-
-    ; and loop
-    7E 00 &__fwrite_loop   ; jz 0 &__fwrite_loop   ; jmp &__fwrite_loop
-
-:__fwrite_done
-
-    ; return total
-    78 80 8D EC     ; ldw r0 rfp -20
+    ; fail, return the error code
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+:__write_all_no_error
+
+    ; check if we got zero
+    7E 80 &__write_all_zero       ; jz r0 &__write_all_zero
+    7E 00 &__write_all_not_zero   ; jz 0 &__write_all_not_zero
+
+:__write_all_zero
+    ; zero bytes written. this should not be possible; the vm is
+    ; malfunctioning. fail, return generic error -1
+    70 80 00 FF     ; add r0 0 -1
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+:__write_all_not_zero
+
+    ; adjust pointer and bytes remaining
+    78 81 8D F8   ; ldw r1 rfp -8
+    78 82 8D F4   ; ldw r2 rfp -12
+    70 81 81 80   ; add r1 r1 r0
+    71 82 82 80   ; sub r2 r2 r0
+    79 81 8D F8   ; stw r1 rfp -8
+    79 82 8D F4   ; stw r2 rfp -12
+
+    ; if bytes remaining is zero, we're done
+    7E 82 &__write_all_loop_exit   ; jz r2 &__write_all_loop_exit (+2)
+
+    ; otherwise loop.
+    78 80 8D FC               ; ldw r0 rfp -4            ; io_handle
+    7E 00 &__write_all_loop   ; jz r0 &__write_all_loop
+
+:__write_all_loop_exit
+
+    ; done, return zero
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; size_t fwrite(const void* data, size_t element_size, size_t element_count, FILE* file);
+; ==========================================================
+; Writes bytes.
+;
+; We match the C prototype but the element size must be 1. (This restriction is
+; lifted in a later libc stage.)
+;
+; vars:
+; - file: rfp-4
+; - data: rfp-8
+; - count: rfp-12
+; ==========================================================
+
+=fwrite
+
+    ; make sure mode is 1
+    78 8A 83 04   ; ldw ra r3 4   ; mode
+    71 8A 8A 01   ; sub ra ra 1
+    7E 8A &__fwrite_mode_ok
+    7E 00 &__fwrite_mode_fail
+:__fwrite_mode_ok
+
+    ; if the element count is zero, just return zero
+    7E 82 &__fwrite_count_zero      ; jz r2 &__fwrite_count_zero
+    7E 00 &__fwrite_count_not_zero  ; jz 0 &__fwrite_count_not_zero
+:__fwrite_count_zero
+    70 80 00 00                     ; add r0 0 0        ; mov r0 0
+    78 8F 00 8C                     ; ldw rip 0 rsp     ; ret
+:__fwrite_count_not_zero
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; preserve args
+    79 83 8D FC     ; stw r3 rfp -4    ; file
+    79 80 8D F8     ; stw r0 rfp -8    ; data
+    79 82 8D F4     ; stw r2 rfp -12   ; count
+
+    ; make sure the element size is 1
+    71 81 81 01                 ; sub r1 r1 1
+    7E 81 &__fwrite_size_ok      ; jz r1 &__fwrite_size_ok
+    7E 00 &__fwrite_size_error   ; jz r1 &__fwrite_size_error
+:__fwrite_size_ok
+
+    ; get the free space in the buffer
+    78 80 8D FC     ; ldw r0 rfp -4    ; file
+    78 81 80 08     ; ldw r1 r0 8      ; file->buffer
+    78 82 80 10     ; ldw r2 r0 16     ; file->end
+    71 82 82 81     ; sub r2 r2 r1     ; buffer_count
+    ;76 83 01 0C    ; shl r3 1 12
+; TODO limit to 512 until our malloc can reuse allocs
+76 83 01 09     ; shl r3 1 9
+    71 84 83 82     ; sub r4 r3 r2     ; remaining
+
+    ; check if we have enough room in the buffer
+    78 82 8D F4             ; ldw r2 rfp -12   ; count
+    7D 8A 84 82             ; ltu ra r4 r2     ; ra = (remaining < buffer_count)
+    7E 8A &__fwrite_memcpy  ; jz ra &__fwrite_memcpy
+    7E 00 &__fwrite_flush   ; jz 0 &__fwrite_flush
+
+:__fwrite_flush
+    ; no room in buffer. call fflush(file)
+    78 80 8D FC     ; ldw r0 rfp -4    ; file
+    7C 8A <fflush    ; ims ra <fflush
+    7C 8A >fflush    ; ims ra >fflush
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; get the free space in the buffer again
+    78 80 8D FC     ; ldw r0 rfp -4    ; file
+    78 81 80 08     ; ldw r1 r0 8      ; file->buffer
+    78 82 80 10     ; ldw r2 r0 16     ; file->end
+    71 82 82 81     ; sub r2 r2 r1     ; buffer_count
+    ;76 83 01 0C    ; shl r3 1 12
+; TODO limit to 512 until our malloc can reuse allocs
+76 83 01 09     ; shl r3 1 9
+    71 84 83 82     ; sub r4 r3 r2     ; remaining
+
+    ; check again if we have enough room in the buffer
+    78 82 8D F4             ; ldw r2 rfp -12   ; count
+    7D 8A 84 82             ; ltu ra r4 r2     ; ra = (remaining < buffer_count)
+    ;7E 8A &__fwrite_memcpy  ; jz ra &__fwrite_memcpy
+    7E 00 &__fwrite_all     ; jz 0 &__fwrite_all
+
+:__fwrite_all
+    ; the amount requested to write is larger than our empty buffer. send it
+    ; directly to the output file.
+
+    ; prepare args for write_all(handle, data, count)
+    78 83 8D FC     ; ldw r3 rfp -4    ; file
+    78 80 83 00     ; ldw r0 r3 0      ; file->handle
+    78 81 8D F8     ; ldw r1 rfp -8    ; data
+    78 82 8D F4     ; ldw r2 rfp -12   ; count
+
+    ; call __write_all()
+    7C 8A <__write_all  ; ims ra <__write_all
+    7C 8A >__write_all  ; ims ra >__write_all
+    71 8C 8C 04         ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08         ; add rb rip 8
+    79 8B 00 8C         ; stw rb 0 rsp
+    70 8F 8E 8A         ; add rip rpp ra    ; jump
+    70 8C 8C 04         ; add rsp rsp 4     ; pop return address
+
+    ; TODO check return value. see fflush()
+
+    ; done
+    7E 00 &__fwrite_return  ; jz 0 &__fwrite_return
+
+:__fwrite_memcpy
+    ; the data fits in the buffer.
+
+    ; get args for memcpy(file->end, data, count)
+    78 83 8D FC     ; ldw r3 rfp -4    ; file
+    78 80 83 10     ; ldw r0 r3 16     ; file->end
+    78 81 8D F8     ; ldw r1 rfp -8    ; data
+    78 82 8D F4     ; ldw r2 rfp -12   ; count
+
+    ; increment file->end
+    70 84 80 82     ; add r4 r0 r2
+    79 84 83 10     ; stw r4 r3 16
+
+    ; call memcpy
+    7C 8A <memcpy   ; ims ra <memcpy
+    7C 8A >memcpy   ; ims ra >memcpy
+    71 8C 8C 04     ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08     ; add rb rip 8
+    79 8B 00 8C     ; stw rb 0 rsp
+    70 8F 8E 8A     ; add rip rpp ra    ; jump
+    70 8C 8C 04     ; add rsp rsp 4     ; pop return address
+
+:__fwrite_return
+    ; return the given count
+    78 80 8D F4     ; ldw r0 rfp -12    ; count
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
     70 8C 8C 04     ; add rsp rsp 4     ; ...
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
-:__fwrite_syscall_failed
-    ; we don't support error states or ferror() during bootstrapping.
-    7C 80 <__files_error_fwrite_failed   ; ims r0 <__files_error_fwrite_failed
-    7C 80 >__files_error_fwrite_failed   ; ims r0 >__files_error_fwrite_failed
+:__fwrite_mode_fail
+    ; wrong mode, fatal error
+    7C 80 <__files_error_invalid_write   ; ims r0 <__files_error_invalid_write
+    7C 80 >__files_error_invalid_write   ; ims r0 >__files_error_invalid_write
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+:__fwrite_size_error
+    ; element size is not 1, fatal error
+    7C 80 <__files_error_bad_element_size   ; ims r0 <__files_error_bad_element_size
+    7C 80 >__files_error_bad_element_size   ; ims r0 >__files_error_bad_element_size
     70 80 8E 80        ; add r0 rpp r0
     7C 8A <__fatal     ; ims ra <__fatal
     7C 8A >__fatal     ; ims ra >__fatal
@@ -1024,8 +1164,49 @@
 ; ==========================================================
 
 =fflush
-    ; libc/0 stdio is currently unbuffered so this does nothing.
-    ; TODO this will need to flush when we add output buffering to libc/0.
+
+    ; If mode is 0 (read), do nothing.
+    78 8A 80 04   ; ldw ra r0 4
+    7E 8A &__fflush_return
+
+    ; If the buffer is empty (file->start == file->end), do nothing.
+    78 81 80 0C              ; ldw r1 r0 12
+    78 82 80 10              ; ldw r2 r0 16
+    71 82 81 82              ; sub r2 r1 r2
+    7E 82 &__fflush_return   ; jz r2 &__fflush_return
+
+    ; push the file
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ^^^
+
+    ; get arguments for write_all(handle, bytes, count)
+    78 81 80 08     ; ldw r1 r0 8      ; file->buffer
+    78 82 80 10     ; ldw r2 r0 16     ; file->end
+    71 82 82 81     ; sub r2 r2 r1     ; count
+    78 80 80 00     ; ldw r0 r0 0      ; handle
+
+    ; call __write_all()
+    7C 8A <__write_all  ; ims ra <__write_all
+    7C 8A >__write_all  ; ims ra >__write_all
+    71 8C 8C 04         ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08         ; add rb rip 8
+    79 8B 00 8C         ; stw rb 0 rsp
+    70 8F 8E 8A         ; add rip rpp ra    ; jump
+    70 8C 8C 04         ; add rsp rsp 4     ; pop return address
+
+    ; TODO error check. if fflush failed we should consider it a fatal error,
+    ; but we may not be able to print an error message.
+
+    ; reset the buffer
+    78 80 00 8C     ; stw r0 0 rsp     ; file
+    78 81 80 08     ; ldw r1 r0 8      ; file->buffer
+    79 81 80 10     ; stw r1 r0 16     ; file->end = file->buffer
+
+    ; pop the file
+    78 80 00 8C     ; ldw r0 0 rsp     ; pop r0
+    70 8C 8C 04     ; add rsp rsp 4    ; ^^^
+
+:__fflush_return
     70 80 00 00     ; add r0 0 0        ; zero r0
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
@@ -1191,10 +1372,10 @@
 :__fgetc_mode_ok
 
     ; check if file->start != file->end
-    78 81 80 0C    ; ldw r1 r0 12
-    78 82 80 10    ; ldw r2 r0 16
-    71 82 81 82    ; sub r2 r1 r2
-    7E 82 &__fgetc_fread
+    78 81 80 0C             ; ldw r1 r0 12
+    78 82 80 10             ; ldw r2 r0 16
+    71 82 81 82             ; sub r2 r1 r2
+    7E 82 &__fgetc_fread    ; jz r2 &__fgetc_fread
 
     ; pop a character
     7A 83 81 00    ; ldw r3 r1 0
@@ -1254,49 +1435,72 @@
 ; ==========================================================
 
 =fputc
-    ; set up a stack frame
-    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
-    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
-    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
-    ; push c onto the stack so have a pointer to it
-    71 8C 8C 04     ; sub rsp rsp 4     ; push c
-    79 80 00 8C     ; stw r0 0 rsp      ; ...
+    ; make sure mode is 1
+    78 8A 81 04   ; ldw ra r1 4   ; mode
+    71 8A 8A 01   ; sub ra ra 1
+    7E 8A &__fputc_mode_ok
+    7E 00 &__fputc_mode_fail
+:__fputc_mode_ok
 
-    ; set up our args to fwrite
-    70 83 00 81      ; add r3 0 r1     ; mov r3 r1
-    70 80 00 8C      ; add r0 0 rsp    ; mov r0 rsp
-    70 81 00 01      ; add r1 0 1      ; mov r1 1
-    70 82 00 01      ; add r2 0 1      ; mov r2 1
+    ; check if file->end matches the end of the buffer
+    78 82 81 08     ; ldw r2 r1 8      ; file->buffer
+    ;76 83 01 0C    ; shl r3 1 12
+; TODO limit to 512 until our malloc can reuse allocs
+76 83 01 09     ; shl r3 1 9
+    70 82 82 83     ; add r2 r2 r3
+    78 83 81 10     ; ldw r3 r1 16     ; file->end
+    71 82 82 83     ; sub r2 r2 r3
 
-    ; call fwrite
-    7C 8A <fwrite        ; ims ra <fwrite
-    7C 8A >fwrite        ; ims ra >fwrite
-    71 8C 8C 04          ; sub rsp rsp 4          ; push return address
-    70 8B 8F 08          ; add rb rip 8
-    79 8B 00 8C          ; stw rb 0 rsp
-    70 8F 8E 8A          ; add rip rpp ra         ; jump
-    70 8C 8C 04          ; add rsp rsp 4          ; pop return address
+    ; if it matches, we have to flush
+    7E 82 &__fputc_flush    ; jz r2 &__fputc_flush
+    7E 00 &__fputc_insert   ; jz 0 &__fputc_insert
 
-    ; on error, fwrite() will return 0. fputc() should return EOF, which we
-    ; define as -1.
-    7E 80 &__fputc_error   ; jz r0 &__fputc_error
-    7E 00 &__fputc_ok      ; jz 0 &__fputc_ok
-:__fputc_error
-    70 80 00 FF            ; add r0 0 -1
-    7E 00 &__fputc_return  ; jz 0 &__fputc_return
+:__fputc_flush
 
-    ; on success, fputc is supposed to return the unsigned char written (and
-    ; not the int given) so we only load the one byte.
-:__fputc_ok
-    7A 80 00 8C          ; ldb r0 0 rsp
+    ; push args
+    71 8C 8C 08     ; sub rsp rsp 8
+    79 80 8C 00     ; stw r0 rsp 0
+    79 81 8C 04     ; stw r1 rsp 4
 
-    ; return
-:__fputc_return
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
-    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
-    70 8C 8C 04     ; add rsp rsp 4     ; ...
-    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+    ; call fflush(file)
+    70 80 81 00      ; add r0 r1 0
+    7C 8A <fflush    ; ims ra <fflush
+    7C 8A >fflush    ; ims ra >fflush
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; restore args
+    78 81 8C 04     ; ldw r1 rsp 4
+    78 80 8C 00     ; ldw r0 rsp 0
+    70 8C 8C 08     ; add rsp rsp 8
+
+    ; get file->end back into r3
+    78 83 81 10     ; ldw r3 r1 16     ; file->end
+
+:__fputc_insert
+
+    ; insert the character at file->end (r3) and bump it
+    7B 80 83 00    ; stb r0 r3 0
+    70 83 83 01    ; add r3 r3 1
+    79 83 81 10    ; stw r3 r1 16     ; file->end
+
+    ; return the character cast to unsigned
+    77 81 FF 18    ; shru r1 -1 24     ; r1 = (0xFFFFFFFFu >> 24)
+    74 80 80 81    ; and r0 r0 r1
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+:__fputc_mode_fail
+    ; wrong mode, fatal error
+    7C 80 <__files_error_invalid_write   ; ims r0 <__files_error_invalid_write
+    7C 80 >__files_error_invalid_write   ; ims r0 >__files_error_invalid_write
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
 
 
 

@@ -702,6 +702,7 @@ int main(int argc, const char** argv) {
     pass = 1;
     perform_pass(argv);
 
+    fclose(output_file);
     set_current_filename(NULL);
     free(buffer);
     table_clear(locals);
