@@ -53,7 +53,13 @@
     #error <stdint.h> is required.
 #endif
 
+struct vm_t;
 static void print_callstack(void);
+static void vm_print_stats(struct vm_t* vm);
+
+// Uncomment to print stats such as memory usage on exit. This is disabled by
+// default to avoid impact on performance.
+//#define VM_ENABLE_STATS
 
 /* TODO should never panic, any error should break into the debugger */
 /* TODO actually no, we should only break into the debugger if we were running
@@ -241,9 +247,16 @@ typedef struct vm_t {
     const char* filename;
     //char* root_path;
     uint32_t registers[16];
+
     uint8_t* memory;
     uint32_t memory_base; /* base address in virtual space */
     uint32_t memory_size;
+
+    #ifdef VM_ENABLE_STATS
+    uint8_t* memory_mask; // bit mask of 4KB pages touched
+    size_t memory_mask_size;
+    #endif
+
     program_t* program;
     FILE* files[FILES_COUNT];
     uint32_t recent_addrs[3];
@@ -286,6 +299,14 @@ static bool vm_is_string_valid(vm_t* vm, uint32_t addr) {
     return true;
 }
 
+vm_ghost_always_inline
+static void vm_mark_page(vm_t* vm, uint32_t addr) {
+    #ifdef VM_ENABLE_STATS
+    size_t page = (addr - vm->memory_base) >> 12;
+    vm->memory_mask[page >> 3] |= (1 << (page & 7));
+    #endif
+}
+
 static void vm_store_u32(vm_t* vm, uint32_t addr, uint32_t value) {
     //printf("storeu32 addr 0x%X rpp 0x%X value 0x%X\n",addr,vm->registers[VM_RPP],value);
     if (!vm_is_addr_valid(vm, addr))
@@ -294,6 +315,7 @@ static void vm_store_u32(vm_t* vm, uint32_t addr, uint32_t value) {
         panic("Address not aligned");
     //printf("%u %u\n",addr,value);
     vm_ghost_store_le_u32(vm->memory + (addr - vm->memory_base), value);
+    vm_mark_page(vm, addr);
 }
 
 static uint32_t vm_load_u32(vm_t* vm, uint32_t addr) {
@@ -312,6 +334,7 @@ static void vm_store_u8(vm_t* vm, uint32_t addr, uint8_t value) {
     if (!vm_is_addr_valid(vm, addr))
         panic("Invalid address");
     vm->memory[addr - vm->memory_base] = value;
+    vm_mark_page(vm, addr);
 }
 
 static uint8_t vm_load_u8(vm_t* vm, uint32_t addr) {
@@ -453,10 +476,18 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
 
     vm->running = true;
 
+    // allocate and dead-fill memory
     vm->memory = vm_ghost_alloc_array(uint8_t, vm->memory_size);
     for (size_t i = 0; i + 3 < vm->memory_size; i += 4) {
-        vm_store_u32(vm, vm->memory_base + i, VM_DEFAULT_MEMORY);
+        vm_ghost_store_le_u32(vm->memory + i, VM_DEFAULT_MEMORY);
     }
+
+    #ifdef VM_ENABLE_STATS
+    // allocate memory usage mask
+    size_t mask_bits = (vm->memory_size + 4095) >> 12;
+    vm->memory_mask_size = (mask_bits + 7) >> 3;
+    vm->memory_mask = calloc(vm->memory_mask_size, sizeof(uint8_t));
+    #endif
 
     /* parse arguments and environment variables */
     uint32_t pit = vm->memory_base;
@@ -609,6 +640,7 @@ static FILE* vm_file(vm_t* vm, uint32_t handle) {
 static uint32_t vm_exit(vm_t* vm) {
     // TODO pause debugger
     strace("sys exit() %i", vm->registers[0]);
+    vm_print_stats(vm);
     exit(vm_parse_mix(vm, vm->registers[0]));
     return VM_ERR_GENERIC;
 }
@@ -1389,6 +1421,20 @@ static void vm_print(vm_t* vm) {
         putchar('\n');
     }
     fflush(stdout);
+}
+
+static void vm_print_stats(vm_t* vm) {
+    #ifdef VM_ENABLE_STATS
+    size_t pages = 0;
+    for (size_t i = 0; i < vm->memory_mask_size; ++i) {
+        for (size_t b = 0; b < 8; ++b) {
+            if (vm->memory_mask[i] & (1 << b)) {
+                ++pages;
+            }
+        }
+    }
+    fprintf(stderr, "Total memory usage: %zi bytes (%zi pages)\n", pages * 4096, pages);
+    #endif
 }
 
 static void vm_loop(vm_t* vm) {
