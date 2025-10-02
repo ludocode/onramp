@@ -18,6 +18,8 @@ Unlike other components, the libc is built up incrementally. Each stage does not
 
 There are many ways to exit a program in C. This describes their implementation in Onramp.
 
+TODO the below documentation is wrong and needs to be fixed, and libc/2 needs to be fixed as well. We are relaxing the rules so programs don't have to close open files, and `_Exit()` doesn't flush or close anything anymore, so it is now much closer to the real C rules.
+
 In Onramp, processes can run other processes, and all processes share a global set of file handles in the VM. All open files of a process must therefore be closed before exiting, otherwise they will be leaked. This is handled by the libc.
 
 The Onramp libc implements two main ways of exiting a program: `_Exit()` and `abort()`. These two functions are implemented by all libc stages and used by all bootstrap stages of the toolchain.

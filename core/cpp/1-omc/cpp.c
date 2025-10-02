@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -106,7 +106,6 @@
     void free(void* p);
     char* strdup(const char* str);
     char* strndup(const char* str, size_t length);
-    void _Exit(int status);
 
     /* <string.h> */
     size_t strlen(const char* s);

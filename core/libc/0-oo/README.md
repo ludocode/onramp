@@ -11,14 +11,14 @@ This libc provides a few common functions:
 - process management:
     - `__start()`, the entry point, which initializes the libc
     - the calling of `main()` with command-line arguments
-    - `_Exit()`
+    - `exit()`, flushing streams
 - some `<string.h>` functions:
     - `memcpy()`, `memmove()`, `memcmp()`
     - `strlen()`, `strcmp()`, `strcpy()`, `strchr()`
 - some `<stdio.h>` functions:
-    - `fopen()`, `fclose()`, `fread()`, `fwrite()` (unbuffered)
-    - `fputs()`, `fputc()`, etc.
-    - `fseek()`, `ftell()`
+    - `fopen()`, `fclose()`
+    - `fread()`, `fwrite()`, `fgetc(), `fputc()` with buffering
+    - `fputs()`, `fseek()`, `ftell()`, etc.
 - some `<stdlib.h>` functions:
     - `malloc()` as a simple bump allocator with a no-op `free()`
     - `calloc()`, `strdup()`, `strndup()`

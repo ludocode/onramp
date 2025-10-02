@@ -488,7 +488,7 @@ static bool try_parse_misc(char*** argv) {
 
     if (try_parse_misc_option(argv, "--version", NULL)) {
         puts("Onramp (cc) version 0");
-        _Exit(0);
+        exit(0);
     }
 
     return false;
@@ -930,7 +930,7 @@ static void run_onramp(size_t argc, char** argv) {
         // Child program failed. Assume it printed an error message; just clean
         // up the temporary files and return the same result.
         delete_temp_files();
-        _Exit(ret);
+        exit(ret);
     }
 }
 #endif
@@ -970,7 +970,7 @@ static void run_posix(size_t argc, char** argv) {
         // Assume the subprocess printed some kind of error. We don't print
         // anything; just exit.
         delete_temp_files();
-        _Exit(exit_code);
+        exit(exit_code);
     }
 }
 #endif

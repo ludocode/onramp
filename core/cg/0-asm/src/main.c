@@ -42,7 +42,7 @@ static void usage(const char* name) {
     fputs("\nUsage: ", stderr);
     fputs(name, stderr);
     fputs(" <input_file> -o <output_file>\n", stderr);
-    _Exit(1);
+    exit(1);
 }
 
 static void open_output(const char* output_filename) {

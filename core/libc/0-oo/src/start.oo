@@ -159,36 +159,50 @@
     70 8F 8E 8A   ; add rip rpp ra         ; jump
     70 8C 8C 04   ; add rsp rsp 4          ; pop return address
 
-    ; If main() returned, tail-call _Exit() (and not exit(), because we don't
-    ; have it!) The return value of main() is in r0 so we just forward it
-    ; along.
-    7C 8A <_Exit   ; ims ra <_Exit
-    7C 8A >_Exit   ; ims ra >_Exit
+    ; If main() returned, tail-call exit(). The return value of main() is
+    ; already in r0.
+    7C 8A <exit    ; ims ra <exit
+    7C 8A >exit    ; ims ra >exit
     70 8F 8E 8A    ; add rip rpp ra   ; jump
 
 
 
 ; ==========================================================
-; [[noreturn]] void _Exit(int status);
+; [[noreturn]] void exit(int status);
 ; ==========================================================
-; Exits without closing anything or cleaning anything up.
+; Exits the program, flushing all streams.
 ;
 ; params:
 ;     status: r0
 ; ==========================================================
 
-=_Exit
+=exit
     ; don't bother to set up a stack frame, we're exiting
 
     ; push exit status
     71 8C 8C 04     ; sub rsp rsp 4     ; push r0
     79 80 00 8C     ; stw r0 0 rsp      ; ...
 
-    ; TODO: streams are not supposed to be flushed on _Exit(), but we don't
-    ; have exit(), and we also fully buffer instead of line buffer stderr.
-    ; We should add exit() and move this flushing to it; we just have to make
-    ; sure everything is calling it instead of _Exit(). We should also probably
-    ; add an option to disable buffering stderr.
+    ; check if we have an output file
+    7C 8A <__output_file      ; ims ra <__output_file
+    7C 8A >__output_file      ; ims ra >__output_file
+    78 80 8E 8A               ; ldw r0 rpp ra
+    7E 80 &__exit_no_output   ; jz r0 &__exit_no_output
+
+    ; call fclose(__output_file)
+    7C 8A <fclose    ; ims ra <fclose
+    7C 8A >fclose    ; ims ra >fclose
+    71 8C 8C 04      ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra   ; jump
+    70 8C 8C 04      ; add rsp rsp 4    ; pop return address
+
+:__exit_no_output
+
+    ; Note: If stdout or stderr were already closed, the below will probably
+    ; crash. We don't support manually closing stdout or stderr during
+    ; bootsrapping.
 
     ; get stdout
     7C 8A <stdout        ; ims ra <stdout
@@ -221,6 +235,24 @@
     ; pop exit status
     78 80 00 8C     ; ldw r0 0 rsp      ; pop r0
     70 8C 8C 04     ; add rsp rsp 4     ; ...
+
+    ; tail-call _Exit
+    7C 8A <_Exit   ; ims ra <_Exit
+    7C 8A >_Exit   ; ims ra >_Exit
+    70 8F 8E 8A    ; add rip rpp ra   ; jump
+
+
+
+; ==========================================================
+; [[noreturn]] void _Exit(int status);
+; ==========================================================
+; Exits without closing anything or cleaning anything up.
+;
+; params:
+;     status: r0
+; ==========================================================
+
+=_Exit
 
     ; syscall exit
     ; TODO exit is supposed to be optional, also need error checks against it

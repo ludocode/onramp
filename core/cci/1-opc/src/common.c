@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -54,7 +54,7 @@ void fatal_4(const char* message_1, const char* message_2,
     fputs(message_3, stderr);
     fputs(message_4, stderr);
     fputc('\n', stderr);
-    _Exit(1);
+    exit(1);
 }
 
 #ifndef __GNUC__

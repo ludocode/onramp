@@ -57,7 +57,7 @@
     static void __attribute__((unused)) __fatal(const char* message) {
         fputs(message, stderr);
         fputc('\n', stderr);
-        _Exit(1);
+        exit(1);
     }
     #define stdc_leading_zerosui __builtin_clz
 #endif

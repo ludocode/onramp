@@ -108,6 +108,7 @@ _Noreturn void _Exit(int status) {
 
     // clean up libc. we need to flush and close open files; our parent process
     // can't do it for us.
+    // TODO this should not flush streams, exit() should
     exit_flush();
     __file_destroy();
     __io_destroy();

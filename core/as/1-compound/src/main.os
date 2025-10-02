@@ -452,8 +452,8 @@
     add rip rpp ra    ; jump
     add rsp rsp '04     ; pop return address
 
-    ; tail-call _Exit(0)
+    ; tail-call exit(0)
     add r0 '00 '00
-    ims ra <_Exit
-    ims ra >_Exit
+    ims ra <exit
+    ims ra >exit
     add rip rpp ra    ; jump

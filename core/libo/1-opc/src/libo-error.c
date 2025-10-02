@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -94,7 +94,7 @@ void vfatal(const char* format, va_list args) {
     //abort();
     #endif
 
-    _Exit(1);
+    exit(1);
 }
 
 void print_warning(const char* format, ...) {

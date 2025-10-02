@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,7 +41,7 @@ static void usage(const char* name) {
     fputs("\nUsage: ", stderr);
     fputs(name, stderr);
     fputs(" <input_file> -o <output_file>\n", stderr);
-    _Exit(1);
+    exit(1);
 }
 
 int main(int argc, const char** argv) {

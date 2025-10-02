@@ -592,10 +592,10 @@
     70 8F 8E 8A        ; add rip rpp ra    ; jump
     70 8C 8C 04        ; add rsp rsp 4     ; pop return address
 
-    ; tail-call _Exit(0)
+    ; tail-call exit(0)
     70 80 00 00        ; add r0 0 0
-    7C 8A <_Exit       ; ims ra <_Exit
-    7C 8A >_Exit       ; ims ra >_Exit
+    7C 8A <exit        ; ims ra <exit
+    7C 8A >exit        ; ims ra >exit
     70 8F 8E 8A        ; add rip rpp ra    ; jump
 
 

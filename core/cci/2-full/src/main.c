@@ -45,7 +45,7 @@ static const char* output_filename;
 
 static void usage(const char* name) {
     fprintf(stderr, "\nUsage: %s <input_file> -o <output_file>\n", name);
-    _Exit(1);
+    exit(1);
 }
 
 static void parse_command_line(char** argv) {

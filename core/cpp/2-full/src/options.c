@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -55,7 +55,7 @@ static void usage(void) {
     fprintf(stderr, "    -I<path>              -- add include path\n");
     fprintf(stderr, "    -include <filename>   -- force include file\n");
     fprintf(stderr, "    see usage guide for more\n");
-    _Exit(1);
+    exit(1);
 }
 
 /**

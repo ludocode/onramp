@@ -72,6 +72,23 @@
 
 
 
+; ==========================================================
+; FILE* __output_file;
+; ==========================================================
+; The current file opened for writing.
+;
+; We only allow one file open for writing. This limitation is meant to keep the
+; first stage Onramp OS extremely simple, and it keeps this first stage libc
+; simple as well.
+;
+; With this, we don't need to store any list of all open files to close on
+; exit(). We only need to flush this, stdout and stderr. (We don't actually
+; have to close any open input files because that's the responsibility of the
+; parent program or VM.)
+; ==========================================================
+
+=__output_file
+    00 00 00 00
 
 
 
@@ -331,6 +348,23 @@
 
 
 ; ==========================================================
+; const char* __files_error_one_output_file;
+; ==========================================================
+
+=__files_error_one_output_file
+    ; "ERROR: Only one file can be opened for writing." '0A '00
+    45 52 52 4f 52 3a 20 4f  6e 6c 79 20 6f 6e 65 20
+  ;  E  R  R  O  R  :     O   n  l  y     o  n  e
+    66 69 6c 65 20 63 61 6e  20 62 65 20 6f 70 65 6e
+  ;  f  i  l  e     c  a  n      b  e     o  p  e  n
+    65 64 20 66 6f 72 20 77  72 69 74 69 6e 67 2e 0a
+  ;  e  d     f  o  r     w   r  i  t  i  n  g  . \n
+    00
+  ; \0
+
+
+
+; ==========================================================
 ; FILE* __file_new(void);
 ; ==========================================================
 ; Allocates a new file and a buffer for it.
@@ -477,10 +511,23 @@
     7E 00 &__fopen_invalid_mode   ; jz rb &__fopen_invalid_mode
 
 :__fopen_read
+
+    ; open for reading
     70 81 00 00               ; add r1 0 0
     7E 00 &__fopen_done_mode  ; jz 0 &__fopen_done_mode
+
 :__fopen_write
+
+    ; open for writing
     70 81 00 01          ; add r1 0 1
+
+    ; make sure we don't already have an output file
+    7C 8A <__output_file      ; ims ra <__output_file
+    7C 8A >__output_file      ; ims ra >__output_file
+    78 82 8E 8A               ; ldw r2 rpp ra
+    7E 82 &__fopen_done_mode  ; jz r2 &__fopen_done_mode
+    7E 00 &__fopen_too_many   ; jz 0 &__fopen_too_many
+
 :__fopen_done_mode
 
     ; TODO should require "rb" or "wb" instead, check that the next characters
@@ -537,6 +584,11 @@
 
     ; mode is write. we need to truncate.
 
+    ; store the file as our output file
+    7C 8A <__output_file      ; ims ra <__output_file
+    7C 8A >__output_file      ; ims ra >__output_file
+    79 80 8E 8A               ; stw r0 rpp ra
+
     ; get syscall ftrunc into r7
     7C 8A <__process_info_table    ; ims ra <__process_info_table
     7C 8A >__process_info_table    ; ims ra >__process_info_table
@@ -592,6 +644,15 @@
     7C 8A >__fatal     ; ims ra >__fatal
     70 8F 8E 8A        ; add rip rpp ra
 
+:__fopen_too_many
+    ; only one file can be opened for writing.
+    7C 80 <__files_error_one_output_file   ; ims r0 <__files_error_one_output_file
+    7C 80 >__files_error_one_output_file   ; ims r0 >__files_error_one_output_file
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
 
 
 ; ==========================================================
@@ -614,6 +675,21 @@
     ; preserve the file
     71 8C 8C 04     ; sub rsp rsp 4     ; push r0
     79 80 00 8C     ; stw r0 0 rsp      ; ^^^
+
+    ; check if this is our output file
+    7C 8A <__output_file   ; ims ra <__output_file
+    7C 8A >__output_file   ; ims ra >__output_file
+    78 81 8E 8A            ; ldw r1 rpp ra
+    71 81 81 80            ; sub r1 r1 r0
+    7E 81 &__fclose_output_file      ; jz r1 &__fclose_output_file
+    7E 00 &__fclose_not_output_file  ; jz 0 &__fclose_not_output_file
+
+:__fclose_output_file
+    ; clear the output file
+    7C 8A <__output_file      ; ims ra <__output_file
+    7C 8A >__output_file      ; ims ra >__output_file
+    79 00 8E 8A               ; stw 0 rpp ra
+:__fclose_not_output_file
 
     ; call fflush()
     7C 8A <fflush    ; ims ra <fflush
