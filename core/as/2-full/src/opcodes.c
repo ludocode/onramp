@@ -298,8 +298,7 @@ static void opcode_sxs(void) {
     uint8_t dest = parse_register_numbered(); // TODO should allow rfp and rpp
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        IMS, RB, 0x00, 0x00,
-        IMS, RB, 0xFF, 0xFF,  // rb = 0xFFFF
+        SHRU, RB, 0xFF, 16,   // rb = 0xFFFF
         SHRU, RA, RB, 1,      // ra = 0x7FFF
         SUB, dest, RA, src,   // dest = 0x7FFF - src
         AND, dest, dest, RB,  // dest &= 0xFFFF
@@ -313,8 +312,7 @@ static void opcode_sxb(void) {
     uint8_t dest = parse_register_numbered(); // TODO should allow rfp and rpp
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        IMS, RB, 0x00, 0x00,
-        IMS, RB, 0xFF, 0x00,  // rb = 0xFF
+        SHRU, RB, 0xFF, 24,   // rb = 0xFF
         SHRU, RA, RB, 1,      // ra = 0x7F
         SUB, dest, RA, src,   // dest = 0x7F - src
         AND, dest, dest, RB,  // dest &= 0xFF
@@ -327,8 +325,7 @@ static void opcode_trs(void) {
     uint8_t dest = parse_register_non_scratch();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        IMS, RA, 0, 0,
-        IMS, RA, 0xFF, 0xFF,  // ra = 0xFFFF
+        SHRU, RA, 0xFF, 16,   // ra = 0xFFFF
         AND, dest, src, RA,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
@@ -338,8 +335,7 @@ static void opcode_trb(void) {
     uint8_t dest = parse_register_non_scratch();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
-        IMS, RA, 0x00, 0x00,
-        IMS, RA, 0xFF, 0x00,  // ra = 0xFF
+        SHRU, RA, 0xFF, 24,   // ra = 0xFF
         AND, dest, src, RA,
     };
     emit_hex_bytes(bytes, sizeof(bytes));
