@@ -373,9 +373,7 @@
 =__file_new
 
     ; call malloc(4096)
-    ;76 80 01 0C     ; shl r0 1 12
-; TODO limit to 512 until our malloc can reuse allocs
-76 80 01 09     ; shl r0 1 9
+    76 80 01 0C     ; shl r0 1 12       ; 4096
     7C 8A <malloc   ; ims ra <malloc
     7C 8A >malloc   ; ims ra >malloc
     71 8C 8C 04     ; sub rsp rsp 4     ; push return address
@@ -769,9 +767,7 @@
     ; setup args for syscall fread(file->handle, file->buffer, 4096)
     78 81 80 08   ; ldw r1 r0 8   ; r1 = file->buffer
     78 80 80 00   ; ldw r0 r0 0   ; r0 = file->handle
-    ;76 82 01 0C   ; shl r2 1 12   ; r2 = 4096
-; TODO limit to 512 until our malloc can reuse allocs
-76 82 01 09     ; shl r2 1 9
+    76 82 01 0C   ; shl r2 1 12   ; r2 = 4096
 
     ; get syscall fread into r7
     7C 8A <__process_info_table    ; ims ra <__process_info_table
@@ -1124,9 +1120,7 @@
     78 81 80 08     ; ldw r1 r0 8      ; file->buffer
     78 82 80 10     ; ldw r2 r0 16     ; file->end
     71 82 82 81     ; sub r2 r2 r1     ; buffer_count
-    ;76 83 01 0C    ; shl r3 1 12
-; TODO limit to 512 until our malloc can reuse allocs
-76 83 01 09     ; shl r3 1 9
+    76 83 01 0C     ; shl r3 1 12      ; 4096
     71 84 83 82     ; sub r4 r3 r2     ; remaining
 
     ; check if we have enough room in the buffer
@@ -1151,9 +1145,7 @@
     78 81 80 08     ; ldw r1 r0 8      ; file->buffer
     78 82 80 10     ; ldw r2 r0 16     ; file->end
     71 82 82 81     ; sub r2 r2 r1     ; buffer_count
-    ;76 83 01 0C    ; shl r3 1 12
-; TODO limit to 512 until our malloc can reuse allocs
-76 83 01 09     ; shl r3 1 9
+    76 83 01 0C     ; shl r3 1 12      ; 4096
     71 84 83 82     ; sub r4 r3 r2     ; remaining
 
     ; check again if we have enough room in the buffer
@@ -1521,9 +1513,7 @@
 
     ; check if file->end matches the end of the buffer
     78 82 81 08     ; ldw r2 r1 8      ; file->buffer
-    ;76 83 01 0C    ; shl r3 1 12
-; TODO limit to 512 until our malloc can reuse allocs
-76 83 01 09     ; shl r3 1 9
+    76 83 01 0C     ; shl r3 1 12      ; 4096
     70 82 82 83     ; add r2 r2 r3
     78 83 81 10     ; ldw r3 r1 16     ; file->end
     71 82 82 83     ; sub r2 r2 r3
