@@ -51,48 +51,17 @@ static size_t instructions_capacity;
 #define BLOCKS_BUCKETS 32
 static instruction_t** blocks;
 
-// TODO free() does nothing in libc/0. I have plans to fix this in libc/0;
-// in the meantime we pool instructions. This can be removed once libc/0
-// has some means of reclaiming memory.
-#ifdef __onramp__
-#define INSTRUCTION_POOL
-#endif
-static instruction_t* instruction_pool;
-
 static char* instruction_label(instruction_t* instruction);
 
 static instruction_t* instruction_new(int index) {
-
-    // pop an instruction off the free list
-    instruction_t* instruction;
-    if (!instruction_pool) {
-        instruction = calloc(INSTRUCTION_SIZE, sizeof(size_t));
-    }
-    if (instruction_pool) {
-        instruction = instruction_pool;
-        instruction_pool = *(instruction_t**)instruction;
-        memset(instruction, 0, INSTRUCTION_SIZE * sizeof(size_t));
-    }
-
+    instruction_t* instruction = calloc(INSTRUCTION_SIZE, sizeof(size_t));
     *(size_t*)((size_t*)instruction + INSTRUCTION_INDEX) = index;
     return instruction;
 }
 
 static void instruction_delete(instruction_t* instruction) {
-
-    // free the contents
     free(instruction_label(instruction));
-
-    // free (or pool) the instruction
-    #ifdef INSTRUCTION_POOL
-    *(instruction_t**)instruction = instruction_pool;
-    instruction_pool = instruction;
-    #endif
-    #ifndef INSTRUCTION_POOL
-    // We don't use the free list when compiling natively so we can properly
-    // test for leaks.
     free(instruction);
-    #endif
 }
 
 static void instruction_set_opcode(instruction_t* instruction, opcode_t opcode) {
