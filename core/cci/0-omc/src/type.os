@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024 Fraser Heavy Software
+; Copyright (c) 2024-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -160,11 +160,40 @@
 ; ==========================================================
 ; void type_teardown(void);
 ; ==========================================================
+; vars:
+; - index: rfp-4
+; - bucket count: rfp-8
+; ==========================================================
 
 =type_teardown
     enter
+    sub rsp rsp 8
 
-    ; TODO loop type_names freeing each name
+    ; get start and end index of buckets
+    zero r0
+    stw r0 rfp -4
+    imw r1 ^type_buckets
+    ldw r1 r1 rpp
+    stw r1 rfp -8
+
+:type_teardown_loop
+
+    ; free a name
+    imw r2 ^type_names
+    ldw r2 rpp r2
+    shl r0 r0 2  ; index in bytes
+    ldw r0 r2 r0
+    call ^free
+
+    ; go to the next bucket
+    ldw r0 rfp -4
+    inc r0
+    ldw r1 rfp -8
+    sub r3 r0 r1
+    jz r3 &type_teardown_done
+    stw r0 rfp -4
+    jmp &type_teardown_loop
+:type_teardown_done
 
     ; free type_names
     imw r0 ^type_names

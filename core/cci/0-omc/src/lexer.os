@@ -171,7 +171,8 @@
 
     ; clear the current token
     imw r0 ^lexer_token
-    stb 0 r0 rpp
+    ldw r0 r0 rpp
+    stb 0 r0 0
 
     ; set the type to eof
     imw r0 ^lexer_type;

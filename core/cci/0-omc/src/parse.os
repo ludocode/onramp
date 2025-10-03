@@ -824,9 +824,7 @@
     ret
 
 :parse_function_call_sizeof
-    ; it's sizeof. clean up and jump out.
-    ldw r0 rfp -4
-    call ^free
+    ; it's sizeof. tail-call it
     leave
     jmp ^parse_sizeof
 
@@ -1667,7 +1665,7 @@
     call ^compile_string_literal_definition
 
     ; free it
-    ldw r1 rfp -8
+    ldw r0 rfp -8
     call ^free
 
     ; next
