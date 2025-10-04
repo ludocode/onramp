@@ -105,15 +105,6 @@ static void exit_flush(void) {
 }
 
 _Noreturn void _Exit(int status) {
-
-    // clean up libc. we need to flush and close open files; our parent process
-    // can't do it for us.
-    // TODO this should not flush streams, exit() should
-    exit_flush();
-    __file_destroy();
-    __io_destroy();
-
-    // we're done. end the process
     __sys_exit(status);
 }
 
@@ -147,8 +138,16 @@ _Noreturn void exit(int status) {
         _Exit(status);
     }
     exiting = true;
+
+    // call user cleanup functions
     __call_atexit();
     call_destructors();
+
+    // close files
+    exit_flush();
+    __file_destroy();
+    __io_destroy();
+
     _Exit(status);
 }
 
@@ -157,12 +156,19 @@ _Noreturn void quick_exit(int status) {
         _Exit(status);
     }
     quick_exiting = true;
+
+    // call user at_quick_exit() functions (no atexit() or destructors)
     __call_at_quick_exit();
+
+    // flush open files but don't bother closing anything
+    exit_flush();
+
     _Exit(status);
 }
 
 _Noreturn void __fatal(const char* string) {
     fputs(string, stderr);
+    fflush(stderr);
     _Exit(1);
 }
 
