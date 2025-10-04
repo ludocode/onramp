@@ -64,6 +64,24 @@
 char* __heap_start;
 char* __heap_end;
 
+/**
+ * A word at the bottom of the stack with a fixed value. If this value is ever
+ * overwritten, it means a stack overflow has occurred.
+ *
+ * We only check the canary on malloc()-like functions and free(). This won't
+ * always (or even often) detect a stack overflow but it helps.
+ */
+static int* stack_canary;
+#define STACK_CANARY 0x5A4B3C2D
+
+static void detect_stack_overflow(void) {
+    #ifdef __onramp__
+    if (*stack_canary != STACK_CANARY) {
+        __fatal("ERROR: A stack overflow occurred.\n");
+    }
+    #endif
+}
+
 /*
  * The boundary tags indicate the size of the allocation and whether it is in
  * use.
@@ -255,7 +273,14 @@ void __malloc_init(void) {
         // Not enough heap to do anything useful. We will need an allocator to
         // setup stdio so we can't do anything.
         // TODO we need to use the alloc syscall if available to grow the heap.
+        abort();
     }
+
+    #ifdef __onramp__
+    // Place a canary at the bottom of the stack to detect stack overflow.
+    stack_canary = (int*)__heap_end;
+    *stack_canary = STACK_CANARY;
+    #endif
 
     // Place sentinel tags at either end of the heap. This eliminates special
     // cases in our merging code: the ends of the heap will be treated as
@@ -354,6 +379,8 @@ static size_t round_size(size_t requested_size) {
 }
 
 void* malloc(size_t requested_size) {
+    detect_stack_overflow();
+
     //printf("malloc requested %zi\n",requested_size);
     requested_size = round_size(requested_size);
     int size_class = highest_bit(requested_size);
@@ -415,6 +442,8 @@ void* malloc(size_t requested_size) {
 void free(void* ptr) {
     if (ptr == NULL)
         return;
+
+    detect_stack_overflow();
 
     size_t tag = HEADER_TAG(ptr);
     size_t size = tag & ~(size_t)1;
@@ -484,6 +513,8 @@ void* realloc(void* ptr, size_t new_size) {
         //printf("  resize of non-null to 0 is undefined\n");
         abort();
     }
+
+    detect_stack_overflow();
 
     new_size = round_size(new_size);
     size_t tag = HEADER_TAG(ptr);
@@ -658,6 +689,8 @@ int posix_memalign(void** out_ptr, size_t alignment, size_t size) {
  * not safe to call any allocation functions while the area is in use.
  */
 void* __malloc_largest_unused_region(size_t* out_size) {
+    detect_stack_overflow();
+
     free_alloc_t* p;
     size_t size = 0;
 

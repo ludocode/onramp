@@ -166,9 +166,16 @@ _Noreturn void quick_exit(int status) {
     _Exit(status);
 }
 
+static bool fatal_called;
+
 _Noreturn void __fatal(const char* string) {
-    fputs(string, stderr);
-    fflush(stderr);
+    if (!fatal_called) {
+        // Only try to print the error message once. We don't want to recurse
+        // if it fails.
+        fatal_called = true;
+        fputs(string, stderr);
+        fflush(stderr);
+    }
     _Exit(1);
 }
 
