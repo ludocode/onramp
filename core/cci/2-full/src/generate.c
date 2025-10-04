@@ -681,6 +681,11 @@ static base_t cast_base(type_t* type) {
     return type->base;
 }
 
+static void generate_cast_indirect_to_indirect(node_t* node, type_t* source, type_t* target, int reg_out);
+static void generate_cast_indirect_to_direct(node_t* node, type_t* source, type_t* target, int reg_out);
+static void generate_cast_direct_to_indirect(node_t* node, type_t* source, type_t* target, int reg_out);
+static void generate_cast_direct_to_direct(node_t* node, type_t* source, type_t* target, int reg_out);
+
 void generate_cast(node_t* node, int reg_out) {
     type_t* source = node->first_child->type;
     type_t* target = node->type;
@@ -694,159 +699,201 @@ void generate_cast(node_t* node, int reg_out) {
 
     bool source_indirect = type_is_passed_indirectly(source);
     bool target_indirect = type_is_passed_indirectly(target);
-    size_t source_size = type_size(source);
-    size_t target_size = type_size(target);
-
     if (source_indirect) {
         if (target_indirect) {
-
-            // Both the source and target are indirect. Records cannot be cast
-            // so the only possibility is a 64-bit value.
-            assert(source_size == 8);
-            assert(target_size == 8);
-
-            // The register already contains a pointer to 64-bit space. We can
-            // use it to generate our source, then convert to target in-place.
-            generate_node(node->first_child, reg_out);
-
-            // The only possibility are casting signed to unsigned llong or
-            // vice versa; or casting signed or unsigned llong to double or
-            // vice versa.
-
-            if (source_base == BASE_DOUBLE &&
-                    (target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG)) {
-                fatal("TODO cast from double to llong, emit function call");
-            } else if ((source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) &&
-                    target_base == BASE_DOUBLE) {
-                fatal("TODO cast from llong to double, emit function call");
-            } else {
-                // casting between signed and unsigned. nothing to do.
-                assert(source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG);
-                assert(target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG);
-            }
-
+            generate_cast_indirect_to_indirect(node, source, target, reg_out);
         } else {
-
-            // The source is indirect but the target is direct. The source is
-            // either a 64-bit value or a record (being cast to void), and the
-            // target fits in a register.
-            assert(target_size <= 4);
-
-            // We need to generate the source into stack space. We can re-use
-            // the same register.
-            block_sub_rsp(current_block, node->token, source_size);
-            block_append(current_block, node->token, MOV, reg_out, RSP);
-            generate_node(node->first_child, reg_out);
-
-            // convert source to target
-            if (target_base == BASE_VOID) {
-                // nothing to do.
-            } else if (source_base == BASE_DOUBLE) {
-                // It's a double. We're either casting to float or to an
-                // integer type.
-                if (target_base == BASE_FLOAT) {
-                    fatal("TODO cast from double to float, emit function call");
-                } else if (target_base == BASE_BOOL) {
-                    fatal("TODO cast from double to bool");
-                } else if (type_is_signed_integer(target)) {
-                    fatal("TODO cast from double to signed int, emit function call");
-                } else {
-                    assert(type_is_integer(target));
-                    fatal("TODO cast from double to unsigned int");
-                }
-            } else if (source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) {
-                // It's llong.
-                if (target_base == BASE_FLOAT) {
-                    fatal("TODO cast from long long to float, emit function call");
-                } else {
-                    assert(type_is_integer(source));
-                    // Cast from llong to a register-size or smaller integer
-
-                    if (target_base == BASE_BOOL) {
-                        // For bool we need to load both words and 'or' them together.
-                        int reg_temp = register_alloc(node->token);
-                        block_append(current_block, node->token, LDW, reg_temp, reg_out, 4);
-                        block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
-                        block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
-                        block_append(current_block, node->token, BOOL, reg_out, reg_out);
-                        register_free(node->token, reg_temp);
-                    } else {
-                        // Otherwise we can just load the low word.
-                        block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
-                    }
-                }
-            } else {
-                fatal("Internal error: unrecognized indirect to direct cast.");
-            }
-
-            block_add_rsp(current_block, node->token, source_size);
+            generate_cast_indirect_to_direct(node, source, target, reg_out);
         }
     } else {
         if (target_indirect) {
-
-            // The source is direct but the target is indirect. Records cannot
-            // be cast so the source fits in a register and the only
-            // possibility for target is a 64-bit value.
-            assert(source_size <= 4);
-            assert(target_size == 8);
-
-            // The register contains a pointer to 64-bit space. We need an
-            // auxiliary register to generate the word-size source.
-            int reg_src = register_alloc(node->token);
-            generate_node(node->first_child, reg_src);
-
-            if (target_base == BASE_DOUBLE) {
-                if (source_base == BASE_FLOAT) {
-                    fatal("TODO cast from float to double, emit function call");
-                } else {
-                    assert(type_is_integer(source));
-                    fatal("TODO cast from register integer to double, sign-extend and emit function call");
-                }
-            } else {
-                assert(type_is_integer(target));
-                if (source_base == BASE_FLOAT) {
-                    fatal("TODO cast from float to long long, emit function call");
-                } else {
-                    // Cast from register integer to long long.
-                    assert(type_is_integer(source));
-                    generate_int_cast(node->token, reg_src, source_base, BASE_UNSIGNED_INT); // set the upper bits (if necessary)
-                    block_append(current_block, node->token, STW, reg_src, reg_out, 0); // store the low word
-                    if (type_is_signed_integer(source)) {
-                        // sign extend
-                        block_append(current_block, node->token, SHRU, reg_src, reg_src, 31); // get the sign bit
-                        block_append(current_block, node->token, SUB, reg_src, 0, reg_src); // fill the register with the sign bit
-                        block_append(current_block, node->token, STW, reg_src, reg_out, 4); // store the high word
-                    } else {
-                        block_append(current_block, node->token, STW, 0, reg_out, 4); // clear the high word
-                    }
-                }
-            }
-
-            register_free(node->token, reg_src);
-
+            generate_cast_direct_to_indirect(node, source, target, reg_out);
         } else {
-            // The to and from types both fit in registers. We can use the same
-            // register for both and convert in place.
-            generate_node(node->first_child, reg_out);
+            generate_cast_direct_to_direct(node, source, target, reg_out);
+        }
+    }
+}
 
-            if (target_base == BASE_FLOAT) {
-                if (type_is_signed_integer(source)) {
-                    generate_int_cast(node->token, reg_out, source_base, BASE_SIGNED_INT);
-                    fatal("TODO cast signed integer to float");
-                } else {
-                    generate_int_cast(node->token, reg_out, source_base, BASE_UNSIGNED_INT);
-                    fatal("TODO cast unsigned integer to float");
-                }
-            } else if (source_base == BASE_FLOAT) {
-                if (type_is_signed_integer(target)) {
-                    fatal("TODO cast float to signed integer");
-                } else {
-                    fatal("TODO cast float to unsigned integer");
-                }
+static void generate_cast_indirect_to_indirect(node_t* node,
+        type_t* source, type_t* target, int reg_out)
+{
+    assert(type_is_passed_indirectly(source));
+    assert(type_is_passed_indirectly(target));
+
+    // Both the source and target are indirect. Records cannot be cast
+    // so the only possibility is a 64-bit value.
+    assert(type_size(source) == 8);
+    assert(type_size(target) == 8);
+
+    // The register already contains a pointer to 64-bit space. We can
+    // use it to generate our source, then convert to target in-place.
+    generate_node(node->first_child, reg_out);
+
+    // The only possibility are casting signed to unsigned llong or
+    // vice versa; or casting signed or unsigned llong to double or
+    // vice versa.
+
+    base_t source_base = cast_base(source);
+    base_t target_base = cast_base(target);
+
+    if (source_base == BASE_DOUBLE &&
+            (target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG)) {
+        fatal("TODO cast from double to llong, emit function call");
+    } else if ((source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) &&
+            target_base == BASE_DOUBLE) {
+        fatal("TODO cast from llong to double, emit function call");
+    } else {
+        // casting between signed and unsigned. nothing to do.
+        assert(source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG);
+        assert(target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG);
+    }
+}
+
+static void generate_cast_indirect_to_direct(node_t* node,
+        type_t* source, type_t* target, int reg_out)
+{
+    assert(type_is_passed_indirectly(source));
+    assert(!type_is_passed_indirectly(target));
+    size_t source_size = type_size(source);
+    size_t target_size = type_size(target);
+
+    // The source is indirect but the target is direct. The source is
+    // either a 64-bit value or a record (being cast to void), and the
+    // target fits in a register.
+    assert(target_size <= 4);
+
+    // We need to generate the source into stack space. We can re-use
+    // the same register.
+    block_sub_rsp(current_block, node->token, source_size);
+    block_append(current_block, node->token, MOV, reg_out, RSP);
+    generate_node(node->first_child, reg_out);
+
+    base_t source_base = cast_base(source);
+    base_t target_base = cast_base(target);
+
+    // convert source to target
+    if (target_base == BASE_VOID) {
+        // nothing to do.
+    } else if (source_base == BASE_DOUBLE) {
+        // It's a double. We're either casting to float or to an
+        // integer type.
+        if (target_base == BASE_FLOAT) {
+            fatal("TODO cast from double to float, emit function call");
+        } else if (target_base == BASE_BOOL) {
+            fatal("TODO cast from double to bool");
+        } else if (type_is_signed_integer(target)) {
+            fatal("TODO cast from double to signed int, emit function call");
+        } else {
+            assert(type_is_integer(target));
+            fatal("TODO cast from double to unsigned int");
+        }
+    } else if (source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) {
+        // It's llong.
+        if (target_base == BASE_FLOAT) {
+            fatal("TODO cast from long long to float, emit function call");
+        } else {
+            assert(type_is_integer(source));
+            // Cast from llong to a register-size or smaller integer
+
+            if (target_base == BASE_BOOL) {
+                // For bool we need to load both words and 'or' them together.
+                int reg_temp = register_alloc(node->token);
+                block_append(current_block, node->token, LDW, reg_temp, reg_out, 4);
+                block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
+                block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
+                block_append(current_block, node->token, BOOL, reg_out, reg_out);
+                register_free(node->token, reg_temp);
             } else {
-                generate_int_cast(node->token, reg_out, source_base, target_base);
+                // Otherwise we can just load the low word.
+                block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
             }
         }
+    } else {
+        fatal("Internal error: unrecognized indirect to direct cast.");
+    }
+
+    block_add_rsp(current_block, node->token, source_size);
+}
+
+static void generate_cast_direct_to_indirect(node_t* node,
+        type_t* source, type_t* target, int reg_out)
+{
+    assert(!type_is_passed_indirectly(source));
+    assert(type_is_passed_indirectly(target));
+
+    // The source is direct but the target is indirect. Records cannot
+    // be cast so the source fits in a register and the only
+    // possibility for target is a 64-bit value.
+    assert(type_size(source) <= 4);
+    assert(type_size(target) == 8);
+
+    // The register contains a pointer to 64-bit space. We need an
+    // auxiliary register to generate the word-size source.
+    int reg_src = register_alloc(node->token);
+    generate_node(node->first_child, reg_src);
+
+    base_t source_base = cast_base(source);
+    base_t target_base = cast_base(target);
+
+    if (target_base == BASE_DOUBLE) {
+        if (source_base == BASE_FLOAT) {
+            fatal("TODO cast from float to double, emit function call");
+        } else {
+            assert(type_is_integer(source));
+            fatal("TODO cast from register integer to double, sign-extend and emit function call");
+        }
+    } else {
+        assert(type_is_integer(target));
+        if (source_base == BASE_FLOAT) {
+            fatal("TODO cast from float to long long, emit function call");
+        } else {
+            // Cast from register integer to long long.
+            assert(type_is_integer(source));
+            generate_int_cast(node->token, reg_src, source_base, BASE_UNSIGNED_INT); // set the upper bits (if necessary)
+            block_append(current_block, node->token, STW, reg_src, reg_out, 0); // store the low word
+            if (type_is_signed_integer(source)) {
+                // sign extend
+                block_append(current_block, node->token, SHRU, reg_src, reg_src, 31); // get the sign bit
+                block_append(current_block, node->token, SUB, reg_src, 0, reg_src); // fill the register with the sign bit
+                block_append(current_block, node->token, STW, reg_src, reg_out, 4); // store the high word
+            } else {
+                block_append(current_block, node->token, STW, 0, reg_out, 4); // clear the high word
+            }
+        }
+    }
+
+    register_free(node->token, reg_src);
+}
+
+static void generate_cast_direct_to_direct(node_t* node,
+        type_t* source, type_t* target, int reg_out)
+{
+    assert(!type_is_passed_indirectly(source));
+    assert(!type_is_passed_indirectly(target));
+
+    // The to and from types both fit in registers. We can use the same
+    // register for both and convert in place.
+    generate_node(node->first_child, reg_out);
+
+    base_t source_base = cast_base(source);
+    base_t target_base = cast_base(target);
+
+    if (target_base == BASE_FLOAT) {
+        if (type_is_signed_integer(source)) {
+            generate_int_cast(node->token, reg_out, source_base, BASE_SIGNED_INT);
+            fatal("TODO cast signed integer to float");
+        } else {
+            generate_int_cast(node->token, reg_out, source_base, BASE_UNSIGNED_INT);
+            fatal("TODO cast unsigned integer to float");
+        }
+    } else if (source_base == BASE_FLOAT) {
+        if (type_is_signed_integer(target)) {
+            fatal("TODO cast float to signed integer");
+        } else {
+            fatal("TODO cast float to unsigned integer");
+        }
+    } else {
+        generate_int_cast(node->token, reg_out, source_base, target_base);
     }
 }
 
