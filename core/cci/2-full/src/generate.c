@@ -110,19 +110,7 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
 
     bool has_defer = false;
 
-    // If our return value is passed indirectly, the register contains the
-    // address where it should be stored. We need to preserve it so we'll need
-    // a temporary register. If the return value is passed directly (including
-    // void), we can use the same register for everything.
-    bool indirect = type_is_passed_indirectly(node->type);
-    int reg_val;
-    if (indirect) {
-        reg_val = register_alloc(node->token);
-    } else {
-        reg_val = reg_out;
-    }
-
-    // Generate all but last child using the temporary register
+    // Generate all but last child, ignoring the result
     for (node_t* child = node->first_child; child != node->last_child; child = child->right_sibling) {
 
         // Defer nodes are generated at the end
@@ -132,12 +120,7 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
         }
 
         assert(type_matches_base(child->type, BASE_VOID));
-        generate_node(child, reg_val);
-    }
-
-    // Free the register
-    if (indirect) {
-        register_free(node->token, reg_val);
+        generate_node(child, -1);
     }
 
     // Make sure the last child has the same type as this sequence. This
@@ -754,6 +737,7 @@ static void generate_cast_indirect_to_direct(node_t* node,
 {
     assert(type_is_passed_indirectly(source));
     assert(!type_is_passed_indirectly(target));
+
     size_t source_size = type_size(source);
     size_t target_size = type_size(target);
 
@@ -762,14 +746,21 @@ static void generate_cast_indirect_to_direct(node_t* node,
     // target fits in a register.
     assert(target_size <= 4);
 
+    base_t source_base = cast_base(source);
+    base_t target_base = cast_base(target);
+
+    if (target_base == BASE_VOID) {
+        // The expression result is ignored; we don't need to make stack space
+        // for it.
+        generate_node(node->first_child, -1);
+        return;
+    }
+
     // We need to generate the source into stack space. We can re-use
     // the same register.
     block_sub_rsp(current_block, node->token, source_size);
     block_append(current_block, node->token, MOV, reg_out, RSP);
     generate_node(node->first_child, reg_out);
-
-    base_t source_base = cast_base(source);
-    base_t target_base = cast_base(target);
 
     // convert source to target
     if (target_base == BASE_VOID) {
@@ -1265,13 +1256,115 @@ void generate_diagnose_defers(node_t* node, node_t* container, token_t* error_to
     } while (parent != container);
 }
 
-void generate_node(node_t* node, int reg_out) {
+void generate_node(node_t* node, int reg_out_opt) {
     #ifdef GENERATE_DEBUG
     for (int i = 0; i < debug_depth; ++i)
         fputs("  ", stdout);
-    printf("%s() %s %x\n", __func__, node_kind_to_string(node->kind), reg_out);
+    printf("%s() %s %x\n", __func__, node_kind_to_string(node->kind), reg_out_opt);
     ++debug_depth;
     #endif
+
+    // If the return value is ignored, we can avoid storing it in a temporary.
+    // This is particularly important for passing large structures by value so
+    // we don't overflow the stack; see test `decl/struct-assign-large.c`. For
+    // most nodes we really only need to evaluate the children for side
+    // effects.
+    int reg_out = reg_out_opt;
+    if (reg_out == -1 || type_matches_base(node->type, BASE_VOID)) {
+
+        switch (node->kind) {
+            case NODE_INVALID:
+                fatal("Internal error: cannot generate unrecognized node.");
+                break;
+
+            case NODE_ACCESS:
+            case NODE_CHARACTER:
+            case NODE_STRING:
+            case NODE_NUMBER:
+                // nothing to do.
+                #ifdef GENERATE_DEBUG
+                --debug_depth;
+                #endif
+                return;
+
+            // These node types accept an optional register.
+            // TODO we're only using -1 if it's indirect, because if it's
+            // direct we want the register to be available as a temporary. This
+            // won't be necessary when we're generating IR.
+            case NODE_ASSIGN:
+                if (type_is_passed_indirectly(node->type)) {
+                    generate_assign(node, -1);
+                    #ifdef GENERATE_DEBUG
+                    --debug_depth;
+                    #endif
+                    return;
+                }
+                break;
+            case NODE_SEQUENCE:
+                if (type_is_passed_indirectly(node->type)) {
+                    generate_sequence(node, false, -1);
+                    #ifdef GENERATE_DEBUG
+                    --debug_depth;
+                    #endif
+                    return;
+                }
+                break;
+
+            // For these node types, we only need to generate the children for
+            // side effects. We don't actually need to perform the operation
+            // because we're not using the result.
+            case NODE_LOGICAL_OR:
+            case NODE_LOGICAL_AND:
+            case NODE_BIT_OR:
+            case NODE_BIT_XOR:
+            case NODE_BIT_AND:
+            case NODE_EQUAL:
+            case NODE_NOT_EQUAL:
+            case NODE_LESS:
+            case NODE_GREATER:
+            case NODE_LESS_OR_EQUAL:
+            case NODE_GREATER_OR_EQUAL:
+            case NODE_SHL:
+            case NODE_SHR:
+            case NODE_ADD:
+            case NODE_SUB:
+            case NODE_MUL:
+            case NODE_DIV:
+            case NODE_MOD:
+            case NODE_CAST:
+            case NODE_SIZEOF:
+            case NODE_UNARY_PLUS:
+            case NODE_UNARY_MINUS:
+            case NODE_BIT_NOT:
+            case NODE_LOGICAL_NOT:
+            case NODE_DEREFERENCE:
+            case NODE_ADDRESS_OF:
+            case NODE_ARRAY_SUBSCRIPT:
+            case NODE_MEMBER_VAL:
+            case NODE_MEMBER_PTR:
+                for (node_t* child = node->first_child; child; child = child->right_sibling) {
+                    generate_node(child, -1);
+                }
+                #ifdef GENERATE_DEBUG
+                --debug_depth;
+                #endif
+                return;
+
+            // For any case not handled above, we will have to create stack
+            // space to store a temporary value.
+            default:
+                break;
+        }
+
+        if (reg_out == -1) {
+            // Allocate space to store the result.
+            reg_out = register_alloc(node->token);
+            if (type_is_passed_indirectly(node->type)) {
+                block_sub_rsp(current_block, node->token, type_size(node->type));
+                block_append(current_block, node->token, MOV, reg_out, RSP);
+            }
+        }
+    }
 
     switch (node->kind) {
         case NODE_INVALID:
@@ -1281,7 +1374,8 @@ void generate_node(node_t* node, int reg_out) {
             // nothing
             break;
 
-        // these nodes are handled separately, not generated through generate_node()
+        // These nodes are not expressions. They are handled separately, not
+        // generated through generate_node()
         case NODE_FUNCTION:
             fatal("Internal error: cannot generate arbitrary FUNCTION node.");
         case NODE_PARAMETER:
@@ -1379,6 +1473,13 @@ void generate_node(node_t* node, int reg_out) {
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
     }
 
+    if (reg_out_opt == -1) {
+        if (type_is_passed_indirectly(node->type)) {
+            block_add_rsp(current_block, node->token, type_size(node->type));
+        }
+        register_free(node->token, reg_out);
+    }
+
     #ifdef GENERATE_DEBUG
     --debug_depth;
     #endif
@@ -1461,6 +1562,7 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     // Add a variable node for the initializer
     node_t* variable = node_new(NODE_VARIABLE);
     variable->symbol = symbol_ref(varsym);
+    variable->type = type_ref(void_t);
     node_append(root, variable);
     node_append(variable, initializer);
 
@@ -1468,6 +1570,12 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     // variable)
     function_t* old_function = current_function;
     current_function = function;
+
+    if (dump_ast) {
+        putchar('\n');
+        node_print_tree(root);
+        putchar('\n');
+    }
 
     // Generate it
     generate_function(function);

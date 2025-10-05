@@ -85,8 +85,12 @@ void register_free(struct token_t* /*nullable*/ token, int reg);
  * The return value is placed in the given register. If the return value is
  * larger than a register, the given register must contain a pointer to where
  * the return value is to be stored.
+ *
+ * If the output register is -1, the value is ignored. (For example it may be
+ * ultimately cast to void, either explicitly or as an unused expression, most
+ * commonly an assignment.)
  */
-void generate_node(struct node_t* node, int reg_out);
+void generate_node(struct node_t* node, int reg_out_opt);
 
 /**
  * Compiles an l-value node, for example as the left-hand side of the

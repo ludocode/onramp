@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2023-2024 Fraser Heavy Software
+// Copyright (c) 2023-2025 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 #include <string.h>
@@ -22,19 +22,19 @@ int main(void) {
         return 1;
     }
     if (0 != strcmp(baz(), "baz")) {
-        return 1;
+        return 2;
     }
 
     // check all escaped characters
     const char* b = bar();
-    if (0x22 != *(b + 0)) {return 1;} // "
-    if (0x62 != *(b + 1)) {return 1;} // b
-    if (0x5c != *(b + 2)) {return 1;} // '\\'
-    if (0x61 != *(b + 3)) {return 1;} // a
-    if (0x72 != *(b + 4)) {return 1;} // r
-    if (0x09 != *(b + 5)) {return 1;} // \t
-    if (0x0a != *(b + 6)) {return 1;} // \n
-    if (0x00 != *(b + 7)) {return 1;} // \000
+    if (0x22 != *(b + 0)) {return 3;} // "
+    if (0x62 != *(b + 1)) {return 4;} // b
+    if (0x5c != *(b + 2)) {return 5;} // '\\'
+    if (0x61 != *(b + 3)) {return 6;} // a
+    if (0x72 != *(b + 4)) {return 7;} // r
+    if (0x09 != *(b + 5)) {return 8;} // \t
+    if (0x0a != *(b + 6)) {return 9;} // \n
+    if (0x00 != *(b + 7)) {return 10;} // \000
 
     return 0;
 }

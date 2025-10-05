@@ -334,6 +334,7 @@ fi
 
 TOOL_LOG="$OUTPUT_PATH/$BASENAME.tool-log"
 rm -f "$TOOL_LOG"
+mkdir -p "$(dirname "$TOOL_LOG")"
 touch "$TOOL_LOG"
 
 # Preprocess (if not .i)
@@ -472,11 +473,13 @@ rm -f "$ACTUAL_STDOUT" "$ACTUAL_STDERR"
 set +e
 if [ $VERBOSE -eq 1 ]; then
     echo Running program: onrampvm $OUTPUT
-    onrampvm $OUTPUT | tee "$ACTUAL_STDOUT"
+    onrampvm $OUTPUT >"$ACTUAL_STDOUT"
+    RET=$?
+    cat "$ACTUAL_STDOUT"
 else
     onrampvm $OUTPUT >"$ACTUAL_STDOUT" 2>"$ACTUAL_STDERR"
+    RET=$?
 fi
-RET=$?
 set -e
 
 # Check status

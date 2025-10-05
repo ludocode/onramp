@@ -88,7 +88,7 @@ void generate_zero_array(struct token_t* token, struct type_t* type, size_t coun
  */
 void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_base, int offset);
 
-void generate_assign(struct node_t* node, int reg_out);
+void generate_assign(struct node_t* node, int reg_out_opt);
 void generate_add_assign(struct node_t* node, int reg_out);
 void generate_sub_assign(struct node_t* node, int reg_out);
 void generate_mul_assign(struct node_t* node, int reg_out);

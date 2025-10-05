@@ -709,12 +709,27 @@ void generate_store(token_t* token, type_t* type, int reg_val, int reg_loc) {
     generate_store_offset(token, type, reg_val, reg_loc, 0);
 }
 
-void generate_assign(node_t* node, int reg_val) {
-    generate_node(node->last_child, reg_val);
+void generate_assign(node_t* node, int reg_out_opt) {
+
+    // TODO this should be changed for IR, we should return a temporary that
+    // always contains the location of the left-hand side, this way we wouldn't
+    // need any of these special cases.
+
+    if (reg_out_opt == -1) {
+        // The result is not used as an expression. Generate directly into the
+        // destination.
+        int reg = register_alloc(node->token);
+        generate_location(node->first_child, reg);
+        generate_node(node->last_child, reg);
+        register_free(node->token, reg);
+        return;
+    }
+
+    generate_node(node->last_child, reg_out_opt);
 
     int reg_loc = register_alloc(node->token);
     generate_location(node->first_child, reg_loc);
-    generate_store(node->token, node->type, reg_val, reg_loc);
+    generate_store(node->token, node->type, reg_out_opt, reg_loc);
     register_free(node->token, reg_loc);
 }
 
