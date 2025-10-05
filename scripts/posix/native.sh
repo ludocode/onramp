@@ -274,14 +274,14 @@ srcs_onramp libc-3-full \
     core/libc/2-opc/src/assert.c \
     core/libc/2-opc/src/ctype.c \
     core/libc/2-opc/src/environ.c \
-    core/libc/2-opc/src/file.c \
     core/libc/2-opc/src/float.c \
     core/libc/2-opc/src/format.c \
-    core/libc/2-opc/src/io.c \
     core/libc/2-opc/src/llong.c \
     core/libc/2-opc/src/multibyte.c \
+    core/libc/2-opc/src/posixio.c \
     core/libc/2-opc/src/setjmp.os \
     core/libc/2-opc/src/stdbit.c \
+    core/libc/2-opc/src/stdio.c \
     core/libc/2-opc/src/stdlib.c \
     core/libc/2-opc/src/string.c \
     core/libc/2-opc/src/strings.c \
