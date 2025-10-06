@@ -287,6 +287,7 @@ static void warnings_setup(void) {
     warning_add("zero-length-array", warning_zero_length_array, warning_level_warn);
     warning_add("discarded-qualifiers", warning_discarded_qualifiers, warning_level_warn);
     warning_add("implicitly-unsigned-literal", warning_implicitly_unsigned_literal, warning_level_warn);
+    warning_add("void-ptr-dereference", warning_void_ptr_dereference, warning_level_warn);
 
     // extension usage
     warning_add("statement-expressions", warning_statement_expressions, warning_level_error);

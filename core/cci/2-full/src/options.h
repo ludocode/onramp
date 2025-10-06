@@ -55,6 +55,7 @@ typedef enum warning_t {
 
     // probably incorrect code
     warning_initializer_overrides, // -Winitializer-overrides
+    warning_void_ptr_dereference, // -Wvoid-ptr-dereference
 
     // extension usage
     warning_statement_expressions,    // -Wstatement-expressions: ({...})

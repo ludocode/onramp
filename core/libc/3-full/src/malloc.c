@@ -761,7 +761,7 @@ char* strdup(const char* src) {
 
 char* strndup(const char* src, size_t max_len) {
     size_t len = strnlen(src, max_len);
-    void* dest = malloc(len + 1);
+    char* dest = malloc(len + 1);
     if (!dest) {
         // malloc() set errno
         return NULL;

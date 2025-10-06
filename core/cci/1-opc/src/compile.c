@@ -1045,6 +1045,9 @@ void compile_global_divider(void) {
 }
 
 type_t* compile_operator_dereference(type_t* type) {
+    if (type_is_base_pointer(type, BASE_VOID)) {
+        fatal("Cannot dereference pointer to value of `void` type.");
+    }
 
     // If this is already an lvalue, we dereference it now.
     bool is_lvalue = type_is_lvalue(type);

@@ -571,6 +571,9 @@ static node_t* parse_array_subscript(node_t* left) {
     if (!type_is_complete(ptr->type->ref)) {
         fatal_token(op->token, "Cannot subscript a pointer to an incomplete type.");
     }
+    if (type_matches_base(ptr->type->ref, BASE_VOID)) {
+        warn(warning_void_ptr_dereference, ptr->token, "Array subscript of `void`");
+    }
 
     // Cast the index if necessary
     if (!type_is_integer(index->type) && !type_matches_base(index->type, BASE_ENUM)) {
@@ -727,6 +730,9 @@ static node_t* parse_unary_operator(node_kind_t kind) {
         case NODE_DEREFERENCE:
             if (!type_is_indirection(child->type)) {
                 fatal_token(node->token, "Cannot dereference non-pointer type");
+            }
+            if (type_matches_base(child->type->ref, BASE_VOID)) {
+                warn(warning_void_ptr_dereference, node->token, "Dereference to `void`");
             }
             node_append(node, child);
             node->type = type_ref(child->type->ref);
@@ -1223,6 +1229,9 @@ node_t* parse_assignment_expression(void) {
     } else {
         // In all other cases the value must be convertible to the target. This
         // is an implicit cast so it'll warn or error if the types don't match.
+        if (type_matches_base(left->type, BASE_VOID)) {
+            fatal_token(token, "Cannot assign a value of type `void`");
+        }
         right = node_cast(right, left->type, NULL);
     }
 
