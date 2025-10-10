@@ -132,7 +132,7 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
  * (break, continue, goto, return) is generated, it calls generate_defer() here
  * for any defers that are crossed.
  */
-void generate_defer(struct node_t* node, int reg_out);
+void generate_defer(struct node_t* node);
 
 /*
  * This generates all defer nodes for a jump from the source node out of the
@@ -141,7 +141,7 @@ void generate_defer(struct node_t* node, int reg_out);
  * The container must be a parent of the node, or the node itself (in which
  * case nothing is generated.)
  */
-void generate_exit_defers(struct node_t* node, struct node_t* container, int reg_out);
+void generate_exit_defers(struct node_t* node, struct node_t* container);
 
 /**
  * This diagnoses errors on any defer nodes found for a jump into the given

@@ -145,7 +145,7 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
         if (location) {
             fatal("Internal error: cannot generate the location of a sequence that ends in a defer node.");
         }
-        generate_defer(node->last_child, reg_last);
+        generate_defer(node->last_child);
     } else if (location) {
         generate_location(node->last_child, reg_last);
     } else {
@@ -154,18 +154,13 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
 
     if (has_defer) {
 
-        // Generate other defer nodes in reverse order. (We always use a
-        // temporary register for simplicity; this will get fixed when we
-        // change this to emit IR.)
-        int reg_defer = register_alloc(node->token);
         node_t* child = node->last_child;
         do {
             child = child->left_sibling;
             if (child->kind == NODE_DEFER) {
-                generate_defer(child, reg_defer);
+                generate_defer(child);
             }
         } while (child != node->first_child);
-        register_free(node->token, reg_defer);
 
         // If we generated the last node into temporary stack space, copy it
         // and free the space
@@ -1169,11 +1164,11 @@ static void generate_address_of(node_t* node, int reg_out) {
 int debug_depth;
 #endif
 
-void generate_defer(node_t* node, int reg_out) {
+void generate_defer(node_t* node) {
     #ifdef GENERATE_DEBUG
     for (int i = 0; i < debug_depth; ++i)
         fputs("  ", stdout);
-    printf("%s() %s %x\n", __func__, node_kind_to_string(node->kind), reg_out);
+    printf("%s() %s\n", __func__, node_kind_to_string(node->kind));
     ++debug_depth;
     #endif
 
@@ -1185,14 +1180,14 @@ void generate_defer(node_t* node, int reg_out) {
     assert(node->first_child->kind == NODE_SEQUENCE);
     assert(type_matches_base(node->first_child->type, BASE_VOID));
 
-    generate_node(node->first_child, reg_out);
+    generate_node(node->first_child, -1);
 
     #ifdef GENERATE_DEBUG
     --debug_depth;
     #endif
 }
 
-void generate_exit_defers(node_t* node, node_t* container, int reg_out) {
+void generate_exit_defers(node_t* node, node_t* container) {
     if (node == container) {
         return;
     }
@@ -1218,7 +1213,7 @@ void generate_exit_defers(node_t* node, node_t* container, int reg_out) {
             while (child != parent->first_child) {
                 child = child->left_sibling;
                 if (child->kind == NODE_DEFER) {
-                    generate_defer(child, reg_out);
+                    generate_defer(child);
                 }
             }
         }

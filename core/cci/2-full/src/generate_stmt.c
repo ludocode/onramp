@@ -61,21 +61,19 @@ void generate_return(node_t* node, int reg_out) {
     }
 
     // generate defer statements
-    int reg_defer = register_alloc(node->token);
-    generate_exit_defers(node, current_function->root, reg_defer);
-    register_free(node->token, reg_defer);
+    generate_exit_defers(node, current_function->root);
 
     block_append(current_block, node->token, LEAVE);
     block_append(current_block, node->token, RET);
 }
 
 void generate_break(node_t* node, int reg_out) {
-    generate_exit_defers(node, node->container, reg_out);
+    generate_exit_defers(node, node->container);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->break_label);
 }
 
 void generate_continue(node_t* node, int reg_out) {
-    generate_exit_defers(node, node->container, reg_out);
+    generate_exit_defers(node, node->container);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->continue_label);
 }
 
@@ -286,7 +284,7 @@ void generate_goto(node_t* goto_node, int reg_out) {
     generate_diagnose_defers(label_node, label_ancestor_child, goto_node->token);
 
     // generate defers out to the direct child of the common ancestor
-    generate_exit_defers(goto_node, goto_ancestor_child, reg_out);
+    generate_exit_defers(goto_node, goto_ancestor_child);
 
     // figure out if we're jumping backwards or forwards in the common ancestor
     bool backwards = false;
@@ -303,7 +301,7 @@ void generate_goto(node_t* goto_node, int reg_out) {
         for (; node != label_ancestor_child; node = node->left_sibling) {
             assert(node != NULL);
             if (node->kind == NODE_DEFER) {
-                generate_defer(node, reg_out);
+                generate_defer(node);
             }
         }
     }
