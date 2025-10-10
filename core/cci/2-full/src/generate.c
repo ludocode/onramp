@@ -952,11 +952,6 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
  * The address of the variable being initialized is (reg_base + offset).
  */
 void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t base_offset) {
-    if (vector_count(&list->children) == 0) {
-        generate_zero_scalar(list->token, type, reg_base, base_offset);
-        return;
-    }
-
     size_t i;
     for (i = 0; i < vector_count(&list->children); ++i) {
 
