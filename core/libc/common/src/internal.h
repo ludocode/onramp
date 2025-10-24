@@ -41,6 +41,10 @@ int __fd_handle(int __fd);
 
 void __call_atexit(void);
 void __call_at_quick_exit(void);
+
+// setup and teardown functions
 void __time_setup(void);
+void __stdio_setup(void);
+void __stdio_teardown(void);
 
 #endif

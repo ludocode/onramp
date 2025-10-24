@@ -46,8 +46,6 @@ extern char** environ;
 _Noreturn void __end(unsigned exit_code, unsigned exit_address);
 extern void __environ_setup(void);
 extern void __malloc_init(void);
-extern void __file_init(void);
-extern void __file_destroy(void);
 extern void __io_init(void);
 extern void __io_destroy(void);
 static void exit_flush(void);
@@ -92,7 +90,7 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     __time_setup();
     __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __io_init();
-    __file_init();
+    __stdio_setup();
 
     // run user code. exit() does not return.
     call_constructors();
@@ -145,7 +143,7 @@ _Noreturn void exit(int status) {
 
     // close files
     exit_flush();
-    __file_destroy();
+    __stdio_teardown();
     __io_destroy();
 
     _Exit(status);

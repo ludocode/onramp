@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,12 +35,14 @@
 #include "syscalls.h"
 
 #include <errno.h>
-#include <stdlib.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
             #include <__onramp/__pit.h>
             char* itoa_d(int value, char* buffer);
 
@@ -50,6 +52,14 @@ FILE* stderr;
 
 static FILE* all_files;
 
+// TODO implement this somewhere
+static inline void sched_yield(void) {}
+
+static int fflush_write(FILE* file);
+
+// helper for print debugging
+//#define W(x) write(1, x, strlen(x))
+
 /*
 typedef enum {
     file_mode_read_only,
@@ -58,11 +68,26 @@ typedef enum {
 } file_mode_t;
 */
 
+typedef enum buffer_use_t {
+    buffer_use_none,    // buffer is not in use
+    buffer_use_reading, // buffer is currently configured for reading
+    buffer_use_writing, // buffer is currently configured for writing
+} buffer_use_t;
+
 /**
  * Our FILE structure.
  *
  * FILEs are lazily buffered. We store the requested buffer configuration and a
  * buffer is allocated as needed on a read/write call.
+ *
+ * The buffer can only be used for reading or writing, not both simultaneously.
+ * If a file is opened for both, the buffer is flushed when switching between
+ * reading and writing. This keeps the implementation simple.
+ *
+ * ungetc() is implemented by pushing data into the front of the buffer (which
+ * may require flushing to make space.) Even if the buffering mode is _IONBF
+ * (non-buffered), a buffer will still need to be allocated if ungetc() is
+ * called.
  *
  * All FILEs are stored in a doubly-linked list. This is used to implement
  * fflush(NULL) which flushes all files.
@@ -70,7 +95,8 @@ typedef enum {
  * A FILE's file descriptor can be -1, meaning it is not backed by a file
  * descriptor. This can happen for example when freopen() fails.
  *
- * A FILE's path can also be NULL, for example if it was opened with fdopen().
+ * A FILE's path can also be NULL, for example if it was opened with fdopen()
+ * or pipe().
  */
 struct __file {
     // properties
@@ -78,18 +104,22 @@ struct __file {
     int flags;           // Flags of the underlying file descriptor
     char* path;          // The path to the file, or NULL if none
     bool wide;           // true if using wide character functions, false otherwise
+    bool readable;       // true if the file was opened for reading
+    bool writable;       // true if the file was opened for writing
 
     // state
     bool eof;
     bool error;
 
     // buffer
-    int buffer_mode;     // buffering mode: _IOFBF (full), _IOLBF (line) or _IONBF (none)
-    size_t buffer_size;  // size of buffer
-    char* buffer;        // pointer to start of buffer
-    size_t buffer_pos;   // current read/write position relative to start of buffer
-    size_t buffer_read;  // data available for reading from buffer, or 0 if writing
-    bool buffer_owned;   // whether we need to free the buffer on fclose()/setvbuf()
+    int buffer_mode;          // mode: _IOFBF (full), _IOLBF (line) or _IONBF (none)
+    size_t buffer_size;       // size of buffer in bytes
+    char* buffer;             // start of buffer, or NULL if no buffer
+    char* buffer_pos;         // current read/write position in buffer, or NULL if not in use
+    char* buffer_end;         // end of buffered data (for reading) or empty space (for writing) or NULL
+    char* buffer_ungetc;      // end of ungetc() characters in buffer, or NULL if ungetc() was not called
+    buffer_use_t buffer_use;  // whether the buffer is in use for reading, writing or neither
+    bool buffer_owned;        // whether we need to free the buffer on fclose()/setvbuf()
 
     // linked list
     FILE* previous;
@@ -103,10 +133,6 @@ static FILE* file_new(void) {
     // files start out fully buffered by default.
     file->buffer_mode = _IOFBF;
     file->buffer_size = BUFSIZ;
-
-// TODO for now buffering disabled
-file->buffer_mode = _IONBF;
-file->buffer_size = 0;
 
     // insert into linked list
     if (all_files) {
@@ -137,35 +163,74 @@ static void file_delete(FILE* file) {
     free(file);
 }
 
-void __file_init(void) {
+void __stdio_setup(void) {
     stdin = fdopen(0, "r");
     stdout = fdopen(1, "w");
     stderr = fdopen(2, "w");
 
     // We can't tell whether the standard streams are attached to terminals so
     // we assume they are.
+    // TODO capabilities bits should tell us this.
     setvbuf(stdin, NULL, _IOFBF, BUFSIZ);
     setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
     setvbuf(stderr, NULL, _IONBF, 0);
 }
 
-void __file_destroy(void) {
+void __stdio_teardown(void) {
     while (all_files) {
         fclose(all_files);
     }
 }
 
 int fclose_impl(FILE* file) {
+    int ret = fflush_write(file);
+
     if (file->fd != -1) {
-        return close(file->fd);
+        int close_err = close(file->fd);
+        if (close_err != 0 && ret == 0) {
+            ret = close_err;
+        }
     }
-    return 0;
+
+    return ret;
 }
 
 int fclose(FILE* file) {
     int ret = fclose_impl(file);
     file_delete(file);
+
+    // The user might have closed a standard stream. If they did, null it out
+    // so that other internal functions don't try to access them.
+    if (file == stdin)  stdin = NULL;
+    if (file == stdout) stdout = NULL;
+    if (file == stderr) stderr = NULL;
+
     return ret;
+}
+
+/**
+ * Writes all of the given data to the given file descriptor.
+ *
+ * Returns true if successful, false on failure. In case of failure, the error
+ * from write() will be in errno.
+ */
+static bool write_all(int fd, const char* data, size_t count) {
+    while (count > 0) {
+        ssize_t step = write(fd, data, count);
+        if (step <= 0) {
+            if (step < 0) {
+                return false;
+            }
+            // TODO currently we assume a return value of 0 is an I/O error.
+            // This is incomplete; we should be able to handle non-blocking
+            // output streams and EOF on a closed output stream.
+            errno = EIO;
+            return false;
+        }
+        data += step;
+        count -= step;
+    }
+    return true;
 }
 
 static int fflush_impl(FILE* file) {
@@ -180,55 +245,37 @@ static int fflush_impl(FILE* file) {
         // these cases the seek() or write() calls below will raise EBADF.)
     }
 
-    if (file->buffer_read > 0) {
-        // TODO for now we ignore flush calls on read. We need to seek
-        // backwards on files to discard any buffered data, but we also need to
-        // keep buffered data for streams otherwise we would lose data on
-        // flush. We consider Onramp to have exclusive access to any open files
-        // and any concurrent external changes are undefined behaviour so for
-        // now we don't bother.
+    if (file->buffer_use != buffer_use_writing) {
+        // We don't flush a read buffer. (If we have input from stdin that
+        // hasn't been consumed yet we need to keep it.)
+        // TODO Linux discards the contents of seekable files. This might
+        // matter for example if the file was edited externally and we want to
+        // flush to refresh. We should try to seek back (if we're sure it's a
+        // file) and if it succeeds discard.
+        // TODO we need to discard ungetc() chars. We should take into account
+        // buffer_ungetc when calculating the position to seek.
         return 0;
     }
 
-    if (file->buffer_pos == 0) {
+    if (file->buffer_pos == file->buffer) {
         // No data is buffered.
         return 0;
     }
 
-    // We have a write buffer with data in it. Loop to write it out.
-    bool error = false;
-    char* start = file->buffer;
-    char* end = file->buffer + file->buffer_pos;
-    while (start != end) {
-        ssize_t step = write(file->fd, start, end - start);
-        if (step <= 0) {
-            if (step < 0)
-                error = true;
-            break;
-        }
-        start += step;
-    }
-
-    if (start != end) {
-        // We have data we couldn't flush. We want to preserve any data we
-        // failed to write so we move it back to the start of the buffer. (This
-        // might be a good reason to use a circular buffer instead. Currently
-        // we don't bother.)
-        memmove(file->buffer, start, start - end);
-
-        // If error is true, we presume write() set errno for us.
-        if (!error) {
-            // It should not be possible for `write()` to return 0 when given
-            // a non-zero number of bytes. It should have either written
-            // successfully or returned -1. As a fallback we raise EIO.
-            errno = EIO;
-        }
-
+    // We have a write buffer with data in it. Write it out.
+    if (!write_all(file->fd, file->buffer, file->buffer_pos - file->buffer)) {
         file->error = true;
         return EOF;
     }
 
-    file->buffer_pos = 0;
+    file->buffer_pos = file->buffer;
+    return 0;
+}
+
+static int fflush_write(FILE* file) {
+    if (file->buffer_use == buffer_use_writing) {
+        return fflush_impl(file);
+    }
     return 0;
 }
 
@@ -240,16 +287,7 @@ int fflush(FILE* file) {
     // fflush(NULL) means flush all output files.
     int ret = 0;
     for (file = all_files; file; file = file->next) {
-        if (file->fd == -1) {
-            // skip any file without a valid file descriptor
-            continue;
-        }
-        if (file->buffer_read > 0) {
-            // skip any file with buffered input data
-            continue;
-        }
-
-        int error = fflush_impl(file);
+        int error = fflush_write(file);
 
         // Return the first error code we come across.
         if (ret == 0 && error != 0) {
@@ -313,6 +351,9 @@ static int parse_mode(const char* mode) {
     }
 
     // 'b' is ignored.
+    // TODO we could consider having a capabilities flag for whether we should
+    // translate CRLF to LF, that way we could set it on Windows. Probably
+    // useless though.
 
     if (r && p) {
         return O_RDWR;
@@ -365,11 +406,14 @@ FILE* fopen(const char* restrict filename, const char* restrict mode) {
 
     file->fd = fd;
     file->flags = flags;
+    file->readable = (flags & O_RDONLY) || (flags & O_RDWR);
+    file->writable = (flags & O_WRONLY) || (flags & O_RDWR);
     return file;
 }
 
 FILE* freopen(const char* restrict filename, const char* restrict mode, FILE* restrict file) {
     // TODO
+    __fatal("freopen() not implemented yet");
     return NULL;
 }
 
@@ -380,8 +424,12 @@ FILE* fdopen(int fd, const char* mode) {
         return NULL;
     }
 
+    int flags = parse_mode(mode);
+
     file->fd = fd;
-    file->flags = parse_mode(mode);
+    file->flags = flags;
+    file->readable = (flags & O_RDONLY) || (flags & O_RDWR);
+    file->writable = (flags & O_WRONLY) || (flags & O_RDWR);
     return file;
 }
 
@@ -400,50 +448,59 @@ FILE* fdopen(int fd, const char* mode) {
  * the buffer is null, we allocate it.
  */
 int setvbuf(FILE* restrict file, char* restrict buffer, int mode, size_t size) {
-// TODO for now buffering disabled
-return 0;
-    int ret = fflush(file);
 
     // A zero size buffer is equivalent to unbuffered.
     if (size == 0) {
         mode = _IONBF;
     }
 
-    // Check whether we need to replace the buffer.
-    // (If the flush failed, we should still discard the current buffer because
-    // it might be a user buffer that will cease to exist.)
-    if (ret != 0 || 
-            mode != file->buffer_mode ||
-            size != file->buffer_size ||
-            buffer != file->buffer)
-    {
-        // Reset things in case flush failed.
-        if (file->buffer_owned) {
-            // TODO this doesn't make sense, there's no reason to discard an
-            // internal buffer, we aren't even changing the size
-            free(file->buffer);
-        } else {
-            file->buffer_size = BUFSIZ;
-        }
-        file->buffer = NULL;
-        file->buffer_pos = 0;
+    // If unbuffered, ignore the given buffer.
+    if (mode == _IONBF) {
+        buffer = NULL;
     }
 
+    // Flush so we can release the existing buffer.
+    int ret = fflush_impl(file);
     if (ret != 0) {
-        // If flush failed, we return failure here, so we don't actually use
-        // the given buffer.
+        // If flush failed, we need to return failure, so we don't use the
+        // given buffer. If we already have an unowned buffer, we stop using it
+        // just in case the caller ignores the return value of this; we
+        // otherwise don't change the buffering mode.
+        if (file->buffer && !file->buffer_owned) {
+            // leave the buffer mode as-is; just stop using the buffer
+            file->buffer_size = BUFSIZ;
+            file->buffer = NULL;
+            file->buffer_pos = NULL;
+            file->buffer_end = NULL;
+            file->buffer_ungetc = NULL;
+            file->buffer_use = buffer_use_none;
+            file->buffer_owned = false;
+        }
         return ret;
     }
 
-    if (mode == _IONBF) {
-        // Ignore the given buffer and size.
-        file->buffer = NULL;
-        file->buffer_size = 0;
-    } else {
-        file->buffer = buffer;
-        file->buffer_size = size;
+    // Free the current buffer, if any
+    // TODO could optimize to keep the existing buffer if it matches that
+    // requested. For now we don't bother.
+    if (file->buffer_owned) {
+        free(file->buffer);
     }
+
+    if (mode == _IONBF) {
+        file->buffer_size = 0;
+        file->buffer = NULL;
+    } else if (buffer) {
+        file->buffer_size = size;
+        file->buffer = buffer;
+    }
+
     file->buffer_mode = mode;
+    file->buffer_pos = NULL;
+    file->buffer_end = NULL;
+    file->buffer_ungetc = NULL;
+    file->buffer_use = buffer_use_none;
+    file->buffer_owned = false;
+
     return 0;
 }
 
@@ -471,13 +528,17 @@ char* gets(char* s) {
 
 int fgetc(FILE* file) {
 
-    // TODO optimize this for the buffering case. We should be able to quickly
-    // pop a byte off the buffer if it is not empty.
+    // Shortcut for buffering
+    if (file->buffer_use == buffer_use_reading && file->buffer_pos != file->buffer_end) {
+        return (unsigned char)*file->buffer_pos++;
+    }
 
-    char x;
+    // Fallback to fread()
+    unsigned char x;
     if (1 == fread(&x, 1, 1, file)) {
         return x;
     }
+
     return EOF;
 }
 
@@ -493,7 +554,7 @@ char* fgets(char* restrict s, int n, FILE* restrict file) {
     char* end = p + n - 1;
     while (p != end) {
         int c = fgetc(file);
-        if (c == -1) {
+        if (c == EOF) {
             if (p == s) {
                 // No characters have been read.
                 return NULL;
@@ -512,8 +573,25 @@ char* fgets(char* restrict s, int n, FILE* restrict file) {
 
 int fputc(int ic, FILE* file) {
     unsigned char c = (unsigned char)ic;
-    if (1 != fwrite(&c, 1, 1, file))
+
+    // Shortcut for buffering
+    if (file->buffer_use == buffer_use_writing && file->buffer_pos != file->buffer_end) {
+        *file->buffer_pos++ = c;
+
+        // If we wrote a line ending in line buffered mode we have to flush.
+        if (c == '\n' && file->buffer_mode == _IOLBF) {
+            if (0 != fflush_impl(file)) {
+                return EOF;
+            }
+        }
+
+        return c;
+    }
+
+    // Fallback to fwrite()
+    if (1 != fwrite(&c, 1, 1, file)) {
         return EOF;
+    }
     return (int)c;
 }
 
@@ -549,22 +627,50 @@ int puts(const char* s) {
 }
 
 int ungetc(int c, FILE* file) {
-    // TODO
+
+    // The characters pushed by ungetc are tracked by file->buffer_ungetc. If
+    // file->buffer_ungetc is NULL or is at most file->buffer_pos, there are no
+    // unread ungetc() characters. If file->buffer_ungetc is greater than
+    // file->buffer_pos, the characters in between are those pushed by ungetc()
+    // that have not yet been read.
+    //
+    // We keep track of them for two reasons:
+    // - If we run out of space for ungetc(), we can move the previous ungetc()
+    //   characters to the end of the buffer so we can push more;
+    // - If the user calls fseek(), we should discard the ungetc() characters
+    //   and not include them in the calculation of the previous stream
+    //   position.
+
+    // TODO:
+    // - need a buffer in read mode. flush or allocate as needed. allocate BUFSIZ even if _IONBF
+    // - if buffer_pos is null or start of buffer:
+    //    - if buffer_ungetc is end of buffer, fail, we can't fit any more
+    //    - if buffer_ungetc is not null, preserve it: memmove [buffer_pos,buffer_ungetc) to end of buffer
+    //    - set buffer_ungetc to end of buffer
+    //    - set buffer_pos to end of buffer minus previous ungetc data
+    // - if buffer_ungetc is null, set it to buffer_pos so we can remember where ungetc ends
+    // - push the character before buffer_pos and we're done
     return -1;
 }
 
 // Sets up a buffer.
 static bool buffer_setup(FILE* file) {
+    assert(file->buffer == NULL);
+
     if (file->buffer_size < BUFSIZ) {
         file->buffer_size = BUFSIZ;
     }
-    assert(file->buffer_size > 0);
 
-    file->buffer = malloc(file->buffer_size);
+    file->buffer = (char*)malloc(file->buffer_size);
     if (file->buffer == NULL) {
         file->error = true;
         return false;
     }
+    file->buffer_end = file->buffer + file->buffer_size;
+    file->buffer_pos = file->buffer;
+    file->buffer_owned = true;
+    file->buffer_ungetc = NULL;
+    file->buffer_use = buffer_use_none;
 
     return true;
 }
@@ -572,251 +678,208 @@ static bool buffer_setup(FILE* file) {
 size_t fread(void* restrict vout, size_t element_size, size_t element_count,
         FILE* restrict file)
 {
-    // We automatically flush standard output streams before reading from
-    // standard input.
-    if (file == stdin) {
-        fflush(stdout);
-        fflush(stderr);
-    }
+    char* restrict out = (char*)vout;
+    size_t total = element_size*element_count; // TODO check for overflow
+    size_t remaining = total;
 
-// TODO all of the below is disabled until buffering works
-{
-int total = element_size * element_count;
-int count = 0;
-while (count < total) {
-    int step = read(file->fd, (char*)vout + count, total - count);
-    if (step < 0) {
+    // Make sure the file is readable
+    if (!file->readable) {
         file->error = true;
-        return count / element_size;
-    }
-    if (step == 0) {
-        break;
-    }
-    count += step;
-}
-if (count < total) {
-    file->eof = true;
-}
-return count/element_size;
-}
-
-
-
-    char* out = (char*)vout;
-
-    if (element_size == 0 || element_count == 0)
-        return 0;
-
-    // The file must be open for reading.
-    if (!(file->flags & (O_RDONLY | O_RDWR))) {
+        errno = EBADF;
         return 0;
     }
 
-    // If we have unbuffered writes we need to flush.
-    if (file->buffer_pos > 0 && file->buffer_read == 0) {
-        if (0 != fflush(file)) {
-            return EOF;
+    // If we have any existing data in the buffer, take it.
+    if (file->buffer_use == buffer_use_reading) {
+        size_t step = file->buffer_end - file->buffer_pos;
+        if (step > remaining) {
+            step = remaining;
+        }
+        memcpy(out, file->buffer_pos, step);
+        file->buffer_pos += step;
+        out += step;
+        remaining -= step;
+    }
+    if (remaining == 0) {
+        return element_count;
+    }
+
+    // We'll need to read(). Flush standard output and error streams before
+    // reading from standard input.
+    if (file == stdin) {
+        // The user might have closed these.
+        if (stdout) {
+            fflush_impl(stdout);
+        }
+        if (stderr) {
+            fflush_impl(stderr);
         }
     }
 
-    // Currently we ignore the buffering mode when reading. Onramp needs
-    // exclusive access to open files; it's undefined behaviour for them to be
-    // modified externally.
-    if (file->buffer == NULL) {
-        if (!buffer_setup(file)) {
-            return EOF;
+    // Configure buffering
+    if (file->buffer_mode != _IONBF) {
+
+        // Allocate the buffer if it isn't already
+        if (file->buffer == NULL) {
+            if (!buffer_setup(file)) {
+                // file->error is set
+                return 0;
+            }
+        }
+
+        // Switch the buffer to read mode
+        if (file->buffer_use != buffer_use_reading) {
+            if (fflush_impl(file) != 0) {
+                return 0;
+            }
+            file->buffer_use = buffer_use_reading;
+            file->buffer_pos = file->buffer + file->buffer_size;
+            file->buffer_end = file->buffer_pos;
+            file->buffer_ungetc = NULL;
         }
     }
 
-    // TODO we could make some attempt at reading in increments of the element
-    // size. For now we don't bother.
-    size_t requested = element_count;
-    if (element_size > 1) {
-        // TODO overflow check
-        requested *= element_size;
+    // If the amount requested is still larger than the buffer size, read
+    // chunks directly into the output.
+    while (remaining > file->buffer_size) {
+        ssize_t step = read(file->fd, out, remaining);
+        if (step <= 0) {
+            if (step < 0) {
+                if (errno == EWOULDBLOCK) {
+                    sched_yield();
+                    continue;
+                }
+                file->error = true;
+            } else {
+                file->eof = true;
+            }
+            return (total - remaining) / element_size;
+        }
+        out += step;
+        remaining -= (size_t)step;
     }
 
-    // copy what's left in the buffer
-    size_t copied = file->buffer_read - file->buffer_pos;
-    if (requested < copied)
-        copied = requested;
-    memcpy(out, file->buffer + file->buffer_pos, copied);
-    file->buffer_pos += copied;
+    // The remaining amount is less than the buffer size. We try to fill the
+    // buffer and pull data from it until we're done. This needs to be a loop
+    // because the read call could return much less than the capacity of the
+    // buffer, even less than we requested.
+    while (remaining != 0) {
 
-    size_t left = requested - copied;
-    size_t total = copied;
-    bool error = false;
+        // Fill the buffer as much as we can.
+        ssize_t result = read(file->fd, file->buffer, file->buffer_size);
+        if (result <= 0) {
+            if (result < 0) {
+                if (errno == EWOULDBLOCK) {
+                    sched_yield();
+                    continue;
+                }
+                file->error = true;
+            } else {
+                file->eof = true;
+            }
+            return (total - remaining) / element_size;
+        }
+        file->buffer_pos = file->buffer;
+        file->buffer_end = file->buffer + result;
 
-    if (left >= file->buffer_size) {
-        // we still need at least as many bytes as fit into the buffer. read
-        // directly to the output.
-        ssize_t step = read(file->fd, out + copied, left);
-        if (step > 0) {
-            total += step;
-        } else if (step < 0) {
-            error = true;
+        // Take data from the buffer.
+        size_t step = (size_t)result;
+        if (step > remaining) {
+            step = remaining;
         }
-    } else if (left > 0) {
-        // we need less bytes than fit into the buffer. let's try to fill the
-        // buffer and copy from it again.
-        ssize_t step = read(file->fd, file->buffer, file->buffer_size);
-        if (step > 0) {
-            if ((ssize_t)left > step)
-                left = (size_t)step;
-            memcpy(out + copied, file->buffer, left);
-            file->buffer_read = step;
-            file->buffer_pos = left;
-        } else if (step < 0) {
-            error = true;
-        }
+        memcpy(out, file->buffer, step);
+        file->buffer_pos += step;
+        out += step;
+        remaining -= step;
     }
 
-    if (total == 0) {
-        // We only set the error or eof flags if we read no bytes. If there
-        // were bytes in the buffer we always return success even if the
-        // attempt to read more failed.
-        if (error) {
-            file->error = true;
-        } else {
-            file->eof = true;
-        }
-    }
-
-    if (element_size == 1)
-        return total;
-    return total / element_size;
+    return element_count;
 }
 
 size_t fwrite(const void* restrict vdata, size_t element_size, size_t element_count,
         FILE* restrict file)
 {
     const char* restrict data = (const char*)vdata;
+    size_t total = element_size*element_count; // TODO check for overflow
+    size_t remaining = total;
 
-
-    // TODO buffering is not finished yet. In the meantime we loop and write
-    // everything (the C file API does not support non-blocking I/O.)
-
-    size_t written = 0;
-    size_t remaining = element_size*element_count; // TODO check for overflow
-    while (remaining > 0) {
-        ssize_t step = write(file->fd, data, remaining);
-        if (step == 0) {
-            #ifndef __onramp_libc_opc__
-            usleep(10000);
-            #endif
-            continue;
-        }
-        if (step < 0) {
-            file->eof = true;
-            break;
-        }
-        remaining -= step;
-        data += step;
-        written += step;
-    }
-    return written / element_size;
-
-
-
-    #ifdef DISABLED__
-
-
-
-    if (element_size == 0 || element_count == 0)
-        return 0;
-
-    // The file must be open for writing.
-    if (!(file->flags & (O_WRONLY | O_RDWR))) {
+    // Make sure the file is writable
+    if (!file->writable) {
+        file->error = true;
+        errno = EBADF;
         return 0;
     }
 
-    // If we have unbuffered reads, discard it. (We could also just error here
-    // because it's unspecified behaviour if a read is followed by a write
-    // without a seek.)
-    if (file->buffer_read > 0) {
-        file->buffer_pos = 0;
-        file->buffer_read = 0;
-    }
-
-    // TODO try to handle partial element writes more intelligently. We could
-    // for example only copy whole elements in the buffer. For now we don't
-    // bother.
-    size_t requested = element_count;
-    if (element_size > 1) {
-        // TODO overflow check
-        requested *= element_size;
-    }
-
-    size_t written = 0;
+    // Handle buffering
     if (file->buffer_mode != _IONBF) {
 
-        // Setup the buffer if needed
+        // Allocate the buffer if it isn't already
         if (file->buffer == NULL) {
             if (!buffer_setup(file)) {
-                return EOF;
-            }
-        }
-
-        // Write what we can to the buffer
-        written = file->buffer_size - file->buffer_pos;
-        if (written > requested)
-            written = requested;
-        memcpy(file->buffer + file->buffer_pos, data, written);
-
-        // If we still have more, flush the buffer
-        if (written < requested) {
-            if (0 != fflush_impl(file)) {
-                // On a failure to flush we return an error. We have no way to
-                // know if any of our data made it out. (We could change this
-                // to flush manually so we could tell but does it matter?)
-                file->error = true;
+                // file->error is set
                 return 0;
             }
         }
-    }
 
-    while (written < requested) {
-
-        // See if we can fit the rest in the buffer.
-        size_t left = requested - written;
-        if (left <= file->buffer_size) {
-            memcpy(file->buffer, data + written, left);
-            written = requested;
-            file->buffer_pos = left;
-            break;
+        // Switch the buffer to write mode
+        if (file->buffer_use != buffer_use_writing) {
+            if (fflush_impl(file) != 0) {
+                return 0;
+            }
+            file->buffer_use = buffer_use_writing;
+            file->buffer_pos = file->buffer;
+            file->buffer_end = file->buffer + file->buffer_size;
+            file->buffer_ungetc = NULL;
         }
 
-        // Write directly to the output.
-        ssize_t step = write(file->fd, data + written, left);
-        if (step <= 0) {
-            break;
+        // Copy as much data as we can to the buffer (as long as it doesn't
+        // contain a newline in line-buffered mode)
+        size_t step = file->buffer_end - file->buffer_pos;
+        if (step > remaining) {
+            step = remaining;
         }
-        written += step;
-    }
+        if (file->buffer_mode != _IOLBF || !memchr(data, '\n', step)) {
+            memcpy(file->buffer_pos, data, step);
+            file->buffer_pos += step;
+            data += step;
+            remaining -= step;
+        }
+        if (remaining == 0) {
+            return element_count;
+        }
 
-    // If we are line buffered and had a line feed anywhere in the input, we do
-    // a final flush.
-    if (file->buffer_mode == _IOLBF && memchr(data, '\n', requested)) {
-        if (-1 == fflush(file)) {
-            // As above, on a failure to flush we error.
-            file->error = true;
+        // We still have data left. Flush to empty the buffer.
+        if (0 != fflush_impl(file)) {
+            // We don't know how much was written and how much was lost. The
+            // file is in an error state.
             return 0;
         }
+
+        // If the remaining data now fits in the buffer (and it doesn't contain
+        // a line ending in line-buffered mode) copy it in.
+        if (remaining <= file->buffer_size &&
+                (file->buffer_mode != _IOLBF || !memchr(data, '\n', remaining)))
+        {
+            memcpy(file->buffer_pos, data, remaining);
+            file->buffer_pos += remaining;
+            return element_count;
+        }
     }
 
-    // We only set the error flag if we failed to write anything at all. If we
-    // were able to write some, we return success for what we wrote even if a
-    // subsequent write call failed.
-
-    if (written == 0) {
-        file->error = true;
-        return 0;
+    // If we have any data left, it's because either we're unbuffered or the
+    // data didn't fit in the buffer. Write it out directly.
+    // TODO we should probably do this like fread(), loop until the data fits
+    // in the buffer
+    if (remaining > 0) {
+        if (!write_all(file->fd, data, remaining)) {
+            // TODO need to differentiate between IO error (e.g. out of space)
+            // and a closed output stream. For now we assume writing should
+            // never fail.
+            file->error = true;
+            return (total - remaining) / element_size;
+        }
     }
-
-    if (element_size == 1)
-        return written;
-    return written / element_size;
-    #endif
+    return element_count;
 }
 
 int fgetpos(FILE* restrict file, fpos_t* restrict pos) {
@@ -828,19 +891,39 @@ int fgetpos(FILE* restrict file, fpos_t* restrict pos) {
 }
 
 int fseek(FILE* file, long offset, int whence) {
-    if (0 != fflush_impl(file)) {
+
+    // We only flush if we have a write buffer. If we're reading, flush() would
+    // cause a seek, but we're about to seek anyway.
+    if (0 != fflush_write(file)) {
         // fllush() set errno and the error flag for us.
         return -1;
     }
 
-    // The buffer should now be empty.
-    assert(file->buffer_pos == file->buffer_read);
+    if (file->buffer_use == buffer_use_reading) {
+
+        // We have to offset SEEK_CUR by the amount of data remaining in the buffer.
+        if (whence == SEEK_CUR && file->buffer_use == buffer_use_reading) {
+            long new_offset = offset - (file->buffer_end - file->buffer_pos);
+            if (new_offset > offset) {
+                errno = EOVERFLOW;
+                return -1;
+            }
+            offset = new_offset;
+        }
+
+        // Dump the remaining buffer contents.
+        file->buffer_use = buffer_use_none;
+        file->buffer_pos = NULL;
+        file->buffer_end = NULL;
+        file->buffer_ungetc = NULL;
+    }
 
     // We don't call lseek() here because our off_t is 64 bits which is not
     // available in opC. Instead we do the syscall manually.
     int ret = __sys_fseek(__fd_handle(file->fd),
             whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
-            offset, 0);
+            offset,
+            (offset < 0) ? UINT32_MAX : 0);
     if (ret < 0) {
         // TODO convert Onramp error codes. For now we assume the stream isn't
         // seekable.
@@ -874,6 +957,24 @@ long ftell(FILE* file) {
     if (position[1] != 0 || position[0] > (unsigned)INT_MAX) {
         errno = EOVERFLOW;
         return -1;
+    }
+
+    // For a write buffer, add the pending buffer contents. For a read buffer,
+    // subtract the remaining buffer contents.
+    if (file->buffer_use == buffer_use_writing) {
+        unsigned new_pos = position[0] + (file->buffer_pos - file->buffer);
+        if (new_pos < position[0]) {
+            errno = EOVERFLOW;
+            return -1;
+        }
+        position[0] = new_pos;
+    } else if (file->buffer_use == buffer_use_reading) {
+        unsigned new_pos = position[0] - (file->buffer_end - file->buffer_pos);
+        if (new_pos > position[0]) {
+            errno = EOVERFLOW;
+            return -1;
+        }
+        position[0] = new_pos;
     }
 
     return position[0];

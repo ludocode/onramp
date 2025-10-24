@@ -71,7 +71,7 @@ typedef long fpos_t;
 #define _IOLBF 2
 #define _IONBF 3
 
-#define BUFSIZ 512
+#define BUFSIZ 4096
 #define EOF (-1)
 #define FOPEN_MAX 13 // TODO
 #define FILENAME_MAX 256
