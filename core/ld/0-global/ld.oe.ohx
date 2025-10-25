@@ -2443,7 +2443,7 @@
 
     ; check if we have enough space
     78 81 80 04    ; ldw r1 r0 4   ; r1 == process_info_table[PROGRAM_BREAK]
-    70 81 8C 81    ; sub r1 rsp r1
+    71 81 8C 81    ; sub r1 rsp r1
     76 82 01 12    ; shl r2 1 18   ; r2 = 256 kB
     7D 81 81 82    ; ltu r1 r1 r2
     7E 81 06 00    ; jz r1 &initialize_memory_ok (+6)
