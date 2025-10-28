@@ -1627,7 +1627,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz 0 &open_input_file_ok (+6)
+    7E 8A 06 00    ; jz ra &open_input_file_ok (+6)
 
     ; failed to open input file. fatal
 ;:open_input_file_fail
@@ -1693,7 +1693,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz ra &open_output_file_ok (+6)
+    7E 8A 06 00    ; jz ra &open_output_file_ok (+6)
 
     ; failed to open output file. fatal
 ;:open_output_file_fail
@@ -1843,7 +1843,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz ra &read_char_fill_ok (+6)
+    7E 8A 06 00    ; jz ra &read_char_fill_ok (+6)
 
     ; failed to read from input file. fatal
     7C 80 00 00    ; ims r0 <error_input_file
@@ -2007,7 +2007,7 @@
     ; high bit indicates error
     ; TODO any non-zero value should probably be considered an error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz 0 &end_parsing_output_ok (+6)
+    7E 8A 06 00    ; jz ra &end_parsing_output_ok (+6)
 
     ; failed to close output file. fatal
 ;:end_parsing_output_fail
@@ -2041,7 +2041,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz 0 &end_parsing_input_ok (+6)
+    7E 8A 06 00    ; jz ra &end_parsing_input_ok (+6)
 
     ; failed to close input file. fatal
 ;:end_parsing_input_fail

@@ -910,17 +910,16 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 06 00    ; jz ra &open_output_file_ok (+6)
+    7E 8A 06 00    ; jz ra &open_output_file_fopen_ok (+6)
 
     ; failed to open output file. fatal
-;:open_output_file_fail
     7C 80 00 00    ; ims r0 <error_output_file
     7C 80 C0 00    ; ims r0 >error_output_file
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 50 14    ; ims ra >fatal (0x1450)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:open_output_file_ok
+;:open_output_file_fopen_ok
 
     ; store output handle in globals
     79 80 8E 28    ; stw r0 rpp 0x28    ; output_io_handle
@@ -952,16 +951,23 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; TODO check for errors
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 06 00    ; jz ra &open_output_file_ftrunc_ok (+6)
+
+    ; failed to truncate output file. fatal
+    7C 80 00 00    ; ims r0 <error_output_file
+    7C 80 C0 00    ; ims r0 >error_output_file
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 50 14    ; ims ra >fatal (0x1450)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:open_output_file_ftrunc_ok
 
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
@@ -2545,13 +2551,11 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; return value must not be -1
-    71 8A 80 FF    ; sub ra r0 -1
-    7E 8A 01 00    ; jz ra &parse_input_file_open_fail (+1)
-    7E 00 06 00    ; jz ra &parse_input_file_open_ok (+6)
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 06 00    ; jz ra &parse_input_file_open_ok (+6)
 
     ; failed to open input file. fatal
-;:parse_input_file_open_fail
     7C 80 00 00    ; ims r0 <error_input_file
     7C 80 90 00    ; ims r0 >error_input_file
     70 80 8E 80    ; add r0 rpp r0
@@ -2616,25 +2620,24 @@
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; high bit indicates error
-    ; TODO any non-zero value should probably be considered an error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz 0 &parse_input_file_output_ok (+6)
+    7E 8A 06 00    ; jz ra &parse_input_file_close_ok (+6)
 
-    ; failed to close output file. fatal
-;:parse_input_file_output_fail
+    ; failed to close input file. fatal
+;:parse_input_file_close_fail
     7C 80 00 00    ; ims r0 <error_input_file
     7C 80 90 00    ; ims r0 >error_input_file
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 50 14    ; ims ra >fatal (0x1450)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:parse_input_file_output_ok
+;:parse_input_file_close_ok
 
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
-    00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -2684,17 +2687,17 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz 0 &close_output_ok (+6)
+    7E 8A 06 00    ; jz ra &end_parsing_ok (+6)
 
     ; failed to close output file. fatal
-;:close_output_fail
+;:end_parsing_fail
     7C 80 00 00    ; ims r0 <error_output_file
     7C 80 C0 00    ; ims r0 >error_output_file (0xC0)
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 50 14    ; ims ra >fatal (0x1450)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:close_output_ok
+;:end_parsing_ok
 
 
 
@@ -3033,7 +3036,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 00 06 00    ; jz ra &read_char_fill_ok (+6)
+    7E 8A 06 00    ; jz ra &read_char_fill_ok (+6)
 
     ; failed to read from input file. fatal
     7C 80 00 00    ; ims r0 <error_input_file
