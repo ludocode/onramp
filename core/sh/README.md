@@ -1,8 +1,9 @@
 # Onramp Shell
 
-`sh` is the Onramp shell. It's used for running scripts or (in theory) running programs interactively on the Onramp VM.
+`sh` is the Onramp shell. It's used for running bootstrap scripts on the Onramp VM.
 
 This document describes the implementation of the shell. For a specification of the shell language, see [Onramp shell](../../docs/shell.md).
+
 
 
 ## Setup
@@ -14,6 +15,22 @@ build/intermediate/sh/sh.oe
 ```
 
 See the [Setup Guide](../../../docs/setup-guide.md) for more information.
+
+
+
+## Functionality
+
+Only the following commands are supported:
+
+- `echo` -- prints the arguments to standard output
+- `set -e` -- exits on error
+- `mkdir -p` -- creates the given directory recursively if it does not exist
+- `cp` -- copies a file
+- `onrampvm` -- runs an Onramp program
+- `sh` -- runs a script in a subshell
+
+The shell can run commands from standard input but it is not designed to run interactively. It does not have a prompt and it does not have enough functionality to be usable as a shell. It is missing basic commands such as `cd` and `ls`.
+
 
 
 ## Implementation

@@ -2,7 +2,7 @@
 
 The Onramp Shell language is used to write [the scripts that bootstrap Onramp](../core/build.sh) within an Onramp virtual machine.
 
-It is a minimal subset of POSIX shell (with minor exceptions.)
+It is a minimal subset of POSIX shell.
 
 
 
@@ -27,16 +27,9 @@ The language is designed to be compatible with POSIX shell scripts. This allows 
 
 ## Syntax
 
-An Onramp shell script is separated by lines. A line ends in one of four ways:
+An Onramp shell script is separated by lines. A line ends in a line feed or by the end of the input file.
 
-- a carriage return followed by a line feed;
-- a carriage return only;
-- a line feed only;
-- the end of the input file.
-
-(Note that this differs from POSIX where only a line feed is considered to be the end of a line.)
-
-A `\` character at the end of a line that does not have a comment escapes the line ending. The backslash and line ending are elided and the two lines are merged together without any additional whitespace (so it is possible to merge tokens across lines.)
+A `\` character immediately preceding a line feed escapes the line feed. The backslash and line feed are elided and the two lines are merged together without any additional whitespace (so it is possible to merge tokens across lines.)
 
 A `\` cannot otherwise appear at all outside of comments (no other escape sequences are supported.)
 
