@@ -84,6 +84,8 @@
 ;   800  fatal
 ;   890  write_all
 ;   980  parse_line
+;   AB0  parse_argument
+;   B90  append_argument_char
 
 
 
@@ -184,6 +186,7 @@
 
 
 
+    ; padding
     00 00 00 00
 
 
@@ -218,6 +221,7 @@
 
 
 
+    ; padding
     00 00 00 00
 
 
@@ -234,9 +238,50 @@
 
 
 
+;==========================================
+; char** args;
+;==========================================
+; The parsed command line, stored as a list of null-terminated strings.
+;
+; Up to 127 arguments are supported. (The list must be null-terminated when
+; running a command.)
+;==========================================
+
+@0x60 =args
     00 00 00 00
+@0x64
+
+
+
+;==========================================
+; size_t arg_count;
+;==========================================
+; The number of arguments in args, not counting the null-terminator.
+;==========================================
+
+@0x64 =arg_count
     00 00 00 00
+@0x68
+
+
+
+;==========================================
+; char* char_ptr;
+;==========================================
+; A pointer between heap_start and heap_end where the next argument is to be
+; written.
+;
+; This points to the end of the argument list after a full command line has
+; been parsed.
+;==========================================
+
+@0x68 =char_ptr
     00 00 00 00
+@0x6C
+
+
+
+    ; padding
     00 00 00 00
 
 
@@ -356,7 +401,7 @@
 ;==========================================
 
 @0x1C0 error_out_of_memory
-    ; "ERROR: Out of memory."
+    ; "ERROR: Out of memory." '0A '00
     45 52 52 4f 52 3a 20 4f  75 74 20 6f 66 20 6d 65
   ;  E  R  R  O  R  :     O   u  t     o  f     m  e
     6d 6f 72 79 2e 0a 00 00  00 00 00 00 00 00 00 00
@@ -475,10 +520,20 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+@0x280
+
+
+
+;==========================================
+; const char error_too_many_args[];
+;==========================================
+
+@0x280 =error_too_many_args
+    ; "ERROR: Too many arguments." '0A '00
+    45 52 52 4f 52 3a 20 54  6f 6f 20 6d 61 6e 79 20
+  ;  E  R  R  O  R  :     T   o  o     m  a  n  y
+    61 72 67 75 6d 65 6e 74  73 2e 0a 00 00 00 00 00
+  ;  a  r  g  u  m  e  n  t   s  . \n \0
 @0x2A0
 
 
@@ -635,7 +690,9 @@
     ; - command-line args is set after parsing
 
     ; copy the syscall table
-    78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
+;TODO disabled
+78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+    ;78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
     78 83 81 08   ; ldw r3 r1 0x08   ; r3 = child syscall table
     78 84 81 28   ; ldw r4 r1 0x28   ; r4 = system call count
     76 84 84 03   ; shl r4 r4 3      ; r4 = system call table size (in bytes)
@@ -738,7 +795,7 @@
     7C 80 20 01    ; ims r0 >error_input (0x120)
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
-    7C 8A 50 02    ; ims ra >fatal (0x250)
+    7C 8A 00 08    ; ims ra >fatal (0x800)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 ;:open_script_fopen_fail
 
@@ -797,7 +854,7 @@
     7C 80 10 01    ; ims r0 >error_out_of_memory
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
-    7C 8A 50 02    ; ims ra >fatal (0x250)
+    7C 8A 00 08    ; ims ra >fatal (0x800)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 ;:initialize_memory_ok
 
@@ -826,12 +883,17 @@
     79 83 82 08   ; stw r3 r2 8      ; child_pit[syscall_table]
     70 82 83 85   ; add r2 r3 r5
 
+    ; allocate the args table
+    76 85 01 09   ; shl r5 1 9        ; 1 << 9 == 512 == 4 * 128 args
+    79 82 8E 60   ; stw r2 rpp 0x60   ; args
+    70 82 82 85   ; add r2 r2 r5
+
     ; store the remaining heap as our heap start
     79 82 8E 40   ; stw r2 rpp 0x40    ; heap_start
 
     ; subtract 4kB for the stack, store it as heap_end
     71 83 8C 85   ; sub r3 rsp r5
-    79 83 8E 40   ; stw r3 rpp 0x44    ; heap_end
+    79 83 8E 44   ; stw r3 rpp 0x44    ; heap_end
 
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
@@ -839,8 +901,7 @@
     ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x580
 
 
@@ -862,22 +923,22 @@
 
 @0x580 =next_char_impl
 
-;; print the previous character
-70 81 8E 3C    ; add r1 rpp 0x3C    ; current_char
-71 82 81 FF    ; sub r2 r1 -1
-7E 82 0C 00    ; jz r2 +12
-78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-78 80 89 10   ; ldw r0 r8 16     ; stdout
-70 82 00 01   ; add r2 0 1
-78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
-78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-70 8B 8F 08    ; add rb rip 8     ; ^^^
-79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+;;;;; print the previous character
+;;;70 81 8E 3C    ; add r1 rpp 0x3C    ; current_char
+;;;71 82 81 FF    ; sub r2 r1 -1
+;;;7E 82 0C 00    ; jz r2 +12
+;;;78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+;;;78 80 89 10   ; ldw r0 r8 16     ; stdout
+;;;70 82 00 01   ; add r2 0 1
+;;;78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+;;;76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+;;;70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+;;;78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+;;;71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+;;;70 8B 8F 08    ; add rb rip 8     ; ^^^
+;;;79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+;;;78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+;;;70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
@@ -950,7 +1011,7 @@
     7C 80 90 00    ; ims r0 >error_input_file (0x90)
     70 80 8E 80    ; add r0 rpp r0
     7C 8A 00 00    ; ims ra <fatal
-    7C 8A 50 02    ; ims ra >fatal (0x250)
+    7C 8A 00 08    ; ims ra >fatal (0x800)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
 ;:next_char_impl_fill_ok
@@ -988,15 +1049,14 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
-;    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x6C0
 
 
@@ -1026,7 +1086,7 @@
     78 80 8E 3C     ; ldw r0 rpp 0x3C  ; current_char
     71 80 80 5C     ; sub r0 r0 "\"
     7E 80 01 00    ; jz r0 &next_char_escape (+1)
-    
+
     ; it's not '\'. we're done.
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
 
@@ -1062,15 +1122,15 @@
     7C 8A C0 06    ; ims ra >next_char (0x6C0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
-;:next_char_not_line_feed 
+;:next_char_not_line_feed
     ; Not a line feed. We only support line feed. A syntax error is a fatal
     ; error even without `set -e`.
-    7C 80 00 00        ; ims r0 <error_escape
-    7C 80 70 01        ; ims r0 >error_escape (0x170)
-    70 80 8E 80        ; add r0 rpp r0
-    7C 8A 00 00        ; ims ra <fatal
-    7C 8A 50 02        ; ims ra >fatal (0x250)
-    70 8F 8E 8A        ; add rip rpp ra
+    7C 80 00 00    ; ims r0 <error_escape
+    7C 80 70 01    ; ims r0 >error_escape (0x170)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra
 
     ; padding
     00 00 00 00 00 00 00 00
@@ -1092,7 +1152,7 @@
     ; don't bother to set up a stack frame
 
 ;:consume_horizontal_space_loop
-;
+
     ; get the current char
     78 80 8E 3C     ; ldw r0 rpp 0x3C  ; current_char
 
@@ -1303,35 +1363,34 @@
 ;==========================================
 ; Parses a line (including escaped newlines) and runs the command, if any.
 ;
-; Tokens are parsed in a linked list. Each linked list entry is a link to the
-; next entry followed by the string.
+; Arguments are parsed into char_ptr starting at heap_start. A pointer to each
+; argument is added to the args array.
 ;
-; Once the end of the line is reached, run_command is called on the list.
+; vars:
+; - loop_address: rfp-4  (rpp + &parse_line_loop)
 ;==========================================
 
 @0x980 =parse_line
-
-; call next_char()
-7C 8A 00 00    ; ims ra <next_char
-7C 8A C0 06    ; ims ra >next_char (0x6C0)
-71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-70 8B 8F 08    ; add rb rip 8
-79 8B 00 8C    ; stw rb 0 rsp
-70 8F 8E 8A    ; add rip rpp ra    ; jump
-70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
-;:parse_loop
+    ; initialize parsing state
+    79 00 8E 64   ; stw 0 rpp 0x64     ; arg_count
+    78 8A 8E 40   ; ldw ra rpp 0x40    ; heap_start
+    79 8A 8E 68   ; stw ra rpp 0x68    ; char_ptr
+
+    ; save rip so we can jump back here to loop
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 8F 8D FC    ; stw rip rfp -4    ; loop_address
+
+;:parse_line_loop
 
     ; consume horizontal whitespace
     7C 8A 00 00    ; ims ra <consume_horizontal_space
-    7C 8A C0 06    ; ims ra >consume_horizontal_space (0x6C0)
+    7C 8A 80 07    ; ims ra >consume_horizontal_space (0x780)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1341,18 +1400,270 @@
     ; get the current character
     78 80 8E 3C     ; ldw r0 rpp 0x3C  ; current_char
 
-    ; check if we have a backslash
+    ; check if we have a line feed
+    71 81 80 0A    ; sub r1 r0 "\n"
+    7E 81 01 00    ; jz r1 &parse_line_line_feed (+1)
+    7E 00 08 00    ; jz r1 &parse_line_not_line_feed (+8)
 
-    ; if so, consume the escape sequence and restart the loop.
+;:parse_line_line_feed
+    ; consume the line feed, call next_char()
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A C0 06    ; ims ra >next_char (0x6C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; end of line
+    7E 81 03 00    ; jz r1 &parse_line_eol (+3)
+;parse_line_not_line_feed
+
+    ; check for EOF
+    71 81 80 FF    ; sub r1 r0 -1
+    7E 81 01 00    ; jz r1 &parse_line_eol (+1)
+    7E 00 04 00    ; jz r1 &parse_line_not_eol (+4)
+
+;:parse_line_eol
+    ; end of the line. we're done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:parse_line_not_eol
 
     ; check if we have a comment
+    ;70 81 80 23    ; sub r1 r0 "#"
+70810100 ; TODO comment parsing disabled
+    7E 81 01 00    ; jz r1 &parse_line_comment (+1)
+    7E 00 0B 00    ; jz 0 &parse_line_not_comment (+11)
 
-    ; if so, consume the rest of the line, call consume_comment()
+;:parse_line_comment
+    ; we have a comment. consume the rest of the line, call consume_comment()
+    7C 8A 00 00    ; ims ra <consume_comment
+    7C 8A EE EE    ; ims ra >consume_comment (0x)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; otherwise alloc space for a new token, zero it, point last token to it
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:parse_line_not_comment
 
-    ; collect chars until whitespace (still calling escape_backslash on
-    ; backslashes in case it's an escaped newline in the middle of a word)
+    ; it's a command line argument.
+    ; store char_ptr as the current argument, increment arg_count
+    78 80 8E 60   ; ldw r0 rpp 0x60    ; args
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    78 82 8E 68   ; ldw r2 rpp 0x68    ; char_ptr
+    76 8A 81 02   ; shl ra r1 2
+    79 82 80 8A   ; stw r2 r0 ra       ; args[arg_count] = char_ptr
+    70 81 81 01   ; add r1 r1 1
+    79 81 8E 64   ; stw r1 rpp 0x64    ; arg_count
+
+    ; check if arg_count is 128
+    76 8B 01 07   ; shl rb 1 7      ; 128
+    71 8A 81 8B   ; sub ra r1 rb
+    7E 8A 01 00   ; jz ra &parse_line_too_many_args (+1)
+    7E 00 06 00   ; jz 0 &parse_line_arg_count_ok (+6)
+
+;:parse_line_too_many_args
+    ; too many arguments. fatal error
+    7C 80 00 00    ; ims r0 <error_too_many_args
+    7C 80 80 02    ; ims r0 >error_too_many_args (0x280)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:parse_line_arg_count_ok
+
+    ; call parse_argument()
+    7C 8A 00 00    ; ims ra <parse_argument
+    7C 8A B0 0A    ; ims ra >parse_argument (0xAB0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; jump back to &parse_line_loop
+    78 8F 8D FC    ; ldw rip rfp -4    ; loop_address
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xAB0
+
+
+
+;==========================================
+; void parse_argument(void);
+;==========================================
+; Parses one argument in a command line.
+;
+; vars:
+; - loop_address: rfp-4  (rpp + &parse_argument_loop)
+;==========================================
+
+@0xAB0 =parse_argument
+
+    ; set up a stack frame
+    71 8C 8C 04    ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C    ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00    ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 04    ; sub rsp rsp 4
+
+    ; save rip so we can jump back here to loop
+    71 8C 8C 04    ; sub rsp rsp 4
+    79 8F 8D FC    ; stw rip rfp -4    ; loop_address
+
+;:parse_argument_loop
+
+    ; store the current char, call append_argument_char()
+    7A 80 8E 3C    ; ldb r0 rpp 0x3C    ; current_char
+    7C 8A 00 00    ; ims ra <append_argument_char
+    7C 8A 90 0B    ; ims ra >append_argument_char (0xB90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call next_char()
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A C0 06    ; ims ra >next_char (0x6C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check if the current char is whitespace or eol
+    78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
+    71 81 80 20    ; sub r1 r0 " "
+    7E 81 07 00    ; jz r1 &parse_line_eol (+7)
+    71 81 80 09    ; sub r1 r0 "\t"
+    7E 81 05 00    ; jz r1 &parse_line_eol (+5)
+    71 81 80 0A    ; sub r1 r0 "\n"
+    7E 81 03 00    ; jz r1 &parse_line_eol (+3)
+    71 81 80 FF    ; sub r1 r0 -1
+    7E 81 01 00    ; jz r1 &parse_line_eol (+1)
+    7E 00 01 00    ; jz 0 &parse_line_not_eol (+1)
+
+;:parse_line_eol
+    ; end of argument
+    7E 00 01 00     ; jz 0 &parse_line_done (+1)
+;:parse_line_not_eol
+
+    ; jump back to &parse_argument_loop
+    78 8F 8D FC    ; ldw rip rfp -4    ; loop_address
+
+;:parse_line_done
+
+    ; store a null terminator, call append_argument_char()
+    70 80 00 00    ; add r0 0 0    ; zero r0
+    7C 8A 00 00    ; ims ra <append_argument_char
+    7C 8A 90 0B    ; ims ra >append_argument_char (0xB90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xB90
+
+
+
+;==========================================
+; void append_argument_char(char c);
+;==========================================
+; Appends the given character to the current argument, raising a fatal error if
+; there is not enough space.
+;==========================================
+
+@0xB90 =append_argument_char
+
+71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+79 80 00 8C     ; stw r0 0 rsp      ; ...
+70 81 8C 00    ; add r1 rsp 0
+70 82 01 01
+7E 82 0C 00    ; jz r2 +12
+78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+78 80 89 10   ; ldw r0 r8 16     ; stdout
+70 82 00 01   ; add r2 0 1
+78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+70 8B 8F 08    ; add rb rip 8     ; ^^^
+79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+70 8C 8C 04     ; add rsp rsp 4     ; popd
+
+    ; check if char_ptr matches heap_end
+    78 81 8E 68   ; ldw r1 rpp 0x68    ; char_ptr
+    78 82 8E 44   ; ldw r2 rpp 0x44    ; heap_end
+    71 82 81 82   ; sub r2 r1 r2
+    7E 82 01 00   ; jz r2 &append_argument_char_oom (+1)
+    7E 00 06 00   ; jz 0 &append_argument_char_ok (+6)
+
+;:append_argument_char_oom
+    ; not enough memory
+    7C 80 00 00    ; ims r0 <error_out_of_memory
+    7C 80 10 01    ; ims r0 >error_out_of_memory
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:append_argument_char_ok
+
+    ; store the character at char_ptr
+    7B 80 81 00    ; stb r0 r1 0
+
+    ; increment it
+    70 81 81 01    ; add r1 r1 1
+    79 81 8E 68    ; stw r1 rpp 0x68    ; char_ptr
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+;@0xBF0
+
+
+
+
+
+
+
+
+
+
+
 
 ;:parse_loop_end
 
