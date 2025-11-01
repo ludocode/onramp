@@ -86,6 +86,9 @@
 ;   980  parse_line
 ;   AB0  parse_argument
 ;   B90  append_argument_char
+;   C40  error_unrecognized_command
+;   C60  run_command
+;   D50  command_echo
 
 
 
@@ -298,7 +301,7 @@
 
 @0x70 =commands
 
-    D0 00 00 00   EE EE 00 00    ; echo
+    D0 00 00 00   50 0D 00 00    ; echo
     D5 00 00 00   EE EE 00 00    ; mkdir
     DB 00 00 00   EE EE 00 00    ; onrampvm
     E4 00 00 00   EE EE 00 00    ; set
@@ -582,11 +585,11 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-;:start_parse_line
+;:start_run_command
 
-    ; call parse_line()
-    7C 8A 00 00    ; ims ra <parse_line
-    7C 8A 80 09    ; ims ra >parse_line (0x980)
+    ; call run_command()
+    7C 8A 00 00    ; ims ra <run_command
+    7C 8A 60 0C    ; ims ra >run_command (0xC60)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -597,7 +600,7 @@
     78 80 8E 3C    ; ldw r0 rpp 0x3C  ; current_char
     71 80 80 FF    ; sub r0 r0 -1
     7E 80 01 00    ; jz r0 &start_eof (+1)
-    7E 00 F5 FF    ; jz 0 &start_parse_line (-11)
+    7E 00 F5 FF    ; jz 0 &start_run_command (-11)
 
 ;:start_eof
 
@@ -1407,6 +1410,8 @@
 
 ;:parse_line_line_feed
     ; consume the line feed, call next_char()
+        ; TODO this prevents us from running interactively, we need to consume
+        ; the line feed AFTER running the command
     7C 8A 00 00    ; ims ra <next_char
     7C 8A C0 06    ; ims ra >next_char (0x6C0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -1416,7 +1421,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; end of line
-    7E 81 03 00    ; jz r1 &parse_line_eol (+3)
+    7E 00 03 00    ; jz 0 &parse_line_eol (+3)
 ;parse_line_not_line_feed
 
     ; check for EOF
@@ -1600,24 +1605,24 @@
 
 @0xB90 =append_argument_char
 
-71 8C 8C 04     ; sub rsp rsp 4     ; push r0
-79 80 00 8C     ; stw r0 0 rsp      ; ...
-70 81 8C 00    ; add r1 rsp 0
-70 82 01 01
-7E 82 0C 00    ; jz r2 +12
-78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-78 80 89 10   ; ldw r0 r8 16     ; stdout
-70 82 00 01   ; add r2 0 1
-78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
-78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-70 8B 8F 08    ; add rb rip 8     ; ^^^
-79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-70 8C 8C 04    ; add rsp rsp 4    ; pop return address
-70 8C 8C 04     ; add rsp rsp 4     ; popd
+;71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+;79 80 00 8C     ; stw r0 0 rsp      ; ...
+;70 81 8C 00    ; add r1 rsp 0
+;70 82 01 01
+;78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+;78 80 89 10   ; ldw r0 r8 16     ; stdout
+;70 82 00 01   ; add r2 0 1
+;78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+;76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+;70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+;78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+;71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+;70 8B 8F 08    ; add rb rip 8     ; ^^^
+;79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+;78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+;70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+;78 80 00 8C     ; ldw r0 0 rsp      ; ...
+;70 8C 8C 04     ; add rsp rsp 4     ; pop r0
 
     ; check if char_ptr matches heap_end
     78 81 8E 68   ; ldw r1 rpp 0x68    ; char_ptr
@@ -1651,55 +1656,204 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00
-;@0xBF0
+@0xC40
 
 
 
+;==========================================
+; const char error_unrecognized_command[];
+;==========================================
 
-
-
-
-
-
-
-
-
-;:parse_loop_end
-
-    ; NOTE: when we see a line ending, we need to not consume it until AFTER
-    ; running the command! otherwise we'll block on input when running
-    ; interactively.
-
-    ; call run_command()
-    7C 8A 00 00    ; ims ra <run_command
-    7C 8A EE EE    ; ims ra >run_command
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; consume line endings (any number of \n and \r)
-    ; (maybe make this a separate function for simplicity, tail-call it)
+@0xC40 =error_too_many_args
+    ; "ERROR: Unrecognized command." '0A '00
+    45 52 52 4f 52 3a 20 55  6e 72 65 63 6f 67 6e 69
+  ;  E  R  R  O  R  :     U   n  r  e  c  o  g  n  i
+    7a 65 64 20 63 6f 6d 6d  61 6e 64 2e 0a 00 00 00
+  ;  z  e  d     c  o  m  m   a  n  d  . \n \0
+@0xC60
 
 
 
 ;==========================================
 ; void run_command(void);
 ;==========================================
-; Converts the linked list of arguments to an array, then searches the command
-; table for a function to handle it.
+; Parses a command line and runs the command.
+;
+; vars:
+; - command_name: r0, rfp-4
+; - commands_ptr: r2, rfp-8
 ;==========================================
 
-    ; allocate array, store null-terminator at end
+@0xC60 =run_command
 
-    ; walk linked list starting at program break. store each item into the
-    ; array
+    ; call parse_line()
+    7C 8A 00 00    ; ims ra <parse_line
+    7C 8A 80 09    ; ims ra >parse_line (0x980)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; walk table, call strcmp() on each. if match, tail-call command.
+    ; if arg_count is zero, the line is blank. return.
+    78 80 8E 64    ; ldw r0 rpp 0x64    ; arg_count
+    7E 80 01 00    ; jz r0 &run_command_blank
+    7E 00 01 00    ; jz 0 &run_command_not_blank
+;:run_command_blank
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+;:run_command_not_blank
 
-    ; if no match, call error (not fatal)
+    ; set up a stack frame
+    71 8C 8C 04    ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C    ; stw rfp 0 rsp     ; ^^^            ; ^^^
+    70 8D 8C 00    ; add rfp rsp 0     ; mov rfp rsp    ; ^^^
+    71 8C 8C 08    ; sub rsp rsp 8
+
+    ; store the command
+    78 80 8E 60   ; ldw r0 rpp 0x60    ; args
+    78 80 80 00   ; ldw r0 r0 0
+    79 80 8D FC   ; stw r0 rfp -4
+
+    ; initialize a pointer into the commands array
+    70 82 8E 70   ; add r2 rpp 0x70    ; commands
+    79 82 8D F8   ; stw r2 rfp -8
+
+;:run_command_loop
+
+    ; get commands to compare
+    78 82 8D F8   ; ldw r2 rfp -8
+    78 81 82 00   ; ldw r1 r2 0
+    70 81 8E 81   ; add r1 rpp r1
+    78 80 8D FC   ; ldw r0 rfp -4
+
+    ; call strcmp()
+    7C 8A 00 00    ; ims ra <strcmp
+    7C 8A 00 02    ; ims ra >strcmp (0x200)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; if equal, jump out of the loop
+    7E 80 0C 00   ;  jz r0 &run_command_found (+12)
+
+    ; increment commands_ptr
+    78 82 8D F8   ; ldw r2 rfp -8
+    70 82 82 08   ; add r2 r2 8
+    79 82 8D F8   ; stw r2 rfp -8
+
+    ; if the next command is null, we're out of commands
+    78 81 82 00   ; ldw r1 r2 0
+    7E 81 01 00   ; jz r1 &run_command_no_match (+1)
+
+    ; otherwise loop
+    7E 00 EE FF   ; jz 0 &run_command_loop (-18)
+
+;:run_command_no_match
+    ; no such command
+    7C 80 00 00    ; ims r0 <error_unrecognized_command
+    7C 80 40 0C    ; ims r0 >error_unrecognized_command (0xC40)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:run_command_found
+
+    ; get the function pointer
+    78 82 8D F8   ; ldw r2 rfp -8
+    78 80 82 04   ; ldw r0 r2 4
+
+    ; clean up our stack frame
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+
+    ; tail-call the command handler
+    70 8F 8E 80    ; add rip rpp r0
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0xD50
+
+
+
+;==========================================
+; void command_echo(void);
+;==========================================
+; Runs the `echo` command.
+;==========================================
+
+@0xD50 =command_echo
+
+    ; char_ptr points to one past the null-terminator of the last argument.
+    ; replace the null-terminator with a line feed.
+    78 85 8E 68   ; ldw r5 rpp 0x68    ; char_ptr
+    7B 0A 85 FF   ; stb "\n" r5 -1
+
+    ; if there are no args
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    71 8A 81 01   ; sub ra r1 1
+    7E 8A 01 00   ; jz ra &command_echo_no_args (+1)
+    7E 00 02 00   ; jz 0 &command_echo_args (+2)
+
+;:command_echo_no_args
+    ; no args. print only the line feed.
+    71 81 85 01   ; sub r1 r5 1
+    7E 00 0A 00   ; jz 0 &command_echo_skip_args (+10)
+
+;:command_echo_args
+    ; for each argument after the first two, the preceding byte is the
+    ; null-terminator of the previous argument. replace the null-terminator
+    ; with a space.
+    78 80 8E 60   ; ldw r0 rpp 0x60    ; args
+    70 82 02 00   ; add r2 2 0         ; index
+;:command_echo_loop
+    71 8A 82 81   ; sub ra r2 r1
+    7E 8A 05 00   ; jz ra &command_echo_break (+5)
+    76 83 82 02   ; shl r3 r2 2
+    78 84 80 83   ; ldw r4 r0 r3     ; arg
+    7B 20 84 FF   ; stb " " r4 -1
+    70 82 82 01   ; add r2 r2 1
+    7E 00 F9 FF   ; jz 0 &command_echo_loop (-7)
+;:command_echo_break
+
+    ; the string to write is from args[1] to char_ptr.
+    78 81 80 04   ; ldw r1 r0 4     ; message: args[1]
+;:command_echo_skip_args
+    71 82 85 81   ; sub r2 r5 r1    ; length: char_ptr - message
+
+    ; get stdout
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 10   ; ldw r0 r9 16      ; r0 = stdout
+
+    ; call write_all()
+    7C 8A 00 00    ; ims ra <write_all
+    7C 8A 90 08    ; ims ra >write_all (0x890)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
 
 
