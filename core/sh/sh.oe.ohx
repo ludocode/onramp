@@ -93,6 +93,7 @@
 ;   DF0  error_invalid_syntax
 ;   E10  command_set
 ;   EB0  handle_line
+;   F50  consume_comment
 
 
 
@@ -1420,7 +1421,7 @@
     7E 81 03 00    ; jz r1 &parse_line_eol (+3)
     71 81 80 FF    ; sub r1 r0 -1
     7E 81 01 00    ; jz r1 &parse_line_eol (+1)
-    7E 00 04 00    ; jz r1 &parse_line_not_eol (+4)
+    7E 00 04 00    ; jz 0 &parse_line_not_eol (+4)
 
 ;:parse_line_eol
     ; end of the line. we're done
@@ -1431,14 +1432,14 @@
 ;:parse_line_not_eol
 
     ; check if we have a comment
-    70 81 80 23    ; sub r1 r0 "#"
+    71 81 80 23    ; sub r1 r0 "#"
     7E 81 01 00    ; jz r1 &parse_line_comment (+1)
     7E 00 0B 00    ; jz 0 &parse_line_not_comment (+11)
 
 ;:parse_line_comment
     ; we have a comment. consume the rest of the line, call consume_comment()
     7C 8A 00 00    ; ims ra <consume_comment
-    7C 8A EE EE    ; ims ra >consume_comment (0x)
+    7C 8A 50 0F    ; ims ra >consume_comment (0xF50)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2005,5 +2006,50 @@
     7E 00 F4 FF    ; jz 0 &handle_line_loop (-12)
 ;:handle_line_break
 
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xF50
+
+
+
+;==========================================
+; void consume_comment(void);
+;==========================================
+; Called when a '#' character is found (at the start of an argument.)
+;
+; Consumes all characters until the end of the line.
+;==========================================
+
+@0xF50 =consume_comment
+
+;:consume_comment_loop
+
+    ; call next_char()
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A C0 06    ; ims ra >next_char (0x6C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check for line feed or EOF
+    78 80 8E 3C    ; ldw r0 rpp 0x3C  ; current_char
+    71 81 80 0A    ; sub r1 r0 "\n"
+    7E 81 03 00    ; jz r1 &consume_comment_eol (+3)
+    71 81 80 FF    ; sub r1 r0 -1
+    7E 81 01 00    ; jz r1 &consume_comment_eol (+1)
+    7E 00 F3 FF    ; jz 0 &consume_comment_loop (-13)
+
+;:consume_comment_eol
     ; done
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
