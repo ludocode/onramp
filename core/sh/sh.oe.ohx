@@ -92,6 +92,7 @@
 ;   D50  command_echo
 ;   DF0  error_invalid_syntax
 ;   E10  command_set
+;   EB0  handle_line
 
 
 
@@ -595,11 +596,11 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-;:start_run_command
+;:start_handle_line
 
-    ; call run_command()
-    7C 8A 00 00    ; ims ra <run_command
-    7C 8A 60 0C    ; ims ra >run_command (0xC60)
+    ; call handle_line()
+    7C 8A 00 00    ; ims ra <handle_line
+    7C 8A B0 0E    ; ims ra >handle_line (0xEB0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -610,7 +611,7 @@
     78 80 8E 3C    ; ldw r0 rpp 0x3C  ; current_char
     71 80 80 FF    ; sub r0 r0 -1
     7E 80 01 00    ; jz r0 &start_eof (+1)
-    7E 00 F5 FF    ; jz 0 &start_run_command (-11)
+    7E 00 F5 FF    ; jz 0 &start_handle_line (-11)
 
 ;:start_eof
 
@@ -1374,10 +1375,11 @@
 ;==========================================
 ; void parse_line(void);
 ;==========================================
-; Parses a line (including escaped newlines) and runs the command, if any.
+; Parses a line (including escaped newlines.)
 ;
 ; Arguments are parsed into char_ptr starting at heap_start. A pointer to each
-; argument is added to the args array.
+; argument is added to the args array. arg_count contains the number of
+; arguments (including the command) and is 0 if the line is blank.
 ;
 ; vars:
 ; - loop_address: rfp-4  (rpp + &parse_line_loop)
@@ -1413,28 +1415,9 @@
     ; get the current character
     78 80 8E 3C     ; ldw r0 rpp 0x3C  ; current_char
 
-    ; check if we have a line feed
+    ; check for line feed or EOF
     71 81 80 0A    ; sub r1 r0 "\n"
-    7E 81 01 00    ; jz r1 &parse_line_line_feed (+1)
-    7E 00 08 00    ; jz r1 &parse_line_not_line_feed (+8)
-
-;:parse_line_line_feed
-    ; consume the line feed, call next_char()
-        ; TODO this prevents us from running interactively, we need to consume
-        ; the line feed AFTER running the command
-    7C 8A 00 00    ; ims ra <next_char
-    7C 8A C0 06    ; ims ra >next_char (0x6C0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; end of line
-    7E 00 03 00    ; jz 0 &parse_line_eol (+3)
-;parse_line_not_line_feed
-
-    ; check for EOF
+    7E 81 03 00    ; jz r1 &parse_line_eol (+3)
     71 81 80 FF    ; sub r1 r0 -1
     7E 81 01 00    ; jz r1 &parse_line_eol (+1)
     7E 00 04 00    ; jz r1 &parse_line_not_eol (+4)
@@ -1448,8 +1431,7 @@
 ;:parse_line_not_eol
 
     ; check if we have a comment
-    ;70 81 80 23    ; sub r1 r0 "#"
-70810100 ; TODO comment parsing disabled
+    70 81 80 23    ; sub r1 r0 "#"
     7E 81 01 00    ; jz r1 &parse_line_comment (+1)
     7E 00 0B 00    ; jz 0 &parse_line_not_comment (+11)
 
@@ -1510,7 +1492,11 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0xAB0
 
 
@@ -1707,15 +1693,6 @@
 
 @0xC60 =run_command
 
-    ; call parse_line()
-    7C 8A 00 00    ; ims ra <parse_line
-    7C 8A 80 09    ; ims ra >parse_line (0x980)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
     ; if arg_count is zero, the line is blank. return.
     78 80 8E 64    ; ldw r0 rpp 0x64    ; arg_count
     7E 80 01 00    ; jz r0 &run_command_blank
@@ -1800,6 +1777,10 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0xD50
 
 
@@ -1960,3 +1941,69 @@
     ; done
     78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xEB0
+
+
+
+;==========================================
+; void handle_line(void);
+;==========================================
+; Parses one line and runs the command (if not blank).
+;
+; We consume the line ending after running the command in case we are running
+; interactively. (Consuming the line ending blocks until another character is
+; available.)
+;==========================================
+
+@0xEB0 =handle_line
+
+    ; call parse_line()
+    7C 8A 00 00    ; ims ra <parse_line
+    7C 8A 80 09    ; ims ra >parse_line (0x980)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call run_command()
+    7C 8A 00 00    ; ims ra <run_command
+    7C 8A 60 0C    ; ims ra >run_command (0xC60)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop to consume all line endings
+;:handle_line_loop
+
+    ; check if we have a line ending
+    78 80 8E 3C    ; ldw r0 rpp 0x3C  ; current_char
+    71 80 80 0A    ; sub r0 r0 "\n"
+    7E 80 01 00    ; jz r0 &handle_line_next (+1)
+    7E 00 08 00    ; jz 0 &handle_line_break (+8)
+
+;:handle_line_next
+    ; consume the line ending, call next_char()
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A C0 06    ; ims ra >next_char (0x6C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop
+    7E 00 F4 FF    ; jz 0 &handle_line_loop (-12)
+;:handle_line_break
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
