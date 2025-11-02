@@ -65,6 +65,7 @@
 ;    48  input_buffer
 ;    50  input_buffer_pos
 ;    54  input_buffer_end
+;    58  stop_on_error
 ;    5C  child_pit
 ;    70  commands
 ;   120  error_input
@@ -89,6 +90,8 @@
 ;   C40  error_unrecognized_command
 ;   C60  run_command
 ;   D50  command_echo
+;   DF0  error_invalid_syntax
+;   E10  command_set
 
 
 
@@ -224,8 +227,15 @@
 
 
 
-    ; padding
+;==========================================
+; bool stop_on_error;
+;==========================================
+; 1 if the script should stop on error (`set -e` has been run); 0 otherwise.
+;==========================================
+
+@0x58 =stop_op_error
     00 00 00 00
+@0x5C
 
 
 
@@ -301,12 +311,12 @@
 
 @0x70 =commands
 
-    D0 00 00 00   50 0D 00 00    ; echo
-    D5 00 00 00   EE EE 00 00    ; mkdir
-    DB 00 00 00   EE EE 00 00    ; onrampvm
-    E4 00 00 00   EE EE 00 00    ; set
-    E8 00 00 00   EE EE 00 00    ; cp
-    EB 00 00 00   EE EE 00 00    ; sh
+    D0 00 00 00   50 0D 00 00    ; ^echo      ^command_echo
+    D5 00 00 00   EE EE 00 00    ; ^mkdir
+    DB 00 00 00   EE EE 00 00    ; ^onrampvm
+    E4 00 00 00   10 0E 00 00    ; ^set       ^command_set
+    E8 00 00 00   EE EE 00 00    ; ^cp
+    EB 00 00 00   EE EE 00 00    ; ^sh
     00 00 00 00   00 00 00 00    ; (null terminator)
 
     ; padding
@@ -1675,7 +1685,7 @@
 ; const char error_unrecognized_command[];
 ;==========================================
 
-@0xC40 =error_too_many_args
+@0xC40 =error_unrecognized_command
     ; "ERROR: Unrecognized command." '0A '00
     45 52 52 4f 52 3a 20 55  6e 72 65 63 6f 67 6e 69
   ;  E  R  R  O  R  :     U   n  r  e  c  o  g  n  i
@@ -1798,6 +1808,10 @@
 ; void command_echo(void);
 ;==========================================
 ; Runs the `echo` command.
+;
+; The arguments are already adjacent in the heap separated by null terminators.
+; We replace the null terminators with spaces and a line feed to compose the
+; final string to be written.
 ;==========================================
 
 @0xD50 =command_echo
@@ -1855,5 +1869,94 @@
     ; done
     78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xDF0
 
+
+
+;==========================================
+; const char error_invalid_syntax[];
+;==========================================
+
+@0xDF0 =error_invalid_syntax
+    ; "ERROR: Invalid syntax." '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 73
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     s
+    79 6e 74 61 78 2e 0a 00  00 00 00 00 00 00 00 00
+  ;  y  n  t  a  x  . \n \0
+@0xE10
+
+
+
+;==========================================
+; void command_set(void);
+;==========================================
+; Runs the `set` command.
+;
+; Only `set -e` is supported.
+;==========================================
+
+@0xE10 =command_set
+
+    ; we need exactly one arg, plus set itself
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    71 8A 81 02   ; sub ra r1 2
+    7E 8A 06 00   ; jz ra &command_set_one_arg (+6)
+
+    ; fatal, invalid syntax
+    7C 80 00 00    ; ims r0 <error_invalid_syntax
+    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:command_set_one_arg
+
+    ; load the arg
+    78 80 8E 60    ; ldw r0 rpp 0x60    ; args
+    78 82 80 04    ; ldw r2 r0 4        ; args[1]
+
+    ; make sure the arg is "-e"
+
+    ; "-"
+    7A 8A 82 00    ; ldb ra r2 0
+    71 8A 8A 2D    ; sub ra ra "-"
+    7E 8A 01 00    ; jz ra &command_set_dash (+1)
+    7E 00 06 00    ; jz 0 &command_set_bad_arg (+6)
+;:command_set_dash
+
+    ; "e"
+    7A 8A 82 01    ; ldb ra r2 1
+    71 8A 8A 65    ; sub ra ra "e"
+    7E 8A 01 00    ; jz ra &command_set_e (+1)
+    7E 00 02 00    ; jz 0 &command_set_bad_arg (+2)
+;:command_set_e
+
+    ; null terminator
+    7A 8A 82 02    ; ldb ra r2 2
+    7E 8A 06 00    ; jz ra &command_set_arg_ok (+6)
+
+;:command_set_bad_arg
+    ; fatal, invalid syntax
+    7C 80 00 00    ; ims r0 <error_invalid_syntax
+    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:command_set_arg_ok
+
+    ; set stop on error
+    79 01 8E 58   ; stw 1 rpp 0x58    ; stop_on_error
+
+    ; done
+    78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
