@@ -67,6 +67,10 @@
 ;    54  input_buffer_end
 ;    58  stop_on_error
 ;    5C  child_pit
+;    60  args
+;    64  arg_count
+;    68  char_ptr
+;    6C  last_result
 ;    70  commands
 ;   120  error_input
 ;   140  error_usage
@@ -94,6 +98,9 @@
 ;   E10  command_set
 ;   EB0  handle_line
 ;   F50  consume_comment
+;   FC0  error
+;  1090  error_read_program
+;  10B0  command_onrampvm
 
 
 
@@ -118,7 +125,7 @@
 
 
 
-
+    ; padding
     00 00 00 00
 
 
@@ -132,7 +139,7 @@
 @0x28
 
 
-
+    ; padding
     00 00 00 00
     00 00 00 00
     00 00 00 00
@@ -235,7 +242,7 @@
 ; 1 if the script should stop on error (`set -e` has been run); 0 otherwise.
 ;==========================================
 
-@0x58 =stop_op_error
+@0x58 =stop_on_error
     00 00 00 00
 @0x5C
 
@@ -296,8 +303,18 @@
 
 
 
-    ; padding
+;==========================================
+; int last_result;
+;==========================================
+; The result code of the last command that was run.
+;
+; The shell exits with this code when it reaches the end of the input, or if an
+; error occurs after `set -e`.
+;==========================================
+
+@0x6C =last_result
     00 00 00 00
+@0x70
 
 
 
@@ -315,7 +332,7 @@
 
     D0 00 00 00   50 0D 00 00    ; ^echo      ^command_echo
     D5 00 00 00   EE EE 00 00    ; ^mkdir
-    DB 00 00 00   EE EE 00 00    ; ^onrampvm
+    DB 00 00 00   B0 10 00 00    ; ^onrampvm  ^command_onrampvm
     E4 00 00 00   10 0E 00 00    ; ^set       ^command_set
     E8 00 00 00   EE EE 00 00    ; ^cp
     EB 00 00 00   EE EE 00 00    ; ^sh
@@ -616,7 +633,8 @@
 
 ;:start_eof
 
-    ; tail-call exit(0)
+    ; tail-call exit(last_result)
+    78 80 8E 6C    ; ldw r0 rpp 0x6C  ; last_result
     7C 8A 00 00    ; ims ra <exit
     7C 8A 50 02    ; ims ra >exit (0x250)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
@@ -627,7 +645,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
 @0x360
 
 
@@ -1848,6 +1865,9 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+    ; clear last_result
+    79 00 8E 6C    ; stw 0 rpp 0x6C   ; last_result
+
     ; done
     78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
@@ -1857,7 +1877,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
 @0xDF0
 
 
@@ -2053,3 +2072,187 @@
 ;:consume_comment_eol
     ; done
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0xFC0
+
+
+
+;==========================================
+; void error(char* /*nullable*/ message, int exit_code);
+;==========================================
+; Handles a recoverable error running a command.
+;
+; If the given message is non-null, it is printed to stderr. (A null message is
+; typically used when a subprogram fails. The program is expected to have
+; printed its own error message.)
+;
+; If `set -e` was run, the shell exits with the given error code; otherwise it
+; is stored in last_result in case this is the last command in the script.
+;
+; vars:
+; - message: rfp-4
+; - exit_code: rfp-8
+;==========================================
+
+@0xFC0 =error
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store arguments
+    71 8C 8C 08     ; sub rsp rsp 8
+    79 80 8D FC     ; stw r0 rfp -4    ; message
+    79 81 8D F8     ; stw r1 rfp -8    ; exit_code
+
+    ; skip printing if message is null
+    7E 80 12 00   ; jz r0 &error_no_message (+18)
+
+    ; call strlen()
+    7C 8A 00 00    ; ims ra <strlen
+    7C 8A E0 01    ; ims ra >strlen (0x1E0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get args for write_all(stderr, message, length)
+    70 82 80 00   ; add r2 r0 0       ; r2 = length
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 14   ; ldw r0 r9 20      ; r0 = stderr
+    78 81 8D FC   ; ldw r1 rfp -4     ; r1 = message
+
+    ; call write_all()
+    7C 8A 00 00    ; ims ra <write_all
+    7C 8A 90 08    ; ims ra >write_all (0x890)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+;:error_no_message
+
+    ; skip exit if stop_on_error is false
+    78 80 8E 58   ; ldw r0 rpp 0x58    ; stop_on_error
+    7E 80 04 00   ; jz r0 &error_no_exit (+4)
+
+    ; tail-call exit(exit_code)
+    78 80 8D F8    ; ldw r0 rfp -8
+    7C 8A 00 00    ; ims ra <exit
+    7C 8A 50 02    ; ims ra >exit (0x250)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:error_no_exit
+
+    ; store exit_code in last_result
+    78 80 8D F8     ; ldw r0 rfp -8    ; exit_code
+    79 80 8E 6C     ; stw r0 rpp 0x6C  ; last_result
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1090
+
+
+
+;==========================================
+; const char error_read_program[];
+;==========================================
+
+@0x1090 =error_read_program
+    ; "ERROR: Failed to read program." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 72 65 61 64 20 70 72  6f 67 72 61 6d 2e 0a 00
+  ;     r  e  a  d     p  r   o  g  r  a  m  . \n \0
+@0x10B0
+
+
+
+;==========================================
+; void command_onrampvm(void);
+;==========================================
+; Runs the `onrampvm` command.
+;==========================================
+
+@0x10B0 =command_onrampvm
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; we must have at least two args
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    7D 8A 81 02   ; ltu ra r1 2
+    7E 8A 06 00   ; jz ra &command_onrampvm_args_ok (+6)
+
+    ; fatal, invalid syntax
+    7C 80 00 00    ; ims r0 <error_invalid_syntax
+    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_onrampvm_args_ok
+
+    ; prepare arguments to fopen
+    78 80 8E 60    ; ldw r0 rpp 0x60    ; args
+    78 80 80 04    ; ldw r0 r0 4        ; args[1] (program filename)
+    70 81 00 00    ; add r1 0 0         ; read-only
+
+    ; get syscall fopen into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 06 00    ; jz ra &open_output_file_fopen_ok (+6)
+
+    ; failed to open program. tail-call error()
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    7C 80 00 00    ; ims r0 <error_read_program
+    7C 80 90 10    ; ims r0 >error_read_program
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 7F    ; add r1 0 127    ; POSIX return code for command not found
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:open_output_file_fopen_ok
+
+    ;TODO
