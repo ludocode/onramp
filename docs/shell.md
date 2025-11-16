@@ -21,7 +21,7 @@ When a line comment `#` is encountered the rest of the line is ignored. Line end
 
 The above constitutes the complete functionality of the shell. There are no pipes, no stream redirections, no conditionals, no control structures, no error handling, no escape sequences, no variables, no prompt, no line editing, no history, etc.
 
-The language is designed to be compatible with POSIX shell scripts. This allows us to run Onramp shell scripts with an ordinary POSIX shell for debugging purposes (as long as they use UNIX-style line endings.)
+The language is designed to be compatible with POSIX shell scripts. This allows us to run Onramp shell scripts with an ordinary POSIX shell for debugging purposes.
 
 
 
@@ -70,6 +70,8 @@ The `cp` command copies a file. Only a single source file may be given. The dest
 The `onrampvm` command runs an Onramp program.
 
 The first argument is the name of the program. All arguments (including the program name as the zeroth argument) are passed to the program.
+
+The program to run must be a regular seekable file. (The shell seeks to the end to determine its size.)
 
 The program inherits the shell's environment variables.
 

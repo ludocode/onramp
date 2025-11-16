@@ -121,6 +121,7 @@ rule link_native
 
 rule compile_onramp
  command = build/posix/bin/onrampcc $
+    -g $
     -c -O $
     -Icore/libc/common/src $
     -o \$out $
@@ -134,7 +135,7 @@ rule archive_onramp
  pool = onramp_pool
 
 rule link_onramp
- command = build/posix/bin/onrampcc -o \$out \$in
+ command = build/posix/bin/onrampcc -g -o \$out \$in
  description = Compiling \$out
  pool = onramp_pool
 

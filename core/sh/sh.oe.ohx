@@ -69,7 +69,7 @@
 ;    5C  child_pit
 ;    60  args
 ;    64  arg_count
-;    68  char_ptr
+;    68  heap_ptr
 ;    6C  last_result
 ;    70  commands
 ;   120  error_input
@@ -100,7 +100,15 @@
 ;   F50  consume_comment
 ;   FC0  error
 ;  1090  error_read_program
-;  10B0  command_onrampvm
+;  10B0  syscall_fclose
+;  10E0  syscall_fseek
+;  1110  syscall_ftell
+;  1140  get_program_size
+;  1290  read_all
+;  1380  command_onrampvm
+;  15D0  child_syscall_exit
+;  1640  skip_preamble
+;  16D0  align_heap
 
 
 
@@ -201,8 +209,17 @@
 
 
 
-    ; padding
-    00 00 00 00
+;==========================================
+; void* frame_pointer;
+;==========================================
+; The original frame pointer before running a subcommand (`onrampvm` or `sh`.)
+;
+; This is used to return control after running a child program.
+;==========================================
+
+@0x4C =frame_pointer
+    EE EE EE EE
+@0x50
 
 
 
@@ -288,16 +305,21 @@
 
 
 ;==========================================
-; char* char_ptr;
+; char* heap_ptr;
 ;==========================================
-; A pointer between heap_start and heap_end where the next argument is to be
-; written.
+; A pointer between heap_start and heap_end that marks the start of free space.
 ;
-; This points to the end of the argument list after a full command line has
-; been parsed.
+; The heap is essentially used as a bump allocator. At the start of parsing a
+; command, this is reset to heap_start. The pointer is incremented as data is
+; written to the heap: command-line arguments, program to be run under
+; `onrampvm`, directory to make with `mkdir`, etc.
+;
+; This is usually aligned, except after parsing a command when it points to the
+; end of the argument list. The align_heap() function is used to align it for
+; those commands that need it aligned.
 ;==========================================
 
-@0x68 =char_ptr
+@0x68 =heap_ptr
     00 00 00 00
 @0x6C
 
@@ -330,10 +352,10 @@
 
 @0x70 =commands
 
-    D0 00 00 00   50 0D 00 00    ; ^echo      ^command_echo
+    D0 00 00 00   50 0D 00 00    ; ^echo      ^command_echo (0xD50)
     D5 00 00 00   EE EE 00 00    ; ^mkdir
-    DB 00 00 00   B0 10 00 00    ; ^onrampvm  ^command_onrampvm
-    E4 00 00 00   10 0E 00 00    ; ^set       ^command_set
+    DB 00 00 00   80 13 00 00    ; ^onrampvm  ^command_onrampvm (0x1380)
+    E4 00 00 00   10 0E 00 00    ; ^set       ^command_set (0xE10)
     E8 00 00 00   EE EE 00 00    ; ^cp
     EB 00 00 00   EE EE 00 00    ; ^sh
     00 00 00 00   00 00 00 00    ; (null terminator)
@@ -722,9 +744,7 @@
     ; - command-line args is set after parsing
 
     ; copy the syscall table
-;TODO disabled
-78 8F 00 8C    ; ldw rip 0 rsp        ; ret
-    ;78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
+    78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
     78 83 81 08   ; ldw r3 r1 0x08   ; r3 = child syscall table
     78 84 81 28   ; ldw r4 r1 0x28   ; r4 = system call count
     76 84 84 03   ; shl r4 r4 3      ; r4 = system call table size (in bytes)
@@ -738,10 +758,17 @@
     70 85 85 04   ; add r5 r5 4
     71 8A 84 85   ; sub ra r4 r5
     7E 8A 01 00   ; jz ra &initialize_syscalls_done (+1)
-    7E 00 F7 FF   ; jz ra &initialize_syscalls_loop (-9)
+    7E 00 F7 FF   ; jz 0 &initialize_syscalls_loop (-9)
 ;:initialize_syscalls_done
 
-    ; TODO we'll need to proxy some syscalls, especially fopen/fclose,
+    ; proxy the exit syscall
+    7C 8A 00 00    ; ims ra <child_syscall_exit
+    7C 8A D0 15    ; ims ra >child_syscall_exit (0x15D0)
+    70 8A 8E 8A    ; add ra rpp ra
+    79 8A 83 00    ; stw ra r3 0
+    79 8E 83 04    ; stw rpp r3 4
+
+    ; TODO we'll need to proxy more syscalls, especially fopen/fclose,
     ; dopen/dclose and alloc/free to prevent leaks
 
     ; return
@@ -749,9 +776,7 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x420
 
 
@@ -915,7 +940,7 @@
     79 83 82 08   ; stw r3 r2 8      ; child_pit[syscall_table]
     70 82 83 85   ; add r2 r3 r5
 
-    ; allocate the args table
+    ; allocate the args array
     76 85 01 09   ; shl r5 1 9        ; 1 << 9 == 512 == 4 * 128 args
     79 82 8E 60   ; stw r2 rpp 0x60   ; args
     70 82 82 85   ; add r2 r2 r5
@@ -1395,7 +1420,7 @@
 ;==========================================
 ; Parses a line (including escaped newlines.)
 ;
-; Arguments are parsed into char_ptr starting at heap_start. A pointer to each
+; Arguments are parsed into heap_ptr starting at heap_start. A pointer to each
 ; argument is added to the args array. arg_count contains the number of
 ; arguments (including the command) and is 0 if the line is blank.
 ;
@@ -1413,7 +1438,7 @@
     ; initialize parsing state
     79 00 8E 64   ; stw 0 rpp 0x64     ; arg_count
     78 8A 8E 40   ; ldw ra rpp 0x40    ; heap_start
-    79 8A 8E 68   ; stw ra rpp 0x68    ; char_ptr
+    79 8A 8E 68   ; stw ra rpp 0x68    ; heap_ptr
 
     ; save rip so we can jump back here to loop
     71 8C 8C 04    ; sub rsp rsp 4
@@ -1435,18 +1460,9 @@
 
     ; check for line feed or EOF
     71 81 80 0A    ; sub r1 r0 "\n"
-    7E 81 03 00    ; jz r1 &parse_line_eol (+3)
+    7E 81 0C 00    ; jz r1 &parse_line_done (+12)
     71 81 80 FF    ; sub r1 r0 -1
-    7E 81 01 00    ; jz r1 &parse_line_eol (+1)
-    7E 00 04 00    ; jz 0 &parse_line_not_eol (+4)
-
-;:parse_line_eol
-    ; end of the line. we're done
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
-    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
-    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
-    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:parse_line_not_eol
+    7E 81 0A 00    ; jz r1 &parse_line_done (+10)
 
     ; check if we have a comment
     71 81 80 23    ; sub r1 r0 "#"
@@ -1463,20 +1479,23 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+;:parse_line_done
+
     ; done
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
 ;:parse_line_not_comment
 
     ; it's a command line argument.
-    ; store char_ptr as the current argument, increment arg_count
+    ; store heap_ptr as the current argument, increment arg_count
     78 80 8E 60   ; ldw r0 rpp 0x60    ; args
     78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
-    78 82 8E 68   ; ldw r2 rpp 0x68    ; char_ptr
+    78 82 8E 68   ; ldw r2 rpp 0x68    ; heap_ptr
     76 8A 81 02   ; shl ra r1 2
-    79 82 80 8A   ; stw r2 r0 ra       ; args[arg_count] = char_ptr
+    79 82 80 8A   ; stw r2 r0 ra       ; args[arg_count] = heap_ptr
     70 81 81 01   ; add r1 r1 1
     79 81 8E 64   ; stw r1 rpp 0x64    ; arg_count
 
@@ -1515,6 +1534,9 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0xAB0
 
 
@@ -1564,24 +1586,24 @@
     ; check if the current char is whitespace or eol
     78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
     71 81 80 20    ; sub r1 r0 " "
-    7E 81 07 00    ; jz r1 &parse_line_eol (+7)
+    7E 81 07 00    ; jz r1 &parse_argument_eol (+7)
     71 81 80 09    ; sub r1 r0 "\t"
-    7E 81 05 00    ; jz r1 &parse_line_eol (+5)
+    7E 81 05 00    ; jz r1 &parse_argument_eol (+5)
     71 81 80 0A    ; sub r1 r0 "\n"
-    7E 81 03 00    ; jz r1 &parse_line_eol (+3)
+    7E 81 03 00    ; jz r1 &parse_argument_eol (+3)
     71 81 80 FF    ; sub r1 r0 -1
-    7E 81 01 00    ; jz r1 &parse_line_eol (+1)
-    7E 00 01 00    ; jz 0 &parse_line_not_eol (+1)
+    7E 81 01 00    ; jz r1 &parse_argument_eol (+1)
+    7E 00 01 00    ; jz 0 &parse_argument_not_eol (+1)
 
-;:parse_line_eol
+;:parse_argument_eol
     ; end of argument
-    7E 00 01 00     ; jz 0 &parse_line_done (+1)
-;:parse_line_not_eol
+    7E 00 01 00     ; jz 0 &parse_argument_done (+1)
+;:parse_argument_not_eol
 
     ; jump back to &parse_argument_loop
     78 8F 8D FC    ; ldw rip rfp -4    ; loop_address
 
-;:parse_line_done
+;:parse_argument_done
 
     ; store a null terminator, call append_argument_char()
     70 80 00 00    ; add r0 0 0    ; zero r0
@@ -1638,8 +1660,8 @@
 ;78 80 00 8C     ; ldw r0 0 rsp      ; ...
 ;70 8C 8C 04     ; add rsp rsp 4     ; pop r0
 
-    ; check if char_ptr matches heap_end
-    78 81 8E 68   ; ldw r1 rpp 0x68    ; char_ptr
+    ; check if heap_ptr matches heap_end
+    78 81 8E 68   ; ldw r1 rpp 0x68    ; heap_ptr
     78 82 8E 44   ; ldw r2 rpp 0x44    ; heap_end
     71 82 81 82   ; sub r2 r1 r2
     7E 82 01 00   ; jz r2 &append_argument_char_oom (+1)
@@ -1655,12 +1677,12 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 ;:append_argument_char_ok
 
-    ; store the character at char_ptr
+    ; store the character at heap_ptr
     7B 80 81 00    ; stb r0 r1 0
 
     ; increment it
     70 81 81 01    ; add r1 r1 1
-    79 81 8E 68    ; stw r1 rpp 0x68    ; char_ptr
+    79 81 8E 68    ; stw r1 rpp 0x68    ; heap_ptr
 
     ; done
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
@@ -1768,6 +1790,7 @@
 
 ;:run_command_no_match
     ; no such command
+    ; TODO return error code 127
     7C 80 00 00    ; ims r0 <error_unrecognized_command
     7C 80 40 0C    ; ims r0 >error_unrecognized_command (0xC40)
     70 80 8E 80    ; add r0 rpp r0
@@ -1815,9 +1838,9 @@
 
 @0xD50 =command_echo
 
-    ; char_ptr points to one past the null-terminator of the last argument.
+    ; heap_ptr points to one past the null-terminator of the last argument.
     ; replace the null-terminator with a line feed.
-    78 85 8E 68   ; ldw r5 rpp 0x68    ; char_ptr
+    78 85 8E 68   ; ldw r5 rpp 0x68    ; heap_ptr
     7B 0A 85 FF   ; stb "\n" r5 -1
 
     ; if there are no args
@@ -1847,10 +1870,10 @@
     7E 00 F9 FF   ; jz 0 &command_echo_loop (-7)
 ;:command_echo_break
 
-    ; the string to write is from args[1] to char_ptr.
+    ; the string to write is from args[1] to heap_ptr.
     78 81 80 04   ; ldw r1 r0 4     ; message: args[1]
 ;:command_echo_skip_args
-    71 82 85 81   ; sub r2 r5 r1    ; length: char_ptr - message
+    71 82 85 81   ; sub r2 r5 r1    ; length: heap_ptr - message
 
     ; get stdout
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
@@ -2193,31 +2216,419 @@
 
 
 ;==========================================
-; void command_onrampvm(void);
-;==========================================
-; Runs the `onrampvm` command.
+; int syscall_fclose(int handle);
 ;==========================================
 
-@0x10B0 =command_onrampvm
+@0x10B0 =syscall_fclose
+
+    ; get syscall fclose into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 04 03   ; shl ra 4 3        ; ra = offset of fclose syscall (4<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fclose syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; TODO probably should not tail-call and instead check the return value.
+    ; An error from fclose() is fatal.
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x10E0
+
+
+
+;==========================================
+; int syscall_fseek(int file_handle, int base, unsigned offset_low, int offset_high);
+;==========================================
+
+@0x10E0 =syscall_fseek
+
+    ; get syscall fseek into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 07 03   ; shl ra 7 3        ; ra = offset of fseek syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fseek syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1110
+
+
+
+;==========================================
+; int syscall_ftell(int file_handle, unsigned position[2]);
+;==========================================
+
+@0x1110 =syscall_ftell
+
+    ; get syscall ftell into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 08 03   ; shl ra 8 3        ; ra = offset of ftell syscall (8<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of ftell syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1140
+
+
+
+;==========================================
+; int get_program_size(int file_handle);
+;==========================================
+; Returns the program size, or 0 if there was an error.
+;
+; The maximum program size supported by this shell is 1 GB. If the given file
+; is larger, this returns 0. (Such a large program is unlikely to work anyway
+; but we check for 1 GB in this function because it makes the rest of the error
+; handling simpler.)
+;
+; vars:
+; - file_handle: rfp-4
+; - position: rfp-12
+;==========================================
+
+@0x1140 =get_program_size
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
 
+    ; stash the file handle
+    71 8C 8C 0C     ; sub rsp rsp 12
+    79 80 8D FC     ; stw r0 rfp -4
+
+    ; prepare arguments to fseek, seek to the end
+    70 81 00 02     ; add r1 0 2   ; mov r1 2
+    70 82 00 00     ; add r2 0 0   ; zero r2
+    70 83 00 00     ; add r3 0 0   ; zero r3
+
+    ; call syscall_fseek()
+    7C 8A 00 00    ; ims ra <syscall_fseek
+    7C 8A E0 10    ; ims ra >syscall_fseek (0x10E0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 05 00    ; jz ra &get_program_size_fseek_end_ok (+5)
+
+    ; error, return 0
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:get_program_size_fseek_end_ok
+
+    ; prepare arguments to ftell
+    78 80 8D FC     ; ldw r0 rfp -4
+    70 81 8D F4     ; add r1 rfp -12
+
+    ; call syscall_ftell()
+    7C 8A 00 00    ; ims ra <syscall_ftell
+    7C 8A 10 11    ; ims ra >syscall_ftell (0x1110)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 01 00    ; jz ra &get_program_size_ftell_call_ok (+1)
+    7E 00 06 00    ; jz 0 &get_program_size_ftell_fail (+6)
+;:get_program_size_ftell_call_ok
+    ; upper word must be zero
+    78 8A 8D F8    ; ldw r0 rfp -8
+    7E 8A 01 00    ; jz ra &get_program_size_ftell_highword_ok (+1)
+    7E 00 03 00    ; jz 0 &get_program_size_ftell_fail (+3)
+;:get_program_size_ftell_highword_ok
+    ; high two bits of lower word must be zero (max 1GB)
+    78 8A 8D F4    ; ldw ra rfp -12
+    77 8A 80 1E    ; shru ra r0 30
+    7E 8A 05 00    ; jz ra &get_program_size_ftell_ok (+5)
+
+;:get_program_size_ftell_fail
+    ; error, return 0
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:get_program_size_ftell_ok
+
+    ; prepare arguments to fseek, seek to the start
+    78 80 8D FC     ; ldw r0 rfp -4
+    70 81 00 00     ; add r1 0 0   ; zero r1
+    70 82 00 00     ; add r2 0 0   ; zero r2
+    70 83 00 00     ; add r3 0 0   ; zero r3
+
+    ; call syscall_fseek()
+    7C 8A 00 00    ; ims ra <syscall_fseek
+    7C 8A E0 10    ; ims ra >syscall_fseek (0x10E0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 05 00    ; jz ra &get_program_size_fseek_end_ok (+5)
+
+    ; error, return 0
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; success (or the size is zero), return lower word
+    78 80 8D F4     ; ldw r0 rfp -12
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1290
+
+
+
+;==========================================
+; int read_all(int handle, char* buffer, size_t count);
+;==========================================
+; Reads exactly the given count of bytes from the given I/O handle into the
+; given buffer.
+;
+; Returns zero if successful, or the syscall error code if it fails.
+;
+; vars
+; - io_handle: rfp-4
+; - buffer: rfp-8
+; - remaining: rfp-12
+; - loop address: rfp-16
+;==========================================
+
+@0x1290 =read_all
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store args
+    71 8C 8C 10     ; sub rsp rsp 16
+    79 80 8D FC     ; stw r0 rfp -4
+    79 81 8D F8     ; stw r1 rfp -8
+    79 82 8D F4     ; stw r2 rfp -12
+
+    ; store the address to loop
+    79 8F 8D F0    ; stw rip rfp -16
+;:read_all_loop
+
+    ; get syscall fread into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fread syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; check the high bit for error
+    ; TODO we should handle busy/wouldblock correctly (the VM spec will soon
+    ; allow this even for ordinary files.) the error code for it doesn't exist
+    ; yet.
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &read_all_no_error (+4)
+    ; fail, return the error code
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:read_all_no_error
+
+    ; check if we got zero
+    7E 80 01 00   ; jz r0 &read_all_zero (+1)
+    7E 00 05 00   ; jz 0 &read_all_not_zero (+5)
+;:read_all_zero
+    ; zero bytes read.
+    ; TODO a zero byte return won't be allowed soon. for now we interpret it as
+    ; EOF. return generic error code because EOF error doesn't exist yet.
+    70 80 00 FF     ; add r0 0 -1
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:read_all_not_zero
+
+    ; adjust pointer and bytes remaining
+    78 81 8D F8   ; ldw r1 rfp -8
+    78 82 8D F4   ; ldw r2 rfp -12
+    70 81 81 80   ; add r1 r1 r0
+    71 82 82 80   ; sub r2 r2 r0
+    79 81 8D F8   ; stw r1 rfp -8
+    79 82 8D F4   ; stw r2 rfp -12
+
+    ; if bytes remaining is zero, we're done
+    7E 82 02 00   ; jz r2 &read_all_loop_exit (+2)
+
+    ; otherwise loop.
+    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
+    78 8F 8D F0   ; ldw rip rfp -16   ; jump to :read_all_loop
+
+;:read_all_loop_exit
+
+    ; done, return zero
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1380
+
+
+
+;==========================================
+; void command_onrampvm(void);
+;==========================================
+; Runs the `onrampvm` command.
+;
+; vars:
+; - file_handle: rfp-4
+; - error_handler: rfp-8
+;==========================================
+
+@0x1380 =command_onrampvm
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; store an invalid file handle
+    79 FF 8D FC     ; stw -1 rfp -4
+
+    ; call align_heap()
+    7C 8A 00 00    ; ims ra <align_heap
+    7C 8A D0 16    ; ims ra >align_heap (0x16D0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; We implement the error handler first and store its address. If we
+    ; encounter an error, we'll "goto" the error handler by loading its address
+    ; into rip (with an optional error message in r0.)
+
+    ; store and skip the error handler
+    70 8A 8F 08    ; add ra rip 8
+    79 8A 8D F8    ; stw ra rfp -8   ; error_handler
+    7E 00 17 00    ; jz 0 &command_onrampvm_start (+23)
+
+;:command_onrampvm_error_handler
+
+    ; r0 contains the error message. call error() with code 125 which is the
+    ; code a POSIX VM should return on error.
+    70 81 00 7D    ; add r1 0 125     ; VM error
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check if the file is open
+    78 80 8D FC     ; stw r0 rfp -4
+    77 8A 80 1F     ; shru ra r0 31    ; high bit indicates error
+    7E 8A 01 00     ; jz ra &command_onrampvm_close (+1)
+    7E 00 07 00     ; jz ra &command_onrampvm_error_done (+7)
+
+;:command_onrampvm_close
+    ; close the file, call syscall_fclose()
+    7C 8A 00 00    ; ims ra <syscall_fclose
+    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+;:command_onrampvm_error_done
+    ; done
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+;:command_onrampvm_start
+
+
     ; we must have at least two args
     78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
     7D 8A 81 02   ; ltu ra r1 2
-    7E 8A 06 00   ; jz ra &command_onrampvm_args_ok (+6)
+    7E 8A 04 00   ; jz ra &command_onrampvm_args_ok (+4)
 
-    ; fatal, invalid syntax
+    ; error
     7C 80 00 00    ; ims r0 <error_invalid_syntax
     7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
     70 80 8E 80    ; add r0 rpp r0
-    7C 8A 00 00    ; ims ra <fatal
-    7C 8A 00 08    ; ims ra >fatal (0x800)
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    78 8F 8D F8    ; ldw rip rfp -8   ; error_handler
 ;:command_onrampvm_args_ok
+
+    ; open the program
+    ; TODO prepend working directory
+    ; TODO move this (and prepend wd) to a function open_file(), share with
+    ; open_script()
 
     ; prepare arguments to fopen
     78 80 8E 60    ; ldw r0 rpp 0x60    ; args
@@ -2240,19 +2651,275 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 06 00    ; jz ra &open_output_file_fopen_ok (+6)
+    7E 8A 04 00    ; jz ra &command_onrampvm_fopen_ok (+4)
 
-    ; failed to open program. tail-call error()
-    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
-    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
-    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    ; failed to open program
     7C 80 00 00    ; ims r0 <error_read_program
     7C 80 90 10    ; ims r0 >error_read_program
     70 80 8E 80    ; add r0 rpp r0
-    70 81 00 7F    ; add r1 0 127    ; POSIX return code for command not found
+    78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
+;:command_onrampvm_fopen_ok
+
+    ; save the file handle
+    79 80 8D FC     ; stw r0 rfp -4
+
+
+    ; call get_program_size()
+    7C 8A 00 00    ; ims ra <get_program_size
+    7C 8A 40 11    ; ims ra >get_program_size (0x1140)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; zero size means error
+    7E 80 01 00    ; jz r0 &command_onrampvm_size_zero (+1)
+    7E 00 04 00    ; jz 0 &command_onrampvm_size_ok (+4)
+
+;:command_onrampvm_size_zero
+    ; failed to read program
+    7C 80 00 00    ; ims r0 <error_read_program
+    7C 80 90 10    ; ims r0 >error_read_program
+    70 80 8E 80    ; add r0 rpp r0
+    78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
+;:command_onrampvm_size_ok
+
+    ; make sure we have enough space, including space for the initial stack
+    ; TODO this should be 128 bytes, minimum needed for a stack, but we don't
+    ; have alloc syscall yet. for now make sure we have an extra 128 kB.
+    ; (this can't overflow because get_program_size() has limited the size)
+    ; TODO when we change this to 128 bytes we have to also align the program end
+    76 8A 01 11    ; shl ra 1 17   ; r2 = 128 kB
+    70 8B 80 8A    ; add rb r0 ra
+    ; TODO We should malloc() if we don't have enough space. This also means we
+    ; need to keep track of our malloc regions, search them for free space, and
+    ; pass unused regions to the child program.
+    78 81 8E 68   ; ldw r1 rpp 0x68    ; heap_ptr
+    78 82 8E 44   ; ldw r2 rpp 0x44    ; heap_end
+    71 82 82 81   ; sub r2 r2 r1
+    7D 8A 82 8B   ; ltu ra r2 rb
+    7E 8A 04 00   ; jz ra &command_onrampvm_heap_ok (+4)
+
+    ; not enough space
+    7C 80 00 00    ; ims r0 <error_out_of_memory
+    7C 80 C0 01    ; ims r0 >error_out_of_memory
+    70 80 8E 80    ; add r0 rpp r0
+    78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
+;:command_onrampvm_heap_ok
+
+    ; store the end of the program as the heap start address in the child pit
+    70 8A 81 80    ; add ra r1 r0       ; ra = heap_ptr + size
+    78 8B 8E 5C    ; ldw rb rpp 0x5C    ; child_pit
+    79 8A 8B 04    ; stw ra rb 0x04     ; child_pit[HEAP_START] = ra
+
+    ; null-terminate the argument list
+    78 85 8E 60    ; ldw r5 rpp 0x60    ; args
+    78 86 8E 64    ; ldw r6 rpp 0x64    ; arg_count
+    76 86 86 02    ; shl r6 r6 2        ; r6 *= 4
+    79 00 85 86    ; stw 0 r5 r6        ; args[arg_count] = 0
+
+    ; store the command-line arguments in the child pit
+    70 85 85 04    ; add r5 r5 4      ; skip `onrampvm`
+    79 85 8B 18    ; stw r5 rb 0x18   ; child_pit[HEAP_START]
+
+    ; read program into heap, call read_all()
+    70 82 80 00    ; add r2 r0 0    ; mov r2 r0
+    78 80 8D FC    ; ldw r0 rfp -4
+    7C 8A 00 00    ; ims ra <read_all
+    7C 8A 90 12    ; ims ra >read_all (0x1290)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; non-zero return value is error
+    7E 80 04 00   ; jz r0 &command_onrampvm_read_all_ok (+4)
+
+    ; failed to read program
+    7C 80 00 00    ; ims r0 <error_read_program
+    7C 80 90 10    ; ims r0 >error_read_program
+    70 80 8E 80    ; add r0 rpp r0
+    78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
+;:command_onrampvm_read_all_ok
+
+    ; call skip_preamble()
+    7C 8A 00 00    ; ims ra <skip_preamble
+    7C 8A 40 16    ; ims ra >skip_preamble (0x1640)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; store our frame pointer so it can be restored in child_syscall_exit()
+    79 8D 8E 4C    ; stw rfp rpp 0x4C    ; frame_pointer
+
+    ; TODO we should consider running ftell() on the source script and if it
+    ; works, close it and reopen after running the command. we want bootstrap
+    ; to work even if the VM only supports a very small number of simultaneous
+    ; open files.
+
+    ; set up initial registers of the child program
+    78 80 8E 5C   ; ldw r0 rpp 0x5C     ; child_pit
+    78 8C 8E 44   ; ldw rsp rpp 0x44    ; heap_end
+    78 8E 8E 68   ; ldw rpp rpp 0x68    ; heap_ptr
+
+    ; jump to the child program
+    70 8F 8E 00   ; add rip rpp 0
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x15D0
+
+
+
+;==========================================
+; int child_syscall_exit(int return_code);
+;==========================================
+
+@0x15D0 =child_syscall_exit
+
+    ; our rpp is in r9
+    70 8E 89 00    ; add rpp r9 0   ; mov rpp r9
+
+    ; Pop the stored frame pointer. This destroys the stack frame of
+    ; command_onrampvm() or command_sh(), whichever ran the subprogram.
+    78 8C 8E 4C    ; ldw rsp rpp 0x4C   ; frame_pointer
+    78 8D 00 8C    ; ldw rfp 0 rsp      ; pop rfp
+    70 8C 8C 04    ; add rsp rsp 4      ; ^^^
+
+    ; Call error() with a null message
+    70 81 80 00    ; add r1 r0 0    ; mov r1 r0
+    70 80 00 00    ; add r0 0 0     ; zero r0
     7C 8A 00 00    ; ims ra <error
     7C 8A C0 0F    ; ims ra >error (0xFC0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:open_output_file_fopen_ok
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ;TODO
+    ; If error() returned, return from this. This ultimately returns
+    ; control to handle_line().
+    78 8F 00 8C    ; ldw rip 0 rsp      ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1640
+
+
+
+;==========================================
+; void skip_preamble(void)
+;==========================================
+; Checks if the program loaded at heap_ptr starts with #! or REM, and if so,
+; skips the first 128 bytes.
+;
+; (We haven't actually checked that the program is at least 128 bytes, but we
+; have ensured we have at least 128 kB of extra space for a stack. TODO revisit
+; this once we alloc space for the program.)
+;==========================================
+
+@0x1640 =skip_preamble
+
+    ; get the start of the program
+    78 89 8E 68   ; ldw r9 rpp 0x68    ; heap_ptr
+
+    ; check if it starts with REM
+    7A 80 89 00   ; ldb r0 r9 0
+    7A 81 89 01   ; ldb r1 r9 1
+    7A 82 89 02   ; ldb r2 r9 2
+    71 80 80 52   ; sub r0 r0 "R"
+    71 81 81 45   ; sub r1 r1 "E"
+    71 82 82 4D   ; sub r2 r2 "M"
+    75 80 80 81   ; or r0 r0 r1
+    75 80 80 82   ; or r0 r0 r2
+    7E 80 06 00   ; jz r0 &skip_preamble_found (+6)
+
+    ; check if it starts with #!
+    7A 80 89 00   ; ldb r0 r9 0
+    7A 81 89 01   ; ldb r1 r9 1
+    71 80 80 23   ; sub r0 r0 "#"
+    71 81 81 21   ; sub r1 r1 "!"
+    75 80 80 81   ; or r0 r0 r1
+    7E 80 01 00   ; jz r0 &skip_preamble_found (+1)
+
+    ; no preamble. return
+    78 8F 00 8C    ; ldw rip 0 rsp      ; ret
+
+;:skip_preamble_found
+
+    ; increment heap_ptr by 128 bytes
+    76 85 01 07   ; shl r5 1 7        ; 1 << 7 == 128
+    70 89 89 85   ; add r9 r9 r5
+    79 89 8E 68   ; stw r9 rpp 0x68    ; heap_ptr
+
+    ; done
+    78 8F 00 8C   ; ldw rip 0 rsp      ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x16D0
+
+
+
+;==========================================
+; void align_heap(void)
+;==========================================
+; Aligns heap_ptr, ensuring it does not overflow.
+;
+; This is called after parsing arguments for those commands that need an
+; aligned heap. (For some commands we can't align it, e.g. echo uses heap_ptr
+; as the end of the string.)
+;==========================================
+
+@0x16D0 =align_heap
+
+    ; align heap_ptr
+    78 80 8E 68     ; ldw r0 rpp 0x68    ; heap_ptr
+    70 80 80 03     ; add r0 r0 3
+    74 80 80 FC     ; and r0 r0 -4
+    79 80 8E 68     ; stw r0 rpp 0x68    ; heap_ptr
+
+    ; make sure alignment doesn't overflow the heap
+    78 81 8E 44     ; ldw r1 rpp 0x44    ; heap_end
+    7D 8A 81 80     ; ltu ra r1 2
+    7E 8A 06 00     ; jz ra &parse_line_not_oom (+6)
+
+    ; not enough memory
+    7C 80 00 00    ; ims r0 <error_out_of_memory
+    7C 80 10 01    ; ims r0 >error_out_of_memory
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:parse_line_not_oom
+
+    ; done
+    78 8F 00 8C   ; ldw rip 0 rsp      ; ret

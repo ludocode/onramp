@@ -533,13 +533,13 @@
     78 88 8E 20     ; ldw r8 rpp 0x20  (process_info_table)
     78 81 88 18     ; ldw r1 r8 24     (command-line args)
     78 8A 81 00     ; ldw ra r1 0
-    7E 8A 09 00     ; jz ra &parse_args_arg_count_wrong (+9)
+    7E 8A 08 00     ; jz ra &parse_args_arg_count_wrong (+8)
     78 8A 81 04     ; ldw ra r1 4
-    7E 8A 07 00     ; jz ra &parse_args_arg_count_wrong (+7)
+    7E 8A 06 00     ; jz ra &parse_args_arg_count_wrong (+6)
     78 8A 81 08     ; ldw ra r1 8
-    7E 8A 05 00     ; jz ra &parse_args_arg_count_wrong (+5)
+    7E 8A 04 00     ; jz ra &parse_args_arg_count_wrong (+4)
     78 8A 81 0C     ; ldw ra r1 12
-    7E 8A 03 00     ; jz ra &parse_args_arg_count_wrong (+3)
+    7E 8A 02 00     ; jz ra &parse_args_arg_count_wrong (+2)
     78 8A 81 10     ; ldw ra r1 16
     7E 00 06 00     ; jz 0 &parse_args_arg_count_ok (+6)
 
