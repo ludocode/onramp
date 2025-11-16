@@ -109,6 +109,8 @@
 ;  15D0  child_syscall_exit
 ;  1640  skip_preamble
 ;  16D0  align_heap
+;  1740  syscall_mkdir
+;  1770  command_mkdir
 
 
 
@@ -353,7 +355,7 @@
 @0x70 =commands
 
     D0 00 00 00   50 0D 00 00    ; ^echo      ^command_echo (0xD50)
-    D5 00 00 00   EE EE 00 00    ; ^mkdir
+    D5 00 00 00   70 17 00 00    ; ^mkdir     ^command_mkdir (0x1770)
     DB 00 00 00   80 13 00 00    ; ^onrampvm  ^command_onrampvm (0x1380)
     E4 00 00 00   10 0E 00 00    ; ^set       ^command_set (0xE10)
     E8 00 00 00   EE EE 00 00    ; ^cp
@@ -1926,55 +1928,41 @@
     ; we need exactly one arg, plus set itself
     78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
     71 8A 81 02   ; sub ra r1 2
-    7E 8A 06 00   ; jz ra &command_set_one_arg (+6)
-
-    ; fatal, invalid syntax
-    7C 80 00 00    ; ims r0 <error_invalid_syntax
-    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
-    70 80 8E 80    ; add r0 rpp r0
-    7C 8A 00 00    ; ims ra <fatal
-    7C 8A 00 08    ; ims ra >fatal (0x800)
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-
-;:command_set_one_arg
+    7E 8A 01 00   ; jz ra &command_set_good_arg_count (+1)
+    7E 00 0A 00   ; jz ra &command_set_bad_args (+10)
+;:command_set_good_arg_count
 
     ; load the arg
     78 80 8E 60    ; ldw r0 rpp 0x60    ; args
     78 82 80 04    ; ldw r2 r0 4        ; args[1]
 
     ; make sure the arg is "-e"
-
-    ; "-"
     7A 8A 82 00    ; ldb ra r2 0
     71 8A 8A 2D    ; sub ra ra "-"
-    7E 8A 01 00    ; jz ra &command_set_dash (+1)
-    7E 00 06 00    ; jz 0 &command_set_bad_arg (+6)
-;:command_set_dash
-
-    ; "e"
-    7A 8A 82 01    ; ldb ra r2 1
-    71 8A 8A 65    ; sub ra ra "e"
-    7E 8A 01 00    ; jz ra &command_set_e (+1)
-    7E 00 02 00    ; jz 0 &command_set_bad_arg (+2)
-;:command_set_e
-
-    ; null terminator
-    7A 8A 82 02    ; ldb ra r2 2
-    7E 8A 06 00    ; jz ra &command_set_arg_ok (+6)
+    7A 8B 82 01    ; ldb rb r2 1
+    71 8B 8B 65    ; sub rb rb "e"
+    75 8A 8A 8B    ; or ra ra rb
+    7A 8B 82 02    ; ldb rb r2 2    ; null-terminator
+    75 8A 8A 8B    ; or ra ra rb
+    7E 8A 07 00    ; jz ra &command_set_arg_ok (+7)
 
 ;:command_set_bad_arg
-    ; fatal, invalid syntax
+    ; invalid syntax, tail-call error()
     7C 80 00 00    ; ims r0 <error_invalid_syntax
     7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
     70 80 8E 80    ; add r0 rpp r0
-    7C 8A 00 00    ; ims ra <fatal
-    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
 ;:command_set_arg_ok
 
     ; set stop on error
     79 01 8E 58   ; stw 1 rpp 0x58    ; stop_on_error
+
+    ; clear last_result
+    79 00 8E 6C    ; stw 0 rpp 0x6C   ; last_result
 
     ; done
     78 8F 00 8C         ; ldw rip 0 rsp        ; ret
@@ -1985,7 +1973,9 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0xEB0
 
 
@@ -2784,6 +2774,9 @@
 ;==========================================
 ; int child_syscall_exit(int return_code);
 ;==========================================
+; Called by subprograms as their `exit` syscall, returning control to the
+; shell.
+;==========================================
 
 @0x15D0 =child_syscall_exit
 
@@ -2918,3 +2911,179 @@
 
     ; done
     78 8F 00 8C   ; ldw rip 0 rsp      ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1740
+
+
+
+;==========================================
+; int syscall_mkdir(const char* path);
+;==========================================
+
+@0x1740 =syscall_mkdir
+
+    ; get syscall mkdir into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 12 03   ; shl ra 18 3       ; ra = offset of mkdir syscall (18<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of mkdir syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1770
+
+
+
+;==========================================
+; void command_mkdir(void)
+;==========================================
+; Runs the `mkdir` command.
+;
+; The argument `-p` is required and a single path must follow.
+;
+; We repeatedly run the `mkdir` syscall on every component in the path,
+; temporarily replacing each `/` by a null-terminator to truncate the path at
+; each step.
+;
+; vars:
+; - path_start: r0, rfp-4
+; - path_pos:   r1, rfp-8
+; - loop address: rfp-12
+;==========================================
+
+@0x1770 =command_mkdir
+
+    ; we need exactly two args plus mkdir itself
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    71 8A 81 03   ; sub ra r1 3
+    7E 8A 01 00   ; jz ra &command_mkdir_good_arg_count (+1)
+    7E 00 0A 00   ; jz ra &command_mkdir_bad_args (+10)
+;:command_mkdir_good_arg_count
+
+    ; load the first arg
+    78 80 8E 60    ; ldw r0 rpp 0x60    ; args
+    78 82 80 04    ; ldw r2 r0 4        ; args[1]
+
+    ; make sure the arg is "-p"
+    7A 8A 82 00    ; ldb ra r2 0
+    71 8A 8A 2D    ; sub ra ra "-"
+    7A 8B 82 01    ; ldb rb r2 1
+    71 8B 8B 70    ; sub rb rb "p"
+    75 8A 8A 8B    ; or ra ra rb
+    7A 8B 82 02    ; ldb rb r2 2    ; null-terminator
+    75 8A 8A 8B    ; or ra ra rb
+    7E 8A 07 00    ; jz ra &command_mkdir_args_ok (+7)
+
+;:command_mkdir_bad_args
+    ; invalid syntax, tail-call error()
+    7C 80 00 00    ; ims r0 <error_invalid_syntax
+    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:command_mkdir_args_ok
+
+    ; create a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; the second arg is the start of our path
+    78 80 8E 60    ; ldw r0 rpp 0x60    ; args
+    78 80 80 08    ; ldw r0 r0 8        ; args[2]
+    79 80 8D FC    ; stw r0 rfp -4      ; path_start
+
+    ; TODO we need to prepend the working directory and normalize the path to
+    ; eliminate any `..`. We basically need a realpath() function copied
+    ; between this, ld/0, hex/0 and libc/0 (libc/2 has its own realpath().) For
+    ; now we just use the given path as-is and in-place. VMs will be required
+    ; to support relative paths until we fix this.
+
+    ; path_pos begins at the start of the path
+    70 81 80 00    ; add r1 r0 0    ; mov r1 r0
+
+    ; store the address to loop
+    79 8F 8D F4    ; stw rip rfp -12
+;:command_mkdir_loop
+
+    ; increment the position. (the argument is guaranteed to not be blank.)
+    70 81 81 01    ; add r1 r1 1
+
+    ; check if we have a path divider or null-terminator
+    7A 82 81 00    ; ldb r2 r1 0
+    7E 82 03 00    ; jz r2 &command_mkdir_null_terminator_found (+3)
+    71 83 82 2F    ; sub r2 r2 "/"
+    7E 83 0D 00    ; jz r2 &command_mkdir_path_divider_found (+13)
+
+    ; neither. loop
+    78 8F 8D F4    ; ldw rip rfp -12   ; jump to :command_mkdir_loop
+
+;:command_mkdir_null_terminator_found
+
+    ; call syscall_mkdir() on the full path
+    7C 8A 00 00    ; ims ra <syscall_mkdir
+    7C 8A 40 17    ; ims ra >syscall_mkdir (0x1740)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; TODO check for errors. path is allowed to exist so for now we ignore
+    ; errors. for all other errors we should call error() and return.
+
+    ; clear last_result
+    79 00 8E 6C    ; stw 0 rpp 0x6C   ; last_result
+
+    ; done
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+;:command_mkdir_path_divider_found
+
+    ; stash this location
+    79 81 8D F8    ; stw r1 rfp -8   ; path_pos
+
+    ; replace the path divider with a null-terminator
+    7B 00 81 00    ; stb 0 r1 0
+
+    ; call syscall_mkdir() on this portion of the path
+    7C 8A 00 00    ; ims ra <syscall_mkdir
+    7C 8A 40 17    ; ims ra >syscall_mkdir (0x1740)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; TODO check for errors again.
+
+    ; restore our registers
+    78 80 8D FC    ; ldw r0 rfp -4   ; path_start
+    78 81 8D F8    ; ldw r1 rfp -8   ; path_pos
+
+    ; restore the slash
+    7B 2F 81 00    ; stb "/" r1 0
+
+    ; loop
+    78 8F 8D F4    ; ldw rip rfp -12   ; jump to :command_mkdir_loop
