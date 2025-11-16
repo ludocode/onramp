@@ -40,10 +40,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-// TODO put this in ghost
 #ifdef _WIN32
+    #include <direct.h>
     extern char** _environ;
     #define ghost_environ _environ
+    #define mkdir(path, mode) ((void)(mode), _mkdir(path))
 #else
     extern char** environ;
     #define ghost_environ environ
@@ -989,7 +990,17 @@ static int vm_chmod(vm_t* vm) {
 }
 
 static uint32_t vm_mkdir(vm_t* vm) {
-    panic("TODO mkdir syscall not yet implemented");
+    uint32_t path_addr = vm->registers[0];
+    if (!vm_is_string_valid(vm, path_addr)) {
+        fputs("ERROR: Invalid path.\n", stderr);
+        exit(125);
+    }
+    const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
+    strace("sys mkdir() path \"%s\"", full_path);
+
+    if (0 == mkdir(full_path, 0755))
+        return 0;
+    return VM_ERR_GENERIC;
 }
 
 static uint32_t vm_rmdir(vm_t* vm) {
