@@ -1165,16 +1165,7 @@
     7E 00 0A 00     ; jz 0 &next_char_not_line_feed (+10)
 
 ;:next_char_line_feed
-    ; it's a line feed. consume it, call next_char_impl()
-    7C 8A 00 00    ; ims ra <next_char_impl
-    7C 8A 80 05    ; ims ra >next_char_impl (0x580)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; tail-call ourselves to loop
+    ; it's a line feed. tail-call ourselves to loop, thus consuming it.
     7C 8A 00 00    ; ims ra <next_char
     7C 8A C0 06    ; ims ra >next_char (0x6C0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
@@ -1195,6 +1186,10 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x780
 
 
