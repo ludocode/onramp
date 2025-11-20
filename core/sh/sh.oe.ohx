@@ -52,6 +52,10 @@
 ; similar to ld/0 except we only buffer the input file. We don't buffer `echo`
 ; output, but the line to print is assembled into a single string and can be
 ; printed in one syscall. We do also implement `cp` by copying in chunks.
+;
+; The shell runs a subshell by copying its program. For this reason, all global
+; variables must be manually initialized. They are given the initial value
+; 0xEEEEEEEE to ensure they are initialized properly.
 
 
 
@@ -111,6 +115,7 @@
 ;  16D0  align_heap
 ;  1740  syscall_mkdir
 ;  1770  command_mkdir
+;  18A0  init_child_syscalls
 
 
 
@@ -135,8 +140,13 @@
 
 
 
-    ; padding
-    00 00 00 00
+;==========================================
+; int process_info_table;
+;==========================================
+
+@0x20 =process_info_table
+    EE EE EE EE
+@0x24
 
 
 
@@ -145,16 +155,17 @@
 ;==========================================
 
 @0x24 =input_io_handle
-    FF FF FF FF
+    EE EE EE EE
 @0x28
 
 
-    ; padding
-    00 00 00 00
-    00 00 00 00
-    00 00 00 00
-    00 00 00 00
-    00 00 00 00
+
+    ; unused vars
+    EE EE EE EE
+    EE EE EE EE
+    EE EE EE EE
+    EE EE EE EE
+    EE EE EE EE
 
 
 
@@ -165,7 +176,7 @@
 ;==========================================
 
 @0x3C =current_char
-    FF FF FF FF
+    EE EE EE EE
 @0x40
 
 
@@ -177,7 +188,7 @@
 ;==========================================
 
 @0x40 =heap_start
-    00 00 00 00
+    EE EE EE EE
 @0x44
 
 
@@ -189,7 +200,7 @@
 ;==========================================
 
 @0x44 =heap_end
-    00 00 00 00
+    EE EE EE EE
 @0x48
 
 
@@ -206,7 +217,7 @@
 ;==========================================
 
 @0x48 =input_buffer
-    00 00 00 00
+    EE EE EE EE
 @0x4C
 
 
@@ -235,7 +246,7 @@
 ;==========================================
 
 @0x50 =input_buffer_pos
-    00 00 00 00
+    EE EE EE EE
 @0x54
 
 
@@ -250,7 +261,7 @@
 ;==========================================
 
 @0x54 =input_buffer_end
-    00 00 00 00
+    EE EE EE EE
 @0x58
 
 
@@ -262,7 +273,7 @@
 ;==========================================
 
 @0x58 =stop_on_error
-    00 00 00 00
+    EE EE EE EE
 @0x5C
 
 
@@ -274,7 +285,7 @@
 ;==========================================
 
 @0x5C =child_pit
-    00 00 00 00
+    EE EE EE EE
 @0x60
 
 
@@ -289,7 +300,7 @@
 ;==========================================
 
 @0x60 =args
-    00 00 00 00
+    EE EE EE EE
 @0x64
 
 
@@ -301,7 +312,7 @@
 ;==========================================
 
 @0x64 =arg_count
-    00 00 00 00
+    EE EE EE EE
 @0x68
 
 
@@ -322,7 +333,7 @@
 ;==========================================
 
 @0x68 =heap_ptr
-    00 00 00 00
+    EE EE EE EE
 @0x6C
 
 
@@ -337,7 +348,7 @@
 ;==========================================
 
 @0x6C =last_result
-    00 00 00 00
+    EE EE EE EE
 @0x70
 
 
@@ -676,11 +687,21 @@
 ;==========================================
 ; void initialize(void);
 ;==========================================
-; Initializes global variables.
+; Initializes most global variables.
+;
+; A few variables are initialized separately in start() and allocate() before
+; this. This initializes everything else.
 ;==========================================
 
 @0x360 =initialize
     ; don't bother to set up a stack frame
+
+    ; clear variables
+    79 00 8E 3C    ; stw 0 rpp 0x3C   ; current_char
+    79 00 8E 50    ; stw 0 rpp 0x50   ; input_buffer_pos
+    79 00 8E 54    ; stw 0 rpp 0x54   ; input_buffer_end
+    79 00 8E 58    ; stw 0 rpp 0x58   ; stop_on_error
+    79 00 8E 6C    ; stw 0 rpp 0x6C   ; last_result
 
     ; call next_char() to prime current_char
     7C 8A 00 00    ; ims ra <next_char
@@ -745,40 +766,24 @@
     ; - syscall table is already set by allocate()
     ; - command-line args is set after parsing
 
-    ; copy the syscall table
-    78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
-    78 83 81 08   ; ldw r3 r1 0x08   ; r3 = child syscall table
-    78 84 81 28   ; ldw r4 r1 0x28   ; r4 = system call count
-    76 84 84 03   ; shl r4 r4 3      ; r4 = system call table size (in bytes)
-    70 85 00 00   ; add r5 0 0       ; zero r5
-;:initialize_syscalls_loop
-    78 8A 82 85   ; ldw ra r2 r5     ; copy syscall rip
-    79 8A 83 85   ; ldw ra r3 r5
-    70 85 85 04   ; add r5 r5 4
-    78 8A 82 85   ; ldw ra r2 r5     ; copy syscall rpp
-    79 8A 83 85   ; ldw ra r3 r5
-    70 85 85 04   ; add r5 r5 4
-    71 8A 84 85   ; sub ra r4 r5
-    7E 8A 01 00   ; jz ra &initialize_syscalls_done (+1)
-    7E 00 F7 FF   ; jz 0 &initialize_syscalls_loop (-9)
-;:initialize_syscalls_done
-
-    ; proxy the exit syscall
-    7C 8A 00 00    ; ims ra <child_syscall_exit
-    7C 8A D0 15    ; ims ra >child_syscall_exit (0x15D0)
-    70 8A 8E 8A    ; add ra rpp ra
-    79 8A 83 00    ; stw ra r3 0
-    79 8E 83 04    ; stw rpp r3 4
-
-    ; TODO we'll need to proxy more syscalls, especially fopen/fclose,
-    ; dopen/dclose and alloc/free to prevent leaks
+    ; call init_child_syscalls()
+    7C 8A 00 00    ; ims ra <init_child_syscalls
+    7C 8A A0 18    ; ims ra >init_child_syscalls (0x18A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x420
 
 
@@ -1721,7 +1726,7 @@
 ;==========================================
 ; void run_command(void);
 ;==========================================
-; Parses a command line and runs the command.
+; Runs the command that was parsed.
 ;
 ; vars:
 ; - command_name: r0, rfp-4
@@ -3087,3 +3092,101 @@
 
     ; loop
     78 8F 8D F4    ; ldw rip rfp -12   ; jump to :command_mkdir_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x18A0
+
+
+
+;==========================================
+; void proxy_syscalls(void);
+;==========================================
+; Builds the child syscall table.
+;
+; We copy our own table first, then replace some of them with our proxy
+; functions.
+;
+; vars:
+; - parent pit: r0
+; - child pit: r1
+; - parent syscall table: r2
+; - child syscall table: r3
+;==========================================
+
+@0x18A0 =init_child_syscalls
+
+    ; get both process info tables
+    78 80 8E 20   ; ldw r0 rpp 0x20       ; process_info_table
+    78 81 8E 5C   ; ldw r1 rpp 0x5C       ; child_pit
+
+    ; get both syscall tables
+    78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
+    78 83 81 08   ; ldw r3 r1 0x08   ; r3 = child syscall table
+
+    ; copy the syscall table
+    78 84 81 28   ; ldw r4 r1 0x28   ; r4 = system call count
+    76 84 84 03   ; shl r4 r4 3      ; r4 = system call table size (in bytes)
+    70 85 00 00   ; add r5 0 0       ; zero r5
+;:initialize_syscalls_loop
+    78 8A 82 85   ; ldw ra r2 r5     ; copy syscall rip
+    79 8A 83 85   ; ldw ra r3 r5
+    70 85 85 04   ; add r5 r5 4
+    78 8A 82 85   ; ldw ra r2 r5     ; copy syscall rpp
+    79 8A 83 85   ; ldw ra r3 r5
+    70 85 85 04   ; add r5 r5 4
+    71 8A 84 85   ; sub ra r4 r5
+    7E 8A 01 00   ; jz ra &initialize_syscalls_done (+1)
+    7E 00 F7 FF   ; jz 0 &initialize_syscalls_loop (-9)
+;:initialize_syscalls_done
+
+    ; proxy the exit syscall
+    7C 8A 00 00    ; ims ra <child_syscall_exit
+    7C 8A D0 15    ; ims ra >child_syscall_exit (0x15D0)
+    70 8A 8E 8A    ; add ra rpp ra
+    79 8A 83 00    ; stw ra r3 0
+    79 8E 83 04    ; stw rpp r3 4
+
+    ; TODO we'll need to proxy more syscalls, especially fopen/fclose,
+    ; dopen/dclose and alloc/free to prevent leaks
+
+    ; done
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding for syscalls we'll soon add
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x19B0
