@@ -116,6 +116,8 @@
 ;  1740  syscall_mkdir
 ;  1770  command_mkdir
 ;  18A0  init_child_syscalls
+;  19B0  command_sh
+;  1AC0  end_of_program
 
 
 
@@ -370,7 +372,7 @@
     DB 00 00 00   80 13 00 00    ; ^onrampvm  ^command_onrampvm (0x1380)
     E4 00 00 00   10 0E 00 00    ; ^set       ^command_set (0xE10)
     E8 00 00 00   EE EE 00 00    ; ^cp
-    EB 00 00 00   EE EE 00 00    ; ^sh
+    EB 00 00 00   B0 19 00 00    ; ^sh        ^command_sh (0x19B0)
     00 00 00 00   00 00 00 00    ; (null terminator)
 
     ; padding
@@ -396,7 +398,7 @@
     63 70 00
   ;  c  p \0
 @0xEB "sh"
-    73 68 0a
+    73 68 00
   ;  s  h \0
 
     ; padding
@@ -2603,7 +2605,7 @@
 ;:command_onrampvm_start
 
 
-    ; we must have at least two args
+    ; we must have at least two args (including the command)
     78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
     7D 8A 81 02   ; ltu ra r1 2
     7E 8A 04 00   ; jz ra &command_onrampvm_args_ok (+4)
@@ -2680,7 +2682,7 @@
     ; have alloc syscall yet. for now make sure we have an extra 128 kB.
     ; (this can't overflow because get_program_size() has limited the size)
     ; TODO when we change this to 128 bytes we have to also align the program end
-    76 8A 01 11    ; shl ra 1 17   ; r2 = 128 kB
+    76 8A 01 11    ; shl ra 1 17   ; ra = 128 kB
     70 8B 80 8A    ; add rb r0 ra
     ; TODO We should malloc() if we don't have enough space. This also means we
     ; need to keep track of our malloc regions, search them for free space, and
@@ -2703,13 +2705,8 @@
     78 8B 8E 5C    ; ldw rb rpp 0x5C    ; child_pit
     79 8A 8B 04    ; stw ra rb 0x04     ; child_pit[HEAP_START] = ra
 
-    ; null-terminate the argument list
-    78 85 8E 60    ; ldw r5 rpp 0x60    ; args
-    78 86 8E 64    ; ldw r6 rpp 0x64    ; arg_count
-    76 86 86 02    ; shl r6 r6 2        ; r6 *= 4
-    79 00 85 86    ; stw 0 r5 r6        ; args[arg_count] = 0
-
     ; store the command-line arguments in the child pit
+    78 85 8E 60    ; ldw r5 rpp 0x60  ; args
     70 85 85 04    ; add r5 r5 4      ; skip `onrampvm`
     79 85 8B 18    ; stw r5 rb 0x18   ; child_pit[HEAP_START]
 
@@ -2743,8 +2740,45 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; store our frame pointer so it can be restored in child_syscall_exit()
-    79 8D 8E 4C    ; stw rfp rpp 0x4C    ; frame_pointer
+    ; tail-call run_subprogram()
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    7C 8A 00 00    ; ims ra <run_subprogram
+    7C 8A 80 15    ; ims ra >run_subprogram (0x1580)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1580
+
+
+
+;==========================================
+; void run_subprogram(void);
+;==========================================
+; Runs the loaded subprogram for an `onrampvm` or `sh` command.
+;
+; The program must be loaded at heap_ptr and the end of the program must be
+; stored as the start of the heap in the child pit.
+;==========================================
+
+@0x1580 =run_subprogram
+
+    ; Push a stack frame and store it. This will allow us to restore both rpp
+    ; and rfp in child_syscall_exit().
+    71 8C 8C 04    ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C    ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00    ; add rfp rsp 0     ; mov rfp rsp
+    79 8D 8E 4C    ; stw rfp rpp 0x4C  ; frame_pointer
+
+    ; null-terminate the argument list
+    78 85 8E 60    ; ldw r5 rpp 0x60    ; args
+    78 86 8E 64    ; ldw r6 rpp 0x64    ; arg_count
+    76 86 86 02    ; shl r6 r6 2        ; r6 *= 4
+    79 00 85 86    ; stw 0 r5 r6        ; args[arg_count] = 0
 
     ; TODO we should consider running ftell() on the source script and if it
     ; works, close it and reopen after running the command. we want bootstrap
@@ -2760,14 +2794,6 @@
     70 8F 8E 00   ; add rip rpp 0
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -3107,7 +3133,7 @@
 
 
 ;==========================================
-; void proxy_syscalls(void);
+; void init_child_syscalls(void);
 ;==========================================
 ; Builds the child syscall table.
 ;
@@ -3190,3 +3216,114 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x19B0
+
+
+
+;==========================================
+; void command_sh(void)
+;==========================================
+; Runs the `sh` command.
+;
+; The command must have a single argument which is the script to run.
+;==========================================
+
+@0x19B0 =command_sh
+
+    ; we must have exactly 2 args (including the command)
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    71 8A 81 02   ; sub ra r1 2
+    7E 8A 07 00   ; jz ra &command_sh_args_ok (+7)
+
+    ; not enough args, tail-call error()
+    7C 80 00 00    ; ims r0 <error_invalid_syntax
+    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_sh_args_ok
+
+    ; call align_heap()
+    7C 8A 00 00    ; ims ra <align_heap
+    7C 8A D0 16    ; ims ra >align_heap (0x16D0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the size of the program
+    7C 80 00 00    ; ims r0 <end_of_program
+    7C 80 C0 1A    ; ims r0 >end_of_program (0x1AC0)
+
+    ; make sure we have enough space, including space for the initial stack
+    ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
+    ; can allocate the stack separately and move this check into
+    ; run_subprogram().
+    76 8A 01 11   ; shl ra 1 17   ; ra = 128 kB
+    70 8B 80 8A   ; add rb r0 ra
+    78 81 8E 68   ; ldw r1 rpp 0x68    ; heap_ptr
+    78 82 8E 44   ; ldw r2 rpp 0x44    ; heap_end
+    71 82 82 81   ; sub r2 r2 r1
+    7D 8A 82 8B   ; ltu ra r2 rb
+    7E 8A 07 00   ; jz ra &command_sh_heap_ok (+7)
+
+    ; not enough space, tail-call error()
+    7C 80 00 00    ; ims r0 <error_out_of_memory
+    7C 80 C0 01    ; ims r0 >error_out_of_memory
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_sh_heap_ok
+
+    ; copy our program to the heap
+    70 83 00 00    ; add r3 0 0   ; zero r3   ; iterator
+;:command_sh_copy_loop
+    78 8A 8E 83    ; ldw ra rpp r3
+    79 8A 81 83    ; stw ra r1 r3
+    70 83 83 04    ; add r3 r3 4
+    71 8A 83 80    ; sub ra r3 r0
+    7E 8A 01 00    ; jz ra &command_sh_copy_done (+1)
+    7E 00 FA FF    ; jz 0 &command_sh_copy_loop (-6)
+;:command_sh_copy_done
+
+    ; store the end of the program as the heap start address in the child pit
+    70 8A 81 80    ; add ra r1 r0       ; ra = heap_ptr + size
+    78 8B 8E 5C    ; ldw rb rpp 0x5C    ; child_pit
+    79 8A 8B 04    ; stw ra rb 0x04     ; child_pit[HEAP_START] = ra
+
+    ; store the command-line arguments in the child pit
+    78 85 8E 60    ; ldw r5 rpp 0x60  ; args
+    79 85 8B 18    ; stw r5 rb 0x18   ; child_pit[HEAP_START]
+
+    ; tail-call run_subprogram()
+    7C 8A 00 00    ; ims ra <run_subprogram
+    7C 8A 80 15    ; ims ra >run_subprogram (0x1580)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1AC0
+
+
+
+;==========================================
+; void* end_of_program;
+;==========================================
+; This symbol marks the last address in the shell program. The shell runs a
+; subshell by copying its own program up to this symbol.
+;==========================================
+
+@0x1AC0 =end_of_program
