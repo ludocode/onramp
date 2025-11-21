@@ -109,7 +109,7 @@
 ;  1110  syscall_ftell
 ;  1140  get_program_size
 ;  1290  read_all
-;  1380  command_onrampvm
+;  1360  command_onrampvm
 ;  15D0  child_syscall_exit
 ;  1640  skip_preamble
 ;  16D0  align_heap
@@ -369,7 +369,7 @@
 
     D0 00 00 00   50 0D 00 00    ; ^echo      ^command_echo (0xD50)
     D5 00 00 00   70 17 00 00    ; ^mkdir     ^command_mkdir (0x1770)
-    DB 00 00 00   80 13 00 00    ; ^onrampvm  ^command_onrampvm (0x1380)
+    DB 00 00 00   60 13 00 00    ; ^onrampvm  ^command_onrampvm (0x1360)
     E4 00 00 00   10 0E 00 00    ; ^set       ^command_set (0xE10)
     E8 00 00 00   EE EE 00 00    ; ^cp
     EB 00 00 00   B0 19 00 00    ; ^sh        ^command_sh (0x19B0)
@@ -2518,12 +2518,8 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00
-@0x1380
+@0x1360
 
 
 
@@ -2537,7 +2533,7 @@
 ; - error_handler: rfp-8
 ;==========================================
 
-@0x1380 =command_onrampvm
+@0x1360 =command_onrampvm
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
@@ -2730,6 +2726,16 @@
     70 80 8E 80    ; add r0 rpp r0
     78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
 ;:command_onrampvm_read_all_ok
+
+    ; close the file, call syscall_fclose()
+    78 80 8D FC    ; ldw r0 rfp -4
+    7C 8A 00 00    ; ims ra <syscall_fclose
+    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; call skip_preamble()
     7C 8A 00 00    ; ims ra <skip_preamble
