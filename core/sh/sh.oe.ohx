@@ -110,14 +110,17 @@
 ;  1140  get_program_size
 ;  1290  read_all
 ;  1360  command_onrampvm
-;  15D0  child_syscall_exit
+;  1580  run_subprogram
+;  1630  cleanup_subprogram
 ;  1640  skip_preamble
 ;  16D0  align_heap
 ;  1740  syscall_mkdir
 ;  1770  command_mkdir
 ;  18A0  init_child_syscalls
 ;  19B0  command_sh
-;  1AC0  end_of_program
+;  1AC0  syscall_debug
+;  1B00  child_syscall_exit
+;  1B90  end_of_program
 
 
 
@@ -2788,6 +2791,21 @@
 
 @0x1580 =run_subprogram
 
+    ; prepare args for syscall debug
+    78 80 8E 68    ; ldw r0 rpp 0x68   ; heap_ptr
+    78 8B 8E 5C    ; ldw rb rpp 0x5C   ; child_pit
+    78 85 8B 18    ; ldw r5 rb 0x18    ; child_pit[ARGS]
+    78 81 85 00    ; ldw r1 r5 0       ; child_pit[ARGS][0]
+
+    ; call syscall_debug()
+    7C 8A 00 00    ; ims ra <syscall_debug
+    7C 8A C0 1A    ; ims ra >syscall_debug (0x1AC0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
     ; Push a stack frame and store it. This will allow us to restore both rpp
     ; and rfp in child_syscall_exit().
     71 8C 8C 04    ; sub rsp rsp 4     ; push rfp       ; enter
@@ -2820,52 +2838,29 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-@0x15D0
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1630
 
 
 
 ;==========================================
-; int child_syscall_exit(int return_code);
-;==========================================
-; Called by subprograms as their `exit` syscall, returning control to the
-; shell.
+; void cleanup_subprogram(void)
 ;==========================================
 
-@0x15D0 =child_syscall_exit
+@0x1630 =cleanup_subprogram
 
-    ; our rpp is in r9
-    70 8E 89 00    ; add rpp r9 0   ; mov rpp r9
+    ; TODO close any open files and dirs, free allocs. For now this is just a
+    ; placeholder.
 
-    ; Pop the stored frame pointer. This destroys the stack frame of
-    ; run_subprogram().
-    78 8C 8E 4C    ; ldw rsp rpp 0x4C   ; frame_pointer
-    78 8D 00 8C    ; ldw rfp 0 rsp      ; pop rfp
-    70 8C 8C 04    ; add rsp rsp 4      ; ^^^
-
-    ; If the return code is non-zero, call error() with a null message. (We
-    ; expect that the failing program printed its own error message.)
-    7E 80 09 00    ; jz r0 &child_syscall_exit_ok (+9)
-    70 81 80 00    ; add r1 r0 0    ; mov r1 r0
-    70 80 00 00    ; add r0 0 0     ; zero r0
-    7C 8A 00 00    ; ims ra <error
-    7C 8A C0 0F    ; ims ra >error (0xFC0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-;:child_syscall_exit_ok
-
-    ; If error() returned or we had no error, return from this. This ultimately
-    ; returns control to handle_line() after its call to run_command().
     78 8F 00 8C    ; ldw rip 0 rsp      ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
 @0x1640
@@ -3200,7 +3195,7 @@
 
     ; proxy the exit syscall
     7C 8A 00 00    ; ims ra <child_syscall_exit
-    7C 8A D0 15    ; ims ra >child_syscall_exit (0x15D0)
+    7C 8A 00 1B    ; ims ra >child_syscall_exit (0x1B00)
     70 8A 8E 8A    ; add ra rpp ra
     79 8A 83 00    ; stw ra r3 0
     79 8E 83 04    ; stw rpp r3 4
@@ -3280,7 +3275,7 @@
 
     ; get the size of the program
     7C 80 00 00    ; ims r0 <end_of_program
-    7C 80 C0 1A    ; ims r0 >end_of_program (0x1AC0)
+    7C 80 90 1B    ; ims r0 >end_of_program (0x1B90)
 
     ; make sure we have enough space, including space for the initial stack
     ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
@@ -3315,14 +3310,22 @@
     7E 00 FA FF    ; jz 0 &command_sh_copy_loop (-6)
 ;:command_sh_copy_done
 
+    ; Replace the first arg ('sh') with our program name. This is used to load
+    ; debug info. The subshell must also know its program name so it can load
+    ; debug info for its own subshells.
+    78 85 8E 60    ; ldw r5 rpp 0x60  ; args
+    78 88 8E 20    ; ldw r8 rpp 0x20  ; process_info_table
+    78 87 88 18    ; ldw r7 r8 24     ; process_info_table[ARGV]
+    78 86 87 00    ; ldw r6 r7 0      ; get argv[0]
+    79 86 85 00    ; stw r6 r5 0      ; store as child args[0]
+
     ; store the end of the program as the heap start address in the child pit
     70 8A 81 80    ; add ra r1 r0       ; ra = heap_ptr + size
     78 8B 8E 5C    ; ldw rb rpp 0x5C    ; child_pit
     79 8A 8B 04    ; stw ra rb 0x04     ; child_pit[HEAP_START] = ra
 
     ; store the command-line arguments in the child pit
-    78 85 8E 60    ; ldw r5 rpp 0x60  ; args
-    79 85 8B 18    ; stw r5 rb 0x18   ; child_pit[HEAP_START]
+    79 85 8B 18    ; stw r5 rb 0x18   ; child_pit[ARGS]
 
     ; tail-call run_subprogram()
     7C 8A 00 00    ; ims ra <run_subprogram
@@ -3338,9 +3341,104 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
 @0x1AC0
+
+
+
+;==========================================
+; int syscall_debug();
+;==========================================
+
+@0x1AC0 =syscall_debug
+
+    ; get syscall debug into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 16 03   ; shl ra 22 3       ; ra = offset of debug syscall (22<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of debug syscall
+
+    ; skip the syscall if unimplemented
+    78 86 87 00   ; ldw r6 r7 0     ; rip of syscall
+    7E 86 02 00   ; jz r6 &syscall_debug_skip (+2)
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    70 8F 86 00    ; add rip r6 0     ; rip = rip of syscall
+
+;:syscall_debug_skip
+    ; otherwise return
+    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1B00
+
+
+
+;==========================================
+; int child_syscall_exit(int return_code);
+;==========================================
+; Called by subprograms as their `exit` syscall, returning control to the
+; shell.
+;==========================================
+
+@0x1B00 =child_syscall_exit
+
+    ; our rpp is in r9
+    70 8E 89 00    ; add rpp r9 0   ; mov rpp r9
+
+    ; Pop the stored frame pointer. This destroys the stack frame of
+    ; run_subprogram().
+    78 8C 8E 4C    ; ldw rsp rpp 0x4C   ; frame_pointer
+    78 8D 00 8C    ; ldw rfp 0 rsp      ; pop rfp
+    70 8C 8C 04    ; add rsp rsp 4      ; ^^^
+
+    ; Unload debug info, call syscall_debug
+    78 80 8E 68    ; ldw r0 rpp 0x68   ; heap_ptr
+    70 81 00 00    ; add r1 0 0
+    7C 8A 00 00    ; ims ra <syscall_debug
+    7C 8A C0 1A    ; ims ra >syscall_debug (0x1AC0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; If the return code is non-zero, call error() with a null message. (We
+    ; expect that the failing program printed its own error message.)
+    7E 80 09 00    ; jz r0 &child_syscall_exit_ok (+9)
+    70 81 80 00    ; add r1 r0 0    ; mov r1 r0
+    70 80 00 00    ; add r0 0 0     ; zero r0
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+;:child_syscall_exit_ok
+
+    ; call cleanup_subprogram()
+    7C 8A 00 00    ; ims ra <cleanup_subprogram
+    7C 8A 30 16    ; ims ra >cleanup_subprogram (0x1630)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; Return. This ultimately returns control to handle_line() after its call
+    ; to run_command().
+    78 8F 00 8C    ; ldw rip 0 rsp      ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1B90
 
 
 
@@ -3351,4 +3449,4 @@
 ; subshell by copying its own program up to this symbol.
 ;==========================================
 
-@0x1AC0 =end_of_program
+@0x1B90 =end_of_program
