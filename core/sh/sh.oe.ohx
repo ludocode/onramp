@@ -84,7 +84,7 @@
 ;   200  strcmp
 ;   250  exit
 ;   2A0  start
-;   360  initialize
+;   370  initialize
 ;   420  open_script
 ;   4F0  allocate
 ;   580  next_char_impl
@@ -644,7 +644,7 @@
 
     ; call initialize()
     7C 8A 00 00    ; ims ra <initialize
-    7C 8A 60 03    ; ims ra >initialize (0x360)
+    7C 8A 70 03    ; ims ra >initialize (0x370)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -670,6 +670,27 @@
 
 ;:start_eof
 
+    ; get the script handle. we'll close it if it's not stdin
+    ; (TODO close it anyway. the VM spec technically says right now that we
+    ; can't close stdin but we'll relax that soon.)
+    ; (TODO probably shouldn't bother closing it at all, the spec will soon
+    ; allow us to exit without closing files)
+    78 80 8E 24    ; ldw r0 rpp 0x24  ; input_io_handle
+    78 88 8E 20    ; ldw r8 rpp 0x20  ; process_info_table
+    78 81 88 0C    ; ldw r1 r8 12     ; stdin
+    71 81 81 80    ; sub r1 r1 r0
+    7E 81 07 00    ; jz r1 &start_skip_close (+7)
+
+    ; call syscall_fclose()
+    7C 8A 00 00    ; ims ra <syscall_fclose
+    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+;:start_skip_close
+
     ; tail-call exit(last_result)
     78 80 8E 6C    ; ldw r0 rpp 0x6C  ; last_result
     7C 8A 00 00    ; ims ra <exit
@@ -678,11 +699,7 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-@0x360
+@0x370
 
 
 
@@ -695,7 +712,7 @@
 ; this. This initializes everything else.
 ;==========================================
 
-@0x360 =initialize
+@0x370 =initialize
     ; don't bother to set up a stack frame
 
     ; clear variables
@@ -781,8 +798,6 @@
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
