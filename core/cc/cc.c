@@ -587,6 +587,7 @@ static void parse_options_file(const char* filename) {
             fatal_cleanup("Argument in arguments file is too long.");
         }
     }
+    fclose(file);
 
     // We temporarily append a null-terminator just for options parsing.
     string_array_append(&fileargs, &fileargs_count, &fileargs_capacity, NULL);
