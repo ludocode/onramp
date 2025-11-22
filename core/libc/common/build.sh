@@ -28,9 +28,14 @@
 # individually.
 
 set -e
+
+echo
+echo === Copying libc headers
+
 mkdir -p build/output/include/__onramp
 mkdir -p build/output/include/sys
 
+echo Copying internal headers
 cp core/libc/common/include/__onramp/__arithmetic.h build/output/include/__onramp/__arithmetic.h
 cp core/libc/common/include/__onramp/__bool.h build/output/include/__onramp/__bool.h
 cp core/libc/common/include/__onramp/__fatal.h build/output/include/__onramp/__fatal.h
@@ -47,6 +52,8 @@ cp core/libc/common/include/__onramp/__va_list.h build/output/include/__onramp/_
 cp core/libc/common/include/__onramp/__wchar_limits.h build/output/include/__onramp/__wchar_limits.h
 cp core/libc/common/include/__onramp/__wchar_t.h build/output/include/__onramp/__wchar_t.h
 cp core/libc/common/include/__onramp/__wint_t.h build/output/include/__onramp/__wint_t.h
+
+echo Copying standard headers
 cp core/libc/common/include/assert.h build/output/include/assert.h
 cp core/libc/common/include/ctype.h build/output/include/ctype.h
 cp core/libc/common/include/errno.h build/output/include/errno.h

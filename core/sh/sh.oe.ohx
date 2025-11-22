@@ -41,7 +41,7 @@
 ;
 ; The remaining memory is used to parse commands and to load small subprograms.
 ; If a subprogram doesn't fit in the remaining heap, it gets its own
-; allocation.
+; allocation. (TODO alloc syscall is not implemented yet.)
 ;
 ; TODO may also need to copy env vars; see environ discussion below.
 ;
@@ -120,7 +120,15 @@
 ;  19B0  command_sh
 ;  1AC0  syscall_debug
 ;  1B00  child_syscall_exit
-;  1B90  end_of_program
+;  1B90  syscall_fopen
+;  1BC0  error_source_file
+;  1BF0  error_destination_file
+;  1C20  syscall_fread
+;  1C50  syscall_fwrite
+;  1C80  command_cp
+;  1DC0  command_cp_open_dest
+;  1ED0  command_cp_copy_data
+;  2040  end_of_program
 
 
 
@@ -374,7 +382,7 @@
     D5 00 00 00   70 17 00 00    ; ^mkdir     ^command_mkdir (0x1770)
     DB 00 00 00   60 13 00 00    ; ^onrampvm  ^command_onrampvm (0x1360)
     E4 00 00 00   10 0E 00 00    ; ^set       ^command_set (0xE10)
-    E8 00 00 00   EE EE 00 00    ; ^cp
+    E8 00 00 00   80 1C 00 00    ; ^cp        ^command_cp (0x1C80)
     EB 00 00 00   B0 19 00 00    ; ^sh        ^command_sh (0x19B0)
     00 00 00 00   00 00 00 00    ; (null terminator)
 
@@ -3275,7 +3283,7 @@
 
     ; get the size of the program
     7C 80 00 00    ; ims r0 <end_of_program
-    7C 80 90 1B    ; ims r0 >end_of_program (0x1B90)
+    7C 80 40 20    ; ims r0 >end_of_program (0x2040)
 
     ; make sure we have enough space, including space for the initial stack
     ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
@@ -3443,10 +3451,494 @@
 
 
 ;==========================================
+; int syscall_fopen(const char* path, bool writeable);
+;==========================================
+
+@0x1B90 =syscall_fopen
+
+    ; get syscall fopen into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1BC0
+
+
+
+;==========================================
+; const char error_source_file[];
+;==========================================
+
+@0x1BC0 =error_source_file
+    ; "ERROR: Failed to read source file." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 72 65 61 64 20 73 6f  75 72 63 65 20 66 69 6c
+  ;     r  e  a  d     s  o   u  r  c  e     f  i  l
+    65 2e 0a 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  e  . \n \0
+@0x1BF0
+
+
+
+;==========================================
+; const char error_destination_file[];
+;==========================================
+
+@0x1BF0 =error_destination_file
+    ; "ERROR: Failed to write destination file." '0A '00
+    45 52 52 4f 52 3a 20 46  61 69 6c 65 64 20 74 6f
+  ;  E  R  R  O  R  :     F   a  i  l  e  d     t  o
+    20 77 72 69 74 65 20 64  65 73 74 69 6e 61 74 69
+  ;     w  r  i  t  e     d   e  s  t  i  n  a  t  i
+    6f 6e 20 66 69 6c 65 2e  0a 00 00 00 00 00 00 00
+  ;  o  n     f  i  l  e  .  \n \0
+@0x1C20
+
+
+
+;==========================================
+; int syscall_fread(const char* path, bool writeable);
+;==========================================
+
+@0x1C20 =syscall_fread
+
+    ; get syscall fread into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fread syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1C50
+
+
+
+;==========================================
+; int syscall_fwrite(const char* path, bool writeable);
+;==========================================
+
+@0x1C50 =syscall_fwrite
+
+    ; get syscall fwrite into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fwrite syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1C80
+
+
+
+;==========================================
+; void command_cp(void)
+;==========================================
+; Runs the `cp` command.
+;
+; The command takes two arguments: the source file and the destination file.
+;
+; (Multiple source files are not supported, and directory destinations are not
+; supported; the destination filename must be spelled out in full.)
+;
+; This opens the source file and then forwards control to
+; command_cp_open_dest() to more easily close the source file regardless of any
+; errors.
+;
+; vars:
+; - source_handle: rfp-4
+;==========================================
+
+@0x1C80 =command_cp
+
+    ; we must have exactly 3 args (including the command)
+    78 81 8E 64   ; ldw r1 rpp 0x64    ; arg_count
+    71 8A 81 03   ; sub ra r1 3
+    7E 8A 07 00   ; jz ra &command_cp_args_ok (+7)
+
+    ; not enough args, tail-call error()
+    7C 80 00 00    ; ims r0 <error_invalid_syntax
+    7C 80 F0 0D    ; ims r0 >error_invalid_syntax (0xDF0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_cp_args_ok
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 04     ; sub rsp rsp 4
+
+    ; call align_heap()
+    7C 8A 00 00    ; ims ra <align_heap
+    7C 8A D0 16    ; ims ra >align_heap (0x16D0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; TODO we need to prepend the working directory onto these paths.
+
+    ; prepare args to open source file
+    78 80 8E 60    ; ldw r0 rpp 0x60    ; args
+    78 80 80 04    ; ldw r0 r0 4        ; args[1]
+    70 81 00 00    ; add r1 0 0         ; read-only
+
+    ; call syscall_fopen()
+    7C 8A 00 00    ; ims ra <syscall_fopen
+    7C 8A 90 1B    ; ims ra >syscall_fopen (0x1B90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 0A 00    ; jz ra &command_cp_fopen_ok (+10)
+
+    ; failed to open source file. tail-call error()
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    7C 80 00 00    ; ims r0 <error_source_file
+    7C 80 C0 1B    ; ims r0 >error_source_file (0x1BC0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_cp_fopen_ok
+
+    ; save the source file
+    79 80 8D FC     ; stw r0 rfp -4
+
+    ; call command_cp_open_dest()
+    7C 8A 00 00    ; ims ra <command_cp_open_dest
+    7C 8A C0 1D    ; ims ra >command_cp_open_dest (0x1DC0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; restore the source file
+    78 80 8D FC    ; ldw r0 rfp -4   ; source_file
+
+    ; call syscall_fclose()
+    7C 8A 00 00    ; ims ra <syscall_fclose
+    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1DC0
+
+
+
+;==========================================
+; void command_cp_open_dest(int source_handle)
+;==========================================
+; Runs the `cp` command with the given source file.
+;
+; This opens the destination file and then forwards control to
+; command_cp_copy_data() to more easily close the destination file regardless
+; of any errors.
+;
+; vars:
+; - source_handle: rfp-4
+; - destination_handle: rfp-8
+;==========================================
+
+@0x1DC0 =command_cp_open_dest
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; save the source file
+    79 80 8D FC     ; stw r0 rfp -4
+
+    ; prepare args to open destination file
+    78 80 8E 60    ; ldw r0 rpp 0x60    ; args
+    78 80 80 08    ; ldw r0 r0 8        ; args[2]
+    70 81 01 00    ; add r1 1 0         ; writeable
+
+    ; call syscall_fopen()
+    7C 8A 00 00    ; ims ra <syscall_fopen
+    7C 8A 90 1B    ; ims ra >syscall_fopen (0x1B90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 0A 00    ; jz ra &command_cp_open_dest_fopen_fail (+10)
+
+    ; failed to open destination file. tail-call error()
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    7C 80 00 00    ; ims r0 <error_destination_file
+    7C 80 F0 1B    ; ims r0 >error_destination_file (0x1BF0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_cp_open_dest_fopen_fail
+
+    ; save the destination file
+    79 80 8D F8    ; stw r0 rfp -8
+
+    ; prepare args for copy
+    78 80 8D FC    ; ldw r0 rfp -4   ; source_file
+    78 81 8D F8    ; ldw r1 rfp -8   ; destination_file
+
+    ; call command_cp_copy_data()
+    7C 8A 00 00    ; ims ra <command_cp_copy_data
+    7C 8A D0 1E    ; ims ra >command_cp_copy_data (0x1ED0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; restore the destination file
+    78 80 8D F8    ; ldw r0 rfp -8   ; source_file
+
+    ; call syscall_fclose()
+    7C 8A 00 00    ; ims ra <syscall_fclose
+    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1ED0
+
+
+
+;==========================================
+; void command_cp_copy_data(int source_handle, int destination_handle)
+;==========================================
+; Runs the `cp` command, copying data from the source to destination.
+;
+; The files have been opened already; this just does the data copying.
+;
+; vars:
+; - source_handle: rfp-4
+; - destination_handle: rfp-8
+; - buffer_size: rfp-12
+; - step_size: rfp-16
+; - loop address: rfp-20
+;==========================================
+
+@0x1ED0 =command_cp_copy_data
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 14     ; sub rsp rsp 20
+
+    ; save the file handles
+    79 80 8D FC    ; stw r0 rfp -4
+    79 81 8D F8    ; stw r1 rfp -8
+
+    ; calculate available space
+    78 81 8E 68   ; ldw r1 rpp 0x68    ; heap_ptr
+    78 82 8E 44   ; ldw r2 rpp 0x44    ; heap_end
+    71 82 82 81   ; sub r2 r2 r1
+
+    ; TODO we need to check if we have enough space, and if we don't we should
+    ; allocate a 4KB or 32KB buffer. For now we just assume it's plenty.
+
+    ; Limit buffer size to 1 MiB. (If we're given a large amount of memory but
+    ; it is allocated lazily, we don't want to commit it all unnecessarily.)
+    76 8A 01 0A   ; shl ra 1 10        ; 1<<10 == 1048576
+    7D 8B 8A 82   ; ltu rb ra r2
+    7E 8B 01 00   ; jz rb &command_cp_copy_data_size_ok
+    70 82 8A 00   ; add r2 ra 0     ; mov r2 ra
+;:command_cp_copy_data_size_ok
+
+    ; save buffer size
+    79 82 8D F4    ; stw r2 rfp -12
+
+    ; store the address to loop
+    79 8F 8D EC    ; stw rip rfp -20
+;:command_cp_copy_data_loop
+
+    ; prepare args for fread
+    78 80 8D FC   ; ldw r0 rfp -4      ; source_handle
+    78 81 8E 68   ; ldw r1 rpp 0x68    ; heap_ptr
+    78 82 8D F4   ; ldw r2 rfp -12     ; buffer_size
+
+    ; call syscall_fread()
+    7C 8A 00 00    ; ims ra <syscall_fread
+    7C 8A 20 1C    ; ims ra >syscall_fread (0x1C20)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; TODO handle EWOULDBLOCK, EOF
+
+    ; check for a zero return value
+    7E 80 01 00   ; jz r2 &command_cp_copy_data_read_zero (+1)
+    7E 00 04 00   ; jz 0 &command_cp_copy_data_read_nonzero (+4)
+
+;:command_cp_copy_data_read_zero
+    ; zero return is interpreted as EOF, we're done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:command_cp_copy_data_read_nonzero
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 0A 00    ; jz ra &command_cp_copy_data_read_ok (+10)
+
+    ; failed to read from source file. tail-call error()
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    7C 80 00 00    ; ims r0 <error_source_file
+    7C 80 C0 1B    ; ims r0 >error_source_file (0x1BC0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_cp_copy_data_read_ok
+
+    ; we've read a non-zero number of bytes. prepare args for write_all()
+    70 82 80 00   ; add r2 r0 0    ; mov r2 r0   ; byte count
+    78 80 8D F8   ; ldw r0 rfp -8                ; destination_handle
+    78 81 8E 68   ; ldw r1 rpp 0x68              ; heap_ptr
+
+    ; call write_all()
+    7C 8A 00 00    ; ims ra <write_all
+    7C 8A 90 08    ; ims ra >write_all (0x890)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; non-zero return is error
+    7E 80 0A 00    ; jz r0 &command_cp_copy_data_write_ok (+10)
+
+    ; failed to write to destination file. tail-call error()
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    7C 80 00 00    ; ims r0 <error_destination_file
+    7C 80 F0 1B    ; ims r0 >error_destination_file (0x1BF0)
+    70 80 8E 80    ; add r0 rpp r0
+    70 81 00 01    ; add r1 0 1      ; mov r1 1
+    7C 8A 00 00    ; ims ra <error
+    7C 8A C0 0F    ; ims ra >error (0xFC0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:command_cp_copy_data_write_ok
+
+    ; loop.
+    78 8F 8D EC   ; ldw rip rfp -20   ; jump to :command_cp_copy_data_loop
+;:command_cp_copy_data_done
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x2040
+
+
+
+;==========================================
 ; void* end_of_program;
 ;==========================================
 ; This symbol marks the last address in the shell program. The shell runs a
 ; subshell by copying its own program up to this symbol.
 ;==========================================
 
-@0x1B90 =end_of_program
+@0x2040 =end_of_program

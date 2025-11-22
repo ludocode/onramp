@@ -62,7 +62,7 @@ See the [Implementation Status](docs/status.md) document for a breakdown of impl
 
 | [Standard Library][libc] | [Archiver][ar]       | [Operating System][os]  | [Driver][cc]     | [Shell][sh]  |
 |:-------------------------|:---------------------|:------------------------|:-----------------|--------------|
-| 🟩 [libc/0-oo][libc0]    | 🟩 [ar/0-cat][ar0]   | 🟥 [os/0-minfs][os0]    | 🟦 [cc]          | 🟨 [sh]      |
+| 🟩 [libc/0-oo][libc0]    | 🟩 [ar/0-cat][ar0]   | 🟥 [os/0-minfs][os0]    | 🟦 [cc]          | 🟦 [sh]      |
 | 🟩 [libc/1-omc][libc1]   | 🟥 [ar/1-unix][ar1]  | 🟥 [os/1-full][os1]     |                  |              |
 | 🟨 [libc/2-opc][libc2]   |                      |                         |                  |              |
 | 🟧 [libc/3-full][libc3]  |                      |                         |                  |              |
