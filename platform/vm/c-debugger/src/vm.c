@@ -160,6 +160,10 @@ static void panic(const char* e) {
 #define FILES_COUNT 16
 #define FILES_OFFSET (INT_MAX-FILES_COUNT-1)
 
+// Uncomment this to get warnings about unclosed file handles. This isn't on by
+// default because it's not an error to leave files unclosed.
+//#define WARN_UNCLOSED_FILES
+
 
 
 static bool strace_enabled = false;
@@ -639,8 +643,22 @@ static FILE* vm_file(vm_t* vm, uint32_t handle) {
 
 static uint32_t vm_exit(vm_t* vm) {
     // TODO pause debugger
-    strace("sys exit() %i", vm->registers[0]);
+    strace("sys exit() %i\n", vm->registers[0]);
     vm_print_stats(vm);
+
+    #ifdef WARN_UNCLOSED_FILES
+    // The first three are the standard streams (stdin, stdout and stderr.) We
+    // don't warn about leaving them unclosed.
+    // TODO later we will allow closing the standard streams in which case
+    // their file handles could be reused. We should actually check whether
+    // these are the standard streams.
+    for (unsigned i = 3; i < vm_ghost_array_count(vm->files); ++i) {
+        if (vm->files[i]) {
+            fprintf(stderr, "WARNING: Unclosed handle: %i 0x%x\n", i, i + FILES_OFFSET);
+        }
+    }
+    #endif
+
     exit(vm_parse_mix(vm, vm->registers[0]));
     return VM_ERR_GENERIC;
 }
