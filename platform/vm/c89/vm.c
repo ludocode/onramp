@@ -48,6 +48,7 @@
     #include <direct.h>
     #define getcwd _getcwd
     #define environ _environ
+    #define mkdir(path, mode) _mkdir(path)
     extern char** _environ;
 #else
     #define NO_ENVIRON
@@ -113,7 +114,7 @@ static FILE* vm_files[VM_MAX_FILES];
 
 static uint8_t vm_load_u8(uint32_t addr);
 
-typedef void syscall_fn_t(void);
+typedef uint32_t syscall_fn_t(void);
 static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT];
 
 
@@ -396,11 +397,11 @@ static void vm_init(int argc, char** argv) {
  * System Calls
  */
 
-static void vm_exit(void) {
+static uint32_t vm_exit(void) {
     exit(vm_registers[0]);
 }
 
-static void vm_fopen(void) {
+static uint32_t vm_fopen(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
     FILE* file;
@@ -416,55 +417,52 @@ static void vm_fopen(void) {
             vm_files[handle] != NULL; ++handle) {}
     if (handle == VM_MAX_FILES) {
         /* too many open files */
-        vm_registers[0] = VM_ERR_GENERIC;
-        return;
+        return VM_ERR_GENERIC;
     }
 
     /* open it */
     file = fopen(path, mode ? "a+b" : "rb");
     if (file == NULL) {
-        vm_registers[0] = VM_ERR_PATH;
-        return;
+        return VM_ERR_PATH;
     }
     vm_files[handle] = file;
-    vm_registers[0] = handle;
 
     /* seek to the beginning (in case of append mode) */
     fseek(file, 0, SEEK_SET);
+
+    return handle;
 }
 
-static void vm_fclose(void) {
+static uint32_t vm_fclose(void) {
     uint32_t handle = vm_registers[0];
     fclose(vm_files[handle]);
     vm_files[handle] = NULL;
-    vm_registers[0] = 0;
+    return 0;
 }
 
-static void vm_fread(void) {
+static uint32_t vm_fread(void) {
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
     FILE* file = vm_file(vm_registers[0]);
     size_t ret = fread(vm_memory + addr, 1, count, file);
     if (ret == 0 && !feof(file)) {
-        vm_registers[0] = VM_ERR_IO;
-        return;
+        return VM_ERR_IO;
     }
-    vm_registers[0] = (uint32_t)ret;
+    return (uint32_t)ret;
 }
 
-static void vm_fwrite(void) {
+static uint32_t vm_fwrite(void) {
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
     FILE* file = vm_file(vm_registers[0]);
     size_t ret = fwrite(vm_memory + addr, 1, count, file);
     if (ret == count) {
-        vm_registers[0] = count;
-    } else {
-        vm_registers[0] = VM_ERR_IO;
+        return count;
     }
+    return VM_ERR_GENERIC;
 }
 
-static void vm_fseek(void) {
+static uint32_t vm_fseek(void) {
     /*
      * We don't know how long `long` or `off_t` are. If they're only 32 bits we
      * won't have enough space for the high bits. We try anyway; we just won't
@@ -477,18 +475,17 @@ static void vm_fseek(void) {
     FILE* file = vm_file(vm_registers[0]);
     long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
     int ret = fseek(file, offset, base);
-    vm_registers[0] = ret ? VM_ERR_IO : 0;
+    return ret ? VM_ERR_GENERIC : 0;
 }
 
-static void vm_ftell(void) {
+static uint32_t vm_ftell(void) {
     FILE* file = vm_file(vm_registers[0]);
     uint32_t addr = vm_registers[1];
     unsigned long upos;
     long pos = ftell(file);
 
     if (pos < 0) {
-        vm_registers[0] = VM_ERR_IO;
-        return;
+        return VM_ERR_GENERIC;
     }
 
     /* As with fseek() we shift twice in case `long` or `off_t` is only
@@ -496,12 +493,12 @@ static void vm_ftell(void) {
     upos = (unsigned long)pos;
     vm_store_u32(addr, (uint32_t)upos);
     vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
-    vm_registers[0] = 0;
+    return 0;
 }
 
 /* TODO ftrunc is currently required. should be optional. */
 #ifdef VM_POSIX
-static void vm_ftrunc(void) {
+static uint32_t vm_ftrunc(void) {
     /* On POSIX systems we call ftruncate(). */
     uint32_t size_low = vm_registers[1];
     uint32_t size_high = vm_registers[2];
@@ -511,10 +508,10 @@ static void vm_ftrunc(void) {
     int ret;
     fflush(file);
     ret = ftruncate(fd, upos);
-    vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
+    return ret ? VM_ERR_GENERIC : 0;
 }
 #elif
-static void vm_ftrunc(void) {
+static uint32_t vm_ftrunc(void) {
     /* On Windows we have _chsize(). There is also _chsize_s() which is
      * 64-bit but our fseek()/ftell() functions aren't currently using
      * corresponding 64-bit functions so right now there's no point. */
@@ -526,30 +523,30 @@ static void vm_ftrunc(void) {
     int ret;
     fflush(file);
     ret = _chsize(fileno(file), upos);
-    vm_registers[0] = ret ? VM_ERR_GENERIC : 0;
+    return ret ? VM_ERR_GENERIC : 0;
 }
 #else
 #define vm_ftrunc NULL
 #endif
 
 #ifdef VM_POSIX
-static void vm_chmod(void) {
+static uint32_t vm_chmod(void) {
     /* There is nothing like chmod() in standard C. It's only relevant for
      * better integration into UNIX systems. */
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
     const char* path = (const char*)vm_memory + path_addr;
-    vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
+    return chmod(path, mode) ? VM_ERR_GENERIC : 0;
 }
 #else
 #define vm_chmod NULL
 #endif
 
-#ifdef VM_POSIX
-static void vm_mkdir(void) {
+#if defined(VM_POSIX) || defined(_WIN32)
+static uint32_t vm_mkdir(void) {
     /* Standard C doesn't have mkdir but POSIX does. */
     const char* path = (const char*)vm_memory + vm_registers[0];
-    vm_registers[0] = mkdir(path, 0755) ? VM_ERR_GENERIC : 0;
+    return mkdir(path, 0755) ? VM_ERR_GENERIC : 0;
 }
 #else
 #define vm_mkdir NULL
@@ -588,7 +585,7 @@ static void vm_sys(void) {
     if (syscall >= VM_SYSCALL_COUNT) {
         vm_panic("Invalid syscall number.");
     }
-    vm_syscall_table[syscall]();
+    vm_registers[0] = vm_syscall_table[syscall]();
     vm_registers[VM_RIP] = vm_load_u32(vm_registers[VM_RSP]);
 }
 
