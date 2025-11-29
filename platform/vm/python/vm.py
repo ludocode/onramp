@@ -223,6 +223,13 @@ def syscall_chmod():
     except:
         registers[0] = VM_ERR_GENERIC
 
+def syscall_mkdir():
+    try:
+        os.mkdir(loadString(registers[0]), 0o755)
+        registers[0] = 0
+    except:
+        registers[0] = VM_ERR_GENERIC
+
 syscalls = {
     0: syscall_exit,
     2: syscall_time,
@@ -235,6 +242,7 @@ syscalls = {
     9: syscall_ftrunc,
     16: syscall_unlink,
     17: syscall_chmod,
+    18: syscall_mkdir,
 }
 
 def run():
