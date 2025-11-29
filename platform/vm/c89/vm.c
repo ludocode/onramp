@@ -109,7 +109,7 @@ static FILE* vm_files[VM_MAX_FILES];
 #define VM_ERR_IO          0xFFFFFFFD
 #define VM_ERR_UNSUPPORTED 0xFFFFFFFC
 
-#define VM_SYSCALL_COUNT 23
+#define VM_SYSCALL_COUNT 25
 
 static uint8_t vm_load_u8(uint32_t addr);
 
@@ -538,12 +538,21 @@ static void vm_chmod(void) {
      * better integration into UNIX systems. */
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
-    const char* path;
-    path = (const char*)vm_memory + path_addr;
+    const char* path = (const char*)vm_memory + path_addr;
     vm_registers[0] = chmod(path, mode) ? VM_ERR_GENERIC : 0;
 }
 #else
 #define vm_chmod NULL
+#endif
+
+#ifdef VM_POSIX
+static void vm_mkdir(void) {
+    /* Standard C doesn't have mkdir but POSIX does. */
+    const char* path = (const char*)vm_memory + vm_registers[0];
+    vm_registers[0] = mkdir(path, 0755) ? VM_ERR_GENERIC : 0;
+}
+#else
+#define vm_mkdir NULL
 #endif
 
 static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
@@ -564,12 +573,14 @@ static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
     NULL, /* rename */
     NULL, /* symlink */
     NULL, /* unlink */
-    vm_chmod, /* may be NULL */
-    NULL, /* mkdir */
+    vm_chmod,
+    vm_mkdir,
     NULL, /* rmdir */
     NULL, /* spawn */
     NULL, /* waitpid */
     NULL, /* debug */
+    NULL, /* alloc */
+    NULL, /* free */
 };
 
 static void vm_sys(void) {
