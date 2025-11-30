@@ -102,8 +102,6 @@ Eventually I will write a VM for Windows in machine code in a PE container to ma
 
 In the meantime it is probably relatively easy to get the Python or C89 VMs running on Windows. The main thing they need is to translate paths from Windows style (e.g. `C:\some\path`) to Onramp style (e.g. `/c/some/path`). This is not done yet.
 
-From there it would be possible to use it to run the Onramp build script, except the Onramp shell is not written yet either. If you also use a POSIX shell to run it (e.g. Cygwin or MSYS2), you might be able to get this working on Windows. I haven't bothered to try this yet.
-
 
 
 ## Manual Hosted Setup
@@ -137,8 +135,6 @@ onrampvm build/intermediate/sh/sh.oe core/build.sh
 Again, all paths are relative to the root of the Onramp source, and the working directory must be this path as well.
 
 If your VM and hex implementations are correct, this should bootstrap Onramp.
-
-WARNING: The Onramp shell tool is incomplete. In the meantime you need to run `core/build.sh` in a POSIX shell with `onrampvm` on your PATH. This will be fixed soon.
 
 The results of bootstrapping are in `build/output/`. The compiler driver is `bin/cc.oe`, which you can run in your Onramp VM like this:
 

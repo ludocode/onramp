@@ -34,7 +34,7 @@
 # This can also be run in an ordinary POSIX shell for ease of debugging. You'll
 # need `onrampvm` on your PATH and you'll need to have built `hex/onramp` first.
 # Try the setup scripts in `scripts/` to do this automatically, for example
-# `scripts/posix/build.sh`.
+# `scripts/posix/build.sh --setup`.
 #
 # See `docs/bootstrap-path.md` to follow what this script does.
 
