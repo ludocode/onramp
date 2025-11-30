@@ -33,7 +33,7 @@ cd "$(dirname "$0")/../../.."
 # find a fast error-checking hex tool
 if [ -e build/test/hex-c89/hex ]; then
     HEX=build/test/hex-c89/hex
-elif command -v python; then
+elif command -v python 1>/dev/null 2>/dev/null; then
     HEX="python platform/hex/python/hex.py"
 else
     HEX=platform/hex/sh/hex.sh

@@ -149,7 +149,8 @@
 ; 0x401410 io_teardown
 ; 0x401460 signal_handler
 ; 0x401580 check_byte
-; 0x4015C0   end of program
+; 0x4015C0 syscall_mkdir
+; 0x401630   end of program
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -231,8 +232,8 @@
     00 05 00 00 00 00 00 00  ; offset within the file: 0x500
     00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
     00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
-    C0 10 00 00 00 00 00 00  ; size of the segment in the file: 0x10C0 (0x15C0-0x500)
-    C0 10 00 00 00 00 00 00  ; size of the segment in memory: 0x10C0 (0x15C0-0x500)
+    30 11 00 00 00 00 00 00  ; size of the segment in the file: 0x1130 (0x1630-0x500)
+    30 11 00 00 00 00 00 00  ; size of the segment in memory: 0x1130 (0x1630-0x500)
     00 10 00 00 00 00 00 00  ; required alignment: 4 KB
 @0x78
 
@@ -433,7 +434,7 @@
     00 00 00 00  00 00 40 00   ; 0x0F symlink (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x10 unlink (not yet implemented)
     30 00 00 01  A0 11 40 00   ; 0x11 chmod (0x4011A0)
-    00 00 00 00  00 00 40 00   ; 0x12 mkdir (not yet implemented)
+    30 00 00 01  C0 15 40 00   ; 0x12 mkdir (0x4015C0)
     00 00 00 00  00 00 40 00   ; 0x13 rmdir (not yet implemented)
 ; misc
     00 00 00 00  00 00 40 00   ; 0x14 spawn (not yet implemented)
@@ -2934,7 +2935,69 @@
 
 
 
+; ==========================================================
+; void syscall_mkdir(void)
+; ==========================================================
+; Creates a directory.
+;
+; params:
+;    - r0: path
+; ==========================================================
+
+@0x15C0 syscall_mkdir
+
+    ; set up stack frame
+    ;55           ; push rbp
+    ;48 89 E5     ; mov rbp, rsp
+
+    ; get the filename in %rdi, check it
+    BF 00 00 60 00    ; mov rdi, r0 (0x600000)
+    8B 3F             ; mov edi, [rdi]
+    57                ; push rdi
+    B8 10 08 40 00    ; mov eax, check_string (0x400810)
+    FF D0             ; call rax
+
+    ; put mode in %rsi
+    BE ED 01 00 00    ; mov esi, 493  (rwxr-xr-x == 0755 == 493 == 0x1ED)
+
+    ; call mkdir syscall
+    B8 53 00 00 00   ; mov eax, 0x53  ; syscall: mkdir (83)
+    5F               ; pop rdi        ; file descriptor
+    0F 05            ; syscall
+
+    ; check if it failed
+    48 83 F8 00      ; cmp rax, 0
+    74 0C            ; je syscall_mkdir_ok (+12)
+
+    ; fail. store ERROR_GENERIC in r0
+    BF 00 00 60 00     ; mov edi, r0 (0x600000)
+    C7 07 FF FF FF FF  ; mov [rdi], ERROR_GENERIC (0xFFFFFFFF)
+
+    ; return
+    C3           ; ret
+
+;syscall_mkdir_ok:
+
+    ; success. store 0 in r0
+    BF 00 00 60 00     ; mov edi, r0 (0x600000)
+    C7 07 00 00 00 00  ; mov [rdi], 0
+
+    ; return
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90
+@0x1630
+
+
+
 ; Note: When extending the text segment, the sizes in the header at 0x40 must
 ; be incremented to include it!
 
-@0x15C0  ; end of program, corresponds to size in ELF text header
+@0x1630  ; end of program, corresponds to size in ELF text header
