@@ -2088,7 +2088,9 @@
 ; ==========================================================
 ; Reads from the given file handle to the given buffer.
 ;
-; If writing fails, the VM aborts.
+; We use poll() first to check whether there is data available in order to make
+; our read non-blocking. We poll all file descriptors because we don't know
+; which ones are streams and which ones are ordinary files.
 ;
 ; params:
 ;    - r0: file handle
@@ -2104,7 +2106,47 @@
     ; get the file descriptor (and check it)
     B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
     FF D0             ; call rax
+
+    ; save the file descriptor
     50                ; push rax
+
+    ; prepare args to poll
+    ; each struct pollfd is 8 bytes. we want the low 4 bytes to be the fd
+    ; (currently in rax) and the next two bytes to be POLLIN (1), so we shift
+    ; POLLIN up, mask it into rax and push it.
+    BE 01 00 00 00    ; mov esi, 1
+    48 C1 E6 20       ; shl rsi, 32 (0x20)
+    48 09 F0          ; or rax, rsi
+    50                ; push rax        ; this is our single struct pollfd
+    48 89 E7          ; mov rdi, rsp    ; struct pollfd* fds == rsp
+    BE 01 00 00 00    ; mov esi, 1      ; nfds == 1
+    BA 00 00 00 00    ; mov edx, 0      ; timeout == 0
+
+    ; call poll() syscall
+    B8 07 00 00 00   ; mov eax, 0x7  ; syscall: poll (7)
+    0F 05            ; syscall
+
+    ; If poll() returned 0, it means success and no file descriptors are ready.
+    ; In this case only, we skip the read and return ERROR_TRY_LATER to the
+    ; program. poll() may return 1 to say data is available or a negative
+    ; number on error; either way we try the read.
+    48 83 F8 00      ; cmp rax, 0
+    75 0E            ; jne syscall_fread_poll_nonzero (+14)
+
+    ; store ERROR_TRY_LATER in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    ;67 C6 07 FB      ; mov byte [edi], 0xFB   ; move byte sign-extended
+    ; TODO: ERROR_TRY_LATER is v4, we'll switch over to it later. In v3 we
+    ; return 0 if data is unavailable.
+    67 C6 07 00      ; mov byte [edi], 0
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+;syscall_fread_poll_nonzero:
+    ; poll() returned non-zero. we're doing the read.
 
     ; get the buffer (and check it)
     B8 04 00 60 00    ; mov eax, r1 (0x600004)
@@ -2125,6 +2167,8 @@
 
     ; TODO convert return value to Onramp error codes. Linux syscalls return
     ; negative values on error so for now we just pass it through.
+    ; TODO for v4 if read returns zero we have to return ERROR_END_OF_FILE.
+    ; TODO we can just convert any other negative value to ERROR_GENERIC for now.
 
     ; store the return value in r0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
@@ -2136,13 +2180,7 @@
     C3           ; ret
 
     ; padding (nop)
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90
+    90
 @0xF40
 
 
@@ -2649,7 +2687,7 @@
 ; ==========================================================
 ; void io_setup(void)
 ; ==========================================================
-; Sets standard input to non-echo, non-canonical, and non-blocking.
+; Sets standard input to non-echo, non-canonical.
 ;
 ; Also sets up signal handlers to undo it on exit.
 ;
@@ -2669,24 +2707,33 @@
     48 89 E5     ; mov rbp, rsp
 
 
-    ; First we need to set O_NONBLOCK on the input stream.
-
-    ; call fcntl(F_GETFL) to get input flags
-    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
-    BE 03 00 00 00     ; mov esi, 3    ; command: F_GETFL (3)
-    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
-    0F 05              ; syscall
-
-    ; add non-blocking flag
-    0D 00 08 00 00     ; or eax, O_NONBLOCK (0x800)
-
-    ; call fcntl(F_SETFL) to set input flags
-    89 C2              ; mov edx, eax  ; arg: flags
-    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
-    BE 04 00 00 00     ; mov esi, 4    ; command: F_SETFL (4)
-    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
-    0F 05              ; syscall
-
+; TODO this will be cleaned up soon, this function will be refactored to fix termios bugs (#11)
+;    ; First we need to set O_NONBLOCK on the input stream.
+;
+;    ; call fcntl(F_GETFL) to get input flags
+;    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
+;    BE 03 00 00 00     ; mov esi, 3    ; command: F_GETFL (3)
+;    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
+;    0F 05              ; syscall
+;
+;    ; add non-blocking flag
+;    0D 00 08 00 00     ; or eax, O_NONBLOCK (0x800)
+;
+;    ; call fcntl(F_SETFL) to set input flags
+;    89 C2              ; mov edx, eax  ; arg: flags
+;    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
+;    BE 04 00 00 00     ; mov esi, 4    ; command: F_SETFL (4)
+;    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
+;    0F 05              ; syscall
+    90 90 90 90 90
+    90 90 90 90 90
+    90 90 90 90 90
+    90 90 90 90 90
+    90 90 90 90 90
+    90 90 90 90 90
+    90 90 90 90 90
+    90 90 90 90 90
+    90
 
     ; Next we use ioctl(TCGETS) (equivalent to tcgetattr()) to preserve the
     ; initial terminal state.
