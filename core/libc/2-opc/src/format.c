@@ -33,9 +33,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-//#ifdef __onramp_cci_opc__
-#define NO_LONG_LONG // TODO temporarily using this until cci/2 supports long long
-//#endif
+#ifndef __onramp_cci_opc__
+#define HAVE_LONG_LONG
+#endif
 
 typedef enum length_modifier_t {
     length_modifier_none = 0,
@@ -408,9 +408,9 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 }
 
 /**
- * Converts an unsigned integer to a decimal string.
+ * Converts an unsigned 32-bit integer to a decimal string.
  */
-static size_t utod(uintmax_t value, char* output) {
+static size_t utod(uint32_t value, char* output) {
     if (value == 0) {
         *output = '0';
         return 1;
@@ -430,11 +430,38 @@ static size_t utod(uintmax_t value, char* output) {
     return length;
 }
 
+#ifdef HAVE_LONG_LONG
+/**
+ * Converts an unsigned 64-bit integer to a decimal string.
+ */
+static size_t utod64(uint64_t value, char* output) {
+    if (value <= UINT32_MAX) {
+        return utod((uint32_t)value, output);
+    }
+
+    // The rest of this function is identical to its 32-bit counterpart but it
+    // uses 64-bit math so it's much slower.
+
+    char reverse[64];
+    char* p = reverse;
+    while (value > 0) {
+        *p++ = '0' + (value % 10);
+        value /= 10;
+    }
+
+    size_t length = p - reverse;
+    for (size_t i = 0; i < length; ++i) {
+        output[i] = reverse[length - i - 1];
+    }
+    return length;
+}
+#endif
+
 
 /**
- * Converts an unsigned integer to a hexdecimal string.
+ * Converts an unsigned 32-bit integer to a hexdecimal string.
  */
-static size_t utoh(uintmax_t value, char* output, bool uppercase) {
+static size_t utoh(uint32_t value, char* output, bool uppercase) {
     if (value == 0) {
         *output = '0';
         return 1;
@@ -459,6 +486,39 @@ static size_t utoh(uintmax_t value, char* output, bool uppercase) {
     }
     return length;
 }
+
+#ifdef HAVE_LONG_LONG
+/**
+ * Converts an unsigned 64-bit integer to a hexdecimal string.
+ */
+static size_t utoh64(uint64_t value, char* output, bool uppercase) {
+    if (value <= UINT32_MAX) {
+        return utoh((uint32_t)value, output, uppercase);
+    }
+
+    // The rest of this function is identical to its 32-bit counterpart but it
+    // uses 64-bit math so it's much slower.
+
+    char reverse[64];
+    char* p = reverse;
+    while (value > 0) {
+        int digit = value & 0xF;
+        if (digit >= 10) {
+            *p = (uppercase ? 'A' : 'a') + digit - 10;
+        } else {
+            *p = '0' + digit;
+        }
+        ++p;
+        value >>= 4;
+    }
+
+    size_t length = p - reverse;
+    for (size_t i = 0; i < length; ++i) {
+        output[i] = reverse[length - i - 1];
+    }
+    return length;
+}
+#endif
 
 /**
  * Output state for the print function.
@@ -512,45 +572,234 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
     }
 }
 
-static void print_d(output_t* output, directive_t* directive, va_list* args, char* number_buffer) {
-
-    // get argument
-    intmax_t value;
-    if (directive->length_modifier == length_modifier_ll) {
-        #ifndef NO_LONG_LONG
-            value = va_arg(*args, long long);
-        #endif
-        #ifdef NO_LONG_LONG
-            output->error = true;
-            return;
-        #endif
-    } else {
-        value = va_arg(*args, int);
+static void print_char_repeated(output_t* output, char c, size_t count) {
+    if (count == 0) {
+        return;
     }
 
-    // convert negative to positive
-    uintmax_t uvalue;
-    if (value >= 0)
-        uvalue = (uintmax_t)value;
-    else if (value == INTMAX_MIN)
-        uvalue = (uintmax_t)INTMAX_MAX + 1u;
-    else
-        uvalue = -(uintmax_t)value;
+    char buf[64];
+    memset(buf, c, sizeof(buf));
 
-    // format it
-    size_t length = utod(uvalue, number_buffer);
-    if (value < 0)
-        print_output(output, "-", 1);
+    while (count > sizeof(buf)) {
+        print_output(output, buf, sizeof(buf));
+        count -= sizeof(buf);
+    }
 
-    // TODO the rest of the modifiers. For now we only handle precision.
-    assert(!directive->argument_positions); // TODO not yet implemented
+    print_output(output, buf, count);
+}
+
+/**
+ * Prints the given number, taking into account flags and field length.
+ *
+ * The number has already been converted to string with the given buffer and
+ * length.
+ */
+static void print_number(output_t* output, directive_t* directive,
+        const char* buffer, size_t length, bool negative)
+{
+    // zeroes from precision
+    size_t zeroes = 0;
     if (length < (size_t)directive->precision) {
-        for (size_t i = (size_t)directive->precision - length; i-- > 0;) {
-            print_output(output, "0", 1);
+        zeroes = (size_t)directive->precision - length;
+    }
+
+    // spaces or zeroes from field width
+    size_t padding = 0;
+    if (length + zeroes < (size_t)directive->field_width) {
+        padding = (size_t)directive->field_width - length - zeroes;
+    }
+
+    char sign = 0;
+    if (negative || directive->plus_sign || directive->blank_plus_sign) {
+        if (negative) {
+            sign = '-';
+        } else if (directive->plus_sign) {
+            sign = '+';
+        } else {
+            sign = ' ';
+        }
+        if (padding > 0) {
+            --padding;
         }
     }
 
-    print_output(output, number_buffer, length);
+    if (sign && (directive->left_adjusted || directive->zero_padded)) {
+        print_output(output, &sign, 1);
+        sign = 0;
+    }
+
+    // '-' overrides '0'
+    if (!directive->left_adjusted) {
+        if (directive->zero_padded) {
+            print_char_repeated(output, '0', padding);
+        } else {
+            print_char_repeated(output, ' ', padding);
+        }
+    }
+
+    if (sign) {
+        print_output(output, &sign, 1);
+    }
+
+    print_char_repeated(output, '0', zeroes);
+    print_output(output, buffer, length);
+
+    if (directive->left_adjusted) {
+        print_char_repeated(output, ' ', padding);
+    }
+}
+
+/**
+ * Prints a %u.
+ */
+static void print_u(output_t* output, directive_t* directive, va_list* args) {
+    char buffer[128];
+    size_t length;
+
+    if (directive->length_modifier == length_modifier_ll) {
+        #ifndef HAVE_LONG_LONG
+        output->error = true;
+        return;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        length = utod64(va_arg(*args, unsigned long long), buffer);
+        #endif
+    } else {
+        unsigned value = va_arg(*args, unsigned);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                value = (unsigned short)value;
+                break;
+            case length_modifier_hh:
+                value = (unsigned char)value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                break;
+            default:
+                output->error = true;
+                return;
+        }
+        length = utod(value, buffer);
+    }
+
+    print_number(output, directive, buffer, length, false);
+}
+
+/**
+ * Prints a %x or %X.
+ */
+static void print_x(output_t* output, directive_t* directive, va_list* args) {
+    bool uppercase = directive->conversion == 'X';
+    char buffer[128];
+    size_t length;
+
+    if (directive->length_modifier == length_modifier_ll) {
+        #ifndef HAVE_LONG_LONG
+        output->error = true;
+        return;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        length = utoh64(va_arg(*args, unsigned long long), buffer, uppercase);
+        #endif
+    } else {
+        unsigned value = va_arg(*args, unsigned);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                value = (unsigned short)value;
+                break;
+            case length_modifier_hh:
+                value = (unsigned char)value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                break;
+            default:
+                output->error = true;
+                return;
+        }
+        length = utoh(value, buffer, uppercase);
+    }
+
+    print_number(output, directive, buffer, length, false);
+}
+
+/**
+ * Prints a %d or %i.
+ */
+static void print_d(output_t* output, directive_t* directive, va_list* args) {
+    bool negative;
+    char buffer[128];
+    size_t length;
+
+    if (directive->length_modifier == length_modifier_ll) {
+        #ifndef HAVE_LONG_LONG
+        output->error = true;
+        return;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        int64_t value = va_arg(*args, long long);
+
+        // convert negative to positive
+        uint64_t uvalue;
+        if (value >= 0) {
+            negative = false;
+            uvalue = (uint64_t)value;
+        } else {
+            negative = true;
+            if (value == INT64_MIN) {
+                uvalue = (uint64_t)INT64_MAX + 1ull;
+            } else {
+                uvalue = -(uint64_t)value;
+            }
+        }
+
+        length = utod64(uvalue, buffer);
+        #endif
+    } else {
+        int32_t value = va_arg(*args, int);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                value = (short)value;
+                break;
+            case length_modifier_hh:
+                value = (char)value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                break;
+            default:
+                output->error = true;
+                return;
+        }
+
+        // convert negative to positive
+        uint32_t uvalue;
+        if (value >= 0) {
+            negative = false;
+            uvalue = (uint32_t)value;
+        } else {
+            negative = true;
+            if (value == INT32_MIN) {
+                uvalue = (uint32_t)INT32_MAX + 1u;
+            } else {
+                uvalue = -(uint32_t)value;
+            }
+        }
+
+        length = utod(uvalue, buffer);
+    }
+
+    print_number(output, directive, buffer, length, negative);
 }
 
 /**
@@ -558,9 +807,6 @@ static void print_d(output_t* output, directive_t* directive, va_list* args, cha
  */
 static void print(const char* format, output_t* output, va_list args) {
     const char* p = format;
-
-    // buffer large enough to format any number, floating point or otherwise
-    char number_buffer[128];
 
     while (*p != 0) {
 
@@ -594,11 +840,21 @@ static void print(const char* format, output_t* output, va_list args) {
                 print_output(output, "%", 1);
                 break;
 
+            // number
             case 'd':
             case 'i':
-                print_d(output, &directive, (va_list*)&args, number_buffer);
+                print_d(output, &directive, (va_list*)&args);
+                break;
+            case 'u':
+                print_u(output, &directive, (va_list*)&args);
+                break;
+            case 'p':
+            case 'x':
+            case 'X':
+                print_x(output, &directive, (va_list*)&args);
                 break;
 
+            // string
             case 's': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
@@ -612,6 +868,7 @@ static void print(const char* format, output_t* output, va_list args) {
                 break;
             }
 
+            // char
             case 'c': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
@@ -621,44 +878,6 @@ static void print(const char* format, output_t* output, va_list args) {
                 }
                 char c = (char)va_arg(args, int);
                 print_output(output, &c, 1);
-                break;
-            }
-
-            case 'u': {
-                uintmax_t value;
-                if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef NO_LONG_LONG
-                        value = va_arg(args, unsigned long long);
-                    #endif
-                    #ifdef NO_LONG_LONG
-                        output->error = true;
-                        return;
-                    #endif
-                } else {
-                    value = va_arg(args, unsigned);
-                }
-                size_t length = utod(value, number_buffer);
-                print_output(output, number_buffer, length);
-                break;
-            }
-
-            case 'p': // fallthrough
-            case 'x': // fallthrough
-            case 'X': {
-                uintmax_t value;
-                if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef NO_LONG_LONG
-                        value = va_arg(args, unsigned long long);
-                    #endif
-                    #ifdef NO_LONG_LONG
-                        output->error = true;
-                        return;
-                    #endif
-                } else {
-                    value = va_arg(args, unsigned);
-                }
-                size_t length = utoh(value, number_buffer, directive.conversion == 'X');
-                print_output(output, number_buffer, length);
                 break;
             }
 
