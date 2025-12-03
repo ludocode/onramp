@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -746,6 +746,8 @@ static void print_d(output_t* output, directive_t* directive, va_list* args) {
 
         #ifdef HAVE_LONG_LONG
         int64_t value = va_arg(*args, long long);
+        printf("%x\n", *(int*)&value);
+        printf("%x\n", *((int*)&value +1));
 
         // convert negative to positive
         uint64_t uvalue;

@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2023-2024 Fraser Heavy Software
+// Copyright (c) 2023-2025 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 #include <stdbool.h>
@@ -88,6 +88,14 @@ static void test_ltu(void) {
     }
     if (__llong_ltu((unsigned*)&a, (unsigned*)&a)) {
         exit(1);
+    }
+}
+
+static void test_lts(void) {
+    long long c = 0x80000000ll;
+    long long z = 0;
+    if (__llong_lts((unsigned*)&c, (unsigned*)&z)) {
+        exit(2);
     }
 }
 
@@ -309,6 +317,7 @@ int main(void) {
     test_mods();
     test_modu();
     test_ltu();
+    test_lts();
     test_shl();
     test_shru();
     test_shrs();

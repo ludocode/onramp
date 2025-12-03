@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -397,7 +397,6 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
     type_t* type = left->type;
 
     if (type_is_long_long(type)) {
-        opcode_t opcode = type_is_signed_integer(type) ? LTS : LTU;
 
         // This is similar to generate_equality() below. We do the comparison
         // inline without a function call. This might be a bad idea; maybe it
@@ -415,11 +414,11 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
         block_append(current_block, node->token, ADD, reg_right, RSP, 8);
         generate_node(right, reg_right);
 
-        // compare the low bytes in reg_left
+        // compare the low bytes in reg_left (with LTU, not LTS!)
         int reg_temp1 = register_alloc(node->token);
         block_append(current_block, node->token, LDW, reg_left, RSP, 0);
         block_append(current_block, node->token, LDW, reg_temp1, RSP, 8);
-        block_append(current_block, node->token, opcode, reg_left, reg_left, reg_temp1);
+        block_append(current_block, node->token, LTU, reg_left, reg_left, reg_temp1);
 
         // keep it only if the top bytes match
         int reg_temp2 = register_alloc(node->token);
@@ -430,7 +429,9 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
         block_append(current_block, node->token, AND, reg_left, reg_left, reg_temp1);
 
         // compare the high bytes in reg_right
-        block_append(current_block, node->token, opcode, reg_right, reg_right, reg_temp2);
+        block_append(current_block, node->token,
+                type_is_signed_integer(type) ? LTS : LTU,
+                reg_right, reg_right, reg_temp2);
 
         // combine it with the result in reg_left
         block_append(current_block, node->token, OR, reg_left, reg_left, reg_right);

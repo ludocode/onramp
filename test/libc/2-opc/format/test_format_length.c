@@ -35,13 +35,19 @@ int main(void) {
     // char truncation
     TEST_FORMAT(30, "-1", "%hhi", 255);
 
-    // long is the same as int (on Onramp)
     #ifdef __onramp__
+    // long is the same as int (on Onramp)
     TEST_FORMAT(40, "2147483647 -2147483648", "%li %li", INT_MAX, INT_MIN);
     TEST_FORMAT(41, "-2147483648 2147483647", "%li %li", INT_MIN, INT_MAX);
     #endif
 
+    // TODO this test works but it's disabled for now because this file runs
+    // during bootstrapping but 64-bit formatting is not enabled in the
+    // bootstrap libc (it only becomes available once the final libc is
+    // rebuilt.) We need to figure out a way to run these tests only on the
+    // final libc.
+    #ifdef DISABLED
     // long long
-    // TODO long long formatting is not working yet
-    //TEST_FORMAT(50, "2147483648", "%lli", (long long)INT_MAX + 1);
+    TEST_FORMAT(50, "2147483648", "%lli", (long long)INT_MAX + 1);
+    #endif
 }
