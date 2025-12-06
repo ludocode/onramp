@@ -270,8 +270,6 @@ comment "libc/3-full"
 srcs_onramp libc-3-full \
     core/libc/2-opc/src/start.os \
     \
-    core/libc/1-omc/src/strtol.c \
-    \
     core/libc/2-opc/src/assert.c \
     core/libc/2-opc/src/ctype.c \
     core/libc/2-opc/src/environ.c \
@@ -297,6 +295,7 @@ srcs_onramp libc-3-full \
     core/libc/3-full/src/signal.c \
     core/libc/3-full/src/stdbit_llong.c \
     core/libc/3-full/src/stdlib_3.c \
+    core/libc/3-full/src/strtol.c \
     core/libc/3-full/src/time.c
     # TODO just include libc/3/*.c once malloc works
 # TODO shouldn't depend on ar.oe, necessary until we have native ar

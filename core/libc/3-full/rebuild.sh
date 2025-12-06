@@ -30,15 +30,6 @@ echo
 echo === Rebuilding libc/3-full
 
 
-# libc/1 sources
-
-echo Compiling libc/1-omc strtol.c
-onrampvm build/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/1-omc/src/strtol.c \
-    -o build/intermediate/libc-3-full-re/strtol.oo
-
-
 # libc/2 sources
 
 echo Assembling libc/2-opc start.os
@@ -195,6 +186,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/stdlib_3.c \
     -o build/intermediate/libc-3-full-re/stdlib_3.oo
 
+echo Compiling libc/3-full strtol.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/3-full/src/strtol.c \
+    -o build/intermediate/libc-3-full-re/strtol.oo
+
 echo Compiling libc/3-full time.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -213,8 +210,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
-    \
-    build/intermediate/libc-3-full-re/strtol.oo \
     \
     build/intermediate/libc-3-full-re/assert.oo \
     build/intermediate/libc-3-full-re/ctype.oo \
@@ -241,5 +236,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full-re/signal.oo \
     build/intermediate/libc-3-full-re/stdbit_llong.oo \
     build/intermediate/libc-3-full-re/stdlib_3.oo \
+    build/intermediate/libc-3-full-re/strtol.oo \
     build/intermediate/libc-3-full-re/time.oo \
 

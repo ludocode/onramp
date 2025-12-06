@@ -76,6 +76,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/stdlib_3.c \
     -o build/intermediate/libc-3-full/stdlib_3.oo
 
+echo Compiling libc/3-full strtol.c
+onrampvm build/intermediate/cc/cc.oe \
+    @core/libc/3-full/build-ccargs \
+    -c core/libc/3-full/src/strtol.c \
+    -o build/intermediate/libc-3-full/strtol.oo
+
 echo Compiling libc/3-full time.c
 onrampvm build/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
@@ -91,8 +97,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
-    \
-    build/intermediate/libc-1-omc/strtol.oo \
     \
     build/intermediate/libc-2-opc/assert.oo \
     build/intermediate/libc-2-opc/ctype.oo \
@@ -119,5 +123,6 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     build/intermediate/libc-3-full/signal.oo \
     build/intermediate/libc-3-full/stdbit_llong.oo \
     build/intermediate/libc-3-full/stdlib_3.oo \
+    build/intermediate/libc-3-full/strtol.oo \
     build/intermediate/libc-3-full/time.oo \
 
