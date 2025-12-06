@@ -656,7 +656,10 @@ static void print_u(output_t* output, directive_t* directive, va_list* args) {
     char buffer[128];
     size_t length;
 
-    if (directive->length_modifier == length_modifier_ll) {
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
         #ifndef HAVE_LONG_LONG
         output->error = true;
         return;
@@ -697,7 +700,10 @@ static void print_x(output_t* output, directive_t* directive, va_list* args) {
     char buffer[128];
     size_t length;
 
-    if (directive->length_modifier == length_modifier_ll) {
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
         #ifndef HAVE_LONG_LONG
         output->error = true;
         return;
@@ -738,7 +744,10 @@ static void print_d(output_t* output, directive_t* directive, va_list* args) {
     char buffer[128];
     size_t length;
 
-    if (directive->length_modifier == length_modifier_ll) {
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
         #ifndef HAVE_LONG_LONG
         output->error = true;
         return;
@@ -746,8 +755,6 @@ static void print_d(output_t* output, directive_t* directive, va_list* args) {
 
         #ifdef HAVE_LONG_LONG
         int64_t value = va_arg(*args, long long);
-        printf("%x\n", *(int*)&value);
-        printf("%x\n", *((int*)&value +1));
 
         // convert negative to positive
         uint64_t uvalue;
