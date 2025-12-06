@@ -177,11 +177,11 @@ void generate_for(node_t* node, int reg_out) {
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
-    generate_node(initialization, reg_out);
+    generate_node(initialization, -1);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
 
     current_block = increment_block;
-    generate_node(increment, reg_out);
+    generate_node(increment, -1);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
 
     current_block = body_block;
@@ -189,7 +189,7 @@ void generate_for(node_t* node, int reg_out) {
         generate_node(condition, reg_out);
         block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
     }
-    generate_node(body, reg_out);
+    generate_node(body, -1);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, increment_block->label);
 
     current_block = end_block;
