@@ -213,6 +213,99 @@
 
 
 ; ==========================================================
+; void* realloc(void* old_p, size_t new_size)
+; ==========================================================
+; Resizes a memory block.
+;
+; Resizing is performed by allocating a new block, copying the contents, and
+; freeing the old block.
+;
+; vars:
+; - old_p: rfp-4
+; - new_size: rfp-8
+; - new_p: rfp-12
+; ==========================================================
+
+=realloc
+
+    ; check if the old pointer is null. if so, we'll forward to malloc.
+    7E 80 &__realloc_null_src     ; jz r0 &__realloc_null_src
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp      ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^           ; ^^^
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp   ; ^^^
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; save args
+    79 80 8D FC     ; stw r0 rfp -4    ; old_p
+    79 81 8D F8     ; stw r1 rfp -8    ; new_size
+
+    ; call malloc(new_size)
+    70 80 81 00      ; add r0 r1 0    ; mov r0 r1
+    7C 8A <malloc    ; ims ra <malloc
+    7C 8A >malloc    ; ims ra >malloc
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; this stage malloc aborts on failure so no need to check the return value.
+
+    ; save new_p
+    79 80 8D F4     ; stw r0 rfp -12   ; new_p
+
+    ; get old size. the size class is stored before the pointer.
+    78 81 8D FC     ; ldw r1 rfp -4    ; old_p
+    78 82 81 FC     ; ldw r2 r1 -4     ; old_size_class
+    70 82 82 02     ; add r2 r2 2
+    76 82 01 82     ; shl r2 1 r2      ; old_size
+
+    ; if new_size is less, use new_size instead
+    78 83 8D F8     ; ldw r3 rfp -8    ; new_size
+    7D 84 83 82     ; ltu r4 r3 r2
+    7E 84 &__realloc_size_ok   ; jz r4 &__realloc_size_ok
+    70 82 83 00     ; add r2 r3 0    ; mov r2 r3
+
+:__realloc_size_ok
+
+    ; call memcpy(new_p, old_p, min_size);
+    7C 8A <memcpy    ; ims ra <memcpy
+    7C 8A >memcpy    ; ims ra >memcpy
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; call free(old_p)
+    78 80 8D FC      ; ldw r0 rfp -4    ; old_p
+    7C 8A <free      ; ims ra <free
+    7C 8A >free      ; ims ra >free
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; return new_p
+    78 80 8D F4     ; ldw r0 rfp -12   ; new_p
+    70 8C 8D 00     ; add rsp rfp 0    ; mov rsp rfp  ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp    ; pop rfp      ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4    ; ^^^          ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
+
+:__realloc_null_src
+    ; no old pointer. tail-call malloc(new_size)
+    70 80 81 00      ; add r0 r1 0       ; mov r0 r1
+    7C 8A <malloc    ; ims ra <malloc
+    7C 8A >malloc    ; ims ra >malloc
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+
+
+
+; ==========================================================
 ; const char* __malloc_fatal_str;
 ; ==========================================================
 ; The error message printed when malloc() fails.
