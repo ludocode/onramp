@@ -100,7 +100,7 @@ static int parse_base(const char* restrict* p, int base) {
 }
 
 static int parse_digit(const char* p) {
-    int c = *p;
+    unsigned char c = (unsigned char)*p;
     if (c >= '0' && c <= '9') {
         return c - '0';
     }

@@ -33,6 +33,7 @@ BUILD=$(ROOT)/build/test
 
 SRC1=$(ROOT)/core/libc/1-omc/src
 SRC2=$(ROOT)/core/libc/2-opc/src
+SRC3=$(ROOT)/core/libc/3-full/src
 OUT=$(BUILD)/libc-2-opc
 
 TOOL_VM=$(BUILD)/vm-c-debugger/vm
@@ -52,7 +53,6 @@ OBJS=\
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
 		$(OUT)/malloc.oo \
-		$(OUT)/strtol.oo \
 		\
 		$(OUT)/assert.oo \
 		$(OUT)/ctype.oo \
@@ -71,6 +71,8 @@ OBJS=\
 		$(OUT)/stubs.oo \
 		$(OUT)/syscalls.oo \
 		$(OUT)/system.oo \
+		\
+		$(OUT)/strtol.oo \
 
 # Arguments for Onramp compiler
 CCARGS=\
@@ -146,12 +148,6 @@ $(OUT)/malloc.oo: $(SRC1)/malloc.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC1)/malloc.c -o $(OUT)/malloc.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC1)/malloc.c -o $@
-
-$(OUT)/strtol.oo: $(SRC1)/strtol.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC1)/strtol.c -o $(OUT)/strtol.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC1)/strtol.c -o $@
 
 
 $(OUT)/assert.oo: $(SRC2)/assert.c Makefile
@@ -243,6 +239,13 @@ $(OUT)/system.oo: $(SRC2)/system.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/system.c -o $(OUT)/system.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/system.c -o $@
+
+
+$(OUT)/strtol.oo: $(SRC3)/strtol.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC3)/strtol.c -o $(OUT)/strtol.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC3)/strtol.c -o $@
 
 
 $(OUT)/libc.oa: Makefile $(TOOLS) $(OBJS)

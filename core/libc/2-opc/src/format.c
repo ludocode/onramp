@@ -26,6 +26,7 @@
 
 #include "internal.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -49,9 +50,19 @@ typedef enum length_modifier_t {
     length_modifier_t_,
 } length_modifier_t;
 
+/**
+ * A directive.
+ *
+ * This is used for printing and scanning. Some fields only make sense for one
+ * or the other; for example most of the flags are only for printing, while the
+ * charset pointer is only for scanning.
+ */
 typedef struct directive_t {
     length_modifier_t length_modifier;
     uint8_t conversion;
+
+    // A pointer to the opening `[` for a charset conversion specifier.
+    char* charset;
 
     // If argument_positions is true, these indicate the argument position.
     // Otherwise they indicate the literal value.
@@ -65,20 +76,26 @@ typedef struct directive_t {
     // True if we have argument positions ('$')
     bool argument_positions : 1;
 
-    // These flags are true if '*' was given, in which case the value should be
-    // taken from an argument (either the next one, or a specific argument if
-    // argument_positions is true.)
+    // These flags are true if '*' was given (for printing), in which case the
+    // value should be taken from an argument (either the next one, or a
+    // specific argument if argument_positions is true.)
     bool field_width_as_argument : 1;
     bool precision_as_argument : 1;
 
-    // Other flags
+    // Other print flags
     bool alternate          : 1; // #
     bool zero_padded        : 1; // 0
     bool left_adjusted      : 1; // -
     bool plus_sign          : 1; // +
     bool blank_plus_sign    : 1; // space
-    bool thousands_grouping : 1; // '  (Single UNIX)
-    bool locale_digits      : 1; // I  (glibc)
+    bool locale_digits      : 1; // I
+
+    // Scan flags
+    bool skip_output        : 1; // *
+    bool allocate           : 1; // m
+
+    // Common flags
+    bool thousands_grouping : 1; // '
 } directive_t;
 
 /**
@@ -113,7 +130,7 @@ static bool directive_try_parse_number(const char** s, const char* end, int* out
     return true;
 }
 
-static bool directive_parse_flags(directive_t* directive, const char** s, const char* end) {
+static bool directive_parse_print_flags(directive_t* directive, const char** s, const char* end) {
     while (*s != end) {
         switch (**s) {
             case '#':
@@ -174,6 +191,45 @@ static bool directive_parse_flags(directive_t* directive, const char** s, const 
                     return false;
                 }
                 directive->locale_digits = true;
+                break;
+
+            default:
+                // Even if no flags were found, it's not an error. Only duplicate flags are
+                // errors.
+                return true;
+        }
+        ++*s;
+    }
+
+    return true;
+}
+
+static bool directive_parse_scan_flags(directive_t* directive, const char** s, const char* end) {
+    while (*s != end) {
+        switch (**s) {
+            case '*':
+                if (directive->skip_output) {
+                    //__libc_error("Duplicate scan format flag: *");
+                    return false;
+                }
+                directive->skip_output = true;
+                break;
+            case '\'':
+                if (directive->thousands_grouping) {
+                    //__libc_error("Duplicate scan format flag: '");
+                    return false;
+                }
+                directive->thousands_grouping = true;
+                break;
+
+            // The man page for sscanf doesn't say that m can come before * or
+            // '. Perhaps we should not parse it as a flag.
+            case 'm':
+                if (directive->allocate) {
+                    //__libc_error("Duplicate scan format flag: m");
+                    return false;
+                }
+                directive->allocate = true;
                 break;
 
             default:
@@ -307,8 +363,11 @@ static bool directive_parse_conversion_specifier(directive_t* directive, const c
 
 /**
  * Directive parser.
+ *
+ * This can parse directives for printing (if for_print is true) or for
+ * scanning.
  */
-static bool directive_parse(directive_t* directive, const char** s, const char* end) {
+static bool directive_parse(directive_t* directive, const char** s, const char* end, bool for_print) {
     memset(directive, 0, sizeof(*directive));
 
     // The directive must start with '%'
@@ -345,11 +404,14 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
     if (directive->field_width == 0) {
 
         // Flags
-        if (!directive_parse_flags(directive, s, end))
+        bool flags_ok = for_print ?
+            directive_parse_print_flags(directive, s, end) :
+            directive_parse_scan_flags(directive, s, end);
+        if (!flags_ok)
             return false;
 
         // Field width by argument
-        if (DIRECTIVE_CHAR(*s, end) == '*') {
+        if (for_print && DIRECTIVE_CHAR(*s, end) == '*') {
             ++*s;
             directive->field_width_as_argument = true;
 
@@ -373,7 +435,7 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
     }
 
     // After field width we have optional '.' and precision
-    if (DIRECTIVE_CHAR(*s, end) == '.') {
+    if (for_print && DIRECTIVE_CHAR(*s, end) == '.') {
         ++*s;
 
         // Precision by argument
@@ -811,6 +873,196 @@ static void print_d(output_t* output, directive_t* directive, va_list* args) {
     print_number(output, directive, buffer, length, negative);
 }
 
+// Parses a digit. Returns -1 if the character is not a digit in the given
+// base.
+static int parse_digit(unsigned char c, unsigned base) {
+    unsigned value;
+
+    if (c >= '0' && c <= '9') {
+        value = c - '0';
+    } else if (c >= 'a' && c <= 'z') {
+        value = c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'Z') {
+        value = c - 'A' + 10;
+    } else {
+        return -1;
+    }
+
+    if (value >= base) {
+        return -1;
+    }
+
+    return value;
+}
+
+/**
+ * Scans unsigned decimal, hexadecimal and octal.
+ *
+ * Handles %u, %o, %x, %X, %p.
+ */
+static bool sscan_unsigned(
+        const char* restrict* s /*string*/,
+        const char* restrict* f /*format*/,
+        directive_t* directive,
+        va_list* args)
+{
+    // parse base
+    unsigned base;
+    switch (directive->conversion) {
+        case 'u': base = 10; break;
+        case 'o': base = 8; break;
+        case 'X':
+        case 'x':
+        case 'p': base = 16; break;
+        default:
+            // should be unreachable
+            __fatal("Unsupported sscan_unsigned conversion");
+            return false;
+    }
+
+    // skip hex prefix
+    if (base == 16) {
+        if (**s == '0' && ((*s)[1] == 'x' || (*s)[1] == 'X')) {
+            *s += 2;
+        }
+    }
+
+    // make sure we have at least one valid digit
+    int digit = parse_digit(**s, base);
+    if (digit == -1) {
+        return false;
+    }
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        __fatal("sscan_unsigned 64-bit not supported in bootstrap.");
+        return false;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        // TODO parse thousands separator
+        // TODO respect field width
+        unsigned long long value = 0;
+        do {
+            ++*s;
+            unsigned long long new_value = (value * base) + (unsigned long long)digit;
+            if (new_value < value) {
+                // TODO overflow
+                return false;
+            }
+            value = new_value;
+            digit = parse_digit(**s, base);
+        } while (digit != -1);
+
+        if (!directive->skip_output) {
+            *va_arg(*args, unsigned long long*) = value;
+        }
+        #endif
+    } else {
+        // TODO parse thousands separator
+        // TODO respect field width
+        unsigned value = 0;
+        do {
+            ++*s;
+            unsigned new_value = (value * base) + (unsigned)digit;
+            if (new_value < value) {
+                // TODO overflow
+                return false;
+            }
+            value = new_value;
+            digit = parse_digit(**s, base);
+        } while (digit != -1);
+
+        if (!directive->skip_output) {
+            switch (directive->length_modifier) {
+                case length_modifier_h:
+                    if (value > USHRT_MAX) {
+                        // TODO overflow
+                        return false;
+                    }
+                    *va_arg(*args, unsigned short*) = value;
+                    break;
+                case length_modifier_hh:
+                    if (value > UCHAR_MAX) {
+                        // TODO overflow
+                        return false;
+                    }
+                    *va_arg(*args, unsigned char*) = value;
+                    break;
+                case length_modifier_none:
+                case length_modifier_l:
+                case length_modifier_z:
+                case length_modifier_t_:
+                    *va_arg(*args, unsigned int*) = value;
+                    break;
+                default:
+                    __fatal("Unsupported sscan_unsigned length modifier");
+                    return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool sscan_signed(
+        const char* restrict* s /*string*/,
+        const char* restrict* f /*format*/,
+        directive_t* directive,
+        va_list* args,
+        int base)
+{
+    // TODO need to support thousands separator. probably won't be able to
+    // share code with strtol(), but for now we do for simplicity.
+
+    if (**s < '0' || **s > '9')
+        return false;
+
+    char* end;
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        __fatal("sscan_signed 64-bit not supported in bootstrap.");
+        return false;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        int64_t value = strtoll(*s, &end, base);
+        if (!directive->skip_output) {
+            *va_arg(*args, long long*) = value;
+        }
+        #endif
+    } else {
+        int32_t value = strtol(*s, &end, base);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                *va_arg(*args, short*) = value;
+                break;
+            case length_modifier_hh:
+                *va_arg(*args, char*) = value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                *va_arg(*args, int*) = value;
+                break;
+            default:
+                __fatal("Unhandled scan_u length modifier");
+                return false;
+        }
+    }
+
+    *s = end;
+    return true;
+}
+
 /**
  * Main print function.
  */
@@ -830,7 +1082,7 @@ static void print(const char* format, output_t* output, va_list args) {
 
         // We've found a directive. Parse it.
         directive_t directive;
-        if (!directive_parse(&directive, &p, NULL)) {
+        if (!directive_parse(&directive, &p, NULL, true)) {
             libc_assert(false);
             output->error = true;
             return;
@@ -839,7 +1091,7 @@ static void print(const char* format, output_t* output, va_list args) {
         // Although we parse argument positions, we don't actually support them
         // (yet).
         if (directive.argument_positions) {
-            libc_assert(false);
+            __fatal("printf() GNU argument positions not yet implemented.");
             output->error = true;
             return;
         }
@@ -867,7 +1119,7 @@ static void print(const char* format, output_t* output, va_list args) {
             case 's': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
-                    //libc_assert(false);
+                    __fatal("printf() string length modifiers not yet implemented.");
                     output->error = true;
                     return;
                 }
@@ -881,7 +1133,7 @@ static void print(const char* format, output_t* output, va_list args) {
             case 'c': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
-                    //libc_assert(false);
+                    __fatal("printf() char length modifiers not yet implemented.");
                     output->error = true;
                     return;
                 }
@@ -891,6 +1143,7 @@ static void print(const char* format, output_t* output, va_list args) {
             }
 
             default:
+                // should be unreachable
                 libc_assert(false);
                 break;
         }
@@ -960,35 +1213,115 @@ int vasprintf(char** restrict out_string, const char* restrict format, va_list a
 }
 
 #ifdef DISABLED
-/**
- * Main scan function.
- *
- * TODO. Not clear we can implement this shared unless we also have a way to
- * peek data from a FILE or otherwise put it back in the buffer when we read
- * too much.
- */
-static int scan(
-        const char* format,
-        char* buffer,
-        size_t buffer_size,
-        int (*fill)(char** buffer, size_t* buffer_size), // TODO should probably be consume()
-        va_list args)
-{
-    // TODO
-    return -1;
-}
-
 int vfscanf(FILE* restrict stream, const char* restrict format, va_list args) {
     // TODO
     (void)scan;
     return -1;
 }
-
-int vsscanf(const char* restrict s, const char* restrict format, va_list args) {
-    // TODO
-    return -1;
-}
 #endif
+
+int vsscanf(
+        const char* restrict s /*string*/,
+        const char* restrict f /*format*/,
+        va_list args)
+{
+    int conversion_count = 0;
+
+    while (*f != 0) {
+
+        // If it's whitespace, we skip any amount of whitespace in both the
+        // format and the source.
+        if (isspace(*f)) {
+            while (isspace(*f)) ++f;
+            while (isspace(*s)) ++s;
+            continue;
+        }
+
+        // If it's not a directive, we must match the character exactly.
+        if (*f != '%') {
+            if (*f != *s) {
+                return conversion_count;
+            }
+            ++f;
+            ++s;
+            continue;
+        }
+
+        // We've found a directive. Parse it.
+        directive_t directive;
+        if (!directive_parse(&directive, (const char**)&f, NULL, false)) {
+            // TODO should we return EOF?
+            return conversion_count;
+        }
+
+        // Although we parse argument positions, we don't actually support them
+        // (yet).
+        if (directive.argument_positions) {
+            __fatal("sscanf() GNU argument positions not yet implemented.");
+            return conversion_count;
+        }
+
+        switch (directive.conversion) {
+            case '%':
+                if (*s != '%') {
+                    return conversion_count;
+                }
+                ++f;
+                ++s;
+                break;
+
+            case 'i':
+                if (!sscan_signed(&s, &f, &directive, (va_list*)&args, 0))
+                    return conversion_count;
+                ++conversion_count;
+                break;
+
+            case 'd':
+                if (!sscan_signed(&s, &f, &directive, (va_list*)&args, 10))
+                    return conversion_count;
+                ++conversion_count;
+                break;
+
+            case 'u':
+            case 'o':
+            case 'p':
+            case 'x':
+            case 'X':
+                if (!sscan_unsigned(&s, &f, &directive, (va_list*)&args))
+                    return conversion_count;
+                ++conversion_count;
+                break;
+
+            case 's':
+            case 'c':
+            case '[':
+                // TODO not yet implemented
+                __fatal("sscanf() string parsing not yet implemented.");
+                return conversion_count;
+
+            case 'f':
+            case 'e':
+            case 'g':
+            case 'E':
+            case 'a':
+                // TODO not yet implemented
+                __fatal("sscanf() float parsing not yet implemented.");
+                return conversion_count;
+
+            case 'n':
+                // TODO not yet implemented
+                __fatal("sscanf() %n not yet implemented.");
+                return conversion_count;
+
+            default:
+                // should be unreachable
+                libc_assert(false);
+                break;
+        }
+    }
+
+    return conversion_count;
+}
 
 /*
  * The rest of these functions just wrap the implementations above.
@@ -1046,7 +1379,6 @@ int sprintf(char* restrict buffer, const char* restrict format, ...) {
     return ret;
 }
 
-#ifdef DISABLED
 int sscanf(const char* restrict s, const char* restrict format, ...) {
     va_list args;
     va_start(args, format);
@@ -1054,7 +1386,6 @@ int sscanf(const char* restrict s, const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
-#endif
 
 int vprintf(const char* restrict format, va_list args) {
     return vfprintf(stdout, format, args);
