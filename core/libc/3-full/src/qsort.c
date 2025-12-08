@@ -90,7 +90,7 @@ static void qsort_impl(qsort_state_t* state, void* base, size_t count) {
 
     /* Figure out where to start */
     size_t gap_index = 0;
-    while (qsort_gaps[gap_index] > count / 2 && gap_index < QSORT_GAPS_MAX - 1)
+    while (gap_index < QSORT_GAPS_MAX - 1 && qsort_gaps[gap_index + 1] < count / 2)
         ++gap_index;
 
     /* Perform successive insertion sorts based on gap sequence */
