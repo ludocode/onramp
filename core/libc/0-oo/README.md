@@ -4,7 +4,7 @@ This is the first stage of the Onramp libc. It serves as the libc for all of our
 
 This is in the bootstrap process as early as possible, immediately after getting label support, in order to avoid repeating these functions in each program. It is therefore written directly in Onramp object code.
 
-Note that the individual files don't need to be compiled. They are already object files (which, in Onramp, are in plain text.) They are linked directly into the first stage `ar`, which is then used by this `build.sh` to assemble them into a `libc.oa` static library.
+Note that the individual files don't need to be compiled. They are already object files (which, in Onramp, are plain text.) They are linked directly into the first stage `ar`, which is then used by this `build.sh` to archive them into a `libc.oa` static library.
 
 This libc provides a few common functions:
 
@@ -20,11 +20,12 @@ This libc provides a few common functions:
     - `fread()`, `fwrite()`, `fgetc(), `fputc()` with buffering
     - `fputs()`, `fseek()`, `ftell()`, etc.
 - some `<stdlib.h>` functions:
-    - `malloc()` as a simple bump allocator with a no-op `free()`
-    - `calloc()`, `strdup()`, `strndup()`
+    - `malloc()` and `free()` with non-coalescing free lists
+    - `calloc()`, `realloc()` `strdup()`, `strndup()`
 - extensions:
     - `__memdup()`
     - `__fatal()` to exit with an error message
+    -  functions for spawning child programs
 
 We avoid implementing too much else. We aren't going to need it in the early stages, and we want to get at least opC bootstrapped before we really start filling out the libc.
 

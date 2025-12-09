@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Fraser Heavy Software
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -49,10 +49,9 @@ OBJS=\
 		$(OUT)/start.oo \
 		\
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc.oo \
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
-		\
-		$(OUT)/malloc.oo \
 		\
 		$(OUT)/assert.oo \
 		$(OUT)/ctype.oo \
@@ -141,13 +140,6 @@ $(OUT)/syscalls.oo: $(SRC2)/syscalls.os Makefile
 # much better error checking than our Onramp compiler. We can't actually link
 # the resulting objects (at least, not unless we want to implement all of our
 # syscalls for Linux.)
-
-
-$(OUT)/malloc.oo: $(SRC1)/malloc.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC1)/malloc.c -o $(OUT)/malloc.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC1)/malloc.c -o $@
 
 
 $(OUT)/assert.oo: $(SRC2)/assert.c Makefile

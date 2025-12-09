@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Fraser Heavy Software
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -41,12 +41,12 @@ OBJS=\
 		$(ROOT)/core/libc/0-oo/src/ctype.oo \
 		$(ROOT)/core/libc/0-oo/src/environ.oo \
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
+		$(ROOT)/core/libc/0-oo/src/malloc.oo \
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		$(ROOT)/core/libc/0-oo/src/stdio.oo \
 		$(ROOT)/core/libc/0-oo/src/string.oo \
 		\
-		$(OUT)/malloc.oo \
 		$(OUT)/strrchr.oo \
 		$(OUT)/strtol.oo \
 
@@ -86,11 +86,6 @@ $(TOOL_AS): FORCE
 $(TOOL_LD): FORCE
 	@(make -C ../../ld/2-full build)   # TODO ld/1 build
 
-
-$(OUT)/malloc.oo: $(SRC)/malloc.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(TOOL_CC) $(CCARGS) -c $(SRC)/malloc.c -o $@
 
 $(OUT)/strrchr.oo: $(SRC)/strrchr.c Makefile
 	@rm -f $@
