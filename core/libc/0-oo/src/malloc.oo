@@ -400,15 +400,29 @@
 
 
 ; ==========================================================
-; void* __malloc_largest_unused_region(size_t* out_size);
+; void* __malloc_unused_region(size_t* out_size);
 ; ==========================================================
-; Returns the bounds of the largest region of memory that is currently
-; unallocated.
+; Returns the bounds of the unallocated portion of the heap.
 ;
-; This can be used as the heap for child processes.
+; This is used as the heap for child processes.
 ; ==========================================================
 
-; TODO nothing uses this until libc/1 is bootstrapped. but spawn.oo refers to
-; it. TODO spawn.oo should move to libc/1
-=__malloc_largest_unused_region
-    FFFFFFFF;TODO
+=__malloc_unused_region
+
+    ; get the start
+    7C 8B <__malloc_break   ; ims rb <__malloc_break
+    7C 8B >__malloc_break   ; ims rb >__malloc_break
+    78 81 8E 8B             ; ldw r1 rpp rb
+
+    ; get the end
+    7C 8B <__malloc_end     ; ims rb <__malloc_end
+    7C 8B >__malloc_end     ; ims rb >__malloc_end
+    78 82 8E 8B             ; ldw r2 rpp rb
+
+    ; write the size
+    71 82 82 81    ; sub r2 r2 r1
+    79 82 80 00    ; stw r2 r0 0
+
+    ; return the start
+    70 80 81 00    ; add r0 r1 0     ; mov r0 r1
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret

@@ -182,7 +182,7 @@ char* getenv(const char* key);
  *
  * TODO move this to an internal onramp header
  */
-void* __malloc_largest_unused_region(size_t* out_size);
+void* __malloc_unused_region(size_t* out_size);
 
 
 

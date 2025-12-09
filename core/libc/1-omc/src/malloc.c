@@ -265,7 +265,7 @@ void* realloc(void* old_ptr, size_t new_size) {
     return new_ptr;
 }
 
-void* __malloc_largest_unused_region(size_t* out_size) {
+void* __malloc_unused_region(size_t* out_size) {
     int* ret = 0;
     int ret_size = 0;
     int* current_link = (int*)&free_list;

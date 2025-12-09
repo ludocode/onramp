@@ -688,7 +688,7 @@ int posix_memalign(void** out_ptr, size_t alignment, size_t size) {
  * This does not actually allocate it; it just returns the usable area. It is
  * not safe to call any allocation functions while the area is in use.
  */
-void* __malloc_largest_unused_region(size_t* out_size) {
+void* __malloc_unused_region(size_t* out_size) {
     detect_stack_overflow();
 
     free_alloc_t* p;
