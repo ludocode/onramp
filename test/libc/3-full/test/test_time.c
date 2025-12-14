@@ -4,8 +4,10 @@
 
 #include <time.h>
 
-#include <stdlib.h>
+#include <errno.h>
 #include <limits.h>
+#include <stdlib.h>
+#include <sys/syscall.h>
 
 #define YEAR (365LL * 24LL * 60LL * 60LL)
 
@@ -74,7 +76,33 @@ static int test_monotonic(void) {
 
 }
 
+static void test_no_time(void) {
+    errno = 0;
+    if (-1 != time(NULL)) exit(100);
+    if (errno != ENOTSUP) exit(101);
+
+    errno = 0;
+    if (-1 != clock()) exit(102);
+    if (errno != ENOTSUP) exit(103);
+
+    errno = 0;
+    struct timespec ts;
+    if (-1 != clock_gettime(CLOCK_REALTIME, &ts)) exit(104);
+    if (errno != ENOTSUP) exit(105);
+
+    errno = 0;
+    if (-1 != clock_gettime(CLOCK_MONOTONIC, &ts)) exit(106);
+    if (errno != ENOTSUP) exit(107);
+}
+
 int main(void) {
+
+    // time syscall is optional
+    if (!__syscall_is_supported(__SYS_TIME)) {
+        test_no_time();
+        return 0;
+    }
+
     test_realtime();
     test_monotonic();
 }
