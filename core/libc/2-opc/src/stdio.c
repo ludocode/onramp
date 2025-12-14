@@ -32,8 +32,8 @@
 #include <stdio.h>
 
 #include "internal.h"
-#include "syscalls.h"
 
+#include <__onramp/__syscalls.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>

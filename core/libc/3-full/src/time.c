@@ -24,9 +24,8 @@
 
 #include <time.h>
 
+#include <__onramp/__syscalls.h>
 #include <errno.h>
-
-#include "syscalls.h"
 
 // We store these timestamps in order to implement clock() and CLOCK_MONOTONIC.
 static bool time_initialized;

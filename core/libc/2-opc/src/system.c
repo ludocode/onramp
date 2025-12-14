@@ -31,12 +31,12 @@
 #include <stdlib.h>
 
 #include <__onramp/__pit.h>
+#include <__onramp/__syscalls.h>
 #include <stdio.h>
 #include <stdbool.h>
 #include <string.h>
 
 #include "internal.h"
-#include "syscalls.h"
 
 int __argc;
 char** __argv;
