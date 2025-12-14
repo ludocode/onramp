@@ -55,8 +55,8 @@ typedef struct qsort_state_t {
 
 #define qsort_compare(state, left, right) \
     (((state)->has_context) ? \
-        (state)->user_compare.without_context(left, right) : \
-        (state)->user_compare.with_context(left, right, state->user_context))
+        (state)->user_compare.with_context(left, right, (state)->user_context) : \
+        (state)->user_compare.without_context(left, right))
 
 #define qsort_select(state, base, v_index) \
     ((char*)(base) + (v_index) * (state)->element_size)
@@ -120,7 +120,7 @@ void qsort(void* first, size_t count, size_t element_size,
 {
     qsort_state_t state;
     state.element_size = element_size;
-    state.has_context = 0;
+    state.has_context = false;
     state.user_compare.without_context = user_compare;
     qsort_impl(&state, first, count);
 }
@@ -131,7 +131,7 @@ void qsort_r(void* first, size_t count, size_t element_size,
 {
     qsort_state_t state;
     state.element_size = element_size;
-    state.has_context = 1;
+    state.has_context = true;
     state.user_compare.with_context = user_compare;
     state.user_context = user_context;
     qsort_impl(&state, first, count);
