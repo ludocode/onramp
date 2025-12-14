@@ -45,6 +45,7 @@ cp core/libc/common/include/__onramp/__pit.h build/output/include/__onramp/__pit
 cp core/libc/common/include/__onramp/__predef.h build/output/include/__onramp/__predef.h
 cp core/libc/common/include/__onramp/__seek.h build/output/include/__onramp/__seek.h
 cp core/libc/common/include/__onramp/__size_t.h build/output/include/__onramp/__size_t.h
+cp core/libc/common/include/__onramp/__syscalls.h build/output/include/__onramp/__syscalls.h
 cp core/libc/common/include/__onramp/__time_t.h build/output/include/__onramp/__time_t.h
 cp core/libc/common/include/__onramp/__timespec.h build/output/include/__onramp/__timespec.h
 cp core/libc/common/include/__onramp/__useconds_t.h build/output/include/__onramp/__useconds_t.h
@@ -80,6 +81,7 @@ cp core/libc/common/include/stdnoreturn.h build/output/include/stdnoreturn.h
 cp core/libc/common/include/string.h build/output/include/string.h
 cp core/libc/common/include/strings.h build/output/include/strings.h
 cp core/libc/common/include/sys/stat.h build/output/include/sys/stat.h
+cp core/libc/common/include/sys/syscall.h build/output/include/sys/syscall.h
 cp core/libc/common/include/sys/time.h build/output/include/sys/time.h
 cp core/libc/common/include/sys/types.h build/output/include/sys/types.h
 cp core/libc/common/include/termios.h build/output/include/termios.h

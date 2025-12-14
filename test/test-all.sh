@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Fraser Heavy Software
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,10 +30,13 @@
 
 set -e
 cd "$(dirname "$0")/.."
-scripts/posix/clean.sh
+
+# Perform a native build first since it is nearly instantaneous
+scripts/posix/native.sh
 
 # Run platform-specific tests first to make sure there are no VM bugs before we
 # test stuff that depends on a VM.
+scripts/posix/clean.sh
 test/test-platform.sh
 
 # Test a normal build, preferring machine code if available.
