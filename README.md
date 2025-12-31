@@ -129,8 +129,9 @@ Authors retain copyright over their code contributions, but all code in this rep
 
 ## Project Organization
 
-- [core/](core/) - Source code of the platform-independent parts of Onramp. Contains the compiler, linker, driver, libc, etc.
-- [platform/](platform/) - Source code implementations of the platform-specific components of Onramp for various platforms.
+- [core/](core/) - The platform-independent parts of Onramp. Contains the compiler, linker, driver, libc, etc.
+- [platform/](platform/) - Implementations of the platform-specific components of Onramp for various platforms.
+- [extra/](extra/) - Additional tools beyond the core bootstrap.
 - [scripts/](scripts/) - Scripts for building and installing Onramp on various platforms.
 - [docs/](docs/) - Specifications of Onramp's languages and other documentation. Defines the Onramp subsets of C, Onramp Assembly, etc.
 - [test/](test/) - Test cases and scripts for testing the various Onramp components.
