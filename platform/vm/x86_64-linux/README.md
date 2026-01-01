@@ -10,16 +10,16 @@ The full hexadecimal source code is about 3000 lines including whitespace and co
 
 ### Resources
 
-- https://www.nasm.us/doc/
+- <https://www.nasm.us/doc/>
 
-- https://fasterthanli.me/series/reading-files-the-hard-way/part-2
+- <https://fasterthanli.me/series/reading-files-the-hard-way/part-2>
 
-- https://fasterthanli.me/series/making-our-own-executable-packer/part-1
+- <https://fasterthanli.me/series/making-our-own-executable-packer/part-1>
 
-- https://web.archive.org/web/20220116195013/https://www.dreamincode.net/forums/topic/285550-nasm-linux-getting-command-line-parameters/
+- <https://web.archive.org/web/20220116195013/https://www.dreamincode.net/forums/topic/285550-nasm-linux-getting-command-line-parameters/>
 
-- https://www.felixcloutier.com/x86/
+- <https://www.felixcloutier.com/x86/>
 
-- https://filippo.io/linux-syscall-table/
+- <https://filippo.io/linux-syscall-table/>
 
-- https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/
+- <https://blog.rchapman.org/posts/Linux_System_Call_Table_for_x86_64/>
