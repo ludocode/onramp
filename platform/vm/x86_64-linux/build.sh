@@ -23,8 +23,8 @@
 # SOFTWARE.
 
 
-# This script builds the x86_64-linux VM. It relies only on a POSIX shell and
-# coreutils.
+# This script builds the x86_64-linux VM. It needs only a POSIX shell and
+# coreutils, though it will use a better hex tool if available.
 
 
 set -e
@@ -44,3 +44,4 @@ mkdir -p build/test/vm-x86_64-linux
 echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
 $HEX platform/vm/x86_64-linux/vm.ohx -o build/test/vm-x86_64-linux/vm
 chmod +x build/test/vm-x86_64-linux/vm
+echo "Wrote: build/test/vm-x86_64-linux/vm"

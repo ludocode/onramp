@@ -67,16 +67,16 @@
 ; dispatched by a function call table stored in rodata (see syscall_table.)
 ;
 ; Raw input mode is accomplished by a pair of idempotent functions:
-; set_termios() and clear_termios(). These are wired up to be called
+; enable_raw_input() and disable_raw_input(). These are wired up to be called
 ; unconditionally by signal handlers to set or restore the terminal state in
 ; response to various events (including job control events.)
 ;
-; We try to set termios at startup via an initial call to set_termios(). If
+; We try to set termios at startup via an initial call to enable_raw_input(). If
 ; successful, we write non-canonical no-echo mode in the program PIT, and the
 ; VM will clear and set termios settings in response to job control and other
 ; signals. If the initial termios fails, we write canonical non-interactive in
-; the program PIT and permanently disable termios; set_termios() and
-; clear_termios() will do nothing for the life of the VM.
+; the program PIT and permanently disable termios; enable_raw_input() and
+; disable_raw_input() will do nothing for the life of the VM.
 
 
 
@@ -173,8 +173,8 @@
 ; 0x401200 syscall_time
 ; 0x401270 skip_wrap_header
 ; 0x4012F0 io_setup
-; 0x401330 set_termios
-; 0x401420 clear_termios
+; 0x401330 enable_raw_input
+; 0x401420 disable_raw_input
 ; 0x401460 signal_exit
 ; 0x401490 install_signal_handler
 ; 0x401570 signal_ignore
@@ -182,7 +182,8 @@
 ; 0x4015C0 syscall_mkdir
 ; 0x401630 signal_trampoline
 ; 0x401650 install_all_signal_handlers
-; 0x401830   [end of program]
+; 0x401830 apply_termios
+; 0x4018E0   [end of program]
 ;
 ;
 ;   rodata table
@@ -265,8 +266,8 @@
     00 05 00 00 00 00 00 00  ; offset within the file: 0x500
     00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
     00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
-    30 13 00 00 00 00 00 00  ; size of the segment in the file: 0x1330 (0x1830-0x500)
-    30 13 00 00 00 00 00 00  ; size of the segment in memory: 0x1330 (0x1830-0x500)
+    E0 13 00 00 00 00 00 00  ; size of the segment in the file: 0x13E0 (0x18E0-0x500)
+    E0 13 00 00 00 00 00 00  ; size of the segment in memory: 0x13E0 (0x18E0-0x500)
     00 10 00 00 00 00 00 00  ; required alignment: 4 KB
 @0x78
 
@@ -621,8 +622,8 @@
     ; TODO the ABI says there's an atexit function in a starting register we're
     ; supposed to call.
 
-    ; call clear_termios() to reset terminal state
-    B8 20 14 40 00    ; mov eax, clear_termios (0x401420)
+    ; call disable_raw_input() to reset terminal state
+    B8 20 14 40 00    ; mov eax, disable_raw_input (0x401420)
     FF D0             ; call rax
 
     ; call syscall exit
@@ -691,7 +692,7 @@
     48 8B 45 F8    ; mov rax, [rbp-8]
     48 8B 00       ; mov rax, [rax]
     48 83 F8 02    ; cmp rax, 2
-    7D 0C          ; jge load_args_env_ok (+12)    ; TODO compare unsigned
+    73 0C          ; jae load_args_env_ok (+12)
 
     ; not enough args. bail
     BF 00 02 50 00   ; mov edi, "ERROR: A program name..." (0x500200)
@@ -795,6 +796,7 @@
 ; - current_src (rbp-24)
 ; - heap_addr (rbp-32)
 ; - current_dest (rbp-40)
+; - loop_address (rbp-48)
 ; ==========================================================
 
 @0x6A0 copy_strings
@@ -832,19 +834,10 @@
     48 8D 3C 87          ; lea rdi, [rdi+rax*4]
     48 89 7D E0          ; mov [rbp-32], rdi
 
-    ; TODO break this into a separate pseudo-function copy_strings_loop, just
-    ; put a jump here to 0x6E0 instead of actually running all these nops
-    ; TODO better yet we should just do `lea rax, [rip]` and store the address in the stack frame
-
-    ; these are some big jumps so we use absolute addresses instead of working
-    ; out relative jumps. we add padding to align for cleanliness and so we can
-    ; change things without having to constantly adjust these numbers.
-    ; (this is also just initialization code so we aren't worried about
-    ; executing a bunch of nops)
-
-    90 90 90 90 90 90 90 90 ; nop
-    90 90 90 90 90 90 90
-@0x6E0 copy_strings_loop
+    ; save the loop address
+    48 8D 05 01 00 00 00  ; lea rax, [rel copy_strings_loop]  (+1)
+    50                    ; push rax
+;copy_strings_loop:
 
     ; check if this is the end of the source table
     48 8B 45 E8          ; mov rax, [rbp-24]
@@ -854,7 +847,7 @@
     ; if it is, jump to the end (inverted because there's no conditional
     ; indirect jump in x86)
     75 07                ; jne copy_strings_loop_not_done (+7)
-    B9 40 07 40 00       ; mov ecx, copy_strings_loop_done (0x400740)
+    B9 30 07 40 00       ; mov ecx, copy_strings_loop_done (0x400730)
     FF E1                ; jmp rcx
 ;copy_strings_loop_not_done:
 
@@ -882,14 +875,15 @@
     48 83 C6 08         ; add rsi, 8
     48 89 75 E8         ; mov [rbp-24], rsi
 
-    ; jmp copy_strings_loop
-    B9 E0 06 40 00      ; mov ecx, copy_strings_loop (0x4006EO)
-    FF E1               ; jmp rcx
+    ; jump to copy_strings_loop
+    48 8B 45 D0      ; mov rax, [rbp-48]   ; copy_strings_loop
+    FF E0            ; jmp rax
 
-    90 90 90 90 90 90 90 90
+    ; padding (nop)
     90 90 90 90 90 90 90 90
     90 90
-@0x740 copy_strings_loop_done
+
+@0x730 copy_strings_loop_done
 
     ; assign the null-terminator at the end of the table
     48 8B 75 D8          ; mov rsi, [rbp-40]
@@ -914,6 +908,8 @@
     C3                             ; ret
 
     ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
     90 90 90 90 90
 @0x770
 
@@ -1869,10 +1865,6 @@
 
 @0xD90 opcode_jz
 
-    ; TODO we should parse the predicate first and ret immediately if it's
-    ; non-zero, no need for a +13 jump or all the register mixing. might make
-    ; this short enough to fit in the opcode table
-
     ; form the offset
     ; (it's in instructions, not in bytes, so we multiply by four)
     C1 E1 08         ; shl ecx, 8
@@ -1908,14 +1900,21 @@
 ; ==========================================================
 ; Sends a SIGCONT to our process group.
 ;
-; If an attempt to set terminal settings in set_termios() failed, our entire
+; If an attempt to set terminal settings in apply_termios() failed, our entire
 ; process group received a SIGTTOU signal. We've ignored the signal but others
 ; may not, which means they are now stopped.
 ;
 ; For example if we were run in a shell script with job control disabled, the
 ; SIGTTOU will stop the calling shell. This can interfere with tools like
 ; timeout when used with a shell script that ultimately calls us. c-testsuite
-; is an example: without this function the test runner will freeze.
+; is an example: without this function the test runner will freeze. Ninja is
+; another example: it hangs on SIGTTOU if one of its jobs tries to set terminal
+; state.
+;
+; (Our process group check in apply_termios() will handle both of these cases
+; because when run in the background we'll never try setting the terminal state
+; in the first place. This is just to prevent a race condition if the
+; foreground process group changes right before we try to set termios.)
 ;
 ; We need to send a SIGCONT to our process group to unblock all processes that
 ; received the SIGTTOU. We will also receive the SIGCONT so we need to ignore
@@ -1946,9 +1945,9 @@
     B8 3E 00 00 00    ; mov eax, 0x3E  ; syscall: kill (62)
     0F 05             ; syscall
 
-    ; call install_signal_handler(SIGCONT, set_termios)
+    ; call install_signal_handler(SIGCONT, enable_raw_input)
     BF 12 00 00 00    ; mov edi, SIGCONT (18)
-    BE 30 13 40 00    ; mov esi, set_termios (0x401330)
+    BE 30 13 40 00    ; mov esi, enable_raw_input (0x401330)
     B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
     FF D0             ; call rax
 
@@ -1961,70 +1960,6 @@
     90 90 90 90 90 90 90 90
     90 90
 @0xE20
-
-
-
-;;;; ==========================================================
-;;;; opcode_sys
-;;;; ==========================================================
-;;;; Performs a syscall.
-;;;;
-;;;; params:
-;;;; - (edi is reserved for the parsed opcode number)
-;;;; - arg1: esi  (syscall number)
-;;;; - arg2: edx  (must be zero)
-;;;; - arg3: ecx  (must be zero)
-;;;; ==========================================================
-;;;
-;;;@0xDC0 opcode_sys
-;;;    ; set up stack frame
-;;;    55           ; push rbp
-;;;    48 89 E5     ; mov rbp, rsp
-;;;
-;;;    ; the second and third arguments to syscall must both be zero.
-;;;    09 CA      ; or edx, ecx
-;;;    83 FA 00   ; cmp edx, 0
-;;;    74 0C      ; je opcode_sys_no_extra_args (+12)
-;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-;;;    FF D0            ; call rax
-;;;;opcode_sys_no_extra_args:
-;;;
-;;;    ; our syscall table has 64 entries
-;;;    83 FE 40         ; cmp esi, 0x40
-;;;    72 0C            ; jb opcode_sys_in_range (+12)
-;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-;;;    FF D0            ; call rax
-;;;;opcode_sys_in_range:
-;;;
-;;;    ; get the syscall function address
-;;;    B8 80 04 50 00    ; mov eax, syscall_table (0x500480)
-;;;    C1 E6 01          ; shl esi, 1
-;;;    01 F0             ; add eax, esi
-;;;    0F BF 00          ; movsx eax, word [rax]
-;;;
-;;;    ; if the syscall is zero, we don't support it
-;;;    83 F8 00         ; cmp eax, 0
-;;;    75 0C            ; jne opcode_sys_not_zero (+12)
-;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-;;;    FF D0            ; call rax
-;;;;opcode_sys_not_zero:
-;;;
-;;;    ; call it
-;;;    05 00 00 40 00    ; add eax, text section (0x400000)
-;;;    FF D0             ; call rax
-;;;
-;;;    ; return
-;;;    48 89 EC     ; mov rsp, rbp
-;;;    5D           ; pop rbp
-;;;    C3           ; ret
-;;;
-;;;    ; padding (nop)
-;;;    90 90 90 90 90 90 90 90
-;;;    90 90 90 90 90 90
-;;;@0xE20
 
 
 
@@ -2654,6 +2589,7 @@
 ; ==========================================================
 
 @0x1200 syscall_time
+
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2784,17 +2720,17 @@
     B8 50 16 40 00    ; mov eax, install_all_signal_handlers (0x401650)
     FF D0             ; call rax
 
-    ; TODO call unblock_signals
+    ; TODO call unblock_signals, not implemented yet
 
     ; set the interactive flag to true to start
     B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
     C6 00 01          ; mov [rax], 1
 
-    ; call set_termios()
-    B8 30 13 40 00    ; mov eax, set_termios (0x401330)
+    ; call enable_raw_input()
+    B8 30 13 40 00    ; mov eax, enable_raw_input (0x401330)
     FF D0             ; call rax
 
-    ; check if set_termios() failed
+    ; check if enable_raw_input() failed
     B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
     8B 00             ; mov eax, [rax]
     83 F8 00          ; cmp eax, 0
@@ -2816,7 +2752,7 @@
 
 
 ; ==========================================================
-; void set_termios(void)
+; void enable_raw_input(void)
 ; ==========================================================
 ; Attempts to set the terminal to non-echo, non-canonical (raw input) mode.
 ;
@@ -2825,7 +2761,7 @@
 ; support input at all.
 ; ==========================================================
 
-@0x1330 set_termios
+@0x1330 enable_raw_input
 
     ; set up stack frame
     55           ; push rbp
@@ -2835,21 +2771,21 @@
     B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
     8B 00             ; mov eax, [rax]
     83 F8 00          ; cmp eax, 0
-    75 05             ; jnz set_termios_interactive (+5)
+    75 05             ; jnz enable_raw_input_interactive (+5)
     48 89 EC          ; mov rsp, rbp
     5D                ; pop rbp
     C3                ; ret
-;set_termios_interactive:
+;enable_raw_input_interactive:
 
     ; if termios valid flag is already set, return
     B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
     8B 00             ; mov eax, [rax]
     83 F8 00          ; cmp eax, 0
-    74 05             ; jz set_termios_valid (+5)
+    74 05             ; jz enable_raw_input_valid (+5)
     48 89 EC          ; mov rsp, rbp
     5D                ; pop rbp
     C3                ; ret
-;set_termios_valid:
+;enable_raw_input_valid:
 
     ; call ioctl(TCGETS) to get terminal state (equivalent to tcgetattr())
     BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
@@ -2860,59 +2796,20 @@
 
     ; if it failed, this is not a tty. return
     83 F8 00          ; cmp eax, 0
-    74 05             ; jz set_termios_tgets_ok (+5)
+    74 05             ; jz enable_raw_input_tgets_ok (+5)
     48 89 EC          ; mov rsp, rbp
     5D                ; pop rbp
     C3                ; ret
-;set_termios_tgets_ok:
+;enable_raw_input_tgets_ok:
 
-    ; make stack space for a temporary struct termios (60 bytes)
-    48 83 EC 3C        ; sub rsp, 60
+    ; make stack space for a temporary struct termios (60 bytes, rounded up to multiple of 8)
+    48 83 EC 40        ; sub rsp, 64
 
-    ; call ioctl(TCGETS) again to get another copy of the terminal state
-    ; (this is simpler than copying the one we saved earlier)
-    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
-    BE 01 54 00 00     ; mov esi, 0x5401    ; command: TCGETS (0x5401)
-    48 89 E2           ; mov rdx, rsp       ; arg: struct termios on the stack
-    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
-    0F 05              ; syscall
-
-    ; check for failure again, not that this is very likely, but we don't want
-    ; to corrupt our terminal state if this failed
-    83 F8 00          ; cmp eax, 0
-    74 05             ; jz set_termios_tgets_ok2 (+5)
-    48 89 EC          ; mov rsp, rbp
-    5D                ; pop rbp
-    C3                ; ret
-;set_termios_tgets_ok2:
-
-    ; set termios valid flag
-    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
-    C6 00 01          ; mov [rax], 1
-
-    ; We ignore SIGTTOU with a non-restartable handler while setting terminal
-    ; state.
-    ;
-    ; If we are launched in the background we'll still have access to the
-    ; terminal but we'll get SIGTTOU if we try to change it. The default
-    ; behaviour of SIGTTOU is to stop the process until the program is
-    ; foregrounded. Instead we want to get an error when setting the terminal
-    ; state.
-    ;
-    ; Note that we can't use SIG_IGN because in that case the termios call will
-    ; actually succeed even if we're in the background. We want it to fail if
-    ; we're in the background, which is why we need a dummy signal handler.
-    ;
-    ; See: http://curiousthing.org/sigttin-sigttou-deep-dive-linux
-    ;
-    ; TODO we probably need to unblock SIGTTOU in case our parent process
-    ; blocked it.
-
-    ; call install_signal_handler(SIGTTOU, signal_ignore)
-    BF 16 00 00 00    ; mov edi, 22 (SIGTTOU)
-    BE 70 15 40 00    ; mov esi, signal_ignore (0x401570)
-    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
-    FF D0             ; call rax
+    ; copy saved struct termios to the stack
+    48 89 E7         ; mov rdi, rsp       ; destination: stack space
+    BE 80 00 60 00   ; mov esi, 0x600080  ; source: saved struct termios
+    B9 3C 00 00 00   ; mov ecx, 60        ; counter: size of struct termios
+    F3 A4            ; rep movsb
 
     ; load c_lflag, the fourth dword in the struct
     8B 44 24 0C        ; mov eax, [rsp + 12]
@@ -2925,40 +2822,28 @@
     ; put it back in the struct
     89 44 24 0C        ; mov [rsp + 12], eax
 
-    ; call ioctl(TCSETS) to change the terminal state (equivalent to tcsetattr())
-    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
-    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
-    48 89 E2           ; mov rdx, rsp       ; arg: struct termios on the stack
-    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
-    0F 05              ; syscall
+    ; set termios valid flag
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    C6 00 01          ; mov [rax], 1
 
-    ; store the result
-    50                ; push rax
-
-    ; call install_signal_handler(SIGTTOU, SIG_DFL)
-    BF 16 00 00 00    ; mov edi, 22 (SIGTTOU)
-    BE 00 00 00 00    ; mov esi, 0 (SIG_DFL)
-    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    ; call apply_termios() on our stack copy
+    48 89 E7          ; mov rdi, rsp
+    B8 30 18 40 00    ; mov eax, apply_termios (0x401830)
     FF D0             ; call rax
 
-    ; pop the result and check for failure
-    58                ; pop rax
+    ; check for failure
     83 F8 00          ; cmp eax, 0
-    75 05             ; jnz set_termios_tcsets_fail (+5)
+    75 05             ; jnz enable_raw_input_tcsets_fail (+5)
 
     ; success. return
     48 89 EC     ; mov rsp, rbp
     5D           ; pop rbp
     C3           ; ret
-;:set_termios_tcsets_fail
+;:enable_raw_input_tcsets_fail
 
     ; failed. clear termios valid flag
     B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
     C6 00 00          ; mov [rax], 1
-
-    ; send SIGCONT to unblock process group, call send_sigcont()
-    B8 C0 0D 40 00    ; mov eax, send_sigcont (0x400DC0)
-    FF D0             ; call rax
 
     ; return
     48 89 EC     ; mov rsp, rbp
@@ -2969,19 +2854,28 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
 
 @0x1420
 
 
 
 ; ==========================================================
-; void clear_termios(void)
+; void disable_raw_input(void)
 ; ==========================================================
-; Restores the terminal settings back to their original state.
+; Restores the terminal settings back to their original state (if they were
+; changed.)
 ; ==========================================================
 
-@0x1420 clear_termios
+@0x1420 disable_raw_input
 
     ; if interactive is false, return
     B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
@@ -2999,15 +2893,14 @@
     C3                ; ret
 ;clear_termios_valid:
 
-    ; call ioctl(TCSETS) to restore the terminal state
-    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
-    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
-    BA 80 00 60 00     ; mov edx, 0x600080  ; arg: saved struct termios (0x600080)
-    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
-    0F 05              ; syscall
+    ; call apply_termios() on our saved struct termios
+    BF 80 00 60 00    ; mov edi, 0x600080  ; saved struct termios
+    B8 30 18 40 00    ; mov eax, apply_termios (0x401830)
+    FF D0             ; call rax
 
-    ; TODO what to do on error? panic? keep the flag set?
-    ; TODO should we also handle SIGTTOU here?
+    ; apply_termios() has sent SIGCONT if necessary. We otherwise ignore any
+    ; errors from resetting termios. There isn't really anything we can do
+    ; about it.
 
     ; clear termios valid flag
     B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
@@ -3017,7 +2910,9 @@
     C3           ; ret
 
     ; padding (nop)
-    90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
 
 @0x1460
 
@@ -3326,20 +3221,20 @@
     FF D0             ; call rax
 
 
-    ; signals that call set_termios()
+    ; signals that call enable_raw_input()
 
-    ; call install_signal_handler(SIGCONT, set_termios)
+    ; call install_signal_handler(SIGCONT, enable_raw_input)
     BF 12 00 00 00    ; mov edi, SIGCONT (18)
-    BE 30 13 40 00    ; mov esi, set_termios (0x401330)
+    BE 30 13 40 00    ; mov esi, enable_raw_input (0x401330)
     B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
     FF D0             ; call rax
 
 
-    ; signals that call clear_termios()
+    ; signals that call disable_raw_input()
 
-    ; call install_signal_handler(SIGTSTP, clear_termios)
+    ; call install_signal_handler(SIGTSTP, disable_raw_input)
     BF 14 00 00 00    ; mov edi, SIGTSTP (20)
-    BE 20 14 40 00    ; mov esi, clear_termios (0x401420)
+    BE 20 14 40 00    ; mov esi, disable_raw_input (0x401420)
     B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
     FF D0             ; call rax
 
@@ -3397,9 +3292,124 @@
 
 
 
+; ==========================================================
+; int apply_termios(struct termios*)
+; ==========================================================
+; Attempts to set the terminal state to that given.
+;
+; Returns zero on success, non-zero on error.
+;
+; params:
+; - edi: struct termios*
+; ==========================================================
+
+@0x1830 apply_termios
+
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; store the given terminal state
+    57      ; push rdi
+
+    ; get stdin foreground process group. call syscall ioctl(0, TIOCGPGRP, rsp)
+    6A 00              ; push 0             ; make stack space
+    48 89 E2           ; mov rdx, rsp       ; arg: stack space
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 0F 54 00 00     ; mov esi, 0x540F    ; command: TIOCGPGRP (0x540F)
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; get our process group. call syscall getpgrp
+    B8 6F 00 00 00    ; mov eax, 0x6F  ; syscall: getpgrp (111)
+    0F 05             ; syscall
+
+    ; compare the process groups. they must be the same.
+    5F         ; pop rdi
+    48 39 F8   ; cmp rax, rdi
+    74 05      ; je apply_termios_group_match (+5)
+
+    ; process groups don't match. we don't control the terminal; don't try to
+    ; set terminal state.
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+;apply_termios_group_match:
+
+    ; We ignore SIGTTOU with a non-restartable handler while setting terminal
+    ; state.
+    ;
+    ; If we are launched in the background we'll still have access to the
+    ; terminal but we'll get SIGTTOU if we try to change it. The default
+    ; behaviour of SIGTTOU is to stop the process until the program is
+    ; foregrounded. Instead we want to get an error when setting the terminal
+    ; state.
+    ;
+    ; Note that we can't use SIG_IGN because in that case the termios call will
+    ; actually succeed even if we're in the background. We want it to fail if
+    ; we're in the background, which is why we need a dummy signal handler.
+    ;
+    ; See: http://curiousthing.org/sigttin-sigttou-deep-dive-linux
+    ;
+    ; TODO we probably need to unblock SIGTTOU in case our parent process
+    ; blocked it.
+
+    ; call install_signal_handler(SIGTTOU, signal_ignore)
+    BF 16 00 00 00    ; mov edi, 22 (SIGTTOU)
+    BE 70 15 40 00    ; mov esi, signal_ignore (0x401570)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; call ioctl(TCSETS) to change the terminal state (equivalent to tcsetattr())
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
+    5A                 ; pop rdx            ; arg: struct termios*
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; store the result
+    50   ; push rax
+
+    ; call install_signal_handler(SIGTTOU, SIG_DFL)
+    BF 16 00 00 00    ; mov edi, 22 (SIGTTOU)
+    BE 00 00 00 00    ; mov esi, 0 (SIG_DFL)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; pop the result and check for failure
+    58                ; pop rax
+    83 F8 00          ; cmp eax, 0
+    75 05             ; jnz apply_termios_fail (+5)
+
+    ; success. return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+;apply_termios_fail:
+
+    ; failed. send SIGCONT to unblock process group, call send_sigcont()
+    B8 C0 0D 40 00    ; mov eax, send_sigcont (0x400DC0)
+    FF D0             ; call rax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x18E0
+
 
 
 ; Note: When extending the text segment, the sizes in the header at 0x40 must
 ; be incremented to include it!
 
-@0x1830  ; end of program, corresponds to size in ELF text header
+@0x18E0  ; end of program, corresponds to size in ELF text header
