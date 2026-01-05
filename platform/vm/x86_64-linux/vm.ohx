@@ -1185,12 +1185,12 @@
     74 07             ; jz &initialize_non_interactive (+7)
 
     ; interactive
-    B8 00 00 00 00   ; mov eax, 0   ; no echo, non-blocking, non-canonical
+    B8 00 00 00 00   ; mov eax, 0   ; no echo, non-canonical
     EB 05            ; jmp &initialize_capabilities (+5)
 
 ;initialize_non_interactive:
     ; non-interactive
-    B8 07 00 00 00   ; mov eax, 7   ; echo | blocking | line-oriented
+    B8 05 00 00 00   ; mov eax, 5   ; echo | line-oriented
 
 ;initialize_capabilities:
     BF 24 00 00 01   ; mov edi, capabilities (0x1000024)
@@ -1929,13 +1929,8 @@
     B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
     FF D0             ; call rax
 
-    ; call syscall getpid
-    B8 27 00 00 00    ; mov eax, 0x27  ; syscall: getpid (39)
-    0F 05             ; syscall
-
-    ; call syscall getpgid
-    48 89 C7          ; mov rdi, rax   ; argument: pid
-    B8 79 00 00 00    ; mov eax, 0x79  ; syscall: getpgid (121)
+    ; get our process group. call syscall getpgrp
+    B8 6F 00 00 00    ; mov eax, 0x6F  ; syscall: getpgrp (111)
     0F 05             ; syscall
 
     ; call syscall kill
@@ -1958,7 +1953,8 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90
 @0xE20
 
 
