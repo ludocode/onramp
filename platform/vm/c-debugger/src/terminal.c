@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -75,7 +75,10 @@ int main(void) {
 #include "vmcommon.h"
 
 static struct termios original_termios;
-static bool raw_input_enabled;
+static bool raw_input_set;
+bool raw_input_enabled;
+
+static void sigcont(int signal);
 
 static void set_signal_handler(int signal, void (*handler)(int)) {
     // Use sigaction() to avoid SA_RESETHAND and to mask all signals during the
@@ -92,8 +95,11 @@ static void sigttou_ignore(int signal) {
 }
 
 // Sets raw input mode if we're in the foreground of a terminal.
-static void set_raw_input(void) {
-    if (raw_input_enabled) {
+static void enable_raw_input(void) {
+    if (!raw_input_enabled) {
+        return;
+    }
+    if (raw_input_set) {
         return;
     }
 
@@ -112,15 +118,8 @@ static void set_raw_input(void) {
     // There's a race condition here where we could be put in the background in
     // between doing the check above and calling tcsetattr(), which would cause
     // us to stop on a SIGTTOU. For this reason we trap SIGTTOU so we can undo
-    // it safely.
-    //
-    // It's not enough to only handle SIGTTOU though because if we cause
-    // SIGTTOU it won't only be sent to us; it will be sent to the entire
-    // process group. This interacts badly with tools like `timeout`, which
-    // will stop on SIGTTOU and not wake up when their child exits. Hence, we
-    // need the check above. I'm not sure if there's a fix for this race
-    // condition that doesn't cause other processes in our process group to
-    // unexpectedly get SIGTTOU.
+    // it safely. Since SIGTTOU stops the entire process group, we send a
+    // SIGCONT to the process group to unblock it.
 
     // Ignore SIGTTOU with a non-restartable handler while setting terminal
     // state, this way tcsetattr() will fail with EINTR if we're in the
@@ -131,12 +130,14 @@ static void set_raw_input(void) {
     struct termios termios = original_termios;
     termios.c_lflag &= ~(ICANON | ECHO); // Non-canonical input, no input echo
     if (0 == tcsetattr(STDIN_FILENO, TCSANOW, &termios)) {
-        raw_input_enabled = true;
+        raw_input_set = true;
     } else {
-        // Failed to set terminal state. This is not a problem. If it returned
-        // EINTR, it's probably because we've been launched as a background
-        // process. We don't enable raw input in this case; we'll do it if we
-        // get a SIGCONT.
+        // Failed to set terminal state. Our entire process group received a
+        // SIGTTOU; we need to send them a SIGCONT to unblock them. Since we
+        // also receive the SIGCONT, we need to ignore it.
+        set_signal_handler(SIGCONT, SIG_IGN);
+        kill(-getpgrp(), SIGCONT);
+        set_signal_handler(SIGCONT, sigcont);
     }
 
     // We're done ignoring SIGTTOU. We don't want to ignore it now because we
@@ -145,26 +146,26 @@ static void set_raw_input(void) {
     signal(SIGTTOU, SIG_DFL);
 }
 
-static void clear_raw_input(void) {
-    if (raw_input_enabled) {
+static void disable_raw_input(void) {
+    if (raw_input_set) {
         tcsetattr(STDIN_FILENO, TCSANOW, &original_termios);
-        raw_input_enabled = false;
+        raw_input_set = false;
     }
 }
 
 static void exit_signal(int signal) {
-    clear_raw_input();
+    disable_raw_input();
     _Exit(128 + signal);
 }
 
 static void sigcont(int signal) {
     (void)signal;
-    set_raw_input();
+    enable_raw_input();
 }
 
 static void sigtstp(int sig) {
     (void)sig;
-    clear_raw_input();
+    disable_raw_input();
 
     // We need to raise SIGTSTP again with the default handler so that we stop
     // and our controlling shell is woken up from waitpid(). We unblock SIGTSTP
@@ -194,7 +195,7 @@ void terminal_setup(void) {
     setvbuf(stdout, NULL, _IOFBF, BUFSIZ);
 
     // Restore terminal state on normal exit
-    atexit(clear_raw_input);
+    atexit(disable_raw_input);
 
     // Set up our signal handlers so we can restore the terminal state on
     // signals. (atexit() handlers aren't normally called on termination by
@@ -243,5 +244,12 @@ void terminal_setup(void) {
     set_signal_handler(SIGTSTP, sigtstp);
 
     // Set raw input mode on startup if possible
-    set_raw_input();
+    raw_input_enabled = true;
+    enable_raw_input();
+
+    // If we failed to set raw input, disable it permanently. We'll declare
+    // that we don't have raw input in our PIT capabilities.
+    if (!raw_input_set) {
+        raw_input_enabled = false;
+    }
 }

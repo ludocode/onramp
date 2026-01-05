@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -250,8 +250,8 @@ setup_vm_c89() {
             ( CFLAGS= platform/vm/c89/build.sh 2>&1 >/dev/null ); then
         if [ "$(build/test/vm-c89/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using c89/ VM"
-            cp build/test/vm-c89/vm build/posix/share/onramp/platform/vm-x89
-            (cd build/posix/bin; ln -s ../share/onramp/platform/vm-x89 onrampvm)
+            cp build/test/vm-c89/vm build/posix/share/onramp/platform/vm-c89
+            (cd build/posix/bin; ln -s ../share/onramp/platform/vm-c89 onrampvm)
         fi
     fi
 }

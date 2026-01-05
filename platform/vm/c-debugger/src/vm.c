@@ -588,7 +588,9 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm_store_u32(vm, pit + VM_PIT_VERSION, VM_VERSION_NUMBER);
     vm_store_u32(vm, pit + VM_HEAP_START, addr);
     vm_store_u32(vm, pit + VM_CAPABILITIES,
-            0 // no echo, non-blocking, non-canonical
+            raw_input_enabled
+                ? 0 // no echo, non-canonical
+                : 5 // echo, canonical
             );
     vm_store_u32(vm, pit + VM_PIT_SYSCALL_COUNT_FIELD, VM_SYSCALL_COUNT);
     vm_store_u32(vm, pit + VM_PIT_COUNT_FIELD, VM_PIT_COUNT);
