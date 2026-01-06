@@ -25,6 +25,8 @@
 #ifndef TERMINAL_H_INCLUDED
 #define TERMINAL_H_INCLUDED
 
+#include <stdbool.h>
+
 extern bool raw_input_enabled;
 
 void terminal_setup(void);
