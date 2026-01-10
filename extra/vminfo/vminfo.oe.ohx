@@ -1,0 +1,1234 @@
+; The MIT License (MIT)
+;
+; Copyright (c) 2026 Fraser Heavy Software
+;
+; Permission is hereby granted, free of charge, to any person obtaining a copy
+; of this software and associated documentation files (the "Software"), to deal
+; in the Software without restriction, including without limitation the rights
+; to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+; copies of the Software, and to permit persons to whom the Software is
+; furnished to do so, subject to the following conditions:
+;
+; The above copyright notice and this permission notice shall be included in all
+; copies or substantial portions of the Software.
+;
+; THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+; IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+; FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+; AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+; LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+; OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+; SOFTWARE.
+
+
+
+; This is the Onramp vminfo tool.
+;
+; It prints information about the VM environment.
+;
+; TODO we should attempt to support all historical versions of the Onramp VM.
+
+
+
+; symbol table:
+;  addr  name
+;     0  __start
+;    20  process_info_table
+;    3C  output_buffer_pos
+;    80  __start_2
+;   140  main
+;   2A0  output_buffer
+;   4A0  print_char
+;   540  flush
+;   5D0  syscall_exit
+;   6A0  write_all
+;   790  str_initial_register_states
+;   7B0  str_indentation
+;   7C0  print_string
+;   830  print_indentation
+;   860  print_register_name
+;   9B0  print_registers
+;   B40  print_hex
+;   C60  int_to_hex
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+; The entry point. This must come first.
+;
+; The start process is fairly large because we want to preserve the exact
+; initial state of all registers. We want small addresses to be available for
+; quick access to global variables (since they fit in a mix-type byte) so we
+; jump directly to 0x80 __start_2().
+;==========================================
+
+@0x00 =__start
+
+    ; format indicator "~Onr~amp~   "
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; jump by +0x70 to go directly to 0x80 start_2(). this saves the region
+    ; from 0x10 to 0x80 for global variables.
+    70 8F 8F 70   ; add rip rip 0x70
+@0x10
+
+
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+
+
+
+;==========================================
+; uint32_t* process_info_table;
+;==========================================
+
+@0x20 =process_info_table
+    00 00 00 00
+@0x24
+
+
+
+;==========================================
+; uint32_t* initial_register_values;
+;==========================================
+
+@0x24 =initial_register_values
+    00 00 00 00
+@0x28
+
+
+
+;==========================================
+; int output_io_handle;
+;==========================================
+
+@0x28 =output_io_handle
+    00 00 00 00
+@0x2C
+
+
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+
+
+
+;==========================================
+; char* output_buffer_pos;
+;==========================================
+; The position of the next byte to be written to the output buffer.
+;
+; This is a pointer into output_buffer. If this is pointing to the start of
+; output_buffer, the buffer is empty.
+;==========================================
+
+@0x3C =output_buffer_pos
+    00 00 00 00
+@0x40
+
+
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+
+
+
+;==========================================
+; [[noreturn]] void __start_2(uint32_t* process_info_table);
+;==========================================
+; The continuation of the entry point. This must be at exactly 0x80; it cannot
+; be moved.
+;
+; All registers are first pushed to the stack to preserve their initial values.
+; We then forward control over to main(), which is an ordinary function that
+; can be placed anywhere.
+;==========================================
+
+@0x80 =__start_2
+
+    ; make stack space and store r0
+    71 8C 8C 40    ; sub rsp rsp 64
+    79 80 8C 00    ; stw r0 rsp 0
+
+    ; we can now use r0 to calculate and store our original rip and rsp
+    71 80 8F 0C    ; sub r0 rip 12    ; subtract instructions up to this point in __start_2
+    71 80 80 40    ; sub r0 r0 40     ; subtract the address of __start_2
+    71 80 80 40    ; sub r0 r0 40     ;    (0x80 is too large to fit in a mix-type byte)
+    79 80 8C 3C    ; stw r0 rsp 60    ; store original rip
+    70 80 8C 40    ; add r0 rsp 64
+    79 80 8C 30    ; stw r0 rsp 48    ; store original rsp
+
+    ; store the rest of our registers
+    79 81 8C 04    ; stw r1 rsp 4
+    79 82 8C 08    ; stw r2 rsp 8
+    79 83 8C 0C    ; stw r3 rsp 12
+    79 84 8C 10    ; stw r4 rsp 16
+    79 85 8C 14    ; stw r5 rsp 20
+    79 86 8C 18    ; stw r6 rsp 24
+    79 87 8C 1C    ; stw r7 rsp 28
+    79 88 8C 20    ; stw r8 rsp 32
+    79 89 8C 24    ; stw r9 rsp 36
+    79 8A 8C 28    ; stw ra rsp 40
+    79 8B 8C 2C    ; stw rb rsp 44
+    79 8D 8C 34    ; stw rfp rsp 52
+    79 8E 8C 38    ; stw rpp rsp 56
+
+    ; tail-call main(), passing the register array as argument
+    70 80 8C 00   ; add r0 rsp 0     ; mov r0 rsp
+    7C 8A 00 00   ; ims ra <main
+    7C 8A 40 01   ; ims ra >main (0x140)
+    70 8F 8E 8A   ; add rip rpp ra        ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+@0x140
+
+
+
+;==========================================
+; [[noreturn]] void main(uint32_t* initial_register_values);
+;==========================================
+
+@0x140 =main
+
+    ; call initialize()
+    7C 8A 00 00    ; ims ra <initialize
+    7C 8A 40 06    ; ims ra >initialize (0x640)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+;    ; call print_pit()
+;    7C 8A 00 00    ; ims ra <print_pit
+;    7C 8A ?0 0?    ; ims ra >print_pit (0x??0)
+;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+;    70 8B 8F 08    ; add rb rip 8
+;    79 8B 00 8C    ; stw rb 0 rsp
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+;
+;    ; call print_syscalls()
+;    7C 8A 00 00    ; ims ra <print_syscalls
+;    7C 8A ?0 0?    ; ims ra >print_syscalls (0x??0)
+;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+;    70 8B 8F 08    ; add rb rip 8
+;    79 8B 00 8C    ; stw rb 0 rsp
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_registers()
+    7C 8A 00 00    ; ims ra <print_registers
+    7C 8A B0 09    ; ims ra >print_registers (0x9B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+;    ; call print_args()
+;    7C 8A 00 00    ; ims ra <print_args
+;    7C 8A ?0 0?    ; ims ra >print_args (0x??0)
+;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+;    70 8B 8F 08    ; add rb rip 8
+;    79 8B 00 8C    ; stw rb 0 rsp
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+;
+;    ; call print_env()
+;    7C 8A 00 00    ; ims ra <print_env
+;    7C 8A ?0 0?    ; ims ra >print_env (0x??0)
+;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+;    70 8B 8F 08    ; add rb rip 8
+;    79 8B 00 8C    ; stw rb 0 rsp
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; TODO move flush and syscall to exit() function, use it also for errors
+    ; call flush()
+    7C 8A 00 00    ; ims ra <flush
+    7C 8A 40 05    ; ims ra >flush (0x540)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call syscall_exit(0)
+    70 80 00 00    ; add r0 0 0     ; zero r0
+    7C 8A 00 00    ; ims ra <syscall_exit
+    7C 8A D0 05    ; ims ra >syscall_exit (0x5D0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+@0x2A0
+
+
+
+
+;==========================================
+; char output_buffer[512];
+;==========================================
+; The output buffer.
+;
+; output_buffer_pos points into this buffer. The portion of the buffer that
+; contains data is the range from the start of this buffer to the pointer.
+;
+; This is hardcoded so we don't have to allocate anything.
+;==========================================
+
+@0x2A0
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+@0x4A0
+
+
+
+;==========================================
+; void print_char(char c);
+;==========================================
+; Writes the given byte to the output buffer. If the buffer becomes full, the
+; output is flushed afterwards.
+;
+; If any error occurs, the program aborts.
+;==========================================
+
+@0x4A0 =print_char
+    ; don't bother to set up a stack frame
+
+    ; the output buffer always has free space. we start by writing
+    ; the byte to it and bumping the pointer.
+    78 81 8E 3C    ; ldw r1 rpp 0x3C   ; output_buffer_pos
+    7B 80 00 81    ; stb r0 0 r1
+    70 81 81 01    ; add r1 r1 1
+    79 81 8E 3C    ; stw r1 rpp 0x3C
+
+    ; get the output buffer
+    7C 8A 00 00    ; ims ra <output_buffer
+    7C 8A A0 02    ; ims ra >output_buffer (0x2A0)
+    70 82 8E 8A    ; add r2 rpp ra
+
+    ; get the end of the output buffer
+    76 83 01 09    ; shl r3 1 9     ; r3 = 512
+    70 83 82 83    ; add r3 r2 r3
+
+    ; check if there is space left in the buffer
+    71 8A 81 83    ; sub ra r1 r3
+    7E 8A 01 00    ; jz ra &print_char_full (+1)
+
+    ; if there is still space left, we're done.
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+;:print_char_full
+
+    ; the buffer is full. call flush()
+    7C 8A 00 00    ; ims ra <flush
+    7C 8A 40 05    ; ims ra >flush (0x540)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; reset the buffer pos to the start
+    7C 8A 00 00    ; ims ra <output_buffer
+    7C 8A A0 02    ; ims ra >output_buffer (0x2A0)
+    70 82 8E 8A    ; add r2 rpp ra
+    79 82 8E 3C    ; stw r2 rpp 0x3C   ; output_buffer_pos
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x540
+
+
+
+;==========================================
+; void flush(void);
+;==========================================
+; Flushes the buffer to standard output.
+;
+; Raises a fatal error on failure.
+;==========================================
+
+@0x540 =flush
+
+    ; get the output buffer
+    7C 8A 00 00    ; ims ra <output_buffer
+    7C 8A A0 02    ; ims ra >output_buffer (0x2A0)
+    70 81 8E 8A    ; add r1 rpp ra
+
+    ; get the byte count
+    78 82 8E 3C    ; ldw r2 rpp 0x3C   ; output_buffer_pos
+    71 82 82 81    ; sub r2 r2 r1
+
+    ; if there are no bytes in the buffer, we're done.
+    7E 82 01 00    ; jz r2 &flush_empty (+1)
+    7E 00 01 00    ; jz 0 &flush_have_data (+1)
+;:flush_empty
+    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
+;:flush_have_data
+
+    ; get stdout handle
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 10   ; ldw r0 r9 16
+
+    ; call write_all
+    7C 8A 00 00    ; ims ra <write_all
+    7C 8A A0 06    ; ims ra >write_all (0x6A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; non-zero return value indicates error
+    7E 80 06 00    ; jz r0 &flush_ok (+6)
+
+    ; failed to write to output file. fatal
+    7C 80 00 00    ; ims r0 <error_output_file
+    7C 80 C0 00    ; ims r0 >error_output_file
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 30 01    ; ims ra >fatal
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:flush_ok
+
+    ; we don't reset the output pos here. it's reset in emit_byte.
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x5D0
+
+
+
+;==========================================
+; [[noreturn] void syscall_exit(int status);
+;==========================================
+; Exits with the given status.
+;==========================================
+
+@0x5D0 =syscall_exit
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4       ; r9 = r9 of syscall exit
+    78 8F 88 00   ; ldw rip r8 0      ; rip = rip of syscall exit
+
+    ; TODO check VM version, use the sys instruction on older VMs
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x640
+
+
+
+;==========================================
+; void initialize(uint32_t* initial_register_values);
+;==========================================
+; Initializes all global variables.
+;==========================================
+
+@0x640 =initialize
+
+    ; store the initial register values
+    79 80 8E 24   ; stw r0 rpp 0x24    ; initial_register_values
+
+    ; store the process info table
+    78 80 80 00   ; ldw r0 r0 0
+    79 80 8E 20   ; stw r0 rpp 0x20    ; process_info_table
+
+    ; clear the output buffer
+    7C 8A 00 00   ; ims ra <output_buffer
+    7C 8A A0 02   ; ims ra >output_buffer (0x2A0)
+    70 8A 8A 8E   ; add ra ra rpp
+    79 8A 8E 3C   ; stw ra rpp 0x3C    ; output_buffer_pos = &output_buffer
+
+    ; the rest of our globals are either already initialized or don't need to
+    ; be initialized here.
+
+    ; return
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x6A0
+
+
+
+;==========================================
+; int write_all(int handle, const char* data, size_t count);
+;==========================================
+; Writes all of the given data to the given I/O handle.
+;
+; Returns zero if successful, or the syscall error code if it fails.
+;
+; vars
+; - io_handle: rfp-4
+; - data: rfp-8
+; - remaining: rfp-12
+; - loop address: rfp-16
+;==========================================
+
+@0x6A0 =write_all
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; store args
+    71 8C 8C 10     ; sub rsp rsp 16
+    79 80 8D FC     ; stw r0 rfp -4
+    79 81 8D F8     ; stw r1 rfp -8
+    79 82 8D F4     ; stw r2 rfp -12
+
+    ; store the address to loop
+    79 8F 8D F0    ; stw rip rfp -16
+;:write_all_loop
+
+    ; TODO move to syscall_fwrite() function, add fallbacks for old sys instruction
+
+    ; get syscall fwrite into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &write_all_no_error (+4)
+    ; fail, return the error code
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:write_all_no_error
+
+    ; check if we got zero
+    7E 80 01 00   ; jz r0 &write_all_zero (+1)
+    7E 00 05 00   ; jz 0 &write_all_not_zero (+5)
+;:write_all_zero
+    ; zero bytes written. this should not be possible; the vm is
+    ; malfunctioning. fail, return generic error -1
+    70 80 00 FF     ; add r0 0 -1
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:write_all_not_zero
+
+    ; adjust pointer and bytes remaining
+    78 81 8D F8   ; ldw r1 rfp -8
+    78 82 8D F4   ; ldw r2 rfp -12
+    70 81 81 80   ; add r1 r1 r0
+    71 82 82 80   ; sub r2 r2 r0
+    79 81 8D F8   ; stw r1 rfp -8
+    79 82 8D F4   ; stw r2 rfp -12
+
+    ; if bytes remaining is zero, we're done
+    7E 82 02 00   ; jz r2 &write_all_loop_exit (+2)
+
+    ; otherwise loop.
+    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
+    78 8F 8D F0   ; ldw rip rfp -16   ; jump to :write_all_loop
+
+;:write_all_loop_exit
+
+    ; done, return zero
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x790
+
+
+
+;==========================================
+; const char str_initial_register_states[];
+;==========================================
+
+@0x790 =str_initial_register_states
+    ; "Initial register states:" '0A '00
+    49 6e 69 74 69 61 6c 20  72 65 67 69 73 74 65 72
+  ;  I  n  i  t  i  a  l      r  e  g  i  s  t  e  r
+    20 73 74 61 74 65 73 3a  0a 00 00 00 00 00 00 00
+  ;     s  t  a  t  e  s  :  \n \0
+@0x7B0
+
+
+
+;==========================================
+; const char str_indentation[];
+;==========================================
+
+@0x7B0 =str_indentation
+    ; "    " '00
+    20 20 20 20 00 00 00 00  00 00 00 00 00 00 00 00
+  ;             \0
+@0x7C0
+
+
+
+
+;==========================================
+; void print_string(const char* str);
+;==========================================
+; Print the given null-terminated string verbatim.
+;
+; vars:
+;     str: rfp-4
+;     loop_address: rfp-8
+;==========================================
+
+@0x7C0 =print_string
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; store the string
+    79 80 8D FC    ; stw r0 rfp -4
+
+    ; store this address to loop
+    79 8F 8D F8    ; stw rip rfp -8
+;:print_string_loop
+
+    ; check if the current character is the null-terminator
+    78 81 8D FC   ; ldw r1 rfp -4
+    7A 80 81 00   ; ldb r0 r1 0
+    7E 80 01 00   ; jz r0 &print_string_done (+1)    ; jnz r0 &print_string_output
+    7E 00 04 00   ; jz 0 &print_string_output (+4)   ; ^^^
+
+;:print_string_done
+    ; return
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+;:print_string_output
+
+    ; call print_char()
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; increment the string
+    78 81 8D FC   ; ldw r1 rfp -4
+    70 81 81 01   ; add r1 r1 1   ; inc r1
+    79 81 8D FC   ; stw r1 rfp -4
+
+    ; load the loop address to loop
+    78 8F 8D F8   ; ldw rip rfp -8    ; jump to print_string_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x830
+
+
+
+;==========================================
+; void print_indentation(void);
+;==========================================
+; Prints indendation.
+;==========================================
+
+@0x830 =print_indentation
+
+    ; get indentation
+    7C 80 00 00    ; ims r0 <str_indentation
+    7C 80 B0 07    ; ims r0 >str_indentation (0x7B0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; tail-call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x860
+
+
+
+;==========================================
+; void print_register_name(int index);
+;==========================================
+; Prints the name of the register with the given index (0-15).
+;
+; TODO this probably would have been much simpler with a simple char array,
+; four chars for each register name. or eight chars and include ": " plus
+; alignment
+;==========================================
+
+@0x860 =print_register_name
+
+    ; store the index
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r0
+    79 80 00 8C    ; stw r0 0 rsp      ; ...
+
+    ; call print_char('r')
+    70 80 72 00    ; add r0 "r" 0     ; mov r0 "r"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check if the index is less than 10
+    78 80 00 8C    ; ldw r0 0 rsp
+    7D 8A 80 0A    ; ltu ra r0 10
+    ; TODO workaround for cmpu
+    7E 8A 0A 00    ; jz ra &print_indentation_not_numbered (+10)
+
+    ; register is numbered. add '0' and print it, call print_char()
+    70 80 80 30    ; add r0 r0 '0'
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8C 04    ; sub rsp rsp 4   ; popd r0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+;:print_indentation_not_numbered
+
+    ; check if the index is less than 12
+    78 80 00 8C    ; ldw r0 0 rsp
+    7D 8A 80 0C    ; ltu ra r0 12
+    ; TODO workaround for cmpu
+    7E 8A 0B 00    ; jz ra &print_indentation_not_scratch (+11)
+
+    ; register is scratch. add 'a', subtract 10 and print it, call print_char()
+    70 80 80 61    ; add r0 r0 'a'
+    71 80 80 0A    ; sub r0 r0 10
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8C 04    ; sub rsp rsp 4   ; popd r0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+;:print_indentation_not_scratch
+
+    ; it's one of the four registers with special names.
+    ; the first character is always "r" and the last is always "p".
+
+    ; check if it's rsp
+    71 8A 80 0C    ; sub ra r0 12
+    7E 8A 01 00    ; jz ra &print_indentation_rsp (+1)
+    7E 00 02 00    ; jz 0 &print_indentation_not_rsp (+2)
+;:print_indentation_rsp
+    70 80 00 73    ; add r0 0 "s"   ; mov r0 "s"
+    7E 00 0B 00    ; jz 0 &print_indentation_special (+11)
+;:print_indentation_not_rsp
+
+    ; check if it's rfp
+    71 8A 80 0D    ; sub ra r0 13
+    7E 8A 01 00    ; jz ra &print_indentation_rfp (+1)
+    7E 00 02 00    ; jz 0 &print_indentation_not_rfp (+2)
+;:print_indentation_rfp
+    70 80 00 66    ; add r0 0 "f"   ; mov r0 "f"
+    7E 00 06 00    ; jz 0 &print_indentation_special (+6)
+;:print_indentation_not_rfp
+
+    ; check if it's rpp
+    71 8A 80 0E    ; sub ra r0 14
+    7E 8A 01 00    ; jz ra &print_indentation_rpp (+1)
+    7E 00 02 00    ; jz 0 &print_indentation_not_rpp (+2)
+;:print_indentation_rpp
+    70 80 00 70    ; add r0 0 "p"   ; mov r0 "p"
+    7E 00 01 00    ; jz 0 &print_indentation_special (+1)
+;:print_indentation_not_rpp
+
+    ; it's rip
+    70 80 00 69    ; add r0 0 "i"   ; mov r0 "i"
+
+    ; call print_char()
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('p')
+    70 80 00 70    ; add r0 0 "p"   ; mov r0 "p"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8C 04    ; sub rsp rsp 4   ; popd r0
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x9B0
+
+
+
+;==========================================
+; void print_registers(void);
+;==========================================
+; Print the initial state of all registers.
+;
+; vars:
+;     current_reg: rfp-4
+;     loop_address: rfp-8
+;==========================================
+
+@0x9B0 =print_registers
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; get "Initial register states:"
+    7C 80 00 00    ; ims r0 <str_initial_register_states
+    7C 80 90 07    ; ims r0 >str_initial_register_states (0x790)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; initialize the current register to 0
+    79 00 8D FC    ; stw 0 rfp -4
+
+    ; store this address to loop
+    79 8F 8D F8    ; stw rip rfp -8
+;:print_registers_loop
+
+    ; check if we've printed all registers
+    78 81 8D FC   ; ldw r1 rfp -4
+    71 82 81 10   ; sub r2 r1 16
+    7E 82 01 00   ; jz r2 &print_registers_done (+1)    ; jnz r0 &print_registers_output
+    7E 00 04 00   ; jz 0 &print_registers_output (+4)   ; ^^^
+
+;:print_registers_done
+    ; return
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+;:print_registers_output
+
+    ; call print_indentation()
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A 30 08    ; ims ra >print_indentation (0x830)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_register_name(current_reg)
+    78 80 8D FC    ; ldw r0 rfp -4
+    7C 8A 00 00    ; ims ra <print_register_name
+    7C 8A 60 08    ; ims ra >print_register_name (0x860)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char(':')
+    70 80 00 3A    ; add r0 0 ":"   ; mov r0 ":"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char(' ')
+    70 80 00 20    ; add r0 0 " "   ; mov r0 " "
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the initial value of the current register
+    78 81 8D FC   ; ldw r1 rfp -4
+    76 81 81 02   ; shl r1 r1 2    ; mul r1 4
+    78 80 8E 24   ; ldw r0 rpp 0x24    ; initial_register_values
+    78 80 80 81   ; ldw r0 r0 r1
+
+    ; call print_hex
+    7C 8A 00 00    ; ims ra <print_hex
+    7C 8A 40 0B    ; ims ra >print_hex (0xB40)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; print a newline, call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; increment the current register
+    78 81 8D FC   ; ldw r1 rfp -4
+    70 81 81 01   ; add r1 r1 1   ; inc r1
+    79 81 8D FC   ; stw r1 rfp -4
+
+    ; load the loop address to loop
+    78 8F 8D F8   ; ldw rip rfp -8    ; jump to print_registers_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0xB40
+
+
+
+;==========================================
+; void print_hex(unsigned);
+;==========================================
+; Prints a hex number prefixed with 0x and padded with up to 8 zeroes.
+;
+; vars:
+;     value: rfp-4
+;     ptr: rfp-8
+;     buffer: rfp-20
+;     loop_address: rfp-24
+;==========================================
+
+@0xB40 =print_hex
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 18     ; sub rsp rsp 24
+
+    ; store value
+    79 80 8D FC     ; stw r0 rfp -4
+
+    ; initialize buffer to "0x00000000" '00
+    7B 30 8D EC    ; stb "0" rfp -20
+    7B 78 8D ED    ; stb "x" rfp -19
+    7B 30 8D EE    ; stb "0" rfp -18
+    7B 30 8D EF    ; stb "0" rfp -17
+    7B 30 8D F0    ; stb "0" rfp -16
+    7B 30 8D F1    ; stb "0" rfp -15
+    7B 30 8D F2    ; stb "0" rfp -14
+    7B 30 8D F3    ; stb "0" rfp -13
+    7B 30 8D F4    ; stb "0" rfp -12
+    7B 30 8D F5    ; stb "0" rfp -11
+    7B 00 8D F6    ; stb 0 rfp -10
+
+    ; initialize pointer to last 0 in buffer
+    70 8A 8D F5    ; add ra rfp -11
+    79 8A 8D F8    ; stw ra rfp -8
+
+    ; store this address to loop
+    79 8F 8D E8    ; stw rip rfp -24
+;:print_hex_loop
+
+    ; it's simpler to alwys go through the loop once even if the value is
+    ; originally zero.
+
+    ; call int_to_hex() on the lower four bits
+    78 80 8D FC    ; ldw r0 rfp -4
+    74 80 80 0F    ; and r0 r0 15
+    7C 8A 00 00    ; ims ra <int_to_hex
+    7C 8A 60 0C    ; ims ra >int_to_hex (0xC60)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; store it
+    78 81 8D F8    ; ldw r1 rfp -8
+    7B 80 81 00    ; stb r0 r1 0
+
+    ; decrement pointer
+    71 81 81 01    ; sub r1 r1 1
+    79 81 8D F8    ; stw r1 rfp -8
+
+    ; eliminate the lower four bits of the value
+    78 80 8D FC    ; ldw r0 rfp -4
+    77 80 80 04    ; shru r0 r0 4    ; TODO was this rotate on first version VM?
+    79 80 8D FC    ; stw r0 rfp -4
+
+    ; loop if the remaining value is not zero
+    7E 80 01 00   ; jz r0 &print_hex_done (+1)
+    78 8F 8D E8   ; ldw rip rfp -24    ; jump to print_hex_loop
+
+;:print_hex_done
+
+    ; call print_string(buffer)
+    70 80 8D EC    ; add r0 rfp -20
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xC60
+
+
+
+;==========================================
+; char int_to_hex(unsigned);
+;==========================================
+; Returns the hexadecimal character representing the given nibble.
+;==========================================
+
+@0xC60 =int_to_hex
+
+    ; check if the index is less than 10
+    7D 8A 80 0A    ; ltu ra r0 10
+    ; TODO workaround for cmpu
+    ; TODO if this cmpu workaround is big it would be simpler to just index a string
+    7E 8A 02 00    ; jz ra &int_to_hex_alpha (+2)
+
+    ; return '0'+value
+    70 80 80 30    ; add r0 r0 '0'
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+;:int_to_hex_alpha
+
+    ; return 'A'+value-10
+    70 80 80 41    ; add r0 r0 'A'
+    71 80 80 0A    ; sub r0 r0 10
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0xCB0
