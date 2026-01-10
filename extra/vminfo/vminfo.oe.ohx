@@ -26,6 +26,10 @@
 ;
 ; It prints information about the VM environment.
 ;
+; The tool is buffered like hex/0-onramp but it flushes on newlines and colons.
+; We do this in case it crashes: it makes it obvious what the program was
+; trying to do which may help debug the VM.
+;
 ; TODO we should attempt to support all historical versions of the Onramp VM.
 
 
@@ -50,6 +54,8 @@
 ;   9B0  print_registers
 ;   B40  print_hex
 ;   C60  int_to_hex
+;   CB0  print_decimal
+;   D80  print_decimal_parens
 
 
 
@@ -405,16 +411,25 @@
     76 83 01 09    ; shl r3 1 9     ; r3 = 512
     70 83 82 83    ; add r3 r2 r3
 
+    ; We flush if the buffer is full or if we printed a newline or a colon. See
+    ; the comment at the top of the file for details.
+
+    ; check if we printed a newline or colon
+    71 84 80 0A    ; sub r4 r0 "\n"
+    7E 84 05 00    ; jz r4 &print_char_flush (+5)
+    71 84 80 3A    ; sub r4 r0 ":"
+    7E 84 03 00    ; jz r4 &print_char_flush (+3)
+
     ; check if there is space left in the buffer
     71 8A 81 83    ; sub ra r1 r3
-    7E 8A 01 00    ; jz ra &print_char_full (+1)
+    7E 8A 01 00    ; jz ra &print_char_flush (+1)
 
-    ; if there is still space left, we're done.
+    ; we don't need to flush. done
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
-;:print_char_full
+;:print_char_flush
 
-    ; the buffer is full. call flush()
+    ; call flush()
     7C 8A 00 00    ; ims ra <flush
     7C 8A 40 05    ; ims ra >flush (0x540)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -422,12 +437,6 @@
     79 8B 00 8C    ; stw rb 0 rsp
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; reset the buffer pos to the start
-    7C 8A 00 00    ; ims ra <output_buffer
-    7C 8A A0 02    ; ims ra >output_buffer (0x2A0)
-    70 82 8E 8A    ; add r2 rpp ra
-    79 82 8E 3C    ; stw r2 rpp 0x3C   ; output_buffer_pos
 
     ; done
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
@@ -496,14 +505,16 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 ;:flush_ok
 
-    ; we don't reset the output pos here. it's reset in emit_byte.
+    ; reset the buffer pos to the start
+    7C 8A 00 00    ; ims ra <output_buffer
+    7C 8A A0 02    ; ims ra >output_buffer (0x2A0)
+    70 82 8E 8A    ; add r2 rpp ra
+    79 82 8E 3C    ; stw r2 rpp 0x3C   ; output_buffer_pos
 
     ; done
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1054,6 +1065,21 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+    ; get the initial value of the current register again
+    78 81 8D FC   ; ldw r1 rfp -4
+    76 81 81 02   ; shl r1 r1 2    ; mul r1 4
+    78 80 8E 24   ; ldw r0 rpp 0x24    ; initial_register_values
+    78 80 80 81   ; ldw r0 r0 r1
+
+    ; call print_decimal_parens
+    7C 8A 00 00    ; ims ra <print_decimal_parens
+    7C 8A 80 0D    ; ims ra >print_decimal_parens (0xD80)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
     ; print a newline, call print_char('\n')
     70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
     7C 8A 00 00    ; ims ra <print_char
@@ -1078,12 +1104,7 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0xB40
 
 
@@ -1132,7 +1153,7 @@
     79 8F 8D E8    ; stw rip rfp -24
 ;:print_hex_loop
 
-    ; it's simpler to alwys go through the loop once even if the value is
+    ; it's simpler to always go through the loop once even if the value is
     ; originally zero.
 
     ; call int_to_hex() on the lower four bits
@@ -1232,3 +1253,170 @@
     00 00 00 00 00 00 00 00
     00 00 00 00
 @0xCB0
+
+
+
+;==========================================
+; void print_decimal(unsigned value);
+;==========================================
+; Prints a decimal number.
+;
+; TODO maybe we should take an argument to say whether it's signed or unsigned?
+; Or maybe we don't do signed at all?
+;==========================================
+
+@0xCB0 =print_decimal
+
+    ; clear 16 bytes of stack space to use as a buffer
+    71 8C 8C 10   ; sub rsp rsp 10
+    79 00 8C 00   ; stw 0 rsp 0
+    79 00 8C 04   ; stw 0 rsp 4
+    79 00 8C 08   ; stw 0 rsp 8
+    79 00 8C 0C   ; stw 0 rsp 12
+
+    ; r1 will be a pointer to the last written byte. we point it to the
+    ; null-terminator at the end.
+    70 81 8C 0F   ; add r1 rsp 15
+
+    ; check the high bit. if it's set, the number is negative.
+    ; TODO maybe we shouldn't bother with negative numbers at all.
+
+    ; store the current address in r9. we'll use it to loop.
+    ; note that we always go through the loop once in case the argument is zero.
+    70 89 8F 00   ; add r9 rip 0
+;:print_decimal_loop
+
+    ; peel off a digit
+    73 82 80 0A   ; divu r2 r0 10
+    72 83 82 0A   ; mul r3 r2 10
+    71 83 80 83   ; sub r3 r0 r3
+
+    ; store it in the buffer
+    71 81 81 01   ; sub r1 r1 1
+    70 83 83 30   ; add r3 r3 "0"
+    7B 83 81 00   ; stw r3 r1 0
+
+    ; if the remainder is zero, we're done; otherwise loop
+    70 80 82 00   ; add r0 r2 0   ; mov r0 r2
+    7E 80 01 00   ; jz r0 &print_decimal_done
+    70 8F 89 00   ; add rip r9 0  ; jump to print_decimal_loop
+
+;:print_decimal_done
+
+    ; call print_string()
+    70 80 81 00    ; add r0 r1 0   ; mov r0 r1
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8C 10   ; add rsp rsp 10
+    78 8F 00 8C   ; ldw rip 0 rsp    ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0xD80
+
+
+
+;==========================================
+; void print_decimal_parens(unsigned value);
+;==========================================
+; Prints a decimal number suffix with a space and parentheses.
+;==========================================
+
+@0xD80 =print_decimal_parens
+
+    ; store the value
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r0
+    79 80 00 8C    ; stw r0 0 rsp      ; ^^^
+
+    ; call print_char(' ')
+    70 80 00 20    ; add r0 0 " "   ; mov r0 " "
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('(')
+    70 80 00 28    ; add r0 0 "("   ; mov r0 "("
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; restore the value
+    78 80 00 8C    ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^
+
+    ; call print_decimal(value)
+    7C 8A 00 00    ; ims ra <print_decimal
+    7C 8A B0 0C    ; ims ra >print_decimal (0xCB0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char(')')
+    70 80 00 29    ; add r0 0 ")"   ; mov r0 ")"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0xE60
+
+
+
+    ; We add 128 bytes of padding at the end of the program in case the program
+    ; and heap/stack are adjacent and the VM has not provided enough stack
+    ; space. We'll print a warning if the heap/stack space is insufficient.
+    ; TODO check and print the warning
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
