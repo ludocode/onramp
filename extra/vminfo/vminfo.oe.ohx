@@ -38,6 +38,8 @@
 ;  addr  name
 ;     0  __start
 ;    20  process_info_table
+;    24  initial_register_values
+;    2C  cmpu_instruction
 ;    3C  output_buffer_pos
 ;    80  __start_2
 ;   140  main
@@ -45,8 +47,9 @@
 ;   4A0  print_char
 ;   540  flush
 ;   5D0  syscall_exit
+;   640  initialize
 ;   6A0  write_all
-;   790  str_initial_register_states
+;   790  str_initial_register_values
 ;   7B0  str_indentation
 ;   7C0  print_string
 ;   830  print_indentation
@@ -56,6 +59,27 @@
 ;   C60  int_to_hex
 ;   CB0  print_decimal
 ;   D80  print_decimal_parens
+;   E60  str_version
+;   E60  str_version
+;   E70  str_major_version
+;   E80  str_minor_version
+;   E90  str_heap_start_address
+;   EB0  str_system_call_table_address
+;   ED0  str_exit_address
+;   EE0  str_input_stream_handle
+;   F00  str_output_stream_handle
+;   F20  str_error_stream_handle
+;   F40  str_command_line_arguments
+;   F60  str_environment_variables
+;   F80  str_working_directory
+;   FA0  str_capabilities
+;   FB0  str_system_call_count
+;   FD0  str_process_info_count
+;   FF0  print_pit_major_version
+;  10A0  print_value
+;  10F0  print_pit_entry
+;  11A0  str_process_info_table
+;  11C0  print_pit
 
 
 
@@ -110,19 +134,28 @@
 
 
 
+    ; padding
+    00 00 00 00
+
+
+
 ;==========================================
-; int output_io_handle;
+; int cmpu_instruction;
+;==========================================
+; Whether the VM uses cmpu instead of ltu as a comparison instruction.
+;
+; This is 1 for version 0 VMs, and 0 for versions 1 and later.
 ;==========================================
 
-@0x28 =output_io_handle
+@0x2C =cmpu_instruction
     00 00 00 00
-@0x2C
+@0x30
 
 
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+    00 00 00 00
 
 
 
@@ -232,15 +265,25 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-;    ; call print_pit()
-;    7C 8A 00 00    ; ims ra <print_pit
-;    7C 8A ?0 0?    ; ims ra >print_pit (0x??0)
-;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-;    70 8B 8F 08    ; add rb rip 8
-;    79 8B 00 8C    ; stw rb 0 rsp
-;    70 8F 8E 8A    ; add rip rpp ra    ; jump
-;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-;
+    ; print a newline, call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_pit()
+    7C 8A 00 00    ; ims ra <print_pit
+    7C 8A C0 11    ; ims ra >print_pit (0x11C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
 ;    ; call print_syscalls()
 ;    7C 8A 00 00    ; ims ra <print_syscalls
 ;    7C 8A ?0 0?    ; ims ra >print_syscalls (0x??0)
@@ -320,14 +363,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
 
 @0x2A0
 
@@ -335,14 +370,15 @@
 
 
 ;==========================================
-; char output_buffer[512];
+; char output_buffer[128];
 ;==========================================
 ; The output buffer.
 ;
 ; output_buffer_pos points into this buffer. The portion of the buffer that
 ; contains data is the range from the start of this buffer to the pointer.
 ;
-; This is hardcoded so we don't have to allocate anything.
+; This is hardcoded so we don't have to allocate anything. We're line buffered
+; so the buffer doesn't need to be very big.
 ;==========================================
 
 @0x2A0
@@ -354,6 +390,12 @@
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+@0x320
+
+
+
+    ; padding
+
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
@@ -371,6 +413,7 @@
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
+
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
@@ -379,7 +422,6 @@
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00    00 00 00 00 00 00 00 00
-@0x4A0
 
 
 
@@ -408,7 +450,7 @@
     70 82 8E 8A    ; add r2 rpp ra
 
     ; get the end of the output buffer
-    76 83 01 09    ; shl r3 1 9     ; r3 = 512
+    76 83 01 07    ; shl r3 1 7     ; r3 = 128
     70 83 82 83    ; add r3 r2 r3
 
     ; We flush if the buffer is full or if we printed a newline or a colon. See
@@ -569,21 +611,24 @@
     78 80 80 00   ; ldw r0 r0 0
     79 80 8E 20   ; stw r0 rpp 0x20    ; process_info_table
 
+    ; store whether we need workarounds for the cmpu instruction
+    78 81 80 00   ; ldw r1 r0 0   ; version
+    7E 81 01 00   ; jz r1 &initialize_cmpu
+    7E 00 01 00   ; jz 0 &initialize_ltu
+;:initialize_cmpu
+    79 01 8E 2C   ; stw 1 rpp 0x2C    ; cmpu_instruction
+;:initialize_ltu
+
     ; clear the output buffer
     7C 8A 00 00   ; ims ra <output_buffer
     7C 8A A0 02   ; ims ra >output_buffer (0x2A0)
     70 8A 8A 8E   ; add ra ra rpp
     79 8A 8E 3C   ; stw ra rpp 0x3C    ; output_buffer_pos = &output_buffer
 
-    ; the rest of our globals are either already initialized or don't need to
-    ; be initialized here.
-
     ; return
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -702,15 +747,15 @@
 
 
 ;==========================================
-; const char str_initial_register_states[];
+; const char str_initial_register_values[];
 ;==========================================
 
-@0x790 =str_initial_register_states
-    ; "Initial register states:" '0A '00
+@0x790 =str_initial_register_values
+    ; "Initial register values:" '0A '00
     49 6e 69 74 69 61 6c 20  72 65 67 69 73 74 65 72
   ;  I  n  i  t  i  a  l      r  e  g  i  s  t  e  r
-    20 73 74 61 74 65 73 3a  0a 00 00 00 00 00 00 00
-  ;     s  t  a  t  e  s  :  \n \0
+    20 76 61 6c 75 65 73 3a  0a 00 00 00 00 00 00 00
+  ;     v  a  l  u  e  s  :  \n \0
 @0x7B0
 
 
@@ -793,12 +838,14 @@
 
 
 ;==========================================
-; void print_indentation(void);
+; void print_indentation(int depth);
 ;==========================================
-; Prints indendation.
+; Prints indentation of the given depth.
 ;==========================================
 
 @0x830 =print_indentation
+
+    ; TODO loop on depth
 
     ; get indentation
     7C 80 00 00    ; ims r0 <str_indentation
@@ -975,9 +1022,19 @@
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
     71 8C 8C 08     ; sub rsp rsp 8
 
-    ; get "Initial register states:"
-    7C 80 00 00    ; ims r0 <str_initial_register_states
-    7C 80 90 07    ; ims r0 >str_initial_register_states (0x790)
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Initial register values:"
+    7C 80 00 00    ; ims r0 <str_initial_register_values
+    7C 80 90 07    ; ims r0 >str_initial_register_values (0x790)
     70 80 8E 80    ; add r0 rpp r0
 
     ; call print_string()
@@ -1011,7 +1068,8 @@
 
 ;:print_registers_output
 
-    ; call print_indentation()
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
     7C 8A 00 00    ; ims ra <print_indentation
     7C 8A 30 08    ; ims ra >print_indentation (0x830)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -1056,24 +1114,9 @@
     78 80 8E 24   ; ldw r0 rpp 0x24    ; initial_register_values
     78 80 80 81   ; ldw r0 r0 r1
 
-    ; call print_hex
-    7C 8A 00 00    ; ims ra <print_hex
-    7C 8A 40 0B    ; ims ra >print_hex (0xB40)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; get the initial value of the current register again
-    78 81 8D FC   ; ldw r1 rfp -4
-    76 81 81 02   ; shl r1 r1 2    ; mul r1 4
-    78 80 8E 24   ; ldw r0 rpp 0x24    ; initial_register_values
-    78 80 80 81   ; ldw r0 r0 r1
-
-    ; call print_decimal_parens
-    7C 8A 00 00    ; ims ra <print_decimal_parens
-    7C 8A 80 0D    ; ims ra >print_decimal_parens (0xD80)
+    ; call print_value
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1099,6 +1142,7 @@
     78 8F 8D F8   ; ldw rip rfp -8    ; jump to print_registers_loop
 
     ; padding
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1408,7 +1452,424 @@
 
 
 
-    ; We add 128 bytes of padding at the end of the program in case the program
+;==========================================
+; const char str_version[];
+;==========================================
+
+@0xE60 =str_version
+    ; "Version: " '00
+    56 65 72 73 69 6f 6e 3a  20 00 00 00 00 00 00 00
+  ;  V  e  r  s  i  o  n  :     \0
+@0xE70
+
+
+
+;==========================================
+; const char str_major_version[];
+;==========================================
+
+@0xE70 =str_major_version
+    ; "Major Version: " '00
+    4d 61 6a 6f 72 20 56 65  72 73 69 6f 6e 3a 20 00
+  ;  M  a  j  o  r     V  e   r  s  i  o  n  :    \0
+@0xE80
+
+
+
+;==========================================
+; const char str_minor_version[];
+;==========================================
+
+@0xE80 =str_minor_version
+    ; "Minor Version: " '00
+    4d 69 6e 6f 72 20 56 65  72 73 69 6f 6e 3a 20 00
+  ;  M  i  n  o  r     V  e   r  s  i  o  n  :    \0
+@0xE90
+
+
+
+;==========================================
+; const char str_heap_start_address[];
+;==========================================
+
+@0xE90 =str_heap_start_address
+    ; "Heap Start Address: " '00
+    48 65 61 70 20 53 74 61  72 74 20 41 64 64 72 65
+  ;  H  e  a  p     S  t  a   r  t     A  d  d  r  e
+    73 73 3a 20 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  s  s  :    \0
+@0xEB0
+
+
+
+;==========================================
+; const char str_system_call_table_address[];
+;==========================================
+
+@0xEB0 =str_system_call_table_address
+    ; "System Call Table Address: " '00
+    53 79 73 74 65 6d 20 43  61 6c 6c 20 54 61 62 6c
+  ;  S  y  s  t  e  m     C   a  l  l     T  a  b  l
+    65 20 41 64 64 72 65 73  73 3a 20 00 00 00 00 00
+  ;  e     A  d  d  r  e  s   s  :    \0
+@0xED0
+
+
+
+;==========================================
+; const char str_exit_address[];
+;==========================================
+
+@0xED0 =str_exit_address
+    ; "Exit Address: " '00
+    45 78 69 74 20 41 64 64  72 65 73 73 3a 20 00 00
+  ;  E  x  i  t     A  d  d   r  e  s  s  :    \0
+@0xEE0
+
+
+
+;==========================================
+; const char str_input_stream_handle[];
+;==========================================
+
+@0xEE0 =str_input_stream_handle
+    ; "Input Stream Handle: " '00
+    49 6e 70 75 74 20 53 74  72 65 61 6d 20 48 61 6e
+  ;  I  n  p  u  t     S  t   r  e  a  m     H  a  n
+    64 6c 65 3a 20 00 00 00  00 00 00 00 00 00 00 00
+  ;  d  l  e  :    \0
+@0xF00
+
+
+
+;==========================================
+; const char str_output_stream_handle[];
+;==========================================
+
+@0xF00 =str_output_stream_handle
+    ; "Output Stream Handle: " '00
+    4f 75 74 70 75 74 20 53  74 72 65 61 6d 20 48 61
+  ;  O  u  t  p  u  t     S   t  r  e  a  m     H  a
+    6e 64 6c 65 3a 20 00 00  00 00 00 00 00 00 00 00
+  ;  n  d  l  e  :    \0
+@0xF20
+
+
+
+;==========================================
+; const char str_error_stream_handle[];
+;==========================================
+
+@0xF20 =str_error_stream_handle
+    ; "Error Stream Handle: " '00
+    45 72 72 6f 72 20 53 74  72 65 61 6d 20 48 61 6e
+  ;  E  r  r  o  r     S  t   r  e  a  m     H  a  n
+    64 6c 65 3a 20 00 00 00  00 00 00 00 00 00 00 00
+  ;  d  l  e  :    \0
+@0xF40
+
+
+
+;==========================================
+; const char str_command_line_arguments[];
+;==========================================
+
+@0xF40 =str_command_line_arguments
+    ; "Command-Line Arguments: " '00
+    43 6f 6d 6d 61 6e 64 2d  4c 69 6e 65 20 41 72 67
+  ;  C  o  m  m  a  n  d  -   L  i  n  e     A  r  g
+    75 6d 65 6e 74 73 3a 20  00 00 00 00 00 00 00 00
+  ;  u  m  e  n  t  s  :     \0
+@0xF60
+
+
+
+;==========================================
+; const char str_environment_variables[];
+;==========================================
+
+@0xF60 =str_environment_variables
+    ; "Environment Variables: " '00
+    45 6e 76 69 72 6f 6e 6d  65 6e 74 20 56 61 72 69
+  ;  E  n  v  i  r  o  n  m   e  n  t     V  a  r  i
+    61 62 6c 65 73 3a 20 00  00 00 00 00 00 00 00 00
+  ;  a  b  l  e  s  :    \0
+@0xF80
+
+
+
+;==========================================
+; const char str_working_directory[];
+;==========================================
+
+@0xF80 =str_working_directory
+    ; "Working Directory: " '00
+    57 6f 72 6b 69 6e 67 20  44 69 72 65 63 74 6f 72
+  ;  W  o  r  k  i  n  g      D  i  r  e  c  t  o  r
+    79 3a 20 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  y  :    \0
+@0xFA0
+
+
+
+;==========================================
+; const char str_capabilities[];
+;==========================================
+
+@0xFA0 =str_capabilities
+    ; "Capabilities: " '00
+    43 61 70 61 62 69 6c 69  74 69 65 73 3a 20 00 00
+  ;  C  a  p  a  b  i  l  i   t  i  e  s  :    \0
+@0xFB0
+
+
+
+;==========================================
+; const char str_system_call_count[];
+;==========================================
+
+@0xFB0 =str_system_call_count
+    ; "System Call Count: " '00
+    53 79 73 74 65 6d 20 43  61 6c 6c 20 43 6f 75 6e
+  ;  S  y  s  t  e  m     C   a  l  l     C  o  u  n
+    74 3a 20 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  t  :    \0
+@0xFD0
+
+
+
+;==========================================
+; const char str_process_info_count[];
+;==========================================
+
+@0xFD0 =str_process_info_count
+    ; "Process Info Count: " '00
+    50 72 6f 63 65 73 73 20  49 6e 66 6f 20 43 6f 75
+  ;  P  r  o  c  e  s  s      I  n  f  o     C  o  u
+    6e 74 3a 20 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  n  t  :    \0
+@0xFF0
+
+
+
+;==========================================
+; void print_pit_major_version(void);
+;==========================================
+; Print the major version of the VM.
+;==========================================
+
+@0xFF0 =print_pit_major_version
+
+    ; For version 4 and later, the first entry is "Major Version"; otherwise
+    ; it's just "Version".
+
+    ; Check if the version is under 4
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
+    7D 87 88 04   ; ltu/cmpu r7 r8 4
+
+    ; cmpu workaround: convert cmpu to ltu
+    78 8B 8E 2C   ; ldw rb rpp 0x2C    ; cmpu_instruction
+    7E 8B 04 00   ; jz rb +4
+    70 87 87 01   ; add r7 r7 1
+    7E 87 01 00   ; jz r7 +1       ; isz r7 r7
+    70 87 00 01   ; add r7 0 1     ; ^^^
+    71 87 01 87   ; sub r7 1 r7    ; ^^^
+
+    ; get the appropriate string
+    ; (we separate ims here to ensure the VM can do it!)
+    7C 80 00 00   ; ims r0 '00 '00
+    7E 87 02 00   ; jz r7 +2
+    7C 80 60 0E   ; ims r0 >str_version (0xE60)
+    7E 00 01 00   ; jz 0 +1
+    7C 80 70 0E   ; ims r0 >str_major_version (0xE70)
+    70 80 8E 80   ; add r0 rpp r0
+
+    ; tail-call print_pit_entry(str, 0)
+    70 81 00 00    ; add r1 0 0   ; zero r1
+    7C 8A 00 00    ; ims ra <print_pit_entry
+    7C 8A F0 10    ; ims ra >print_pit_entry (0x10F0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x10A0
+
+
+
+;==========================================
+; void print_value(unsigned);
+;==========================================
+; Prints a value in both hexadecimal and decimal.
+;==========================================
+
+@0x10A0 =print_value
+
+    ; store the value
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r0
+    79 80 00 8C    ; stw r0 0 rsp      ; ^^^
+
+    ; call print_hex
+    7C 8A 00 00    ; ims ra <print_hex
+    7C 8A 40 0B    ; ims ra >print_hex (0xB40)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; restore the value
+    78 80 00 8C    ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^
+
+    ; tail-call print_decimal_parens
+    7C 8A 00 00    ; ims ra <print_decimal_parens
+    7C 8A 80 0D    ; ims ra >print_decimal_parens (0xD80)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x10F0
+
+
+
+;==========================================
+; void print_pit_entry(const char* str, int index);
+;==========================================
+; Print the entry with the given index in the process info table.
+;==========================================
+
+@0x10F0 =print_pit_entry
+
+    ; store the index
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r1
+    79 81 00 8C    ; stw r1 0 rsp      ; ...
+
+    ; store the string
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r1
+    79 80 00 8C    ; stw r0 0 rsp      ; ...
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A 30 08    ; ims ra >print_indentation (0x830)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; restore the string
+    78 80 00 8C    ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; restore the index
+    78 80 00 8C    ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^
+
+    ; load the value in the pit
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    76 80 80 02   ; shl r0 r0 2       ; r0 *= 4
+    78 80 89 80   ; ldw r0 r9 r0
+
+    ; call print_value()
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; tail-call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x11A0
+
+
+
+;==========================================
+; const char str_process_info_table[];
+;==========================================
+
+@0x11A0 =str_process_info_table
+    ; "Process Info Table: " '0A '00
+    50 72 6f 63 65 73 73 20  49 6e 66 6f 20 54 61 62
+  ;  P  r  o  c  e  s  s     I  n  f  o      T  a  b
+    6c 65 3a 20 0A 00 00 00  00 00 00 00 00 00 00 00
+  ;  l  e  :    \n \0
+@0x11C0
+
+
+
+;==========================================
+; void print_pit(void);
+;==========================================
+; Print the contents of the process info table.
+;==========================================
+
+@0x11C0 =print_pit
+
+    ; get string "Process Info Table:"
+    7C 80 00 00    ; ims r0 <str_process_info_table
+    7C 80 A0 11    ; ims r0 >str_process_info_table (0x11A0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_pit_major_version()
+    7C 8A 00 00    ; ims ra <print_pit_major_version
+    7C 8A F0 0F    ; ims ra >print_pit_major_version (0xFF0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+;@0x
+
+
+    ; We add 256 bytes of padding at the end of the program in case the program
     ; and heap/stack are adjacent and the VM has not provided enough stack
     ; space. We'll print a warning if the heap/stack space is insufficient.
     ; TODO check and print the warning
