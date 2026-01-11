@@ -26,14 +26,32 @@
 ;
 ; It prints information about the VM environment.
 ;
+; All versions of the Onramp VM spec are supported. As long as the VM declares
+; its version correctly in the process info table, this tool will work around
+; differences between VM versions.
+;
+; (Note that version 0 was still experimental and underwent several changes
+; without a version bump. This supports the "final" iteration of version 0,
+; with contiguous syscall numbers (fwrite is 6) but before the xor, ror and
+; cmpu instructions were replaced. It is not possible to detect whether fwrite
+; is 6 or 19 so there is no way to automatically support both.)
+
+
+
+; Implementation details:
+;
+; At startup we check the VM version and set several flags (`sys_instruction`,
+; `cmpu_instruction`, etc.) on old versions. These flags are used wherever we
+; need to apply workarounds.
+;
+; We avoid left shifts because they didn't exist on VM version 0. For right
+; shifts, the instruction was rotate on version 0, so we mask off the bits
+; before or after running the instruction. This is harmless on newer VMs so we
+; do it unconditionally.
+;
 ; The tool is buffered like hex/0-onramp but it flushes on newlines and colons.
 ; We do this in case it crashes: it makes it obvious what the program was
 ; trying to do which may help debug the VM.
-;
-; All versions of the Onramp VM spec are supported. As long as the VM declares
-; its version correctly in the process info table, this tool will work around
-; differences between VM versions. (Note that version 0 was still experimental
-; and had several changes; this supports the final iteration of version 0.)
 
 
 
@@ -138,7 +156,7 @@
 
 
 ;==========================================
-; int has_syscall_table;
+; int sys_instruction;
 ;==========================================
 ; Whether the VM uses a sys instruction instead of the syscall table.
 ;
@@ -940,13 +958,34 @@
 
 
 
+;==========================================
+; uint32_t pit_header_names[16];
+;==========================================
+; The program-relative address of strings containing the names of entries in
+; the process info table.
+;
+; These are the names in the latest version. On older VM versions we replace
+; the names in this list at runtime before printing them.
+;==========================================
+
+@0x8C0 =pit_header_names
+    70 0E 00 00    ; str_major_version (0xE70)
+    90 0E 00 00    ; str_heap_start_address (0xE90)
+    B0 0E 00 00    ; str_system_call_table_address (0xEB0)
+    E0 0E 00 00    ; str_input_stream_handle (0xEE0)
+    00 0F 00 00    ; str_output_stream_handle (0xF00)
+    20 0F 00 00    ; str_error_stream_handle (0xF20)
+    40 0F 00 00    ; str_command_line_arguments (0xF40)
+    60 0F 00 00    ; str_environment_variables (0xF60)
+    80 0F 00 00    ; str_working_directory (0xF80)
+    A0 0F 00 00    ; str_capabilities (0xFA0)
+    80 0E 00 00    ; str_minor_version (0xE80)
+    00 00 00 00    ; (only used on version 3 VMs)
+@0x8F0
+
+
+
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1611,47 +1650,70 @@
     6e 74 3a 20 00 00 00 00  00 00 00 00 00 00 00 00
   ;  n  t  :    \0
 @0xFF0
+;
+;
+;
+;;==========================================
+;; void print_pit_major_version(void);
+;;==========================================
+;; Print the major version of the VM as declared in the process info table.
+;;==========================================
+;
+;@0xFF0 =print_pit_major_version
+;
+;    ; get the appropriate string
+;    ; (we separate ims here to ensure the VM can do it!)
+;    7C 80 00 00   ; ims r0 '00 '00
+;    7E 87 02 00   ; jz r7 +2
+;    7C 80 60 0E   ; ims r0 >str_version (0xE60)
+;    7E 00 01 00   ; jz 0 +1
+;    7C 80 70 0E   ; ims r0 >str_major_version (0xE70)
+;    70 80 8E 80   ; add r0 rpp r0
+;
+;    ; tail-call print_pit_entry(str, 0)
+;    70 81 00 00    ; add r1 0 0   ; zero r1
+;    7C 8A 00 00    ; ims ra <print_pit_entry
+;    7C 8A F0 10    ; ims ra >print_pit_entry (0x10F0)
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;
+;    ; padding
+;    00 00 00 00 00 00 00 00
+;    00 00 00 00 00 00 00 00
+;    00 00 00 00
+;@0x1050
+;
+;
+;
+;;==========================================
+;; void print_pit_syscall_address(void);
+;;==========================================
+;; Print the syscall table address (or exit address) in the process info table.
+;;==========================================
+;
+;@0x1050 =print_pit_syscall_address
+;
+;    ; For version 2 and later, the entry is called "Syscall Table Address".
+;    ; Before that it was "Exit Address".
+;
+;    ; get the version
+;    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+;    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
+;
+;    ; get the appropriate string
+;
+;    ; tail-call print_pit_entry(str, 2)
+;    70 81 00 02    ; add r1 0 2   ; mov r1 2
+;    7C 8A 00 00    ; ims ra <print_pit_entry
+;    7C 8A F0 10    ; ims ra >print_pit_entry (0x10F0)
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;
+;    ; padding
+;    00 00 00 00 00 00 00 00
+;    00 00 00 00 00 00 00 00
+;    00 00 00 00 00 00 00 00
+;@0x10A0
 
 
-
-;==========================================
-; void print_pit_major_version(void);
-;==========================================
-; Print the major version of the VM.
-;==========================================
-
-@0xFF0 =print_pit_major_version
-
-    ; For version 4 and later, the first entry is "Major Version"; otherwise
-    ; it's just "Version".
-
-    ; Check if the version is under 4
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
-    7D 87 88 04   ; ltu/cmpu r7 r8 4
-
-    ; cmpu workaround: convert cmpu to ltu
-    78 8B 8E 2C   ; ldw rb rpp 0x2C    ; cmpu_instruction
-    7E 8B 04 00   ; jz rb +4
-    70 87 87 01   ; add r7 r7 1
-    7E 87 01 00   ; jz r7 +1       ; isz r7 r7
-    70 87 00 01   ; add r7 0 1     ; ^^^
-    71 87 01 87   ; sub r7 1 r7    ; ^^^
-
-    ; get the appropriate string
-    ; (we separate ims here to ensure the VM can do it!)
-    7C 80 00 00   ; ims r0 '00 '00
-    7E 87 02 00   ; jz r7 +2
-    7C 80 60 0E   ; ims r0 >str_version (0xE60)
-    7E 00 01 00   ; jz 0 +1
-    7C 80 70 0E   ; ims r0 >str_major_version (0xE70)
-    70 80 8E 80   ; add r0 rpp r0
-
-    ; tail-call print_pit_entry(str, 0)
-    70 81 00 00    ; add r1 0 0   ; zero r1
-    7C 8A 00 00    ; ims ra <print_pit_entry
-    7C 8A F0 10    ; ims ra >print_pit_entry (0x10F0)
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
 
     ; padding
     00 00 00 00 00 00 00 00
@@ -1666,8 +1728,16 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
-@0x10A0
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 
 
 
@@ -1799,9 +1869,20 @@
 ; void print_pit(void);
 ;==========================================
 ; Print the contents of the process info table.
+;
+; vars:
+;     index: rfp-4
+;     total: rfp-8
+;     loop_address: rfp-12
 ;==========================================
 
 @0x11C0 =print_pit
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
 
     ; get string "Process Info Table"
     7C 80 00 00    ; ims r0 <str_process_info_table
@@ -1817,17 +1898,190 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; call print_pit_major_version()
-    7C 8A 00 00    ; ims ra <print_pit_major_version
-    7C 8A F0 0F    ; ims ra >print_pit_major_version (0xFF0)
+    ; call fixup_pit_header_names()
+    7C 8A 00 00    ; ims ra <fixup_pit_header_names
+    7C 8A 40 13    ; ims ra >fixup_pit_header_names (0x1340)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; done
-    78 8F 00 8C    ; ldw rip 0 rsp        ; ret
+    ; It returned the number of entries in the pit.
+    ; Initialize vars
+    79 80 8D F8    ; stw r0 rfp -8   ; total
+    79 00 8D FC    ; stw 0 rfp -4    ; index
+
+    ; store this address to loop
+    79 8F 8D F4    ; stw rip rfp -12
+;:print_pit_loop
+
+    ; check if we've printed the whole table
+    78 80 8D F8    ; ldw r0 rfp -8   ; total
+    78 81 8D FC    ; ldw r1 rfp -4   ; index
+    71 82 80 81    ; sub r2 r0 r1
+    7E 82 01 00    ; jz r2 &print_pit_done (+1)
+    7E 00 04 00    ; jz 0 &print_pit_not_done (+4)
+
+;:print_pit_done
+    ; we're done. return
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_pit_not_done
+
+    ; get the header name
+    7C 8A 00 00    ; ims ra <pit_header_names
+    7C 8A C0 08    ; ims ra >pit_header_names (0x8C0)
+    70 8A 8E 8A    ; add ra rpp ra
+    72 8B 81 04    ; mul rb r1 4
+    78 80 8A 8B    ; ldw r0 ra rb
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_pit_entry()
+    7C 8A 00 00    ; ims ra <print_pit_entry
+    7C 8A F0 10    ; ims ra >print_pit_entry (0x10F0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; increment the index
+    78 80 8D FC    ; ldw r0 rfp -4    ; index
+    70 80 80 01    ; add r0 r0 1   ; inc r0
+    79 80 8D FC    ; stw r0 rfp -4    ; index
+
+    ; load the loop address to loop
+    78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_pit_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+    00 00 00 00
+@0x1340
+
+
+
+;==========================================
+; void fixup_pit_header_names(void);
+;==========================================
+; Correct the pit_header_names based on the VM version and return the number of
+; entries to print.
+;==========================================
+
+@0x1340 =fixup_pit_header_names
+
+    ; Get the header names array
+    7C 80 00 00    ; ims r0 <pit_header_names
+    7C 80 C0 08    ; ims r0 >pit_header_names (0x8C0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; Get the version
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
+
+    ; Check if the version is under 4
+    7D 87 88 04   ; ltu/cmpu r7 r8 4
+    ; cmpu workaround: convert cmpu to ltu
+    78 8B 8E 2C   ; ldw rb rpp 0x2C    ; cmpu_instruction
+    7E 8B 04 00   ; jz rb +4
+    70 87 87 01   ; add r7 r7 1
+    7E 87 01 00   ; jz r7 +1       ; isz r7 r7
+    70 87 00 01   ; add r7 0 1     ; ^^^
+    71 87 01 87   ; sub r7 1 r7    ; ^^^
+
+    ; For version 4 and later, the first entry is "Major Version"; otherwise
+    ; it's just "Version".
+    7E 87 03 00   ; jz r7 &fixup_pit_header_names_major_version (+7)
+    7C 81 00 00   ; ims r1 <str_version
+    7C 81 60 0E   ; ims r1 >str_version (0xE60)
+    79 81 80 00   ; stw r1 r0 0
+;:fixup_pit_header_names_major_version
+
+    ; For version 2 and later, the third entry is called "Syscall Table
+    ; Address"; before that it was "Exit Address".
+    7E 88 03 00   ; jz r8 +3
+    71 8A 88 01   ; sub ra r8 1
+    7E 8A 01 00   ; jz ra +1
+    7E 00 03 00   ; jz 0 +3
+    7C 81 00 00   ; ims r1 <str_exit_address
+    7C 81 D0 0E   ; ims r1 >str_exit_address (0xED0)
+    79 81 80 08   ; stw r1 r0 8
+
+    ; Version 3 had "System Call Count" and "Process Info Count" fields.
+    71 87 88 03   ; sub r7 r8 3
+    7E 87 01 00   ; jz r7 &fixup_pit_header_names_counts (+1)
+    7E 00 06 00   ; jz 0 &fixup_pit_header_names_no_counts (+6)
+;:fixup_pit_header_names_counts
+    7C 81 00 00   ; ims r1 <str_system_call_count
+    7C 81 B0 0F   ; ims r1 >str_system_call_count (0xFB0)
+    79 81 80 28   ; stw r1 r0 40
+    7C 81 00 00   ; ims r1 <str_process_info_count
+    7C 81 D0 0F   ; ims r1 >str_process_info_count (0xFD0)
+    79 81 80 2C   ; stw r1 r0 44
+;:fixup_pit_header_names_no_counts
+
+    ; Get the syscall table length.
+    ; - Version 0, 1 and 2: length is 10
+    ; - Version 3: length is 12
+    ; - Version 4: length is 11
+    7E 88 05 00   ; jz r8 &fixup_pit_header_names_10 (+5)
+    71 87 88 01   ; sub r7 r8 1
+    7E 87 03 00   ; jz r7 &fixup_pit_header_names_10 (+3)
+    71 87 88 02   ; sub r7 r8 2
+    7E 87 01 00   ; jz r7 &fixup_pit_header_names_10 (+1)
+    7E 00 02 00   ; jz 0 &fixup_pit_header_names_not_10 (+2)
+
+;:fixup_pit_header_names_10
+    ; return 10
+    70 80 00 0A   ; add r0 0 10     ; mov r0 10
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+;:fixup_pit_header_names_not_10
+    71 87 88 03   ; sub r7 r8 3
+    7E 87 02 00   ; jz r7 &fixup_pit_header_names_12 (+2)
+
+    ; return 11
+    70 80 00 0B   ; add r0 0 11     ; mov r0 11
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+;:fixup_pit_header_names_12
+    ; return 12
+    70 80 00 0C   ; add r0 0 12     ; mov r0 12
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 
 ;@0x
 
