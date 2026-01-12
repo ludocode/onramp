@@ -40,6 +40,11 @@
 
 ; Implementation details:
 ;
+; The entry point is more complicated than most programs because we need to
+; preserve the initial register states. Some of them change immediately (like
+; rip) and others we need to change to store anything (like rsp) so we have to
+; recompute their original values. See __start() and __start_2().
+;
 ; At startup we check the VM version and set several flags (`sys_instruction`,
 ; `cmpu_instruction`, etc.) on old versions. These flags are used wherever we
 ; need to apply workarounds.
@@ -73,14 +78,12 @@
 ;   790  str_initial_register_values
 ;   7B0  str_indentation
 ;   7C0  print_string
-;   830  print_indentation
 ;   860  print_register_name
 ;   9B0  print_registers
 ;   B40  print_hex
 ;   C60  int_to_hex
 ;   CB0  print_decimal
 ;   D80  print_decimal_parens
-;   E60  str_version
 ;   E60  str_version
 ;   E70  str_major_version
 ;   E80  str_minor_version
@@ -101,6 +104,8 @@
 ;  10F0  print_pit_entry
 ;  11A0  str_process_info_table
 ;  11C0  print_pit
+;  16C0  print_args
+;  1BE0  print_indentation
 
 
 
@@ -354,23 +359,23 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-;    ; call print_args()
-;    7C 8A 00 00    ; ims ra <print_args
-;    7C 8A ?0 0?    ; ims ra >print_args (0x??0)
-;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-;    70 8B 8F 08    ; add rb rip 8
-;    79 8B 00 8C    ; stw rb 0 rsp
-;    70 8F 8E 8A    ; add rip rpp ra    ; jump
-;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-;
-;    ; call print_env()
-;    7C 8A 00 00    ; ims ra <print_env
-;    7C 8A ?0 0?    ; ims ra >print_env (0x??0)
-;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-;    70 8B 8F 08    ; add rb rip 8
-;    79 8B 00 8C    ; stw rb 0 rsp
-;    70 8F 8E 8A    ; add rip rpp ra    ; jump
-;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+    ; call print_args()
+    7C 8A 00 00    ; ims ra <print_args
+    7C 8A C0 16    ; ims ra >print_args (0x16C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_env()
+    7C 8A 00 00    ; ims ra <print_env
+    7C 8A F0 16    ; ims ra >print_env (0x16F0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; TODO move flush and syscall to exit() function, use it also for errors
     ; call flush()
@@ -389,13 +394,6 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -925,35 +923,13 @@
 
     ; padding
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00
-@0x830
-
-
-
-;==========================================
-; void print_indentation(int depth);
-;==========================================
-; Prints indentation of the given depth.
-;==========================================
-
-@0x830 =print_indentation
-
-    ; TODO loop on depth
-
-    ; get indentation
-    7C 80 00 00    ; ims r0 <str_indentation
-    7C 80 B0 07    ; ims r0 >str_indentation (0x7B0)
-    70 80 8E 80    ; add r0 rpp r0
-
-    ; tail-call print_string()
-    7C 8A 00 00    ; ims ra <print_string
-    7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-
-    ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
 @0x860
 
 
@@ -1015,23 +991,107 @@
 
 
 
+;==========================================
+; const char str_colon[];
+;==========================================
+
+@0x8F0 =str_colon
+    ; ": " '00
+    3A 20 00 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  :    \0
+@0x900
+
+
+
+;==========================================
+; const char str_address[];
+;==========================================
+
+@0x900 =str_address
+    ; "Address" '00
+    41 64 64 72 65 73 73 00  00 00 00 00 00 00 00 00
+  ;  A  d  d  r  e  s  s \0
+@0x910
+
+
+
+;==========================================
+; const char str_count[];
+;==========================================
+
+@0x910 =str_count
+    ; "Count" '00
+    43 6f 75 6e 74 00 00 00  00 00 00 00 00 00 00 00
+  ;  C  o  u  n  t \0
+@0x920
+
+
+
+;==========================================
+; const char str_values[];
+;==========================================
+
+@0x920 =str_values
+    ; "Values" '00
+    56 61 6c 75 65 73 00 00  00 00 00 00 00 00 00 00
+  ;  V  a  l  u  e  s \0
+@0x930
+
+
+
+;==========================================
+; void print_colon(int depth);
+;==========================================
+; Prints ": "
+;==========================================
+
+@0x930 =print_colon
+
+    ; get colon
+    7C 80 00 00    ; ims r0 <str_indentation
+    7C 80 F0 08    ; ims r0 >str_indentation (0x8F0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; tail-call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+@0x950
+
+
+
+;==========================================
+; const char str_none[];
+;==========================================
+; Prints (none) and a newline. Used when an array is empty.
+;==========================================
+
+@0x950 =str_none
+    ; "(none)" '0A '00
+    28 6e 6f 6e 65 29 0A 00  00 00 00 00 00 00 00 00
+  ;  (  n  o  n  e  ) \n \0
+@0x960
+
+
+
+;==========================================
+; const char str_null[];
+;==========================================
+; Prints (null) and a newline. Used when an array is null.
+;==========================================
+
+@0x960 =str_null
+    ; "(null)" '0A '00
+    28 6e 75 6c 6c 29 0A 00  00 00 00 00 00 00 00 00
+  ;  (  n  u  l  l  ) \n \0
+@0x970
+
+
+
+    ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1110,7 +1170,7 @@
     ; call print_indentation(1)
     70 80 00 01    ; add r0 0 1   ; mov r0 1
     7C 8A 00 00    ; ims ra <print_indentation
-    7C 8A 30 08    ; ims ra >print_indentation (0x830)
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1299,10 +1359,17 @@
 @0xC60 =int_to_hex
 
     ; check if the index is less than 10
-    7D 8A 80 0A    ; ltu ra r0 10
-    ; TODO workaround for cmpu
-    ; TODO if this cmpu workaround is big it would be simpler to just index a string
-    7E 8A 02 00    ; jz ra &int_to_hex_alpha (+2)
+    7D 87 80 0A    ; ltu ra r0 10
+    ; cmpu workaround: convert cmpu to ltu
+    78 8B 8E 2C   ; ldw rb rpp 0x2C    ; cmpu_instruction
+    7E 8B 04 00   ; jz rb +4
+    70 87 87 01   ; add r7 r7 1
+    7E 87 01 00   ; jz r7 +1       ; isz r7 r7
+    70 87 00 01   ; add r7 0 1     ; ^^^
+    71 87 01 87   ; sub r7 1 r7    ; ^^^
+
+    ; jump if not less than 10
+    7E 87 02 00    ; jz ra &int_to_hex_alpha (+2)
 
     ; return '0'+value
     70 80 80 30    ; add r0 r0 '0'
@@ -1316,9 +1383,6 @@
     78 8F 00 8C    ; ldw rip 0 rsp   ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1762,7 +1826,7 @@
     ; call print_indentation(1)
     70 80 00 01    ; add r0 0 1   ; mov r0 1
     7C 8A 00 00    ; ims ra <print_indentation
-    7C 8A 30 08    ; ims ra >print_indentation (0x830)
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2190,7 +2254,7 @@
     ; call print_indentation(1)
     70 80 00 01    ; add r0 0 1   ; mov r0 1
     7C 8A 00 00    ; ims ra <print_indentation
-    7C 8A 30 08    ; ims ra >print_indentation (0x830)
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2244,7 +2308,7 @@
     ; (doesn't make sense to print indentation here but we just want spaces)
     70 80 00 01    ; add r0 0 1   ; mov r0 1
     7C 8A 00 00    ; ims ra <print_indentation
-    7C 8A 30 08    ; ims ra >print_indentation (0x830)
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2300,14 +2364,559 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+@0x16C0
+
+
+
+;==========================================
+; void print_args(void);
+;==========================================
+; Print the command-line arguments.
+;==========================================
+
+@0x16C0 =print_args
+
+    ; get str_command_line_arguments
+    7C 80 00 00    ; ims r0 <str_command_line_arguments
+    7C 80 40 0F    ; ims r0 >str_command_line_arguments (0xF40)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; get args address
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 81 89 18   ; ldw r1 r9 24      ; command-line args
+
+    ; tail-call print_string_array
+    7C 8A 00 00    ; ims ra <print_string_array
+    7C 8A 20 17    ; ims ra >print_string_array (0x1720)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x16F0
+
+
+
+;==========================================
+; void print_env(void);
+;==========================================
+; Print the environment variables.
+;==========================================
+
+@0x16F0 =print_env
+
+    ; get str_environment_variables
+    7C 80 00 00    ; ims r0 <str_environment_variables
+    7C 80 60 0F    ; ims r0 >str_environment_variables (0xF60)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; get env vars address
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 81 89 1C   ; ldw r1 r9 28      ; env vars
+
+    ; tail-call print_string_array
+    7C 8A 00 00    ; ims ra <print_string_array
+    7C 8A 20 17    ; ims ra >print_string_array (0x1720)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1720
+
+
+
+;==========================================
+; void print_string_array(const char* title, const char** values);
+;==========================================
+; Print an array of strings with the given title.
+;
+; This is used to print command-line arguments and environment variables.
+;
+; We print the values before printing the count because getting the count
+; requires walking the array. If the array is invalid (for example missing a
+; null-terminator), we may crash before printing anything. Instead we print the
+; values first so that if there is a bad value we'll crash when actually trying
+; to print it.
+;
+; vars:
+;     values: rfp-4
+;     count: rfp-8
+;==========================================
+
+@0x1720 =print_string_array
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; store values
+    79 81 8D FC    ; stw r1 rfp -4
+
+    ; push the title
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r0
+    79 80 00 8C    ; stw r0 0 rsp      ; ^^^
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; pop the title
+    78 80 00 8C    ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Address"
+    7C 80 00 00    ; ims r0 <str_address
+    7C 80 00 09    ; ims r0 >str_address (0x900)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_value(values)
+    78 80 8D FC    ; ldw r0 rfp -4   ; values
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_string_array_values(values)
+    78 80 8D FC    ; ldw r0 rfp -4   ; values
+    7C 8A 00 00    ; ims ra <print_string_array_values
+    7C 8A 70 19    ; ims ra >print_string_array_values (0x1970)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; store the returned count
+    79 80 8D F8    ; stw r0 rfp -8  ; count
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Count"
+    7C 80 00 00    ; ims r0 <str_count
+    7C 80 10 09    ; ims r0 >str_count (0x910)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_decimal(count)
+    78 80 8D F8    ; ldw r0 rfp -8  ; count
+    7C 8A 00 00    ; ims ra <print_decimal
+    7C 8A B0 0C    ; ims ra >print_decimal (0xCB0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00
-;@0x1520
+@0x1970
 
 
 
+;==========================================
+; void print_string_array_values(const char** values);
+;==========================================
+; Print the values portion of a string array.
+;
+; This is used to print command-line arguments and environment variables.
+;
+; vars:
+;     values: rfp-4
+;     count: rfp-8
+;     loop_address: rfp-12
+;==========================================
+
+@0x1970 =print_string_array_values
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; initialize vars
+    79 80 8D FC    ; stw r0 rfp -4
+    79 00 8D F8    ; stw 0 rfp -8
+    79 00 8D F4    ; stw 0 rfp -12
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Values"
+    7C 80 00 00    ; ims r0 <str_values
+    7C 80 20 09    ; ims r0 >str_values (0x920)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+
+    ; check if the address is null
+    78 80 8D FC    ; ldw r0 rfp -4
+    7E 80 01 00    ; jz r0 &print_string_array_values_null (+1)
+    7E 00 0E 00    ; jz 0 &print_string_array_values_not_null (+14)
+
+;:print_string_array_values_null
+    ; address is null. get "(null)\n"
+    7C 80 00 00    ; ims r0 <str_null
+    7C 80 60 09    ; ims r0 >str_null (0x960)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return  (r0 is 0)
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_string_array_values_not_null
+
+
+    ; check if the first value is null
+    78 80 80 00    ; ldw r0 r0 0
+    7E 80 01 00    ; jz r0 &print_string_array_values_none (+1)
+    7E 00 0E 00    ; jz 0 &print_string_array_values_not_none (+14)
+
+;:print_string_array_values_null
+    ; no arguments. get "(none)\n"
+    7C 80 00 00    ; ims r0 <str_none
+    7C 80 50 09    ; ims r0 >str_none (0x950)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return  (r0 is 0)
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_string_array_values_not_null
+
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; store this address to loop
+    79 8F 8D F4    ; stw rip rfp -12
+;:print_string_array_values_loop
+
+    ; get the next value
+    78 80 8D FC    ; ldw r0 rfp -4
+    78 81 8D F8    ; ldw r1 rfp -8
+    72 81 81 04    ; mul r1 r1 4
+    78 80 80 81    ; ldw r0 r0 r1
+
+    ; check if we found the null-terminator
+    7E 80 01 00    ;  jz r0 &print_string_array_values_done (+1)
+    7E 00 05 00    ;  jz 0 &print_string_array_values_not_done (+5)
+
+;:print_string_array_values_done
+    ; return count
+    78 80 8D F8    ; ldw r0 rfp -8
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_string_array_values_not_done
+
+    ; call print_indentation(2)
+    70 80 00 02    ; add r0 0 2   ; mov r0 2
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the next value again
+    78 80 8D FC    ; ldw r0 rfp -4
+    78 81 8D F8    ; ldw r1 rfp -8
+    72 81 81 04    ; mul r1 r1 4
+    78 80 80 81    ; ldw r0 r0 r1
+
+    ; call print_value()
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the next value again
+    78 80 8D FC    ; ldw r0 rfp -4
+    78 81 8D F8    ; ldw r1 rfp -8
+    72 81 81 04    ; mul r1 r1 4
+    78 80 80 81    ; ldw r0 r0 r1
+
+    ; call print_string()
+    ; TODO should probably escape it
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; bump the count
+    78 81 8D F8    ; ldw r1 rfp -8
+    70 81 81 01    ; add r1 r1 1   ; inc r1
+    79 81 8D F8    ; stw r1 rfp -8
+
+    ; load the loop address to loop
+    78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_string_array_values_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1BE0
 
 
 
+;==========================================
+; void print_indentation(int depth);
+;==========================================
+; Prints indentation of the given depth.
+;==========================================
+
+@0x1BE0 =print_indentation
+
+    ; if depth is zero, return
+    7E 80 01 00    ; jz r0 &print_indentation_zero (+1)
+    7E 00 01 00    ; jz 0 &print_indentation_not_zero (+1)
+;:print_indentation_zero
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_indentation_not_zero
+
+    ; push the depth
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r0
+    79 80 00 8C    ; stw r0 0 rsp      ; ^^^
+
+    ; get indentation
+    7C 80 00 00    ; ims r0 <str_indentation
+    7C 80 B0 07    ; ims r0 >str_indentation (0x7B0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; pop the depth
+    78 80 00 8C    ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^
+
+    ; decrement it
+    71 80 80 01    ; sub r0 r0 1
+
+    ; recurse
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x1C50
 
 
 
