@@ -46,7 +46,8 @@ Here's an index of sections in this document:
 - [System Calls](#system-calls)
     - [System Call Table][system-call-table]
     - [System Call Quick Reference](#system-call-quick-reference)
-    - [`halt`](#halt)
+    - [Error Handling](#error-handling)
+    - [`exit`](#exit)
     - [`panic`](#panic)
     - [`time`](#time)
     - [`fopen`](#fopen)
@@ -67,6 +68,7 @@ Here's an index of sections in this document:
     - [`mkdir`](#mkdir)
     - [`rmdir`](#rmdir)
     - [`spawn`](#spawn)
+    - [`debug`](#debug)
     - [`alloc`](#alloc)
     - [`free`](#free)
 - [Filesystem](#filesystem)
@@ -74,7 +76,6 @@ Here's an index of sections in this document:
     - [Input/Output Streams](#inputoutput-streams)
         - [Input](#input)
         - [Output and Error](#output-and-error)
-    - [Error Handling](#error-handling)
 - [Debug Info](#debug-info)
 - [File Format](#file-format)
 - [Rationale](#rationale)
@@ -331,7 +332,7 @@ The minor version of the Onramp VM described by this document is 0. This field m
 
 The minor version is incremented whenever non-breaking changes are made to this spec. Examples would be the addition of new system calls or new entries in the process info table. Programs compiled for older minor versions can simply ignore the new features, and programs compiled for newer minor versions will know by the minor version that these features are unavailable.
 
-As long as the major versions are compatible, programs should be able to run regardless off any mismatch in minor version. Note however that when a program runs a subprogram, the minor version given to the child will be limited to that supported by the parent. This is because the parent needs to know of all system calls (among other things) given to child in order to proxy them correctly.
+As long as the major versions are compatible, programs should be able to run regardless off any mismatch in minor version. Note however that when a program runs a subprogram, the minor version given to the child will be limited to that supported by the parent. This is because the parent needs to know of all system calls (among other things) it gives to the child in order to proxy them correctly.
 
 
 
@@ -1663,16 +1664,72 @@ Onramp's VM design takes inspiration from such projects as Robert Elder's [one p
 
 ## Version History
 
-Version 4: Cleaned up syscall error codes. Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `fread` and `fwrite` is now disallowed but the libc will still support it for backwards compatibility.) Made other error codes optional (except for `ERROR_GENERIC`) and fully documented the expected error codes for all exceptional conditions in all syscalls.
+This spec has undergone several changes in its history. The libc and bootstrap code will attempt to remain compatible with versions 2 and later (when the syscall table was added) to avoid breaking existing VMs.
 
-Version 3: Added system call count and process info count fields to the PIT. Added `alloc` and `free` system calls.
 
-Version 2: Added system call table, replacing the exit address in the PIT (an address that was assigned to `rip` to exit the program.). Removed `sys` instruction. Renamed `halt` syscall to `exit`. Added `panic` syscall, displacing `time`.
+#### Version 4
 
-Version 1: Replaced `cmpu` instruction with `ltu`. (The `cmpu` instruction performed a three-way comparison returning -1, 0 or 1.)
+The current version. Changes include:
 
-Version 0: Initial version.
+- Changes to the Process Info Table:
+    - The System Call Count and Process Info Count fields have been replaced by a single Minor Version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
+- Cleaned up syscall error codes:
+    - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `fread` and `fwrite` is now disallowed but the libc will still support it for backwards compatibility.)
+    - Other error codes are now optional (except for `ERROR_GENERIC`). The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
+- Some syscall changes:
+    - The prototype for `alloc` has changed. The old function was never used.
 
+
+#### Version 3
+
+- Added System Call Count and Process Info Count fields to the Process Info Table.
+- Added `alloc` and `free` system calls.
+
+The latest spec for version 3 is in commit [c0110ef5](https://github.com/ludocode/onramp/blob/c0110ef5e7de3a0d3f8136ffd82b1c893ae670be/docs/virtual-machine.md).
+
+
+#### Version 2
+
+- Added the System Call Table.
+    - The System Call Table address replaces the Exit Address in the Process Info Table.
+        - The Exit Address was a value that the program would assign to `rip` to exit. This mechanism is now used for all system calls.
+    -  Removed `sys` instruction. (The opcode `0x7F` is now unused and will remain so because some VMs continue to use it to implement the syscall mechanism.)
+- Some syscalls have changed:
+    - `halt` has been renamed to `exit`.
+    - `panic` has been added, displacing `time`.
+
+The latest spec for version 2 is in commit [d313b92c](https://github.com/ludocode/onramp/blob/d313b92c79a6a5cab5553fde3a8c85e0e59759e2/docs/virtual-machine.md).
+
+
+#### Version 1
+
+- Instructions have changed:
+    - `ltu` replaces `cmpu`. (The `cmpu` instruction performed a three-way comparison returning -1, 0 or 1.)
+    - `shru` replaces `ror`. (The `ror` instruction performed a 32-bit rotate (i.e. without carry) instead of a shift.)
+    - `shl` replaces `xor`. (The `xor` instruction performed a bitwise XOR similar to the `and` and `or` instructions.)
+
+The new instructions are simpler for VMs to implement and are much more useful to programs.
+
+The bump to version 1 was actually made a few months after the `shru` and `shl` instructions were added to the document. I'm listing them here as a version 1 change anyway. The difference between version 0 and 1 is a bit fuzzy because version 0 was still experimental; the spec was not versioned seriously until version 1.
+
+The spec for version 1 is in commit [36bb35db](https://github.com/ludocode/onramp/blob/36bb35db73732e55a74b56f982679f72243797c6/docs/virtual-machine.md).
+
+
+#### Version 0
+
+This was the initial experimental version of the Onramp VM. Several breaking changes were made without bumping the version number; in most cases it is impossible for the program to tell which "version 0" it is running on so there is no way for a program to be portable to all version 0 VMs.
+
+Some changes during version 0 are:
+
+- Syscalls were renumbered. For example, `fwrite` was originally 19; it was later changed to 6.
+- `fread` and `fwrite` originally had to read or write exactly the number of bytes requested (if possible). This was relaxed so they could read or write less.
+- `ftell` was added and its redundant functionality was removed from `fseek`.
+- `ftrunc` was added and the behaviour of `fopen` was simplified, allowing programs to support both truncate and append without needing more VM `fopen` modes.
+- `chmod` was changed to operate on a path rather than a handle
+
+Most of these changes were made to simplify VMs at the expense of some complexity in the libc and bootstrap.
+
+The best commit representing version 0 is probably [8ace5628](https://github.com/ludocode/onramp/blob/8ace5628af12329c02f7bcd46f4f00b47f82beb0/docs/virtual-machine.md), although changes were made before and after this commit with the same version number.
 
 
 <!--
