@@ -167,28 +167,30 @@ If the VM implements the [`alloc` syscall](#alloc), the free memory region can b
 
 (WARNING: the `alloc` syscall is not fully specified yet and no Onramp programs use it.)
 
-The total amount of memory required depends on the program being run. 16 MiB is a reasonable default for the initial program memory. (This needs to be updated later with requirements for bootstrapping and for compiling and running various programs.)
+The total amount of memory required depends on the program being run. 4 MiB is sufficient for the initial bootstrap but many programs will require more. 16 MiB is a reasonable default. (This needs to be updated later with requirements for bootstrapping and for compiling and running various programs.)
 
 Information about the process and VM is also made available to the program in data tables in memory. This includes the command-line arguments and environment variables of the process; the VM's capabilities and input/output file handles; and a table of system calls.
 
 Here's a diagram showing the regions of memory, the initial values of the registers, and some of the addresses in the process info table:
 
 ```
-       read only            read/write        read/write/execute           read/write/execute
-  ~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  |  process info   |   |  command-line  |   |                  |   |                      :         |
-  |    table,       |   |    args,       |   |  program image   |   |        heap          :  stack  |
-  |  syscall table  |   |  environ vars  |   |                  |   |                      :         |
-  ~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        ^-- r0                  ^-- argv     ^-- rpp                ^-- heap_start                   ^-- rsp
-   ^-- syscall_table       ^-- environ       ^-- rip
+               read only                 read/write/execute           read/write/execute
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  |  process info     command-line  |   |                  |   |                      :         |
+  |    table,           args,       |   |  program image   |   |        heap          :  stack  |
+  |  syscall table    environ vars  |   |                  |   |                      :         |
+  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        ^-- r0            ^-- argv      ^-- rpp                ^-- heap_start                   ^-- rsp
+   ^-- syscall_table  ^-- environ       ^-- rip
 ```
 
 Note that the blocks do not have to appear in this order in memory. The process info can be before, after, or in between the program and free memory; the program can be before or after the free memory; and so on.
 
 (In many VM implementations, the process info, the program, and the free memory are all placed in one contiguous region of memory. A single large block is allocated; the process info is placed at the start; the program is loaded afterwards; and the remainder of the block is the program's free memory. The end of the program is therefore the start of the heap. It was historically called the ["program break"](https://en.wikipedia.org/wiki/Sbrk) for this reason, and is still called that by some VMs. This contiguous layout is not required but it is often a convenient way to implement a VM.)
 
-The "read only", "read/write", and "read/write/execute" labels show how the memory is used, and suggests potential access limitations the VM may place on memory regions. Note that the free memory region must be executable so that the program can load and run subprograms. The VM does not need to enforce any such access restrictions. There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, etc.)
+The "read only", "read/write", and "read/write/execute" labels show how the memory is used, and suggests potential access limitations the VM may place on memory regions. These limitations refer to the Onramp bytecode; in particular "execute" means the VM must be able to execute Onramp bytecode in this region, not its own native code. Note that the free memory region must be executable so that the program can load and run subprograms.
+
+The VM does not need to enforce any such access restrictions. There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, the VM may simply allow the write, etc.)
 
 All addresses above must be aligned to a multiple of 4 bytes.
 
@@ -214,7 +216,7 @@ The process information table is an array of eleven 32-bit words (44 bytes total
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
 
-The process info table and its associated information cannot be written to by the program except that command-line arguments and environment variables may be modified in-place (for example with `strtok()`.) Any other changes are undefined behaviour, and may crash the VM or corrupt the parent process.
+The process info table and its associated information (system call table, command-line arguments, environment variables, working directory) cannot be written to or executed by the program. An attempt by the program to write to or execute bytecode from these addresses is undefined behaviour. (VMs typically do not enforce this, but the restriction is important in order to simplify certain tools including the shell in the bootstrap process.)
 
 
 
@@ -278,7 +280,7 @@ Command-line arguments are stored in a null-terminated array of null-terminated 
 
 In a hosted environment, the command-line typically has at least one string, which is the path to the program being run. The program can use this path to find its program image, and can use the last component of this path to determine its name.
 
-This field is optional. If not supported, it can be null (zero) or it can be an empty array (i.e. it can be the address of a zero.) This indicates to the program that the program name and command line arguments are not available.
+This field is optional. If not supported, it can be null (zero) or it can be an empty array (i.e. it can be the address of a zero word.) This indicates to the program that the program name and command line arguments are not available.
 
 
 
@@ -288,7 +290,7 @@ Environment variables are stored in a null-terminated array of null-terminated s
 
 Environment variables are key-value pairs delimited by `=`. The substring to the left of the first `=` is the key, while the substring to the right is the value.
 
-This field is optional. If not supported, or if there are no environment variables, this field can be null (zero) or it can be an empty array (i.e. it can be the address of a zero.)
+This field is optional. If not supported, or if there are no environment variables, this field can be null (zero) or it can be an empty array (i.e. it can be the address of a zero word.)
 
 
 
@@ -1672,7 +1674,8 @@ This spec has undergone several changes in its history. The libc and bootstrap c
 The current version. Changes include:
 
 - Changes to the Process Info Table:
-    - The System Call Count and Process Info Count fields have been replaced by a single Minor Version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
+    - The system call count and Process Info Count fields have been replaced by a single Minor Version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
+    - All contents of the process info table, including command-line arguments and environment variables, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
 - Cleaned up syscall error codes:
     - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `fread` and `fwrite` is now disallowed but the libc will still support it for backwards compatibility.)
     - Other error codes are now optional (except for `ERROR_GENERIC`). The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
