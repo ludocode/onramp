@@ -559,6 +559,7 @@ if [ $SETUP_ONLY -eq 0 ]; then
     echo
     echo "Entering Onramp virtual machine..."
     onrampvm build/intermediate/sh/sh.oe core/build.sh
+    onrampvm build/intermediate/sh/sh.oe extra/build.sh
 fi
 
 # Lastly we copy the POSIX wrappers into place.
