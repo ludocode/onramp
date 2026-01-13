@@ -2,7 +2,7 @@
 
 The Onramp Virtual Machine is a simple virtual machine designed for portable bootstrapping.
 
-This document specifies an incomplete in-development version of the virtual machine (tentatively version 4.) For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
+This document specifies an incomplete in-development version of the virtual machine (tentatively version 4.0.) For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
 
 Here's an index of sections in this document:
 
@@ -10,7 +10,7 @@ Here's an index of sections in this document:
 - [Registers](#registers)
 - [Memory Layout](#memory-layout)
 - [Process Info Table](#process-info-table)
-    - [Version](#version)
+    - [Major Version](#major-version)
     - [Heap Start Address](#heap-start-address)
     - [System Call Table Address][pit-system-call-table]
     - [Input Stream Handle](#input-stream-handle)
@@ -20,8 +20,7 @@ Here's an index of sections in this document:
     - [Environment Variables](#environment-variables)
     - [Working Directory](#working-directory)
     - [Capabilities](#capabilities)
-    - [System Call Count](#system-call-count)
-    - [Process Info Count](#process-info-count)
+    - [Minor Version](#minor-version)
 - [Position-Independence](#position-independence)
 - [Instructions](#instructions)
 - [Negative Values](#negative-values)
@@ -79,6 +78,7 @@ Here's an index of sections in this document:
 - [Debug Info](#debug-info)
 - [File Format](#file-format)
 - [Rationale](#rationale)
+- [Version History](#version-history)
 
 
 
@@ -195,11 +195,11 @@ All addresses above must be aligned to a multiple of 4 bytes.
 
 ## Process Info Table
 
-The process information table is an array of twelve 32-bit words. Here's a quick reference table of its contents:
+The process information table is an array of eleven 32-bit words (44 bytes total.) Here's a quick reference table of its contents:
 
 | Index | Value                      | type     | Description                                                            |
 |-------|----------------------------|----------|------------------------------------------------------------------------|
-| 0     | Version                    | `int`    | Always 4 for this version.                                             |
+| 0     | Major Version              | `int`    | Always 4 for this version.                                             |
 | 1     | Heap Start Address         | `void*`  | Address of the free memory region provided by the VM.                  |
 | 2     | System Call Table Address  | `void*`  | Table of system calls.                                                 |
 | 3     | Input Stream Handle        | `int`    | File handle of input stream, or -1 if input is not supported           |
@@ -209,8 +209,7 @@ The process information table is an array of twelve 32-bit words. Here's a quick
 | 7     | Environment Variables      | `char**` | Null-terminated array of null-terminated strings of form "key=value".  |
 | 8     | Working Directory          | `char*`  | Directory in which the program is being run.                           |
 | 9     | Capabilities               | `int`    | Flags indicating the capabilities and environment of the VM.           |
-| 10    | System Call Count          | `int`    | Number of entries in the system call table.                            |
-| 11    | Process Info Count         | `int`    | Number of entries in the process info table.                           |
+| 10    | Minor Version              | `int`    | Always 0 for this version.                                             |
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
 
@@ -218,11 +217,13 @@ The process info table and its associated information cannot be written to by th
 
 
 
-### Version
+### Major Version
 
-The version field contains the version of the Onramp VM.
+The major version field contains the major version of the Onramp VM.
 
-The version of the Onramp VM described by this document is 4. This field must contain the value 4 as a 32-bit little-endian word (`04 00 00 00`).
+The major version of the Onramp VM described by this document is 4. This field must contain the value 4 as a 32-bit little-endian word (`04 00 00 00`).
+
+This number is incremented whenever breaking changes are made to this spec. Compatibility between different major versions is limited. The core bootstrap process and the libc aim to remain compatible with version 2 VMs and later. Programs (usually via the libc) check the VM version on startup and will refuse to run if it is too old or too new.
 
 
 
@@ -322,29 +323,15 @@ The capabilities field contains a set of flags describing what features are supp
 
 
 
-### System Call Count
+### Minor Version
 
-The System Call Count field contains the number of entries in the [System Call Table][system-call-table].
+The minor version field contains the minor version of the Onramp VM.
 
-Note that this is not the number of *supported* system calls. Most of the system calls are optional and do not need to be implemented by the VM. However, space for them must nevertheless be reserved in the system call table so that programs can determine whether they are supported.
+The minor version of the Onramp VM described by this document is 0. This field must contain the value 0 as a 32-bit little-endian word (`00 00 00 00`).
 
-The value of this field should be 25 (`19 00 00 00`), which is the current number of system calls. The system call table contains eight bytes per entry, so the system call table should be 200 bytes in size.
+The minor version is incremented whenever non-breaking changes are made to this spec. Examples would be the addition of new system calls or new entries in the process info table. Programs compiled for older minor versions can simply ignore the new features, and programs compiled for newer minor versions will know by the minor version that these features are unavailable.
 
-The minimum number of supported system calls is 25. (The Onramp libc does not check the system call table size before accessing system calls 24 and under.)
-
-The purpose of this field is to allow the system call table to be expanded in a backwards-compatible way without breaking compatibility with existing programs and VMs. Additional system calls can be added to the spec later without bumping the VM version.
-
-
-
-### Process Info Count
-
-The Process Info Count field contains the number of entries in the [Process Info Table](#process-info-table).
-
-The value of this field should be 12 (`0C 00 00 00`). The process info table contains four bytes per entry, so the process info table should be 48 bytes in size.
-
-The minimum number of entries for the process info table is 12. (The Onramp libc does not check the process info table size before accessing entries 11 and under.)
-
-The purpose of this field is to allow the process info table to be expanded in a backwards-compatible way without breaking compatibility with existing programs and VMs. Additional process info table fields can be added to the spec later without bumping the VM version.
+As long as the major versions are compatible, programs should be able to run regardless off any mismatch in minor version. Note however that when a program runs a subprogram, the minor version given to the child will be limited to that supported by the parent. This is because the parent needs to know of all system calls (among other things) given to child in order to proxy them correctly.
 
 
 
@@ -833,9 +820,9 @@ The meaning of the `r9` context is decided by the implementer of the syscall. Th
 
 - The `rip` of each syscall can point to an address in mapped VM space that contains a custom opcode (typically `0x7F`), and `r9` can contain the syscall number. When the program attempts to execute the custom opcode, the VM performs the syscall in `r9`. (This is typically the fastest way for a VM to implement syscalls since it does not require checking `rip` for validity. This technique is used by the [Python](../platform/vm/python/) VM.)
 
-When syscalls are implemented by a parent program, the context is typically the address of a struct or stack frame containing information about the parent and child. The parent will typically recover its `rpp` from the context, handle the syscall, then restore `rpp` afterwards.
+When syscalls are implemented by a parent program, `rip` is the address of a function to handle (or proxy) the syscall, and `r9` is typically the address of a struct or stack frame containing context about the parent and child. The parent will recover its `rpp` from the context, perform the syscall, then restore `rpp` afterwards.
 
-In any case, after the syscall is performed, the implementer of the syscall must place a return value in r0 and then return control to the address pointed to by the stack pointer. In other words, a VM returns control to the program by loading the address pointed to by `rsp` into `rip`. For a syscall implemented in a parent program, this is the ordinary mechanism by which a function returns to the caller.
+In any case, after the syscall is performed, the implementer of the syscall must place a return value in r0 and then return control to the address at the top of the stack. In other words, a VM returns control to the program by loading the address pointed to by `rsp` into `rip`. For a syscall implemented in a parent program, this is the ordinary mechanism by which a function returns to the caller. (The only exception is `exit` and `panic` which do not return control to the program.)
 
 When a program is nested deep within other programs in a VM, the system call table will contain a mix of function pointers from various parents. For example, consider the Onramp assembler, running in the Onramp driver, running in the Onramp shell, running in the Onramp OS, running on a freestanding Onramp VM. Typically the direct parent (in this case the driver) will provide exit; the VM will implement fread/fwrite for terminal input/output; the OS will implement the file and directory syscalls; and both the OS and shell will proxy fread/fwrite to redirect to files or to the VM's terminal streams.
 
@@ -1536,7 +1523,7 @@ The VM may allocate a block of any size up to the maximum as long as it is at le
 
 If successful, the address of the allocation is stored at the address in r1, and the actual size of the allocation is returned.
 
-The address of the allocation must be aligned to a word boundary, i.e. it must be a multiple of 4. (In other words the bottom two bits must be zero.) The actual size does not have to be a multiple of 4, although programs will typically request multiples of 4 and round the resulting size down to a multiple of 4 ignoring any extra few bytes.
+The address of the allocation must be aligned to a word boundary, i.e. it must be a multiple of 4. (In other words the bottom two bits must be zero.) The actual size does not have to be a multiple of 4, although programs will typically request multiples of 4 and will round the resulting size down to a multiple of 4 ignoring any extra few bytes.
 
 On failure, nothing is stored to the address in r1, and `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned. This can happen if there is not enough memory available on the platform or if no contiguous region of address space is available to satisfy the allocation.
 
@@ -1554,7 +1541,7 @@ int __sys_free(void* address, size_t size);
 
 Frees a block of memory previously allocated with `alloc` of the given actual size.
 
-The value passed as the size parameter must exactly match the actual size (not the requested size) in the corresponding call to `alloc`. The VM may ignore it, or it may use it to free only the given chunk of memory without checking whether it is valid. (The host program is required to store the unrounded size so that the VM doesn't have to. This is handled internally by the Onramp libc.)
+The value passed as the size parameter must exactly match the actual size (not the requested size) from the corresponding call to `alloc`. The VM may ignore it if it already knows the size, or it may use it without checking whether it matches the original size of the chunk. (The host program is required to store the unrounded size so that the VM doesn't have to. This is handled internally by the Onramp libc.)
 
 This always returns 0. If the given address and size do not match a previously allocated block, the behaviour is undefined.
 
