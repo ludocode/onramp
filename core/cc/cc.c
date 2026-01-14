@@ -105,9 +105,6 @@ static void parse_options(char** argv);
 
 #define FILEARGS_BUFFER_SIZE 256
 
-// misc state
-static int temp_id;
-
 // arguments files
 static char* fileargs_buffer;
 char** fileargs;
@@ -766,94 +763,41 @@ static int file_type(const char* name) {
 }
 
 /**
- * Makes a temporary output file with the given extension for the given input file.
+ * Makes a temporary output file with the given extension.
  *
- * We use this to make nicer temporary filenames than we would otherwise get with
- * something like mktemp().
+ * The file is placed in the same directory as the output. The filename is the
+ * same as the output file but prefixed with `.tmp.` and suffixed with the
+ * given extension.
  */
-static char* make_temp_filename(const char* input, const char* extension) {
-
-    // get the temporary directory
-    const char* tmpdir = getenv("TMPDIR");
-    // TODO check if dir exists
-    if (tmpdir == NULL) {
-        tmpdir = "/tmp";
-        // TODO check if /tmp exists
-    }
-    if (0 == strcmp(tmpdir, "")) {
-        // TODO fallback to output_filename directory if we have no temp directory
-        tmpdir = "./";
-    }
-    size_t tmpdir_len = strlen(tmpdir);
-    if (tmpdir_len == 0) {
-        fatal_cleanup("Internal error.");
-    }
-
-    // remove the path and extension from the filename
-    const char* filename = strrchr(input, '/');
-    if (filename != NULL) {
-        filename = (filename + 1);
-    }
-    if (filename == NULL) {
-        filename = input;
-    }
-    const char* filename_end = strrchr(filename, '.');
-    size_t filename_len;
-    if (filename_end != NULL) {
-        filename_len = (filename_end - filename);
-    }
-    if (filename_end == NULL) {
-        filename_len = strlen(filename);
-    }
-
-    // format a unique identifier for the file (unique as long as we don't have
-    // separate onrampcc processes compiling the same filenames in parallel)
-    char* id = malloc(12);
-    temp_id = (temp_id + 1);
-    itoa_d(temp_id, id);
-    size_t id_len = strlen(id);
-
-    // a few extra filename components
-    const char* prefix = "onramp.";
+static char* make_temp_filename(const char* extension) {
+    const char* prefix = ".tmp.";
     size_t prefix_len = strlen(prefix);
     size_t extension_len = strlen(extension);
-    if (filename_len > 40) {
-        filename_len = 40;
-    }
 
-    // TODO we should be adding our pid. currently we don't have any way of
-    // getting the pid through the VM.
+    size_t total = ((strlen(output_filename) + prefix_len) + (extension_len + 1));
+    char* ret = malloc(total);
+    char* pos = ret;
 
-    // assemble the filename
-    char* ret = malloc(((tmpdir_len + prefix_len) + (id_len + filename_len)) + (extension_len + 3));
-    if (ret == NULL) {
-        fatal_cleanup("Out of memory.");
+    // separate the filename from the path, appending the path to ret
+    const char* filename = strrchr(output_filename, '/');
+    if (filename != NULL) {
+        filename = (filename + 1);
+        size_t pathlen = (filename - output_filename);
+        memcpy(ret, output_filename, pathlen);
+        pos = (ret + pathlen);
     }
-    char* p = ret;
-    memcpy(p, tmpdir, tmpdir_len);
-    p = (p + tmpdir_len);
-    if (*(tmpdir + (tmpdir_len - 1)) != '/') {
-        *p = '/';
-        p = (p + 1);
+    if (filename == NULL) {
+        filename = output_filename;
     }
-    memcpy(p, prefix, prefix_len);
-    p = (p + prefix_len);
-    memcpy(p, id, id_len);
-    p = (p + id_len);
-    /* TODO for now leave out the filename, it's buggy. we need to make the
-     * callers store to filename root, not do it each time here, otherwise we
-     * keeping adding the prefix
-    *p = '.';
-    p = (p + 1);
-    memcpy(p, filename, filename_len);
-    p = (p + filename_len);
-    */
-    memcpy(p, extension, extension_len);
-    p = (p + extension_len);
-    *p = 0;
+    size_t filename_len = strlen(filename);
 
-    // done
-    free(id);
+    // append the rest
+    memcpy(pos, prefix, prefix_len);
+    pos = (pos + prefix_len);
+    memcpy(pos, filename, filename_len);
+    pos = (pos + filename_len);
+    strcpy(pos, extension);
+
     string_array_append(&temp_files, &temp_files_count, &temp_files_capacity, ret);
     return ret;
 }
@@ -1124,7 +1068,7 @@ static void translate_file(const char* input) {
             return;
         }
         if (mode != MODE_PREPROCESS) {
-            char* output = make_temp_filename(input, ".i");
+            char* output = make_temp_filename(".i");
             preprocess_file(input, output);
             input = output;
         }
@@ -1143,7 +1087,7 @@ static void translate_file(const char* input) {
                 // to output assembly directly.
                 extension = ".os";
             }
-            char* output = make_temp_filename(input, extension);
+            char* output = make_temp_filename(extension);
             compile_file(input, output);
             input = output;
         }
@@ -1156,7 +1100,7 @@ static void translate_file(const char* input) {
             return;
         }
         if (mode != MODE_CODEGEN) {
-            char* output = make_temp_filename(input, ".os");
+            char* output = make_temp_filename(".os");
             codegen_file(input, output);
             input = output;
         }
@@ -1169,7 +1113,7 @@ static void translate_file(const char* input) {
             return;
         }
         if (mode != MODE_ASSEMBLE) {
-            char* output = make_temp_filename(input, ".oo");
+            char* output = make_temp_filename(".oo");
             assemble_file(input, output);
             input = output;
         }
