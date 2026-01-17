@@ -970,8 +970,10 @@ static uint32_t vm_unlink(vm_t* vm) {
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
     strace("%s", full_path);
-    if (0 == unlink(full_path))
+    int ret = unlink(full_path);
+    if (ret == 0) {
         return 0;
+    }
     strace(" failed, ret %i errno %i", ret, errno);
     // TODO correct error codes
     return VM_ERR_GENERIC;
