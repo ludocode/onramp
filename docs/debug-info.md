@@ -30,7 +30,7 @@ Numbers are provided in decimal and are always on their own lines. They indicate
 
 A directive may be followed by several byte counts or none. Do not assume each directive is always followed by one byte count. Consecutive byte counts should be added together.
 
-Note that the total byte count may exceed the size of the executable. Debug info may also cover the zero (bss) section after the executable.
+The total byte count typically matches the size of the executable. A mismatch is a likely indicator that the debug info is corrupt or is for the wrong executable.
 
 ## Directives
 
@@ -50,13 +50,17 @@ There are no escape sequences for the quoted filename. Filenames with double quo
 
 A line number of 0 can be used to indicate that source line number information is not available. Valid line numbers start at 1.
 
+An empty filename (e.g. `#line 0 ""`) can be used to indicate that the filename of subsequent bytes is not known.
+
 ### Symbol Directive
 
 A `#symbol` directive names the symbol for subsequent bytes.
 
 ```c
-#symbol <symbol>
+#symbol <identifier>
 ```
+
+The identifier syntax is that supported by [Onramp Assembly](assembly.md) and [Onramp Object Code](object-code.md).
 
 ### Line Increment
 

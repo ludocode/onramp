@@ -60,15 +60,11 @@ Here's an index of sections in this document:
     - [`dopen`](#dopen)
     - [`dclose`](#dclose)
     - [`dread`](#dread)
-    - [`stat`](#stat)
     - [`rename`](#rename)
-    - [`symlink`](#symlink)
     - [`unlink`](#unlink)
     - [`chmod`](#chmod)
     - [`mkdir`](#mkdir)
     - [`rmdir`](#rmdir)
-    - [`spawn`](#spawn)
-    - [`debug`](#debug)
     - [`alloc`](#alloc)
     - [`free`](#free)
 - [Filesystem](#filesystem)
@@ -76,6 +72,7 @@ Here's an index of sections in this document:
     - [Input/Output Streams](#inputoutput-streams)
         - [Input](#input)
         - [Output and Error](#output-and-error)
+    - [Devices](#devices)
 - [Debug Info](#debug-info)
 - [File Format](#file-format)
 - [Rationale](#rationale)
@@ -216,7 +213,7 @@ The process information table is an array of eleven 32-bit words (44 bytes total
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
 
-The process info table and its associated information (system call table, command-line arguments, environment variables, working directory) cannot be written to or executed by the program. An attempt by the program to write to or execute bytecode from these addresses is undefined behaviour. (VMs typically do not enforce this, but the restriction is important in order to simplify certain tools including the shell in the bootstrap process.)
+The process info table and its associated information (system call table, command-line arguments, environment variables, working directory) cannot be written to or executed by the program. An attempt by the program to write to or execute bytecode from these addresses is undefined behaviour. (VMs typically do not enforce this, but this restriction may simplify certain VMs, and it is important in order to simplify certain tools including the shell in the bootstrap process.)
 
 
 
@@ -785,7 +782,7 @@ The Onramp C compiler has no support for the system call convention. Instead, sy
 
 A system call (or "syscall") is the mechanism by which a program accesses and modifies the outside environment.
 
-A program makes system calls to perform input and output; access files and directories; get the current time; sleep; launch external programs; and more.
+A program makes system calls to perform input and output; access files and directories; get the current time; and more.
 
 The VM provides the program with a table of system calls at startup. The program consults this table to determine what system calls are available, and then performs these calls to modify its environment.
 
@@ -837,7 +834,7 @@ All system calls return a word that contains either an error code, a return valu
 
 Arguments are passed in `r0`, `r1`, `r2` and `r3`, plus the context in `r9`. The return value is placed in `r0`.
 
-The system call table currently has **25** entries:
+The system call table currently has **25** entries (200 bytes) with a total of 21 defined system calls. Entries not listed below are unused.
 
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
@@ -848,26 +845,24 @@ The system call table currently has **25** entries:
 | 4      | hosted    | fclose   | handle                   |                          | closes a file                            |
 | 5      | hosted    | fread    | handle, buffer, size     | bytes read               | reads from a file or stream              |
 | 6      | hosted    | fwrite   | handle, buffer, size     | bytes written            | writes to a file or stream               |
-| 7      | hosted\*  | fseek    | handle, base, pos (x2)   |                          | seeks to a position in a file            |
-| 8      | hosted\*  | ftell    | handle, out\_pos[2]      |                          | gets the current position in a file      |
+| 7      | hosted    | fseek    | handle, base, pos (x2)   |                          | seeks to a position in a file            |
+| 8      | hosted    | ftell    | handle, out\_pos[2]      |                          | gets the current position in a file      |
 | 9      |           | ftrunc   | handle, size (x2)        |                          | truncates a file                         |
-| 10     | hosted    | dopen    | path                     | handle                   | opens a directory                        |
-| 11     | hosted    | dclose   | handle                   |                          | closes a directory                       |
-| 12     | hosted    | dread    | handle, buffer           |                          | reads one file entry from a directory    |
-| 13     | hosted\*  | stat     | path, buffer             |                          | gets file metadata                       |
+| 10     |           | dopen    | path                     | handle                   | opens a directory                        |
+| 11     |           | dclose   | handle                   |                          | closes a directory                       |
+| 12     |           | dread    | handle, buffer           |                          | reads one file entry from a directory    |
 | 14     |           | rename   | path, path               |                          | renames a file                           |
-| 15     |           | symlink  | path, path               |                          | creates a symlink                        |
 | 16     | hosted    | unlink   | path                     |                          | deletes a file                           |
 | 17     |           | chmod    | path, mode               |                          | changes permissions of a file            |
-| 18     | hosted    | mkdir    | path                     |                          | creates a directory                      |
-| 19     | hosted    | rmdir    | path                     |                          | deletes an empty directory               |
-| 20     |           | spawn    | path, args, env, fds     | pid                      | runs a program outside the VM            |
-| 21     |           | waitpid  | pid                      | exit code                | waits until an outside program exits     |
+| 18     |           | mkdir    | path                     |                          | creates a directory                      |
+| 19     |           | rmdir    | path                     |                          | deletes an empty directory               |
 | 22     |           | debug    | address, path            |                          | loads debug info for a child program     |
 | 23     |           | alloc    | size, out_address        | actual size              | allocates a block of memory              |
 | 24     |           | free     | address, size            |                          | frees an allocated block of memory       |
 
-\*: Entries marked "hosted\*" are currently required in a hosted environment but may not be required in future VM specs.
+In the required column, system calls marked "hosted" must be implement in a hosted environment. All other system calls are optional.
+
+In a freestanding environment, all system calls are optional, although it is highly recommended to support `fwrite` to the standard output and error streams in order to receive debug output from the program.
 
 A description of each system call with a C-style prototype follows. (The C prototypes described below are declared by the libc in `#include <__onramp/__syscalls.h>`. They can be called as ordinary C functions, although such use is discouraged outside of the libc.)
 
@@ -877,9 +872,9 @@ A description of each system call with a C-style prototype follows. (The C proto
 
 The system calls `exit` and `panic` do not return control to the program. There is no possibility of error handling for them.
 
-All other system calls return a 32-bit result to the program in `r0`.
+All other system calls return a 32-bit result to the program in `r0`. When we say that a system call "returns" a value, we mean that it places this value in register `r0` before resuming execution of the program.
 
-- In case of success, the value in r0 is a 31-bit result: the high bit of `r0` is always clear on a successful system call. For those system calls that do not return a meaningful result, the value is 0.
+- In case of success, the value in r0 is a 31-bit result: the high bit of `r0` is always clear on a successful system call. Some system calls return a meaningful value such as a file or directory handle. For those system calls that do not, the return value on success is 0.
 
 - In case of failure, the VM must return an error code. All error codes have the high bit set. Programs test for system call errors by checking if the high bit of `r0` is set.
 
@@ -893,26 +888,27 @@ Here's a quick reference table of possible error codes:
 | \*        | `ERROR_NO_SUCH_PATH`   | `0xFFFFFFFE`  | 4294967294       | -2                      |
 | \*        | `ERROR_IO`             | `0xFFFFFFFD`  | 4294967293       | -3                      |
 | \*        | `ERROR_UNSUPPORTED`    | `0xFFFFFFFC`  | 4294967292       | -4                      |
-|           | `ERROR_TRY_LATER`      | `0xFFFFFFFB`  | 4294967291       | -5                      |
+| \*        | `ERROR_TRY_LATER`      | `0xFFFFFFFB`  | 4294967291       | -5                      |
 |           | `ERROR_END_OF_FILE`    | `0xFFFFFFFA`  | 4294967290       | -6                      |
+| \*        | `ERROR_OVERFLOW`       | `0xFFFFFFF9`  | 4294967289       | -7                      |
 
 For error codes marked optional (\*) the VM can return `ERROR_GENERIC` instead. A VM can be greatly simplified by returning `ERROR_GENERIC` for almost all exceptional conditions, though the error reporting of programs it runs may not be as precise. The error codes not marked optional are required to be implemented properly.
 
-The required error codes are described as follows:
+The two required error codes are described as follows:
 
-- `ERROR_GENERIC`: An unspecified error condition. It can be used for exceptional conditions where no other error codes are appropriate. It can also be used in many cases instead of a more specific error code in order to simplify the VM.
+- `ERROR_GENERIC`: An unspecified error condition. It can be used for exceptional conditions where no other error codes are appropriate. It can also be used in nearly all cases instead of a more specific error code in order to simplify the VM. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
 
-- `ERROR_TRY_LATER`: Reading or writing is currently not possible but may become possible later. This can be returned from operations on non-blocking files or streams to indicate that the program should wait and try again. For `fread`, the program should wait for more data to become available, and for `fwrite`, the program should wait for output space to become available before trying again. No other system calls return this.
-
-- `ERROR_END_OF_FILE`: The end of the file or stream has been reached. This must be returned from `fread` on a file when the file's position is the end of the file. It may also be returned from `fread` or `fwrite` on streams when the other end of the stream (the sender of input or the recipient of output and error) has closed it.
+- `ERROR_END_OF_FILE`: The end of the file or stream has been reached. This must be returned from `fread` on a file when the file's position is the end of the file. It may also be returned from `fread` or `fwrite` on streams when the other end of the stream (the sender of input or the recipient of output) has closed it.
 
 Optional, more precise error codes are:
 
-- `ERROR_NO_SUCH_PATH`: The given file or directory does not exist. It is returned by system calls that take a path that is expected to exist, such as `fopen`, `dopen`, `stat`, `unlink` and so on.
+- `ERROR_TRY_LATER`: Reading or writing is currently not possible but may become possible later. This must be returned from operations on non-blocking files or streams to indicate that the program should wait and try again. For `fread`, the program should wait for more data to become available, and for `fwrite`, the program should wait for output space to become available before trying again. No other system calls return this. (This error code is only optional because non-blocking support is optional. If non-blocking files are supported, this error code must be used.)
 
-- `ERROR_IO`: An input/output error occurred. This is used to indicate an unspecified and typically unrecoverable failure to transfer data on an open file handle. For example if the file storage device malfunctions, the VM can return this code. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
+- `ERROR_NO_SUCH_PATH`: The given file or directory does not exist. It is returned by system calls that take a path that is expected to exist, such as `fopen`, `dopen`, `unlink`, `rmdir` and so on.
 
-- `ERROR_UNSUPPORTED`: The request is not supported. Some system calls may be partially implemented by the VM, and certain behaviours may not be permitted by the host environment. If a given combination of parameters is not supported, the VM may return this error code. For example, the `unlink` system call may return this to indicate that the the given file cannot be deleted. (If no part of a system call is supported, it is better to not implement it at all, and instead put zero in the corresponding `rip` field in the system call table.)
+- `ERROR_IO`: An input/output error occurred. This is used to indicate an unspecified and typically unrecoverable failure to transfer data. For example if the storage device malfunctions, the VM can return this code. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
+
+- `ERROR_UNSUPPORTED`: The request is not supported. Some system calls may be partially implemented by the VM, and certain behaviours may not be permitted by this specification or by the host environment. If a given combination of parameters is not supported, the VM may return this error code. For example, the `unlink` system call may return this to indicate that the the given file cannot be deleted. (If no part of a system call is supported, it is better to not implement it at all, and instead put zero in the corresponding `rip` field in the system call table.)
 
 All error codes have the high bit set. Values that can be returned from successful system calls (such as file and directory handles) do not have the high bit set. Programs check for errors by testing whether the high bit is set.
 
@@ -1274,64 +1270,10 @@ If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or
 
 
 
-### stat
-
-```c
-int __sys_stat(const char* path, unsigned output[4]);
-```
-
-- syscall number: 13
-- argument in r0: address of a null-terminated string containing the path to query
-- argument in r1: address at which to write the file information
-
-Queries information about the given path, writing it to the given address.
-
-If a file, directory or symlink exists at the given path, the following words are stored in order starting at the output address:
-
-- `type`
-- `mode`
-- `size_low`
-- `size_high`
-
-The following values are supported for `type`:
-
-- 0: the path is a file
-- 1: the path is a directory
-- 2: the path is a symlink
-
-The following values are supported for `mode`:
-
-- 493 (0o755): The path is executable.
-- 420 (0o644): The path is not executable.
-- 0: The filesystem, or the given path, does not support an executable flag.
-
-(Some platforms support an executable bit for directories. The VM may return whether it is executable, or may simply return 0 for directories.)
-
-The `size_low` and `size_high` fields contain the low and high 32 bits of the size of the file respectively. In other words, the fields together form a 64-bit file size.
-
-If the path is not a file, the size can be 0, or it can represent the underlying storage taken up by the directory or syscall (not including any contained or pointed-to files.)
-
-- r1 + 8: `size_low` -- The low 32 bits of the size of the file
-- r1 + 16: `size_high` -- The high 32 bits of the size of the file
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write zero to the `size_high` field.
-
-Returns 0 on success. If an error occurs, the VM stores nothing to the given address.
-
-If the given path does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
-
-If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned.
-
-On any other error, `ERROR_GENERIC` is returned.
-
-This system call is optional, although functionality may be limited without it.
-
-
-
 ### rename
 
 ```c
-int __sys_rename(const char* from, const char* to);
+int __sys_rename(const char* source, const char* destination);
 ```
 
 - syscall number: 14
@@ -1339,33 +1281,19 @@ int __sys_rename(const char* from, const char* to);
 - argument in r1: address of a null-terminated string containing the path of the destination file or directory
 - return value in r0: 0 on success or an error code
 
-Moves and/or renames a file or directory.
+Moves and renames a file or directory.
 
-TODO define this better, probably we should require the destination to always be a full path (not a directory name), the libc should stat the destination and append the filename if it's a directory
+The file or directory named by the source path is moved and renamed to the destination path. Its parent directory becomes the base path of the destination and its filename becomes the last path component of the destination.
 
-TODO this is not properly specified and is not implemented by any VMs yet. Do not implement this syscall.
+For example, if the file `/aaa/bbb/ccc` is renamed to `/ddd/eee/fff`, its parent directory becomes `/ddd/eee/` and its filename becomes `fff`.
 
+If the destination file already exists, the VM may delete the original file at the destination path (as long as the move is successful), or it may return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
 
+If the destination path is a directory, the VM should return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. (The libc should avoid this; TODO maybe we can make this undefined behaviour.)
 
-### symlink
+If any directory component of the destination path does not exist, the VM may return `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`, or it may succeed. (A VM does not need to support directories.)
 
-```c
-int __sys_symlink(const char* from, const char* to);
-```
-
-- syscall number: 15
-- argument in r0: address of a null-terminated string containing the path of the source file or directory
-- argument in r1: address of a null-terminated string containing the path of the destination file or directory
-- return value in r0: 0 on success or an error code
-
-Creates a symlink.
-
-If the destination already exists and is a file, this may overwrite it, or it may return an error. If the destination already exists and is a directory, this must return an error.
-
-TODO explain symlinks
-TODO symlink support should be optional.
-
-TODO symlink support is not properly specified and is not implemented by any VMs yet. Do not implement this syscall.
+This system call is optional. If it is not implemented, the libc will provide this functionality by copying the file to the destination and deleting the source.
 
 
 
@@ -1472,21 +1400,6 @@ If the directory cannot be created due to a failure of the storage device, this 
 
 
 
-### spawn
-
-
-```c
-int __sys_spawn(TODO);
-```
-
-- syscall number: 20
-
-Spawns an external program in a hosted environment.
-
-This is not yet implemented.
-
-
-
 ### debug
 
 ```c
@@ -1495,17 +1408,27 @@ int __sys_debug(const void* address, const char* /*nullable*/ executable_path);
 
 Loads or unloads debug info for a child program at the given address.
 
-If the given path is null, previously loaded debug info is unloaded.
+If the given path is null, previously loaded debug info for the given address is unloaded.
 
 If the given path is non-null, corresponding debug info is loaded for the executable at the given path.
 
 Note that if a path is given, it must point to the executable, not to the debug info file. This allows VMs to store debug info in custom formats or locations. (The standard debug info format appends `.od` to the executable path.)
 
-Returns 0 if successful and an error code otherwise. (The returned error code is not important; programs generally ignore it.)
+Returns 0 if successful.
 
-If debug info is loaded successfully at the given address, the program is expected to unload the debug info at the same address later before reusing this memory for another program. (If loading debug info returns an error code, the program does not need to follow up with a call to unload before reusing the memory.)
+If the given executable path is non-null and the file does not exist, the VM returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
 
-This syscall is optional and most VMs do not implement it. The [c-debugger](../platform/vm/c-debugger) VM is the main implementor of this syscall.
+If the given executable was found but debug info could not be found for it, the VM returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+
+If the given path is null but debug info was not loaded at the given address, the VM returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+
+If the VM has insufficient resources to load additional debug info, the VM returns `ERROR_OVERFLOW` or `ERROR_GENERIC`.
+
+If loading of the debug info fails for any other reason (e.g. the storage device fails, the debug info is corrupt, etc.), the VM returns `ERROR_IO` or `ERROR_GENERIC`.
+
+If debug info is loaded successfully at the given address, the program is expected to unload the debug info at the same address later before reusing this memory for another program. If loading debug info returns an error code, the program does not need to follow up with a call to unload before reusing the memory, but it may attempt to unload debug info even if loading failed.
+
+This syscall is optional and most VMs do not implement it. The [c-debugger](../platform/vm/c-debugger) VM is the main implementor of this syscall. See the [Debug Info](debug-info.md) specification for a description of the standard debug info language generated by the Onramp compiler toolchain.
 
 
 
@@ -1520,19 +1443,23 @@ int __sys_alloc(size_t size, void** /*out*/ address);
 - argument in r1: address of a word at which to store the address of the allocation
 - return value in r0: actual size or an error code
 
-Allocates a large contiguous block of memory of at least the given size. The minimum size is 4 and the maximum size is 2147483647 (2^31-1) bytes. (Larger sizes would have the high bit set which would be interpreted as an error.)
+Allocates a large contiguous block of memory of at least the given size. The minimum size is 4 and the maximum size is 2147483647 (2^31-1). (Larger sizes would have the high bit set which would be interpreted as an error.)
 
-The VM may allocate a block of any size up to the maximum as long as it is at least the given size. For example, the VM may round up the size to a multiple of some number (4 KiB or 1 MiB would be typical.)
+The VM may allocate a block of any size up to the maximum as long as it is at least the given size. For example, the VM may round up the size to a multiple of some number (e.g. 4 KiB, 1 MiB, etc.)
 
 If successful, the address of the allocation is stored at the address in r1, and the actual size of the allocation is returned.
 
-The address of the allocation must be aligned to a word boundary, i.e. it must be a multiple of 4. (In other words the bottom two bits must be zero.) The actual size does not have to be a multiple of 4, although programs will typically request multiples of 4 and will round the resulting size down to a multiple of 4 ignoring any extra few bytes.
+The address of the allocation must be aligned to a word boundary, i.e. it must be a multiple of 4. (In other words the bottom two bits of the address must be zero.) The actual size does not have to be a multiple of 4, although programs will typically request multiples of 4 and will round the resulting size down to a multiple of 4 ignoring any extra few bytes.
 
-On failure, nothing is stored to the address in r1, and `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned. This can happen if there is not enough memory available on the platform or if no contiguous region of address space is available to satisfy the allocation.
+On failure, nothing is stored to the address in r1 and an error code is returned in r0:
 
-The Onramp libc uses this to request large blocks of memory to back program calls to `malloc()`. It generally does not request blocks of memory smaller than 1 MB, although the bootstrap process may request as little as 256 kB.
+- If insufficient memory is available, or if no contiguous region of address space is available to satisfy the allocation, `ERROR_OVERFLOW` or `ERROR_GENERIC` is returned.
 
-This system call is optional. The VM may instead simply provide an initial chunk of memory large enough to accomodate the program's needs.
+- If some other error occurs, `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned.
+
+The Onramp libc uses this to request large blocks of memory to back program calls to `malloc()`. It generally does not request blocks of memory smaller than 1 MB, although the bootstrap process may request as little as 256 kB. VMs typically round up the requested size to a multiple of 1 MB.
+
+This system call is optional. The VM may instead simply provide memory at start large enough to accomodate the program's needs.
 
 
 
@@ -1599,6 +1526,16 @@ The output stream is intended for normal program output, that could for instance
 The error stream is intended for displaying errors, warnings and other abnormal ouput to a user.
 
 The output and error streams are otherwise identical. If no distinction is required between them, the VM can use the same I/O handle for both. (It can also use the same handle for input.)
+
+### Devices
+
+The VM may interpret certain filenames as "devices". A device is a file with special behaviour. A program opens a device with `fopen` and closes it with `fclose`. It interacts with the device with the other file syscalls (e.g. `fread`, `fwrite`.)
+
+Support for devices is optional. The VM does not need to implement this and can ignore this section.
+
+Only one device is defined so far:
+
+- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `fread` on this device provides random bytes. The device must be opened read-only; `fwrite` is forbidden.
 
 
 
@@ -1669,19 +1606,21 @@ Onramp's VM design takes inspiration from such projects as Robert Elder's [one p
 This spec has undergone several changes in its history. The libc and bootstrap code will attempt to remain compatible with versions 2 and later (when the syscall table was added) to avoid breaking existing VMs.
 
 
-#### Version 4
+#### Version 4.0
 
 The current version. Changes include:
 
 - Changes to the Process Info Table:
     - The system call count and Process Info Count fields have been replaced by a single Minor Version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
     - All contents of the process info table, including command-line arguments and environment variables, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
+- Some system call changes:
+    - The prototype for `alloc` has changed. The old function was never used.
+    - `stat`, `symlink`, `spawn` and `waitpid` have been removed.
 - Cleaned up syscall error codes:
     - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `fread` and `fwrite` is now disallowed but the libc will still support it for backwards compatibility.)
-    - Other error codes are now optional (except for `ERROR_GENERIC`). The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
-- Some syscall changes:
-    - The prototype for `alloc` has changed. The old function was never used.
-
+    - Added `ERROR_OVERFLOW` for situations in which the VM runs out of resources.
+    - All error codes except `ERROR_GENERIC` and `ERROR_END_OF_FILE` are now optional. The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
+- Added a defitinion of devices, along with the device `/dev/urandom`.
 
 #### Version 3
 
