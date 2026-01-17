@@ -529,6 +529,14 @@ static uint32_t vm_ftrunc(void) {
 #define vm_ftrunc NULL
 #endif
 
+/* The remove() function is standard C. We map it to both the unlink and rmdir
+ * syscalls.*/
+static uint32_t vm_remove(void) {
+    uint32_t path_addr = vm_registers[0];
+    const char* path = (const char*)vm_memory + path_addr;
+    return remove(path) ? VM_ERR_GENERIC : 0;
+}
+
 #ifdef VM_POSIX
 static uint32_t vm_chmod(void) {
     /* There is nothing like chmod() in standard C. It's only relevant for
@@ -569,10 +577,10 @@ static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
     NULL, /* stat */
     NULL, /* rename */
     NULL, /* symlink */
-    NULL, /* unlink */
+    vm_remove, /* unlink */
     vm_chmod,
     vm_mkdir,
-    NULL, /* rmdir */
+    vm_remove, /* rmdir */
     NULL, /* spawn */
     NULL, /* waitpid */
     NULL, /* debug */

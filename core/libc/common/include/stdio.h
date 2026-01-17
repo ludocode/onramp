@@ -99,8 +99,6 @@ int puts(const char* s);
 int fseek(FILE* file, long offset, int whence);
 long ftell(FILE* file);
 
-int remove(const char* filename);
-
 int chmod(const char* filename, int mode); // TODO this belongs in sys/stat.h
 
 
@@ -143,6 +141,8 @@ void rewind(FILE* file);
 void clearerr(FILE* file);
 int ferror(FILE* file);
 void perror(const char* s);
+
+int remove(const char* path);
 
 // posix
 FILE* fdopen(int fd, const char* mode);

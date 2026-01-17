@@ -58,4 +58,7 @@ off_t lseek(int __fd, off_t __offset, int __whence);
 int usleep(useconds_t usec);
 #endif
 
+int unlink(const char *path);
+int rmdir(const char *path);
+
 #endif

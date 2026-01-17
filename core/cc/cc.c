@@ -807,8 +807,8 @@ static void delete_temp_files(void) {
         temp_files_count = (temp_files_count - 1);
         char* temp_file = *(temp_files + temp_files_count);
         if (!disable_run) {
-            // TODO remove in C, unlink in VM
-            //remove(temp_file);
+            // ignore errors deleting files
+            (void)unlink(temp_file);
         }
         free(temp_file);
     }

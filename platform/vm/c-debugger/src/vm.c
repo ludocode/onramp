@@ -963,14 +963,16 @@ static uint32_t vm_symlink(vm_t* vm) {
 
 static uint32_t vm_unlink(vm_t* vm) {
     uint32_t path_addr = vm->registers[0];
+    strace("sys unlink ");
     if (!vm_is_string_valid(vm, path_addr)) {
         fputs("ERROR: Invalid path.\n", stderr);
         exit(125);
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
-    //printf("VM: Opening %s for %s\n", full_path, mode ? "writing" : "reading");
+    strace("%s", full_path);
     if (0 == unlink(full_path))
         return 0;
+    strace(" failed, ret %i errno %i", ret, errno);
     // TODO correct error codes
     return VM_ERR_GENERIC;
 }
