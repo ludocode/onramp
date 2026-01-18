@@ -68,11 +68,11 @@ Here's an index of sections in this document:
     - [`alloc`](#alloc)
     - [`free`](#free)
 - [Filesystem](#filesystem)
-    - [I/O Handles](#io-handles)
-    - [Input/Output Streams](#inputoutput-streams)
-        - [Input](#input)
-        - [Output and Error](#output-and-error)
+    - [Regular Files](#regular-files)
+    - [Streams](#streams)
     - [Devices](#devices)
+    - [Directories](#directories)
+    - [File and Directory Handles](#file-and-directory-handles)
 - [Debug Info](#debug-info)
 - [File Format](#file-format)
 - [Rationale](#rationale)
@@ -100,7 +100,7 @@ The VM accesses the outside environment via system calls (or "syscalls".) These 
 
 An Onramp VM can run hosted or freestanding.
 
-- When hosted, the VM is running inside an operating system (OS) which provides a filesystem for storage. The VM bridges this filesystem into the Onramp environment by implementing file and directory system calls that use it. Onramp programs can therefore interoperate and share files with other non-Onramp programs running on the OS.
+- When hosted, the VM is running inside an operating system (OS) which provides a filesystem for storage. The VM bridges this filesystem into the Onramp environment by implementing file and directory system calls that use it. Onramp programs can therefore interoperate and share files with other non-Onramp programs running on the OS. See the [Filesystem](#filesystem) section below.
 
 - When freestanding, the VM is running directly on hardware (or on virtualized hardware) with no underlying operating system. It has either no permanent storage, or it has a simple block storage device (i.e. it is accessed as a simple array of fixed-size sectors.) In this case the Onramp operating system runs inside the Onramp VM. The Onramp OS receives most system calls and implements its own filesystem backed by the optional block storage device.
 
@@ -241,21 +241,29 @@ The system call table address field contains the address of the [System Call Tab
 
 ### Input Stream Handle
 
-The input stream handle is an I/O handle that provides a stream of input to the program. It is used as a handle to `fread` for the program to get input data.
+The input stream handle is a file handle that provides a stream of input to the program. It is used as a handle to `fread` for the program to get input data. See the description of [streams](#streams) and [file and directory handles](#file-and-directory-handles).
 
-For programs run interactively, this is typically connected to an input terminal (such as a keyboard). For programs run as part of a pipeline, the input of the program may be the contents of a file or the output of another program.
+For programs run interactively, this is typically connected to an input terminal (such as a keyboard). For programs run non-interactively (perhaps as part of a pipeline), the input of the program may be an arbitrary file or the output of another program.
 
-The input stream is optional. If input is not supported by the VM, this field should contain 0xFFFFFFFF. This is normal for example for non-interactive bootstrapping in a freestanding environment.
+The input stream is optional. If input is not supported by the VM, this field contains 0xFFFFFFFF. This is normal for example for a minimal VM or for non-interactive bootstrapping in a freestanding environment.
 
-Valid handles for the input, output and error streams may have any value (and may even all have the same value) as long as the high bit is not set. The program can use these handles to communicate with the outside world. If a handle has value 0xFFFFFFFF, this indicates that the stream does not exist, and the program should avoid using it.
+Valid handles for the input, output and error streams may have any value (and may even all have the same value) as long as the high bit is not set. The program can use these handles to communicate with its environment.
+
+The VM may "echo" its input; i.e. it may copy all input to its own output stream. In this case the "echo" bit must be set in the capabilities field of the process info table. It is recommended that VMs not echo if possible. The Onramp libc can simulate echo internally for interactive programs.
+
+The VM may also "line buffer" its input, i.e. it may withhold input from the program until the user inputs a newline character. In this case the "line-oriented" bit must be set in the capabilities field of the process info table. It is recommended that VMs not line-buffer if possible.
+
+(On POSIX systems, this means the input file handle should be in non-canonical mode and should have echo disabled.)
 
 
 
 ### Output Stream Handle
 
-The error stream handle is an I/O handle to which the program can write its output. It is used as a handle to `fwrite` for the program to write output data.
+The error stream handle is a file handle to which the program can write its output. It is used as a handle to `fwrite` for the program to write output data. See the description of [file handles](#file-handles).
 
-For programs run interactively, the output stream is displayed to the user (for example in a graphical terminal or on a printer.) For programs run as part of a pipeline, the output of the program may be redirected to a file or may be the input of another program.
+The output stream is intended for normal program output, that could for instance be displayed to a user or consumed by another program.
+
+For programs run interactively, the output stream is displayed to the user (for example in a graphical terminal or on a printer.) For programs run as part of a pipeline, the output of the program may be redirected to an arbitrary file or may be the input of another program.
 
 The output stream is optional. If not supported by the VM, this field should contain 0xFFFFFFFF.
 
@@ -263,9 +271,13 @@ The output stream is optional. If not supported by the VM, this field should con
 
 ### Error Stream Handle
 
-The error stream handle is an I/O handle to which the program can write error messages. It is used as a handle to `fwrite` for the program to write output data.
+The error stream handle is a file handle to which the program can write error messages. It is used as a handle to `fwrite` for the program to write output data. See the description of [file handles](#file-handles).
+
+The error stream is intended for displaying errors, warnings and other abnormal ouput to a user.
 
 The error stream is typically displayed to the user. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
+
+The output and error streams are otherwise identical. If no distinction is required between them, the VM can use the same file handle for both. (It can also use the same handle for input.)
 
 The error stream is optional. If a separate error stream is not supported by the VM, this field should contain 0xFFFFFFFF. If this has value 0xFFFFFFFF and the output stream handle is valid, the program will write error messages to the output stream handle instead.
 
@@ -1481,19 +1493,67 @@ This system call is optional even if alloc is implemented. It is typical for hos
 
 ## Filesystem
 
-A filesystem is made up of directories and files. Directories can contain other directories and files. Files contain data of arbitrary type and length, and grow automatically as data is written to them.
+A filesystem is made up of directories and files. Directories are used to organize the filesystem; they can contain other directories and files. Files are used to store and transfer data.
 
-The character `/` is used to delimit files and directories. A file or directory name can contain any character except `/` and a null byte. (Onramp itself only uses ASCII letters, numbers, and the characters `-`, `_` and `.` in its implementation. Programs compiled by Onramp may use any characters.)
+The program interacts with files and directories using system calls. Some system calls, like `remove` and `rmdir`, operate directly on named files and directories. Other system calls operate through file and directory handles.
+
+Input and output is done through "handles". A handle is a 32-bit integer that represents an open file or directory. To get a handle to a file or directory, the program must "open" it using `fopen` (for files) or `dopen` (for directories).
+
+There are three kinds of files: regular files, streams, and devices.
+
+### Regular Files
+
+A regular file stores data of arbitrary type and length and supports random access to its contents.
+
+Regular files are the most common kind of file. All of Onramp's data is stored in regular files, including source code, compiled programs, and documentation. Regular files typically persist indefinitely even when the machine storing them is powered off.
+
+Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can also be changed with the `ftrunc` system call.
+
+A file handle referring to a regular file has a "position". When a regular file is opened, the file handle has position zero. When the `fread` or `fwrite` system calls are called on such a handle, bytes are read or written starting at the handle's position, and the handle's position is incremented by the number of bytes read or written.
+
+If `fread` is called on a regular file handle whose file position is the size of the file (i.e. it is at the end of the file), the VM returns `ERROR_END_OF_FILE`. If `fwrite` is called on a regular file handle whose position is the size of the file (i.e. it is at the end of the file), the file grows to accomodate the additional data.
+
+(Note that position is a property of a file handle, not a file. When a file handle is closed, its position is discarded; if the same file is opened later, the new handle's position is zero. If a file is opened multiple times, each individual handle has its own separate position; reading or writing on one handle does not affect the position of other handles even if they refer to the same file.)
+
+The size of a regular file and the position of a file handle are represented by 64-bit values. Implementations may limit this arbitrarily; for example regular file sizes may be limited to 32 bits, in which case the upper 32 bits of file sizes and file handle positions are always zero. Regular file sizes are otherwise limited only by available storage.
+
+### Streams
+
+A stream is a file that only supports reading, writing, or both. It is used to transfer data from one program to another.
+
+Streams do not have a size. File handles referring to open streams do not have a position and do not support seeking. `ftell` and `fseek` return an error when called on a stream.
+
+A stream may support reading, writing, or both. If a stream only supports reading, `fwrite` on the stream returns an error, and vice versa. A writeable stream must be opened in read-write mode in order to write to it.
+
+There are three standard streams: input, output and error. These are intended for programs to interact with other programs and with a user. The standard input, standard output, and standard error handles, if they exist, are given to the program in the process info table.
+
+Other streams may exist on the filesystem depending on the VM implementation. These are VM-specific and are not specified here.
+
+### Devices
+
+A device is a file with a special name and special behaviour.
+
+Support for devices is optional. The VM does not need to implement this and can ignore this section.
+
+The VM may interpret certain filenames as "devices". A program opens a device with `fopen` and closes it with `fclose` like any other file. It interacts with the device with the other file syscalls (e.g. `fread`, `fwrite`.) Devices may or may not support any of `fread`, `fwrite`, `ftell` and `fseek`; whether such system calls are supported depends on the device and is specified below.
+
+Only one device is defined so far:
+
+- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `fread` on this device provides random bytes. The device must be opened read-only; `fwrite` is forbidden.
+
+### Directories
+
+A directory is a container for files and other directories. Directories are used to organize files on the filesystem.
+
+Support for directories is optional. A VM may ignore directories; it can simply store all files in a flat set in which each file is named by its full path. However, some programs rely on directories, so implementing them can provide additional functionality.
+
+If directories are supported, the character `/` is used to delimit files and directories. A file or directory name can contain any byte except `/` and a null byte. (Onramp itself only uses ASCII letters, numbers, and the characters `-`, `_` and `.` in its implementation. Programs compiled by Onramp may use any other bytes.)
 
 The filesystem must have a root directory. A path is a string of up to 255 bytes that contains the hierarchy of directories that must be navigated from the root to reach a file. For example `/foo/bar` is a path to a file or directory called `bar` in a directory called `foo` in the root directory.
 
-The VM must provide a directory to store temporary files. If it is not called `/tmp/`, a `TMPDIR` environment variable must be provided that contains its path.
+The filesystem implemented by a VM resembles that of a POSIX system as described above. If your host filesystem has a different shape but you still want it to interoperate with Onramp, the VM must translate paths to make them appropriate for Onramp. For example, on a system where `\` delimits directories, a path like `C:\Foo\Bar`  must be translated it to something like `/c/Foo/Bar` to be used with Onramp.
 
-The filesystem implemented by a VM resembles that of a POSIX system as described above. If your host filesystem is different, the VM must translate paths to make them appropriate for Onramp. For example if you have a path like `C:\Foo\Bar`, the VM must translate it to something like `/c/Foo/Bar`.
-
-
-
-### I/O Handles
+### File and Directory Handles
 
 Input and output is done through "handles". A handle is a 32-bit integer that represents an open file, directory, or stream.
 
@@ -1503,39 +1563,19 @@ Up to three handles are reserved for the standard input/output streams (see belo
 
 If the VM is hosted, other handles should be available for the program to open files and directories on the filesystem. If the VM is freestanding, the write and (optionally) read syscalls will only be used on the input/output streams, and all other I/O syscalls should not be implemented.
 
+### Blocking and Non-Blocking
 
+When reading from a file handle, data may not be available yet, but might become available later. For example, if a program's input stream is connected to a keyboard, there will be no data available to read until the user presses keys.
 
-### Input/Output Streams
+The VM's behaviour on reading from such a file handle can be characterized as "blocking" or "non-blocking".
 
-There are three I/O streams: input, output and error. These are intended for programs to interact with other programs and with a user.
+If the program calls `fread` and data is not currently available, the VM may handle it in one of two ways. If the file handle is *blocking*, the VM suspends execution of the program until data becomes available, then completes the system call. If the file handle is *non-blocking*, the VM returns `ERROR_TRY_LATER` without waiting for data to become available.
 
-#### Input
+File writing may also be blocking or non-blocking. For example a file may have a fixed size buffer which takes time to flush; if the buffer is full, the VM will not be able to write until space becomes available. In this case a call to `fwrite` either blocks until data can be written or returns `ERROR_TRY_LATER`.
 
-Implementation of the input stream is optional. If input is not supported, the input handle in the process info table should be set to -1. It is normal for a VM to have no input, for example when performing non-interactive bootstrapping.
+It is recommended that VMs provide non-blocking reading and writing for streams. Programs generally assume that regular files will block (since they always do on contemporary operating systems) but they are allowed to be non-blocking as well.
 
-If input is supported, the input stream should not never block. It should not wait for input to become available, and it should not wait until a particular state is reached (such as the end of a line.) A read on the input should immediately return any and all available data; if no data is available, the read should return success with zero bytes read.
-
-The virtual machine should also not echo input, i.e. it should not print input characters to the output stream on its own. The Onramp libc will handle blocking, buffering and echo internally.
-
-(On POSIX systems, this means the input file handle should be non-blocking, should be in non-canonical mode, and should have echo disabled.)
-
-#### Output and Error
-
-The output stream is intended for normal program output, that could for instance be consumed by another program.
-
-The error stream is intended for displaying errors, warnings and other abnormal ouput to a user.
-
-The output and error streams are otherwise identical. If no distinction is required between them, the VM can use the same I/O handle for both. (It can also use the same handle for input.)
-
-### Devices
-
-The VM may interpret certain filenames as "devices". A device is a file with special behaviour. A program opens a device with `fopen` and closes it with `fclose`. It interacts with the device with the other file syscalls (e.g. `fread`, `fwrite`.)
-
-Support for devices is optional. The VM does not need to implement this and can ignore this section.
-
-Only one device is defined so far:
-
-- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `fread` on this device provides random bytes. The device must be opened read-only; `fwrite` is forbidden.
+(On POSIX systems, this means the VM should always poll a file descriptor to determine whether data is available before reading from it.)
 
 
 
