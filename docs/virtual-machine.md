@@ -41,6 +41,12 @@ Here's an index of sections in this document:
     - [Immediate Short][ims]
     - [Less Than Unsigned][ltu]
     - [Jump If Zero][jz]
+- [Filesystem](#filesystem)
+    - [Regular Files](#regular-files)
+    - [Streams](#streams)
+    - [Devices](#devices)
+    - [Directories](#directories)
+    - [File and Directory Handles](#file-and-directory-handles)
 - [Calling Convention](#calling-convention)
     - [System Call Convention](#system-call-convention)
 - [System Calls](#system-calls)
@@ -67,12 +73,6 @@ Here's an index of sections in this document:
     - [`rmdir`](#rmdir)
     - [`alloc`](#alloc)
     - [`free`](#free)
-- [Filesystem](#filesystem)
-    - [Regular Files](#regular-files)
-    - [Streams](#streams)
-    - [Devices](#devices)
-    - [Directories](#directories)
-    - [File and Directory Handles](#file-and-directory-handles)
 - [Debug Info](#debug-info)
 - [File Format](#file-format)
 - [Rationale](#rationale)
@@ -745,6 +745,94 @@ The `low` and `high` arguments together form a 16-bit two's complement signed of
 Note that, unlike most instructions, the first argument is not a destination. If the predicate is a register it is unchanged by this instruction.
 
 The predicate is mix-type. A predicate of 0 can be used to perform an unconditional jump. If the predicate is a non-zero, non-register constant, the instruction does nothing; this can be used as a "no operation" instruction (see [File Format](#file-format) below.)
+
+
+
+## Filesystem
+
+A filesystem is made up of directories and files. Directories are used to organize the filesystem; they can contain other directories and files. Files are used to store and transfer data.
+
+The program interacts with files and directories using system calls. Some system calls, like `remove` and `rmdir`, operate directly on named files and directories. Other system calls operate through file and directory handles.
+
+Input and output is done through "handles". A handle is a 32-bit integer that represents an open file or directory. To get a handle to a file or directory, the program must "open" it using `fopen` (for files) or `dopen` (for directories).
+
+There are three kinds of files: regular files, streams, and devices.
+
+### Regular Files
+
+A regular file stores data of arbitrary type and length and supports random access to its contents.
+
+Regular files are the most common kind of file. All of Onramp's data is stored in regular files, including source code, compiled programs, and documentation. Regular files typically persist indefinitely even when the machine storing them is powered off.
+
+Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can also be changed with the `ftrunc` system call.
+
+A file handle referring to a regular file has a "position". When a regular file is opened, the file handle has position zero. When the `fread` or `fwrite` system calls are called on such a handle, bytes are read or written starting at the handle's position, and the handle's position is incremented by the number of bytes read or written.
+
+If `fread` is called on a regular file handle whose file position is the size of the file (i.e. it is at the end of the file), the VM returns `ERROR_END_OF_FILE`. If `fwrite` is called on a regular file handle whose position is the size of the file (i.e. it is at the end of the file), the file grows to accomodate the additional data.
+
+(Note that position is a property of a file handle, not a file. When a file handle is closed, its position is discarded; if the same file is opened later, the new handle's position is zero. If a file is opened multiple times, each individual handle has its own separate position; reading or writing on one handle does not affect the position of other handles even if they refer to the same file.)
+
+The size of a regular file and the position of a file handle are represented by 64-bit values. Implementations may limit this arbitrarily; for example regular file sizes may be limited to 32 bits, in which case the upper 32 bits of file sizes and file handle positions are always zero. Regular file sizes are otherwise limited only by available storage.
+
+### Streams
+
+A stream is a file that only supports reading, writing, or both. It is used to transfer data from one program to another.
+
+Streams do not have a size. File handles referring to open streams do not have a position and do not support seeking. `ftell` and `fseek` return an error when called on a stream.
+
+A stream may support reading, writing, or both. If a stream only supports reading, `fwrite` on the stream returns an error, and vice versa. A writeable stream must be opened in read-write mode in order to write to it.
+
+There are three standard streams: input, output and error. These are intended for programs to interact with other programs and with a user. The standard input, standard output, and standard error handles, if they exist, are given to the program in the process info table.
+
+Other streams may exist on the filesystem depending on the VM implementation. These are VM-specific and are not specified here.
+
+### Devices
+
+A device is a file with a special name and special behaviour.
+
+Support for devices is optional. The VM does not need to implement this and can ignore this section.
+
+The VM may interpret certain filenames as "devices". A program opens a device with `fopen` and closes it with `fclose` like any other file. It interacts with the device with the other file syscalls (e.g. `fread`, `fwrite`.) Devices may or may not support any of `fread`, `fwrite`, `ftell` and `fseek`; whether such system calls are supported depends on the device and is specified below.
+
+Only one device is defined so far:
+
+- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `fread` on this device provides random bytes. The device must be opened read-only; `fwrite` is forbidden.
+
+### Directories
+
+A directory is a container for files and other directories. Directories are used to organize files on the filesystem.
+
+Support for directories is optional. A VM may ignore directories; it can simply store all files in a flat set in which each file is named by its full path. However, some programs rely on directories, so implementing them can provide additional functionality.
+
+If directories are supported, the character `/` is used to delimit files and directories. A file or directory name can contain any byte except `/` and a null byte. (Onramp itself only uses ASCII letters, numbers, and the characters `-`, `_` and `.` in its implementation. Programs compiled by Onramp may use any other bytes.)
+
+The filesystem must have a root directory. A path is a string of up to 255 bytes that contains the hierarchy of directories that must be navigated from the root to reach a file. For example `/foo/bar` is a path to a file or directory called `bar` in a directory called `foo` in the root directory.
+
+The filesystem implemented by a VM resembles that of a POSIX system as described above. If your host filesystem has a different shape but you still want it to interoperate with Onramp, the VM must translate paths to make them appropriate for Onramp. For example, on a system where `\` delimits directories, a path like `C:\Foo\Bar`  must be translated it to something like `/c/Foo/Bar` to be used with Onramp.
+
+### File and Directory Handles
+
+Input and output is done through "handles". A handle is a 32-bit integer that represents an open file, directory, or stream.
+
+(These are similar to file descriptors in POSIX. We call them handles because the libc needs to translate them to POSIX-style file descriptors to simulate POSIX APIs.)
+
+Up to three handles are reserved for the standard input/output streams (see below.)
+
+If the VM is hosted, other handles should be available for the program to open files and directories on the filesystem. If the VM is freestanding, the write and (optionally) read syscalls will only be used on the input/output streams, and all other I/O syscalls should not be implemented.
+
+### Blocking and Non-Blocking
+
+When reading from a file handle, data may not be available yet, but might become available later. For example, if a program's input stream is connected to a keyboard, there will be no data available to read until the user presses keys.
+
+The VM's behaviour on reading from such a file handle can be characterized as "blocking" or "non-blocking".
+
+If the program calls `fread` and data is not currently available, the VM may handle it in one of two ways. If the file handle is *blocking*, the VM suspends execution of the program until data becomes available, then completes the system call. If the file handle is *non-blocking*, the VM returns `ERROR_TRY_LATER` without waiting for data to become available.
+
+File writing may also be blocking or non-blocking. For example a file may have a fixed size buffer which takes time to flush; if the buffer is full, the VM will not be able to write until space becomes available. In this case a call to `fwrite` either blocks until data can be written or returns `ERROR_TRY_LATER`.
+
+It is recommended that VMs provide non-blocking reading and writing for streams. Programs generally assume that regular files will block (since they always do on contemporary operating systems) but they are allowed to be non-blocking as well.
+
+(On POSIX systems, this means the VM should always poll a file descriptor to determine whether data is available before reading from it.)
 
 
 
@@ -1488,94 +1576,6 @@ The value passed as the size parameter must exactly match the actual size (not t
 This always returns 0. If the given address and size do not match a previously allocated block, the behaviour is undefined.
 
 This system call is optional even if alloc is implemented. It is typical for hosted VMs to implement alloc and not free.
-
-
-
-## Filesystem
-
-A filesystem is made up of directories and files. Directories are used to organize the filesystem; they can contain other directories and files. Files are used to store and transfer data.
-
-The program interacts with files and directories using system calls. Some system calls, like `remove` and `rmdir`, operate directly on named files and directories. Other system calls operate through file and directory handles.
-
-Input and output is done through "handles". A handle is a 32-bit integer that represents an open file or directory. To get a handle to a file or directory, the program must "open" it using `fopen` (for files) or `dopen` (for directories).
-
-There are three kinds of files: regular files, streams, and devices.
-
-### Regular Files
-
-A regular file stores data of arbitrary type and length and supports random access to its contents.
-
-Regular files are the most common kind of file. All of Onramp's data is stored in regular files, including source code, compiled programs, and documentation. Regular files typically persist indefinitely even when the machine storing them is powered off.
-
-Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can also be changed with the `ftrunc` system call.
-
-A file handle referring to a regular file has a "position". When a regular file is opened, the file handle has position zero. When the `fread` or `fwrite` system calls are called on such a handle, bytes are read or written starting at the handle's position, and the handle's position is incremented by the number of bytes read or written.
-
-If `fread` is called on a regular file handle whose file position is the size of the file (i.e. it is at the end of the file), the VM returns `ERROR_END_OF_FILE`. If `fwrite` is called on a regular file handle whose position is the size of the file (i.e. it is at the end of the file), the file grows to accomodate the additional data.
-
-(Note that position is a property of a file handle, not a file. When a file handle is closed, its position is discarded; if the same file is opened later, the new handle's position is zero. If a file is opened multiple times, each individual handle has its own separate position; reading or writing on one handle does not affect the position of other handles even if they refer to the same file.)
-
-The size of a regular file and the position of a file handle are represented by 64-bit values. Implementations may limit this arbitrarily; for example regular file sizes may be limited to 32 bits, in which case the upper 32 bits of file sizes and file handle positions are always zero. Regular file sizes are otherwise limited only by available storage.
-
-### Streams
-
-A stream is a file that only supports reading, writing, or both. It is used to transfer data from one program to another.
-
-Streams do not have a size. File handles referring to open streams do not have a position and do not support seeking. `ftell` and `fseek` return an error when called on a stream.
-
-A stream may support reading, writing, or both. If a stream only supports reading, `fwrite` on the stream returns an error, and vice versa. A writeable stream must be opened in read-write mode in order to write to it.
-
-There are three standard streams: input, output and error. These are intended for programs to interact with other programs and with a user. The standard input, standard output, and standard error handles, if they exist, are given to the program in the process info table.
-
-Other streams may exist on the filesystem depending on the VM implementation. These are VM-specific and are not specified here.
-
-### Devices
-
-A device is a file with a special name and special behaviour.
-
-Support for devices is optional. The VM does not need to implement this and can ignore this section.
-
-The VM may interpret certain filenames as "devices". A program opens a device with `fopen` and closes it with `fclose` like any other file. It interacts with the device with the other file syscalls (e.g. `fread`, `fwrite`.) Devices may or may not support any of `fread`, `fwrite`, `ftell` and `fseek`; whether such system calls are supported depends on the device and is specified below.
-
-Only one device is defined so far:
-
-- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `fread` on this device provides random bytes. The device must be opened read-only; `fwrite` is forbidden.
-
-### Directories
-
-A directory is a container for files and other directories. Directories are used to organize files on the filesystem.
-
-Support for directories is optional. A VM may ignore directories; it can simply store all files in a flat set in which each file is named by its full path. However, some programs rely on directories, so implementing them can provide additional functionality.
-
-If directories are supported, the character `/` is used to delimit files and directories. A file or directory name can contain any byte except `/` and a null byte. (Onramp itself only uses ASCII letters, numbers, and the characters `-`, `_` and `.` in its implementation. Programs compiled by Onramp may use any other bytes.)
-
-The filesystem must have a root directory. A path is a string of up to 255 bytes that contains the hierarchy of directories that must be navigated from the root to reach a file. For example `/foo/bar` is a path to a file or directory called `bar` in a directory called `foo` in the root directory.
-
-The filesystem implemented by a VM resembles that of a POSIX system as described above. If your host filesystem has a different shape but you still want it to interoperate with Onramp, the VM must translate paths to make them appropriate for Onramp. For example, on a system where `\` delimits directories, a path like `C:\Foo\Bar`  must be translated it to something like `/c/Foo/Bar` to be used with Onramp.
-
-### File and Directory Handles
-
-Input and output is done through "handles". A handle is a 32-bit integer that represents an open file, directory, or stream.
-
-(These are similar to file descriptors in POSIX. We call them handles because the libc needs to translate them to POSIX-style file descriptors to simulate POSIX APIs.)
-
-Up to three handles are reserved for the standard input/output streams (see below.)
-
-If the VM is hosted, other handles should be available for the program to open files and directories on the filesystem. If the VM is freestanding, the write and (optionally) read syscalls will only be used on the input/output streams, and all other I/O syscalls should not be implemented.
-
-### Blocking and Non-Blocking
-
-When reading from a file handle, data may not be available yet, but might become available later. For example, if a program's input stream is connected to a keyboard, there will be no data available to read until the user presses keys.
-
-The VM's behaviour on reading from such a file handle can be characterized as "blocking" or "non-blocking".
-
-If the program calls `fread` and data is not currently available, the VM may handle it in one of two ways. If the file handle is *blocking*, the VM suspends execution of the program until data becomes available, then completes the system call. If the file handle is *non-blocking*, the VM returns `ERROR_TRY_LATER` without waiting for data to become available.
-
-File writing may also be blocking or non-blocking. For example a file may have a fixed size buffer which takes time to flush; if the buffer is full, the VM will not be able to write until space becomes available. In this case a call to `fwrite` either blocks until data can be written or returns `ERROR_TRY_LATER`.
-
-It is recommended that VMs provide non-blocking reading and writing for streams. Programs generally assume that regular files will block (since they always do on contemporary operating systems) but they are allowed to be non-blocking as well.
-
-(On POSIX systems, this means the VM should always poll a file descriptor to determine whether data is available before reading from it.)
 
 
 
