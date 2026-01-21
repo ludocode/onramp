@@ -124,6 +124,7 @@ static bool optimize;
 static bool emit_ir;
 static bool dump_macros;
 static char* wrap_header;
+static bool print_linked_executable;
 
 // tools and libc files to use
 static char* tool_cpp;
@@ -481,7 +482,9 @@ static bool try_parse_misc(char*** argv) {
         return true;
     }
 
+    // posix wrapper options
     if (try_parse_option_string(argv, "-wrap-header", &wrap_header)) {return true;}
+    if (try_parse_misc_option(argv, "-print-linked-executable", &print_linked_executable)) {return true;}
 
     if (try_parse_misc_option(argv, "--version", NULL)) {
         puts("Onramp (cc) version 0");
@@ -1172,6 +1175,12 @@ static void do_link(void) {
     string_array_append(&args, &args_count, &args_capacity, NULL);
 
     run(args_count - 1, args);
+
+    if (print_linked_executable) {
+        fputs("Linked executable: ", stdout);
+        fputs(output_filename, stdout);
+        fputc('\n', stdout);
+    }
 
     free(args);
 }
