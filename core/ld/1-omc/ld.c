@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,10 +33,6 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-
-#ifndef __onramp__  // TODO fix this
-#include <sys/stat.h>
-#endif
 
 #include "libo-error.h"
 #include "libo-util.h"
@@ -96,7 +92,6 @@ static FILE* input_file;
 static long file_start_pos;
 static int pass;
 static int file_first_char;
-static const char* wrap_header;
 
 static char* buffer;
 #define BUFFER_SIZE 128
@@ -620,50 +615,12 @@ static void open_output(const char* output_filename) {
     if (output_file == NULL) {
         fatal("Failed to open output file.");
     }
-
-    // TODO this can be removed now that we bootstrap ld/2, no reason to
-    // support this in an earlier stage
-    if (wrap_header != NULL) {
-        chmod(output_filename, 493); // 493 == 0755, cci/0 doesn't support octal
-
-        FILE* header = fopen(wrap_header, "r");
-        if (header == NULL) {
-            fatal("Failed to open wrap header file.");
-        }
-
-        size_t buffer_size = 128;
-        char* buffer = calloc(1, buffer_size);
-        if (buffer == NULL) {
-            fatal("Out of memory.");
-        }
-        // TODO check for errors, loop for buffering, etc. This code is
-        // temporary anyway, we won't be using it once we can build ld/2.
-        fread(buffer, 1, buffer_size, header);
-        fclose(header);
-        fwrite(buffer, 1, buffer_size, output_file);
-        free(buffer);
-    }
 }
 
 static void perform_pass(const char** argv) {
     current_address = 0;
 
     while (*argv != 0) {
-        if (0 == strcmp(*argv, "-wrap-header")) {
-            argv = (argv + 1);
-            if (*argv == 0) {
-                fatal("-wrap-header must be followed by a filename.");
-            }
-            if (wrap_header == NULL) {
-                if (output_file != NULL) {
-                    fatal("-wrap-header must come before -o.");
-                }
-                wrap_header = *argv;
-            }
-            argv = (argv + 1);
-            continue;
-        }
-
         if (0 == strcmp(*argv, "-o")) {
             argv = (argv + 1);
             if (*argv == 0) {
