@@ -4,7 +4,9 @@ The Onramp Virtual Machine is a simple virtual machine designed for portable boo
 
 This document specifies an incomplete in-development version of the virtual machine (tentatively version 4.0.) For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
 
-Here's an index of sections in this document:
+
+
+## Index
 
 - [Overview](#overview)
 - [Registers](#registers)
@@ -13,9 +15,9 @@ Here's an index of sections in this document:
     - [Major Version](#major-version)
     - [Heap Start Address](#heap-start-address)
     - [System Call Table Address][pit-system-call-table]
-    - [Input Stream Handle](#input-stream-handle)
-    - [Output Stream Handle](#output-stream-handle)
-    - [Error Stream Handle](#error-stream-handle)
+    - [Standard Input Handle](#standard-input-handle)
+    - [Standard Output Handle](#standard-output-handle)
+    - [Standard Error Handle](#standard-error-handle)
     - [Command-Line Arguments](#command-line-arguments)
     - [Environment Variables](#environment-variables)
     - [Working Directory](#working-directory)
@@ -41,12 +43,13 @@ Here's an index of sections in this document:
     - [Immediate Short][ims]
     - [Less Than Unsigned][ltu]
     - [Jump If Zero][jz]
-- [Filesystem](#filesystem)
-    - [Regular Files](#regular-files)
-    - [Streams](#streams)
-    - [Devices](#devices)
-    - [Directories](#directories)
-    - [File and Directory Handles](#file-and-directory-handles)
+- [Files](#files)
+    - [Handles](#handles)
+    - [File Types](#file-types)
+        - [Regular Files](#regular-files)
+        - [Streams](#streams)
+        - [Devices](#devices)
+        - [Directories](#directories)
 - [Calling Convention](#calling-convention)
     - [System Call Convention](#system-call-convention)
 - [System Calls](#system-calls)
@@ -56,18 +59,17 @@ Here's an index of sections in this document:
     - [`exit`](#exit)
     - [`panic`](#panic)
     - [`time`](#time)
-    - [`fopen`](#fopen)
-    - [`fclose`](#fclose)
-    - [`fread`](#fread)
-    - [`fwrite`](#fwrite)
-    - [`fseek`](#fseek)
-    - [`ftell`](#ftell)
-    - [`ftrunc`](#ftrunc)
-    - [`dopen`](#dopen)
-    - [`dclose`](#dclose)
-    - [`dread`](#dread)
+    - [`open`](#open)
+    - [`close`](#close)
+    - [`read`](#read)
+    - [`write`](#write)
+    - [`seek`](#seek)
+    - [`tell`](#tell)
+    - [`trunc`](#trunc)
+    - [`dirent`](#dirent)
+    - [`stat`](#stat)
     - [`rename`](#rename)
-    - [`unlink`](#unlink)
+    - [`delete`](#delete)
     - [`chmod`](#chmod)
     - [`mkdir`](#mkdir)
     - [`rmdir`](#rmdir)
@@ -103,6 +105,8 @@ An Onramp VM can run hosted or freestanding.
 - When hosted, the VM is running inside an operating system (OS) which provides a filesystem for storage. The VM bridges this filesystem into the Onramp environment by implementing file and directory system calls that use it. Onramp programs can therefore interoperate and share files with other non-Onramp programs running on the OS. See the [Filesystem](#filesystem) section below.
 
 - When freestanding, the VM is running directly on hardware (or on virtualized hardware) with no underlying operating system. It has either no permanent storage, or it has a simple block storage device (i.e. it is accessed as a simple array of fixed-size sectors.) In this case the Onramp operating system runs inside the Onramp VM. The Onramp OS receives most system calls and implements its own filesystem backed by the optional block storage device.
+
+The [VM Info Tool (`vminfo`)](../extra/vminfo/) can be used to inspect the features and capabilities of an Onramp VM. It is highly recommended to use it to test while developing a VM.
 
 When writing C programs and compiling them for Onramp, you do not need to worry about any of this. It is handled by the Onramp libc.
 
@@ -166,7 +170,7 @@ If the VM implements the [`alloc` syscall](#alloc), the free memory region can b
 
 The total amount of memory required depends on the program being run. 4 MiB is sufficient for the initial bootstrap but many programs will require more. 16 MiB is a reasonable default. (This needs to be updated later with requirements for bootstrapping and for compiling and running various programs.)
 
-Information about the process and VM is also made available to the program in data tables in memory. This includes the command-line arguments and environment variables of the process; the VM's capabilities and input/output file handles; and a table of system calls.
+Information about the process and VM is also made available to the program in data tables in memory. This includes the command-line arguments and environment variables of the process; the VM's capabilities and input/output handles; and a table of system calls.
 
 Here's a diagram showing the regions of memory, the initial values of the registers, and some of the addresses in the process info table:
 
@@ -197,19 +201,19 @@ All addresses above must be aligned to a multiple of 4 bytes.
 
 The process information table is an array of eleven 32-bit words (44 bytes total.) Here's a quick reference table of its contents:
 
-| Index | Value                      | type     | Description                                                            |
-|-------|----------------------------|----------|------------------------------------------------------------------------|
-| 0     | Major Version              | `int`    | Always 4 for this version.                                             |
-| 1     | Heap Start Address         | `void*`  | Address of the free memory region provided by the VM.                  |
-| 2     | System Call Table Address  | `void*`  | Table of system calls.                                                 |
-| 3     | Input Stream Handle        | `int`    | File handle of input stream, or -1 if input is not supported           |
-| 4     | Output Stream Handle       | `int`    | File handle of output stream, can match input                          |
-| 5     | Error Stream Handle        | `int`    | File handle of error stream, can match output and input                |
-| 6     | Command-Line Arguments     | `char**` | Null-terminated array of null-terminated strings.                      |
-| 7     | Environment Variables      | `char**` | Null-terminated array of null-terminated strings of form "key=value".  |
-| 8     | Working Directory          | `char*`  | Directory in which the program is being run.                           |
-| 9     | Capabilities               | `int`    | Flags indicating the capabilities and environment of the VM.           |
-| 10    | Minor Version              | `int`    | Always 0 for this version.                                             |
+| Index | Value                      | type     | Description                                                              |
+|-------|----------------------------|----------|--------------------------------------------------------------------------|
+| 0     | Major Version              | `int`    | Always 4 for this version.                                               |
+| 1     | Heap Start Address         | `void*`  | Address of the free memory region provided by the VM.                    |
+| 2     | System Call Table Address  | `void*`  | Table of system calls.                                                   |
+| 3     | Standard Input Handle      | `int`    | Handle of standard input stream                                          |
+| 4     | Standard Output Handle     | `int`    | Handle of standard output stream                                         |
+| 5     | Standard Error Handle      | `int`    | Handle of standard error stream                                          |
+| 6     | Command-Line Arguments     | `char**` | Null-terminated array of null-terminated strings.                        |
+| 7     | Environment Variables      | `char**` | Null-terminated array of null-terminated strings of form "key=value".    |
+| 8     | Working Directory          | `char*`  | Directory in which the program is being run.                             |
+| 9     | Capabilities               | `int`    | Flags indicating the capabilities and environment of the VM.             |
+| 10    | Minor Version              | `int`    | Always 0 for this version.                                               |
 
 The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
 
@@ -239,47 +243,47 @@ The system call table address field contains the address of the [System Call Tab
 
 
 
-### Input Stream Handle
+### Standard Input Handle
 
-The input stream handle is a file handle that provides a stream of input to the program. It is used as a handle to `fread` for the program to get input data. See the description of [streams](#streams) and [file and directory handles](#file-and-directory-handles).
+The standard input handle is a handle to a stream that provides input to the program. It is used as an argument to [`read`](#read) for the program to get input data. See the description of [streams](#streams) and [handles](#handles).
 
 For programs run interactively, this is typically connected to an input terminal (such as a keyboard). For programs run non-interactively (perhaps as part of a pipeline), the input of the program may be an arbitrary file or the output of another program.
 
-The input stream is optional. If input is not supported by the VM, this field contains 0xFFFFFFFF. This is normal for example for a minimal VM or for non-interactive bootstrapping in a freestanding environment.
+Standard input is optional. If standard input is not supported by the VM, or if standard input is otherwise unavailable to the program, this field contains 0xFFFFFFFF. This is normal for example for a minimal VM or for non-interactive bootstrapping in a freestanding environment.
 
-Valid handles for the input, output and error streams may have any value (and may even all have the same value) as long as the high bit is not set. The program can use these handles to communicate with its environment.
+Valid handles for standard input, output and error may have any value (and may even all have the same value) as long as the high bit is not set. The program can use these handles to communicate with its environment.
 
-The VM may "echo" its input; i.e. it may copy all input to its own output stream. In this case the "echo" bit must be set in the capabilities field of the process info table. It is recommended that VMs not echo if possible. The Onramp libc can simulate echo internally for interactive programs.
+The VM may "echo" its input; i.e. it may copy all input to its own output. In this case the "echo" bit must be set in the capabilities field of the process info table. It is recommended that VMs not echo if possible. The Onramp libc can simulate echo internally for interactive programs.
 
 The VM may also "line buffer" its input, i.e. it may withhold input from the program until the user inputs a newline character. In this case the "line-oriented" bit must be set in the capabilities field of the process info table. It is recommended that VMs not line-buffer if possible.
 
-(On POSIX systems, this means the input file handle should be in non-canonical mode and should have echo disabled.)
+(On POSIX systems, this means the input handle should be in non-canonical mode and should have echo disabled.)
 
 
 
-### Output Stream Handle
+### Standard Output Handle
 
-The error stream handle is a file handle to which the program can write its output. It is used as a handle to `fwrite` for the program to write output data. See the description of [file handles](#file-handles).
+The standard output handle is a handle to which the program can write its output. It is used as a handle to [`write`](#write) for the program to write output data. See the description of [streams](#streams) and [handles](#handles).
 
-The output stream is intended for normal program output, that could for instance be displayed to a user or consumed by another program.
+Standard output is intended for normal program output, that could for instance be displayed to a user or consumed by another program.
 
-For programs run interactively, the output stream is displayed to the user (for example in a graphical terminal or on a printer.) For programs run as part of a pipeline, the output of the program may be redirected to an arbitrary file or may be the input of another program.
+For programs run interactively, the output is displayed to the user (for example in a graphical terminal or on a printer.) For programs run as part of a pipeline, the output of the program may be redirected to an arbitrary file or may be the input of another program.
 
-The output stream is optional. If not supported by the VM, this field should contain 0xFFFFFFFF.
+Standard output is optional. If standard output is not supported by the VM, or if standard output is otherwise unavailable to the program, this field contains 0xFFFFFFFF.
 
 
 
-### Error Stream Handle
+### Standard Error Handle
 
-The error stream handle is a file handle to which the program can write error messages. It is used as a handle to `fwrite` for the program to write output data. See the description of [file handles](#file-handles).
+The standard error handle is a handle to which the program can write error messages. It is used as a handle to [`write`](#write) for the program to write output data. See the description of [streams](#streams) and [handles](#handles).
 
-The error stream is intended for displaying errors, warnings and other abnormal ouput to a user.
+Standard error is intended for displaying errors, warnings and other abnormal output to a user.
 
-The error stream is typically displayed to the user. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
+Data printed to standard error is usually plain text and is intended for display to the user. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
 
-The output and error streams are otherwise identical. If no distinction is required between them, the VM can use the same file handle for both. (It can also use the same handle for input.)
+The standard output and error handles are otherwise identical. If no distinction is required between them, the VM can use the same handle for both. (It can also use the same handle for input.)
 
-The error stream is optional. If a separate error stream is not supported by the VM, this field should contain 0xFFFFFFFF. If this has value 0xFFFFFFFF and the output stream handle is valid, the program will write error messages to the output stream handle instead.
+Standard error is optional. If a standard error handle is not supported by the VM, this field contains 0xFFFFFFFF. If this has value 0xFFFFFFFF and the standard output handle is valid, programs usually write error messages to the output stream handle instead.
 
 
 
@@ -321,9 +325,10 @@ The capabilities entry is a 32-bit word containing a set of 1-bit flags. They ar
 
 | Bit Position | Value               |                                                            |
 |--------------|---------------------|------------------------------------------------------------|
-| 0            | Input Echo          | 0 if the program should echo output to the input.          |
-| 1            | Input Blocks        | 1 if fread(input) blocks until input is available.         |
+| 0            | Input Echo          | 1 if the VM echoes input to the output.                    |
+| 1            | Input Blocks        | 1 if read(input) blocks until input is available.          |
 | 2            | Input Line-Oriented | 1 if VM buffers input in lines (i.e. POSIX canonical)      |
+| 3            | Interactive         | 1 if standard input comes directly from a user             |
 
 The capabilities field contains a set of flags describing what features are supported by the VM. The following flags exist, with bits numbered from low to high:
 
@@ -332,6 +337,12 @@ The capabilities field contains a set of flags describing what features are supp
 - bit 1: input blocks. 1 if the read syscall blocks until a byte is available; 0 if it doesn't, instead reading zero bytes successfully when no input data exists. If possible the VM should not block on input. If you are unsure whether the input blocks, set this to 1 to prevent programs from setting the input to non-blocking.
 
 - bit 2: input line-oriented (i.e. [POSIX canonical](https://en.wikipedia.org/wiki/POSIX_terminal_interface#Canonical_mode_processing)). 1 if input is only available once a full line has been processed; 0 if input is available immediately on each keystroke. If possible the VM should not line-buffer input. If you are unsure whether the input is line-oriented, set this to 1 to prevent programs from turning off canonical mode. (This is the default behaviour of terminal programs on POSIX platforms and it is surprisingly difficult to turn off so most POSIX VMs should set this bit.)
+
+- bit 3: interactive. 1 if the standard input and output streams are connected directly to a user, for example to a keyboard and display; 0 if they are not or if unsure. An interactive program that expects input must wait until the user enters that input, for example by pressing keys. (The keys pressed by the user will then be displayed back to them; see "echo" above.) A non-interactive program may get its input from or send its output to another program, a file, etc.
+
+(The libc will simulate echo if "input echo" is 0 and "interactive" is 1.)
+
+(On POSIX systems, interactive input is echoed and is line-oriented by default, and these are not easy to change. It is simpler to just set those bits in the capabilities field, and to set interactive if and only if `isatty(0) && isatty(1)`.)
 
 
 
@@ -748,87 +759,91 @@ The predicate is mix-type. A predicate of 0 can be used to perform an unconditio
 
 
 
-## Filesystem
+## Files
 
-A filesystem is made up of directories and files. Directories are used to organize the filesystem; they can contain other directories and files. Files are used to store and transfer data.
+Files are the means by which an Onramp program can interact with its environment.
 
-The program interacts with files and directories using system calls. Some system calls, like `remove` and `rmdir`, operate directly on named files and directories. Other system calls operate through file and directory handles.
+A _file_ is a named resource with which a program can interact. The collection of all files exposed to the program is called the _filesystem_.
 
-Input and output is done through "handles". A handle is a 32-bit integer that represents an open file or directory. To get a handle to a file or directory, the program must "open" it using `fopen` (for files) or `dopen` (for directories).
+The program interacts with files using system calls. Some system calls, like `remove`, operate directly on named files. Other system calls operate through [handles](#handles); see below.
 
-There are three kinds of files: regular files, streams, and devices.
+### Handles
 
-### Regular Files
+A _handle_ is a 32-bit integer that represents an open file. Input and output of a file is done through a handle.
 
-A regular file stores data of arbitrary type and length and supports random access to its contents.
+The program is given up to three handles in its process info table: standard input, standard output, and standard error. To get a handle to other files, the program must open the file using the `open` system call. Most system calls take a handle as the first parameter; this indicates the handle, and by extension the file, on which the system call operates.
 
-Regular files are the most common kind of file. All of Onramp's data is stored in regular files, including source code, compiled programs, and documentation. Regular files typically persist indefinitely even when the machine storing them is powered off.
+(Handles are called "file descriptors" on POSIX systems.)
 
-Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can also be changed with the `ftrunc` system call.
+### File Types
 
-A file handle referring to a regular file has a "position". When a regular file is opened, the file handle has position zero. When the `fread` or `fwrite` system calls are called on such a handle, bytes are read or written starting at the handle's position, and the handle's position is incremented by the number of bytes read or written.
+There are four types of files: regular files, streams, directories, and devices.
 
-If `fread` is called on a regular file handle whose file position is the size of the file (i.e. it is at the end of the file), the VM returns `ERROR_END_OF_FILE`. If `fwrite` is called on a regular file handle whose position is the size of the file (i.e. it is at the end of the file), the file grows to accomodate the additional data.
+#### Regular Files
 
-(Note that position is a property of a file handle, not a file. When a file handle is closed, its position is discarded; if the same file is opened later, the new handle's position is zero. If a file is opened multiple times, each individual handle has its own separate position; reading or writing on one handle does not affect the position of other handles even if they refer to the same file.)
+A _regular file_ is a file that stores data of arbitrary type and length and supports random access to its contents.
 
-The size of a regular file and the position of a file handle are represented by 64-bit values. Implementations may limit this arbitrarily; for example regular file sizes may be limited to 32 bits, in which case the upper 32 bits of file sizes and file handle positions are always zero. Regular file sizes are otherwise limited only by available storage.
+Regular files are the most common type of file. All of Onramp's data is stored in regular files, including source code, compiled programs, and documentation. Regular files typically persist indefinitely even when the machine storing them is powered off.
 
-### Streams
+Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can also be changed with the `trunc` system call.
 
-A stream is a file that only supports reading, writing, or both. It is used to transfer data from one program to another.
+A handle referring to a regular file has a "position". When a regular file is opened, the handle has position zero. When the `read` or `write` system calls are called on such a handle, bytes are read or written starting at the handle's position, and the handle's position is incremented by the number of bytes read or written.
 
-Streams do not have a size. File handles referring to open streams do not have a position and do not support seeking. `ftell` and `fseek` return an error when called on a stream.
+If `read` is called on a regular handle whose file position is the size of the file (i.e. it is at the end of the file), the VM returns `ERROR_END_OF_FILE`. If `write` is called on a regular handle whose position is the size of the file (i.e. it is at the end of the file), the file grows to accomodate the additional data.
 
-A stream may support reading, writing, or both. If a stream only supports reading, `fwrite` on the stream returns an error, and vice versa. A writeable stream must be opened in read-write mode in order to write to it.
+(Note that position is a property of a handle, not a file. When a handle is closed, its position is discarded; if the same file is opened later, the new handle's position is zero. If a file is opened multiple times, each individual handle has its own separate position; reading or writing on one handle does not affect the position of other handles even if they refer to the same file.)
+
+The size of a regular file and the position of a handle are represented by 64-bit values. Implementations may limit this arbitrarily; for example regular file sizes may be limited to 32 bits, in which case the upper 32 bits of file sizes and handle positions are always zero. Regular file sizes are otherwise limited only by available storage.
+
+#### Streams
+
+A _stream_ is a file that only supports reading, writing, or both. It is used to transfer data from one program to another.
+
+Streams do not have a size. Handles referring to streams do not have a position and do not support seeking. `tell` and `seek` return an error when called on a stream handle.
+
+A stream may support reading, writing, or both. If a stream only supports reading, `write` on the stream returns an error, and vice versa. A writeable stream must be opened in read-write mode in order to write to it.
 
 There are three standard streams: input, output and error. These are intended for programs to interact with other programs and with a user. The standard input, standard output, and standard error handles, if they exist, are given to the program in the process info table.
 
 Other streams may exist on the filesystem depending on the VM implementation. These are VM-specific and are not specified here.
 
-### Devices
+#### Directories
 
-A device is a file with a special name and special behaviour.
+A _directory_ is a container for files and other directories. Directories are used to organize files on the filesystem.
 
-Support for devices is optional. The VM does not need to implement this and can ignore this section.
-
-The VM may interpret certain filenames as "devices". A program opens a device with `fopen` and closes it with `fclose` like any other file. It interacts with the device with the other file syscalls (e.g. `fread`, `fwrite`.) Devices may or may not support any of `fread`, `fwrite`, `ftell` and `fseek`; whether such system calls are supported depends on the device and is specified below.
-
-Only one device is defined so far:
-
-- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `fread` on this device provides random bytes. The device must be opened read-only; `fwrite` is forbidden.
-
-### Directories
-
-A directory is a container for files and other directories. Directories are used to organize files on the filesystem.
-
-Support for directories is optional. A VM may ignore directories; it can simply store all files in a flat set in which each file is named by its full path. However, some programs rely on directories, so implementing them can provide additional functionality.
+Support for directories is optional. A VM may ignore directories; it can simply store all files in a flat set in which each file is named by its full path. However, without directories, programs will have no way of enumerating files. Some programs rely on directories so implementing them can provide additional functionality.
 
 If directories are supported, the character `/` is used to delimit files and directories. A file or directory name can contain any byte except `/` and a null byte. (Onramp itself only uses ASCII letters, numbers, and the characters `-`, `_` and `.` in its implementation. Programs compiled by Onramp may use any other bytes.)
 
-The filesystem must have a root directory. A path is a string of up to 255 bytes that contains the hierarchy of directories that must be navigated from the root to reach a file. For example `/foo/bar` is a path to a file or directory called `bar` in a directory called `foo` in the root directory.
+The filesystem must have a _root_ directory. The path of this directory is `/`. All directories have a parent directory except the root. A directory cannot be a child of itself, even indirectly; following the parents of a directory always leads to the root. In other words, the filesystem forms a directed acyclic graph in which the inner nodes are non-empty directories and the leaves are other types of files.
+
+A path is a string of up to 255 bytes that contains the hierarchy of directories that must be navigated from the root to reach a file. For example `/foo/bar` is a path to a file or directory called `bar` in a directory called `foo` in the root directory.
 
 The filesystem implemented by a VM resembles that of a POSIX system as described above. If your host filesystem has a different shape but you still want it to interoperate with Onramp, the VM must translate paths to make them appropriate for Onramp. For example, on a system where `\` delimits directories, a path like `C:\Foo\Bar`  must be translated it to something like `/c/Foo/Bar` to be used with Onramp.
 
-### File and Directory Handles
+#### Devices
 
-Input and output is done through "handles". A handle is a 32-bit integer that represents an open file, directory, or stream.
+A _device_ is a file with a specific name and special behaviour.
 
-(These are similar to file descriptors in POSIX. We call them handles because the libc needs to translate them to POSIX-style file descriptors to simulate POSIX APIs.)
+Support for devices is optional. The VM does not need to implement this and can ignore this section.
 
-Up to three handles are reserved for the standard input/output streams (see below.)
+The VM may interpret certain filenames as "devices". A program opens a device with `open` and closes it with `close` like any other file. It interacts with the device with other handle syscalls (e.g. `read`, `write`.) Devices may or may not support any of the system calls that operate on handles; whether such system calls are supported depends on the device and is specified below.
 
-If the VM is hosted, other handles should be available for the program to open files and directories on the filesystem. If the VM is freestanding, the write and (optionally) read syscalls will only be used on the input/output streams, and all other I/O syscalls should not be implemented.
+Only one device is defined so far:
+
+- `/dev/urandom`: A device that provides high quality cryptographically secure random numbers. A call to `read` on this device provides random bytes; no other system calls are supported. The device must be opened read-only.
+
+(The VM may or may not implement `/dev/` as a directory.)
 
 ### Blocking and Non-Blocking
 
-When reading from a file handle, data may not be available yet, but might become available later. For example, if a program's input stream is connected to a keyboard, there will be no data available to read until the user presses keys.
+When reading from a handle, data may not be available yet, but might become available later. For example, if a program's input stream is connected to a keyboard, there will be no data available to read until the user presses keys.
 
-The VM's behaviour on reading from such a file handle can be characterized as "blocking" or "non-blocking".
+The VM's behaviour on reading from such a handle can be characterized as "blocking" or "non-blocking".
 
-If the program calls `fread` and data is not currently available, the VM may handle it in one of two ways. If the file handle is *blocking*, the VM suspends execution of the program until data becomes available, then completes the system call. If the file handle is *non-blocking*, the VM returns `ERROR_TRY_LATER` without waiting for data to become available.
+If the program calls `read` and data is not currently available, the VM may handle it in one of two ways. If the handle is *blocking*, the VM suspends execution of the program until data becomes available, then completes the system call. If the handle is *non-blocking*, the VM returns `ERROR_TRY_LATER` without waiting for data to become available.
 
-File writing may also be blocking or non-blocking. For example a file may have a fixed size buffer which takes time to flush; if the buffer is full, the VM will not be able to write until space becomes available. In this case a call to `fwrite` either blocks until data can be written or returns `ERROR_TRY_LATER`.
+File writing may also be blocking or non-blocking. For example a file may have a fixed size buffer which takes time to flush; if the buffer is full, the VM will not be able to write until space becomes available. In this case a call to `write` either blocks until data can be written or returns `ERROR_TRY_LATER`.
 
 It is recommended that VMs provide non-blocking reading and writing for streams. Programs generally assume that regular files will block (since they always do on contemporary operating systems) but they are allowed to be non-blocking as well.
 
@@ -904,8 +919,8 @@ For example, if the syscall table is at `0x2000`, the memory would look like thi
 | 0x200C    | `r9` of `panic`   |
 | 0x2010    | `rip` of `time`   |
 | 0x2014    | `r9` of `time`    |
-| 0x2018    | `rip` of `fopen`  |
-| 0x201C    | `r9` of `fopen`   |
+| 0x2018    | `rip` of `open`   |
+| 0x201C    | `r9` of `open`    |
 | ...       | ...               |
 
 If a syscall is unimplemented, the function address is `0`.
@@ -924,7 +939,7 @@ When syscalls are implemented by a parent program, `rip` is the address of a fun
 
 In any case, after the syscall is performed, the implementer of the syscall must place a return value in r0 and then return control to the address at the top of the stack. In other words, a VM returns control to the program by loading the address pointed to by `rsp` into `rip`. For a syscall implemented in a parent program, this is the ordinary mechanism by which a function returns to the caller. (The only exception is `exit` and `panic` which do not return control to the program.)
 
-When a program is nested deep within other programs in a VM, the system call table will contain a mix of function pointers from various parents. For example, consider the Onramp assembler, running in the Onramp driver, running in the Onramp shell, running in the Onramp OS, running on a freestanding Onramp VM. Typically the direct parent (in this case the driver) will provide exit; the VM will implement fread/fwrite for terminal input/output; the OS will implement the file and directory syscalls; and both the OS and shell will proxy fread/fwrite to redirect to files or to the VM's terminal streams.
+When a program is nested deep within other programs in a VM, the system call table will contain a mix of function pointers from various parents. For example, consider the Onramp assembler, running in the Onramp driver, running in the Onramp shell, running in the Onramp OS, running on a freestanding Onramp VM. Typically the direct parent (in this case the driver) will provide exit; the VM will implement read/write for terminal input/output; the OS will implement the file and directory syscalls; and both the OS and shell will proxy read/write to redirect to files or to the VM's terminal streams.
 
 
 
@@ -934,35 +949,33 @@ All system calls return a word that contains either an error code, a return valu
 
 Arguments are passed in `r0`, `r1`, `r2` and `r3`, plus the context in `r9`. The return value is placed in `r0`.
 
-The system call table currently has **25** entries (200 bytes) with a total of 21 defined system calls. Entries not listed below are unused.
+The system call table currently has **25** entries (200 bytes) with a total of 20 defined system calls. Entries not listed below are unused.
 
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
 | 0      | hosted    | exit     | exit code                | n/a (doesn't return)     | exits the program                        |
 | 1      |           | panic    | exit code                | n/a (doesn't return)     | halts the VM                             |
 | 2      |           | time     | out\_time[3]             |                          | gets the current time                    |
-| 3      | hosted    | fopen    | path, writeable          | handle                   | opens a file                             |
-| 4      | hosted    | fclose   | handle                   |                          | closes a file                            |
-| 5      | hosted    | fread    | handle, buffer, size     | bytes read               | reads from a file or stream              |
-| 6      | hosted    | fwrite   | handle, buffer, size     | bytes written            | writes to a file or stream               |
-| 7      | hosted    | fseek    | handle, base, pos (x2)   |                          | seeks to a position in a file            |
-| 8      | hosted    | ftell    | handle, out\_pos[2]      |                          | gets the current position in a file      |
-| 9      |           | ftrunc   | handle, size (x2)        |                          | truncates a file                         |
-| 10     |           | dopen    | path                     | handle                   | opens a directory                        |
-| 11     |           | dclose   | handle                   |                          | closes a directory                       |
-| 12     |           | dread    | handle, buffer           |                          | reads one file entry from a directory    |
+| 3      | hosted    | open     | path, writeable          | handle                   | opens a file                             |
+| 4      | hosted    | close    | handle                   |                          | closes a file                            |
+| 5      | hosted    | read     | handle, buffer, size     | bytes read               | reads from a file or stream              |
+| 6      | hosted    | write    | handle, buffer, size     | bytes written            | writes to a file or stream               |
+| 7      | hosted    | seek     | handle, base, pos (x2)   |                          | seeks to a position in a file            |
+| 8      | hosted    | tell     | handle, out\_pos[2]      |                          | gets the current position in a file      |
+| 9      |           | trunc    | handle, size (x2)        |                          | truncates a file                         |
+| 12     |           | dirent   | handle, buffer           |                          | reads one file entry from a directory    |
+| 13     |           | stat     | path, out\_size[2]       |                          | gets the type and size of a file         |
 | 14     |           | rename   | path, path               |                          | renames a file                           |
-| 16     | hosted    | unlink   | path                     |                          | deletes a file                           |
+| 16     | hosted    | delete   | path                     |                          | deletes a file                           |
 | 17     |           | chmod    | path, mode               |                          | changes permissions of a file            |
 | 18     |           | mkdir    | path                     |                          | creates a directory                      |
-| 19     |           | rmdir    | path                     |                          | deletes an empty directory               |
 | 22     |           | debug    | address, path            |                          | loads debug info for a child program     |
 | 23     |           | alloc    | size, out_address        | actual size              | allocates a block of memory              |
 | 24     |           | free     | address, size            |                          | frees an allocated block of memory       |
 
 In the required column, system calls marked "hosted" must be implement in a hosted environment. All other system calls are optional.
 
-In a freestanding environment, all system calls are optional, although it is highly recommended to support `fwrite` to the standard output and error streams in order to receive debug output from the program.
+In a freestanding environment, all system calls are optional, although it is highly recommended to support `write` to the standard output and error streams in order to receive debug output from the program.
 
 A description of each system call with a C-style prototype follows. (The C prototypes described below are declared by the libc in `#include <__onramp/__syscalls.h>`. They can be called as ordinary C functions, although such use is discouraged outside of the libc.)
 
@@ -998,17 +1011,17 @@ The two required error codes are described as follows:
 
 - `ERROR_GENERIC`: An unspecified error condition. It can be used for exceptional conditions where no other error codes are appropriate. It can also be used in nearly all cases instead of a more specific error code in order to simplify the VM. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
 
-- `ERROR_END_OF_FILE`: The end of the file or stream has been reached. This must be returned from `fread` on a file when the file's position is the end of the file. It may also be returned from `fread` or `fwrite` on streams when the other end of the stream (the sender of input or the recipient of output) has closed it.
+- `ERROR_END_OF_FILE`: The end of the file or stream has been reached. This must be returned from `read` on a file when the file's position is the end of the file. It may also be returned from `read` or `write` on streams when the other end of the stream (the sender of input or the recipient of output) has closed it.
 
 Optional, more precise error codes are:
 
-- `ERROR_TRY_LATER`: Reading or writing is currently not possible but may become possible later. This must be returned from operations on non-blocking files or streams to indicate that the program should wait and try again. For `fread`, the program should wait for more data to become available, and for `fwrite`, the program should wait for output space to become available before trying again. No other system calls return this. (This error code is only optional because non-blocking support is optional. If non-blocking files are supported, this error code must be used.)
+- `ERROR_TRY_LATER`: Reading or writing is currently not possible but may become possible later. This must be returned from operations on non-blocking files or streams to indicate that the program should wait and try again. For `read`, the program should wait for more data to become available, and for `write`, the program should wait for output space to become available before trying again. No other system calls return this. (This error code is only optional because non-blocking support is optional. If non-blocking files are supported, this error code must be used.)
 
-- `ERROR_NO_SUCH_PATH`: The given file or directory does not exist. It is returned by system calls that take a path that is expected to exist, such as `fopen`, `dopen`, `unlink`, `rmdir` and so on.
+- `ERROR_NO_SUCH_PATH`: The given file or directory does not exist. It is returned by system calls that take a path that is expected to exist, such as `open`, `delete` and so on.
 
 - `ERROR_IO`: An input/output error occurred. This is used to indicate an unspecified and typically unrecoverable failure to transfer data. For example if the storage device malfunctions, the VM can return this code. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
 
-- `ERROR_UNSUPPORTED`: The request is not supported. Some system calls may be partially implemented by the VM, and certain behaviours may not be permitted by this specification or by the host environment. If a given combination of parameters is not supported, the VM may return this error code. For example, the `unlink` system call may return this to indicate that the the given file cannot be deleted. (If no part of a system call is supported, it is better to not implement it at all, and instead put zero in the corresponding `rip` field in the system call table.)
+- `ERROR_UNSUPPORTED`: The request is not supported. Some system calls may be partially implemented by the VM, and certain behaviours may not be permitted by this specification or by the host environment. If a given combination of parameters is not supported, the VM may return this error code. For example, the `delete` system call may return this to indicate that the the given file cannot be deleted. (If no part of a system call is supported, it is better to not implement it at all, and instead put zero in the corresponding `rip` field in the system call table.)
 
 All error codes have the high bit set. Values that can be returned from successful system calls (such as file and directory handles) do not have the high bit set. Programs check for errors by testing whether the high bit is set.
 
@@ -1082,26 +1095,26 @@ If this system call is implemented, it cannot fail. It must always set register 
 
 
 
-### fopen
+### open
 
 ```c
-int __sys_fopen(const char* path, bool writeable);
+int __sys_open(const char* path, bool writeable);
 ```
 
 - syscall number: 3
 - argument in r0: address of a null-terminated string containing the path to open
 - argument in r1: whether the file should be opened for writing
-- return value in r0: file handle or error code
+- return value in r0: handle or error code
 
-Opens the file at the given path, associating it with an integer file handle and returning it. The stream position is initially at the start of the file.
+Opens the file at the given path, associating it with an integer handle and returning it. The stream position is initially at the start of the file.
 
-The returned integer must not have been in use by another file handle. (The returned integer may have been returned by previous calls to `fopen` if and only if each time was eventually followed by a corresponding `fclose`.) Note that the handles for the standard input, output and error streams are in use (if provided) at the start of the program.
+The returned integer must not have been in use by another handle. (The returned integer may have been returned by previous calls to `open` if and only if each time was eventually followed by a corresponding `fclose`.) Note that the handles for the standard input, output and error streams are in use (if provided) at the start of the program.
 
-The `writeable` argument (in r1) must be 0 or 1. If it is 1, the file will support writing (via `fwrite` and `ftrunc`), and will be created if it does not already exist.
+The `writeable` argument (in r1) must be 0 or 1. If it is 1, the file will support writing (via `write` and `trunc`), and will be created if it does not already exist.
 
-If a file open for writing already exists, the contents are left intact. Since the initial position is at the start of the file, subsequent writes will overwrite the contents. To append to an existing file, the program must make an `fseek` call after opening it. To destroy the existing contents after opening, the program must make an `ftrunc` call.
+If a file open for writing already exists, the contents are left intact. Since the initial position is at the start of the file, subsequent writes will overwrite the contents. To append to an existing file, the program must make a `seek` call after opening it. To destroy the existing contents after opening, the program must make a `trunc` call.
 
-On success, a file handle is returned, which must not have the high bit set. This handle is valid only for file syscalls (i.e. those that start with `f` and take a `file_handle`.)
+On success, a handle is returned, which must not have the high bit set.
 
 If the file does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
 
@@ -1116,29 +1129,29 @@ If the file cannot be opened for other reasons (perhaps due to a permission issu
 ### fclose
 
 ```c
-int __sys_fclose(int file_handle);
+int __sys_fclose(int handle);
 ```
 
 - syscall number: 4
 - argument in r0: the handle of the file to close
 - return value in r0: always 0
 
-Closes the given file handle or input/output/error stream.
+Closes the given handle or input/output/error stream.
 
-Once called, the given file handle can no longer be used by the program (though its integer value may be re-used by the VM as the return value of a subsequent call to `fopen`.)
+Once called, the given handle can no longer be used by the program (though its integer value may be re-used by the VM as the return value of a subsequent call to `open`.)
 
 A request to close the input, output and error streams may not be meaningful on the underlying platform. In this case the VM may ignore it and return 0.
 
-A request to close a valid file handle cannot fail. It must always return 0.
+A request to close a valid handle cannot fail. It must always return 0.
 
-If the given file handle is invalid, the behaviour is undefined. (The VM may return an error code in this case, but the program is already misbehaving and it is likely to ignore it; if such an error is detected it is generally better to abort the program.)
+If the given handle is invalid, the behaviour is undefined. (The VM may return an error code in this case, but the program is already misbehaving and it is likely to ignore it; if such an error is detected it is generally better to abort the program.)
 
 
 
-### fread
+### read
 
 ```c
-int __sys_fread(int file_handle, void* buffer, int count);
+int __sys_read(int handle, void* buffer, int count);
 ```
 
 - syscall number: 5
@@ -1149,7 +1162,7 @@ int __sys_fread(int file_handle, void* buffer, int count);
 
 Reads up to `count` bytes into the given buffer, returning the number of bytes actually read or an error code if reading fails.
 
-The **fread** syscall is used to read from files and from the input stream. When called on the input stream, it is intended to read interactive input (from a user) or the output of another program being streamed (or piped) to it.
+The **read** syscall is used to read from files and from the input stream. When called on the input stream, it is intended to read interactive input (from a user) or the output of another program being streamed (or piped) to it.
 
 The `count` argument in r2 must be non-zero. The VM is allowed to assume it is never zero. (For example, the VM may ignore the count and always read exactly one byte. This would be inefficient but would nonetheless be a correct implementation.)
 
@@ -1161,17 +1174,17 @@ If the end of the file has been reached or the input stream is closed, the VM mu
 
 If no bytes are currently available from an input stream but may become available later, the VM must return `ERROR_TRY_LATER` to tell the program to wait for input (and possibly do something else in the meantime) before trying again. This could be returned while waiting for the user to type keystrokes for example.
 
-(For the standard input handle, this is called non-blocking input. If non-blocking input is not possible on the VM's platform, the VM may instead block on this system call until data is available; in this case it must set bit 2 in the capabilities field of the process info table. Unlike most platforms, Onramp allows non-blocking reads on *all* file handles, even ordinary files on disk.)
+(For the standard input handle, this is called non-blocking input. If non-blocking input is not possible on the VM's platform, the VM may instead block on this system call until data is available; in this case it must set bit 2 in the capabilities field of the process info table. Unlike most platforms, Onramp allows non-blocking reads on *all* handles, even ordinary files on disk.)
 
 If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM must return `ERROR_IO` or `ERROR_GENERIC`.
 
-This can only be called on the standard input stream or a file opened with `fopen`. If this is called on the standard output or standard error streams, the behaviour is undefined.
+This can only be called on the standard input stream or a file opened with `open`. If this is called on the standard output or standard error streams, the behaviour is undefined.
 
 If the program attempts to read from a special file for which only writing is supported by the platform, the VM may return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
 
 If the error is not otherwise specified, the VM may return `ERROR_GENERIC`.
 
-Since platforms implement input differently, Onramp supports considerable variation in the implementation of fread. The behaviour of a VM's fread syscall must be accurately represented by the capabilities bits in the process info table as explained below.
+Since platforms implement input differently, Onramp supports considerable variation in the implementation of read. The behaviour of a VM's read syscall must be accurately represented by the capabilities bits in the process info table as explained below.
 
 Assuming the capabilities are accurately reported by the VM, the Onramp libc will simulate whatever behaviour is desired by the program where possible. For example, if the VM has non-blocking input and the program requests blocking input, the libc will perform blocking. However, if the VM is blocking and the program requests non-blocking input, the behaviour cannot be simulated so the libc will reject the request. If you are implementing a VM, follow the recommendations below to get maximum compatibility with programs running on Onramp.
 
@@ -1179,16 +1192,16 @@ User input from a terminal should be in UTF-8 format and it may use [ANSI escape
 
 When the user enters input, it should not be echoed to the output by the VM. If this is not possible on the VM's platform, the VM may instead echo input to the output; in this case it must set bit 0 in the capabilities field of the process info table.
 
-The VM should make input keystrokes available immediately rather than waiting until the end of a line. If this is not possible on the VM's platform, the VM may instead wait until a full line has been processed before making it available to the fread syscall; in this case it must set bit 1 in the capabilities field of the process info table. (This is the default behaviour of terminal programs on POSIX platforms.)
+The VM should make input keystrokes available immediately rather than waiting until the end of a line. If this is not possible on the VM's platform, the VM may instead wait until a full line has been processed before making it available to the read syscall; in this case it must set bit 1 in the capabilities field of the process info table. (This is the default behaviour of terminal programs on POSIX platforms.)
 
-The VM must never return zero from this system call. (Earlier versions of this spec recommended returning zero under various circumstances. For backwards compatibility reasons, the Onramp libc and some bootstrap programs contain code that attempts to interpret the meaning of a zero return on `fread`. This behaviour must not be relied upon.)
+The VM must never return zero from this system call. (Earlier versions of this spec recommended returning zero under various circumstances. For backwards compatibility reasons, the Onramp libc and some bootstrap programs contain code that attempts to interpret the meaning of a zero return on `read`. This behaviour must not be relied upon.)
 
 
 
-### fwrite
+### write
 
 ```c
-int __sys_fwrite(int file_handle, void* buffer, int count);
+int __sys_write(int handle, void* buffer, int count);
 ```
 
 - syscall number: 6
@@ -1217,10 +1230,10 @@ This can only be called on the output stream, the error stream, or a file opened
 
 
 
-### fseek
+### seek
 
 ```c
-int __sys_fseek(int file_handle, int base, unsigned offset_low, int offset_high);
+int __sys_seek(int handle, int base, unsigned offset_low, int offset_high);
 ```
 
 - syscall number: 7
@@ -1250,10 +1263,10 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### ftell
+### tell
 
 ```c
-int __sys_ftell(int file_handle, unsigned position[2]);
+int __sys_tell(int handle, unsigned position[2]);
 ```
 
 - syscall number: 8
@@ -1265,7 +1278,7 @@ Stores the current position in the given file to the given `position` address.
 
 If successful, the VM stores two words at the address in r1: the low 32 bits of the position followed by the high 32 bits of the position.
 
-The outputted value can be used in a call to `fseek` with base 0 to return to this position in the file.
+The outputted value can be used in a call to `seek` with base 0 to return to this position in the file.
 
 If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4 GiB), the VM must still write a second word to the output with value zero.
 
@@ -1279,10 +1292,10 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### ftrunc
+### trunc
 
 ```c
-int __sys_ftrunc(int file_handle, unsigned size_low, unsigned size_high);
+int __sys_trunc(int handle, unsigned size_low, unsigned size_high);
 ```
 
 - syscall number: 9
@@ -1293,7 +1306,7 @@ int __sys_ftrunc(int file_handle, unsigned size_low, unsigned size_high);
 
 Sets the size of the file to the given size.
 
-If the requested size is less than the current size of the file, the file is truncated: its size becomes that given and all data beyond that size is destroyed.
+If the requested size is less than the current size of the file, the file is truncated: its size becomes that given and all data beyond that size is lost.
 
 If the requested size is greater than the current size, the VM may ignore it and return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`, or it may append zero bytes to the file until the size becomes that given. (VMs may internally optimize this to use sparse files.)
 
@@ -1305,56 +1318,10 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### dopen
+### dirent
 
 ```c
-int __sys_dopen(const char* path);
-```
-
-- syscall number: 10
-- argument in r0: address of a null-terminated string containing the path to open
-- return value in r0: directory handle or error code
-
-Opens the directory at the given path, associating it with an integer directory handle and returning it.
-
-On success, a directory handle is returned, which must not have the high bit set. This handle is valid only for directory syscalls (i.e `dread` and `dclose`.)
-
-The returned integer must not have been previously in use by another directory handle. (The returned integer may have been returned by previous calls to `dopen` if and only if each time was eventually followed by a corresponding `dclose`.)
-
-Directory handles are independent from file handles; directory handle 0 is different from file handle 0, and both may exist simultaneously. (The Onramp libc remaps them to separate POSIX file handles.)
-
-The directory handle is used to read directory entries. A sequence of `dread` calls reads directory entries and `dclose` closes it.
-
-If the directory is modified while a directory handle is open, the behaviour is undefined.
-
-If the directory cannot be opened due to a failure of the storage device, this returns `ERROR_IO` or `ERROR_GENERIC`.
-
-If the directory cannot be opened for other reasons (perhaps due to a permission issue), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
-
-
-
-### dclose
-
-```c
-int __sys_dclose(int directory_handle);
-```
-
-- syscall number: 11
-- argument in r0: the handle of the directory to close
-- return value in r0: always 0
-
-Closes the directory associated with the given handle.
-
-Once called, the given directory handle can no longer be used by the program (though its integer value may be re-used by the VM as the return value of a subsequent call to `dopen`.)
-
-This system call must return 0; a `dclose` call with a valid handle cannot fail. If the given directory handle is invalid, the behaviour is undefined.
-
-
-
-### dread
-
-```c
-int __sys_dread(int directory_handle, char buffer[256]);
+int __sys_dirent(int directory_handle, char buffer[256]);
 ```
 
 - syscall number: 12
@@ -1362,11 +1329,51 @@ int __sys_dread(int directory_handle, char buffer[256]);
 - argument in r1: address of a buffer in which to write the filename read
 - return value in r0: 0 on success, error code otherwise
 
-Reads the next file or subdirectory entry from the given directory into the given buffer as a null-terminated string.
+Reads the name of the next file in the given directory into the given buffer as a null-terminated string.
 
 If there are no more entries, an empty string is placed in the buffer (by writing a 0 byte to the first character) and 0 (success) is returned.
 
 If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned. (The directory handle remains open.)
+
+
+
+### stat
+
+```c
+int __sys_stat(const char* path, unsigned /*nullable*/ size[2]);
+```
+
+- syscall number: 13
+- argument in r0: address of a null-terminated string containing the path to query
+- argument in r1: address at which to write the 64-bit file size
+
+Queries the type and size of the named file. See [File Types](#file-types).
+
+If a file exists at the given path, the file's size is stored at the given address if possible, and the file's type is returned as one of the following values:
+
+- 0: unknown type
+- 1: [regular file](#regular-files)
+- 2: [directory](#directories)
+- 3: [device](#devices)
+- 4: [stream](#streams)
+
+The value 0 can be returned if the VM cannot determine the type of the file.
+
+The given `size` address must either be zero (if the program ignores the size) or must point to the location of two words (8 bytes) to which the size can be written. If the address is not 0, the VM stores at this address the low and high 32 bits of the size of the file in that order. In other words, the words together form a 64-bit little-endian file size.
+
+If the path is not a regular file, or if the size is not known, the VM can either ignore the size parameter and write nothing, or it can store 0xFFFFFFFFFFFFFFFF (all bits set) as the size. (The program is responsible for placing this value at the location pointed to by the size parameter before calling this syscall in order to detect when a size is unavailable.)
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write zero to the second word if it writes a size to the first. It must write both words (or none) at the address pointed to by `size`.
+
+If the given path does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
+
+If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned.
+
+On any other error, `ERROR_GENERIC` is returned.
+
+This system call is optional, although functionality may be limited without it. The simplest implementation of this system call is to ignore the size argument and simply return 0 if a file exists and `ERROR_GENERIC` if it does not.
+
+This system call exists so that programs can test whether files exist and determine their properties without opening them, which may have side effects especially for devices. If this system call is not implemented, the libc will try to open files and use other syscalls (`seek`, `dirent`) to determine their type and size.
 
 
 
@@ -1393,27 +1400,27 @@ If the destination path is a directory, the VM should return `ERROR_UNSUPPORTED`
 
 If any directory component of the destination path does not exist, the VM may return `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`, or it may succeed. (A VM does not need to support directories.)
 
-This system call is optional. If it is not implemented, the libc will provide this functionality by copying the file to the destination and deleting the source.
+This system call is optional. If it is not implemented, the libc will provide this functionality by copying the file to the destination and deleting the source. This fallback behaviour may not be correct for streams or devices.
 
 
 
-### unlink
+### delete
 
 ```c
-int __sys_unlink(const char* path);
+int __sys_delete(const char* path);
 ```
 
 - syscall number: 16
 - argument in r0: address of a null-terminated string containing the path of the file or symlink to delete
 - return value in r0: 0 on success or an error code
 
-Deletes the file or symlink at the given path.
+Deletes the file at the given path. If the file is a directory, it must be empty.
 
 If the given path does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
 
-If the given path is a directory, or if the VM does not have permission to delete the file, `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned. `rmdir` can be used for directories.
+If the given path is a non-empty directory, or if permission is not granted to delete the file, `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned.
 
-If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned.
+If the storage device malfunctions or the filesystem is corrupt, `ERROR_IO` or `ERROR_GENERIC` is returned.
 
 
 
@@ -1643,31 +1650,43 @@ Onramp's VM design takes inspiration from such projects as Robert Elder's [one p
 
 ## Version History
 
-This spec has undergone several changes in its history. The libc and bootstrap code will attempt to remain compatible with versions 2 and later (when the syscall table was added) to avoid breaking existing VMs.
+This spec has undergone several changes in its history. Version changes are listed here.
+
+The libc and bootstrap code will attempt to remain compatible with versions 2 and later (when the syscall table was added) to avoid breaking existing VMs. Note however that several system calls were documented in versions 3 and earlier that were never used. The libc and bootstrap code will never call such syscalls on version 3 and earlier VMs even if they are used in version 4. Such system calls include `stat`, `rename`, `dirent`, `alloc` and `free`.
 
 
 #### Version 4.0
 
-The current version. Changes include:
+The current version.
 
-- Changes to the Process Info Table:
-    - The system call count and Process Info Count fields have been replaced by a single Minor Version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
+There have been many changes in version 4 but almost all of them are backwards compatible. The bootstrap process will continue to support version 3 and even version 2 VMs so existing VMs do not need to upgrade (unless they want to make use of the new features.)
+
+Changes include:
+
+- Changes to the process info table:
+    - The system call count and process info count fields have been replaced by a single minor version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
     - All contents of the process info table, including command-line arguments and environment variables, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
+    - The "interactive" bit has been added to the capabilities field.
 - Some system call changes:
     - The prototype for `alloc` has changed. The old function was never used.
-    - `stat`, `symlink`, `spawn` and `waitpid` have been removed.
+    - `dread` has been renamed to `dirent`.
+    - `unlink` has been renamed to `delete`.
+    - `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
+    - `dopen` (10), `dclose` (11), and `rmdir` (19) have been removed. `open`, `close`, and `delete` are now used for directories as well.
+    - The `f` prefix has been dropped from many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftell`, `ftrunc`.
 - Cleaned up syscall error codes:
-    - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `fread` and `fwrite` is now disallowed but the libc will still support it for backwards compatibility.)
+    - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `read` and `write` is now disallowed but the libc will still support it for backwards compatibility.)
     - Added `ERROR_OVERFLOW` for situations in which the VM runs out of resources.
     - All error codes except `ERROR_GENERIC` and `ERROR_END_OF_FILE` are now optional. The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
-- Added a defitinion of devices, along with the device `/dev/urandom`.
+- Added a definition of devices and the device `/dev/urandom`.
+
 
 #### Version 3
 
 - Added System Call Count and Process Info Count fields to the Process Info Table.
-- Added `alloc` and `free` system calls.
+- Added `alloc` and `free` system calls (although these were never used.)
 
-The latest spec for version 3 is in commit [c0110ef5](https://github.com/ludocode/onramp/blob/c0110ef5e7de3a0d3f8136ffd82b1c893ae670be/docs/virtual-machine.md).
+The latest spec for version 3 is in commit [c0110ef5](https://github.com/ludocode/onramp/blob/c0110ef5e7de3a0d3f8136ffd82b1c893ae670be/docs/virtual-machine.md). Note that it documents several syscalls that were never used, and some of those have had their API changed.
 
 
 #### Version 2
@@ -1680,7 +1699,7 @@ The latest spec for version 3 is in commit [c0110ef5](https://github.com/ludocod
     - `halt` has been renamed to `exit`.
     - `panic` has been added, displacing `time`.
 
-The latest spec for version 2 is in commit [d313b92c](https://github.com/ludocode/onramp/blob/d313b92c79a6a5cab5553fde3a8c85e0e59759e2/docs/virtual-machine.md).
+The latest spec for version 2 is in commit [d313b92c](https://github.com/ludocode/onramp/blob/d313b92c79a6a5cab5553fde3a8c85e0e59759e2/docs/virtual-machine.md). Like version 3, several syscalls were never used, and some of those have had their API changed.
 
 
 #### Version 1
