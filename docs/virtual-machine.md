@@ -1340,7 +1340,7 @@ If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or
 ### stat
 
 ```c
-int __sys_stat(const char* path, unsigned /*nullable*/ size[2]);
+int __sys_stat(const char* path, unsigned size[2]);
 ```
 
 - syscall number: 13
@@ -1359,11 +1359,11 @@ If a file exists at the given path, the file's size is stored at the given addre
 
 The value 0 can be returned if the VM cannot determine the type of the file.
 
-The given `size` address must either be zero (if the program ignores the size) or must point to the location of two words (8 bytes) to which the size can be written. If the address is not 0, the VM stores at this address the low and high 32 bits of the size of the file in that order. In other words, the words together form a 64-bit little-endian file size.
+The given `size` address must point to the location of two words (8 bytes) to which the size can be written. If the size of the file is available, the VM stores at this address the low and high 32 bits of the size of the file in that order. The two words together form a 64-bit little-endian file size.
 
-If the path is not a regular file, or if the size is not known, the VM can either ignore the size parameter and write nothing, or it can store 0xFFFFFFFFFFFFFFFF (all bits set) as the size. (The program is responsible for placing this value at the location pointed to by the size parameter before calling this syscall in order to detect when a size is unavailable.)
+If the path is not a regular file, or if the size is not known, the VM can either ignore the size parameter and write nothing, or it can store 0xFFFFFFFFFFFFFFFF (all bits set) as the size, whichever is most convenient. (If the program is interested in the size, it is response for placing this value at the location pointed to by the size parameter before calling this syscall in order to detect when the size is unavailable.)
 
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write zero to the second word if it writes a size to the first. It must write both words (or none) at the address pointed to by `size`.
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write zero to the second word if it writes a valid size to the first. It must write both words or none at the address pointed to by `size`.
 
 If the given path does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
 
@@ -1371,9 +1371,9 @@ If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or
 
 On any other error, `ERROR_GENERIC` is returned.
 
-This system call is optional, although functionality may be limited without it. The simplest implementation of this system call is to ignore the size argument and simply return 0 if a file exists and `ERROR_GENERIC` if it does not.
+This system call is optional, although functionality may be limited without it. The simplest implementation of this system call is to ignore the size argument and return 0 if a file exists and `ERROR_GENERIC` if it does not.
 
-This system call exists so that programs can test whether files exist and determine their properties without opening them, which may have side effects especially for devices. If this system call is not implemented, the libc will try to open files and use other syscalls (`seek`, `dirent`) to determine their type and size.
+This system call exists so that programs can check whether files exist and determine their properties without opening them, which may have side effects especially for devices. If this system call is not implemented, the libc will try to open files to check whether they exist and will use other syscalls (`seek`, `tell`, `dirent`) to determine their size and type.
 
 
 
