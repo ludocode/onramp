@@ -103,20 +103,20 @@ static void panic(const char* e) {
 #define VM_EXIT      0
 #define VM_PANIC     1
 #define VM_TIME      2
-#define VM_FOPEN     3
-#define VM_FCLOSE    4
-#define VM_FREAD     5
-#define VM_FWRITE    6
-#define VM_FSEEK     7
-#define VM_FTELL     8
-#define VM_FTRUNC    9
+#define VM_OPEN      3
+#define VM_CLOSE     4
+#define VM_READ      5
+#define VM_WRITE     6
+#define VM_SEEK      7
+#define VM_TELL      8
+#define VM_TRUNC     9
 #define VM_DOPEN     10
 #define VM_DCLOSE    11
-#define VM_DREAD     12
+#define VM_DIRENT    12
 #define VM_STAT      13
 #define VM_RENAME    14
 #define VM_SYMLINK   15
-#define VM_UNLINK    16
+#define VM_DELETE    16
 #define VM_CHMOD     17
 #define VM_MKDIR     18
 #define VM_RMDIR     19
@@ -125,9 +125,8 @@ static void panic(const char* e) {
 #define VM_DEBUG     22
 #define VM_ALLOC     23
 #define VM_FREE      24
+#define VM_FORBIDDEN_SYSCALL 0xEEEEEEEE
 #define VM_SYSCALL_COUNT 25u
-
-#define VM_VERSION_NUMBER 3
 
 /* process info table */
 #define VM_PIT_MAJOR_VERSION 0
@@ -514,6 +513,32 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t add
     return addr;
 }
 
+// Returns true if the given syscall was never used on version 2 and 3 VMs.
+// These must never be called by programs on versions 2 and 3 (even if they
+// were later implemented in version 4.)
+static bool syscall_is_v3_forbidden(int num) {
+    switch (num) {
+
+        // removed:
+        case VM_DOPEN:
+        case VM_DCLOSE:
+        case VM_SYMLINK:
+        case VM_RMDIR:
+        case VM_SPAWN:
+        case VM_WAITPID:
+
+        // never implemented or never used:
+        case VM_STAT:
+        case VM_ALLOC:
+        case VM_FREE:
+            return true;
+
+        default:
+            break;
+    }
+    return false;
+}
+
 static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     memset(vm, 0, sizeof(*vm));
 
@@ -556,9 +581,11 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm_store_u32(vm, pit + VM_SYSCALL_TABLE, syscall_table);
     addr += VM_SYSCALL_COUNT * 8u;
     for (uint32_t i = 0; i < VM_SYSCALL_COUNT; ++i) {
-        // TODO these syscalls are not implemented yet. We leave them null in
-        // the table in the meantime.
-        if (i == VM_RENAME || i == VM_SYMLINK || i == VM_SPAWN || i == VM_WAITPID) {
+        if (vm->version < 4 && syscall_is_v3_forbidden(i)) {
+            vm_store_u32(vm, syscall_table + i * 8, VM_SYSCALL_ADDRESS);
+            vm_store_u32(vm, syscall_table + i * 8 + 4, VM_FORBIDDEN_SYSCALL);
+        } else if (i == VM_RENAME || i == VM_DIRENT || i == VM_ALLOC || i == VM_FREE) {
+            // TODO these are not implemented yet
             vm_store_u32(vm, syscall_table + i * 8, 0);
             vm_store_u32(vm, syscall_table + i * 8 + 4, 0);
         } else {
@@ -700,6 +727,7 @@ static FILE* vm_file(vm_t* vm, uint32_t handle) {
     return file;
 }
 
+/*
 vm_ghost_noinline
 static DIR* vm_dir(vm_t* vm, uint32_t handle) {
     handle -= DIRECTORIES_OFFSET;
@@ -710,6 +738,7 @@ static DIR* vm_dir(vm_t* vm, uint32_t handle) {
         panic("Directory handle is not open");
     return dir;
 }
+*/
 
 static uint32_t vm_exit(vm_t* vm) {
     // TODO pause debugger
@@ -747,15 +776,6 @@ static uint32_t vm_time(vm_t* vm) {
     return 0;
 }
 
-static uint32_t vm_spawn(vm_t* vm) {
-    strace("sys spawn()");
-    panic("TODO spawn syscall not yet implemented");
-}
-
-static uint32_t vm_waitpid(vm_t* vm) {
-    panic("TODO waitpid syscall not yet implemented");
-}
-
 static uint32_t vm_debug(vm_t* vm) {
     strace("sys debug()");
 
@@ -786,7 +806,7 @@ static uint32_t vm_debug(vm_t* vm) {
     return 0;
 }
 
-static uint32_t vm_fopen(vm_t* vm) {
+static uint32_t vm_open(vm_t* vm) {
     uint32_t path_addr = vm->registers[0];
     uint32_t mode = vm->registers[1];
     if (!vm_is_string_valid(vm, path_addr)) {
@@ -794,7 +814,7 @@ static uint32_t vm_fopen(vm_t* vm) {
         exit(125);
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
-    strace("sys fopen() path \"%s\" mode %i", full_path, mode);
+    strace("sys open() path \"%s\" mode %i", full_path, mode);
 
     // find a free handle
     uint32_t file_index = UINT32_MAX;
@@ -828,10 +848,10 @@ static uint32_t vm_fopen(vm_t* vm) {
     return file_index + FILES_OFFSET;
 }
 
-static uint32_t vm_fclose(vm_t* vm) {
+static uint32_t vm_close(vm_t* vm) {
     uint32_t handle = vm->registers[0];
     FILE* file = vm_file(vm, handle);
-    strace("sys fclose() handle 0x%x", handle);
+    strace("sys close() handle 0x%x", handle);
     if (file == vm_ghost_null) {
         panic("File is not open.");
     }
@@ -849,11 +869,11 @@ static uint32_t vm_fclose(vm_t* vm) {
     return 0;
 }
 
-static uint32_t vm_fread(vm_t* vm) {
+static uint32_t vm_read(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
-    strace("sys fread() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
+    strace("sys read() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
 
     if (file == stdin) {
         fflush(stderr);
@@ -865,7 +885,7 @@ static uint32_t vm_fread(vm_t* vm) {
         return 0;
     }
     if (!vm_is_buffer_valid(vm, addr, count)) {
-        panic("ERROR: Invalid buffer given to syscall fread.");
+        panic("ERROR: Invalid buffer given to syscall read.");
     }
     uint8_t* buffer = vm->memory + (addr - vm->memory_base);
 
@@ -909,18 +929,18 @@ static uint32_t vm_fread(vm_t* vm) {
     return (uint32_t)ret;
 }
 
-static uint32_t vm_fwrite(vm_t* vm) {
+static uint32_t vm_write(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
-    strace("sys fwrite() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
+    strace("sys write() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
 
     if (count == 0) {
         // nothing to do, addr does not need to be valid
         return 0;
     }
     if (!vm_is_buffer_valid(vm, addr, count)) {
-        panic("ERROR: Invalid buffer given to syscall fwrite.");
+        panic("ERROR: Invalid buffer given to syscall write.");
     }
 
     // In order to test that stages correctly handle short writes, we limit the
@@ -973,14 +993,14 @@ static uint32_t vm_fwrite(vm_t* vm) {
     return (uint32_t)ret;
 }
 
-static uint32_t vm_fseek(vm_t* vm) {
+static uint32_t vm_seek(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t base = vm->registers[1];
     int64_t offset = (int64_t)((uint64_t)vm->registers[2] | ((uint64_t)vm->registers[3] << 32));
-    strace("sys fseek() handle 0x%x base %u offset %" PRIi64, vm->registers[0], base, offset);
+    strace("sys seek() handle 0x%x base %u offset %" PRIi64, vm->registers[0], base, offset);
 
     if (base > 2) {
-        panic("Invalid base given to syscall fseek.");
+        panic("Invalid base given to syscall seek.");
     }
 
     if (0 == fseek(file, offset,
@@ -991,21 +1011,21 @@ static uint32_t vm_fseek(vm_t* vm) {
     return VM_ERROR_GENERIC;
 }
 
-static uint32_t vm_ftell(vm_t* vm) {
+static uint32_t vm_tell(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     uint32_t addr = vm->registers[1];
     long pos = ftell(file);
-    strace("sys ftell() handle 0x%x position %" PRIu64, vm->registers[0], (uint64_t)pos);
+    strace("sys tell() handle 0x%x position %" PRIu64, vm->registers[0], (uint64_t)pos);
     vm_store_u32(vm, addr, (uint32_t)pos);
     vm_store_u32(vm, addr + 4, (uint32_t)(pos >> 32));
     return 0;
 }
 
-static uint32_t vm_ftrunc(vm_t* vm) {
+static uint32_t vm_trunc(vm_t* vm) {
     FILE* file = vm_file(vm, vm->registers[0]);
     fflush(file);
     uint64_t length = (uint64_t)vm->registers[1] | ((uint64_t)vm->registers[2] << 32);
-    strace("sys ftrunc() handle 0x%x fileno %i length %" PRIu64, vm->registers[0], fileno(file), (uint64_t)length);
+    strace("sys trunc() handle 0x%x fileno %i length %" PRIu64, vm->registers[0], fileno(file), (uint64_t)length);
     int ret = ftruncate(fileno(file), length);
     if (ret == 0)
         return 0;
@@ -1014,50 +1034,8 @@ static uint32_t vm_ftrunc(vm_t* vm) {
     return VM_ERROR_GENERIC;
 }
 
-static uint32_t vm_dopen(vm_t* vm) {
-    uint32_t path_addr = vm->registers[0];
-    if (!vm_is_string_valid(vm, path_addr)) {
-        fputs("ERROR: Invalid path.\n", stderr);
-        exit(125);
-    }
-    const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
-    strace("sys dopen() path \"%s\"", full_path);
-
-    // find a free handle
-    uint32_t dir_index = UINT32_MAX;
-    for (size_t i = 0; i < vm_ghost_array_count(vm->directories); ++i) {
-        if (vm->directories[i] == vm_ghost_null) {
-            dir_index = i;
-            break;
-        }
-    }
-    if (dir_index == UINT32_MAX) {
-        // too many open directories
-        return VM_ERROR_OVERFLOW;
-    }
-
-    // open it
-    vm->directories[dir_index] = opendir(full_path);
-    if (vm->directories[dir_index] == NULL) {
-        if (errno == ENOENT) {
-            return VM_ERROR_NO_SUCH_PATH;
-        }
-        // TODO other errors
-        return VM_ERROR_GENERIC;
-    }
-
-    return dir_index + DIRECTORIES_OFFSET;
-}
-
-static uint32_t vm_dclose(vm_t* vm) {
-    uint32_t handle = vm->registers[0];
-    DIR* dir = vm_dir(vm, handle);
-    closedir(dir);
-    return 0;
-}
-
-static uint32_t vm_dread(vm_t* vm) {
-    panic("TODO dread syscall not yet implemented");
+static uint32_t vm_dirent(vm_t* vm) {
+    panic("TODO dirent syscall not yet implemented");
 }
 
 // Converts stat.st_mode to Onramp
@@ -1139,20 +1117,16 @@ static uint32_t vm_rename(vm_t* vm) {
     panic("TODO rename syscall not yet implemented");
 }
 
-static uint32_t vm_symlink(vm_t* vm) {
-    panic("TODO symlink syscall not yet implemented");
-}
-
-static uint32_t vm_unlink(vm_t* vm) {
+static uint32_t vm_delete(vm_t* vm) {
     uint32_t path_addr = vm->registers[0];
-    strace("sys unlink ");
+    strace("sys delete ");
     if (!vm_is_string_valid(vm, path_addr)) {
         fputs("ERROR: Invalid path.\n", stderr);
         exit(125);
     }
     const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
     strace("%s", full_path);
-    int ret = unlink(full_path);
+    int ret = remove(full_path);
     if (ret == 0) {
         return 0;
     }
@@ -1191,10 +1165,6 @@ static uint32_t vm_mkdir(vm_t* vm) {
     return VM_ERROR_GENERIC;
 }
 
-static uint32_t vm_rmdir(vm_t* vm) {
-    panic("TODO rmdir syscall not yet implemented");
-}
-
 vm_ghost_noinline
 static void vm_syscall(vm_t* vm) {
     uint32_t syscall_number = vm->registers[9];
@@ -1206,28 +1176,26 @@ static void vm_syscall(vm_t* vm) {
         case VM_EXIT:      ret = vm_exit(vm); break;
         case VM_TIME:      ret = vm_time(vm); break;
         // file
-        case VM_FOPEN:     ret = vm_fopen(vm); break;
-        case VM_FCLOSE:    ret = vm_fclose(vm); break;
-        case VM_FREAD:     ret = vm_fread(vm); break;
-        case VM_FWRITE:    ret = vm_fwrite(vm); break;
-        case VM_FSEEK:     ret = vm_fseek(vm); break;
-        case VM_FTELL:     ret = vm_ftell(vm); break;
-        case VM_FTRUNC:    ret = vm_ftrunc(vm); break;
+        case VM_OPEN:      ret = vm_open(vm); break;
+        case VM_CLOSE:     ret = vm_close(vm); break;
+        case VM_READ:      ret = vm_read(vm); break;
+        case VM_WRITE:     ret = vm_write(vm); break;
+        case VM_SEEK:      ret = vm_seek(vm); break;
+        case VM_TELL:      ret = vm_tell(vm); break;
+        case VM_TRUNC:     ret = vm_trunc(vm); break;
         // directory
-        case VM_DOPEN:     ret = vm_dopen(vm); break;
-        case VM_DCLOSE:    ret = vm_dclose(vm); break;
-        case VM_DREAD:     ret = vm_dread(vm); break;
+        case VM_DIRENT:    ret = vm_dirent(vm); break;
         // filesystem
         case VM_STAT:      ret = vm_stat(vm); break;
         case VM_RENAME:    ret = vm_rename(vm); break;
-        case VM_SYMLINK:   ret = vm_symlink(vm); break;
-        case VM_UNLINK:    ret = vm_unlink(vm); break;
+        case VM_DELETE:    ret = vm_delete(vm); break;
         case VM_CHMOD:     ret = vm_chmod(vm); break;
         case VM_MKDIR:     ret = vm_mkdir(vm); break;
-        case VM_RMDIR:     ret = vm_rmdir(vm); break;
-        case VM_SPAWN:     ret = vm_spawn(vm); break;
-        case VM_WAITPID:   ret = vm_waitpid(vm); break;
         case VM_DEBUG:     ret = vm_debug(vm); break;
+        case VM_FORBIDDEN_SYSCALL:
+            // this syscall was never implemented or used in v2/v3. it must not
+            // be called.
+            panic("Forbidden syscall");
         default:
             panic("Unrecognized syscall");
     }
@@ -1459,22 +1427,22 @@ static const char* vm_syscall_to_string(uint32_t syscall) {
         case VM_TIME: return "time";
         case VM_SPAWN: return "spawn";
         // files
-        case VM_FOPEN: return "fopen";
-        case VM_FCLOSE: return "fclose";
-        case VM_FREAD: return "fread";
-        case VM_FWRITE: return "fwrite";
-        case VM_FSEEK: return "fseek";
-        case VM_FTELL: return "ftell";
-        case VM_FTRUNC: return "ftrunc";
+        case VM_OPEN: return "open";
+        case VM_CLOSE: return "close";
+        case VM_READ: return "read";
+        case VM_WRITE: return "write";
+        case VM_SEEK: return "seek";
+        case VM_TELL: return "tell";
+        case VM_TRUNC: return "trunc";
         // directories
         case VM_DOPEN: return "dopen";
         case VM_DCLOSE: return "dclose";
-        case VM_DREAD: return "dread";
+        case VM_DIRENT: return "dread";
         // filesystem
         case VM_STAT: return "stat";
         case VM_RENAME: return "rename";
         case VM_SYMLINK: return "symlink";
-        case VM_UNLINK: return "unlink";
+        case VM_DELETE: return "delete";
         case VM_CHMOD: return "chmod";
         case VM_MKDIR: return "mkdir";
         case VM_RMDIR: return "rmdir";
