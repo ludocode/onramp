@@ -79,6 +79,15 @@
 ;   7B0  str_indentation
 ;   7C0  print_string
 ;   860  print_register_name
+;   8C0  pit_header_names
+;   8F0  str_colon
+;   900  str_address
+;   910  str_count
+;   920  str_values
+;   930  print_colon
+;   950  str_none
+;   960  str_null
+;   970  str_size
 ;   9B0  print_registers
 ;   B40  print_hex
 ;   C60  int_to_hex
@@ -99,15 +108,25 @@
 ;   FA0  str_capabilities
 ;   FB0  str_system_call_count
 ;   FD0  str_process_info_count
-;   FF0  print_pit_major_version
+;   FF0  str_free_memory_regions
 ;  10A0  print_value
 ;  10F0  print_pit_entry
 ;  11A0  str_process_info_table
 ;  11C0  print_pit
+;  1340  fixup_pit_header_names
+;  1410  print_syscall_table
+;  1520  str_system_call_table
+;  1540  print_syscall_entry
 ;  16C0  print_args
+;  16F0  print_env
+;  1720  print_string_array
+;  1890  print_count
+;  1970  print_string_array_values
 ;  1BE0  print_indentation
 ;  1C50  syscall_names_v3
 ;  1DE0  syscall_names_v4
+;  2000  print_free_memory_regions
+;  2320  print_free_memory_region_values
 
 
 
@@ -343,9 +362,9 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; call print_syscalls()
-    7C 8A 00 00    ; ims ra <print_syscalls
-    7C 8A 40 14    ; ims ra >print_syscalls (0x1440)
+    ; call print_syscall_table()
+    7C 8A 00 00    ; ims ra <print_syscall_table
+    7C 8A 10 14    ; ims ra >print_syscall_table (0x1410)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -379,6 +398,15 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+    ; call print_free_memory_regions()
+    7C 8A 00 00    ; ims ra <print_free_memory_regions
+    7C 8A 00 20    ; ims ra >print_free_memory_regions (0x2000)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
     ; TODO move flush and syscall to exit() function, use it also for errors
     ; call flush()
     7C 8A 00 00    ; ims ra <flush
@@ -406,10 +434,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
 
 @0x2A0
 
@@ -857,8 +881,8 @@
     ; "Initial Register Values" '0A '00
     49 6e 69 74 69 61 6c 20  52 65 67 69 73 74 65 72
   ;  I  n  i  t  i  a  l      R  e  g  i  s  t  e  r
-    20 56 61 6c 75 65 73 0a  00 00 00 00 00 00 00 00
-  ;     V  a  l  u  e  s \n  \0
+    20 56 61 6c 75 65 73 3A  0a 00 00 00 00 00 00 00
+  ;     V  a  l  u  e  s  :  \n \0
 @0x7B0
 
 
@@ -998,7 +1022,7 @@
     80 0F 00 00    ; str_working_directory (0xF80)
     A0 0F 00 00    ; str_capabilities (0xFA0)
     80 0E 00 00    ; str_minor_version (0xE80)
-    00 00 00 00    ; (only used on version 3 VMs)
+    F0 0F 00 00    ; str_free_memory_regions (0xFF0)
 @0x8F0
 
 
@@ -1017,6 +1041,7 @@
 
 ;==========================================
 ; const char str_address[];
+; TODO add ": " to this and str_count
 ;==========================================
 
 @0x900 =str_address
@@ -1078,7 +1103,7 @@
 ;==========================================
 ; const char str_none[];
 ;==========================================
-; Prints (none) and a newline. Used when an array is empty.
+; "(none)" and a newline. Used when an array is empty.
 ;==========================================
 
 @0x950 =str_none
@@ -1092,7 +1117,7 @@
 ;==========================================
 ; const char str_null[];
 ;==========================================
-; Prints (null) and a newline. Used when an array is null.
+; "(null)" and a newline. Used when an array is null.
 ;==========================================
 
 @0x960 =str_null
@@ -1103,9 +1128,21 @@
 
 
 
+;==========================================
+; const char str_size[];
+;==========================================
+; "Size: "
+;==========================================
+
+@0x970 =str_size
+    ; "Size: " '00
+    53 69 7a 65 3a 20 00 00  00 00 00 00 00 00 00 00
+  ;  S  i  z  e  :    \0
+@0x980
+
+
+
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1755,11 +1792,21 @@
 
 
 
+;==========================================
+; const char str_free_memory_regions[];
+;==========================================
+
+@0xFF0 =str_free_memory_regions
+    ; "Free Memory Regions: " '00
+    46 72 65 65 20 4d 65 6d  6f 72 79 20 52 65 67 69
+  ;  F  r  e  e     M  e  m   o  r  y     R  e  g  i
+    6f 6e 73 3a 20 00 00 00  00 00 00 00 00 00 00 00
+  ;  o  n  s  :    \0
+@0x1010
+
+
+
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -1896,11 +1943,11 @@
 ;==========================================
 
 @0x11A0 =str_process_info_table
-    ; "Process Info Table" '0A '00
+    ; "Process Info Table:" '0A '00
     50 72 6f 63 65 73 73 20  49 6e 66 6f 20 54 61 62
   ;  P  r  o  c  e  s  s     I  n  f  o      T  a  b
-    6c 65 0A 00 00 00 00 00  00 00 00 00 00 00 00 00
-  ;  l  e \n \0
+    6c 65 3A 0A 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  l  e  : \n \0
 @0x11C0
 
 
@@ -2090,28 +2137,19 @@
     79 81 80 2C   ; stw r1 r0 44
 ;:fixup_pit_header_names_no_counts
 
-    ; Get the syscall table length.
+    ; Get the pit length.
     ; - Version 0, 1 and 2: length is 10
-    ; - Version 3: length is 12
-    ; - Version 4: length is 11
+    ; - Version 3 and later: length is 12
     7E 88 05 00   ; jz r8 &fixup_pit_header_names_10 (+5)
     71 87 88 01   ; sub r7 r8 1
     7E 87 03 00   ; jz r7 &fixup_pit_header_names_10 (+3)
     71 87 88 02   ; sub r7 r8 2
     7E 87 01 00   ; jz r7 &fixup_pit_header_names_10 (+1)
-    7E 00 02 00   ; jz 0 &fixup_pit_header_names_not_10 (+2)
+    7E 00 02 00   ; jz 0 &fixup_pit_header_names_12 (+2)
 
 ;:fixup_pit_header_names_10
     ; return 10
     70 80 00 0A   ; add r0 0 10     ; mov r0 10
-    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
-
-;:fixup_pit_header_names_not_10
-    71 87 88 03   ; sub r7 r8 3
-    7E 87 02 00   ; jz r7 &fixup_pit_header_names_12 (+2)
-
-    ; return 11
-    70 80 00 0B   ; add r0 0 11     ; mov r0 11
     78 8F 00 8C   ; ldw rip 0 rsp   ; ret
 
 ;:fixup_pit_header_names_12
@@ -2125,17 +2163,13 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
 
-@0x1440
+@0x1410
 
 
 
 ;==========================================
-; void print_syscalls(void);
+; void print_syscall_table(void);
 ;==========================================
 ; Print the contents of the system call table.
 ;
@@ -2145,14 +2179,7 @@
 ;     loop_address: rfp-12
 ;==========================================
 
-@0x1440 =print_syscalls
-
-    ; If the VM uses a sys instruction, there is no syscall table, nor any way
-    ; to determine which syscalls are implemented. There's nothing to print.
-    78 8B 8E 28   ; ldw rb rpp 0x28    ; sys_instruction
-    7E 8B 01 00   ; jz rb &print_syscalls_have_table (+1)
-    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
-;:print_syscalls_have_table
+@0x1410 =print_syscall_table
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
@@ -2184,6 +2211,39 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+    ; check if we have a syscall table
+    78 8B 8E 28   ; ldw rb rpp 0x28    ; sys_instruction
+    7E 8B 11 00   ; jz rb &print_syscall_table_have_table (+17)
+
+    ; VM uses a sys instruction; there's no table. just print indented (none).
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "(none)\n"
+    7C 80 00 00    ; ims r0 <str_none
+    7C 80 50 09    ; ims r0 >str_none (0x950)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; tail-call print_string()
+    70 8C 8D 00    ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4   ; ^^^           ; ^^^
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+
+
+;:print_syscall_table_have_table
+
     ; call get_syscall_table_count
     ; TODO
     70 80 00 15   ; add r0 0 21
@@ -2194,22 +2254,22 @@
 
     ; store this address to loop
     79 8F 8D F4    ; stw rip rfp -12
-;:print_syscalls_loop
+;:print_syscall_table_loop
 
     ; check if we've printed the whole table
     78 81 8D F8    ; ldw r1 rfp -8   ; total
     78 80 8D FC    ; ldw r0 rfp -4   ; index
     71 82 80 81    ; sub r2 r0 r1
-    7E 82 01 00    ; jz r2 &print_syscalls_done (+1)
-    7E 00 04 00    ; jz 0 &print_syscalls_not_done (+4)
+    7E 82 01 00    ; jz r2 &print_syscall_table_done (+1)
+    7E 00 04 00    ; jz 0 &print_syscall_table_not_done (+4)
 
-;:print_syscalls_done
+;:print_syscall_table_done
     ; we're done. return
     70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
     78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
     70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
     78 8F 00 8C   ; ldw rip 0 rsp   ; ret
-;:print_syscalls_not_done
+;:print_syscall_table_not_done
 
     ; call print_syscall_entry()
     7C 8A 00 00    ; ims ra <print_syscall_entry
@@ -2226,11 +2286,9 @@
     79 80 8D FC    ; stw r0 rfp -4    ; index
 
     ; load the loop address to loop
-    78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_syscalls_loop
+    78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_syscall_table_loop
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
 @0x1520
@@ -2242,11 +2300,11 @@
 ;==========================================
 
 @0x1520 =str_system_call_table
-    ; "System Call Table" '0A '00
+    ; "System Call Table:" '0A '00
     53 79 73 74 65 6d 20 43  61 6c 6c 20 54 61 62 6c
   ;  S  y  s  t  e  m     C   a  l  l     T  a  b  l
-    65 0A 00 00 00 00 00 00  00 00 00 00 00 00 00 00
-  ;  e \n \0
+    65 3A 0A 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  e  : \n \0
 @0x1540
 
 
@@ -2273,7 +2331,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get the vm version
+    ; get the vm major version
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 00   ; ldw r8 r9 00      ; r8 = version
 
@@ -2578,8 +2636,42 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; store the returned count
-    79 80 8D F8    ; stw r0 rfp -8  ; count
+    ; count was returned. tail-call print_count()
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    7C 8A 00 00   ; ims ra <print_count
+    7C 8A 90 18   ; ims ra >print_count (0x1890)
+    70 8F 8E 8A   ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+@0x1890
+
+
+
+;==========================================
+; void print_count(int count);
+;==========================================
+; Prints indented "Count: " and the given count.
+;
+; vars:
+;     count: rfp-4
+;==========================================
+
+@0x1890 =print_count
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 04     ; sub rsp rsp 4
+
+    ; store the count
+    79 80 8D FC    ; stw r0 rfp -4  ; count
 
     ; call print_indentation(1)
     70 80 00 01    ; add r0 0 1   ; mov r0 1
@@ -2615,7 +2707,7 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; call print_decimal(count)
-    78 80 8D F8    ; ldw r0 rfp -8  ; count
+    78 80 8D FC    ; ldw r0 rfp -4  ; count
     7C 8A 00 00    ; ims ra <print_decimal
     7C 8A B0 0C    ; ims ra >print_decimal (0xCB0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -2644,14 +2736,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
 @0x1970
 
 
@@ -2749,8 +2833,8 @@
     7E 80 01 00    ; jz r0 &print_string_array_values_none (+1)
     7E 00 0E 00    ; jz 0 &print_string_array_values_not_none (+14)
 
-;:print_string_array_values_null
-    ; no arguments. get "(none)\n"
+;:print_string_array_values_none
+    ; arguments array is empty. get "(none)\n"
     7C 80 00 00    ; ims r0 <str_none
     7C 80 50 09    ; ims r0 >str_none (0x950)
     70 80 8E 80    ; add r0 rpp r0
@@ -2769,7 +2853,7 @@
     78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
     70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
     78 8F 00 8C   ; ldw rip 0 rsp   ; ret
-;:print_string_array_values_not_null
+;:print_string_array_values_not_none
 
 
     ; call print_char('\n')
@@ -3125,6 +3209,465 @@
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00  00 00 00 00 00 00 00 00
 @0x2000
+
+
+
+;==========================================
+; void print_free_memory_regions(void);
+;==========================================
+; Print the contents of the free memory region list.
+;
+; vars:
+;     index: rfp-4
+;     total: rfp-8
+;     loop_address: rfp-12
+;==========================================
+
+@0x2000 =print_free_memory_regions
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get string "Free Memory Regions: "
+    7C 80 00 00    ; ims r0 <str_free_memory_regions
+    7C 80 F0 0F    ; ims r0 >str_free_memory_regions (0xFF0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the vm major version
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
+
+    ; check if major version is at least 4
+    7E 88 02 00   ; jz r8 &print_free_memory_regions_v3 (+2)   ; skip ltu in v0
+    7D 8B 88 04   ; ltu rb r8 3
+    7E 8B 11 00   ; jz rb &print_free_memory_regions_v4 (+17)
+
+
+;:print_free_memory_regions_v3
+    ; version is less than 4. just print indented (none).
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "(none)\n"
+    7C 80 00 00    ; ims r0 <str_none
+    7C 80 50 09    ; ims r0 >str_none (0x950)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; tail-call print_string()
+    70 8C 8D 00    ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4   ; ^^^           ; ^^^
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+
+;:print_free_memory_regions_v4
+
+
+    ; Address
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Address"
+    7C 80 00 00    ; ims r0 <str_address
+    7C 80 00 09    ; ims r0 >str_address (0x900)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the free memory region address
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 2C   ; ldw r0 r9 44      ; r0 = free regions
+
+    ; call print_value()
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+
+    ; Values
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Values"
+    7C 80 00 00    ; ims r0 <str_values
+    7C 80 20 09    ; ims r0 >str_values (0x920)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the free memory region address again
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 2C   ; ldw r0 r9 44      ; r0 = free regions
+
+    ; check if the address is null
+    7E 80 01 00    ; jz r0 &print_free_memory_regions_null (+1)
+    7E 00 0E 00    ; jz 0 &print_free_memory_regions_not_null (+14)
+
+;:print_free_memory_regions_null
+    ; address is null. get "(null)\n"
+    7C 80 00 00    ; ims r0 <str_null
+    7C 80 60 09    ; ims r0 >str_null (0x960)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return  (r0 is 0)
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_free_memory_regions_not_null
+
+
+    ; check if the first value is null
+    78 80 80 00    ; ldw r0 r0 0
+    7E 80 01 00    ; jz r0 &print_free_memory_regions_none (+1)
+    7E 00 0E 00    ; jz 0 &print_free_memory_regions_not_none (+14)
+
+;:print_free_memory_regions_none
+    ; free memory regions array is empty. get "(none)\n"
+    7C 80 00 00    ; ims r0 <str_none
+    7C 80 50 09    ; ims r0 >str_none (0x950)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; return  (r0 is 0)
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_free_memory_regions_not_none
+
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_free_memory_region_values
+    7C 8A 00 00    ; ims ra <print_free_memory_region_values
+    7C 8A 20 23    ; ims ra >print_free_memory_region_values (0x2320)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; count was returned. tail-call print_count()
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    7C 8A 00 00   ; ims ra <print_count
+    7C 8A 90 18   ; ims ra >print_count (0x1890)
+    70 8F 8E 8A   ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x2320
+
+
+
+;==========================================
+; void print_free_memory_region_values(void);
+;==========================================
+; Print the values list of the free memory regions section, returning the
+; count.
+;
+; vars:
+;     index: rfp-4
+;     loop_address: rfp-8
+;     address of current free region: rfp-12
+;==========================================
+
+@0x2320 =print_free_memory_region_values
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; initialize index
+    79 00 8D FC    ; stw 0 rfp -4
+
+    ; store this address to loop
+    79 8F 8D F8    ; stw rip rfp -8
+;:print_free_memory_region_values_loop
+
+    ; get the address of the current entry in the free memory region list
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 2C   ; ldw r0 r9 44      ; r0 = free regions
+    78 8A 8D FC   ; ldw ra rfp -4     ; ra = index
+    76 8A 8A 03   ; shl ra ra 3       ; ra = offset
+    70 81 80 8A   ; add r1 r0 ra      ; r1 = address of entry
+    79 81 8D F4   ; stw r1 rfp -12
+
+    ; check if the address of the region is 0
+    ; TODO probably should change this to size
+    78 80 81 00   ; ldw r0 r1 0    ; r0 = address of free memory region
+    7E 80 01 00   ; jz r0 &print_free_memory_region_values_done (+1)
+    7E 00 05 00   ; jz 0 &print_free_memory_region_values_not_done (+5)
+
+;print_free_memory_region_values_done
+    ; found the null-terminator. return count
+    78 80 8D FC     ; ldw r0 rfp -4
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;print_free_memory_region_values_not_done
+
+    ; call print_indentation(2)
+    70 80 00 02    ; add r0 0 2   ; mov r0 2
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Address"
+    7C 80 00 00    ; ims r0 <str_address
+    7C 80 00 09    ; ims r0 >str_address (0x900)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_colon()
+    7C 8A 00 00    ; ims ra <print_colon
+    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the address of the current free memory region
+    78 81 8D F4   ; ldw r1 rfp -12
+    78 80 81 00   ; ldw r0 r1 0
+
+    ; call print_hex()
+    7C 8A 00 00    ; ims ra <print_hex
+    7C 8A 40 0B    ; ims ra >print_hex (0xB40)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Size: "
+    7C 80 00 00    ; ims r0 <str_size
+    7C 80 70 09    ; ims r0 >str_size (0x970)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the size of the current free memory region
+    78 81 8D F4   ; ldw r1 rfp -12
+    78 80 81 04   ; ldw r0 r1 4
+
+    ; call print_value()
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; print a newline, call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; increment the index
+    78 81 8D FC   ; ldw r1 rfp -4
+    70 81 81 01   ; add r1 r1 1   ; inc r1
+    79 81 8D FC   ; stw r1 rfp -4
+
+    ; load the loop address to loop
+    78 8F 8D F8   ; ldw rip rfp -8    ; jump to print_registers_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x24F0
 
 
 

@@ -2,13 +2,14 @@
 
 The `vminfo` tool prints information about the program's environment, i.e. the VM and the parent program (if any.)
 
-This tool is not yet complete. The following information will be printed:
+The following information is printed:
 
 - Initial register values
 - Process info table contents
 - Syscall table contents
 - Command-line arguments
 - Environment variables
+- Free memory regions
 
 This tool is not part of the core bootstrap but it is nevertheless written directly in hexadecimal bytecode. There are several reasons for this:
 

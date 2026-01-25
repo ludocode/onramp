@@ -435,7 +435,7 @@ static size_t vm_store_string_array(vm_t* vm, size_t addr, const char** strings)
 
 }
 
-static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t addr) {
+static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t pit_addr, uint32_t addr) {
     int i;
 
     // parse vm args
@@ -492,13 +492,13 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t add
     vm->filename = argv[i];
 
     // load strings
-    vm_store_u32(vm, vm->memory_base + VM_ARGS, addr);
+    vm_store_u32(vm, pit_addr + VM_ARGS, addr);
     addr = vm_store_string_array(vm, addr, argv + i);
-    vm_store_u32(vm, vm->memory_base + VM_ENVIRON, addr);
+    vm_store_u32(vm, pit_addr + VM_ENVIRON, addr);
     addr = vm_store_string_array(vm, addr, vm_ghost_const_cast(const char**, ghost_environ));
 
     // copy working dir
-    vm_store_u32(vm, vm->memory_base + VM_WORKDIR, addr);
+    vm_store_u32(vm, pit_addr + VM_WORKDIR, addr);
     size_t offset = addr - vm->memory_base;
     char* cwd = getcwd((char*)vm->memory + offset, vm->memory_size - offset);
     if (cwd == NULL) {
@@ -569,10 +569,21 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm->memory_mask = calloc(vm->memory_mask_size, sizeof(uint8_t));
     #endif
 
+    uint32_t addr = vm->memory_base;
+
+    // Allocate a free memory region before the PIT. (This will only be usable
+    // on version 4 or later, but we can't tell the version before parsing
+    // args, which requires the PIT.)
+    uint32_t region_1_start = addr;
+    addr += 0x10000;
+    uint32_t region_1_end = addr;
+
+    // allocate the PIT
+    uint32_t pit = addr;
+    addr += VM_PIT_SIZE;
+
     /* parse arguments and environment variables */
-    uint32_t pit = vm->memory_base;
-    uint32_t addr = vm->memory_base + VM_PIT_SIZE;
-    addr = vm_parse_args(vm, argc, argv, addr);
+    addr = vm_parse_args(vm, argc, argv, pit, addr);
 
     // Setup syscall table
     // All syscalls share the same function address. The context is the syscall
@@ -602,16 +613,28 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm_store_u32(vm, pit + VM_OUTPUT, FILES_OFFSET + 1);
     vm_store_u32(vm, pit + VM_ERROR, FILES_OFFSET + 2);
 
-    /* add some padding so a user isn't confused when viewing their program in
-     * the debugger */
-    for (size_t i = 0; i < 32; ++i) {
-        vm_store_u32(vm, addr, VM_DEFAULT_MEMORY);
-        addr += 4;
-    }
+    // On version 4 VMs, allocate space for five words, enough for a
+    // null-terminated list of/ two memory regions.
+    uint32_t free_memory_regions = addr;
+    addr += 5 * 4;
 
-    /* round up the program address to a multiple of 0x10000 to make it easier
-     * to debug */
+    // Round up the program address to a multiple of 0x10000 to make it easier
+    // to debug. This becomes the second additional free memory region in
+    // version 4.
+    uint32_t region_2_start = addr;
+    addr += 4; // make sure the region isn't empty
     addr = (addr + 0x10000 - 1) & ~(0x10000 - 1);
+    uint32_t region_2_end = addr;
+
+    // Write the free memory regions
+    if (vm->version >= 4) {
+        vm_store_u32(vm, pit + VM_PIT_FREE_REGIONS, free_memory_regions);
+        vm_store_u32(vm, free_memory_regions,      region_1_start);
+        vm_store_u32(vm, free_memory_regions + 4,  region_1_end - region_1_start);
+        vm_store_u32(vm, free_memory_regions + 8,  region_2_start);
+        vm_store_u32(vm, free_memory_regions + 12, region_2_end - region_2_start);
+        vm_store_u32(vm, free_memory_regions + 16, 0);
+    }
 
     /* load program */
     FILE* file = fopen(vm->filename, "rb");
@@ -633,6 +656,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     if (addr == start) {
         panic("Program is empty.");
     }
+    fclose(file);
 
     // if the program starts with "#!" or "REM", skip the first 128 bytes
     if ((vm_load_u8(vm, start) == '#' && vm_load_u8(vm, start + 1) == '!') ||
@@ -661,23 +685,27 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     // round up the heap address to a multiple of 0x10000 again
     addr = (addr + 0x10000 - 1) & ~(0x10000 - 1);
 
-    /* set up the rest of the process info table */
-    vm_store_u32(vm, pit + VM_PIT_MAJOR_VERSION, vm->version);
-    vm_store_u32(vm, pit + VM_HEAP_START, addr);
-    vm_store_u32(vm, pit + VM_CAPABILITIES,
-            raw_input_enabled
+    // set capabilities
+    int interactive = (vm->version >= 4 && isatty(0) && isatty(1)) << 3;
+    int capabilities = interactive |
+            (raw_input_enabled
                 ? 0 // no echo, non-canonical
                 : 5 // echo, canonical
             );
+    vm_store_u32(vm, pit + VM_CAPABILITIES, capabilities);
 
+    // set up the rest of the process info table
+    vm_store_u32(vm, pit + VM_PIT_MAJOR_VERSION, vm->version);
+    if (vm->version >= 4) {
+        vm_store_u32(vm, pit + VM_PIT_MINOR_VERSION, 0);
+    }
+    vm_store_u32(vm, pit + VM_HEAP_START, addr);
     if (vm->version == 3) {
         vm_store_u32(vm, pit + VM_PIT_SYSCALL_COUNT_FIELD, VM_SYSCALL_COUNT);
         vm_store_u32(vm, pit + VM_PIT_COUNT_FIELD, VM_PIT_COUNT);
-    } else if (vm->version == 4) {
-        vm_store_u32(vm, pit + VM_PIT_MINOR_VERSION, 0);
-        vm_store_u32(vm, pit + VM_PIT_COUNT_FIELD, 0);
     }
 
+    // set initial register values
     vm->registers[0] = pit;
     for (size_t i = 1; i <= VM_RFP; ++i)
         vm->registers[i] = VM_DEFAULT_MEMORY;
@@ -685,15 +713,13 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm->registers[VM_RPP] = start;
     vm->registers[VM_RIP] = start;
 
+    // initialize the debugger memory views
     vm->recent_addrs[0] = start;
     vm->recent_addrs[1] = addr;
     vm->recent_addrs[2] = end;
-
-    fclose(file);
 }
 
 static void vm_destroy(vm_t* vm) {
-    // TODO estimate memory usage, maybe by a bitmap of 4k pages accessed
     free(vm->memory);
     //free(vm->root_path);
 }
