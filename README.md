@@ -76,6 +76,12 @@ See the [Implementation Status](docs/status.md) document for a breakdown of impl
 | 🟥 [vm/aarch64-linux][vmarm64lin]  |                                   | 🟦 [vm/python][vmpy]         |
 | 🟥 [vm/riscv32-linux][vmrv32lin]   |                                   | 🟧 [vm/sh][vmsh]             |
 
+#### [Extra](extra/)
+
+| Disassembler       | Syscall Tracer       | VM Info Tool         |
+|:-------------------|:---------------------|:---------------------|
+| 🟧 [disas][disas]  | 🟥 [strace][strace]  | 🟦 [vminfo][vminfo]  |
+
 #### Legend
 
 - 🟩 Done
@@ -230,7 +236,7 @@ Links are separated in order to make the main text more legible when read in pla
 In some cases we avoid pulling out links where they are more convenient inline, for example in the documentation index.
 -->
 
-<!-- tools -->
+<!-- core -->
 [ar0]: core/ar/0-cat/
 [ar1]: core/ar/1-unix/
 [ar]: core/ar/
@@ -264,6 +270,8 @@ In some cases we avoid pulling out links where they are more convenient inline, 
 [os1]: core/os/1-full/
 [os]: core/os/
 [sh]: core/sh/
+
+<!-- platform -->
 [vm]: platform/vm/
 [vmarm64lin]: platform/vm/aarch64-linux
 [vmc89]: platform/vm/c89
@@ -275,6 +283,11 @@ In some cases we avoid pulling out links where they are more convenient inline, 
 [vmx64uefi]: platform/vm/x86_64-uefi
 [vmx86bios]: platform/vm/x86-bios
 [vmx86win]: platform/vm/x86-windows
+
+<!-- extra -->
+[disas]: extra/disas/
+[vminfo]: extra/vminfo/
+[strace]: extra/strace/
 
 <!-- docs -->
 [docasm]: docs/assembly.md

@@ -84,7 +84,6 @@
 ;   900  str_address
 ;   910  str_count
 ;   920  str_values
-;   930  print_colon
 ;   950  str_none
 ;   960  str_null
 ;   970  str_size
@@ -1041,13 +1040,12 @@
 
 ;==========================================
 ; const char str_address[];
-; TODO add ": " to this and str_count
 ;==========================================
 
 @0x900 =str_address
-    ; "Address" '00
-    41 64 64 72 65 73 73 00  00 00 00 00 00 00 00 00
-  ;  A  d  d  r  e  s  s \0
+    ; "Address: " '00
+    41 64 64 72 65 73 73 3A  20 00 00 00 00 00 00 00
+  ;  A  d  d  r  e  s  s  :     \0
 @0x910
 
 
@@ -1057,9 +1055,9 @@
 ;==========================================
 
 @0x910 =str_count
-    ; "Count" '00
-    43 6f 75 6e 74 00 00 00  00 00 00 00 00 00 00 00
-  ;  C  o  u  n  t \0
+    ; "Count: " '00
+    43 6f 75 6e 74 3A 20 00  00 00 00 00 00 00 00 00
+  ;  C  o  u  n  t  :    \0
 @0x920
 
 
@@ -1069,34 +1067,18 @@
 ;==========================================
 
 @0x920 =str_values
-    ; "Values" '00
-    56 61 6c 75 65 73 00 00  00 00 00 00 00 00 00 00
-  ;  V  a  l  u  e  s \0
+    ; "Values: " '00
+    56 61 6c 75 65 73 3A 20  00 00 00 00 00 00 00 00
+  ;  V  a  l  u  e  s  :     \0
 @0x930
 
 
 
-;==========================================
-; void print_colon(int depth);
-;==========================================
-; Prints ": "
-;==========================================
-
-@0x930 =print_colon
-
-    ; get colon
-    7C 80 00 00    ; ims r0 <str_indentation
-    7C 80 F0 08    ; ims r0 >str_indentation (0x8F0)
-    70 80 8E 80    ; add r0 rpp r0
-
-    ; tail-call print_string()
-    7C 8A 00 00    ; ims ra <print_string
-    7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-
     ; padding
     00 00 00 00 00 00 00 00
-@0x950
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 
 
 
@@ -2583,7 +2565,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get "Address"
+    ; get "Address: "
     7C 80 00 00    ; ims r0 <str_address
     7C 80 00 09    ; ims r0 >str_address (0x900)
     70 80 8E 80    ; add r0 rpp r0
@@ -2591,15 +2573,6 @@
     ; call print_string()
     7C 8A 00 00    ; ims ra <print_string
     7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2647,7 +2620,10 @@
     ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 
 @0x1890
 
@@ -2697,15 +2673,6 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
     ; call print_decimal(count)
     78 80 8D FC    ; ldw r0 rfp -4  ; count
     7C 8A 00 00    ; ims ra <print_decimal
@@ -2736,6 +2703,10 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x1970
 
 
@@ -2776,7 +2747,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get "Values"
+    ; get "Values: "
     7C 80 00 00    ; ims r0 <str_values
     7C 80 20 09    ; ims r0 >str_values (0x920)
     70 80 8E 80    ; add r0 rpp r0
@@ -2784,15 +2755,6 @@
     ; call print_string()
     7C 8A 00 00    ; ims ra <print_string
     7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2914,9 +2876,14 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
+    ; get ": "
+    7C 80 00 00    ; ims r0 <str_colon
+    7C 80 F0 08    ; ims r0 >str_colon (0x8F0)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2958,6 +2925,8 @@
     78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_string_array_values_loop
 
     ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -3317,7 +3286,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get "Address"
+    ; get "Address: "
     7C 80 00 00    ; ims r0 <str_address
     7C 80 00 09    ; ims r0 >str_address (0x900)
     70 80 8E 80    ; add r0 rpp r0
@@ -3325,15 +3294,6 @@
     ; call print_string()
     7C 8A 00 00    ; ims ra <print_string
     7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3376,7 +3336,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get "Values"
+    ; get "Values: "
     7C 80 00 00    ; ims r0 <str_values
     7C 80 20 09    ; ims r0 >str_values (0x920)
     70 80 8E 80    ; add r0 rpp r0
@@ -3384,15 +3344,6 @@
     ; call print_string()
     7C 8A 00 00    ; ims ra <print_string
     7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3498,6 +3449,13 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
     00 00 00 00
 @0x2320
 
@@ -3539,7 +3497,6 @@
     79 81 8D F4   ; stw r1 rfp -12
 
     ; check if the address of the region is 0
-    ; TODO probably should change this to size
     78 80 81 00   ; ldw r0 r1 0    ; r0 = address of free memory region
     7E 80 01 00   ; jz r0 &print_free_memory_region_values_done (+1)
     7E 00 05 00   ; jz 0 &print_free_memory_region_values_not_done (+5)
@@ -3563,7 +3520,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get "Address"
+    ; get "Address: "
     7C 80 00 00    ; ims r0 <str_address
     7C 80 00 09    ; ims r0 >str_address (0x900)
     70 80 8E 80    ; add r0 rpp r0
@@ -3571,15 +3528,6 @@
     ; call print_string()
     7C 8A 00 00    ; ims ra <print_string
     7C 8A C0 07    ; ims ra >print_string (0x7C0)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
-    70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; call print_colon()
-    7C 8A 00 00    ; ims ra <print_colon
-    7C 8A 30 09    ; ims ra >print_colon (0x930)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3666,7 +3614,10 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x24F0
 
 
