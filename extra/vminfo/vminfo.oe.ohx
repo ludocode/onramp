@@ -70,6 +70,8 @@
 ;    80  __start_2
 ;   140  main
 ;   2A0  output_buffer
+;   320  print_syscall_entries
+;   440  get_syscall_count
 ;   4A0  print_char
 ;   540  flush
 ;   5D0  syscall_exit
@@ -95,8 +97,8 @@
 ;   E60  str_version
 ;   E70  str_major_version
 ;   E80  str_minor_version
-;   E90  str_heap_start_address
-;   EB0  str_system_call_table_address
+;   E90  str_heap_start
+;   EB0  str_system_call_table
 ;   ED0  str_exit_address
 ;   EE0  str_input_stream_handle
 ;   F00  str_output_stream_handle
@@ -114,7 +116,6 @@
 ;  11C0  print_pit
 ;  1340  fixup_pit_header_names
 ;  1410  print_syscall_table
-;  1520  str_system_call_table
 ;  1540  print_syscall_entry
 ;  16C0  print_args
 ;  16F0  print_env
@@ -126,6 +127,7 @@
 ;  1DE0  syscall_names_v4
 ;  2000  print_free_memory_regions
 ;  2320  print_free_memory_region_values
+;  24F0  print_syscall_table_contents
 
 
 
@@ -464,6 +466,74 @@
 
 
 
+;==========================================
+; void print_syscall_entries(int count);
+;==========================================
+; Prints the entries in the system call table.
+;
+; vars:
+;     index: rfp-4
+;     total: rfp-8
+;     loop_address: rfp-12
+;==========================================
+
+@0x320 =print_syscall_entries
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; initialize vars
+    79 80 8D F8    ; stw r0 rfp -8   ; total
+    79 00 8D FC    ; stw 0 rfp -4    ; index
+
+    ; store this address to loop
+    79 8F 8D F4    ; stw rip rfp -12
+;:print_syscall_table_loop
+
+    ; check if we've printed the whole table
+    78 81 8D F8    ; ldw r1 rfp -8   ; total
+    78 80 8D FC    ; ldw r0 rfp -4   ; index
+    71 82 80 81    ; sub r2 r0 r1
+    7E 82 01 00    ; jz r2 &print_syscall_table_done (+1)
+    7E 00 04 00    ; jz 0 &print_syscall_table_not_done (+4)
+
+;:print_syscall_table_done
+    ; we're done. return
+    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:print_syscall_table_not_done
+
+    ; call print_syscall_entry()
+    7C 8A 00 00    ; ims ra <print_syscall_entry
+    7C 8A 40 15    ; ims ra >print_syscall_entry (0x1540)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; increment the index
+    78 80 8D FC    ; ldw r0 rfp -4    ; index
+    70 80 80 01    ; add r0 r0 1   ; inc r0
+    79 80 8D FC    ; stw r0 rfp -4    ; index
+
+    ; load the loop address to loop
+    78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_syscall_table_loop
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x3B0
+
+
     ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -483,36 +553,55 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+
+
+
+;==========================================
+; int get_syscall_count();
+;==========================================
+; Returns the number of entries in the syscall table.
+;
+; This is only called for VM versions that actually have a syscall table
+; (version 2 and up.)
+;==========================================
+
+@0x440 =get_syscall_count
+
+    ; Get the vm major version
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
+
+    ; In version 2 there were 23 syscalls.
+    71 8A 88 02   ; sub ra r8 2
+    7E 8A 01 00   ; jz ra &get_syscall_count_v2 (+1)
+    7E 00 02 00   ; jz 0 &get_syscall_count_not_v2 (+2)
+;:get_syscall_count_v2
+    70 80 00 17   ; add r0 0 23     ; r0 = 23
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:get_syscall_count_not_v2
+
+    ; In version 3 the syscall count is in the PIT.
+    ; (If the syscall count is out of bounds we will eventually crash.)
+    71 8A 88 03   ; sub ra r8 3
+    7E 8A 01 00   ; jz ra &get_syscall_count_v3 (+1)
+    7E 00 02 00   ; jz 0 &get_syscall_count_not_v3 (+2)
+;:get_syscall_count_v3
+    78 80 89 28   ; ldw r0 r9 r8    ; r0 = pit[SYSCALL_COUNT]
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;:get_syscall_count_not_v3
+
+    ; In version 4 the syscall count depends on the minor version. For now we
+    ; only support 4.0 which has 25 syscall entries (though some are unused.)
+    70 80 00 19   ; add r0 0 29     ; r0 = 29
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+    ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+@0x4A0
 
 
 
@@ -1011,8 +1100,8 @@
 
 @0x8C0 =pit_header_names
     70 0E 00 00    ; str_major_version (0xE70)
-    90 0E 00 00    ; str_heap_start_address (0xE90)
-    B0 0E 00 00    ; str_system_call_table_address (0xEB0)
+    90 0E 00 00    ; str_heap_start (0xE90)
+    B0 0E 00 00    ; str_system_call_table (0xEB0)
     E0 0E 00 00    ; str_input_stream_handle (0xEE0)
     00 0F 00 00    ; str_output_stream_handle (0xF00)
     20 0F 00 00    ; str_error_stream_handle (0xF20)
@@ -1611,29 +1700,33 @@
 
 
 ;==========================================
-; const char str_heap_start_address[];
+; const char str_heap_start[];
 ;==========================================
 
-@0xE90 =str_heap_start_address
-    ; "Heap Start Address: " '00
-    48 65 61 70 20 53 74 61  72 74 20 41 64 64 72 65
-  ;  H  e  a  p     S  t  a   r  t     A  d  d  r  e
-    73 73 3a 20 00 00 00 00  00 00 00 00 00 00 00 00
-  ;  s  s  :    \0
-@0xEB0
+@0xE90 =str_heap_start
+    ; "Heap Start: " '00
+    48 65 61 70 20 53 74 61  72 74 3A 20 00 00 00 00
+  ;  H  e  a  p     S  t  a   r  t  :    \0
+@0xEA0
+
+
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 
 
 
 ;==========================================
-; const char str_system_call_table_address[];
+; const char str_system_call_table[];
 ;==========================================
 
-@0xEB0 =str_system_call_table_address
-    ; "System Call Table Address: " '00
+@0xEB0 =str_system_call_table
+    ; "System Call Table: " '00
     53 79 73 74 65 6d 20 43  61 6c 6c 20 54 61 62 6c
   ;  S  y  s  t  e  m     C   a  l  l     T  a  b  l
-    65 20 41 64 64 72 65 73  73 3a 20 00 00 00 00 00
-  ;  e     A  d  d  r  e  s   s  :    \0
+    65 3A 20 00 00 00 00 00  00 00 00 00 00 00 00 00
+  ;  e  :    \0
 @0xED0
 
 
@@ -2153,12 +2246,10 @@
 ;==========================================
 ; void print_syscall_table(void);
 ;==========================================
-; Print the contents of the system call table.
+; Print the system call table section.
 ;
-; vars:
-;     index: rfp-4
-;     total: rfp-8
-;     loop_address: rfp-12
+; Most of the work is done by print_syscall_table_contents(); this mostly just
+; has fallbacks for older VMs.
 ;==========================================
 
 @0x1410 =print_syscall_table
@@ -2167,7 +2258,6 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
     79 8D 00 8C     ; stw rfp 0 rsp     ; ...
     70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
-    71 8C 8C 0C     ; sub rsp rsp 12
 
     ; call print_char('\n')
     70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
@@ -2179,9 +2269,9 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get string "System Call Table"
+    ; get string "System Call Table: "
     7C 80 00 00    ; ims r0 <str_system_call_table
-    7C 80 20 15    ; ims r0 >str_system_call_table (0x1520)
+    7C 80 B0 0E    ; ims r0 >str_system_call_table (0xEB0)
     70 80 8E 80    ; add r0 rpp r0
 
     ; call print_string()
@@ -2193,9 +2283,20 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
     ; check if we have a syscall table
     78 8B 8E 28   ; ldw rb rpp 0x28    ; sys_instruction
     7E 8B 11 00   ; jz rb &print_syscall_table_have_table (+17)
+
 
     ; VM uses a sys instruction; there's no table. just print indented (none).
 
@@ -2223,70 +2324,28 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
 
-
 ;:print_syscall_table_have_table
 
-    ; call get_syscall_table_count
-    ; TODO
-    70 80 00 15   ; add r0 0 21
-
-    ; initialize vars
-    79 80 8D F8    ; stw r0 rfp -8   ; total
-    79 00 8D FC    ; stw 0 rfp -4    ; index
-
-    ; store this address to loop
-    79 8F 8D F4    ; stw rip rfp -12
-;:print_syscall_table_loop
-
-    ; check if we've printed the whole table
-    78 81 8D F8    ; ldw r1 rfp -8   ; total
-    78 80 8D FC    ; ldw r0 rfp -4   ; index
-    71 82 80 81    ; sub r2 r0 r1
-    7E 82 01 00    ; jz r2 &print_syscall_table_done (+1)
-    7E 00 04 00    ; jz 0 &print_syscall_table_not_done (+4)
-
-;:print_syscall_table_done
-    ; we're done. return
-    70 8C 8D 00   ; add rsp rfp 0   ; mov rsp rfp   ; leave
-    78 8D 00 8C   ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
-    70 8C 8C 04   ; add rsp rsp 4   ; ^^^           ; ^^^
-    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
-;:print_syscall_table_not_done
-
-    ; call print_syscall_entry()
-    7C 8A 00 00    ; ims ra <print_syscall_entry
-    7C 8A 40 15    ; ims ra >print_syscall_entry (0x1540)
-    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
-    70 8B 8F 08    ; add rb rip 8
-    79 8B 00 8C    ; stw rb 0 rsp
+    ; tail-call print_syscall_table_contents()
+    70 8C 8D 00    ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4   ; ^^^           ; ^^^
+    7C 8A 00 00    ; ims ra <print_syscall_table_contents
+    7C 8A F0 24    ; ims ra >print_syscall_table_contents (0x24F0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
-
-    ; increment the index
-    78 80 8D FC    ; ldw r0 rfp -4    ; index
-    70 80 80 01    ; add r0 r0 1   ; inc r0
-    79 80 8D FC    ; stw r0 rfp -4    ; index
-
-    ; load the loop address to loop
-    78 8F 8D F4   ; ldw rip rfp -12    ; jump to print_syscall_table_loop
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00
-@0x1520
-
-
-
-;==========================================
-; const char str_system_call_table[];
-;==========================================
-
-@0x1520 =str_system_call_table
-    ; "System Call Table:" '0A '00
-    53 79 73 74 65 6d 20 43  61 6c 6c 20 54 61 62 6c
-  ;  S  y  s  t  e  m     C   a  l  l     T  a  b  l
-    65 3A 0A 00 00 00 00 00  00 00 00 00 00 00 00 00
-  ;  e  : \n \0
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x1540
 
 
@@ -2303,8 +2362,8 @@
     71 8C 8C 04    ; sub rsp rsp 4     ; push r1
     79 80 00 8C    ; stw r0 0 rsp      ; ^^^
 
-    ; call print_indentation(1)
-    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    ; call print_indentation(2)
+    70 80 00 02    ; add r0 0 2   ; mov r0 2
     7C 8A 00 00    ; ims ra <print_indentation
     7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
@@ -3076,7 +3135,7 @@
     61 6c 6c 6f 63 3A 20 20  20 20 20 00 00 00 00 00  ; "alloc:     " '00
   ;  a  l  l  o  c  :                 \0
 
-    66 72 65 65 3A 20 20 20  20 20 00 00 00 00 00 00  ; "free:      " '00
+    66 72 65 65 3A 20 20 20  20 20 20 00 00 00 00 00  ; "free:      " '00
   ;  f  r  e  e  :                    \0
 @0x1DE0
 
@@ -3162,7 +3221,7 @@
     61 6c 6c 6f 63 3A 20 20  20 20 20 00 00 00 00 00  ; "alloc:     " '00
   ;  a  l  l  o  c  :                 \0
 
-    66 72 65 65 3A 20 20 20  20 20 00 00 00 00 00 00  ; "free:      " '00
+    66 72 65 65 3A 20 20 20  20 20 20 00 00 00 00 00  ; "free:      " '00
   ;  f  r  e  e  :                    \0
 
 
@@ -3619,6 +3678,159 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x24F0
+
+
+
+;==========================================
+; void print_syscall_table_contents(void);
+;==========================================
+; Prints the contents of the syscall table section (the Address, Count and
+; Values fields.)
+;
+; The entries are printed by print_syscall_entries().
+;==========================================
+
+@0x24F0 =print_syscall_table_contents
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Address: "
+    7C 80 00 00    ; ims r0 <str_address
+    7C 80 00 09    ; ims r0 >str_address (0x900)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the syscall table address
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 08   ; ldw r0 r9 8       ; r0 = syscall table
+
+    ; call print_value()
+    7C 8A 00 00    ; ims ra <print_value
+    7C 8A A0 10    ; ims ra >print_value (0x10A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get the number of syscall entries, call get_syscall_count()
+    7C 8A 00 00    ; ims ra <get_syscall_count
+    7C 8A 40 04    ; ims ra >get_syscall_count (0x440)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; store the count
+    71 8C 8C 04    ; sub rsp rsp 4     ; push r1
+    79 80 00 8C    ; stw r0 0 rsp      ; ^^^
+
+    ; call print_count()
+    ; (Note that we're printing the count here before the values, unlike with
+    ; other lists where we print the count afterwards. This is intentional. For
+    ; this table we know the size up-front so we print it first to reflect
+    ; that. The other lists are null-terminated so we have to iterate through
+    ; them before we know their size.)
+    7C 8A 00 00    ; ims ra <print_count
+    7C 8A 90 18    ; ims ra >print_count (0x1890)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_indentation(1)
+    70 80 00 01    ; add r0 0 1   ; mov r0 1
+    7C 8A 00 00    ; ims ra <print_indentation
+    7C 8A E0 1B    ; ims ra >print_indentation (0x1BE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; get "Values: "
+    7C 80 00 00    ; ims r0 <str_values
+    7C 80 20 09    ; ims r0 >str_values (0x920)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call print_char('\n')
+    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
+    7C 8A 00 00    ; ims ra <print_char
+    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; tail-call print_syscall_entries(count)
+    78 80 00 8C    ; ldw r0 0 rsp
+    70 8C 8D 00    ; add rsp rfp 0   ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp   ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4   ; ^^^           ; ^^^
+    7C 8A 00 00    ; ims ra <print_syscall_entries
+    7C 8A 20 03    ; ims ra >print_syscall_entries (0x320)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x26C0
 
 
 
