@@ -71,6 +71,7 @@
 ;   140  main
 ;   2A0  output_buffer
 ;   320  print_syscall_entries
+;   3B0  check_version
 ;   440  get_syscall_count
 ;   4A0  print_char
 ;   540  flush
@@ -110,6 +111,8 @@
 ;   FB0  str_system_call_count
 ;   FD0  str_process_info_count
 ;   FF0  str_free_memory_regions
+;  1010  str_major_version_not_supported
+;  1040  str_minor_version_not_supported
 ;  10A0  print_value
 ;  10F0  print_pit_entry
 ;  11A0  str_process_info_table
@@ -344,10 +347,9 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; print a newline, call print_char('\n')
-    70 80 0A 00    ; add r0 "\n" 0     ; mov r0 "\n"
-    7C 8A 00 00    ; ims ra <print_char
-    7C 8A A0 04    ; ims ra >print_char (0x4A0)
+    ; call check_version()
+    7C 8A 00 00    ; ims ra <check_version
+    7C 8A B0 03    ; ims ra >check_version (0x3B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -435,7 +437,7 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-
+    00 00 00 00
 @0x2A0
 
 
@@ -534,25 +536,72 @@
 @0x3B0
 
 
+
+;==========================================
+; void check_version(void);
+;==========================================
+; Check the version, printing a warning or error if it's not supported.
+;==========================================
+
+@0x3B0 =check_version
+
+    ; Get the vm major version
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 00      ; r8 = version
+
+    ; Check if the version is greater than 4
+    7E 88 10 00   ; jz r8 &check_version_major_ok (+16)   ; skip ltu in v0
+    7D 8B 04 88   ; ltu rb 4 r8
+    7E 8B 0E 00   ; jz rb &check_version_major_ok (+14)
+
+
+    ; Fatal error, major version unsupported. Get message
+    7C 80 00 00    ; ims r0 <str_major_version_not_supported
+    7C 80 10 10    ; ims r0 >str_major_version_not_supported (0x1010)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; tail-call syscall_exit(1)
+    70 80 00 01    ; add r0 0 1     ; mov r0 1
+    7C 8A 00 00    ; ims ra <syscall_exit
+    7C 8A D0 05    ; ims ra >syscall_exit (0x5D0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+
+;:check_version_major_ok
+
+    ; Check if the minor version is 0
+    78 87 89 28   ; ldw r7 r9 40      ; r7 = minor version
+    7E 87 06 00   ; jz r7 &check_version_minor_ok (+6)
+
+    ; Warning, minor version unsupported. Get message
+    7C 80 00 00    ; ims r0 <str_minor_version_not_supported
+    7C 80 40 10    ; ims r0 >str_minor_version_not_supported (0x1040)
+    70 80 8E 80    ; add r0 rpp r0
+
+    ; tail-call print_string()
+    7C 8A 00 00    ; ims ra <print_string
+    7C 8A C0 07    ; ims ra >print_string (0x7C0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+
+;:check_version_minor_ok
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
     ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+@0x440
 
 
 
@@ -1881,25 +1930,42 @@
 
 
 
-    ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
+;==========================================
+; const char str_major_version_not_supported[];
+;==========================================
+
+@0x1010 =str_major_version_not_supported
+    ; "ERROR: This VM version is not supported." '0A '00
+    45 52 52 4f 52 3a 20 54  68 69 73 20 56 4d 20 76
+  ;  E  R  R  O  R  :     T  h  i  s     V  M     v
+    65 72 73 69 6f 6e 20 69  73 20 6e 6f 74 20 73 75
+  ;  e  r  s  i  o  n     i  s     n  o  t     s  u
+    70 70 6f 72 74 65 64 2e  0a 00 00 00 00 00 00 00
+  ;  p  p  o  r  t  e  d  .  \n \0
+@0x1040
+
+
+
+;==========================================
+; const char str_minor_version_not_supported[];
+;==========================================
+
+@0x1040 =str_minor_version_not_supported
+    ; "WARNING: This VM minor version is not supported."
+    ; " Information may be incomplete or inaccurate." '0A '00
+    57 41 52 4e 49 4e 47 3a  20 54 68 69 73 20 56 4d
+  ;  W  A  R  N  I  N  G  :     T  h  i  s     V  M
+    20 6d 69 6e 6f 72 20 76  65 72 73 69 6f 6e 20 69
+  ;  m  i  n  o  r     v  e  r  s  i  o  n     i
+    73 20 6e 6f 74 20 73 75  70 70 6f 72 74 65 64 2e
+  ;  s     n  o  t     s  u  p  p  o  r  t  e  d  .
+    20 49 6e 66 6f 72 6d 61  74 69 6f 6e 20 6d 61 79
+  ;  I  n  f  o  r  m  a  t  i  o  n     m  a  y
+    20 62 65 20 69 6e 63 6f  6d 70 6c 65 74 65 20 6f
+  ;  b  e     i  n  c  o  m  p  l  e  t  e     o
+    72 20 69 6e 61 63 63 75  72 61 74 65 2e 0a 00 00
+  ;  r     i  n  a  c  c  u  r  a  t  e  .  \n \0
+@0x10A0
 
 
 

@@ -80,7 +80,7 @@ See the [Implementation Status](docs/status.md) document for a breakdown of impl
 
 | Disassembler       | Syscall Tracer       | VM Info Tool         |
 |:-------------------|:---------------------|:---------------------|
-| 🟧 [disas][disas]  | 🟥 [strace][strace]  | 🟦 [vminfo][vminfo]  |
+| 🟧 [disas][disas]  | 🟥 [strace][strace]  | 🟩 [vminfo][vminfo]  |
 
 #### Legend
 
