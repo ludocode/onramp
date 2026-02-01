@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,18 +23,10 @@
 # SOFTWARE.
 
 
-# This script installs the VM into the build output folder as the `onrampvm`
-# binary for POSIX systems.
+# This script configures the Python VM for POSIX platforms.
 
 
 set -e
-cd "$(dirname "$0")/../../.."
-
-if ! [ -e build/test/vm-x86_64-linux/vm ]; then
-    echo "$0: ERROR: VM not built yet. Run platform/vm/x86_64-linux/build.sh" >&1
-    exit 1
-fi
-
 mkdir -p build/posix/share/onramp/platform
-cp build/test/vm-x86_64-linux/vm build/posix/share/onramp/platform/vm-x86_64-linux
-(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)
+cp platform/vm/python/vm.py build/posix/share/onramp/platform/vm-python.py
+(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-python.py onrampvm)

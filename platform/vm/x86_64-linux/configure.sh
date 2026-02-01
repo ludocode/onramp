@@ -1,0 +1,41 @@
+#!/bin/sh
+
+# The MIT License (MIT)
+#
+# Copyright (c) 2023-2026 Fraser Heavy Software
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+# This script configures the x86_64-linux VM.
+#
+# It requires that a hex tool is configured first.
+
+
+set -e
+
+if [ "$(uname -m)" != "x86_64" ] || [ "$(uname -s)" != "Linux" ]; then
+    echo "$0: This is not x86_64 Linux."
+    exit 1
+fi
+
+mkdir -p build/posix/share/onramp/platform
+build/posix/bin/onramphex platform/vm/x86_64-linux/vm.ohx -o build/posix/share/onramp/platform/vm-x86_64-linux
+chmod +x build/posix/share/onramp/platform/vm-x86_64-linux
+(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)

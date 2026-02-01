@@ -2,3 +2,7 @@
 /test/local.mk
 vgcore.*
 /.ninja_log
+/config.log
+/config.log.hist
+/test-*.out
+/build.sh

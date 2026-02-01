@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,18 +23,10 @@
 # SOFTWARE.
 
 
-# This script installs the compiled VM into the build output folder as the
-# `onrampvm` binary for POSIX systems.
+# This script configures the POSIX shell hex tool on POSIX platforms.
 
 
-set -e
-cd "$(dirname "$0")/../../.."
-
-if ! [ -e build/test/vm-c-debugger/vm ]; then
-    echo "$0: ERROR: VM not built yet. Run platform/vm/c-debugger/build.sh" >&1
-    exit 1
-fi
-
+set -ev
 mkdir -p build/posix/share/onramp/platform
-cp build/test/vm-c-debugger/vm build/posix/share/onramp/platform/vm-c-debugger
-(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-c-debugger onrampvm)
+cp platform/hex/xxd/hex.sh build/posix/share/onramp/platform/
+(cd build/posix/bin; ln -sf ../share/onramp/platform/hex.sh onramphex)

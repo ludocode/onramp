@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2025 Fraser Heavy Software
+# Copyright (c) 2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,18 +23,21 @@
 # SOFTWARE.
 
 
-# This script installs the compiled VM into the build output folder as the
-# `onrampvm` binary for POSIX systems.
+# This script configures an alternate POSIX shell hex tool on POSIX platforms.
+#
+# We only bother to setup hexsplit.sh under the assumption that it has the
+# least bad worst case performance. If it doesn't work the others probably
+# won't either.
 
 
 set -e
-cd "$(dirname "$0")/../../.."
 
-if ! [ -e build/test/vm-c89/vm ]; then
-    echo "$0: ERROR: VM not built yet. Run platform/vm/c89/build.sh" >&1
+if ! [ -e platform/hex/sh-alt/hexsplit.sh ]; then
+    echo "$0: ERROR: platform/hex/sh-alt/hexsplit.sh not found."
+    echo "$0: This script must be run in the root of the repository or build directory."
     exit 1
 fi
 
 mkdir -p build/posix/share/onramp/platform
-cp build/test/vm-c89/vm build/posix/share/onramp/platform/vm-c89
-(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-c89 onrampvm)
+cp platform/hex/sh-alt/hexsplit.sh build/posix/share/onramp/platform/
+(cd build/posix/bin; ln -sf ../share/onramp/platform/hexsplit.sh onramphex)

@@ -1,0 +1,411 @@
+#!/bin/sh
+
+# The MIT License (MIT)
+#
+# Copyright (c) 2026 Fraser Heavy Software
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+
+# This is the configure script for POSIX platforms. It works like a traditional
+# configure script except that instead of generating a Makefile, it generates
+# a build.sh script because Onramp is intended to be bootstrapped before Make.
+#
+# (It can also be bootstrapped before a shell, but if you're running this you
+# already trust your shell so that's what we generate.)
+#
+# This script is intended to support out-of-tree builds but it is not fully
+# working yet.
+
+
+set -e
+BUILD="$(pwd)"
+ROOT="$(dirname "$0")"
+
+usage() {
+    cat <<EOF
+
+Usage:
+
+    $0 [options]
+
+Options:
+
+    --strict         Allow only minimal dependencies (kernel, coreutils, libc)
+    --hex <name>     Use the hex tool with the given name, or "manual"
+    --vm <name>      Use the VM with the given name, or "manual"
+    --dev            Use preferred tools for developing Onramp
+    --test           Run all tests during bootstrap process
+    --verbose        Print more information
+    --clean          Delete all intermediate build results
+
+The directories in platform/hex/ and platform/vm/ are the names of tools. Only
+those tools that support POSIX platforms can be built by this script.
+
+Pass "manual" as the hex tool or VM if you have configured it manually before
+running this script. The hex tool and VM must be installed at:
+    build/posix/bin/onramphex
+    build/posix/bin/onrampvm
+See the Setup Guide for details.
+EOF
+}
+
+# Print an info message (whether or not --verbose is given)
+logi() {
+    echo "$@"
+    echo "$@" >> config.log
+}
+
+# Print a debug message (only if --verbose is given)
+logd() {
+    if [ $VERBOSE -eq 1 ]; then
+        echo "$@"
+    fi
+    echo "$@" >> config.log
+}
+
+setup_log() {
+    if [ -e config.log ]; then
+        cat config.log >> config.log.hist
+        rm -f config.log
+    fi
+    touch config.log
+}
+
+parse_options() {
+    DEV=0
+    STRICT=0
+    CLEAN=0
+    VERBOSE=0
+    TEST=0
+    HEX_CHOICE=
+    VM_CHOICE=
+    NO_HEX=" "
+    NO_VM=" "
+
+    while [ $# -ne 0 ]; do
+        case "$1" in
+            --dev) DEV=1; shift ;;
+            --strict) STRICT=1; shift ;;
+            --clean) CLEAN=1; shift ;;
+            --verbose) VERBOSE=1; shift ;;
+            --test) TEST=1; shift ;;
+            --hex) HEX_CHOICE="$2"; shift; shift ;;
+            --vm) VM_CHOICE="$2"; shift; shift ;;
+            --help) usage ; exit 0 ;;
+
+            # keeping these as undocumented options mostly for testing purposes
+            --no-hex) NO_HEX="$NO_HEX$2 "; shift; shift ;;
+            --no-vm) NO_VM="$NO_VM$2 "; shift; shift ;;
+
+            *)
+                logi "ERROR: Invalid option: $1"
+                usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # set preferred tools for --dev
+    if [ $STRICT -eq 1 ] && [ $DEV -eq 1 ]; then
+        logi "ERROR: --strict and --dev are incompatible."
+        exit 1
+    fi
+    if [ $DEV -eq 1 ] && [ "$HEX_CHOICE" = "" ]; then
+        HEX_CHOICE=c89
+        logi "Choosing hex tool $HEX_CHOICE for development due to --dev"
+    fi
+    if [ $DEV -eq 1 ] && [ "$VM_CHOICE" = "" ]; then
+        VM_CHOICE=c-debugger
+        logi "Choosing vm $VM_CHOICE for development due to --dev"
+    fi
+
+    # some other strict warnings
+    if [ $STRICT -eq 1 ] && [ "$HEX_CHOICE" = "" ]; then
+        logi "WARNING: --hex overrides --strict."
+    fi
+    if [ $STRICT -eq 1 ] && [ "$VM_CHOICE" = "" ]; then
+        logi "WARNING: --vm overrides --strict."
+    fi
+}
+
+create_paths() {
+    if ! [ -e core ]; then ln -s "$ROOT/core" .; fi
+    if ! [ -e extra ]; then ln -s "$ROOT/extra" .; fi
+    if ! [ -e platform ]; then ln -s "$ROOT/platform" .; fi
+    if ! [ -e "test" ]; then ln -s "$ROOT/test" .; fi  # vim syntax highlighting gets confused by test keyword
+
+    if [ $CLEAN -eq 1 ]; then
+        rm -rf build
+    fi
+
+    mkdir -p \
+        build/posix/bin \
+        build/posix/share/onramp/platform
+    (cd build/posix/share/onramp; ln -sf ../../../output/bin .)
+    (cd build/posix/share/onramp; ln -sf ../../../output/lib .)
+    (cd build/posix/share/onramp; ln -sf ../../../output/include .)
+}
+
+test_hex() {
+    logd "Testing hex tool $1..."
+
+    if ! build/posix/bin/onramphex test/hex/tests/hello-world-readme.ohx -o test-hex-$1.out >>config.log 2>&1; then
+        rm -f test-hex-$1.out
+        logd "Couldn't run hex tool $1."
+        return 1;
+    fi
+
+    if [ "$(cat test-hex-$1.out)" != "Hello world!" ]; then
+        logd "Hex tool $1 produced incorrect results. Output:"
+        logd ---
+        cat test-hex-$1.out >>config.log
+        logd ---
+        rm -f test-hex-$1.out
+        return 1;
+    fi
+
+    rm -f test-hex-$1.out
+}
+
+try_hex() {
+    case "$NO_HEX" in
+        *" $1 "*)
+            logi "Skipping hex tool $1 due to --no-hex."
+            return 1
+    esac
+
+    logd "Checking hex tool $1..."
+
+    # Make sure this is a valid tool
+    if ! [ -e "$ROOT/platform/hex/$1" ]; then
+        logd "No such hex tool: $1"
+        return 1
+    fi
+    if ! [ -e "$ROOT/platform/hex/$1/configure.sh" ]; then
+        # This should only happen if the user has requested a tool that doesn't
+        # have POSIX support.
+        logd "$1 is not supported on POSIX."
+        return 1
+    fi
+
+    # Build (if necessary) and install the tool
+    if ! "$ROOT/platform/hex/$1/configure.sh" >>config.log 2>&1; then
+        logd "Couldn't configure hex tool $1."
+        rm -f build/posix/bin/onramphex
+        return 1
+    fi
+
+    # Make sure it works
+    if ! test_hex $1; then
+        logd "Hex tool $1 failed test."
+        rm -f build/posix/bin/onramphex
+        return 1
+    fi
+
+    logi "Configured hex tool: $1"
+}
+
+setup_hex() {
+    logi "Configuring hex tool..."
+
+    if [ "$HEX_CHOICE" != "" ]; then
+
+        # Manual configuration
+        if [ "$HEX_CHOICE" = "manual" ]; then
+            if ! test_hex manual; then
+                logi "ERROR: Manually configured hex tool failed test."
+            fi
+            return
+        fi
+
+        # Explicit hex tool selection
+        if ! try_hex "$HEX_CHOICE"; then
+            logi "ERROR: Failed to configure the requested hex tool."
+            exit 1
+        fi
+        return
+    fi
+
+    if try_hex x86_64-linux; then return; fi
+    if try_hex sh; then return; fi
+    if try_hex sh-alt; then return; fi
+
+    if [ $STRICT -eq 1 ]; then
+        logd "There are no other --strict hex tools available."
+        logi "ERROR: --strict was requested but a minimal dependency hex tool was not found."
+        exit 1
+    fi
+
+    if try_hex python; then return; fi
+    if try_hex python-golf; then return; fi
+    if try_hex c89; then return; fi
+    if try_hex xxd; then return; fi
+
+    logi "ERROR: A working hex tool was not found."
+    exit 1
+}
+
+test_vm() {
+    # Make sure it can run the test without crashing
+    if ! build/posix/bin/onrampvm build/test/hello.oe >test-vm-$1.out 2>>config.log; then
+        rm -f test-vm-$1.out
+        logd "Couldn't run VM $1."
+        return 1;
+    fi
+
+    # Make sure it matches the expected output
+    if [ "$(cat test-vm-$1.out)" != "Hello world!" ]; then
+        logd "VM $1 produced incorrect results. Output:"
+        logd ---
+        cat test-vm-$1.out >>config.log
+        logd ---
+        rm -f test-vm-$1.out
+        return 1;
+    fi
+
+    rm -f test-vm-$1.out
+}
+
+try_vm() {
+    case "$NO_VM" in
+        *" $1 "*)
+            logi "Skipping VM $1 due to --no-vm."
+            return 1
+    esac
+
+    logd "Checking VM $1..."
+
+    # Make sure this is a valid tool
+    if ! [ -e "$ROOT/platform/vm/$1" ]; then
+        logd "No such VM: $1"
+        return 1
+    fi
+    if ! [ -e "$ROOT/platform/vm/$1/configure.sh" ]; then
+        # This should only happen if the user has requested a tool that doesn't
+        # have POSIX support.
+        logd "$1 is not supported on POSIX."
+        return 1
+    fi
+
+    # Build (if necessary) and install the tool
+    if ! "$ROOT/platform/vm/$1/configure.sh" >>config.log 2>&1; then
+        logd "Couldn't configure VM $1."
+        rm -f build/posix/bin/onrampvm
+        return 1
+    fi
+
+    # Make sure it works
+    if ! test_vm $1; then
+        logd "VM $1 failed test."
+        rm -f build/posix/bin/onrampvm
+        return 1
+    fi
+
+    logi "Configured VM: $1"
+}
+
+setup_vm() {
+    # To test the VM we'll run a simple Hello World program. (We avoid using a
+    # large program like vminfo because the hex tool may be slow.)
+    logd "Hexing VM test program..."
+    mkdir -p build/test
+    build/posix/bin/onramphex test/vm/io/hello.oe.ohx -o build/test/hello.oe >>config.log 2>&1
+
+    logi "Configuring VM..."
+
+    if [ "$VM_CHOICE" != "" ]; then
+
+        # Manual configuration
+        if [ "$VM_CHOICE" = "manual" ]; then
+            if ! test_vm manual; then
+                logi "ERROR: Manually configured VM failed test."
+            fi
+            return
+        fi
+
+        # Explicit vm tool selection
+        if ! try_vm "$VM_CHOICE"; then
+            logi "ERROR: Failed to configure the requested VM."
+            exit 1
+        fi
+        return
+    fi
+
+    if try_vm x86_64-linux; then return; fi
+
+    if [ $STRICT -eq 1 ]; then
+        logd "There are no other --strict VMs available."
+        logi "ERROR: --strict was requested but a minimal dependency VM was not found."
+        exit 1
+    fi
+
+    if try_vm c89; then return; fi
+    if try_vm c-debugger; then return; fi
+    if try_vm python; then return; fi
+
+    logi "ERROR: A working VM was not found."
+    exit 1
+}
+
+setup_misc() {
+
+    # Hex our Onramp bytecode hex tool
+    echo "Hexing hex/onramp..."
+    mkdir -p build/intermediate/hex-0-onramp
+    build/posix/bin/onramphex core/hex/0-onramp/hex.oe.ohx -o build/intermediate/hex-0-onramp/hex.oe
+
+    # Hex our Onramp shell (with our bytecode tool because it is much faster
+    # than the shell hex tool)
+    echo "Hexing sh..."
+    mkdir -p build/intermediate/sh
+    build/posix/bin/onrampvm build/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o build/intermediate/sh/sh.oe
+
+    # copy POSIX wrappers into place
+    cp platform/cc/posix/onrampcc build/posix/bin
+    cp platform/cc/posix/onrampar build/posix/bin
+    cp platform/cc/posix/onramphex build/posix/bin
+    cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
+
+    # generate build script
+    echo '#!/bin/sh' >build.sh
+    echo "# This Onramp build script is generated by $0" >>build.sh
+    if [ $TEST -eq 1 ]; then
+        echo 'test/test-bootstrap.sh' >>build.sh
+    else
+        echo 'build/posix/bin/onrampvm build/intermediate/sh/sh.oe core/build.sh' >>build.sh
+        echo 'build/posix/bin/onrampvm build/intermediate/sh/sh.oe extra/build.sh' >>build.sh
+    fi
+    echo 'echo' >> build.sh
+    echo 'echo "Build complete."' >> build.sh
+    chmod +x build.sh
+    logi "Generated build.sh"
+}
+
+go() {
+    setup_log
+    parse_options "$@"
+    create_paths
+    setup_hex
+    setup_vm
+    setup_misc
+    logi 'Configuration complete. Run `./build.sh` to build Onramp.'
+}
+
+go "$@"
