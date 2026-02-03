@@ -56,6 +56,7 @@ Options:
     --test           Run all tests during bootstrap process
     --verbose        Print more information
     --clean          Delete all intermediate build results
+    --distclean      Don't configure; delete all generated configure files
 
 The directories in platform/hex/ and platform/vm/ are the names of tools. Only
 those tools that support POSIX platforms can be built by this script.
@@ -86,7 +87,8 @@ logd() {
 
 setup_log() {
     if [ -e config.log ]; then
-        cat config.log >> config.log.hist
+        echo '---------------' >> config.log.history
+        cat config.log >> config.log.history
         rm -f config.log
     fi
     touch config.log
@@ -96,6 +98,7 @@ parse_options() {
     DEV=0
     STRICT=0
     CLEAN=0
+    DISTCLEAN=0
     VERBOSE=0
     TEST=0
     HEX_CHOICE=
@@ -108,6 +111,7 @@ parse_options() {
             --dev) DEV=1; shift ;;
             --strict) STRICT=1; shift ;;
             --clean) CLEAN=1; shift ;;
+            --distclean) DISTCLEAN=1; shift ;;
             --verbose) VERBOSE=1; shift ;;
             --test) TEST=1; shift ;;
             --hex) HEX_CHOICE="$2"; shift; shift ;;
@@ -145,6 +149,17 @@ parse_options() {
     if [ $STRICT -eq 1 ] && [ $DEV -eq 1 ]; then
         logi "ERROR: --strict and --dev are incompatible."
         exit 1
+    fi
+
+    # on --distclean we ignore all other options (after checking validity.)
+    if [ $DISTCLEAN -eq 1 ]; then
+        DISTCLEAN_DIRS=build
+        DISTCLEAN_FILES="config.log config.log.history build.sh install.sh"
+        echo rm -rf $DISTCLEAN_DIRS
+        rm -rf $DISTCLEAN_DIRS
+        echo rm -f $DISTCLEAN_FILES
+        rm -f $DISTCLEAN_FILES
+        exit 0
     fi
 
     # set preferred tools for --dev

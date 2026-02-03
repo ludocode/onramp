@@ -3,7 +3,7 @@
 vgcore.*
 /.ninja_log
 /config.log
-/config.log.hist
+/config.log.history
 /test-*.out
 /build.sh
 /install.sh
