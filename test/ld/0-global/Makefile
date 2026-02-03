@@ -40,7 +40,7 @@ $(VM): FORCE
 	@(make -C $(ROOT)/platform/vm/c-debugger build)
 
 $(HEX): FORCE
-	$(ROOT)/platform/hex/c89/build.sh
+	( cd $(ROOT); platform/hex/c89/build.sh )
 
 $(OUT)/ld.oe: $(SRC)/ld.oe.ohx Makefile $(HEX)
 	@rm -f $@
