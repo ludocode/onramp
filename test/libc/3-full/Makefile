@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2024-2025 Fraser Heavy Software
+# Copyright (c) 2024-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -106,7 +106,8 @@ CPPFLAGS += \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libc/common/src \
 		-include $(ROOT)/test/portability.h \
-		-include __onramp/__predef.h
+		-include __onramp/__predef.h \
+		$(CFLAGS)
 
 all: build test FORCE
 FORCE:
