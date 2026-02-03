@@ -6,3 +6,4 @@ vgcore.*
 /config.log.hist
 /test-*.out
 /build.sh
+/install.sh

@@ -4,7 +4,7 @@ This guide explains how to build and configure Onramp.
 
 The Onramp bootstrap process is platform-independent, but it requires a platform-specific Onramp VM and hex tool to be configured first.
 
-Scripts exists for automatically building Onramp on certain hosted platforms. If you're not using one of the supported platforms, skip ahead to the "Manual Hosted Setup" section.
+Scripts exist for automatically building Onramp on certain hosted platforms. If you're not using one of the supported platforms, skip ahead to the "Manual Hosted Setup" section.
 
 
 
