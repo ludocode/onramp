@@ -35,7 +35,7 @@ if [ "$(uname -m)" != "x86_64" ] || [ "$(uname -s)" != "Linux" ]; then
     exit 1
 fi
 
-mkdir -p build/posix/share/onramp/platform
-build/posix/bin/onramphex platform/vm/x86_64-linux/vm.ohx -o build/posix/share/onramp/platform/vm-x86_64-linux
-chmod +x build/posix/share/onramp/platform/vm-x86_64-linux
-(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)
+mkdir -p output/posix/share/onramp/platform
+output/posix/bin/onramphex platform/vm/x86_64-linux/vm.ohx -o output/posix/share/onramp/platform/vm-x86_64-linux
+chmod +x output/posix/share/onramp/platform/vm-x86_64-linux
+(cd output/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)

@@ -57,7 +57,7 @@ cd "$(dirname "$0")/../.."
 # --dev because most of them are faster than the POSIX shell tool and some
 # provide better error messages.
 #
-# The hex tool is not actually installed into a standard place in build/posix/
+# The hex tool is not actually installed into a standard place in output/posix/
 # because it's not necessary; the bootstrap process builds a hex tool that runs
 # on the Onramp VM. Compiled hex tools are built into their own directories
 # under build/test/ and intepreted hex tools are run directly from the source.
@@ -219,10 +219,10 @@ choose_hex() {
 #######################################################
 
 # Each function builds a VM (if necessary), runs a simple test to make sure it
-# works, and copies it into `build/posix/`.
+# works, and copies it into `output/posix/`.
 #
-# The VM is copied into `build/posix/share/onramp/platform/` and a symlink or
-# wrapper is provided at `build/posix/bin/onrampvm`. This is the VM that is
+# The VM is copied into `output/posix/share/onramp/platform/` and a symlink or
+# wrapper is provided at `output/posix/bin/onrampvm`. This is the VM that is
 # used for the bootstrap process and for running compiled user programs, and
 # it's the VM that is ultimately installed by the install script.
 #
@@ -232,7 +232,7 @@ choose_hex() {
 #
 # In dev mode we use the debugger.
 
-VM_PATH=build/posix/bin/onrampvm
+VM_PATH=output/posix/bin/onrampvm
 VM_TEST=build/test/hello.oe
 VM_RESULT="Hello world!"
 
@@ -250,8 +250,8 @@ setup_vm_c89() {
             ( CFLAGS= platform/vm/c89/build.sh 2>&1 >/dev/null ); then
         if [ "$(build/test/vm-c89/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using c89/ VM"
-            cp build/test/vm-c89/vm build/posix/share/onramp/platform/vm-c89
-            (cd build/posix/bin; ln -s ../share/onramp/platform/vm-c89 onrampvm)
+            cp build/test/vm-c89/vm output/posix/share/onramp/platform/vm-c89
+            (cd output/posix/bin; ln -s ../share/onramp/platform/vm-c89 onrampvm)
         fi
     fi
 }
@@ -262,8 +262,8 @@ setup_vm_c_debugger() {
     if make -C platform/vm/c-debugger build 2>&1 >/dev/null; then
         if [ "$(build/test/vm-c-debugger/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using c-debugger/ VM"
-            cp build/test/vm-c-debugger/vm build/posix/share/onramp/platform/vm-c-debugger
-            (cd build/posix/bin; ln -s ../share/onramp/platform/vm-c-debugger onrampvm)
+            cp build/test/vm-c-debugger/vm output/posix/share/onramp/platform/vm-c-debugger
+            (cd output/posix/bin; ln -s ../share/onramp/platform/vm-c-debugger onrampvm)
         fi
     fi
 }
@@ -276,8 +276,8 @@ setup_vm_binary() {
         chmod +x output/intermediate/vm-$1/vm
         if [ "$(output/intermediate/vm-$1/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using $1/ VM"
-            cp output/intermediate/vm-$1/vm build/posix/share/onramp/platform/vm-$1
-            (cd build/posix/bin; ln -s ../share/onramp/platform/vm-$1 onrampvm)
+            cp output/intermediate/vm-$1/vm output/posix/share/onramp/platform/vm-$1
+            (cd output/posix/bin; ln -s ../share/onramp/platform/vm-$1 onrampvm)
         fi
     fi
 }
@@ -302,8 +302,8 @@ setup_vm_python() {
         echo "WARNING: The Python VM is very slow. It will take hours to"
         echo "         complete the bootstrap process."
         echo "Using python/ VM"
-        cp platform/vm/python/vm.py build/posix/share/onramp/platform/vm.py
-        (cd build/posix/bin; ln -s ../share/onramp/platform/vm.py onrampvm)
+        cp platform/vm/python/vm.py output/posix/share/onramp/platform/vm.py
+        (cd output/posix/bin; ln -s ../share/onramp/platform/vm.py onrampvm)
     fi
 }
 
@@ -314,8 +314,8 @@ setup_vm_sh() {
         echo "         take months to complete the bootstrap process and will probably"
         echo "         fail due to missing features. Do not use this."
         echo "Using sh/ VM"
-        cp platform/vm/sh/vm.sh build/posix/share/onramp/platform/vm.sh
-        (cd build/posix/bin; ln -s ../share/onramp/platform/vm.sh onrampvm)
+        cp platform/vm/sh/vm.sh output/posix/share/onramp/platform/vm.sh
+        (cd output/posix/bin; ln -s ../share/onramp/platform/vm.sh onrampvm)
     fi
 }
 
@@ -513,11 +513,11 @@ rm -rf build
 
 # Setup basic POSIX paths
 mkdir -p \
-    build/posix/bin \
-    build/posix/share/onramp/platform
-(cd build/posix/share/onramp; ln -sf ../../../output/bin .)
-(cd build/posix/share/onramp; ln -sf ../../../output/lib .)
-(cd build/posix/share/onramp; ln -sf ../../../output/include .)
+    output/posix/bin \
+    output/posix/share/onramp/platform
+(cd output/posix/share/onramp; ln -sf ../../../output/bin .)
+(cd output/posix/share/onramp; ln -sf ../../../output/lib .)
+(cd output/posix/share/onramp; ln -sf ../../../output/include .)
 
 # Setup the hex tool
 if [ "x$HEX_CHOICE" != "x" ]; then
@@ -539,7 +539,7 @@ else
 fi
 
 # Add the VM to our path
-export PATH="$(pwd)/build/posix/bin:$PATH"
+export PATH="$(pwd)/output/posix/bin:$PATH"
 
 # We need the hex tool inside the VM to get started. This needs to be converted
 # from the outside.
@@ -563,10 +563,10 @@ if [ $SETUP_ONLY -eq 0 ]; then
 fi
 
 # Lastly we copy the POSIX wrappers into place.
-cp platform/cc/posix/onrampcc build/posix/bin
-cp platform/cc/posix/onrampar build/posix/bin
-cp platform/cc/posix/onramphex build/posix/bin
-cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
+cp platform/cc/posix/onrampcc output/posix/bin
+cp platform/cc/posix/onrampar output/posix/bin
+cp platform/cc/posix/onramphex output/posix/bin
+cp platform/cc/posix/wrap-header output/posix/share/onramp/platform
 
 echo
 if [ $SETUP_ONLY -eq 0 ]; then

@@ -90,7 +90,7 @@ If you don't want to install Onramp, you can instead use it in-place by sourcing
 . scripts/posix/env.sh
 ```
 
-This adds the build location (`build/posix/bin/`) to your PATH. You'll need this location on your PATH to run any of the compiled programs because they depend on `onrampvm`.
+This adds the build location (`output/posix/bin/`) to your PATH. You'll need this location on your PATH to run any of the compiled programs because they depend on `onrampvm`.
 
 
 

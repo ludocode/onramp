@@ -67,9 +67,9 @@ parse_options() {
 
 check_configure() {
     FILES="
-        build/posix/bin/onrampvm
-        build/posix/bin/onramphex
-        build/posix/share/onramp/platform/wrap-header
+        output/posix/bin/onrampvm
+        output/posix/bin/onramphex
+        output/posix/share/onramp/platform/wrap-header
         output/intermediate/sh/sh.oe
         output/intermediate/hex-0-onramp/hex.oe
     "
@@ -87,8 +87,8 @@ build() {
         . scripts/posix/env.sh
         test/test-bootstrap.sh
     else
-        build/posix/bin/onrampvm output/intermediate/sh/sh.oe core/build.sh
-        build/posix/bin/onrampvm output/intermediate/sh/sh.oe extra/build.sh
+        output/posix/bin/onrampvm output/intermediate/sh/sh.oe core/build.sh
+        output/posix/bin/onrampvm output/intermediate/sh/sh.oe extra/build.sh
     fi
 }
 

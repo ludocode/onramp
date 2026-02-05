@@ -63,8 +63,8 @@ those tools that support POSIX platforms can be built by this script.
 
 Pass "manual" as the hex tool or VM if you have configured it manually before
 running this script. The hex tool and VM must be installed at:
-    build/posix/bin/onramphex
-    build/posix/bin/onrampvm
+    output/posix/bin/onramphex
+    output/posix/bin/onrampvm
 
 See the Setup Guide for details:
     docs/setup-guide.md
@@ -190,17 +190,17 @@ create_paths() {
     fi
 
     mkdir -p \
-        build/posix/bin \
-        build/posix/share/onramp/platform
-    (cd build/posix/share/onramp; ln -sf ../../../output/bin .)
-    (cd build/posix/share/onramp; ln -sf ../../../output/lib .)
-    (cd build/posix/share/onramp; ln -sf ../../../output/include .)
+        output/posix/bin \
+        output/posix/share/onramp/platform
+    (cd output/posix/share/onramp; ln -sf ../../../output/bin .)
+    (cd output/posix/share/onramp; ln -sf ../../../output/lib .)
+    (cd output/posix/share/onramp; ln -sf ../../../output/include .)
 }
 
 test_hex() {
     logd "Testing hex tool $1..."
 
-    if ! build/posix/bin/onramphex test/hex/tests/hello-world-readme.ohx -o test-hex-$1.out >>config.log 2>&1; then
+    if ! output/posix/bin/onramphex test/hex/tests/hello-world-readme.ohx -o test-hex-$1.out >>config.log 2>&1; then
         rm -f test-hex-$1.out
         logd "Couldn't run hex tool $1."
         return 1;
@@ -242,14 +242,14 @@ try_hex() {
     # Build (if necessary) and install the tool
     if ! "$ROOT/platform/hex/$1/configure.sh" >>config.log 2>&1; then
         logd "Couldn't configure hex tool $1."
-        rm -f build/posix/bin/onramphex
+        rm -f output/posix/bin/onramphex
         return 1
     fi
 
     # Make sure it works
     if ! test_hex $1; then
         logd "Hex tool $1 failed test."
-        rm -f build/posix/bin/onramphex
+        rm -f output/posix/bin/onramphex
         return 1
     fi
 
@@ -298,7 +298,7 @@ setup_hex() {
 
 test_vm() {
     # Make sure it can run the test without crashing
-    if ! build/posix/bin/onrampvm build/test/hello.oe >test-vm-$1.out 2>>config.log; then
+    if ! output/posix/bin/onrampvm build/test/hello.oe >test-vm-$1.out 2>>config.log; then
         rm -f test-vm-$1.out
         logd "Couldn't run VM $1."
         return 1;
@@ -341,14 +341,14 @@ try_vm() {
     # Build (if necessary) and install the tool
     if ! "$ROOT/platform/vm/$1/configure.sh" >>config.log 2>&1; then
         logd "Couldn't configure VM $1."
-        rm -f build/posix/bin/onrampvm
+        rm -f output/posix/bin/onrampvm
         return 1
     fi
 
     # Make sure it works
     if ! test_vm $1; then
         logd "VM $1 failed test."
-        rm -f build/posix/bin/onrampvm
+        rm -f output/posix/bin/onrampvm
         return 1
     fi
 
@@ -360,7 +360,7 @@ setup_vm() {
     # large program like vminfo because the hex tool may be slow.)
     logd "Hexing VM test program..."
     mkdir -p build/test
-    build/posix/bin/onramphex test/vm/io/hello.oe.ohx -o build/test/hello.oe >>config.log 2>&1
+    output/posix/bin/onramphex test/vm/io/hello.oe.ohx -o build/test/hello.oe >>config.log 2>&1
 
     logi "Configuring VM..."
 
@@ -403,19 +403,19 @@ setup_misc() {
     # Hex our Onramp bytecode hex tool
     echo "Hexing hex/onramp..."
     mkdir -p output/intermediate/hex-0-onramp
-    build/posix/bin/onramphex core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-0-onramp/hex.oe
+    output/posix/bin/onramphex core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-0-onramp/hex.oe
 
     # Hex our Onramp shell (with our bytecode tool because it is much faster
     # than the shell hex tool)
     echo "Hexing sh..."
     mkdir -p output/intermediate/sh
-    build/posix/bin/onrampvm output/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/intermediate/sh/sh.oe
+    output/posix/bin/onrampvm output/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/intermediate/sh/sh.oe
 
     # copy POSIX wrappers into place (replacing onramphex with our own)
-    cp platform/cc/posix/onrampcc build/posix/bin
-    cp platform/cc/posix/onrampar build/posix/bin
-    cp platform/cc/posix/onramphex build/posix/bin
-    cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
+    cp platform/cc/posix/onrampcc output/posix/bin
+    cp platform/cc/posix/onrampar output/posix/bin
+    cp platform/cc/posix/onramphex output/posix/bin
+    cp platform/cc/posix/wrap-header output/posix/share/onramp/platform
 
     # generate build script
     echo '#!/bin/sh' >build.sh

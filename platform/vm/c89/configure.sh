@@ -28,6 +28,6 @@
 
 set -e
 "$(dirname "$0")"/build.sh
-mkdir -p build/posix/share/onramp/platform
-cp build/test/vm-c89/vm build/posix/share/onramp/platform/vm-c89
-(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-c89 onrampvm)
+mkdir -p output/posix/share/onramp/platform
+cp build/test/vm-c89/vm output/posix/share/onramp/platform/vm-c89
+(cd output/posix/bin; ln -sf ../share/onramp/platform/vm-c89 onrampvm)

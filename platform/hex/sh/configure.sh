@@ -34,6 +34,6 @@ if ! [ -e platform/hex/sh/hex.sh ]; then
     exit 1
 fi
 
-mkdir -p build/posix/share/onramp/platform
-cp platform/hex/sh/hex.sh build/posix/share/onramp/platform/
-(cd build/posix/bin; ln -sf ../share/onramp/platform/hex.sh onramphex)
+mkdir -p output/posix/share/onramp/platform
+cp platform/hex/sh/hex.sh output/posix/share/onramp/platform/
+(cd output/posix/bin; ln -sf ../share/onramp/platform/hex.sh onramphex)

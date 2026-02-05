@@ -48,7 +48,7 @@ if ! [ -e platform/hex/x86_64-linux/hex.ohx ]; then
     exit 1
 fi
 
-mkdir -p build/posix/share/onramp/platform
-platform/hex/sh/hex.sh platform/hex/x86_64-linux/hex.ohx -o build/posix/share/onramp/platform/hex-x86_64-linux
-chmod +x build/posix/share/onramp/platform/hex-x86_64-linux
-(cd build/posix/bin; ln -sf ../share/onramp/platform/hex-x86_64-linux onramphex)
+mkdir -p output/posix/share/onramp/platform
+platform/hex/sh/hex.sh platform/hex/x86_64-linux/hex.ohx -o output/posix/share/onramp/platform/hex-x86_64-linux
+chmod +x output/posix/share/onramp/platform/hex-x86_64-linux
+(cd output/posix/bin; ln -sf ../share/onramp/platform/hex-x86_64-linux onramphex)

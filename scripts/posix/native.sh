@@ -51,20 +51,20 @@ rm -rf build
 
 # Setup basic POSIX paths
 mkdir -p \
-    build/posix/bin \
-    build/posix/share/onramp/platform
-(cd build/posix/share/onramp; ln -sf ../../../output/bin .)
-(cd build/posix/share/onramp; ln -sf ../../../output/lib .)
-(cd build/posix/share/onramp; ln -sf ../../../output/include .)
+    output/posix/bin \
+    output/posix/share/onramp/platform
+(cd output/posix/share/onramp; ln -sf ../../../output/bin .)
+(cd output/posix/share/onramp; ln -sf ../../../output/lib .)
+(cd output/posix/share/onramp; ln -sf ../../../output/include .)
 
 # Copy the POSIX cc wrapper into place and generate links for the other programs.
 # TODO we don't have a native archiver yet so we're using the onramp archiver and its wrapper.
-cp platform/cc/posix/wrap-header build/posix/share/onramp/platform
-cp platform/cc/posix/onrampcc-native build/posix/bin/onrampcc
-  cp platform/cc/posix/onrampar build/posix/bin
-  #(cd build/posix/bin; ln -sf ../../../output/bin/ar onrampar)
-(cd build/posix/bin; ln -sf ../../output/bin/hex onramphex)
-(cd build/posix/bin; ln -sf ../../output/bin/vm onrampvm)
+cp platform/cc/posix/wrap-header output/posix/share/onramp/platform
+cp platform/cc/posix/onrampcc-native output/posix/bin/onrampcc
+  cp platform/cc/posix/onrampar output/posix/bin
+  #(cd output/posix/bin; ln -sf ../../../output/bin/ar onrampar)
+(cd output/posix/bin; ln -sf ../../output/bin/hex onramphex)
+(cd output/posix/bin; ln -sf ../../output/bin/vm onrampvm)
 
 # Install headers
 core/libc/common/build.sh
@@ -120,7 +120,7 @@ rule link_native
  description = Linking \$out
 
 rule compile_onramp
- command = build/posix/bin/onrampcc $
+ command = output/posix/bin/onrampcc $
     -g $
     -c -O $
     -Icore/libc/common/src $
@@ -130,12 +130,12 @@ rule compile_onramp
  pool = onramp_pool
 
 rule archive_onramp
- command = build/posix/bin/onrampar rc \$out \$in
+ command = output/posix/bin/onrampar rc \$out \$in
  description = Archiving \$out
  pool = onramp_pool
 
 rule link_onramp
- command = build/posix/bin/onrampcc -g -o \$out \$in
+ command = output/posix/bin/onrampcc -g -o \$out \$in
  description = Compiling \$out
  pool = onramp_pool
 

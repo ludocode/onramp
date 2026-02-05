@@ -106,7 +106,7 @@ On POSIX systems, run the build script and put the results on your PATH.
 
 ```sh
 scripts/posix/build.sh
-export PATH=$PWD/build/posix/bin:$PATH
+export PATH=$PWD/output/posix/bin:$PATH
 ```
 
 That's it! You can now compile C programs with `onrampcc`.

@@ -27,6 +27,6 @@
 
 
 set -ev
-mkdir -p build/posix/share/onramp/platform
-cp platform/hex/xxd/hex.sh build/posix/share/onramp/platform/
-(cd build/posix/bin; ln -sf ../share/onramp/platform/hex.sh onramphex)
+mkdir -p output/posix/share/onramp/platform
+cp platform/hex/xxd/hex.sh output/posix/share/onramp/platform/
+(cd output/posix/bin; ln -sf ../share/onramp/platform/hex.sh onramphex)

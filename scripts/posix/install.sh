@@ -50,11 +50,11 @@ fi
 # (Unless --dev is specified, in which case we allow installing links even if
 # the compiler is not built yet)
 if [ $DEV -ne 1 ]; then
-    check_path build/posix/bin/onrampvm
-    check_path build/posix/bin/onrampcc
-    check_path build/posix/bin/onrampar
-    check_path build/posix/bin/onramphex
-    check_path build/posix/share/onramp
+    check_path output/posix/bin/onrampvm
+    check_path output/posix/bin/onrampcc
+    check_path output/posix/bin/onrampar
+    check_path output/posix/bin/onramphex
+    check_path output/posix/share/onramp
     check_path output/final/bin/cc*
     check_path output/final/bin/cci*
     check_path output/final/bin/ar*
@@ -77,26 +77,26 @@ mkdir -p $HOME/.local/bin
 if [ $DEV -eq 1 ]; then
 
     # Link share/
-    ln -sf "$(pwd)/build/posix/share/onramp" $HOME/.local/share/onramp
-    echo "Linked ~/.local/share/onramp/ -> build/posix/share/onramp/"
+    ln -sf "$(pwd)/output/posix/share/onramp" $HOME/.local/share/onramp
+    echo "Linked ~/.local/share/onramp/ -> output/posix/share/onramp/"
 
     # Link bin/
-    ln -sf "$(pwd)/build/posix/bin/onramphex" $HOME/.local/bin/onramphex  ; echo "Linked ~/.local/bin/onramphex -> build/posix/bin/onramphex"
-    ln -sf "$(pwd)/build/posix/bin/onrampvm"  $HOME/.local/bin/onrampvm   ; echo "Linked ~/.local/bin/onrampvm -> build/posix/bin/onrampvm"
-    ln -sf "$(pwd)/build/posix/bin/onrampcc"  $HOME/.local/bin/onrampcc   ; echo "Linked ~/.local/bin/onrampcc -> build/posix/bin/onrampcc"
-    ln -sf "$(pwd)/build/posix/bin/onrampar"  $HOME/.local/bin/onrampar   ; echo "Linked ~/.local/bin/onrampar -> build/posix/bin/onrampar"
+    ln -sf "$(pwd)/output/posix/bin/onramphex" $HOME/.local/bin/onramphex  ; echo "Linked ~/.local/bin/onramphex -> output/posix/bin/onramphex"
+    ln -sf "$(pwd)/output/posix/bin/onrampvm"  $HOME/.local/bin/onrampvm   ; echo "Linked ~/.local/bin/onrampvm -> output/posix/bin/onrampvm"
+    ln -sf "$(pwd)/output/posix/bin/onrampcc"  $HOME/.local/bin/onrampcc   ; echo "Linked ~/.local/bin/onrampcc -> output/posix/bin/onrampcc"
+    ln -sf "$(pwd)/output/posix/bin/onrampar"  $HOME/.local/bin/onrampar   ; echo "Linked ~/.local/bin/onrampar -> output/posix/bin/onrampar"
 
 else
 
     # Copy share/
-    cp -Lr build/posix/share/onramp $HOME/.local/share/onramp
+    cp -Lr output/posix/share/onramp $HOME/.local/share/onramp
     echo "Installed ~/.local/share/onramp/"
 
     # Copy bin/
-    cp build/posix/bin/onramphex $HOME/.local/bin/onramphex  ; echo "Installed ~/.local/bin/onramphex"
-    cp build/posix/bin/onrampvm  $HOME/.local/bin/onrampvm   ; echo "Installed ~/.local/bin/onrampvm"
-    cp build/posix/bin/onrampcc  $HOME/.local/bin/onrampcc   ; echo "Installed ~/.local/bin/onrampcc"
-    cp build/posix/bin/onrampar  $HOME/.local/bin/onrampar   ; echo "Installed ~/.local/bin/onrampar"
+    cp output/posix/bin/onramphex $HOME/.local/bin/onramphex  ; echo "Installed ~/.local/bin/onramphex"
+    cp output/posix/bin/onrampvm  $HOME/.local/bin/onrampvm   ; echo "Installed ~/.local/bin/onrampvm"
+    cp output/posix/bin/onrampcc  $HOME/.local/bin/onrampcc   ; echo "Installed ~/.local/bin/onrampcc"
+    cp output/posix/bin/onrampar  $HOME/.local/bin/onrampar   ; echo "Installed ~/.local/bin/onrampar"
 
 fi
 
