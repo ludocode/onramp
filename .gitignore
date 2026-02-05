@@ -1,4 +1,4 @@
-# normal build output, cleaned by ./configure --clean
+# normal build output, cleaned by ./configure.sh --clean
 /output/
 /config.log
 /config.log.history
