@@ -26,7 +26,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../local.mk
 
 ROOT=../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/cc
 SRC=$(ROOT)/core/cc

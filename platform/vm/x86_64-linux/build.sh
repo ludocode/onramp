@@ -30,8 +30,8 @@
 set -e
 
 # find a fast error-checking hex tool
-if [ -e build/test/hex-c89/hex ]; then
-    HEX=build/test/hex-c89/hex
+if [ -e output/test/hex-c89/hex ]; then
+    HEX=output/test/hex-c89/hex
 elif command -v python 1>/dev/null 2>/dev/null; then
     HEX="python platform/hex/python/hex.py"
 else
@@ -39,8 +39,8 @@ else
 fi
 
 # build
-mkdir -p build/test/vm-x86_64-linux
+mkdir -p output/test/vm-x86_64-linux
 echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
-$HEX platform/vm/x86_64-linux/vm.ohx -o build/test/vm-x86_64-linux/vm
-chmod +x build/test/vm-x86_64-linux/vm
-echo "Wrote: build/test/vm-x86_64-linux/vm"
+$HEX platform/vm/x86_64-linux/vm.ohx -o output/test/vm-x86_64-linux/vm
+chmod +x output/test/vm-x86_64-linux/vm
+echo "Wrote: output/test/vm-x86_64-linux/vm"

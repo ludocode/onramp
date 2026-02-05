@@ -29,7 +29,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic \
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 SRC1=$(ROOT)/core/libc/1-omc/src
 SRC2=$(ROOT)/core/libc/2-opc/src

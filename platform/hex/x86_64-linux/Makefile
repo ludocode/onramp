@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 SRC=$(ROOT)/core/hex/x86_64-linux
 OUT=$(BUILD)/hex-x86_64-linux

@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 -include ../../../test/local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/vm-c-debugger
 SRC=src
@@ -59,4 +59,4 @@ $(OUT)/vm: $(SRCS) Makefile
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 test: build FORCE
-	( cd $(ROOT) && test/vm/run.sh build/test/vm-c-debugger/vm )
+	( cd $(ROOT) && test/vm/run.sh output/test/vm-c-debugger/vm )

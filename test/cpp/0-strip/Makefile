@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 SRC=$(ROOT)/core/cpp/0-strip
 OUT=$(BUILD)/cpp-0-strip

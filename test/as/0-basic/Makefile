@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 SRC=$(ROOT)/core/as/0-basic
 OUT=$(BUILD)/as-0-basic

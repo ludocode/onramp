@@ -29,4 +29,4 @@
 set -e
 "$(dirname "$0")/build.sh"
 cd "$(dirname "$0")/../../.."
-test/hex/run.sh --lax build/test/hex-x86_64-linux/hex
+test/hex/run.sh --lax output/test/hex-x86_64-linux/hex

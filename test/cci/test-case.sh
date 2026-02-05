@@ -130,12 +130,12 @@ export ASAN_OPTIONS="$ASAN_OPTIONS:exitcode=125"
 # Options
 ###########################
 
-CPP=build/test/cpp-2-full/cpp
-CCI=build/test/cci-2-full/cci
+CPP=output/test/cpp-2-full/cpp
+CCI=output/test/cci-2-full/cci
 CG= #no default for now, eventually this will be cg/1
-AS=build/test/as-2-full/as
-LD=build/test/ld-2-full/ld
-LIBC=build/test/libc-3-full/libc.oa
+AS=output/test/as-2-full/as
+LD=output/test/ld-2-full/ld
+LIBC=output/test/libc-3-full/libc.oa
 CPP_ID=full
 CCI_ID=full
 CC=

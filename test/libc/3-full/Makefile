@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 BUILD1=$(BUILD)/libc-1-omc
 BUILD2=$(BUILD)/libc-2-opc

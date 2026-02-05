@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/libo-1-opc
 SRC=$(ROOT)/core/libo/1-opc/src

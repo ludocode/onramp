@@ -47,6 +47,6 @@ if [ "x$CFLAGS" = "x" ]; then
 fi
 
 # Compile it
-mkdir -p build/test/vm-c89
-$CC $CFLAGS platform/vm/c89/vm.c -o build/test/vm-c89/vm
-echo "Compiled: build/test/vm-c89/vm"
+mkdir -p output/test/vm-c89
+$CC $CFLAGS platform/vm/c89/vm.c -o output/test/vm-c89/vm
+echo "Compiled: output/test/vm-c89/vm"

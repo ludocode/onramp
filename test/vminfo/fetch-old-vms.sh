@@ -33,10 +33,10 @@
 set -e
 cd "$(dirname "$0")/../.."
 
-mkdir -p build/test/old-vms/
+mkdir -p output/test/old-vms/
 set -v
-git show 27f45a7c90d7260249d0a35d632dd4470f602c18:platform/vm/python/vm.py > build/test/old-vms/vm-0.py
-git show 28b484d562541db82c7fc72c4c6d8ee7ec8fe4d3:platform/vm/python/vm.py > build/test/old-vms/vm-1.py
-git show 4e6d998eb6b2e07acce3e241271506a74184cf4d:platform/vm/python/vm.py > build/test/old-vms/vm-2.py
-git show f314dbc3d1a9d6fe4e76b768490b250942895636:platform/vm/python/vm.py > build/test/old-vms/vm-3.py
-chmod +x build/test/old-vms/*.py
+git show 27f45a7c90d7260249d0a35d632dd4470f602c18:platform/vm/python/vm.py > output/test/old-vms/vm-0.py
+git show 28b484d562541db82c7fc72c4c6d8ee7ec8fe4d3:platform/vm/python/vm.py > output/test/old-vms/vm-1.py
+git show 4e6d998eb6b2e07acce3e241271506a74184cf4d:platform/vm/python/vm.py > output/test/old-vms/vm-2.py
+git show f314dbc3d1a9d6fe4e76b768490b250942895636:platform/vm/python/vm.py > output/test/old-vms/vm-3.py
+chmod +x output/test/old-vms/*.py

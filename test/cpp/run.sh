@@ -193,16 +193,16 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'|sort); do
 
         else
             # compile, assemble, link and run
-            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/cci-2-full/cci $OUTPUT -o $TEMP_OS &> /dev/null; then
+            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/cci-2-full/cci $OUTPUT -o $TEMP_OS &> /dev/null; then
                 echo "ERROR: $BASENAME failed to compile."
                 THIS_ERROR=1
             fi
-            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null; then
+            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null; then
                 echo "ERROR: $BASENAME failed to assemble."
                 THIS_ERROR=1
             fi
-            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld \
-                    -g $ROOT/build/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
+            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/ld-2-full/ld \
+                    -g $ROOT/output/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE &> /dev/null; then
                 echo "ERROR: $BASENAME failed to link."
                 THIS_ERROR=1
             fi
@@ -247,9 +247,9 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'|sort); do
         elif [ -e $BASENAME.i ]; then
             echo "    diff -u $BASENAME.i $TEMP_I"
         else
-            echo "    $ROOT/build/test/cci-2-full/cci $OUTPUT -o $TEMP_OS && \\"
-            echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
-            echo "    $ROOT/build/test/ld-2-full/ld -g $ROOT/build/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE && \\"
+            echo "    $ROOT/output/test/cci-2-full/cci $OUTPUT -o $TEMP_OS && \\"
+            echo "    $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
+            echo "    $ROOT/output/test/ld-2-full/ld -g $ROOT/output/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE && \\"
             echo "    onrampvm $TEMP_OE"
         fi
         TOTAL_ERRORS=$(( $TOTAL_ERRORS + 1 ))

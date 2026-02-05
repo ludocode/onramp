@@ -100,7 +100,7 @@ for TESTFILE in $FILES; do
 
     # preprocess
     PREPROCESSOR_ARGS="$PREPROCESSOR_OPTIONS $MACROS"
-    $ROOT/build/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I
+    $ROOT/output/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I
     if [ $? -ne 0 ]; then
         echo "ERROR: $BASENAME failed to preprocess."
         THIS_ERROR=1
@@ -108,7 +108,7 @@ for TESTFILE in $FILES; do
 
     # compile
     if [ $THIS_ERROR -ne 1 ]; then
-        $ROOT/build/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS #&> /dev/null
+        $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS #&> /dev/null
         if [ $? -ne 0 ]; then
             echo "ERROR: $BASENAME failed to compile."
             THIS_ERROR=1
@@ -117,7 +117,7 @@ for TESTFILE in $FILES; do
 
     # assemble
     if [ $THIS_ERROR -ne 1 ]; then
-        $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null
+        $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null
         if [ $? -ne 0 ]; then
             echo "ERROR: $BASENAME failed to assemble."
             THIS_ERROR=1
@@ -126,7 +126,7 @@ for TESTFILE in $FILES; do
 
     # link
     if [ $THIS_ERROR -ne 1 ]; then
-        $ROOT/build/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE &> /dev/null
+        $ROOT/output/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE &> /dev/null
         if [ $? -ne 0 ]; then
             echo "ERROR: $BASENAME failed to link."
             THIS_ERROR=1
@@ -173,10 +173,10 @@ for TESTFILE in $FILES; do
     if [ $THIS_ERROR -eq 1 ]; then
         echo "Commands:"
         echo "    make build && \\"
-        echo "    $ROOT/build/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
-        echo "    $ROOT/build/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS && \\"
-        echo "    $ROOT/build/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
-        echo "    $ROOT/build/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
+        echo "    $ROOT/output/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
+        echo "    $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS && \\"
+        echo "    $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
+        echo "    $ROOT/output/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE >$TEMP_STDOUT"
         if [ -e $BASENAME.stdout ]; then
             echo "    diff -q $BASENAME.stdout $TEMP_STDOUT"

@@ -21,7 +21,7 @@
 # SOFTWARE.
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 SRC=$(ROOT)/core/cci/0-omc/src
 OUT=$(BUILD)/cci-0-omc
@@ -109,8 +109,8 @@ test: build FORCE $(VM)
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
 			--nonstd \
-			--output build/test/cci-0-omc \
-			--cci build/test/cci-0-omc/cci.oe --cci-id omc )
+			--output output/test/cci-0-omc \
+			--cci output/test/cci-0-omc/cci.oe --cci-id omc )
 
 # TODO why does this cause rebuilding of assembly files?
 #.DELETE_ON_ERROR:

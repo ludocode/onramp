@@ -60,7 +60,7 @@ cd "$(dirname "$0")/../.."
 # The hex tool is not actually installed into a standard place in output/posix/
 # because it's not necessary; the bootstrap process builds a hex tool that runs
 # on the Onramp VM. Compiled hex tools are built into their own directories
-# under build/test/ and intepreted hex tools are run directly from the source.
+# under output/test/ and intepreted hex tools are run directly from the source.
 
 HEX=
 HEX_TEST_ARGS="test/hex/tests/hello-world-readme.ohx -o /dev/stdout"
@@ -73,9 +73,9 @@ setup_hex_c89() {
     echo "Checking c89/ VM"
     if ( platform/hex/c89/build.sh 2>&1 >/dev/null ) ||
             ( CFLAGS= platform/hex/c89/build.sh 2>&1 >/dev/null ); then
-        if [ "$(build/test/hex-c89/hex $HEX_TEST_ARGS 2>/dev/null)" = "$HEX_RESULT" ]; then
+        if [ "$(output/test/hex-c89/hex $HEX_TEST_ARGS 2>/dev/null)" = "$HEX_RESULT" ]; then
             echo "Using c89/ hex tool"
-            HEX=build/test/hex-c89/hex
+            HEX=output/test/hex-c89/hex
         fi
     fi
 }
@@ -233,12 +233,12 @@ choose_hex() {
 # In dev mode we use the debugger.
 
 VM_PATH=output/posix/bin/onrampvm
-VM_TEST=build/test/hello.oe
+VM_TEST=output/test/hello.oe
 VM_RESULT="Hello world!"
 
 init_vm() {
     rm -f $VM_TEST
-    mkdir -p build/test/
+    mkdir -p output/test/
     $HEX test/vm/io/hello.oe.ohx -o $VM_TEST
 }
 
@@ -248,9 +248,9 @@ setup_vm_c89() {
     echo "Checking c89/ VM"
     if ( platform/vm/c89/build.sh 2>&1 >/dev/null ) ||
             ( CFLAGS= platform/vm/c89/build.sh 2>&1 >/dev/null ); then
-        if [ "$(build/test/vm-c89/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
+        if [ "$(output/test/vm-c89/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using c89/ VM"
-            cp build/test/vm-c89/vm output/posix/share/onramp/platform/vm-c89
+            cp output/test/vm-c89/vm output/posix/share/onramp/platform/vm-c89
             (cd output/posix/bin; ln -s ../share/onramp/platform/vm-c89 onrampvm)
         fi
     fi
@@ -260,9 +260,9 @@ setup_vm_c_debugger() {
     # The debugger build relies on make.
     echo "Checking c-debugger/ VM"
     if make -C platform/vm/c-debugger build 2>&1 >/dev/null; then
-        if [ "$(build/test/vm-c-debugger/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
+        if [ "$(output/test/vm-c-debugger/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using c-debugger/ VM"
-            cp build/test/vm-c-debugger/vm output/posix/share/onramp/platform/vm-c-debugger
+            cp output/test/vm-c-debugger/vm output/posix/share/onramp/platform/vm-c-debugger
             (cd output/posix/bin; ln -s ../share/onramp/platform/vm-c-debugger onrampvm)
         fi
     fi

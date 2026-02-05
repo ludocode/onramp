@@ -72,7 +72,7 @@ ANY_ERROR=0
 # use libc/0 because early linker stages don't have the capacity to link the
 # later libcs.
 make -C $ROOT/test/libc/0-oo/ build
-LIBC=$ROOT/build/test/libc-0-oo/libc.oa
+LIBC=$ROOT/output/test/libc-0-oo/libc.oa
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"

@@ -300,7 +300,7 @@ setup_hex() {
 
 test_vm() {
     # Make sure it can run the test without crashing
-    if ! output/posix/bin/onrampvm build/test/hello.oe >test-vm-$1.out 2>>config.log; then
+    if ! output/posix/bin/onrampvm output/test/hello.oe >test-vm-$1.out 2>>config.log; then
         rm -f test-vm-$1.out
         logd "Couldn't run VM $1."
         return 1;
@@ -361,8 +361,8 @@ setup_vm() {
     # To test the VM we'll run a simple Hello World program. (We avoid using a
     # large program like vminfo because the hex tool may be slow.)
     logd "Hexing VM test program..."
-    mkdir -p build/test
-    output/posix/bin/onramphex test/vm/io/hello.oe.ohx -o build/test/hello.oe >>config.log 2>&1
+    mkdir -p output/test
+    output/posix/bin/onramphex test/vm/io/hello.oe.ohx -o output/test/hello.oe >>config.log 2>&1
 
     logi "Configuring VM..."
 

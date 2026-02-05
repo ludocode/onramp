@@ -47,6 +47,6 @@ if [ "x$CFLAGS" = "x" ]; then
 fi
 
 # Compile it
-mkdir -p build/test/hex-c89
-$CC $CFLAGS core/hex/1-c89/hex.c -o build/test/hex-c89/hex
-echo "Compiled: build/test/hex-c89/hex"
+mkdir -p output/test/hex-c89
+$CC $CFLAGS core/hex/1-c89/hex.c -o output/test/hex-c89/hex
+echo "Compiled: output/test/hex-c89/hex"

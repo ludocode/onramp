@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic -DDEBUG
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/cci-2-full
 SRC=$(ROOT)/core/cci/2-full/src
@@ -85,21 +85,21 @@ $(OUT)/cci: $(SRCS) Makefile
 test-0: build FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output build/test/cci-2-full \
-			--cci build/test/cci-2-full/cci --cci-id full )
+			--output output/test/cci-2-full \
+			--cci output/test/cci-2-full/cci --cci-id full )
 
 test-1: build FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
-			--output build/test/cci-2-full \
-			--cci build/test/cci-2-full/cci --cci-id full )
+			--output output/test/cci-2-full \
+			--cci output/test/cci-2-full/cci --cci-id full )
 
 test-2: build FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/2-full \
 			--nonstd \
-			--output build/test/cci-2-full \
-			--cci build/test/cci-2-full/cci --cci-id full )
+			--output output/test/cci-2-full \
+			--cci output/test/cci-2-full/cci --cci-id full )
 
 test: test-0 test-1 test-2 FORCE
 
@@ -124,23 +124,23 @@ build-ir: $(OUT)/cci-ir FORCE
 test-0-ir: build-ir FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output build/test/cci-2-full \
-			--cg build/test/cg-1-full/cg \
-			--cci build/test/cci-2-full/cci-ir --cci-id full )
+			--output output/test/cci-2-full \
+			--cg output/test/cg-1-full/cg \
+			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test-1-ir: build-ir FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
-			--output build/test/cci-2-full \
-			--cg build/test/cg-1-full/cg \
-			--cci build/test/cci-2-full/cci-ir --cci-id full )
+			--output output/test/cci-2-full \
+			--cg output/test/cg-1-full/cg \
+			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test-2-ir: build-ir FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/2-full \
 			--nonstd \
-			--output build/test/cci-2-full \
-			--cg build/test/cg-1-full/cg \
-			--cci build/test/cci-2-full/cci-ir --cci-id full )
+			--output output/test/cci-2-full \
+			--cg output/test/cg-1-full/cg \
+			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test-ir: test-0-ir test-1-ir test-2-ir FORCE

@@ -63,6 +63,6 @@ fi
 CFLAGS="$CFLAGS $EXTRA_CFLAGS -Icore/libo/1-opc/include"
 
 # Compile it
-mkdir -p build/test/vm-c-debugger
-$CC $CFLAGS $SRCS -o build/test/vm-c-debugger/vm
-echo "Compiled: build/test/vm-c-debugger/vm"
+mkdir -p output/test/vm-c-debugger
+$CC $CFLAGS $SRCS -o output/test/vm-c-debugger/vm
+echo "Compiled: output/test/vm-c-debugger/vm"

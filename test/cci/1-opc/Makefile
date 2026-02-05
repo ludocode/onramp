@@ -26,7 +26,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/cci-1-opc
 SRC=$(ROOT)/core/cci/1-opc/src
@@ -73,14 +73,14 @@ $(OUT)/cci: $(SRCS) Makefile
 test-0: build FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output build/test/cci-1-opc \
-			--cci build/test/cci-1-opc/cci --cci-id opc )
+			--output output/test/cci-1-opc \
+			--cci output/test/cci-1-opc/cci --cci-id opc )
 
 test-1: build FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
 			--nonstd \
-			--output build/test/cci-1-opc \
-			--cci build/test/cci-1-opc/cci --cci-id opc )
+			--output output/test/cci-1-opc \
+			--cci output/test/cci-1-opc/cci --cci-id opc )
 
 test: test-0 test-1 FORCE
