@@ -163,7 +163,7 @@ parse_options() {
         if [ -L extra ]; then rm_echo extra; fi
         if [ -L platform ]; then rm_echo platform; fi
         if [ -L "test" ]; then rm_echo "test"; fi
-        rm_echo -rf build
+        rm_echo -rf build output
         rm_echo -f config.log config.log.history build.sh install.sh
         exit 0
     fi

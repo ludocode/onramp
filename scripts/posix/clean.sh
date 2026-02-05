@@ -24,4 +24,4 @@
 
 cd "$(dirname "$0")/../.."
 set -v
-rm -rf build
+rm -rf build output

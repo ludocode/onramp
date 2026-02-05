@@ -1,4 +1,5 @@
 /build/
+/output/
 /test/local.mk
 vgcore.*
 /.ninja_log
