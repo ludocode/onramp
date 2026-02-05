@@ -39,7 +39,7 @@
 set -e
 cd "$(dirname "$0")/../.."
 
-DEST=build/build.ninja
+DEST=output/native.ninja
 
 
 
@@ -53,18 +53,18 @@ rm -rf build
 mkdir -p \
     output/posix/bin \
     output/posix/share/onramp/platform
-(cd output/posix/share/onramp; ln -sf ../../../output/bin .)
-(cd output/posix/share/onramp; ln -sf ../../../output/lib .)
-(cd output/posix/share/onramp; ln -sf ../../../output/include .)
+(cd output/posix/share/onramp; ln -sf ../../../final/bin .)
+(cd output/posix/share/onramp; ln -sf ../../../final/lib .)
+(cd output/posix/share/onramp; ln -sf ../../../final/include .)
 
 # Copy the POSIX cc wrapper into place and generate links for the other programs.
 # TODO we don't have a native archiver yet so we're using the onramp archiver and its wrapper.
 cp platform/cc/posix/wrap-header output/posix/share/onramp/platform
 cp platform/cc/posix/onrampcc-native output/posix/bin/onrampcc
   cp platform/cc/posix/onrampar output/posix/bin
-  #(cd output/posix/bin; ln -sf ../../../output/bin/ar onrampar)
-(cd output/posix/bin; ln -sf ../../output/bin/hex onramphex)
-(cd output/posix/bin; ln -sf ../../output/bin/vm onrampvm)
+  #(cd output/posix/bin; ln -sf ../../../final/bin/ar onrampar)
+(cd output/posix/bin; ln -sf ../../final/bin/hex onramphex)
+(cd output/posix/bin; ln -sf ../../final/bin/vm onrampvm)
 
 # Install headers
 core/libc/common/build.sh

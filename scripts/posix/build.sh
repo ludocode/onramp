@@ -515,9 +515,9 @@ rm -rf build
 mkdir -p \
     output/posix/bin \
     output/posix/share/onramp/platform
-(cd output/posix/share/onramp; ln -sf ../../../output/bin .)
-(cd output/posix/share/onramp; ln -sf ../../../output/lib .)
-(cd output/posix/share/onramp; ln -sf ../../../output/include .)
+(cd output/posix/share/onramp; ln -sf ../../../final/bin .)
+(cd output/posix/share/onramp; ln -sf ../../../final/lib .)
+(cd output/posix/share/onramp; ln -sf ../../../final/include .)
 
 # Setup the hex tool
 if [ "x$HEX_CHOICE" != "x" ]; then
