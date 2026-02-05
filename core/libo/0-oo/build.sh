@@ -23,13 +23,13 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/libo-0-oo
+mkdir -p output/intermediate/libo-0-oo
 
 echo
 echo === Building libo/0-oo
 
 echo Archiving libo/0-oo
-onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libo-0-oo/libo.oa \
+onrampvm output/intermediate/ar-0-cat/ar.oe \
+    rc output/intermediate/libo-0-oo/libo.oa \
         core/libo/0-oo/src/libo-error.oo \
         core/libo/0-oo/src/libo-util.oo

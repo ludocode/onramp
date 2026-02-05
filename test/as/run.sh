@@ -7,7 +7,7 @@
 #
 # e.g.
 #
-#     test/as/run.sh test/as/0-basic onrampvm build/intermediate/as-0-basic/as.oe
+#     test/as/run.sh test/as/0-basic onrampvm output/intermediate/as-0-basic/as.oe
 #
 # For each test case:
 #

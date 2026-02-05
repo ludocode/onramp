@@ -1,7 +1,7 @@
--with-cpp=build/intermediate/cpp-1-omc/cpp.oe
--with-cci=build/intermediate/cci-1-opc/cci.oe
--with-cg=build/intermediate/cg-0-asm/cg.oe
--with-as=build/intermediate/as-1-compound/as.oe
+-with-cpp=output/intermediate/cpp-1-omc/cpp.oe
+-with-cci=output/intermediate/cci-1-opc/cci.oe
+-with-cg=output/intermediate/cg-0-asm/cg.oe
+-with-as=output/intermediate/as-1-compound/as.oe
 -nostdinc
 -D__onramp_cci_opc__=1
 -D__onramp_libc_opc__=1

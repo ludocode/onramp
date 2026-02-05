@@ -23,18 +23,18 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/cpp-0-strip
+mkdir -p output/intermediate/cpp-0-strip
 
 echo
 echo === Building cpp/0-strip
 
 echo Assembling cpp/0-strip
-onrampvm build/intermediate/as-1-compound/as.oe \
-    core/cpp/0-strip/cpp.os -o build/intermediate/cpp-0-strip/cpp.oo
+onrampvm output/intermediate/as-1-compound/as.oe \
+    core/cpp/0-strip/cpp.os -o output/intermediate/cpp-0-strip/cpp.oo
 
 echo Linking cpp/0-strip
-onrampvm build/intermediate/ld-0-global/ld.oe \
-    build/intermediate/libc-0-oo/libc.oa \
-    build/intermediate/libo-0-oo/libo.oa \
-    build/intermediate/cpp-0-strip/cpp.oo \
-    -o build/intermediate/cpp-0-strip/cpp.oe
+onrampvm output/intermediate/ld-0-global/ld.oe \
+    output/intermediate/libc-0-oo/libc.oa \
+    output/intermediate/libo-0-oo/libo.oa \
+    output/intermediate/cpp-0-strip/cpp.oo \
+    -o output/intermediate/cpp-0-strip/cpp.oe

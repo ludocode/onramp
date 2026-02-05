@@ -23,67 +23,67 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/libo-1-opc-re
+mkdir -p output/intermediate/libo-1-opc-re
 
 echo
 echo === Rebuilding libo/1-opc
 
 echo Assembling libo/1-opc libo-data.os
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-data.os \
-    -o build/intermediate/libo-1-opc-re/libo-data.oo
+    -o output/intermediate/libo-1-opc-re/libo-data.oo
 
 echo Compiling libo/1-opc libo-error.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-error.c \
-    -o build/intermediate/libo-1-opc-re/libo-error.oo
+    -o output/intermediate/libo-1-opc-re/libo-error.oo
 
 echo Compiling libo/1-opc libo-reader.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-reader.c \
-    -o build/intermediate/libo-1-opc-re/libo-reader.oo
+    -o output/intermediate/libo-1-opc-re/libo-reader.oo
 
 echo Compiling libo/1-opc libo-string.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-string.c \
-    -o build/intermediate/libo-1-opc-re/libo-string.oo
+    -o output/intermediate/libo-1-opc-re/libo-string.oo
 
 echo Compiling libo/1-opc libo-table.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-table.c \
-    -o build/intermediate/libo-1-opc-re/libo-table.oo
+    -o output/intermediate/libo-1-opc-re/libo-table.oo
 
 echo Compiling libo/1-opc libo-unicode.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-unicode.c \
-    -o build/intermediate/libo-1-opc-re/libo-unicode.oo
+    -o output/intermediate/libo-1-opc-re/libo-unicode.oo
 
 echo Compiling libo/1-opc libo-util.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-util.c \
-    -o build/intermediate/libo-1-opc-re/libo-util.oo
+    -o output/intermediate/libo-1-opc-re/libo-util.oo
 
 echo Compiling libo/1-opc libo-vector.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-vector.c \
-    -o build/intermediate/libo-1-opc-re/libo-vector.oo
+    -o output/intermediate/libo-1-opc-re/libo-vector.oo
 
 echo Archiving libo/1-opc
-onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libo-1-opc-re/libo.oa \
-        build/intermediate/libo-1-opc-re/libo-data.oo \
-        build/intermediate/libo-1-opc-re/libo-error.oo \
-        build/intermediate/libo-1-opc-re/libo-reader.oo \
-        build/intermediate/libo-1-opc-re/libo-string.oo \
-        build/intermediate/libo-1-opc-re/libo-table.oo \
-        build/intermediate/libo-1-opc-re/libo-unicode.oo \
-        build/intermediate/libo-1-opc-re/libo-util.oo \
-        build/intermediate/libo-1-opc-re/libo-vector.oo
+onrampvm output/intermediate/ar-0-cat/ar.oe \
+    rc output/intermediate/libo-1-opc-re/libo.oa \
+        output/intermediate/libo-1-opc-re/libo-data.oo \
+        output/intermediate/libo-1-opc-re/libo-error.oo \
+        output/intermediate/libo-1-opc-re/libo-reader.oo \
+        output/intermediate/libo-1-opc-re/libo-string.oo \
+        output/intermediate/libo-1-opc-re/libo-table.oo \
+        output/intermediate/libo-1-opc-re/libo-unicode.oo \
+        output/intermediate/libo-1-opc-re/libo-util.oo \
+        output/intermediate/libo-1-opc-re/libo-vector.oo

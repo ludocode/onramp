@@ -7,7 +7,7 @@
 #
 # e.g.
 #
-#     test/ld/run.sh test/ld/0-global onrampvm build/intermediate/ld-0-global/ld.oe
+#     test/ld/run.sh test/ld/0-global onrampvm output/intermediate/ld-0-global/ld.oe
 #
 # - If a corresponding .fail file exists, the linker must return an error. Its
 # output is ignored.

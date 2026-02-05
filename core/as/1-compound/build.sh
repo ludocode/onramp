@@ -23,53 +23,53 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/as-1-compound
+mkdir -p output/intermediate/as-1-compound
 
 echo
 echo === Building as/1-compound
 
 echo Assembling as/1-compound emit.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/emit.os -o build/intermediate/as-1-compound/emit.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/emit.os -o output/intermediate/as-1-compound/emit.oo
 
 echo Assembling as/1-compound main.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/main.os -o build/intermediate/as-1-compound/main.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/main.os -o output/intermediate/as-1-compound/main.oo
 
 echo Assembling as/1-compound op_arithmetic.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/op_arithmetic.os -o build/intermediate/as-1-compound/op_arithmetic.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/op_arithmetic.os -o output/intermediate/as-1-compound/op_arithmetic.oo
 
 echo Assembling as/1-compound op_control.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/op_control.os -o build/intermediate/as-1-compound/op_control.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/op_control.os -o output/intermediate/as-1-compound/op_control.oo
 
 echo Assembling as/1-compound op_logic.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/op_logic.os -o build/intermediate/as-1-compound/op_logic.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/op_logic.os -o output/intermediate/as-1-compound/op_logic.oo
 
 echo Assembling as/1-compound op_memory.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/op_memory.os -o build/intermediate/as-1-compound/op_memory.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/op_memory.os -o output/intermediate/as-1-compound/op_memory.oo
 
 echo Assembling as/1-compound opcodes.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/opcodes.os -o build/intermediate/as-1-compound/opcodes.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/opcodes.os -o output/intermediate/as-1-compound/opcodes.oo
 
 echo Assembling as/1-compound parse.os
-onrampvm build/intermediate/as-0-basic/as.oe \
-    core/as/1-compound/src/parse.os -o build/intermediate/as-1-compound/parse.oo
+onrampvm output/intermediate/as-0-basic/as.oe \
+    core/as/1-compound/src/parse.os -o output/intermediate/as-1-compound/parse.oo
 
 echo Linking as/1-compound
-onrampvm build/intermediate/ld-0-global/ld.oe \
-    build/intermediate/libc-0-oo/libc.oa \
-    build/intermediate/libo-0-oo/libo.oa \
-    build/intermediate/as-1-compound/emit.oo \
-    build/intermediate/as-1-compound/main.oo \
-    build/intermediate/as-1-compound/op_arithmetic.oo \
-    build/intermediate/as-1-compound/op_control.oo \
-    build/intermediate/as-1-compound/op_logic.oo \
-    build/intermediate/as-1-compound/op_memory.oo \
-    build/intermediate/as-1-compound/opcodes.oo \
-    build/intermediate/as-1-compound/parse.oo \
-    -o build/intermediate/as-1-compound/as.oe
+onrampvm output/intermediate/ld-0-global/ld.oe \
+    output/intermediate/libc-0-oo/libc.oa \
+    output/intermediate/libo-0-oo/libo.oa \
+    output/intermediate/as-1-compound/emit.oo \
+    output/intermediate/as-1-compound/main.oo \
+    output/intermediate/as-1-compound/op_arithmetic.oo \
+    output/intermediate/as-1-compound/op_control.oo \
+    output/intermediate/as-1-compound/op_logic.oo \
+    output/intermediate/as-1-compound/op_memory.oo \
+    output/intermediate/as-1-compound/opcodes.oo \
+    output/intermediate/as-1-compound/parse.oo \
+    -o output/intermediate/as-1-compound/as.oe

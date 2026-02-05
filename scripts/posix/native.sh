@@ -188,7 +188,7 @@ srcs_native() {
     shift
     OBJS=
     for src in $@; do
-        obj=build/intermediate/$dir/$(basename $src).o
+        obj=output/intermediate/$dir/$(basename $src).o
         build compile_native $obj "" $src
         OBJS="$OBJS $obj"
     done
@@ -199,7 +199,7 @@ srcs_onramp() {
     shift
     OBJS=
     for src in $@; do
-        obj=build/intermediate/$dir/$(basename $src).oo
+        obj=output/intermediate/$dir/$(basename $src).oo
         build compile_onramp $obj "native" $src
         OBJS="$OBJS $obj"
     done
@@ -213,7 +213,7 @@ comment() {
 
 comment "libo/1-opc"
 srcs_native libo-1-opc core/libo/1-opc/src/*.c
-LIBO=build/intermediate/libo-1-opc/libo.a
+LIBO=output/intermediate/libo-1-opc/libo.a
 build archive_native $LIBO "" $OBJS
 
 comment "cpp/2-full"

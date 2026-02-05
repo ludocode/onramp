@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/ar-0-cat
+mkdir -p output/intermediate/ar-0-cat
 
 echo
 echo === Building ar/0-cat
@@ -33,7 +33,7 @@ echo === Building ar/0-cat
 # Note: start.oo must come first!
 
 echo Linking ar/0-cat
-onrampvm build/intermediate/ld-0-global/ld.oe \
+onrampvm output/intermediate/ld-0-global/ld.oe \
     \
     core/libc/0-oo/src/start.oo \
     \
@@ -51,4 +51,4 @@ onrampvm build/intermediate/ld-0-global/ld.oe \
     \
     core/ar/0-cat/ar.oo \
     \
-    -o build/intermediate/ar-0-cat/ar.oe
+    -o output/intermediate/ar-0-cat/ar.oe

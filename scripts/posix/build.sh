@@ -270,13 +270,13 @@ setup_vm_c_debugger() {
 
 setup_vm_binary() {
     echo "Checking $1/ VM"
-    mkdir -p build/intermediate/vm-$1
-    rm -f build/intermediate/vm-$1/vm
-    if $HEX platform/vm/$1/vm.ohx -o build/intermediate/vm-$1/vm 2>&1 >/dev/null; then
-        chmod +x build/intermediate/vm-$1/vm
-        if [ "$(build/intermediate/vm-$1/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
+    mkdir -p output/intermediate/vm-$1
+    rm -f output/intermediate/vm-$1/vm
+    if $HEX platform/vm/$1/vm.ohx -o output/intermediate/vm-$1/vm 2>&1 >/dev/null; then
+        chmod +x output/intermediate/vm-$1/vm
+        if [ "$(output/intermediate/vm-$1/vm $VM_TEST 2>/dev/null)" = "$VM_RESULT" ]; then
             echo "Using $1/ VM"
-            cp build/intermediate/vm-$1/vm build/posix/share/onramp/platform/vm-$1
+            cp output/intermediate/vm-$1/vm build/posix/share/onramp/platform/vm-$1
             (cd build/posix/bin; ln -s ../share/onramp/platform/vm-$1 onrampvm)
         fi
     fi
@@ -544,22 +544,22 @@ export PATH="$(pwd)/build/posix/bin:$PATH"
 # We need the hex tool inside the VM to get started. This needs to be converted
 # from the outside.
 echo "Hexing hex/onramp"
-mkdir -p build/intermediate/hex-0-onramp
-$HEX core/hex/0-onramp/hex.oe.ohx -o build/intermediate/hex-0-onramp/hex.oe
+mkdir -p output/intermediate/hex-0-onramp
+$HEX core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-0-onramp/hex.oe
 
 # We also need the Onramp shell in order to run our build script inside the VM.
 # We can now use our Onramp bytecode hex tool for it.
 echo "Hexing sh"
-mkdir -p build/intermediate/sh
-onrampvm build/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o build/intermediate/sh/sh.oe
+mkdir -p output/intermediate/sh
+onrampvm output/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/intermediate/sh/sh.oe
 
 # Now that we have everything we need we can jump inside the VM for the rest
 # of the bootstrap process.
 if [ $SETUP_ONLY -eq 0 ]; then
     echo
     echo "Entering Onramp virtual machine..."
-    onrampvm build/intermediate/sh/sh.oe core/build.sh
-    onrampvm build/intermediate/sh/sh.oe extra/build.sh
+    onrampvm output/intermediate/sh/sh.oe core/build.sh
+    onrampvm output/intermediate/sh/sh.oe extra/build.sh
 fi
 
 # Lastly we copy the POSIX wrappers into place.

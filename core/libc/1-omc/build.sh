@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/libc-1-omc
+mkdir -p output/intermediate/libc-1-omc
 
 echo
 echo === Building libc/1-omc
@@ -37,7 +37,7 @@ echo === Building libc/1-omc
 
 
 echo Preprocessing libc/1-omc strtol.c
-onrampvm build/intermediate/cpp-1-omc/cpp.oe \
+onrampvm output/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
     -D__onramp_libc_omc__=1 \
@@ -45,24 +45,24 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/common/include \
     -Icore/libc/common/src \
     -include __onramp/__predef.h \
-    core/libc/1-omc/src/strtol.c -o build/intermediate/libc-1-omc/strtol.i
+    core/libc/1-omc/src/strtol.c -o output/intermediate/libc-1-omc/strtol.i
 
 echo Compiling libc/1-omc strtol.c
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/strtol.i -o build/intermediate/libc-1-omc/strtol.oir
+onrampvm output/intermediate/cci-0-omc/cci.oe \
+    output/intermediate/libc-1-omc/strtol.i -o output/intermediate/libc-1-omc/strtol.oir
 
 echo Optimizing libc/1-omc strtol.c
-onrampvm build/intermediate/cg-0-asm/cg.oe \
-    build/intermediate/libc-1-omc/strtol.oir -o build/intermediate/libc-1-omc/strtol.os
+onrampvm output/intermediate/cg-0-asm/cg.oe \
+    output/intermediate/libc-1-omc/strtol.oir -o output/intermediate/libc-1-omc/strtol.os
 
 echo Assembling libc/1-omc strtol.c
-onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/libc-1-omc/strtol.os -o build/intermediate/libc-1-omc/strtol.oo
+onrampvm output/intermediate/as-1-compound/as.oe \
+    output/intermediate/libc-1-omc/strtol.os -o output/intermediate/libc-1-omc/strtol.oo
 
 
 
 echo Preprocessing libc/1-omc strrchr.c
-onrampvm build/intermediate/cpp-1-omc/cpp.oe \
+onrampvm output/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
     -D__onramp_libc_omc__=1 \
@@ -70,19 +70,19 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/common/include \
     -Icore/libc/common/src \
     -include __onramp/__predef.h \
-    core/libc/1-omc/src/strrchr.c -o build/intermediate/libc-1-omc/strrchr.i
+    core/libc/1-omc/src/strrchr.c -o output/intermediate/libc-1-omc/strrchr.i
 
 echo Compiling libc/1-omc strrchr.c
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/libc-1-omc/strrchr.i -o build/intermediate/libc-1-omc/strrchr.oir
+onrampvm output/intermediate/cci-0-omc/cci.oe \
+    output/intermediate/libc-1-omc/strrchr.i -o output/intermediate/libc-1-omc/strrchr.oir
 
 echo Optimizing libc/1-omc strrchr.c
-onrampvm build/intermediate/cg-0-asm/cg.oe \
-    build/intermediate/libc-1-omc/strrchr.oir -o build/intermediate/libc-1-omc/strrchr.os
+onrampvm output/intermediate/cg-0-asm/cg.oe \
+    output/intermediate/libc-1-omc/strrchr.oir -o output/intermediate/libc-1-omc/strrchr.os
 
 echo Assembling libc/1-omc strrchr.c
-onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/libc-1-omc/strrchr.os -o build/intermediate/libc-1-omc/strrchr.oo
+onrampvm output/intermediate/as-1-compound/as.oe \
+    output/intermediate/libc-1-omc/strrchr.os -o output/intermediate/libc-1-omc/strrchr.oo
 
 
 
@@ -90,8 +90,8 @@ onrampvm build/intermediate/as-1-compound/as.oe \
 # stage 0 and include all of the files from stage 1.
 # Note: start.oo must come first!
 echo Archiving libc/1-omc
-onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libc-1-omc/libc.oa \
+onrampvm output/intermediate/ar-0-cat/ar.oe \
+    rc output/intermediate/libc-1-omc/libc.oa \
     \
     core/libc/0-oo/src/start.oo \
     \
@@ -104,5 +104,5 @@ onrampvm build/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/stdio.oo \
     core/libc/0-oo/src/string.oo \
     \
-    build/intermediate/libc-1-omc/strrchr.oo \
-    build/intermediate/libc-1-omc/strtol.oo
+    output/intermediate/libc-1-omc/strrchr.oo \
+    output/intermediate/libc-1-omc/strtol.oo

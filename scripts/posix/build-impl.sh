@@ -70,8 +70,8 @@ check_configure() {
         build/posix/bin/onrampvm
         build/posix/bin/onramphex
         build/posix/share/onramp/platform/wrap-header
-        build/intermediate/sh/sh.oe
-        build/intermediate/hex-0-onramp/hex.oe
+        output/intermediate/sh/sh.oe
+        output/intermediate/hex-0-onramp/hex.oe
     "
     for FILE in $FILES; do
         if ! [ -e $FILE ]; then
@@ -87,8 +87,8 @@ build() {
         . scripts/posix/env.sh
         test/test-bootstrap.sh
     else
-        build/posix/bin/onrampvm build/intermediate/sh/sh.oe core/build.sh
-        build/posix/bin/onrampvm build/intermediate/sh/sh.oe extra/build.sh
+        build/posix/bin/onrampvm output/intermediate/sh/sh.oe core/build.sh
+        build/posix/bin/onrampvm output/intermediate/sh/sh.oe extra/build.sh
     fi
 }
 

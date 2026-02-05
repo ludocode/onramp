@@ -35,7 +35,7 @@
 
 
 set -e
-mkdir -p build/intermediate/vminfo
+mkdir -p output/intermediate/vminfo
 
 echo
 echo === Building vminfo

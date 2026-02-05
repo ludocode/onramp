@@ -23,106 +23,106 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/libc-3-full
+mkdir -p output/intermediate/libc-3-full
 
 echo
 echo === Building libc/3-full
 
 echo Compiling libc/3-full atexit.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/atexit.c \
-    -o build/intermediate/libc-3-full/atexit.oo
+    -o output/intermediate/libc-3-full/atexit.oo
 
 echo Compiling libc/3-full bsearch.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/bsearch.c \
-    -o build/intermediate/libc-3-full/bsearch.oo
+    -o output/intermediate/libc-3-full/bsearch.oo
 
 echo Compiling libc/3-full malloc.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/malloc.c \
-    -o build/intermediate/libc-3-full/malloc.oo
+    -o output/intermediate/libc-3-full/malloc.oo
 
 echo Compiling libc/3-full qsort.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/qsort.c \
-    -o build/intermediate/libc-3-full/qsort.oo
+    -o output/intermediate/libc-3-full/qsort.oo
 
 echo Compiling libc/3-full rand.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/rand.c \
-    -o build/intermediate/libc-3-full/rand.oo
+    -o output/intermediate/libc-3-full/rand.oo
 
 echo Compiling libc/3-full signal.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/signal.c \
-    -o build/intermediate/libc-3-full/signal.oo
+    -o output/intermediate/libc-3-full/signal.oo
 
 echo Compiling libc/3-full stdbit_llong.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/stdbit_llong.c \
-    -o build/intermediate/libc-3-full/stdbit_llong.oo
+    -o output/intermediate/libc-3-full/stdbit_llong.oo
 
 echo Compiling libc/3-full stdlib_3.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/stdlib_3.c \
-    -o build/intermediate/libc-3-full/stdlib_3.oo
+    -o output/intermediate/libc-3-full/stdlib_3.oo
 
 echo Compiling libc/3-full strtol.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/strtol.c \
-    -o build/intermediate/libc-3-full/strtol.oo
+    -o output/intermediate/libc-3-full/strtol.oo
 
 echo Compiling libc/3-full time.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
     -c core/libc/3-full/src/time.c \
-    -o build/intermediate/libc-3-full/time.oo
+    -o output/intermediate/libc-3-full/time.oo
 
 # Note: start.oo must come first!
 echo Archiving libc/3-full
-onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libc-3-full/libc.oa \
+onrampvm output/intermediate/ar-0-cat/ar.oe \
+    rc output/intermediate/libc-3-full/libc.oa \
     \
-    build/intermediate/libc-2-opc/start.oo \
+    output/intermediate/libc-2-opc/start.oo \
     \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
     \
-    build/intermediate/libc-2-opc/assert.oo \
-    build/intermediate/libc-2-opc/ctype.oo \
-    build/intermediate/libc-2-opc/environ.oo \
-    build/intermediate/libc-2-opc/float.oo \
-    build/intermediate/libc-2-opc/format.oo \
-    build/intermediate/libc-2-opc/llong.oo \
-    build/intermediate/libc-2-opc/multibyte.oo \
-    build/intermediate/libc-2-opc/posixio.oo \
-    build/intermediate/libc-2-opc/setjmp.oo \
-    build/intermediate/libc-2-opc/stdbit.oo \
-    build/intermediate/libc-2-opc/stdio.oo \
-    build/intermediate/libc-2-opc/stdlib.oo \
-    build/intermediate/libc-2-opc/string.oo \
-    build/intermediate/libc-2-opc/strings.oo \
-    build/intermediate/libc-2-opc/syscalls.oo \
-    build/intermediate/libc-2-opc/system.oo \
+    output/intermediate/libc-2-opc/assert.oo \
+    output/intermediate/libc-2-opc/ctype.oo \
+    output/intermediate/libc-2-opc/environ.oo \
+    output/intermediate/libc-2-opc/float.oo \
+    output/intermediate/libc-2-opc/format.oo \
+    output/intermediate/libc-2-opc/llong.oo \
+    output/intermediate/libc-2-opc/multibyte.oo \
+    output/intermediate/libc-2-opc/posixio.oo \
+    output/intermediate/libc-2-opc/setjmp.oo \
+    output/intermediate/libc-2-opc/stdbit.oo \
+    output/intermediate/libc-2-opc/stdio.oo \
+    output/intermediate/libc-2-opc/stdlib.oo \
+    output/intermediate/libc-2-opc/string.oo \
+    output/intermediate/libc-2-opc/strings.oo \
+    output/intermediate/libc-2-opc/syscalls.oo \
+    output/intermediate/libc-2-opc/system.oo \
     \
-    build/intermediate/libc-3-full/atexit.oo \
-    build/intermediate/libc-3-full/bsearch.oo \
-    build/intermediate/libc-3-full/malloc.oo \
-    build/intermediate/libc-3-full/qsort.oo \
-    build/intermediate/libc-3-full/rand.oo \
-    build/intermediate/libc-3-full/signal.oo \
-    build/intermediate/libc-3-full/stdbit_llong.oo \
-    build/intermediate/libc-3-full/stdlib_3.oo \
-    build/intermediate/libc-3-full/strtol.oo \
-    build/intermediate/libc-3-full/time.oo \
+    output/intermediate/libc-3-full/atexit.oo \
+    output/intermediate/libc-3-full/bsearch.oo \
+    output/intermediate/libc-3-full/malloc.oo \
+    output/intermediate/libc-3-full/qsort.oo \
+    output/intermediate/libc-3-full/rand.oo \
+    output/intermediate/libc-3-full/signal.oo \
+    output/intermediate/libc-3-full/stdbit_llong.oo \
+    output/intermediate/libc-3-full/stdlib_3.oo \
+    output/intermediate/libc-3-full/strtol.oo \
+    output/intermediate/libc-3-full/time.oo \
 

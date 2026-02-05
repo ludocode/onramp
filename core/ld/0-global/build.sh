@@ -23,11 +23,11 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/ld-0-global
+mkdir -p output/intermediate/ld-0-global
 
 echo
 echo === Building ld/0-global
 
 echo Hexing ld/0-global
-onrampvm build/intermediate/hex-0-onramp/hex.oe \
-    core/ld/0-global/ld.oe.ohx -o build/intermediate/ld-0-global/ld.oe
+onrampvm output/intermediate/hex-0-onramp/hex.oe \
+    core/ld/0-global/ld.oe.ohx -o output/intermediate/ld-0-global/ld.oe

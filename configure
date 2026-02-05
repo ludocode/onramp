@@ -402,14 +402,14 @@ setup_misc() {
 
     # Hex our Onramp bytecode hex tool
     echo "Hexing hex/onramp..."
-    mkdir -p build/intermediate/hex-0-onramp
-    build/posix/bin/onramphex core/hex/0-onramp/hex.oe.ohx -o build/intermediate/hex-0-onramp/hex.oe
+    mkdir -p output/intermediate/hex-0-onramp
+    build/posix/bin/onramphex core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-0-onramp/hex.oe
 
     # Hex our Onramp shell (with our bytecode tool because it is much faster
     # than the shell hex tool)
     echo "Hexing sh..."
-    mkdir -p build/intermediate/sh
-    build/posix/bin/onrampvm build/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o build/intermediate/sh/sh.oe
+    mkdir -p output/intermediate/sh
+    build/posix/bin/onrampvm output/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/intermediate/sh/sh.oe
 
     # copy POSIX wrappers into place (replacing onramphex with our own)
     cp platform/cc/posix/onrampcc build/posix/bin
