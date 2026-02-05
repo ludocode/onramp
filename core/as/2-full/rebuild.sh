@@ -29,37 +29,37 @@ echo
 echo === Rebuilding as/2-full
 
 echo Compiling as/2-full common.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
     -c core/as/2-full/src/common.c \
     -o output/intermediate/as-2-full-re/common.oo
 
 echo Compiling as/2-full emit.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
     -c core/as/2-full/src/emit.c \
     -o output/intermediate/as-2-full-re/emit.oo
 
 echo Compiling as/2-full main.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
     -c core/as/2-full/src/main.c \
     -o output/intermediate/as-2-full-re/main.oo
 
 echo Compiling as/2-full opcodes.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
     -c core/as/2-full/src/opcodes.c \
     -o output/intermediate/as-2-full-re/opcodes.oo
 
 echo Compiling as/2-full parse.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
     -c core/as/2-full/src/parse.c \
     -o output/intermediate/as-2-full-re/parse.oo
 
 echo Linking as/2-full
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/as/2-full/rebuild-ccargs \
     output/intermediate/libo-1-opc-re/libo.oa \
     output/intermediate/as-2-full-re/common.oo \
@@ -67,4 +67,4 @@ onrampvm build/output/bin/cc.oe \
     output/intermediate/as-2-full-re/main.oo \
     output/intermediate/as-2-full-re/opcodes.oo \
     output/intermediate/as-2-full-re/parse.oo \
-    -o build/output/bin/as.oe
+    -o output/final/bin/as.oe

@@ -126,29 +126,29 @@ core/cci/2-full/build.sh && \
 # Rebuild our C toolchain with itself
 core/libc/common/build.sh
 ( core/libc/3-full/rebuild.sh && cd test/libc/3-full && \
-    ../run.sh ../0-oo  full ../../../build/output/lib/libc.oa && \
-    ../run.sh ../1-omc full ../../../build/output/lib/libc.oa && \
-    ../run.sh ../2-opc full ../../../build/output/lib/libc.oa && \
-    ../run.sh .        full ../../../build/output/lib/libc.oa )
+    ../run.sh ../0-oo  full ../../../output/final/lib/libc.oa && \
+    ../run.sh ../1-omc full ../../../output/final/lib/libc.oa && \
+    ../run.sh ../2-opc full ../../../output/final/lib/libc.oa && \
+    ../run.sh .        full ../../../output/final/lib/libc.oa )
 ( core/libo/1-opc/rebuild.sh && true ) #TODO libo tests don't exist yet
-( core/cc/rebuild.sh && cd test/cc && ./run.sh . onrampvm ../../../build/output/bin/cc.oe )
-( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
+( core/cc/rebuild.sh && cd test/cc && ./run.sh . onrampvm ../../../output/final/bin/cc.oe )
+( core/ld/2-full/rebuild.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../output/final/bin/ld.oe )
 ( core/as/2-full/rebuild.sh && cd test/as/2-full && \
-    ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe && \
-    ../run.sh --other-stage ../1-compound onrampvm ../../../build/output/bin/as.oe && \
-    ../run.sh . onrampvm ../../../build/output/bin/as.oe )
+    ../run.sh --other-stage ../0-basic onrampvm ../../../output/final/bin/as.oe && \
+    ../run.sh --other-stage ../1-compound onrampvm ../../../output/final/bin/as.oe && \
+    ../run.sh . onrampvm ../../../output/final/bin/as.oe )
 core/cci/2-full/rebuild.sh && \
-    test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci build/output/bin/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci build/output/bin/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci build/output/bin/cci.oe --cci-id full
+    test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full && \
+    test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full && \
+    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
 ( core/cpp/2-full/rebuild.sh && \
-    ( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../build/output/bin/cpp.oe ) && \
-    ( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../build/output/bin/cpp.oe ) && \
-    ( cd test/cpp/2-full  && ../run.sh --nonstd . onrampvm ../../../build/output/bin/cpp.oe ) )
+    ( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe ) && \
+    ( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe ) && \
+    ( cd test/cpp/2-full  && ../run.sh --nonstd . onrampvm ../../../output/final/bin/cpp.oe ) )
                                       # TODO add --strict
 
 # Build the last few tools we need
-( core/hex/1-c89/build.sh && test/hex/run.sh onrampvm build/output/bin/hex.oe )
+( core/hex/1-c89/build.sh && test/hex/run.sh onrampvm output/final/bin/hex.oe )
 # TODO ar/1 does not exist yet
 ## core/ar/1-unix/build.sh
-cp output/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
+cp output/intermediate/ar-0-cat/ar.oe output/final/bin/ar.oe

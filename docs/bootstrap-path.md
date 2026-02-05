@@ -375,7 +375,7 @@ We build the driver first so we can stop using `-nostdinc` and `-nostdlib` durin
 - [cci/2-full](../core/cci/2-full), the full C compiler again
 - [cpp/2-full](../core/cpp/2-full), the full C preprocessor again
 
-All the above tools, libraries and headers are now installed in their final locations in the build output. (Take a look at `build/output/` to see the result.)
+All the above tools, libraries and headers are now installed in their final locations in the build output. (Take a look at `output/final/` to see the result.)
 
 
 ### Additional Tools

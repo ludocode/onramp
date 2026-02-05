@@ -41,6 +41,6 @@ echo
 echo === Building vminfo
 
 echo Hexing vminfo
-onrampvm build/output/bin/hex.oe \
+onrampvm output/final/bin/hex.oe \
     -g \
-    extra/vminfo/vminfo.oe.ohx -o build/output/bin/vminfo.oe
+    extra/vminfo/vminfo.oe.ohx -o output/final/bin/vminfo.oe

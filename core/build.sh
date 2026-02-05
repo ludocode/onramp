@@ -97,4 +97,4 @@ sh core/hex/1-c89/build.sh
 # TODO: The final stage archive tool does not exist yet. For now we provide the
 # previous stage.
 ## sh core/ar/1-unix/build.sh
-cp output/intermediate/ar-0-cat/ar.oe build/output/bin/ar.oe
+cp output/intermediate/ar-0-cat/ar.oe output/final/bin/ar.oe

@@ -37,31 +37,31 @@ cd "$(dirname "$0")/.."
 
 # Test libc
 ( cd test/libc/3-full && \
-    ../run.sh ../0-oo  full ../../../build/output/lib/libc.oa && \
-    ../run.sh ../1-omc full ../../../build/output/lib/libc.oa && \
-    ../run.sh ../2-opc full ../../../build/output/lib/libc.oa && \
-    ../run.sh .        full ../../../build/output/lib/libc.oa )
+    ../run.sh ../0-oo  full ../../../output/final/lib/libc.oa && \
+    ../run.sh ../1-omc full ../../../output/final/lib/libc.oa && \
+    ../run.sh ../2-opc full ../../../output/final/lib/libc.oa && \
+    ../run.sh .        full ../../../output/final/lib/libc.oa )
 
 # Test libo
 true #TODO libo tests don't exist yet
 
 # Test cc
-( cd test/cc && ./run.sh . onrampvm ../../../build/output/bin/cc.oe )
+( cd test/cc && ./run.sh . onrampvm ../../../output/final/bin/cc.oe )
 
 # Test ld
-( cd test/ld/2-full && ../run.sh . onrampvm ../../../build/output/bin/ld.oe )
+( cd test/ld/2-full && ../run.sh . onrampvm ../../../output/final/bin/ld.oe )
 
 # Test as
 ( cd test/as/2-full && \
-    ../run.sh --other-stage ../0-basic onrampvm ../../../build/output/bin/as.oe && \
-    ../run.sh --other-stage ../1-compound onrampvm ../../../build/output/bin/as.oe && \
-    ../run.sh . onrampvm ../../../build/output/bin/as.oe )
+    ../run.sh --other-stage ../0-basic onrampvm ../../../output/final/bin/as.oe && \
+    ../run.sh --other-stage ../1-compound onrampvm ../../../output/final/bin/as.oe && \
+    ../run.sh . onrampvm ../../../output/final/bin/as.oe )
 
 # Test cci
-test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci build/output/bin/cci.oe --cci-id full
-test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci build/output/bin/cci.oe --cci-id full
-test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci build/output/bin/cci.oe --cci-id full
+test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
+test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
+test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
 
 # test cpp
 # TODO cpp/2 not done yet, only running cpp/1 tests
-( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../build/output/bin/cpp.oe )
+( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../output/final/bin/cpp.oe )

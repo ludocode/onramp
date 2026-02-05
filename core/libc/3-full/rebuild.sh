@@ -24,7 +24,7 @@
 
 set -e
 mkdir -p output/intermediate/libc-3-full-re
-mkdir -p build/output/lib
+mkdir -p output/final/lib
 
 echo
 echo === Rebuilding libc/3-full
@@ -204,7 +204,7 @@ onrampvm output/intermediate/cc/cc.oe \
 # Note: start.oo must come first!
 echo Archiving libc/3-full
 onrampvm output/intermediate/ar-0-cat/ar.oe \
-    rc build/output/lib/libc.oa \
+    rc output/final/lib/libc.oa \
     \
     output/intermediate/libc-2-opc/start.oo \
     \

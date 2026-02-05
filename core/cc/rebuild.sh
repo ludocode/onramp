@@ -24,7 +24,7 @@
 
 set -e
 mkdir -p output/intermediate/cc-re
-mkdir -p build/output/bin
+mkdir -p output/final/bin
 
 echo
 echo === Rebuilding cc
@@ -46,7 +46,7 @@ onrampvm output/intermediate/cc/cc.oe \
 echo Linking cc
 onrampvm output/intermediate/ld-2-full/ld.oe \
     -O -g \
-    build/output/lib/libc.oa \
+    output/final/lib/libc.oa \
     output/intermediate/libo-1-opc-re/libo.oa \
     output/intermediate/cc-re/cc.oo \
-    -o build/output/bin/cc.oe
+    -o output/final/bin/cc.oe

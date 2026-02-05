@@ -55,12 +55,12 @@ if [ $DEV -ne 1 ]; then
     check_path build/posix/bin/onrampar
     check_path build/posix/bin/onramphex
     check_path build/posix/share/onramp
-    check_path build/output/bin/cc*
-    check_path build/output/bin/cci*
-    check_path build/output/bin/ar*
-    check_path build/output/bin/hex*
-    check_path build/output/include/stdlib.h
-    check_path build/output/lib/libc.oa
+    check_path output/final/bin/cc*
+    check_path output/final/bin/cci*
+    check_path output/final/bin/ar*
+    check_path output/final/bin/hex*
+    check_path output/final/include/stdlib.h
+    check_path output/final/lib/libc.oa
 fi
 
 # Remove old installation (if any)

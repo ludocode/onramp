@@ -136,16 +136,16 @@ Again, all paths are relative to the root of the Onramp source, and the working 
 
 If your VM and hex implementations are correct, this should bootstrap Onramp.
 
-The results of bootstrapping are in `build/output/`. The compiler driver is `bin/cc.oe`, which you can run in your Onramp VM like this:
+The results of bootstrapping are in `output/final/`. The compiler driver is `bin/cc.oe`, which you can run in your Onramp VM like this:
 
 ```sh
-onrampvm build/output/bin/cc.oe
+onrampvm output/final/bin/cc.oe
 ```
 
 For example, to compile and run a program `foo.c`:
 
 ```sh
-onrampvm build/output/bin/cc.oe foo.c -o foo.oe
+onrampvm output/final/bin/cc.oe foo.c -o foo.oe
 onrampvm foo.oe
 ```
 

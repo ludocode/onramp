@@ -41,7 +41,7 @@ MINIMUM_LINES=20
 for VERSION in 0 1 2 3; do
     set +e
     VM=build/test/old-vms/vm-$VERSION.py
-    VMINFO=build/output/bin/vminfo.oe
+    VMINFO=output/final/bin/vminfo.oe
     LOG=build/test/old-vms/vm-$VERSION.log
     echo "Running $VM $VMINFO"
     $VM $VMINFO >$LOG 2>/dev/null

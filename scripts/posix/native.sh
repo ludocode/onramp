@@ -141,20 +141,20 @@ rule link_onramp
 
 # builds all native tools
 build native: phony $
-    build/output/bin/cpp $
-    build/output/bin/cci $
-    build/output/bin/as $
-    build/output/bin/ld $
-    build/output/bin/cc $
-    build/output/bin/hex $
-    build/output/bin/vm $
+    output/final/bin/cpp $
+    output/final/bin/cci $
+    output/final/bin/as $
+    output/final/bin/ld $
+    output/final/bin/cc $
+    output/final/bin/hex $
+    output/final/bin/vm $
 
 # builds all onramp tools
 # TODO move ar up once native
 build all: phony $
     native $
-    build/output/bin/ar.oe $
-    build/output/lib/libc.oa $
+    output/final/bin/ar.oe $
+    output/final/lib/libc.oa $
 
 default all
 
@@ -218,36 +218,36 @@ build archive_native $LIBO "" $OBJS
 
 comment "cpp/2-full"
 srcs_native cpp-2-full core/cpp/2-full/src/*.c
-build link_native build/output/bin/cpp "" $OBJS $LIBO
+build link_native output/final/bin/cpp "" $OBJS $LIBO
 
 comment "cci/2-full"
 srcs_native cci-2-full core/cci/2-full/src/*.c
-build link_native build/output/bin/cci "" $OBJS $LIBO
+build link_native output/final/bin/cci "" $OBJS $LIBO
 
 comment "as/2-full"
 srcs_native as-2-full core/as/2-full/src/*.c
-build link_native build/output/bin/as "" $OBJS $LIBO
+build link_native output/final/bin/as "" $OBJS $LIBO
 
 comment "ld/2-full"
 srcs_native ld-2-full core/ld/2-full/src/*.c
-build link_native build/output/bin/ld "" $OBJS $LIBO
+build link_native output/final/bin/ld "" $OBJS $LIBO
 
 comment "cc"
 srcs_native cc core/cc/cc.c
-build link_native build/output/bin/cc "" $OBJS $LIBO
+build link_native output/final/bin/cc "" $OBJS $LIBO
 
 comment "hex"
 srcs_native hex-1-c89 core/hex/1-c89/hex.c
-build link_native build/output/bin/hex "" $OBJS $LIBO
+build link_native output/final/bin/hex "" $OBJS $LIBO
 
 comment "vm/c-debugger"
 srcs_native vm-c-debugger platform/vm/c-debugger/src/*.c
-build link_native build/output/bin/vm "" $OBJS $LIBO
+build link_native output/final/bin/vm "" $OBJS $LIBO
 
 comment "ar"
 # TODO use ar/1 once it exists. we have no native archive tool at all at the moment
 echo "build -nostdlib: phony" >> $DEST
-build link_onramp build/output/bin/ar.oe "native" \
+build link_onramp output/final/bin/ar.oe "native" \
     -nostdlib \
     \
     core/libc/0-oo/src/start.oo \
@@ -299,8 +299,8 @@ srcs_onramp libc-3-full \
     core/libc/3-full/src/time.c
     # TODO just include libc/3/*.c once malloc works
 # TODO shouldn't depend on ar.oe, necessary until we have native ar
-build archive_onramp build/output/lib/libc.oa \
-    "native build/output/bin/ar.oe" \
+build archive_onramp output/final/lib/libc.oa \
+    "native output/final/bin/ar.oe" \
     $OBJS \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo

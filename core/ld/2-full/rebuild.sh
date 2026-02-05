@@ -29,43 +29,43 @@ echo
 echo === Rebuilding ld/2-full
 
 echo Compiling ld/2-full common.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     -c core/ld/2-full/src/common.c \
     -o output/intermediate/ld-2-full-re/common.oo
 
 echo Compiling ld/2-full emit.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     -c core/ld/2-full/src/emit.c \
     -o output/intermediate/ld-2-full-re/emit.oo
 
 echo Compiling ld/2-full label.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     -c core/ld/2-full/src/label.c \
     -o output/intermediate/ld-2-full-re/label.oo
 
 echo Compiling ld/2-full main.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     -c core/ld/2-full/src/main.c \
     -o output/intermediate/ld-2-full-re/main.oo
 
 echo Compiling ld/2-full parse.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     -c core/ld/2-full/src/parse.c \
     -o output/intermediate/ld-2-full-re/parse.oo
 
 echo Compiling ld/2-full symbol.c
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     -c core/ld/2-full/src/symbol.c \
     -o output/intermediate/ld-2-full-re/symbol.oo
 
 echo Linking ld/2-full
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     @core/ld/2-full/rebuild-ccargs \
     output/intermediate/libo-1-opc-re/libo.oa \
     output/intermediate/ld-2-full-re/common.oo \
@@ -74,4 +74,4 @@ onrampvm build/output/bin/cc.oe \
     output/intermediate/ld-2-full-re/main.oo \
     output/intermediate/ld-2-full-re/parse.oo \
     output/intermediate/ld-2-full-re/symbol.oo \
-    -o build/output/bin/ld.oe
+    -o output/final/bin/ld.oe
