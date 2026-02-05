@@ -23,15 +23,21 @@
 # SOFTWARE.
 
 
-# This script builds the x86_64-linux hex tool. It relies only on a POSIX shell
-# and coreutils.
+# This script builds the x86_64-linux hex tool.
+#
+# This hex tool is written in hex which means it requires a hex tool to
+# configure it. This makes it somewhat redundant.
+#
+# It can speed up the build however because the POSIX shell is very slow, so it
+# may be quicker to hex this and then use it to hex a VM than it is to hex a VM
+# from shell. We only bother to try the POSIX shell tool to build it.
 
 
 set -e
 
 # find a fast error-checking hex tool
-if [ -e output/test/hex-c89/hex ]; then
-    HEX=output/test/hex-c89/hex
+if [ -e output/intermediate/hex-c89/hex ]; then
+    HEX=output/intermediate/hex-c89/hex
 elif command -v python; then
     HEX="python platform/hex/python/hex.py"
 else
@@ -39,7 +45,8 @@ else
 fi
 
 # build
-mkdir -p output/test/hex-x86_64-linux
+mkdir -p output/intermediate/hex-x86_64-linux
 echo "Hexing x86_64-linux hex.ohx  (with: \`$HEX\`)"
-$HEX platform/hex/x86_64-linux/hex.ohx -o output/test/hex-x86_64-linux/hex
-chmod +x output/test/hex-x86_64-linux/hex
+$HEX platform/hex/x86_64-linux/hex.ohx -o output/intermediate/hex-x86_64-linux/hex
+chmod +x output/intermediate/hex-x86_64-linux/hex
+echo "Wrote: output/intermediate/hex-x86_64-linux/hex"

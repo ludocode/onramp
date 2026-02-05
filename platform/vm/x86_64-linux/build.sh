@@ -23,24 +23,20 @@
 # SOFTWARE.
 
 
-# This script builds the x86_64-linux VM. It needs only a POSIX shell and
-# coreutils, though it will use a better hex tool if available.
+# This script builds the x86_64-linux VM.
+#
+# It requires that a hex tool is configured first.
 
 
 set -e
 
-# find a fast error-checking hex tool
-if [ -e output/test/hex-c89/hex ]; then
-    HEX=output/test/hex-c89/hex
-elif command -v python 1>/dev/null 2>/dev/null; then
-    HEX="python platform/hex/python/hex.py"
-else
-    HEX=platform/hex/sh/hex.sh
+if ! [ -e output/posix/bin/onramphex ]; then
+    echo "$0: A hex tool has not been configured."
+    exit 1
 fi
 
-# build
-mkdir -p output/test/vm-x86_64-linux
-echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
-$HEX platform/vm/x86_64-linux/vm.ohx -o output/test/vm-x86_64-linux/vm
-chmod +x output/test/vm-x86_64-linux/vm
-echo "Wrote: output/test/vm-x86_64-linux/vm"
+mkdir -p output/intermediate/vm-x86_64-linux
+echo "Hexing x86_64-linux vm.ohx"
+output/posix/bin/onramphex platform/vm/x86_64-linux/vm.ohx -o output/intermediate/vm-x86_64-linux/vm
+chmod +x output/intermediate/vm-x86_64-linux/vm
+echo "Wrote: output/intermediate/vm-x86_64-linux/vm"

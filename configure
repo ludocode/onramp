@@ -163,7 +163,7 @@ parse_options() {
         if [ -L extra ]; then rm_echo extra; fi
         if [ -L platform ]; then rm_echo platform; fi
         if [ -L "test" ]; then rm_echo "test"; fi
-        rm_echo -rf build output
+        rm_echo -rf output
         rm_echo -f config.log config.log.history build.sh install.sh
         exit 0
     fi
@@ -192,6 +192,7 @@ create_paths() {
     fi
 
     mkdir -p \
+        output/configure \
         output/posix/bin \
         output/posix/share/onramp/platform
     (cd output/posix/share/onramp; ln -sf ../../../final/bin .)
@@ -202,22 +203,18 @@ create_paths() {
 test_hex() {
     logd "Testing hex tool $1..."
 
-    if ! output/posix/bin/onramphex test/hex/tests/hello-world-readme.ohx -o test-hex-$1.out >>config.log 2>&1; then
-        rm -f test-hex-$1.out
+    if ! output/posix/bin/onramphex test/hex/tests/hello-world-readme.ohx -o output/configure/hex-$1.out >>config.log 2>&1; then
         logd "Couldn't run hex tool $1."
         return 1;
     fi
 
-    if [ "$(cat test-hex-$1.out)" != "Hello world!" ]; then
+    if [ "$(cat output/configure/hex-$1.out)" != "Hello world!" ]; then
         logd "Hex tool $1 produced incorrect results. Output:"
         logd ---
-        cat test-hex-$1.out >>config.log
+        cat output/configure/hex-$1.out >>config.log
         logd ---
-        rm -f test-hex-$1.out
         return 1;
     fi
-
-    rm -f test-hex-$1.out
 }
 
 try_hex() {
@@ -300,23 +297,19 @@ setup_hex() {
 
 test_vm() {
     # Make sure it can run the test without crashing
-    if ! output/posix/bin/onrampvm output/test/hello.oe >test-vm-$1.out 2>>config.log; then
-        rm -f test-vm-$1.out
+    if ! output/posix/bin/onrampvm output/configure/hello.oe >output/configure/vm-$1.out 2>>config.log; then
         logd "Couldn't run VM $1."
         return 1;
     fi
 
     # Make sure it matches the expected output
-    if [ "$(cat test-vm-$1.out)" != "Hello world!" ]; then
+    if [ "$(cat output/configure/vm-$1.out)" != "Hello world!" ]; then
         logd "VM $1 produced incorrect results. Output:"
         logd ---
-        cat test-vm-$1.out >>config.log
+        cat output/configure/vm-$1.out >>config.log
         logd ---
-        rm -f test-vm-$1.out
         return 1;
     fi
-
-    rm -f test-vm-$1.out
 }
 
 try_vm() {
@@ -361,8 +354,7 @@ setup_vm() {
     # To test the VM we'll run a simple Hello World program. (We avoid using a
     # large program like vminfo because the hex tool may be slow.)
     logd "Hexing VM test program..."
-    mkdir -p output/test
-    output/posix/bin/onramphex test/vm/io/hello.oe.ohx -o output/test/hello.oe >>config.log 2>&1
+    output/posix/bin/onramphex test/vm/io/hello.oe.ohx -o output/configure/hello.oe >>config.log 2>&1
 
     logi "Configuring VM..."
 

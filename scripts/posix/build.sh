@@ -73,9 +73,9 @@ setup_hex_c89() {
     echo "Checking c89/ VM"
     if ( platform/hex/c89/build.sh 2>&1 >/dev/null ) ||
             ( CFLAGS= platform/hex/c89/build.sh 2>&1 >/dev/null ); then
-        if [ "$(output/test/hex-c89/hex $HEX_TEST_ARGS 2>/dev/null)" = "$HEX_RESULT" ]; then
+        if [ "$(output/intermediate/hex-c89/hex $HEX_TEST_ARGS 2>/dev/null)" = "$HEX_RESULT" ]; then
             echo "Using c89/ hex tool"
-            HEX=output/test/hex-c89/hex
+            HEX=output/intermediate/hex-c89/hex
         fi
     fi
 }

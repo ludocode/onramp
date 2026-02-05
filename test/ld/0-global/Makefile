@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,13 +21,13 @@
 # SOFTWARE.
 
 ROOT=../../..
-BUILD=$(ROOT)/output/test
+OUTPUT=$(ROOT)/output
 
 SRC=$(ROOT)/core/ld/0-global
-OUT=$(BUILD)/ld-0-global
+OUT=$(OUTPUT)/test/ld-0-global
 
-VM=$(BUILD)/vm-c-debugger/vm
-HEX=$(BUILD)/hex-c89/hex
+VM=$(OUTPUT)/test/vm-c-debugger/vm
+HEX=$(OUTPUT)/intermediate/hex-c89/hex
 
 all: build test FORCE
 FORCE:

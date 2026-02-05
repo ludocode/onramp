@@ -1,10 +1,11 @@
-/build/
+# normal build output, cleaned by ./configure --clean
 /output/
+/config.log
+/config.log.history
+/build.sh
+/install.sh
+
+# other misc files
 /test/local.mk
 vgcore.*
 /.ninja_log
-/config.log
-/config.log.history
-/test-*.out
-/build.sh
-/install.sh

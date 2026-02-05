@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,9 +27,9 @@ CPPFLAGS := -Wall -Wextra -Wpedantic -Wno-unused-parameter
 -include ../../../test/local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/output/test
+OUTPUT=$(ROOT)/output
 
-OUT=$(BUILD)/vm-c-debugger
+OUT=$(OUTPUT)/test/vm-c-debugger
 SRC=src
 LIBO=$(ROOT)/core/libo/1-opc
 CPPFLAGS += -I$(LIBO)/include
@@ -51,7 +51,7 @@ FORCE:
 build: $(OUT)/vm FORCE
 
 clean: FORCE
-	rm -rf $(BUILD)/vm-c-debugger
+	rm -rf $(OUT)
 
 $(OUT)/vm: $(SRCS) Makefile
 	@rm -f $@
