@@ -55,8 +55,7 @@ Options:
     --dev            Use preferred tools for developing Onramp
     --test           Run all tests during bootstrap process
     --verbose        Print more information
-    --clean          Delete all intermediate build results
-    --distclean      Don't configure; delete all generated configure files
+    --clean          Don't configure; delete all generated configure files
 
 The directories in platform/hex/ and platform/vm/ are the names of tools. Only
 those tools that support POSIX platforms can be built by this script.
@@ -94,7 +93,7 @@ setup_log() {
     touch config.log
 }
 
-# Run an `rm` command and also echo it. Used for --distclean.
+# Run an `rm` command and also echo it. Used for --clean.
 rm_echo() {
     echo rm "$@"
     rm "$@"
@@ -104,7 +103,6 @@ parse_options() {
     DEV=0
     STRICT=0
     CLEAN=0
-    DISTCLEAN=0
     VERBOSE=0
     TEST=0
     HEX_CHOICE=
@@ -117,7 +115,6 @@ parse_options() {
             --dev) DEV=1; shift ;;
             --strict) STRICT=1; shift ;;
             --clean) CLEAN=1; shift ;;
-            --distclean) DISTCLEAN=1; shift ;;
             --verbose) VERBOSE=1; shift ;;
             --test) TEST=1; shift ;;
             --hex) HEX_CHOICE="$2"; shift; shift ;;
@@ -132,6 +129,9 @@ parse_options() {
                 STRICT=1;
                 shift
                 ;;
+
+            # also keeping --distclean as an undocumented alias
+            --distclean) CLEAN=1; shift ;;
 
             # keeping these as undocumented options mostly for testing purposes
             --no-hex) NO_HEX="$NO_HEX$2 "; shift; shift ;;
@@ -157,8 +157,8 @@ parse_options() {
         exit 1
     fi
 
-    # on --distclean we ignore all other options (after checking validity.)
-    if [ $DISTCLEAN -eq 1 ]; then
+    # on --clean we ignore all other options (after checking validity.)
+    if [ $CLEAN -eq 1 ]; then
         if [ -L core ]; then rm_echo core; fi
         if [ -L extra ]; then rm_echo extra; fi
         if [ -L platform ]; then rm_echo platform; fi
@@ -185,8 +185,10 @@ create_paths() {
     if ! [ -e platform ]; then ln -s "$ROOT/platform" .; fi
     if ! [ -e "test" ]; then ln -s "$ROOT/test" .; fi  # vim syntax highlighting gets confused by test keyword
 
-    if [ $CLEAN -eq 1 ]; then
-        rm -rf build
+    # We always clean all previous build output on a reconfigure.
+    if [ -e output ]; then
+        logi Cleaning output/
+        rm -rf output
     fi
 
     mkdir -p \
