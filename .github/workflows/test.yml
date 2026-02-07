@@ -2,13 +2,16 @@ name: Tests
 
 on: [push, pull_request]
 
+# TODO we need an out-of-tree build, need tests to work
+
 jobs:
   linux-x86_64:
-    name: "Linux x86_64 Machine Code Build"
+    name: "Linux x86_64 Machine Code"
     runs-on: ubuntu-latest   # this should force x86_64 when it becomes an option
     steps:
       - uses: actions/checkout@main
-      - run: scripts/posix/build.sh --min
+      - run: ./configure.sh --strict
+      - run: ./build.sh
       - run: test/test-final.sh
 
   test-platform:
@@ -23,14 +26,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - run: scripts/posix/native.sh
+      - run: ./configure.sh --native
+      - run: ./build.sh
 
   test-core:
     name: "Core Tests"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - run: scripts/posix/build.sh --setup --dev
+      - run: ./configure.sh --dev
       - run: test/test-core.sh
 
   test-bootstrapped:
@@ -38,25 +42,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - run: scripts/posix/build.sh --setup --dev
-      - run: test/test-bootstrap.sh
+      - run: ./configure.sh --dev --test
+      - run: ./build.sh
 
   test-bootstrapped-short-read:
     name: "Bootstrapped Tests w/ Short Read"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - run: scripts/posix/build.sh --setup --dev
-      - run: EXTRA_CFLAGS=-DMAX_READ_SIZE=1 platform/vm/c-debugger/build.sh
-      - run: platform/vm/c-debugger/configure.sh
-      - run: test/test-bootstrap.sh
+      - run: EXTRA_CFLAGS=-DMAX_READ_SIZE=1 platform/vm/c-debugger/configure.sh
+      - run: ./configure.sh --vm manual --test
+      - run: ./build.sh
 
   test-bootstrapped-short-write:
     name: "Bootstrapped Tests w/ Short Write"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@main
-      - run: scripts/posix/build.sh --setup --dev
-      - run: EXTRA_CFLAGS=-DMAX_WRITE_SIZE=1 platform/vm/c-debugger/build.sh
-      - run: platform/vm/c-debugger/configure.sh
-      - run: test/test-bootstrap.sh
+      - run: EXTRA_CFLAGS=-DMAX_WRITE_SIZE=1 platform/vm/c-debugger/configure.sh
+      - run: ./configure.sh --vm manual --test
+      - run: ./build.sh
