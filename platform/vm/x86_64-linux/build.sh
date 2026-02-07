@@ -37,7 +37,7 @@ else
 fi
 
 mkdir -p output/intermediate/vm-x86_64-linux
-echo "Hexing x86_64-linux vm.ohx"
+echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
 $HEX platform/vm/x86_64-linux/vm.ohx -o output/intermediate/vm-x86_64-linux/vm
 chmod +x output/intermediate/vm-x86_64-linux/vm
 echo "Wrote: output/intermediate/vm-x86_64-linux/vm"

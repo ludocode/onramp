@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/false
 
 # The MIT License (MIT)
 #
@@ -25,50 +25,15 @@
 
 # This script is the implementation of the build.sh generated from the
 # configure script.
-#
-# This is probably way overkill and should be simplified a lot. We don't
-# actually want people passing arguments to this script.
 
 
 set -e
 BUILD="$(pwd)"
 ROOT="$(dirname "$0")/../.."
 
-usage() {
-    cat <<EOF
-
-Options:
-
-    --test           Run all tests during bootstrap process
-
-The --test option is implied if it was passed to configure.
-
-See the Setup Guide for details:
-    docs/setup-guide.md
-EOF
-}
-
-parse_options() {
-    TEST=0
-
-    while [ $# -ne 0 ]; do
-        case "$1" in
-            --test) TEST=1; shift ;;
-            --help) usage ; exit 0 ;;
-
-            *)
-                echo "ERROR: Invalid option: $1"
-                usage
-                exit 1
-                ;;
-        esac
-    done
-}
-
 check_configure() {
     FILES="
         output/posix/bin/onrampvm
-        output/posix/bin/onramphex
         output/posix/share/onramp/platform/wrap-header
         output/intermediate/sh/sh.oe
         output/intermediate/hex-0-onramp/hex.oe
@@ -83,7 +48,9 @@ check_configure() {
 }
 
 build() {
-    if [ $TEST -eq 1 ]; then
+    if [ $NATIVE -eq 1 ]; then
+        ninja
+    elif [ $TEST -eq 1 ]; then
         . scripts/posix/env.sh
         test/test-bootstrap.sh
     else
@@ -93,7 +60,6 @@ build() {
 }
 
 go() {
-    parse_options "$@"
     check_configure
     build
     echo

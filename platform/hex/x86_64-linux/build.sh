@@ -35,11 +35,10 @@
 
 set -e
 
-# find a fast error-checking hex tool
-if [ -e output/intermediate/hex-c89/hex ]; then
-    HEX=output/intermediate/hex-c89/hex
-elif command -v python; then
-    HEX="python platform/hex/python/hex.py"
+# Use a shell hex tool if it's configured, otherwise just fall back to the
+# shell hex tool. We don't want to add any other dependencies.
+if [ -e output/posix/bin/onramphex ]; then
+    HEX=output/posix/bin/onramphex
 else
     HEX=platform/hex/sh/hex.sh
 fi

@@ -4,8 +4,12 @@
 /config.log.history
 /build.sh
 /install.sh
+/build.ninja
+/.ninja_log
+
+# a typical user-created build directory for out-of-tree builds
+/build/
 
 # other misc files
 /test/local.mk
 vgcore.*
-/.ninja_log

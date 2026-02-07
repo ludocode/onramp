@@ -49,13 +49,15 @@ Usage:
 
 Options:
 
-    --strict         Allow only minimal dependencies (kernel, coreutils, libc)
-    --hex <name>     Use the hex tool with the given name, or "manual"
-    --vm <name>      Use the VM with the given name, or "manual"
-    --dev            Use preferred tools for developing Onramp
-    --test           Run all tests during bootstrap process
-    --verbose        Print more information
-    --clean          Don't configure; delete all generated configure files
+    --strict        Allow only minimal dependencies (kernel, coreutils, libc)
+    --hex <name>    Use the hex tool with the given name, or "manual"
+    --vm <name>     Use the VM with the given name, or "manual"
+    --dev           Use preferred tools for developing Onramp
+    --test          Run all tests during bootstrap process
+    --native        Don't bootstrap; build only final stage tools with native cc
+    --clean         Don't configure; delete all generated configure files
+    --verbose       Print more information
+    --help          Print this help
 
 The directories in platform/hex/ and platform/vm/ are the names of tools. Only
 those tools that support POSIX platforms can be built by this script.
@@ -64,6 +66,9 @@ Pass "manual" as the hex tool or VM if you have configured it manually before
 running this script. The hex tool and VM must be installed at:
     output/posix/bin/onramphex
     output/posix/bin/onrampvm
+
+The --test and --native options have additional dependencies (Make, Ninja, and
+a native C compiler.) They are not used in a proper bootstrap.
 
 See the Setup Guide for details:
     docs/setup-guide.md
@@ -99,10 +104,29 @@ rm_echo() {
     rm "$@"
 }
 
+clean() {
+    if [ -L core ]; then rm_echo core; fi
+    if [ -L extra ]; then rm_echo extra; fi
+    if [ -L platform ]; then rm_echo platform; fi
+    if [ -L "test" ]; then rm_echo "test"; fi
+    rm_echo -rf output
+    rm_echo -f config.log config.log.history build.sh install.sh build.ninja
+    rm_echo -f .ninja_log
+    exit 0
+}
+
 parse_options() {
+    # These options must appear alone.
+    if [ $# -eq 1 ]; then
+        case "$1" in
+            --clean) clean ;;
+            --distclean) clean ;; # undocumented alias of --clean
+        esac
+    fi
+
     DEV=0
     STRICT=0
-    CLEAN=0
+    NATIVE=0
     VERBOSE=0
     TEST=0
     HEX_CHOICE=
@@ -114,12 +138,22 @@ parse_options() {
         case "$1" in
             --dev) DEV=1; shift ;;
             --strict) STRICT=1; shift ;;
-            --clean) CLEAN=1; shift ;;
+            --native) NATIVE=1; shift ;;
             --verbose) VERBOSE=1; shift ;;
             --test) TEST=1; shift ;;
             --hex) HEX_CHOICE="$2"; shift; shift ;;
             --vm) VM_CHOICE="$2"; shift; shift ;;
+
+            # We don't want to restrict this option to be alone like --clean
+            # even though it stops argument parsing right away. Users should be
+            # able to append it to a partially written command-line to get
+            # help.
             --help) usage ; exit 0 ;;
+
+            --clean)
+                logi "ERROR: --clean cannot be combined with any other options."
+                exit 1
+                ;;
 
             # --min is an undocumented and deprecated alias of --strict. we
             # keep it for backwards compatibility with the old posix build
@@ -130,10 +164,9 @@ parse_options() {
                 shift
                 ;;
 
-            # also keeping --distclean as an undocumented alias
-            --distclean) CLEAN=1; shift ;;
-
-            # keeping these as undocumented options mostly for testing purposes
+            # These undocumented options are mostly for testing purposes. They
+            # forbid using a particular tool; they can be specified multiple
+            # times.
             --no-hex) NO_HEX="$NO_HEX$2 "; shift; shift ;;
             --no-vm) NO_VM="$NO_VM$2 "; shift; shift ;;
 
@@ -156,16 +189,16 @@ parse_options() {
         logi "ERROR: --strict and --dev are incompatible."
         exit 1
     fi
-
-    # on --clean we ignore all other options (after checking validity.)
-    if [ $CLEAN -eq 1 ]; then
-        if [ -L core ]; then rm_echo core; fi
-        if [ -L extra ]; then rm_echo extra; fi
-        if [ -L platform ]; then rm_echo platform; fi
-        if [ -L "test" ]; then rm_echo "test"; fi
-        rm_echo -rf output
-        rm_echo -f config.log config.log.history build.sh install.sh
-        exit 0
+    if [ $NATIVE -eq 1 ] && [ $TEST -eq 1 ]; then
+        # would really like to lift this restriction but there's a lot of work involved
+        logi "ERROR: --native and --test are currently incompatible."
+        exit 1
+    fi
+    if [ $STRICT -eq 1 ] && [ $NATIVE -eq 1 ]; then
+        logi "WARNING: --strict applies only to VM and hex tool, not use of --native toolchain."
+    fi
+    if [ $STRICT -eq 1 ] && [ $NATIVE -eq 1 ]; then
+        logi "WARNING: --strict applies only to VM and hex tool, not --test tooling."
     fi
 
     # set preferred tools for --dev
@@ -317,6 +350,7 @@ try_vm() {
         *" $1 "*)
             logi "Skipping VM $1 due to --no-vm."
             return 1
+            ;;
     esac
 
     logd "Checking VM $1..."
@@ -406,21 +440,38 @@ setup_misc() {
     output/posix/bin/onrampvm output/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/intermediate/sh/sh.oe
 
     # copy POSIX wrappers into place (replacing onramphex with our own)
-    cp platform/cc/posix/onrampcc output/posix/bin
-    cp platform/cc/posix/onrampar output/posix/bin
-    cp platform/cc/posix/onramphex output/posix/bin
+    if [ $NATIVE -eq 1 ]; then
+        cp platform/cc/posix/onrampcc-native output/posix/bin/onrampcc
+            # TODO ar/1 not written yet
+            cp platform/cc/posix/onrampar output/posix/bin
+            #(cd output/posix/bin; ln -sf ../../../final/bin/ar onrampar)
+        # TODO: This means onramphex doesn't work under `configure --native`
+        # until after the build is done. Not sure what the solution is yet.
+        # Probably just need to move this link command to the ninja file but
+        # it needs a bit of work.
+        (cd output/posix/bin; ln -sf ../../final/bin/hex onramphex)
+    else
+        cp platform/cc/posix/onrampcc output/posix/bin
+        cp platform/cc/posix/onrampar output/posix/bin
+        # TODO this has the same problem, onramphex doesn't work until after
+        # the build is done
+        cp platform/cc/posix/onramphex output/posix/bin
+    fi
     cp platform/cc/posix/wrap-header output/posix/share/onramp/platform
+
+    # generate ninja file if necessary
+    if [ $NATIVE -eq 1 ]; then
+        scripts/posix/native.sh --configure
+    fi
 
     # generate build script
     echo '#!/bin/sh' >build.sh
     echo "# This Onramp build script is generated by $0" >>build.sh
     echo 'set -e' >>build.sh
     echo 'cd "$(dirname "$0")"' >>build.sh
-    TESTARG=
-    if [ $TEST -eq 1 ]; then
-        TESTARG=" --test"
-    fi
-    echo "exec \"$ROOT\"/scripts/posix/build-impl.sh$TESTARG"' "$@"' >>build.sh
+    echo "TEST=$TEST" >> build.sh
+    echo "NATIVE=$NATIVE" >> build.sh
+    echo ". \"$ROOT\"/scripts/posix/build-impl.sh"' "$@"' >>build.sh
     chmod +x build.sh
     logi "Generated build.sh"
 
@@ -429,9 +480,18 @@ setup_misc() {
     echo "# This Onramp install script is generated by $0" >>install.sh
     echo 'set -e' >>install.sh
     echo 'cd "$(dirname "$0")"' >>install.sh
-    echo "exec \"$ROOT\"/scripts/posix/install.sh"' "$@"' >>install.sh
+    echo ". \"$ROOT\"/scripts/posix/install.sh"' "$@"' >>install.sh
     chmod +x install.sh
     logi "Generated install.sh"
+}
+
+finish() {
+    OR_NINJA=
+    if [ $NATIVE -eq 1 ]; then
+        OR_NINJA=' or `ninja`'
+    fi
+
+    logi 'Configuration complete. Run `./build.sh`'"$OR_NINJA to build Onramp."
 }
 
 go() {
@@ -442,7 +502,7 @@ go() {
     setup_hex
     setup_vm
     setup_misc
-    logi 'Configuration complete. Run `./build.sh` to build Onramp.'
+    finish
 }
 
 go "$@"
