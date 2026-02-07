@@ -27,6 +27,6 @@
 
 
 set -e
-mkdir -p output/posix/share/onramp/platform
+mkdir -p output/posix/bin output/posix/share/onramp/platform
 cp platform/vm/python/vm.py output/posix/share/onramp/platform/vm-python.py
 (cd output/posix/bin; ln -sf ../share/onramp/platform/vm-python.py onrampvm)

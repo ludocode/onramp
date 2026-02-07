@@ -25,7 +25,7 @@
 
 # This is the configure script for POSIX platforms. It works like a traditional
 # configure script except that instead of generating a Makefile, it generates
-# a build.sh script because Onramp is intended to be bootstrapped before Make.
+# a build.sh script so that Onramp does not depend on Make.
 #
 # (Onramp can also be bootstrapped before a shell, but if you're running this
 # you already trust your shell so that's what we generate.)
@@ -55,20 +55,18 @@ Options:
     --dev           Use preferred tools for developing Onramp
     --test          Run all tests during bootstrap process
     --native        Don't bootstrap; build only final stage tools with native cc
-    --clean         Don't configure; delete all generated configure files
+    --clean         Don't configure; delete all configure and build files
     --verbose       Print more information
     --help          Print this help
 
 The directories in platform/hex/ and platform/vm/ are the names of tools. Only
 those tools that support POSIX platforms can be built by this script.
 
-Pass "manual" as the hex tool or VM if you have configured it manually before
-running this script. The hex tool and VM must be installed at:
-    output/posix/bin/onramphex
-    output/posix/bin/onrampvm
-
 The --test and --native options have additional dependencies (Make, Ninja, and
 a native C compiler.) They are not used in a proper bootstrap.
+
+Pass "manual" as the hex tool or VM if you have configured it manually before
+running this script.
 
 See the Setup Guide for details:
     docs/setup-guide.md
@@ -220,8 +218,8 @@ create_paths() {
 
     # We always clean all previous build output on a reconfigure.
     if [ -e output ]; then
-        logi Cleaning output/
-        rm -rf output
+        logi "Cleaning previous output"
+        rm -rf output/intermediate output/final output/test
     fi
 
     mkdir -p \
@@ -486,12 +484,7 @@ setup_misc() {
 }
 
 finish() {
-    OR_NINJA=
-    if [ $NATIVE -eq 1 ]; then
-        OR_NINJA=' or `ninja`'
-    fi
-
-    logi 'Configuration complete. Run `./build.sh`'"$OR_NINJA to build Onramp."
+    logi 'Configuration complete. Run `./build.sh` to build Onramp.'
 }
 
 go() {

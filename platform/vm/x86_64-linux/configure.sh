@@ -36,6 +36,7 @@ if [ "$(uname -m)" != "x86_64" ] || [ "$(uname -s)" != "Linux" ]; then
 fi
 
 "$(dirname "$0")"/build.sh
-mkdir -p output/posix/share/onramp/platform
+mkdir -p output/posix/bin output/posix/share/onramp/platform
 cp output/intermediate/vm-x86_64-linux/vm output/posix/share/onramp/platform/vm-x86_64-linux
+mkdir -p output/posix/bin
 (cd output/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)

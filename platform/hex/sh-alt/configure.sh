@@ -38,6 +38,6 @@ if ! [ -e platform/hex/sh-alt/hexsplit.sh ]; then
     exit 1
 fi
 
-mkdir -p output/posix/share/onramp/platform
+mkdir -p output/posix/bin output/posix/share/onramp/platform
 cp platform/hex/sh-alt/hexsplit.sh output/posix/share/onramp/platform/
 (cd output/posix/bin; ln -sf ../share/onramp/platform/hexsplit.sh onramphex)
