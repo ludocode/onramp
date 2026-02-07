@@ -24,19 +24,20 @@
 
 
 # This script builds the x86_64-linux VM.
-#
-# It requires that a hex tool is configured first.
 
 
 set -e
 
-if ! [ -e output/posix/bin/onramphex ]; then
-    echo "$0: A hex tool has not been configured."
-    exit 1
+# Use a shell hex tool if it's configured, otherwise just fall back to the
+# shell hex tool. We don't want to add any other dependencies.
+if [ -e output/posix/bin/onramphex ]; then
+    HEX=output/posix/bin/onramphex
+else
+    HEX=platform/hex/sh/hex.sh
 fi
 
 mkdir -p output/intermediate/vm-x86_64-linux
 echo "Hexing x86_64-linux vm.ohx"
-output/posix/bin/onramphex platform/vm/x86_64-linux/vm.ohx -o output/intermediate/vm-x86_64-linux/vm
+$HEX platform/vm/x86_64-linux/vm.ohx -o output/intermediate/vm-x86_64-linux/vm
 chmod +x output/intermediate/vm-x86_64-linux/vm
 echo "Wrote: output/intermediate/vm-x86_64-linux/vm"
