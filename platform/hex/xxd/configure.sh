@@ -26,7 +26,7 @@
 # This script configures the POSIX shell hex tool on POSIX platforms.
 
 
-set -ev
-mkdir -p output/posix/bin output/posix/share/onramp/platform
-cp platform/hex/xxd/hex.sh output/posix/share/onramp/platform/
-(cd output/posix/bin; ln -sf ../share/onramp/platform/hex.sh onramphex)
+set -e
+mkdir -p output/configure
+cp platform/hex/xxd/hex.sh output/configure/hex-xxd.sh
+( cd output/configure ; ln -sf hex-xxd.sh onramphex )

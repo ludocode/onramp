@@ -27,6 +27,6 @@
 
 
 set -e
-mkdir -p output/posix/bin output/posix/share/onramp/platform
-cp platform/hex/python/hex.py output/posix/share/onramp/platform/
-(cd output/posix/bin; ln -sf ../share/onramp/platform/hex.py onramphex)
+mkdir -p output/configure
+cp platform/hex/python/hex.py output/configure/
+( cd output/configure ; ln -sf hex.py onramphex )

@@ -36,6 +36,6 @@ if [ "$(uname -m)" != "x86_64" ] || [ "$(uname -s)" != "Linux" ]; then
 fi
 
 "$(dirname "$0")"/build.sh
-mkdir -p output/posix/bin output/posix/share/onramp/platform
-cp output/intermediate/hex-x86_64-linux/hex output/posix/share/onramp/platform/hex-x86_64-linux
-(cd output/posix/bin; ln -sf ../share/onramp/platform/hex-x86_64-linux onramphex)
+mkdir -p output/configure
+cp output/intermediate/hex-x86_64-linux/hex output/configure/hex-x86_64-linux
+( cd output/configure; ln -sf hex-x86_64-linux onramphex )

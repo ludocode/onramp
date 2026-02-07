@@ -28,10 +28,10 @@
 
 set -e
 
-# Use a shell hex tool if it's configured, otherwise just fall back to the
-# shell hex tool. We don't want to add any other dependencies.
-if [ -e output/posix/bin/onramphex ]; then
-    HEX=output/posix/bin/onramphex
+# Use the configuration's hex tool if it exists; otherwise just fall back to
+# the shell hex tool. We don't want to add any other dependencies.
+if [ -e output/configure/onramphex ]; then
+    HEX=output/configure/onramphex
 else
     HEX=platform/hex/sh/hex.sh
 fi

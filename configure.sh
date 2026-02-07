@@ -36,6 +36,27 @@
 # symlinks to the source.
 
 
+# This script configures a hex tool and VM, then generates build scripts.
+# `configure.sh` scripts in the `platform/hex/` and `platform/vm/` directories
+# are used by this script to configure the various tools. Only those tools that
+# have POSIX support have a `configure.sh`.
+#
+# The script first configures a hex tool (or expects one configured manually)
+# at `onramp/configure/onramphex`. This is only used to hex the VM (if
+# necessary) and the Onramp bytecode hex/0-onramp hex tool.
+#
+# The script then configures a VM (or expects one configured manually) at
+# `onramp/posix/bin/onrampvm`. This is typically a wrapper script or symlink to
+# the VM in `onramp/posix/share/onramp/platform/`. The VM is included in the
+# final POSIX installation so it must be in `onramp/posix/` which gets
+# installed to `~/.local/` (or `/usr/local/` or the user's preferred
+# installation path.)
+#
+# Lastly, the script generates `build.sh`, `install.sh` and possibly
+# `build.ninja` files. These are mostly wrappers to scripts in
+# `scripts/posix/`.
+
+
 set -e
 BUILD="$(pwd)"
 ROOT="$(dirname "$0")"
@@ -66,7 +87,12 @@ The --test and --native options have additional dependencies (Make, Ninja, and
 a native C compiler.) They are not used in a proper bootstrap.
 
 Pass "manual" as the hex tool or VM if you have configured it manually before
-running this script.
+running this script. The hex tool and VM must be installed at:
+    output/configure/onramphex
+    output/posix/bin/onrampvm
+
+After configuration, run \`./build.sh\` to build and \`./install.sh\` to
+install.
 
 See the Setup Guide for details:
     docs/setup-guide.md
@@ -96,20 +122,22 @@ setup_log() {
     touch config.log
 }
 
-# Run an `rm` command and also echo it. Used for --clean.
-rm_echo() {
-    echo rm "$@"
+# Run an `rm` command and also log it.
+rm_log() {
+    logi rm "$@"
     rm "$@"
 }
 
 clean() {
-    if [ -L core ]; then rm_echo core; fi
-    if [ -L extra ]; then rm_echo extra; fi
-    if [ -L platform ]; then rm_echo platform; fi
-    if [ -L "test" ]; then rm_echo "test"; fi
-    rm_echo -rf output
-    rm_echo -f config.log config.log.history build.sh install.sh build.ninja
-    rm_echo -f .ninja_log
+    if [ -L core ]; then rm_log core; fi
+    if [ -L extra ]; then rm_log extra; fi
+    if [ -L platform ]; then rm_log platform; fi
+    if [ -L "test" ]; then rm_log "test"; fi
+    rm_log -rf output
+    rm_log -f build.sh install.sh build.ninja
+
+    # log must be cleaned last (otherwise rm_log will recreate it)
+    rm_log -f .ninja_log config.log config.log.history
     exit 0
 }
 
@@ -219,7 +247,20 @@ create_paths() {
     # We always clean all previous build output on a reconfigure.
     if [ -e output ]; then
         logi "Cleaning previous output"
-        rm -rf output/intermediate output/final output/test
+
+        # If the user has manually configured a VM or hex tool, we need to
+        # avoid cleaning it.
+        if [ "$HEX_CHOICE" != "manual" ] && [ "$VM_CHOICE" != "manual" ]; then
+            rm_log -rf output
+        else
+            if [ "$HEX_CHOICE" != "manual" ]; then
+                rm_log -rf output/configure
+            fi
+            if [ "$VM_CHOICE" != "manual" ]; then
+                rm_log -rf output/posix
+            fi
+            rm_log -rf output/intermediate output/final output/test
+        fi
     fi
 
     mkdir -p \
@@ -234,7 +275,7 @@ create_paths() {
 test_hex() {
     logd "Testing hex tool $1..."
 
-    if ! output/posix/bin/onramphex test/hex/tests/hello-world-readme.ohx -o output/configure/hex-$1.out >>config.log 2>&1; then
+    if ! output/configure/onramphex test/hex/tests/hello-world-readme.ohx -o output/configure/hex-$1.out >>config.log 2>&1; then
         logd "Couldn't run hex tool $1."
         return 1;
     fi
@@ -272,14 +313,14 @@ try_hex() {
     # Build (if necessary) and install the tool
     if ! "$ROOT/platform/hex/$1/configure.sh" >>config.log 2>&1; then
         logd "Couldn't configure hex tool $1."
-        rm -f output/posix/bin/onramphex
+        rm -f output/configure/onramphex
         return 1
     fi
 
     # Make sure it works
     if ! test_hex $1; then
         logd "Hex tool $1 failed test."
-        rm -f output/posix/bin/onramphex
+        rm -f output/configure/onramphex
         return 1
     fi
 
@@ -293,8 +334,13 @@ setup_hex() {
 
         # Manual configuration
         if [ "$HEX_CHOICE" = "manual" ]; then
+            if ! [ -e output/configure/onramphex ]; then
+                logi 'ERROR: `--hex manual` was requested but `output/configure/onramphex` does not exist.'
+                exit 1
+            fi
             if ! test_hex manual; then
                 logi "ERROR: Manually configured hex tool failed test."
+                exit 1
             fi
             return
         fi
@@ -386,7 +432,7 @@ setup_vm() {
     # To test the VM we'll run a simple Hello World program. (We avoid using a
     # large program like vminfo because the hex tool may be slow.)
     logd "Hexing VM test program..."
-    output/posix/bin/onramphex test/vm/io/hello.oe.ohx -o output/configure/hello.oe >>config.log 2>&1
+    output/configure/onramphex test/vm/io/hello.oe.ohx -o output/configure/hello.oe >>config.log 2>&1
 
     logi "Configuring VM..."
 
@@ -394,8 +440,13 @@ setup_vm() {
 
         # Manual configuration
         if [ "$VM_CHOICE" = "manual" ]; then
+            if ! [ -e output/posix/bin/onrampvm ]; then
+                logi 'ERROR: `--vm manual` was requested but `output/posix/bin/onrampvm` does not exist.'
+                exit 1
+            fi
             if ! test_vm manual; then
                 logi "ERROR: Manually configured VM failed test."
+                exit 1
             fi
             return
         fi
@@ -429,7 +480,7 @@ setup_misc() {
     # Hex our Onramp bytecode hex tool
     echo "Hexing hex/onramp..."
     mkdir -p output/intermediate/hex-0-onramp
-    output/posix/bin/onramphex core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-0-onramp/hex.oe
+    output/configure/onramphex core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-0-onramp/hex.oe
 
     # Hex our Onramp shell (with our bytecode tool because it is much faster
     # than the shell hex tool)
@@ -437,22 +488,18 @@ setup_misc() {
     mkdir -p output/intermediate/sh
     output/posix/bin/onrampvm output/intermediate/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/intermediate/sh/sh.oe
 
-    # copy POSIX wrappers into place (replacing onramphex with our own)
+    # copy POSIX wrappers into place
+    # (The tools won't work until the build is complete but it's simpler to
+    # copy the wrappers in place as part of configure.)
     if [ $NATIVE -eq 1 ]; then
         cp platform/cc/posix/onrampcc-native output/posix/bin/onrampcc
             # TODO ar/1 not written yet
             cp platform/cc/posix/onrampar output/posix/bin
             #(cd output/posix/bin; ln -sf ../../../final/bin/ar onrampar)
-        # TODO: This means onramphex doesn't work under `configure --native`
-        # until after the build is done. Not sure what the solution is yet.
-        # Probably just need to move this link command to the ninja file but
-        # it needs a bit of work.
         (cd output/posix/bin; ln -sf ../../final/bin/hex onramphex)
     else
         cp platform/cc/posix/onrampcc output/posix/bin
         cp platform/cc/posix/onrampar output/posix/bin
-        # TODO this has the same problem, onramphex doesn't work until after
-        # the build is done
         cp platform/cc/posix/onramphex output/posix/bin
     fi
     cp platform/cc/posix/wrap-header output/posix/share/onramp/platform

@@ -25,19 +25,21 @@
 
 # This script configures an alternate POSIX shell hex tool on POSIX platforms.
 #
-# We only bother to setup hexsplit.sh under the assumption that it has the
+# By default we only setup hexsplit.sh under the assumption that it has the
 # least bad worst case performance. If it doesn't work the others probably
-# won't either.
+# won't either. A different tool can be configured by command-line argument.
 
 
 set -e
 
-if ! [ -e platform/hex/sh-alt/hexsplit.sh ]; then
-    echo "$0: ERROR: platform/hex/sh-alt/hexsplit.sh not found."
+NAME=${1:-hexsplit}
+
+if ! [ -e platform/hex/sh-alt/$NAME.sh ]; then
+    echo "$0: ERROR: platform/hex/sh-alt/$NAME.sh not found."
     echo "$0: This script must be run in the root of the repository or build directory."
     exit 1
 fi
 
-mkdir -p output/posix/bin output/posix/share/onramp/platform
-cp platform/hex/sh-alt/hexsplit.sh output/posix/share/onramp/platform/
-(cd output/posix/bin; ln -sf ../share/onramp/platform/hexsplit.sh onramphex)
+mkdir -p output/configure
+cp platform/hex/sh-alt/$NAME.sh output/configure/
+( cd output/configure ; ln -sf $NAME.sh onramphex )
