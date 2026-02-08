@@ -105,11 +105,14 @@ static void parse_options(char** argv);
 
 #define FILEARGS_BUFFER_SIZE 256
 
+// misc state
+static int temp_id;
+
 // arguments files
 static char* fileargs_buffer;
-char** fileargs;
-size_t fileargs_count;
-size_t fileargs_capacity;
+static char** fileargs;
+static size_t fileargs_count;
+static size_t fileargs_capacity;
 
 // options
 static const char* output_filename;
@@ -769,15 +772,24 @@ static int file_type(const char* name) {
  * Makes a temporary output file with the given extension.
  *
  * The file is placed in the same directory as the output. The filename is the
- * same as the output file but prefixed with `.tmp.` and suffixed with the
- * given extension.
+ * same as the output file but prefixed with `.tmp.` and suffixed with a
+ * disambiguation index and the given extension.
+ *
+ * The given extension must start with a '.'.
  */
 static char* make_temp_filename(const char* extension) {
     const char* prefix = ".tmp.";
     size_t prefix_len = strlen(prefix);
     size_t extension_len = strlen(extension);
 
-    size_t total = ((strlen(output_filename) + prefix_len) + (extension_len + 1));
+    // Format a unique identifier for the file. This is necessary in case there
+    // are multiple inputs to be compiled and linked into a single output.
+    char* id = malloc(12);
+    temp_id = (temp_id + 1);
+    itoa_d(temp_id, id);
+    size_t id_len = strlen(id);
+
+    size_t total = ((strlen(output_filename) + prefix_len) + ((id_len + 1) + (extension_len + 1)));
     char* ret = malloc(total);
     char* pos = ret;
 
@@ -799,9 +811,14 @@ static char* make_temp_filename(const char* extension) {
     pos = (pos + prefix_len);
     memcpy(pos, filename, filename_len);
     pos = (pos + filename_len);
+    *pos = '.';
+    pos = (pos + 1);
+    memcpy(pos, id, id_len);
+    pos = (pos + id_len);
     strcpy(pos, extension);
 
     string_array_append(&temp_files, &temp_files_count, &temp_files_capacity, ret);
+    free(id);
     return ret;
 }
 
