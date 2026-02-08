@@ -34,6 +34,7 @@
 # subdirectory, a sibling directory, or anywhere else) in which to run this
 # script to keep the source directory clean. The build directory will have
 # symlinks to the source.
+# (TODO: --test doesn't work out-of-tree yet.)
 
 
 # This script configures a hex tool and VM, then generates build scripts.
@@ -225,6 +226,12 @@ parse_options() {
     fi
     if [ $STRICT -eq 1 ] && [ $NATIVE -eq 1 ]; then
         logi "WARNING: --strict applies only to VM and hex tool, not --test tooling."
+    fi
+
+    # TODO: --test doesn't work out-of-tree yet
+    if [ $TEST -eq 1 ] && [ "$ROOT" != "." ]; then
+        logi "ERROR: --test doesn't work out-of-tree yet. It must be run as \`./configure.sh\`."
+        exit 1
     fi
 
     # set preferred tools for --dev
@@ -516,6 +523,7 @@ setup_misc() {
     echo 'cd "$(dirname "$0")"' >>build.sh
     echo "TEST=$TEST" >> build.sh
     echo "NATIVE=$NATIVE" >> build.sh
+    echo "ROOT='$ROOT'" >> build.sh
     echo ". \"$ROOT\"/scripts/posix/build-impl.sh"' "$@"' >>build.sh
     chmod +x build.sh
     logi "Generated build.sh"

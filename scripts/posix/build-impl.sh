@@ -29,7 +29,6 @@
 
 set -e
 BUILD="$(pwd)"
-ROOT="$(dirname "$0")/../.."
 
 check_configure() {
     FILES="
@@ -51,8 +50,8 @@ build() {
     if [ $NATIVE -eq 1 ]; then
         ninja
     elif [ $TEST -eq 1 ]; then
-        . scripts/posix/env.sh
-        test/test-bootstrap.sh
+        . $ROOT/scripts/posix/env.sh
+        $ROOT/test/test-bootstrap.sh
     else
         output/posix/bin/onrampvm output/intermediate/sh/sh.oe core/build.sh
         output/posix/bin/onrampvm output/intermediate/sh/sh.oe extra/build.sh
