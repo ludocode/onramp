@@ -25,6 +25,8 @@
 
 # This script is the implementation of the build.sh generated from the
 # configure script.
+#
+# It is meant to be sourced so it is not executable.
 
 
 set -e
