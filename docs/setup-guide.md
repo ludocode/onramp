@@ -22,7 +22,7 @@ Onramp is configured using the included configure script:
 ./configure.sh
 ```
 
-This selects an appropriate hex tool and VM, bootstraps the initial Onramp shell, and generates build and install scripts.
+This selects an appropriate platform hex tool and VM, bootstraps the initial Onramp hex tool and shell, and generates build and install scripts.
 
 If there is a native machine code VM for your platform, the script will use it. This is a true bootstrap process in which the only non-firmware trust seeds are your kernel, coreutils (including your shell), and possibly your libc. If you don't trust your kernel or coreutils, you'll need to bootstrap Onramp in freestanding. See the "Freestanding" section below.
 
@@ -80,7 +80,8 @@ Pass `--help` to see additional install options. Use `--uninstall` to remove all
 
 
 
-## Windows
+Windows
+-------
 
 Windows support is not implemented yet.
 
@@ -90,15 +91,16 @@ In the meantime it is probably relatively easy to get the Python or C89 VMs runn
 
 
 
-## Manual Hosted Setup
+Manual Hosted Setup
+-------------------
 
-Suppose you are a future archaeologist that discovers an ancient data store in a fallout shelter centuries after a devastating nuclear war. Or, suppose you are an extra-terrestrial xenolinguist that receives a mysterious data burst in a radio signal originating in deep space.
+Suppose you are a future archaeologist who discovers an ancient data store in a fallout shelter centuries after a devastating nuclear war. Or, suppose you are an extra-terrestrial xenolinguist who receives a mysterious data burst in a radio signal originating from in deep space.
 
 The data contains highly compressed multimedia about then-contemporary human civilization, along with the source code for decoder programs to view it. Unfortunately, these programs are written in this cryptic programming language called C.
 
-Luckily, if the data also includes Onramp, you can use it to compile the decoders! But first you'll need to get Onramp bootstrapped on your alien hardware.
+Luckily, if the data also includes Onramp, you can use it to compile and run the decoders! But first you'll need to get Onramp bootstrapped on your alien hardware.
 
-To setup Onramp manually in an arbitrary (hosted) environment, you need to create two tools:
+To configure Onramp manually in an arbitrary (hosted) environment, you need to create two tools:
 
 - a [hex tool](../platform/hex/) that can convert [Onramp hexadecimal](hexadecimal.md) to raw bytes; and
 - a [virtual machine](../platform/vm/) that implements the [Onramp VM](virtual-machine.md) spec.
@@ -109,13 +111,13 @@ The hosted setup process assumes you can provide Onramp with a filesystem. You'l
 
 Once that is done, you need to use your hex tool to convert two Onramp programs: the Onramp hex tool and the Onramp shell. The output files must be stored in the following paths (relative to the root of the Onramp source):
 
-- [`core/hex/0-onramp/hex.oe.ohx`](../core/hex/0-onramp/hex.oe.ohx) --> `output/intermediate/hex-0-onramp/hex.oe`
-- [`core/sh/sh.oe.ohx`](../core/sh/sh.oe.ohx) --> `output/intermediate/sh/sh.oe`
+- [`core/hex/0-onramp/hex.oe.ohx`](../core/hex/0-onramp/hex.oe.ohx) --> `output/configure/hex-0-onramp/hex.oe`
+- [`core/sh/sh.oe.ohx`](../core/sh/sh.oe.ohx) --> `output/configure/sh/sh.oe`
 
-After that, run the Onramp shell in your VM, giving it the core build script ([`core/build.sh`](../core/build.sh)) as its only argument. Like this:
+After that, run the Onramp shell in your VM, giving it the core build script ([`core/build.sh`](../core/build.sh)) as its only argument. For example, in a typical shell where arguments are separated by spaces, a VM called "onrampvm" might be run with the following command:
 
 ```sh
-onrampvm output/intermediate/sh/sh.oe core/build.sh
+onrampvm output/configure/sh/sh.oe core/build.sh
 ```
 
 Again, all paths are relative to the root of the Onramp source, and the working directory must be this path as well.
@@ -135,11 +137,14 @@ onrampvm output/final/bin/cc.oe foo.c -o foo.oe
 onrampvm foo.oe
 ```
 
+Once the core toolchain is bootstrapped, you can build additional tools by running the shell again on `extra/build.sh`.
+
 If you want to improve integration with your operating system, you can provide wrapper programs for the VM, compiler driver and other tools. You can also make the compiler produce wrapped binaries by providing it with a `-wrap-header`. Take a look at [`platform/cc/`](../platform/cc/) to see how other platforms do it.
 
 
 
-## Freestanding
+Freestanding
+------------
 
 Onramp is designed to be able to eventually bootstrap itself without depending on an existing operating system. This is not implemented yet. See the [`x86-bios` VM](../platform/vm/x86-bios/) and the [Onramp `os`](../core/os/) for descriptions of how this will hopefully work.
 

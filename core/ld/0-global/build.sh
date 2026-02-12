@@ -29,5 +29,5 @@ echo
 echo === Building ld/0-global
 
 echo Hexing ld/0-global
-onrampvm output/intermediate/hex-0-onramp/hex.oe \
+onrampvm output/configure/hex-0-onramp/hex.oe \
     core/ld/0-global/ld.oe.ohx -o output/intermediate/ld-0-global/ld.oe
