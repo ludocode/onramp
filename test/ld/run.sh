@@ -129,10 +129,10 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
         set -e
         if [ $RET -ne 0 ]; then
             echo "ERROR: $TESTFILE failed to run."
-            ERROR=1
+            THIS_ERROR=1
         elif ! diff $TEMP_STDOUT $BASENAME.stdout > /dev/null; then
             echo "ERROR: $TESTFILE output did not match expected $BASENAME.stdout"
-            ERROR=1
+            THIS_ERROR=1
         fi
     fi
 
