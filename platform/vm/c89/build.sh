@@ -47,6 +47,6 @@ if [ "x$CFLAGS" = "x" ]; then
 fi
 
 # Compile it
-mkdir -p output/intermediate/vm-c89
-$CC $CFLAGS platform/vm/c89/vm.c -o output/intermediate/vm-c89/vm
-echo "Compiled: output/intermediate/vm-c89/vm"
+mkdir -p output/configure/vm-c89
+$CC $CFLAGS platform/vm/c89/vm.c -o output/configure/vm-c89/vm
+echo "Compiled: output/configure/vm-c89/vm"

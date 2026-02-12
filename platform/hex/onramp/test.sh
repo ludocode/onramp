@@ -35,6 +35,6 @@ if ! command -v onrampvm >/dev/null; then
 fi
 
 platform/hex/c89/build.sh
-mkdir -p output/intermediate/hex-onramp
-output/intermediate/hex-c89/hex -g core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-onramp/hex.oe
-test/hex/run.sh onrampvm output/intermediate/hex-onramp/hex.oe
+mkdir -p output/configure/hex-onramp
+output/configure/hex-c89/hex -g core/hex/0-onramp/hex.oe.ohx -o output/configure/hex-onramp/hex.oe
+test/hex/run.sh onrampvm output/configure/hex-onramp/hex.oe

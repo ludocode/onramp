@@ -29,5 +29,5 @@
 set -e
 "$(dirname "$0")"/build.sh
 mkdir -p output/posix/bin output/posix/share/onramp/platform
-cp output/intermediate/vm-c89/vm output/posix/share/onramp/platform/vm-c89
+cp output/configure/vm-c89/vm output/posix/share/onramp/platform/vm-c89
 (cd output/posix/bin; ln -sf ../share/onramp/platform/vm-c89 onrampvm)

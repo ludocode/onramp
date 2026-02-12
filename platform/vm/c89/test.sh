@@ -29,4 +29,4 @@
 set -e
 "$(dirname "$0")/build.sh"
 cd "$(dirname "$0")/../../.."
-test/vm/run.sh output/intermediate/vm-c89/vm
+test/vm/run.sh output/configure/vm-c89/vm

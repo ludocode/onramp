@@ -29,5 +29,4 @@
 set -e
 "$(dirname "$0")"/build.sh
 mkdir -p output/configure
-cp output/intermediate/hex-c89/hex output/configure/hex-c89
-( cd output/configure ; ln -sf hex-c89 onramphex )
+( cd output/configure ; ln -sf hex-c89/hex onramphex )

@@ -30,6 +30,6 @@ set -e
 
 # Since this is a POSIX shell script, we assume we can use the POSIX shell hex
 # tool to hex it.
-mkdir -p output/intermediate/hex-onramp
-echo "Hexing: output/intermediate/hex-onramp/hex.oe"
-platform/hex/sh/hex.sh core/hex/0-onramp/hex.oe.ohx -o output/intermediate/hex-onramp/hex.oe
+mkdir -p output/configure/hex-onramp
+echo "Hexing: output/configure/hex-onramp/hex.oe"
+platform/hex/sh/hex.sh core/hex/0-onramp/hex.oe.ohx -o output/configure/hex-onramp/hex.oe

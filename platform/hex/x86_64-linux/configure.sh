@@ -37,5 +37,4 @@ fi
 
 "$(dirname "$0")"/build.sh
 mkdir -p output/configure
-cp output/intermediate/hex-x86_64-linux/hex output/configure/hex-x86_64-linux
-( cd output/configure; ln -sf hex-x86_64-linux onramphex )
+( cd output/configure; ln -sf hex-x86_64-linux/hex onramphex )

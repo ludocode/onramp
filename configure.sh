@@ -332,6 +332,10 @@ try_hex() {
     fi
 
     logi "Configured hex tool: $1"
+
+    if [ "$1" = "sh-alt" ]; then
+        echo "WARNING: The sh-alt hex tool is very slow. It will take a long time to finish the configuration."
+    fi
 }
 
 setup_hex() {

@@ -35,5 +35,5 @@ if ! [ -e platform/hex/sh/hex.sh ]; then
 fi
 
 mkdir -p output/configure
-cp platform/hex/sh/hex.py output/configure/
+cp platform/hex/sh/hex.sh output/configure/
 ( cd output/configure ; ln -sf hex.sh onramphex )

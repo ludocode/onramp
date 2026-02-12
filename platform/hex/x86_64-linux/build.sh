@@ -44,8 +44,8 @@ else
 fi
 
 # build
-mkdir -p output/intermediate/hex-x86_64-linux
+mkdir -p output/configure/hex-x86_64-linux
 echo "Hexing x86_64-linux hex.ohx  (with: \`$HEX\`)"
-$HEX platform/hex/x86_64-linux/hex.ohx -o output/intermediate/hex-x86_64-linux/hex
-chmod +x output/intermediate/hex-x86_64-linux/hex
-echo "Wrote: output/intermediate/hex-x86_64-linux/hex"
+$HEX platform/hex/x86_64-linux/hex.ohx -o output/configure/hex-x86_64-linux/hex
+chmod +x output/configure/hex-x86_64-linux/hex
+echo "Wrote: output/configure/hex-x86_64-linux/hex"

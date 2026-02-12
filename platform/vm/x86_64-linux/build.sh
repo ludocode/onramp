@@ -36,8 +36,8 @@ else
     HEX=platform/hex/sh/hex.sh
 fi
 
-mkdir -p output/intermediate/vm-x86_64-linux
+mkdir -p output/configure/vm-x86_64-linux
 echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
-$HEX platform/vm/x86_64-linux/vm.ohx -o output/intermediate/vm-x86_64-linux/vm
-chmod +x output/intermediate/vm-x86_64-linux/vm
-echo "Wrote: output/intermediate/vm-x86_64-linux/vm"
+$HEX platform/vm/x86_64-linux/vm.ohx -o output/configure/vm-x86_64-linux/vm
+chmod +x output/configure/vm-x86_64-linux/vm
+echo "Wrote: output/configure/vm-x86_64-linux/vm"
