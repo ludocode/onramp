@@ -1,5 +1,5 @@
-This folder contains helper scripts for building Onramp on POSIX systems.
+This directory contains helper scripts for building Onramp on POSIX systems.
 
-These scripts are either deprecated or they are internal implementation details. Users don't need to run anything in here anymore.
+The only script here that is still meant to be callable is `uninstall.sh`. It allows uninstalling an Onramp installation without having to reconfigure.
 
-The top-level `configure.sh` is now the main script for building on POSIX. It generates `build.sh` and `install.sh` which are wrappers for `build-impl.sh` and `install-impl.sh` here.
+The rest of these scripts are either deprecated or they are internal implementation details. The top-level `configure.sh` is now the main script for building on POSIX. It generates wrapper scripts for the internal implementation scripts here.

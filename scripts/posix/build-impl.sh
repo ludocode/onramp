@@ -105,7 +105,8 @@ go() {
     check_configure
     build
     echo
-    echo 'Build complete. Run `./install.sh` to install Onramp.'
+    echo 'Build complete.'
+    echo 'Run `./install.sh` to install Onramp (or `. env.sh` to use it in-place.)'
 }
 
 go "$@"

@@ -4,6 +4,7 @@
 /config.log.history
 /build.sh
 /install.sh
+/env.sh
 /build.ninja
 /.ninja_log
 

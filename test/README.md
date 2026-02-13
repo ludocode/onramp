@@ -14,24 +14,21 @@ There are two ways to test components: using the *best* available toolchain, and
 
 ## Pre-Testing Setup
 
-Consider doing a clean before testing:
-
-```sh
-scripts/posix/clean.sh
-```
+The configure script must be used to setup the unit test environment. Note that when running tests, configure cannot currently be run out-of-tree.
 
 You'll need to have a VM and hex tool on your PATH. The simplest way to do that is:
 
 ```sh
-scripts/posix/build.sh --dev --setup
-. scripts/posix/env.sh
+./configure.sh --dev
+. env.sh
 ```
 
-A better option if you plan to do Onramp development is to install developer symlinks. This will place symlinks in `~/.local/bin` for `onrampvm`, `onrampcc` and so on that point directly into your build folder. This allows you to easily test local changes without having to reinstall Onramp.
+A better option if you plan to do Onramp development is to install developer symlinks. This will place symlinks in `~/.local/bin` for `onrampvm`, `onrampcc` and so on that point directly into your build folder. This allows you to easily test local changes without having to reinstall Onramp or source `env.sh` in every shell.
 
 ```sh
-scripts/posix/build.sh --dev
-scripts/posix/install.sh --dev
+./configure.sh --dev
+./build.sh
+./install.sh --link
 ```
 
 The file `test/local.mk.sample` can be copied to `test/local.mk` to set variables for all test Makefiles. By default it adds `-Werror` and Address Sanitizer.

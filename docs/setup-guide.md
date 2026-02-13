@@ -48,19 +48,25 @@ cd build
 
 ### POSIX Build
 
-The configure script generates a `build.sh` script. It does not generate a Makefile because Onramp must be bootstrappable without Make. Build it like so:
+The configure script generates a `build.sh` script. (It does not generate a Makefile because Onramp must be bootstrappable without Make.) Run it like so:
 
 ```sh
 ./build.sh
 ```
 
-This performs the platform-independent bootstrap in the Onramp shell (unless the `--native` or `--test` options were used, in which case there are more dependencies.)
-
-With a fast VM on a modern PC, the build will take a couple of minutes. It can take much longer on a slow VM or on old hardware.
+With a fast VM on a modern PC, the standard build will take a couple of minutes. It can take much longer on a slow VM or on old hardware.
 
 If you just want to use Onramp and don't care about bootstrapping it, pass `--native` to the configure script. The build process will then use Ninja and your native C compiler which can build Onramp in under two seconds on modern hardware. The resulting compiler will also be hundreds of times faster than bootstrapped.
 
 The standard build process is not incremental. If you run the script again, it will rebuild everything from scratch even if nothing has changed. This is a limitation of not using Make or any other build tool.
+
+You can use the compiled Onramp without installing it by sourcing the `env.sh` script:
+
+```sh
+. env.sh
+```
+
+This adds the compiled Onramp to your `PATH`. If you want to install it, continue to the next section.
 
 ### POSIX Install
 
@@ -72,11 +78,13 @@ Once built, Onramp can be installed with the install script:
 
 The default install path is `~/.local/` if run as a non-root user and `/usr/local/` if run as root. It is recommended to install as non-root in the default `~/.local/`.
 
-To run Onramp programs, the \`/bin/\` subdirectory of the install path must be on your PATH. This is necessary not only for compiling programs but also for running them since they depend on `onrampvm`. Some Linux distributions place `~/.local/bin/` on PATH by default but not all; check your PATH to make sure.
+To run Onramp programs, the \`/bin/\` subdirectory of the install path must be on your `PATH`. This is necessary not only for compiling programs but also for running them since they depend on `onrampvm`. Some Linux distributions place `~/.local/bin/` on `PATH` by default but not all; check your `PATH` to make sure.
 
-The Onramp installation is relocatable: you can choose the path after it is built; you can install to a staging area and move it later; etc. Use `--path` to set a custom install path. If you don't want to install Onramp, you can also run it directly from the build output simply by adding `output/posix/bin` to your PATH.
+The Onramp installation is relocatable: you can choose the path after it is built; you can install to a staging area and move it later; etc. Use `--path` to set a custom install path.
 
-Pass `--help` to see additional install options. Use `--uninstall` to remove all installed files.
+Use `--uninstall` to remove all installed files. (Alternatively, you can run `scripts/posix/uninstall.sh` to uninstall without configuring.)
+
+Pass `--help` to see additional install options.
 
 
 
