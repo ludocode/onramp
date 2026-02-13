@@ -49,6 +49,12 @@ make -C test/cci/1-opc build
 make -C test/as/2-full build
 make -C test/ld/2-full build
 
+# Test our configured tools
+test/hex/run.sh --lax output/configure/onramphex
+test/vm/run.sh onrampvm
+test/hex/run.sh --lax onrampvm output/configure/hex-0-onramp/hex.oe
+test/sh/run.sh onrampvm output/configure/sh/sh.oe
+
 # First we get our linker and libc up
 ( core/ld/0-global/build.sh && cd test/ld/0-global && ../run.sh . onrampvm ../../../output/intermediate/ld-0-global/ld.oe )
 ( core/ar/0-cat/build.sh && cd test/ar/0-cat && ../run.sh . onrampvm ../../../output/intermediate/ar-0-cat/ar.oe )
