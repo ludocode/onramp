@@ -27,7 +27,7 @@ SRC=$(ROOT)/core/ld/0-global
 OUT=$(OUTPUT)/test/ld-0-global
 
 VM=$(OUTPUT)/test/vm-c-debugger/vm
-HEX=$(OUTPUT)/intermediate/hex-c89/hex
+HEX=$(OUTPUT)/configure/hex-c89/hex
 
 all: build test FORCE
 FORCE:

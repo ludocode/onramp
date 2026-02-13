@@ -70,7 +70,7 @@ TEMP_STDERR=$ONRAMP_TMPDIR/onramp-test.stderr
 ANY_ERROR=0
 
 ( $(dirname $0)/../../platform/hex/c89/build.sh ) || exit $?
-HEX=$(dirname $0)/../../output/intermediate/hex-c89/hex
+HEX=$(dirname $0)/../../output/configure/hex-c89/hex
 
 echo "Running vm tests on: $COMMAND"
 

@@ -735,7 +735,7 @@ static void free_options(void) {
  */
 
 static int file_type(const char* name) {
-    char* extension = strrchr(name, '.');
+    const char* extension = strrchr(name, '.');
     if (extension != NULL) {
         extension = (extension + 1);
 

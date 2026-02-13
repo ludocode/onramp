@@ -35,13 +35,9 @@
 
 set -e
 
-# Use a shell hex tool if it's configured, otherwise just fall back to the
-# shell hex tool. We don't want to add any other dependencies.
-if [ -e output/posix/bin/onramphex ]; then
-    HEX=output/posix/bin/onramphex
-else
-    HEX=platform/hex/sh/hex.sh
-fi
+# Since this is a POSIX shell script, we assume we can use the POSIX shell hex
+# tool to hex it.
+HEX=platform/hex/sh/hex.sh
 
 # build
 mkdir -p output/configure/hex-x86_64-linux
