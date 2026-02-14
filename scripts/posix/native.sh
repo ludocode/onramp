@@ -161,6 +161,10 @@ rule link_onramp
  description = Compiling \$out
  pool = onramp_pool
 
+rule hex
+ command = output/final/bin/hex -o \$out \$in
+ description = Hexing \$out
+
 # builds all native tools
 build native: phony $
     output/final/bin/cpp $
@@ -170,6 +174,8 @@ build native: phony $
     output/final/bin/cc $
     output/final/bin/hex $
     output/final/bin/vm $
+    output/final/bin/sh.oe $
+    output/final/bin/vminfo.oe $
 
 # builds all onramp tools
 # TODO move ar up once native
@@ -327,8 +333,13 @@ build archive_onramp output/final/lib/libc.oa \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo
 
-comment "sh/1 TODO"
-# TODO
+comment "sh"
+build hex output/final/bin/sh.oe output/final/bin/hex core/sh/sh.oe.ohx
+echo >> $DEST
+
+comment "vminfo"
+build hex output/final/bin/vminfo.oe output/final/bin/hex extra/vminfo/vminfo.oe.ohx
+echo >> $DEST
 
 
 
