@@ -72,7 +72,7 @@ This document specifies an incomplete in-development version of the virtual mach
     - [`delete`](#delete)
     - [`chmod`](#chmod)
     - [`mkdir`](#mkdir)
-    - [`rmdir`](#rmdir)
+    - [`debug`](#debug)
     - [`alloc`](#alloc)
     - [`free`](#free)
 - [Debug Info](#debug-info)
@@ -193,8 +193,6 @@ The "read only", "read/write", and "read/write/execute" labels show how the memo
 
 The VM does not need to enforce any such access restrictions. There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, the VM may simply allow the write, etc.)
 
-All addresses above must be aligned to a multiple of 4 bytes.
-
 
 
 ## Process Info Table
@@ -215,9 +213,11 @@ The process information table is an array of eleven 32-bit words (44 bytes total
 | 9     | Capabilities               | `int`    | Flags indicating the capabilities and environment of the VM.             |
 | 10    | Minor Version              | `int`    | Always 0 for this version.                                               |
 
-The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program and pass a pointer to it in `r0`. The memory may be read-only or writeable; the program must not attempt to modify the table.
+The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program. It then places its address in `r0` before executing the program. The memory may be read-only; the program must not attempt to modify the table.
 
 The process info table and its associated information (system call table, command-line arguments, environment variables, working directory) cannot be written to or executed by the program. An attempt by the program to write to or execute bytecode from these addresses is undefined behaviour. (VMs typically do not enforce this, but this restriction may simplify certain VMs, and it is important in order to simplify certain tools including the shell in the bootstrap process.)
+
+All addresses that point to a word, or to an array of words, must be aligned to a multiple of four bytes. In the process info table, this includes the heap start address, the system call table address, the command-line arguments list and the environment variables. This also includes the initial `r0`, `rpp`, `rsp` and `rip` of the program. The addresses of strings, namely the working directory and the individual command-line arguments and environment variables, do not need to be aligned.
 
 
 
@@ -251,13 +251,13 @@ For programs run interactively, this is typically connected to an input terminal
 
 Standard input is optional. If standard input is not supported by the VM, or if standard input is otherwise unavailable to the program, this field contains 0xFFFFFFFF. This is normal for example for a minimal VM or for non-interactive bootstrapping in a freestanding environment.
 
-Valid handles for standard input, output and error may have any value (and may even all have the same value) as long as the high bit is not set. The program can use these handles to communicate with its environment.
+Valid handles for standard input, output and error may have any value as long as the high bit is not set. The program can use these handles to communicate with its environment.
 
 The VM may "echo" its input; i.e. it may copy all input to its own output. In this case the "echo" bit must be set in the capabilities field of the process info table. It is recommended that VMs not echo if possible. The Onramp libc can simulate echo internally for interactive programs.
 
 The VM may also "line buffer" its input, i.e. it may withhold input from the program until the user inputs a newline character. In this case the "line-oriented" bit must be set in the capabilities field of the process info table. It is recommended that VMs not line-buffer if possible.
 
-(On POSIX systems, this means the input handle should be in non-canonical mode and should have echo disabled.)
+(On POSIX systems, this means the input handle should ideally be in non-canonical mode and should have echo disabled. This is not easy to do correctly on POSIX, so the VM can instead simply leave it in canonical mode and set the appropriate capabilities bits.)
 
 
 
@@ -275,13 +275,11 @@ Standard output is optional. If standard output is not supported by the VM, or i
 
 ### Standard Error Handle
 
-The standard error handle is a handle to which the program can write error messages. It is used as a handle to [`write`](#write) for the program to write output data. See the description of [streams](#streams) and [handles](#handles).
+The standard error handle is a handle to which the program can write error messages. It is used as a handle to [`write`](#write) for the program to write error messages. See the description of [streams](#streams) and [handles](#handles).
 
-Standard error is intended for displaying errors, warnings and other abnormal output to a user.
+Standard error is intended for displaying errors, warnings and other abnormal output to a user. Data printed to standard error is therefore usually in plain text. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
 
-Data printed to standard error is usually plain text and is intended for display to the user. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
-
-The standard output and error handles are otherwise identical. If no distinction is required between them, the VM can use the same handle for both. (It can also use the same handle for input.)
+The standard output and error handles are otherwise identical. If no distinction is required between them, the VM can use the same handle for both, and it can also use the same handle for input. Note however that if the same handle is used for multiple streams, closing it once must not close it for all of them. For example closing the standard output stream must not also close the standard error stream; if the handles are the same, the VM should either require calling [`close`](#close) twice to close it, or it should ignore `close` on the standard streams altogether.
 
 Standard error is optional. If a standard error handle is not supported by the VM, this field contains 0xFFFFFFFF. If this has value 0xFFFFFFFF and the standard output handle is valid, programs usually write error messages to the output stream handle instead.
 
@@ -289,11 +287,13 @@ Standard error is optional. If a standard error handle is not supported by the V
 
 ### Command-Line Arguments
 
-Command-line arguments are stored in a null-terminated array of null-terminated strings.
+Command-line arguments are stored in a null-terminated array of null-terminated strings. These are used to pass arguments to the program.
 
-In a hosted environment, the command-line typically has at least one string, which is the path to the program being run. The program can use this path to find its program image, and can use the last component of this path to determine its name.
+The first command-line argument is the name of or path to the program being run. If it's a path, the program can use it to find its program image, and it can use the last component of this path to determine its name.
 
-This field is optional. If not supported, it can be null (zero) or it can be an empty array (i.e. it can be the address of a zero word.) This indicates to the program that the program name and command line arguments are not available.
+Arguments beyond the first are used to control the behaviour of the program. For example, a program that parses a file may expect an argument providing the path to the file to be parsed.
+
+This field is optional. If not supported, it can be null (zero) or it can be an empty array (i.e. it can be the address of a zero word.) This indicates to the program that the program name and command line arguments are not available. If the program name is not available but there are additional arguments, the first argument must be the address of a zero byte (i.e. it must be an empty string.)
 
 
 
@@ -1025,13 +1025,13 @@ Optional, more precise error codes are:
 
 All error codes have the high bit set. Values that can be returned from successful system calls (such as file and directory handles) do not have the high bit set. Programs check for errors by testing whether the high bit is set.
 
-When an error occurs on a file or directory handle, the handle always remains open. A handle can only be closed by a call to `fclose` or `dclose` or by exiting the program.
+When an error occurs on a file handle, the handle always remains open. A handle can only be closed by a call to `close` or by exiting the program.
 
 (Some system calls indicate that certain combinations of arguments are undefined behaviour. In such cases, the VM does not need to return an error code; in fact it does not need to check for such incorrect usage at all. It may check however, and if detected, it is reasonable to halt the program and report the error to the user.)
 
 
 
-### exit
+### `exit`
 
 ```c
 [[noreturn]] void __sys_exit(int exit_code);
@@ -1053,7 +1053,7 @@ This system call is optional in freestanding. It must be implemented in a hosted
 
 
 
-### panic
+### `panic`
 
 ```c
 [[noreturn]] int __sys_panic(int exit_code);
@@ -1073,7 +1073,7 @@ This system call is optional and is not typically implemented by Onramp VMs. If 
 
 
 
-### time
+### `time`
 
 ```c
 int __sys_time(unsigned time[3]);
@@ -1095,7 +1095,7 @@ If this system call is implemented, it cannot fail. It must always set register 
 
 
 
-### open
+### `open`
 
 ```c
 int __sys_open(const char* path, bool writeable);
@@ -1108,17 +1108,17 @@ int __sys_open(const char* path, bool writeable);
 
 Opens the file at the given path, associating it with an integer handle and returning it. The stream position is initially at the start of the file.
 
-The returned integer must not have been in use by another handle. (The returned integer may have been returned by previous calls to `open` if and only if each time was eventually followed by a corresponding `fclose`.) Note that the handles for the standard input, output and error streams are in use (if provided) at the start of the program.
+The returned integer must not have been in use by another handle. (The returned integer may have been returned by previous calls to `open` if and only if each time was eventually followed by a corresponding `close`.) Note that the handles for the standard input, output and error streams are in use (if provided) at the start of the program.
 
-The `writeable` argument (in r1) must be 0 or 1. If it is 1, the file will support writing (via `write` and `trunc`), and will be created if it does not already exist.
+The `writeable` argument (in r1) must be 0 or 1. If it is 1, the file will support writing (via `write` and `trunc`), and will be created if it does not already exist. Directories cannot be opened for writing.
 
-If a file open for writing already exists, the contents are left intact. Since the initial position is at the start of the file, subsequent writes will overwrite the contents. To append to an existing file, the program must make a `seek` call after opening it. To destroy the existing contents after opening, the program must make a `trunc` call.
+If a file open for writing already exists, the contents are left intact. Since the initial position is at the start of the file, subsequent writes will overwrite the contents. To append to an existing file, the program must make a [`seek`](#seek) call after opening it. To destroy the existing contents after opening, the program must make a [`trunc`](#trunc) call.
 
 On success, a handle is returned, which must not have the high bit set.
 
 If the file does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
 
-If the given path is a directory, the call returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. `dopen` can be used to open directories.
+If the file is a directory and writeable is set, `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned.
 
 If the file cannot be opened due to a failure of the storage device or other data corruption, this returns `ERROR_IO` or `ERROR_GENERIC`.
 
@@ -1126,10 +1126,10 @@ If the file cannot be opened for other reasons (perhaps due to a permission issu
 
 
 
-### fclose
+### `close`
 
 ```c
-int __sys_fclose(int handle);
+int __sys_close(int handle);
 ```
 
 - syscall number: 4
@@ -1148,7 +1148,7 @@ If the given handle is invalid, the behaviour is undefined. (The VM may return a
 
 
 
-### read
+### `read`
 
 ```c
 int __sys_read(int handle, void* buffer, int count);
@@ -1198,7 +1198,7 @@ The VM must never return zero from this system call. (Earlier versions of this s
 
 
 
-### write
+### `write`
 
 ```c
 int __sys_write(int handle, void* buffer, int count);
@@ -1230,7 +1230,7 @@ This can only be called on the output stream, the error stream, or a file opened
 
 
 
-### seek
+### `seek`
 
 ```c
 int __sys_seek(int handle, int base, unsigned offset_low, int offset_high);
@@ -1263,7 +1263,7 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### tell
+### `tell`
 
 ```c
 int __sys_tell(int handle, unsigned position[2]);
@@ -1292,7 +1292,7 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### trunc
+### `trunc`
 
 ```c
 int __sys_trunc(int handle, unsigned size_low, unsigned size_high);
@@ -1318,10 +1318,10 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### dirent
+### `dirent`
 
 ```c
-int __sys_dirent(int directory_handle, char buffer[256]);
+int __sys_dirent(int handle, char buffer[256]);
 ```
 
 - syscall number: 12
@@ -1333,11 +1333,13 @@ Reads the name of the next file in the given directory into the given buffer as 
 
 If there are no more entries, an empty string is placed in the buffer (by writing a 0 byte to the first character) and 0 (success) is returned.
 
-If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned. (The directory handle remains open.)
+If the given handle is not a directory, `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned.
+
+If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned.
 
 
 
-### stat
+### `stat`
 
 ```c
 int __sys_stat(const char* path, unsigned size[2]);
@@ -1377,7 +1379,7 @@ This system call exists so that programs can check whether files exist and deter
 
 
 
-### rename
+### `rename`
 
 ```c
 int __sys_rename(const char* source, const char* destination);
@@ -1390,41 +1392,45 @@ int __sys_rename(const char* source, const char* destination);
 
 Moves and renames a file or directory.
 
-The file or directory named by the source path is moved and renamed to the destination path. Its parent directory becomes the base path of the destination and its filename becomes the last path component of the destination.
+The file or directory named by the source path is moved and renamed to the destination path. If directories are supported, the file's parent directory becomes the base path of the destination and its filename becomes the last path component of the destination.
 
-For example, if the file `/aaa/bbb/ccc` is renamed to `/ddd/eee/fff`, its parent directory becomes `/ddd/eee/` and its filename becomes `fff`.
-
-If the destination file already exists, the VM may delete the original file at the destination path (as long as the move is successful), or it may return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+If the destination path already exists and is not a directory, the VM may delete the original file at the destination path and replace it with the source file, or it may leave the original file in place and return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
 
 If the destination path is a directory, the VM should return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. (The libc should avoid this; TODO maybe we can make this undefined behaviour.)
 
-If any directory component of the destination path does not exist, the VM may return `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`, or it may succeed. (A VM does not need to support directories.)
+If any directory component of the destination path does not exist, the VM may return `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`, or it may create the missing directories and succeed, or it may succeed without creating any directories. (A VM does not need to support directories.)
+
+For example, if the file `/aaa/bbb/ccc` is renamed to `/ddd/eee/fff`, its parent directory becomes `/ddd/eee/` and its filename becomes `fff`. The destination directory `/ddd/eee/` must exist and must be a directory.
 
 This system call is optional. If it is not implemented, the libc will provide this functionality by copying the file to the destination and deleting the source. This fallback behaviour may not be correct for streams or devices.
 
 
 
-### delete
+### `delete`
 
 ```c
 int __sys_delete(const char* path);
 ```
 
 - syscall number: 16
-- argument in r0: address of a null-terminated string containing the path of the file or symlink to delete
+- argument in r0: address of a null-terminated string containing the path of the file to delete
 - return value in r0: 0 on success or an error code
 
 Deletes the file at the given path. If the file is a directory, it must be empty.
+
+Returns 0 on success or an error code on error.
 
 If the given path does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
 
 If the given path is a non-empty directory, or if permission is not granted to delete the file, `ERROR_UNSUPPORTED` or `ERROR_GENERIC` is returned.
 
+If the file cannot be deleted (perhaps due to a permission issue), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+
 If the storage device malfunctions or the filesystem is corrupt, `ERROR_IO` or `ERROR_GENERIC` is returned.
 
 
 
-### chmod
+### `chmod`
 
 ```c
 int __sys_chmod(const char* path, int mode);
@@ -1453,7 +1459,7 @@ If some other error occurs, this returns `ERROR_GENERIC`.
 
 
 
-### mkdir
+### `mkdir`
 
 ```c
 int __sys_mkdir(const char* path);
@@ -1479,41 +1485,18 @@ This system call is optional. (The VM does not need to have a concept of directo
 
 
 
-### rmdir
-
-```c
-int __sys_rmdir(const char* path);
-```
-
-- syscall number: 19
-- argument in r0: address of a null-terminated string containing the path of the empty directory to delete
-- return value in r0: 0 on success or an error code
-
-Deletes an empty directory at the given path.
-
-Returns 0 on success or an error code on error.
-
-If the directory is empty and is successfully deleted, this returns 0.
-
-If the directory is not empty, this returns `ERROR_GENERIC`.
-
-If the directory does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
-
-If the path exists but is not a directory (i.e. it is a file), this returns `ERROR_GENERIC`.
-
-If the directory cannot be deleted (perhaps due to a permission issue), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
-
-If the directory cannot be created due to a failure of the storage device, this returns `ERROR_IO` or `ERROR_GENERIC`.
-
-
-
-### debug
+### `debug`
 
 ```c
 int __sys_debug(const void* address, const char* /*nullable*/ executable_path);
 ```
 
-Loads or unloads debug info for a child program at the given address.
+- syscall number: 22
+- argument in r0: address of an executable loaded into memory
+- argument in r1: address of a null-terminated string containing the path of the loaded executable, or null if it is being unloaded
+- return value in r0: 0 on success or an error code
+
+Loads or unloads [debug info](#debug-info) for a child program at the given address.
 
 If the given path is null, previously loaded debug info for the given address is unloaded.
 
@@ -1539,7 +1522,7 @@ This syscall is optional and most VMs do not implement it. The [c-debugger](../p
 
 
 
-### alloc
+### `alloc`
 
 ```c
 int __sys_alloc(size_t size, void** /*out*/ address);
@@ -1570,7 +1553,7 @@ This system call is optional. The VM may instead simply provide memory at start 
 
 
 
-### free
+### `free`
 
 ```c
 int __sys_free(void* address, size_t size);
@@ -1665,7 +1648,7 @@ Changes include:
 
 - Changes to the process info table:
     - The system call count and process info count fields have been replaced by a single minor version field. This is much simpler for VMs to implement and for the bootstrap and libc to use.
-    - All contents of the process info table, including command-line arguments and environment variables, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
+    - All contents of the process info table, including command-line arguments, environment variables, the syscall table and the working directory, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
     - The "interactive" bit has been added to the capabilities field.
 - Some system call changes:
     - The prototype for `alloc` has changed. The old function was never used.
@@ -1674,8 +1657,9 @@ Changes include:
     - `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
     - `dopen` (10), `dclose` (11), and `rmdir` (19) have been removed. `open`, `close`, and `delete` are now used for directories as well.
     - The `f` prefix has been dropped from many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftell`, `ftrunc`.
+    - `read` and `write` can no longer return zero. They always return non-zero or an error code.
 - Cleaned up syscall error codes:
-    - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams. (Returning zero from `read` and `write` is now disallowed but the libc will still support it for backwards compatibility.)
+    - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams.
     - Added `ERROR_OVERFLOW` for situations in which the VM runs out of resources.
     - All error codes except `ERROR_GENERIC` and `ERROR_END_OF_FILE` are now optional. The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
 - Added a definition of devices and the device `/dev/urandom`.
@@ -1718,7 +1702,7 @@ The spec for version 1 is in commit [36bb35db](https://github.com/ludocode/onram
 
 #### Version 0
 
-This was the initial experimental version of the Onramp VM. Several breaking changes were made without bumping the version number; in most cases it is impossible for the program to tell which "version 0" it is running on so there is no way for a program to be portable to all version 0 VMs.
+This was the initial experimental version of the Onramp VM. Several breaking changes were made without bumping the version number; in most cases it is impossible for the program to tell on which "version 0" it is running so there is no way for a program to be portable to all version 0 VMs.
 
 Some changes during version 0 are:
 
@@ -1730,7 +1714,7 @@ Some changes during version 0 are:
 
 Most of these changes were made to simplify VMs at the expense of some complexity in the libc and bootstrap.
 
-The best commit representing version 0 is probably [8ace5628](https://github.com/ludocode/onramp/blob/8ace5628af12329c02f7bcd46f4f00b47f82beb0/docs/virtual-machine.md), although changes were made before and after this commit with the same version number.
+The best commit representing version 0 is probably [8ace5628](https://github.com/ludocode/onramp/blob/8ace5628af12329c02f7bcd46f4f00b47f82beb0/docs/virtual-machine.md), although changes were made before and after this commit with the same version number. The spec at that commit is assumed by the vminfo tool for version 0.
 
 
 <!--
