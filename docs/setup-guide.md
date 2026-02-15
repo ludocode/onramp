@@ -1,100 +1,95 @@
-# Onramp Setup Guide
+Onramp Setup Guide
+==================
 
 This guide explains how to build and configure Onramp.
 
 The Onramp bootstrap process is platform-independent, but it requires a platform-specific Onramp VM and hex tool to be configured first.
 
-Scripts exists for automatically building Onramp on certain hosted platforms. If you're not using one of the supported platforms, skip ahead to the "Manual Hosted Setup" section.
+Scripts exist for automatically building Onramp on certain hosted platforms. If you're not using one of the supported platforms, skip ahead to the "Manual Hosted Setup" section.
 
 
 
-## POSIX setup
+POSIX setup
+-----------
 
-Onramp includes build scripts for POSIX systems in `scripts/posix/`.
+Onramp includes POSIX shell scripts to bootstrap automatically on a POSIX system. This works like a typical three-step build process: configure, build, and install.
 
+### POSIX Configure
 
-
-### Building natively for POSIX
-
-If you just want to use the Onramp compiler and not bootstrap it, you can build it natively like this:
-
-```sh
-scripts/posix/native.sh
-```
-
-This compiles all of the final stage Onramp tools with an external C compiler. You'll also need [Ninja](https://ninja-build.org/) installed. This generates a build file (similar to a configure script) and then runs Ninja on it. You can set typical environment variables (`CC`, `CFLAGS`, `CPPFLAGS`, `LDFLAGS`, `AR`) to control the build.
-
-This is useful if, for example, you want to test your code with Onramp. A native build of Onramp compiles code hundreds of times faster than a bootstrapped build.
-
-This generates a cross-compiler by default since the Onramp compiler only targets Onramp bytecode. There is no support for a Canadian Cross compilation; the build and host machines must be the same.
-
-See the "Installing for POSIX" section below to install the resulting compiler.
-
-Note that you cannot set `CC=onrampcc` because the build process also builds the c-debugger VM. (Onramp cannot build its own VMs yet, and even if it could, the resulting VM would have a circular dependency on itself.) If you want to build Onramp with itself or use a different VM, follow the "Bootstrapping for POSIX" instructions below.
-
-
-
-### Bootstrapping for POSIX
-
-Onramp can be bootstrapped on POSIX systems like this:
+Onramp is configured using the included configure script:
 
 ```sh
-scripts/posix/build.sh
+./configure.sh
 ```
 
-If there is a native machine code VM for your platform (e.g. `linux-x86_64/`), the scripts will use it. This is a true bootstrap process in which the only non-firmware trust seeds are your kernel and coreutils. (On Linux it doesn't even need a libc, so you could in theory bootstrap Onramp with nothing but a statically linked BusyBox.)
+This selects an appropriate platform hex tool and VM, bootstraps the initial Onramp hex tool and shell, and generates build and install scripts.
 
-If you don't trust your kernel or coreutils, you'll need to bootstrap Onramp in freestanding. See the "Freestanding" section below.
+If there is a native machine code VM for your platform, the script will use it. This is a true bootstrap process in which the only non-firmware trust seeds are your kernel, coreutils (including your shell), and possibly your libc. If you don't trust your kernel or coreutils, you'll need to bootstrap Onramp in freestanding. See the "Freestanding" section below.
 
-If there isn't a machine code VM for your platform, the script will attempt to compile a VM or use an interpreted one. If it cannot find a VM that works on your system, the script will fail.
+If there isn't a machine code VM for your platform, the script will attempt to compile a VM or use an interpreted one. If it cannot find a VM that works on your system, configuration will fail.
 
 Obviously if it uses a C compiler to build a VM, it didn't really bootstrap a C compiler from scratch. This may be fine if you're trying to bootstrap on an older system that only has an ancient C compiler. If you want to eliminate compilers from your trusted seeds, you'll need a machine code VM, or at least an assembly VM with an assembler you can trust.
 
-The build script supports the following command-line options to choose a specific hex tool and VM and to otherwise change its behaviour. (Pass no options to use the default auto-detection.)
+Pass `--help` to see a list of command-line options. Some useful options are:
 
-- `--hex [name]` -- Use the hex tool with the given name
-- `--vm [name]` -- Use the VM with the given name
-- `--dev` -- Use preferred tools for developing Onramp
-- `--min` -- Use only tools with no additional dependencies (i.e. a machine code VM), fail otherwise
-- `--setup` -- Skip the core bootstrap; setup the VM, hex and shell only (allows you to set `PATH` and run `core/build.sh` manually)
+- `--strict`: Allow only minimal dependencies, i.e. the kernel, coreutils and libc. Configuration will fail if a minimal machine code VM cannot be found for your system.
 
-For example, to use the fastest VM and hex tool (requiring a native C compiler):
+- `--clean`: Don't configure; delete all files generated by the configure and build scripts.
 
-```sh
-scripts/posix/build.sh --hex c89 --vm c89
-```
+- `--native`: Don't bootstrap; build the final stage toolchain with a native C compiler and Ninja.
 
-For developing Onramp (requiring a native C compiler and make tool):
+The script can be run out-of-tree if you want to keep the source directory clean. For example:
 
 ```sh
-scripts/posix/build.sh --dev
+mkdir build
+cd build
+../configure.sh
 ```
 
+### POSIX Build
 
-
-### Installing for POSIX
-
-Once Onramp is built (natively or bootstrapped), you can install it into `~/.local` like this:
+The configure script generates a `build.sh` script. (It does not generate a Makefile because Onramp must be bootstrappable without Make.) Run it like so:
 
 ```sh
-scripts/posix/install.sh
+./build.sh
 ```
 
-Assuming `~/.local/bin` is on your PATH, you can then use `onrampcc` and run the programs it compiles normally. (I suppose you could also install it into `/usr/local` but I have no idea why anyone prefers that to `~/.local` so the script doesn't have an option for it.)
+With a fast VM on a modern PC, the standard build will take a couple of minutes. It can take much longer on a slow VM or on old hardware.
 
-You can pass `--dev` to the install script to install symlinks to your build folder instead of copying files.
+If you just want to use Onramp and don't care about bootstrapping it, pass `--native` to the configure script. The build process will then use Ninja and your native C compiler which can build Onramp in under two seconds on modern hardware. The resulting compiler will also be hundreds of times faster than bootstrapped.
 
-If you don't want to install Onramp, you can instead use it in-place by sourcing `env.sh` like this:
+The standard build process is not incremental. If you run the script again, it will rebuild everything from scratch even if nothing has changed. This is a limitation of not using Make or any other build tool.
+
+You can use the compiled Onramp without installing it by sourcing the `env.sh` script:
 
 ```sh
-. scripts/posix/env.sh
+. env.sh
 ```
 
-This adds the build location (`build/posix/bin/`) to your PATH. You'll need this location on your PATH to run any of the compiled programs because they depend on `onrampvm`.
+This adds the compiled Onramp to your `PATH`. If you want to install it, continue to the next section.
+
+### POSIX Install
+
+Once built, Onramp can be installed with the install script:
+
+```sh
+./install.sh
+```
+
+The default install path is `~/.local/` if run as a non-root user and `/usr/local/` if run as root. It is recommended to install as non-root in the default `~/.local/`.
+
+To run Onramp programs, the \`/bin/\` subdirectory of the install path must be on your `PATH`. This is necessary not only for compiling programs but also for running them since they depend on `onrampvm`. Some Linux distributions place `~/.local/bin/` on `PATH` by default but not all; check your `PATH` to make sure.
+
+The Onramp installation is relocatable: you can choose the path after it is built; you can install to a staging area and move it later; etc. Use `--path` to set a custom install path.
+
+Use `--uninstall` to remove all installed files. (Alternatively, you can run `scripts/posix/uninstall.sh` to uninstall without configuring.)
+
+Pass `--help` to see additional install options.
 
 
 
-## Windows
+Windows
+-------
 
 Windows support is not implemented yet.
 
@@ -102,19 +97,18 @@ Eventually I will write a VM for Windows in machine code in a PE container to ma
 
 In the meantime it is probably relatively easy to get the Python or C89 VMs running on Windows. The main thing they need is to translate paths from Windows style (e.g. `C:\some\path`) to Onramp style (e.g. `/c/some/path`). This is not done yet.
 
-From there it would be possible to use it to run the Onramp build script, except the Onramp shell is not written yet either. If you also use a POSIX shell to run it (e.g. Cygwin or MSYS2), you might be able to get this working on Windows. I haven't bothered to try this yet.
 
 
+Manual Hosted Setup
+-------------------
 
-## Manual Hosted Setup
-
-Suppose you are a future archaeologist that discovers an ancient data store in a fallout shelter centuries after a devastating nuclear war. Or, suppose you are an extra-terrestrial xenolinguist that receives a mysterious data burst in a radio signal originating in deep space.
+Suppose you are a future archaeologist who discovers an ancient data store in a fallout shelter centuries after a devastating nuclear war. Or, suppose you are an extra-terrestrial xenolinguist who receives a mysterious data burst in a radio signal originating from in deep space.
 
 The data contains highly compressed multimedia about then-contemporary human civilization, along with the source code for decoder programs to view it. Unfortunately, these programs are written in this cryptic programming language called C.
 
-Luckily, if the data also includes Onramp, you can use it to compile the decoders! But first you'll need to get Onramp bootstrapped on your alien hardware.
+Luckily, if the data also includes Onramp, you can use it to compile and run the decoders! But first you'll need to get Onramp bootstrapped on your alien hardware.
 
-To setup Onramp manually in an arbitrary (hosted) environment, you need to create two tools:
+To configure Onramp manually in an arbitrary (hosted) environment, you need to create two tools:
 
 - a [hex tool](../platform/hex/) that can convert [Onramp hexadecimal](hexadecimal.md) to raw bytes; and
 - a [virtual machine](../platform/vm/) that implements the [Onramp VM](virtual-machine.md) spec.
@@ -125,39 +119,40 @@ The hosted setup process assumes you can provide Onramp with a filesystem. You'l
 
 Once that is done, you need to use your hex tool to convert two Onramp programs: the Onramp hex tool and the Onramp shell. The output files must be stored in the following paths (relative to the root of the Onramp source):
 
-- [`core/hex/0-onramp/hex.oe.ohx`](../core/hex/0-onramp/hex.oe.ohx) --> `build/intermediate/hex-0-onramp/hex.oe`
-- [`core/sh/sh.oe.ohx`](../core/sh/sh.oe.ohx) --> `build/intermediate/sh/sh.oe`
+- [`core/hex/0-onramp/hex.oe.ohx`](../core/hex/0-onramp/hex.oe.ohx) --> `output/configure/hex-0-onramp/hex.oe`
+- [`core/sh/sh.oe.ohx`](../core/sh/sh.oe.ohx) --> `output/configure/sh/sh.oe`
 
-After that, run the Onramp shell in your VM, giving it the core build script ([`core/build.sh`](../core/build.sh)) as its only argument. Like this:
+After that, run the Onramp shell in your VM, giving it the core build script ([`core/build.sh`](../core/build.sh)) as its only argument. For example, in a typical shell where arguments are separated by spaces, a VM called "onrampvm" might be run with the following command:
 
 ```sh
-onrampvm build/intermediate/sh/sh.oe core/build.sh
+onrampvm output/configure/sh/sh.oe core/build.sh
 ```
 
 Again, all paths are relative to the root of the Onramp source, and the working directory must be this path as well.
 
 If your VM and hex implementations are correct, this should bootstrap Onramp.
 
-WARNING: The Onramp shell tool is incomplete. In the meantime you need to run `core/build.sh` in a POSIX shell with `onrampvm` on your PATH. This will be fixed soon.
-
-The results of bootstrapping are in `build/output/`. The compiler driver is `bin/cc.oe`, which you can run in your Onramp VM like this:
+The results of bootstrapping are in `output/final/`. The compiler driver is `bin/cc.oe`, which you can run in your Onramp VM like this:
 
 ```sh
-onrampvm build/output/bin/cc.oe
+onrampvm output/final/bin/cc.oe
 ```
 
 For example, to compile and run a program `foo.c`:
 
 ```sh
-onrampvm build/output/bin/cc.oe foo.c -o foo.oe
+onrampvm output/final/bin/cc.oe foo.c -o foo.oe
 onrampvm foo.oe
 ```
+
+Once the core toolchain is bootstrapped, you can build additional tools by running the shell again on `extra/build.sh`.
 
 If you want to improve integration with your operating system, you can provide wrapper programs for the VM, compiler driver and other tools. You can also make the compiler produce wrapped binaries by providing it with a `-wrap-header`. Take a look at [`platform/cc/`](../platform/cc/) to see how other platforms do it.
 
 
 
-## Freestanding
+Freestanding
+------------
 
 Onramp is designed to be able to eventually bootstrap itself without depending on an existing operating system. This is not implemented yet. See the [`x86-bios` VM](../platform/vm/x86-bios/) and the [Onramp `os`](../core/os/) for descriptions of how this will hopefully work.
 

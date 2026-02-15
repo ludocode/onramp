@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/libo-1-opc
 SRC=$(ROOT)/core/libo/1-opc/src
@@ -78,7 +78,8 @@ CPPFLAGS += \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libo/1-opc/include \
 		-include __onramp/__predef.h \
-		-include $(ROOT)/test/portability.h
+		-include $(ROOT)/test/portability.h \
+		$(CFLAGS)
 
 all: build test FORCE
 FORCE:

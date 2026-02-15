@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,24 +23,21 @@
 # SOFTWARE.
 
 
-# This script builds the x86_64-linux VM. It relies only on a POSIX shell and
-# coreutils.
+# This script builds the x86_64-linux VM.
 
 
 set -e
-cd "$(dirname "$0")/../../.."
 
-# find a fast error-checking hex tool
-if [ -e build/test/hex-c89/hex ]; then
-    HEX=build/test/hex-c89/hex
-elif command -v python; then
-    HEX="python platform/hex/python/hex.py"
+# Use the configuration's hex tool if it exists; otherwise just fall back to
+# the shell hex tool. We don't want to add any other dependencies.
+if [ -e output/configure/onramphex ]; then
+    HEX=output/configure/onramphex
 else
     HEX=platform/hex/sh/hex.sh
 fi
 
-# build
-mkdir -p build/test/vm-x86_64-linux
+mkdir -p output/configure/vm-x86_64-linux
 echo "Hexing x86_64-linux vm.ohx  (with: \`$HEX\`)"
-$HEX platform/vm/x86_64-linux/vm.ohx -o build/test/vm-x86_64-linux/vm
-chmod +x build/test/vm-x86_64-linux/vm
+$HEX platform/vm/x86_64-linux/vm.ohx -o output/configure/vm-x86_64-linux/vm
+chmod +x output/configure/vm-x86_64-linux/vm
+echo "Wrote: output/configure/vm-x86_64-linux/vm"

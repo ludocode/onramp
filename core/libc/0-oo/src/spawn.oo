@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024 Fraser Heavy Software
+; Copyright (c) 2024-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -146,10 +146,10 @@
     ; any open files and free any allocated memory when the program exits. We
     ; might not bother doing this in bootstrapping.
 
-    ; call __malloc_largest_unused_region()
+    ; call __malloc_unused_region()
     70 80 8D F0     ; add r0 rfp -16
-    7C 8A <__malloc_largest_unused_region   ; ims ra <__malloc_largest_unused_region
-    7C 8A >__malloc_largest_unused_region   ; ims ra >__malloc_largest_unused_region
+    7C 8A <__malloc_unused_region   ; ims ra <__malloc_unused_region
+    7C 8A >__malloc_unused_region   ; ims ra >__malloc_unused_region
     71 8C 8C 04       ; sub rsp rsp 4          ; push return address
     70 8B 8F 08       ; add rb rip 8
     79 8B 00 8C       ; stw rb 0 rsp

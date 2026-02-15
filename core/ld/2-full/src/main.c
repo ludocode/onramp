@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,8 +31,6 @@
 
 // TODO asprintf() is nonstandard (is it in C23?)
 #define _GNU_SOURCE
-
-#include <sys/stat.h>
 
 #include "common.h"
 #include "symbol.h"
@@ -128,11 +126,6 @@ static void open_output_files(void) {
     }
 
     if (wrap_header != NULL) {
-        // We mark the output executable only if it has a wrap header. If we're
-        // not wrapped, a manual VM invocation will be required to run an
-        // Onramp program so the bytecode itself is not standalone executable.
-        chmod(output_filename, 0755);
-
         FILE* header = fopen(wrap_header, "r");
         if (header == NULL) {
             fatal("Failed to open wrap header file.");

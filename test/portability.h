@@ -1,3 +1,27 @@
+/*
+ * The MIT License (MIT)
+ *
+ * Copyright (c) 2024-2026 Fraser Heavy Software
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+ * SOFTWARE.
+ */
+
 #ifndef PORTABILITY_H_INCLUDED
 #define PORTABILITY_H_INCLUDED
 
@@ -79,5 +103,21 @@
     #endif
 #endif
 
+/*
+ * Disable a few extra Clang warnings. These occur due to compiling parts of
+ * our libc with a non-Onramp compiler. It's not really designed for this; some
+ * changes are needed to make the tests compile better with a native compiler
+ * and libc.
+ */
+#ifdef __GNUC__
+    #ifdef __has_warning
+        #if __has_warning("-Wbuiltin-macro-redefined")
+            #pragma GCC diagnostic ignored "-Wbuiltin-macro-redefined"
+        #endif
+        #if __has_warning("-Wc23-extensions")
+            #pragma GCC diagnostic ignored "-Wc23-extensions"
+        #endif
+    #endif
+#endif
 
 #endif

@@ -26,12 +26,12 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/cg-1-full
 SRC=$(ROOT)/core/cg/1-full
 LIBO=$(ROOT)/core/libo/1-opc
-CCI2=$(ROOT)/build/test/cci-2-full/cci
+CCI2=$(ROOT)/output/test/cci-2-full/cci
 
 CPPFLAGS += \
 	-Wno-unused-function \
@@ -74,23 +74,23 @@ $(CCI2): FORCE
 test-cci0: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output build/test/cg-1-full \
-			--cg build/test/cg-1-full/cg \
-			--cci build/test/cci-2-full/cci-ir --cci-id full )
+			--output output/test/cg-1-full \
+			--cg output/test/cg-1-full/cg \
+			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test-cci1: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
-			--output build/test/cg-1-full \
-			--cg build/test/cg-1-full/cg \
-			--cci build/test/cci-2-full/cci-ir --cci-id full )
+			--output output/test/cg-1-full \
+			--cg output/test/cg-1-full/cg \
+			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test-cci2: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/2-full \
 			--nonstd \
-			--output build/test/cg-1-full \
-			--cg build/test/cg-1-full/cg \
-			--cci build/test/cci-2-full/cci-ir --cci-id full )
+			--output output/test/cg-1-full \
+			--cg output/test/cg-1-full/cg \
+			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test: test-cci0 test-cci1 test-cci2

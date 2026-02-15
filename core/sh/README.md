@@ -11,7 +11,7 @@ This document describes the implementation of the shell. For a specification of 
 This tool must be built in a platform-specific way. Relative to the root of the Onramp source tree, the output must be placed in:
 
 ```
-build/intermediate/sh/sh.oe
+output/configure/sh/sh.oe
 ```
 
 See the [Setup Guide](../../../docs/setup-guide.md) for more information.

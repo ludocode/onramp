@@ -48,6 +48,26 @@ Onramp is an experiment in implementing C completely from scratch on a custom ar
 
 
 
+## Quick Start
+
+WARNING: The libc is incomplete and there is no support for floating point math. Onramp is not yet ready for real world use.
+
+On POSIX systems:
+
+```sh
+./configure.sh
+./build.sh
+./install.sh
+```
+
+That's it! This installs Onramp in `~/.local/` so you'll need `~/.local/bin/` on your PATH. You can now compile programs with `onrampcc`.
+
+Since Onramp is self-bootstrapping, this works even on a system that does not have a C compiler, binutils, make or any other build tools. Try it on a barebones x86\_64 Linux with nothing but coreutils.
+
+Try `./configure.sh --help` for many more options. See the [Setup Guide][docsetup] for installation instructions and the [Usage Guide][docusage] for how to use it.
+
+
+
 ## Project Status
 
 See the [Implementation Status](docs/status.md) document for a breakdown of implemented and missing features.
@@ -76,6 +96,12 @@ See the [Implementation Status](docs/status.md) document for a breakdown of impl
 | 🟥 [vm/aarch64-linux][vmarm64lin]  |                                   | 🟦 [vm/python][vmpy]         |
 | 🟥 [vm/riscv32-linux][vmrv32lin]   |                                   | 🟧 [vm/sh][vmsh]             |
 
+#### [Extra](extra/)
+
+| Disassembler       | Syscall Tracer       | VM Info Tool         |
+|:-------------------|:---------------------|:---------------------|
+| 🟧 [disas][disas]  | 🟥 [strace][strace]  | 🟩 [vminfo][vminfo]  |
+
 #### Legend
 
 - 🟩 Done
@@ -92,36 +118,11 @@ See the [Implementation Status](docs/status.md) document for a breakdown of impl
 
 
 
-## Quick Start
-
-WARNING: The libc is incomplete and there is no support for floating point math. Onramp is not yet ready for real world use.
-
-On POSIX systems, run the build script and put the results on your PATH.
-
-```sh
-scripts/posix/build.sh
-export PATH=$PWD/build/posix/bin:$PATH
-```
-
-That's it! You can now compile C programs with `onrampcc`.
-
-You'll need this PATH to run programs since they depend on `onrampvm`. If you'd like to install Onramp in `~/.local/bin` instead, run this:
-
-```sh
-scripts/posix/install.sh
-```
-
-Since Onramp is self-bootstrapping, this works even on a system that does not have a C compiler, binutils, make or any other build tools. Try it on a barebones x86\_64 Linux with nothing but coreutils.
-
-See the [Setup Guide][docsetup] for more information on how to build Onramp and the [Usage Guide][docusage] for how to use it.
-
-
-
 ## Contributing
 
 Contributions are welcome! I am especially looking for bug reports, general feedback, bug fixes and libc improvements. You can also support the project financially via [GitHub Sponsors][sponsors].
 
-The primary Onramp repository is hosted [here on GitHub][upstream] but you don't have to use GitHub if you don't want to. Feel free to host a fork or mirror anywhere. Code contributions can be done by GitHub pull request, by sending me links to your external fork over email or IRC, or simply by emailing me patches.
+The primary Onramp repository is hosted [here on GitHub][upstream] but you don't have to use GitHub if you don't want to. Feel free to host a fork or mirror anywhere. Code contributions can be done by GitHub pull request, by sending me links to your external fork, or simply by emailing me patches.
 
 Authors retain copyright over their code contributions, but all code in this repository must be MIT licensed. By contributing to Onramp you agree to license your contributions under the MIT license and you assert that you have the right to do so.
 
@@ -129,8 +130,9 @@ Authors retain copyright over their code contributions, but all code in this rep
 
 ## Project Organization
 
-- [core/](core/) - Source code of the platform-independent parts of Onramp. Contains the compiler, linker, driver, libc, etc.
-- [platform/](platform/) - Source code implementations of the platform-specific components of Onramp for various platforms.
+- [core/](core/) - The platform-independent parts of Onramp. Contains the compiler, linker, driver, libc, etc.
+- [platform/](platform/) - Implementations of the platform-specific components of Onramp for various platforms.
+- [extra/](extra/) - Additional tools beyond the core bootstrap.
 - [scripts/](scripts/) - Scripts for building and installing Onramp on various platforms.
 - [docs/](docs/) - Specifications of Onramp's languages and other documentation. Defines the Onramp subsets of C, Onramp Assembly, etc.
 - [test/](test/) - Test cases and scripts for testing the various Onramp components.
@@ -229,7 +231,7 @@ Links are separated in order to make the main text more legible when read in pla
 In some cases we avoid pulling out links where they are more convenient inline, for example in the documentation index.
 -->
 
-<!-- tools -->
+<!-- core -->
 [ar0]: core/ar/0-cat/
 [ar1]: core/ar/1-unix/
 [ar]: core/ar/
@@ -263,6 +265,8 @@ In some cases we avoid pulling out links where they are more convenient inline, 
 [os1]: core/os/1-full/
 [os]: core/os/
 [sh]: core/sh/
+
+<!-- platform -->
 [vm]: platform/vm/
 [vmarm64lin]: platform/vm/aarch64-linux
 [vmc89]: platform/vm/c89
@@ -274,6 +278,11 @@ In some cases we avoid pulling out links where they are more convenient inline, 
 [vmx64uefi]: platform/vm/x86_64-uefi
 [vmx86bios]: platform/vm/x86-bios
 [vmx86win]: platform/vm/x86-windows
+
+<!-- extra -->
+[disas]: extra/disas/
+[vminfo]: extra/vminfo/
+[strace]: extra/strace/
 
 <!-- docs -->
 [docasm]: docs/assembly.md

@@ -26,13 +26,13 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/cg-0-asm
 SRC=$(ROOT)/core/cg/0-asm
 LIBO=$(ROOT)/core/libo/1-opc
-CCI0=$(ROOT)/build/test/cci-0-omc/cci.oe
-CCI1=$(ROOT)/build/test/cci-1-opc/cci
+CCI0=$(ROOT)/output/test/cci-0-omc/cci.oe
+CCI1=$(ROOT)/output/test/cci-1-opc/cci
 
 CPPFLAGS += \
 	-Wno-unused-function \
@@ -76,23 +76,23 @@ test-cci0-0: build $(CCI0) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
 			--nonstd \
-			--output build/test/cg-0-asm/cci0 \
-			--cg build/test/cg-0-asm/cg \
-			--cci build/test/cci-0-omc/cci.oe --cci-id omc )
+			--output output/test/cg-0-asm/cci0 \
+			--cg output/test/cg-0-asm/cg \
+			--cci output/test/cci-0-omc/cci.oe --cci-id omc )
 
 test-cci1-0: build $(CCI1) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output build/test/cg-0-asm/cci1 \
-			--cg build/test/cg-0-asm/cg \
-			--cci build/test/cci-1-opc/cci --cci-id opc )
+			--output output/test/cg-0-asm/cci1 \
+			--cg output/test/cg-0-asm/cg \
+			--cci output/test/cci-1-opc/cci --cci-id opc )
 
 test-cci1-1: build $(CCI1) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
 			--nonstd \
-			--output build/test/cg-0-asm/cci1 \
-			--cg build/test/cg-0-asm/cg \
-			--cci build/test/cci-1-opc/cci --cci-id opc )
+			--output output/test/cg-0-asm/cci1 \
+			--cg output/test/cg-0-asm/cg \
+			--cci output/test/cci-1-opc/cci --cci-id opc )
 
 test: test-cci0-0 test-cci1-0 test-cci1-1

@@ -32,8 +32,8 @@
 #include <stdio.h>
 
 #include "internal.h"
-#include "syscalls.h"
 
+#include <__onramp/__syscalls.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -1001,7 +1001,20 @@ void perror(const char* s) {
 }
 
 int remove(const char* filename) {
-    // TODO
+    if (__syscall_is_supported(__SYS_STAT)) {
+        // TODO use stat to tell whether it's a file or directory
+    }
+
+    // We don't have stat. We'll try unlink first; if it fails, try rmdir.
+    if (0 == unlink(filename)) {
+        return 0;
+    }
+    if (0 == rmdir(filename)) {
+        return 0;
+    }
+
+    // TODO more precise error codes
+    errno = EIO;
     return -1;
 }
 

@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,8 +21,5 @@
 # SOFTWARE.
 
 
-# this script should be sourced from the root of the repo. TODO see if there's a way to enforce it
-
-# Add build/posix/bin to PATH
-echo "Adding build/posix/bin to PATH"
-PATH="$(realpath "build/posix/bin"):$PATH"
+# This is now just a deprecated wrapper for the new env script.
+. scripts/posix/env-impl.sh

@@ -23,13 +23,13 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/ld-1-omc
+mkdir -p output/intermediate/ld-1-omc
 
 echo
 echo === Building ld/1-omc
 
 echo Preprocessing ld/1-omc
-onrampvm build/intermediate/cpp-1-omc/cpp.oe \
+onrampvm output/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_cci__=1 \
     -D__onramp_cci_omc__=1 \
@@ -37,26 +37,26 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/common/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
-    core/ld/1-omc/ld.c -o build/intermediate/ld-1-omc/ld.i
+    core/ld/1-omc/ld.c -o output/intermediate/ld-1-omc/ld.i
 
 echo Compiling ld/1-omc
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/ld-1-omc/ld.i \
-    -o build/intermediate/ld-1-omc/ld-unopt.os
+onrampvm output/intermediate/cci-0-omc/cci.oe \
+    output/intermediate/ld-1-omc/ld.i \
+    -o output/intermediate/ld-1-omc/ld-unopt.os
 
 echo Optimizing cpp/1-omc
-onrampvm build/intermediate/cg-0-asm/cg.oe \
-    build/intermediate/ld-1-omc/ld-unopt.os \
-    -o build/intermediate/ld-1-omc/ld.os
+onrampvm output/intermediate/cg-0-asm/cg.oe \
+    output/intermediate/ld-1-omc/ld-unopt.os \
+    -o output/intermediate/ld-1-omc/ld.os
 
 echo Assembling ld/1-omc
-onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/ld-1-omc/ld.os \
-    -o build/intermediate/ld-1-omc/ld.oo
+onrampvm output/intermediate/as-1-compound/as.oe \
+    output/intermediate/ld-1-omc/ld.os \
+    -o output/intermediate/ld-1-omc/ld.oo
 
 echo Linking ld/1-omc
-onrampvm build/intermediate/ld-0-global/ld.oe \
-    -o build/intermediate/ld-1-omc/ld.oe \
-        build/intermediate/libc-0-oo/libc.oa \
-        build/intermediate/libo-0-oo/libo.oa \
-        build/intermediate/ld-1-omc/ld.oo
+onrampvm output/intermediate/ld-0-global/ld.oe \
+    -o output/intermediate/ld-1-omc/ld.oe \
+        output/intermediate/libc-0-oo/libc.oa \
+        output/intermediate/libo-0-oo/libo.oa \
+        output/intermediate/ld-1-omc/ld.oo

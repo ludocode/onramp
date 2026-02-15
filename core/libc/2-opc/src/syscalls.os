@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2025 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -57,6 +57,9 @@
 ;
 ; The system call number is passed in r9. Arguments to the syscall are passed
 ; in r0-r3 as normal.
+;
+; Since this function uses a special calling convention it cannot be called
+; from C.
 ; ==========================================================
 
 @__syscall

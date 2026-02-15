@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -55,8 +55,8 @@ typedef struct qsort_state_t {
 
 #define qsort_compare(state, left, right) \
     (((state)->has_context) ? \
-        (state)->user_compare.without_context(left, right) : \
-        (state)->user_compare.with_context(left, right, state->user_context))
+        (state)->user_compare.with_context(left, right, (state)->user_context) : \
+        (state)->user_compare.without_context(left, right))
 
 #define qsort_select(state, base, v_index) \
     ((char*)(base) + (v_index) * (state)->element_size)
@@ -90,7 +90,7 @@ static void qsort_impl(qsort_state_t* state, void* base, size_t count) {
 
     /* Figure out where to start */
     size_t gap_index = 0;
-    while (qsort_gaps[gap_index] > count / 2 && gap_index < QSORT_GAPS_MAX - 1)
+    while (gap_index < QSORT_GAPS_MAX - 1 && qsort_gaps[gap_index + 1] < count / 2)
         ++gap_index;
 
     /* Perform successive insertion sorts based on gap sequence */
@@ -120,7 +120,7 @@ void qsort(void* first, size_t count, size_t element_size,
 {
     qsort_state_t state;
     state.element_size = element_size;
-    state.has_context = 0;
+    state.has_context = false;
     state.user_compare.without_context = user_compare;
     qsort_impl(&state, first, count);
 }
@@ -131,7 +131,7 @@ void qsort_r(void* first, size_t count, size_t element_size,
 {
     qsort_state_t state;
     state.element_size = element_size;
-    state.has_context = 1;
+    state.has_context = true;
     state.user_compare.with_context = user_compare;
     state.user_context = user_context;
     qsort_impl(&state, first, count);

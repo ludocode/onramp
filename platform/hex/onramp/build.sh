@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,10 +27,9 @@
 
 
 set -e
-cd "$(dirname "$0")/../../.."
 
 # Since this is a POSIX shell script, we assume we can use the POSIX shell hex
 # tool to hex it.
-mkdir -p build/test/hex-onramp
-echo "Hexing: build/test/hex-onramp/hex.oe"
-platform/hex/sh/hex.sh core/hex/0-onramp/hex.oe.ohx -o build/test/hex-onramp/hex.oe
+mkdir -p output/configure/hex-onramp
+echo "Hexing: output/configure/hex-onramp/hex.oe"
+platform/hex/sh/hex.sh core/hex/0-onramp/hex.oe.ohx -o output/configure/hex-onramp/hex.oe

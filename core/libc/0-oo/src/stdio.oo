@@ -1706,7 +1706,7 @@
     76 8A 11 03   ; shl ra 17 3       ; ra = offset of chmod syscall (17<<3)
     70 87 88 8A   ; add r7 r8 8a      ; r7 = address of chmod syscall
 
-    ; check if the syscall is supported. if not we just skip it.
+    ; check if the syscall is supported. if not return ERROR_UNSUPPORTED.
     78 8A 87 00                   ; ldw ra r7 0
     7E 8A &__chmod_not_supported  ; jz ra &__chmod_not_supported
 
@@ -1718,5 +1718,50 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
 :__chmod_not_supported
+    70 80 FC 00    ; r0 = ERROR_UNSUPPORTED (0xFFFFFFFC)
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; int unlink(const char* path);
+; ==========================================================
+; Delete the file with the given name.
+; ==========================================================
+
+=unlink
+
+; TODO the code for this is nearly identical to chmod. If there are several
+; more like this it might be useful to condense them into a syscall wrapper
+; function.
+
+    ; get syscall unlink (16) into r7
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 10 03   ; shl ra 16 3       ; ra = offset of chmod syscall (16<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of chmod syscall
+
+    ; check if the syscall is supported. if not return ERROR_UNSUPPORTED.
+    78 8A 87 00                    ; ldw ra r7 0
+    7E 8A &__unlink_not_supported  ; jz ra &__unlink_not_supported
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; done
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+:__unlink_not_supported
+    70 80 FC 00    ; r0 = ERROR_UNSUPPORTED (0xFFFFFFFC)
     78 8F 00 8C    ; ldw rip 0 rsp     ; ret

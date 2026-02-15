@@ -23,29 +23,29 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/cpp-1-omc-unopt
+mkdir -p output/intermediate/cpp-1-omc-unopt
 
 echo
 echo === Building cpp/1-omc
 
 echo Preprocessing cpp/1-omc
-onrampvm build/intermediate/cpp-0-strip/cpp.oe \
+onrampvm output/intermediate/cpp-0-strip/cpp.oe \
     core/cpp/1-omc/cpp.c \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.i
+    -o output/intermediate/cpp-1-omc-unopt/cpp.i
 
 echo Compiling cpp/1-omc
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/cpp-1-omc-unopt/cpp.i \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.os
+onrampvm output/intermediate/cci-0-omc/cci.oe \
+    output/intermediate/cpp-1-omc-unopt/cpp.i \
+    -o output/intermediate/cpp-1-omc-unopt/cpp.os
 
 echo Assembling cpp/1-omc
-onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/cpp-1-omc-unopt/cpp.os \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.oo
+onrampvm output/intermediate/as-1-compound/as.oe \
+    output/intermediate/cpp-1-omc-unopt/cpp.os \
+    -o output/intermediate/cpp-1-omc-unopt/cpp.oo
 
 echo Linking cpp/1-omc
-onrampvm build/intermediate/ld-0-global/ld.oe \
-    build/intermediate/libc-0-oo/libc.oa \
-    build/intermediate/libo-0-oo/libo.oa \
-    build/intermediate/cpp-1-omc-unopt/cpp.oo \
-    -o build/intermediate/cpp-1-omc-unopt/cpp.oe
+onrampvm output/intermediate/ld-0-global/ld.oe \
+    output/intermediate/libc-0-oo/libc.oa \
+    output/intermediate/libo-0-oo/libo.oa \
+    output/intermediate/cpp-1-omc-unopt/cpp.oo \
+    -o output/intermediate/cpp-1-omc-unopt/cpp.oe

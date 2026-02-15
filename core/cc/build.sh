@@ -23,13 +23,13 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/cc
+mkdir -p output/intermediate/cc
 
 echo
 echo === Building cc
 
 echo Preprocessing cc
-onrampvm build/intermediate/cpp-1-omc/cpp.oe \
+onrampvm output/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
     -D__onramp_libc_omc__=1 \
     -D__onramp_cci__=1 -D__onramp_cci_omc__=1 \
@@ -38,26 +38,26 @@ onrampvm build/intermediate/cpp-1-omc/cpp.oe \
     -Icore/libc/common/include \
     -Icore/libo/0-oo/include \
     -include __onramp/__predef.h \
-    core/cc/cc.c -o build/intermediate/cc/cc.i
+    core/cc/cc.c -o output/intermediate/cc/cc.i
 
 echo Compiling cc
-onrampvm build/intermediate/cci-0-omc/cci.oe \
-    build/intermediate/cc/cc.i \
-    -o build/intermediate/cc/cc-unopt.os
+onrampvm output/intermediate/cci-0-omc/cci.oe \
+    output/intermediate/cc/cc.i \
+    -o output/intermediate/cc/cc-unopt.os
 
 echo Optimizing cc
-onrampvm build/intermediate/cg-0-asm/cg.oe \
-    build/intermediate/cc/cc-unopt.os \
-    -o build/intermediate/cc/cc.os
+onrampvm output/intermediate/cg-0-asm/cg.oe \
+    output/intermediate/cc/cc-unopt.os \
+    -o output/intermediate/cc/cc.os
 
 echo Assembling cc
-onrampvm build/intermediate/as-1-compound/as.oe \
-    build/intermediate/cc/cc.os \
-    -o build/intermediate/cc/cc.oo
+onrampvm output/intermediate/as-1-compound/as.oe \
+    output/intermediate/cc/cc.os \
+    -o output/intermediate/cc/cc.oo
 
 echo Linking cc
-onrampvm build/intermediate/ld-1-omc/ld.oe \
-    build/intermediate/libc-1-omc/libc.oa \
-    build/intermediate/libo-0-oo/libo.oa \
-    build/intermediate/cc/cc.oo \
-    -o build/intermediate/cc/cc.oe
+onrampvm output/intermediate/ld-1-omc/ld.oe \
+    output/intermediate/libc-1-omc/libc.oa \
+    output/intermediate/libo-0-oo/libo.oa \
+    output/intermediate/cc/cc.oo \
+    -o output/intermediate/cc/cc.oe

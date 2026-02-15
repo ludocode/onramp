@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,15 +23,8 @@
 # SOFTWARE.
 
 # This script uninstalls Onramp.
+#
+# This is now just a wrapper for `install-impl.sh` which called by the
+# configure-generated `install.sh`.
 
-set -e
-cd "$(dirname "$0")/../.."
-
-echo "Deleting ~/.local/bin/onrampvm"   ; rm -f "$HOME/.local/bin/onrampvm"
-echo "Deleting ~/.local/bin/onrampcc"   ; rm -f "$HOME/.local/bin/onrampcc"
-echo "Deleting ~/.local/bin/onrampar"   ; rm -f "$HOME/.local/bin/onrampar"
-echo "Deleting ~/.local/bin/onramphex"  ; rm -f "$HOME/.local/bin/onramphex"
-echo "Deleting ~/.local/share/onramp/"  ; rm -rf "$HOME/.local/share/onramp"
-echo
-echo "Done."
-echo
+. "$(dirname "$0")"/install-impl.sh --uninstall "$@"

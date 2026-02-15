@@ -30,4 +30,4 @@
 set -e
 "$(dirname "$0")/build.sh"
 cd "$(dirname "$0")/../../.."
-test/vm/run.sh build/test/vm-c-debugger/vm
+test/vm/run.sh output/configure/vm-c-debugger/vm

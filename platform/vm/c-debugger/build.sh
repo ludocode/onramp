@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,6 @@
 
 
 set -e
-cd "$(dirname "$0")/../../.."
 
 SRCS="
     platform/vm/c-debugger/src/vm.c
@@ -64,6 +63,6 @@ fi
 CFLAGS="$CFLAGS $EXTRA_CFLAGS -Icore/libo/1-opc/include"
 
 # Compile it
-mkdir -p build/test/vm-c-debugger
-$CC $CFLAGS $SRCS -o build/test/vm-c-debugger/vm
-echo "Compiled: build/test/vm-c-debugger/vm"
+mkdir -p output/configure/vm-c-debugger
+$CC $CFLAGS $SRCS -o output/configure/vm-c-debugger/vm
+echo "Compiled: output/configure/vm-c-debugger/vm"

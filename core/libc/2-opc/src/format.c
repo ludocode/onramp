@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -26,6 +26,7 @@
 
 #include "internal.h"
 
+#include <ctype.h>
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -33,9 +34,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-//#ifdef __onramp_cci_opc__
-#define NO_LONG_LONG // TODO temporarily using this until cci/2 supports long long
-//#endif
+#ifndef __onramp_cci_opc__
+#define HAVE_LONG_LONG
+#endif
 
 typedef enum length_modifier_t {
     length_modifier_none = 0,
@@ -49,9 +50,19 @@ typedef enum length_modifier_t {
     length_modifier_t_,
 } length_modifier_t;
 
+/**
+ * A directive.
+ *
+ * This is used for printing and scanning. Some fields only make sense for one
+ * or the other; for example most of the flags are only for printing, while the
+ * charset pointer is only for scanning.
+ */
 typedef struct directive_t {
     length_modifier_t length_modifier;
     uint8_t conversion;
+
+    // A pointer to the opening `[` for a charset conversion specifier.
+    char* charset;
 
     // If argument_positions is true, these indicate the argument position.
     // Otherwise they indicate the literal value.
@@ -65,20 +76,26 @@ typedef struct directive_t {
     // True if we have argument positions ('$')
     bool argument_positions : 1;
 
-    // These flags are true if '*' was given, in which case the value should be
-    // taken from an argument (either the next one, or a specific argument if
-    // argument_positions is true.)
+    // These flags are true if '*' was given (for printing), in which case the
+    // value should be taken from an argument (either the next one, or a
+    // specific argument if argument_positions is true.)
     bool field_width_as_argument : 1;
     bool precision_as_argument : 1;
 
-    // Other flags
+    // Other print flags
     bool alternate          : 1; // #
     bool zero_padded        : 1; // 0
     bool left_adjusted      : 1; // -
     bool plus_sign          : 1; // +
     bool blank_plus_sign    : 1; // space
-    bool thousands_grouping : 1; // '  (Single UNIX)
-    bool locale_digits      : 1; // I  (glibc)
+    bool locale_digits      : 1; // I
+
+    // Scan flags
+    bool skip_output        : 1; // *
+    bool allocate           : 1; // m
+
+    // Common flags
+    bool thousands_grouping : 1; // '
 } directive_t;
 
 /**
@@ -113,7 +130,7 @@ static bool directive_try_parse_number(const char** s, const char* end, int* out
     return true;
 }
 
-static bool directive_parse_flags(directive_t* directive, const char** s, const char* end) {
+static bool directive_parse_print_flags(directive_t* directive, const char** s, const char* end) {
     while (*s != end) {
         switch (**s) {
             case '#':
@@ -174,6 +191,45 @@ static bool directive_parse_flags(directive_t* directive, const char** s, const 
                     return false;
                 }
                 directive->locale_digits = true;
+                break;
+
+            default:
+                // Even if no flags were found, it's not an error. Only duplicate flags are
+                // errors.
+                return true;
+        }
+        ++*s;
+    }
+
+    return true;
+}
+
+static bool directive_parse_scan_flags(directive_t* directive, const char** s, const char* end) {
+    while (*s != end) {
+        switch (**s) {
+            case '*':
+                if (directive->skip_output) {
+                    //__libc_error("Duplicate scan format flag: *");
+                    return false;
+                }
+                directive->skip_output = true;
+                break;
+            case '\'':
+                if (directive->thousands_grouping) {
+                    //__libc_error("Duplicate scan format flag: '");
+                    return false;
+                }
+                directive->thousands_grouping = true;
+                break;
+
+            // The man page for sscanf doesn't say that m can come before * or
+            // '. Perhaps we should not parse it as a flag.
+            case 'm':
+                if (directive->allocate) {
+                    //__libc_error("Duplicate scan format flag: m");
+                    return false;
+                }
+                directive->allocate = true;
                 break;
 
             default:
@@ -307,8 +363,11 @@ static bool directive_parse_conversion_specifier(directive_t* directive, const c
 
 /**
  * Directive parser.
+ *
+ * This can parse directives for printing (if for_print is true) or for
+ * scanning.
  */
-static bool directive_parse(directive_t* directive, const char** s, const char* end) {
+static bool directive_parse(directive_t* directive, const char** s, const char* end, bool for_print) {
     memset(directive, 0, sizeof(*directive));
 
     // The directive must start with '%'
@@ -345,11 +404,14 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
     if (directive->field_width == 0) {
 
         // Flags
-        if (!directive_parse_flags(directive, s, end))
+        bool flags_ok = for_print ?
+            directive_parse_print_flags(directive, s, end) :
+            directive_parse_scan_flags(directive, s, end);
+        if (!flags_ok)
             return false;
 
         // Field width by argument
-        if (DIRECTIVE_CHAR(*s, end) == '*') {
+        if (for_print && DIRECTIVE_CHAR(*s, end) == '*') {
             ++*s;
             directive->field_width_as_argument = true;
 
@@ -373,7 +435,7 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
     }
 
     // After field width we have optional '.' and precision
-    if (DIRECTIVE_CHAR(*s, end) == '.') {
+    if (for_print && DIRECTIVE_CHAR(*s, end) == '.') {
         ++*s;
 
         // Precision by argument
@@ -408,9 +470,9 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 }
 
 /**
- * Converts an unsigned integer to a decimal string.
+ * Converts an unsigned 32-bit integer to a decimal string.
  */
-static size_t utod(uintmax_t value, char* output) {
+static size_t utod(uint32_t value, char* output) {
     if (value == 0) {
         *output = '0';
         return 1;
@@ -430,11 +492,38 @@ static size_t utod(uintmax_t value, char* output) {
     return length;
 }
 
+#ifdef HAVE_LONG_LONG
+/**
+ * Converts an unsigned 64-bit integer to a decimal string.
+ */
+static size_t utod64(uint64_t value, char* output) {
+    if (value <= UINT32_MAX) {
+        return utod((uint32_t)value, output);
+    }
+
+    // The rest of this function is identical to its 32-bit counterpart but it
+    // uses 64-bit math so it's much slower.
+
+    char reverse[64];
+    char* p = reverse;
+    while (value > 0) {
+        *p++ = '0' + (value % 10);
+        value /= 10;
+    }
+
+    size_t length = p - reverse;
+    for (size_t i = 0; i < length; ++i) {
+        output[i] = reverse[length - i - 1];
+    }
+    return length;
+}
+#endif
+
 
 /**
- * Converts an unsigned integer to a hexdecimal string.
+ * Converts an unsigned 32-bit integer to a hexdecimal string.
  */
-static size_t utoh(uintmax_t value, char* output, bool uppercase) {
+static size_t utoh(uint32_t value, char* output, bool uppercase) {
     if (value == 0) {
         *output = '0';
         return 1;
@@ -459,6 +548,39 @@ static size_t utoh(uintmax_t value, char* output, bool uppercase) {
     }
     return length;
 }
+
+#ifdef HAVE_LONG_LONG
+/**
+ * Converts an unsigned 64-bit integer to a hexdecimal string.
+ */
+static size_t utoh64(uint64_t value, char* output, bool uppercase) {
+    if (value <= UINT32_MAX) {
+        return utoh((uint32_t)value, output, uppercase);
+    }
+
+    // The rest of this function is identical to its 32-bit counterpart but it
+    // uses 64-bit math so it's much slower.
+
+    char reverse[64];
+    char* p = reverse;
+    while (value > 0) {
+        int digit = value & 0xF;
+        if (digit >= 10) {
+            *p = (uppercase ? 'A' : 'a') + digit - 10;
+        } else {
+            *p = '0' + digit;
+        }
+        ++p;
+        value >>= 4;
+    }
+
+    size_t length = p - reverse;
+    for (size_t i = 0; i < length; ++i) {
+        output[i] = reverse[length - i - 1];
+    }
+    return length;
+}
+#endif
 
 /**
  * Output state for the print function.
@@ -512,45 +634,433 @@ static void print_output(output_t* output, const char* bytes, size_t count) {
     }
 }
 
-static void print_d(output_t* output, directive_t* directive, va_list* args, char* number_buffer) {
-
-    // get argument
-    intmax_t value;
-    if (directive->length_modifier == length_modifier_ll) {
-        #ifndef NO_LONG_LONG
-            value = va_arg(*args, long long);
-        #endif
-        #ifdef NO_LONG_LONG
-            output->error = true;
-            return;
-        #endif
-    } else {
-        value = va_arg(*args, int);
+static void print_char_repeated(output_t* output, char c, size_t count) {
+    if (count == 0) {
+        return;
     }
 
-    // convert negative to positive
-    uintmax_t uvalue;
-    if (value >= 0)
-        uvalue = (uintmax_t)value;
-    else if (value == INTMAX_MIN)
-        uvalue = (uintmax_t)INTMAX_MAX + 1u;
-    else
-        uvalue = -(uintmax_t)value;
+    char buf[64];
+    memset(buf, c, sizeof(buf));
 
-    // format it
-    size_t length = utod(uvalue, number_buffer);
-    if (value < 0)
-        print_output(output, "-", 1);
+    while (count > sizeof(buf)) {
+        print_output(output, buf, sizeof(buf));
+        count -= sizeof(buf);
+    }
 
-    // TODO the rest of the modifiers. For now we only handle precision.
-    assert(!directive->argument_positions); // TODO not yet implemented
+    print_output(output, buf, count);
+}
+
+/**
+ * Prints the given number, taking into account flags and field length.
+ *
+ * The number has already been converted to string with the given buffer and
+ * length.
+ */
+static void print_number(output_t* output, directive_t* directive,
+        const char* buffer, size_t length, bool negative)
+{
+    // zeroes from precision
+    size_t zeroes = 0;
     if (length < (size_t)directive->precision) {
-        for (size_t i = (size_t)directive->precision - length; i-- > 0;) {
-            print_output(output, "0", 1);
+        zeroes = (size_t)directive->precision - length;
+    }
+
+    // spaces or zeroes from field width
+    size_t padding = 0;
+    if (length + zeroes < (size_t)directive->field_width) {
+        padding = (size_t)directive->field_width - length - zeroes;
+    }
+
+    char sign = 0;
+    if (negative || directive->plus_sign || directive->blank_plus_sign) {
+        if (negative) {
+            sign = '-';
+        } else if (directive->plus_sign) {
+            sign = '+';
+        } else {
+            sign = ' ';
+        }
+        if (padding > 0) {
+            --padding;
         }
     }
 
-    print_output(output, number_buffer, length);
+    if (sign && (directive->left_adjusted || directive->zero_padded)) {
+        print_output(output, &sign, 1);
+        sign = 0;
+    }
+
+    // '-' overrides '0'
+    if (!directive->left_adjusted) {
+        if (directive->zero_padded) {
+            print_char_repeated(output, '0', padding);
+        } else {
+            print_char_repeated(output, ' ', padding);
+        }
+    }
+
+    if (sign) {
+        print_output(output, &sign, 1);
+    }
+
+    print_char_repeated(output, '0', zeroes);
+    print_output(output, buffer, length);
+
+    if (directive->left_adjusted) {
+        print_char_repeated(output, ' ', padding);
+    }
+}
+
+/**
+ * Prints a %u.
+ */
+static void print_u(output_t* output, directive_t* directive, va_list* args) {
+    char buffer[128];
+    size_t length;
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        output->error = true;
+        return;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        length = utod64(va_arg(*args, unsigned long long), buffer);
+        #endif
+    } else {
+        unsigned value = va_arg(*args, unsigned);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                value = (unsigned short)value;
+                break;
+            case length_modifier_hh:
+                value = (unsigned char)value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                break;
+            default:
+                output->error = true;
+                return;
+        }
+        length = utod(value, buffer);
+    }
+
+    print_number(output, directive, buffer, length, false);
+}
+
+/**
+ * Prints a %x or %X.
+ */
+static void print_x(output_t* output, directive_t* directive, va_list* args) {
+    bool uppercase = directive->conversion == 'X';
+    char buffer[128];
+    size_t length;
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        output->error = true;
+        return;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        length = utoh64(va_arg(*args, unsigned long long), buffer, uppercase);
+        #endif
+    } else {
+        unsigned value = va_arg(*args, unsigned);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                value = (unsigned short)value;
+                break;
+            case length_modifier_hh:
+                value = (unsigned char)value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                break;
+            default:
+                output->error = true;
+                return;
+        }
+        length = utoh(value, buffer, uppercase);
+    }
+
+    print_number(output, directive, buffer, length, false);
+}
+
+/**
+ * Prints a %d or %i.
+ */
+static void print_d(output_t* output, directive_t* directive, va_list* args) {
+    bool negative;
+    char buffer[128];
+    size_t length;
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        output->error = true;
+        return;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        int64_t value = va_arg(*args, long long);
+
+        // convert negative to positive
+        uint64_t uvalue;
+        if (value >= 0) {
+            negative = false;
+            uvalue = (uint64_t)value;
+        } else {
+            negative = true;
+            if (value == INT64_MIN) {
+                uvalue = (uint64_t)INT64_MAX + 1ull;
+            } else {
+                uvalue = -(uint64_t)value;
+            }
+        }
+
+        length = utod64(uvalue, buffer);
+        #endif
+    } else {
+        int32_t value = va_arg(*args, int);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                value = (short)value;
+                break;
+            case length_modifier_hh:
+                value = (char)value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                break;
+            default:
+                output->error = true;
+                return;
+        }
+
+        // convert negative to positive
+        uint32_t uvalue;
+        if (value >= 0) {
+            negative = false;
+            uvalue = (uint32_t)value;
+        } else {
+            negative = true;
+            if (value == INT32_MIN) {
+                uvalue = (uint32_t)INT32_MAX + 1u;
+            } else {
+                uvalue = -(uint32_t)value;
+            }
+        }
+
+        length = utod(uvalue, buffer);
+    }
+
+    print_number(output, directive, buffer, length, negative);
+}
+
+// Parses a digit. Returns -1 if the character is not a digit in the given
+// base.
+static int parse_digit(unsigned char c, unsigned base) {
+    unsigned value;
+
+    if (c >= '0' && c <= '9') {
+        value = c - '0';
+    } else if (c >= 'a' && c <= 'z') {
+        value = c - 'a' + 10;
+    } else if (c >= 'A' && c <= 'Z') {
+        value = c - 'A' + 10;
+    } else {
+        return -1;
+    }
+
+    if (value >= base) {
+        return -1;
+    }
+
+    return value;
+}
+
+/**
+ * Scans unsigned decimal, hexadecimal and octal.
+ *
+ * Handles %u, %o, %x, %X, %p.
+ */
+static bool sscan_unsigned(
+        const char* restrict* s /*string*/,
+        const char* restrict* f /*format*/,
+        directive_t* directive,
+        va_list* args)
+{
+    // parse base
+    unsigned base;
+    switch (directive->conversion) {
+        case 'u': base = 10; break;
+        case 'o': base = 8; break;
+        case 'X':
+        case 'x':
+        case 'p': base = 16; break;
+        default:
+            // should be unreachable
+            __fatal("Unsupported sscan_unsigned conversion");
+            return false;
+    }
+
+    // skip hex prefix
+    if (base == 16) {
+        if (**s == '0' && ((*s)[1] == 'x' || (*s)[1] == 'X')) {
+            *s += 2;
+        }
+    }
+
+    // make sure we have at least one valid digit
+    int digit = parse_digit(**s, base);
+    if (digit == -1) {
+        return false;
+    }
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        __fatal("sscan_unsigned 64-bit not supported in bootstrap.");
+        return false;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        // TODO parse thousands separator
+        // TODO respect field width
+        unsigned long long value = 0;
+        do {
+            ++*s;
+            unsigned long long new_value = (value * base) + (unsigned long long)digit;
+            if (new_value < value) {
+                // TODO overflow
+                return false;
+            }
+            value = new_value;
+            digit = parse_digit(**s, base);
+        } while (digit != -1);
+
+        if (!directive->skip_output) {
+            *va_arg(*args, unsigned long long*) = value;
+        }
+        #endif
+    } else {
+        // TODO parse thousands separator
+        // TODO respect field width
+        unsigned value = 0;
+        do {
+            ++*s;
+            unsigned new_value = (value * base) + (unsigned)digit;
+            if (new_value < value) {
+                // TODO overflow
+                return false;
+            }
+            value = new_value;
+            digit = parse_digit(**s, base);
+        } while (digit != -1);
+
+        if (!directive->skip_output) {
+            switch (directive->length_modifier) {
+                case length_modifier_h:
+                    if (value > USHRT_MAX) {
+                        // TODO overflow
+                        return false;
+                    }
+                    *va_arg(*args, unsigned short*) = value;
+                    break;
+                case length_modifier_hh:
+                    if (value > UCHAR_MAX) {
+                        // TODO overflow
+                        return false;
+                    }
+                    *va_arg(*args, unsigned char*) = value;
+                    break;
+                case length_modifier_none:
+                case length_modifier_l:
+                case length_modifier_z:
+                case length_modifier_t_:
+                    *va_arg(*args, unsigned int*) = value;
+                    break;
+                default:
+                    __fatal("Unsupported sscan_unsigned length modifier");
+                    return false;
+            }
+        }
+    }
+
+    return true;
+}
+
+static bool sscan_signed(
+        const char* restrict* s /*string*/,
+        const char* restrict* f /*format*/,
+        directive_t* directive,
+        va_list* args,
+        int base)
+{
+    // TODO need to support thousands separator. probably won't be able to
+    // share code with strtol(), but for now we do for simplicity.
+
+    if (**s < '0' || **s > '9')
+        return false;
+
+    char* end;
+
+    if (directive->length_modifier == length_modifier_ll ||
+            directive->length_modifier == length_modifier_L /* GNU extension */ ||
+            directive->length_modifier == length_modifier_j)
+    {
+        #ifndef HAVE_LONG_LONG
+        __fatal("sscan_signed 64-bit not supported in bootstrap.");
+        return false;
+        #endif
+
+        #ifdef HAVE_LONG_LONG
+        int64_t value = strtoll(*s, &end, base);
+        if (!directive->skip_output) {
+            *va_arg(*args, long long*) = value;
+        }
+        #endif
+    } else {
+        int32_t value = strtol(*s, &end, base);
+        switch (directive->length_modifier) {
+            case length_modifier_h:
+                *va_arg(*args, short*) = value;
+                break;
+            case length_modifier_hh:
+                *va_arg(*args, char*) = value;
+                break;
+            case length_modifier_none:
+            case length_modifier_l:
+            case length_modifier_z:
+            case length_modifier_t_:
+                *va_arg(*args, int*) = value;
+                break;
+            default:
+                __fatal("Unhandled scan_u length modifier");
+                return false;
+        }
+    }
+
+    *s = end;
+    return true;
 }
 
 /**
@@ -558,9 +1068,6 @@ static void print_d(output_t* output, directive_t* directive, va_list* args, cha
  */
 static void print(const char* format, output_t* output, va_list args) {
     const char* p = format;
-
-    // buffer large enough to format any number, floating point or otherwise
-    char number_buffer[128];
 
     while (*p != 0) {
 
@@ -575,7 +1082,7 @@ static void print(const char* format, output_t* output, va_list args) {
 
         // We've found a directive. Parse it.
         directive_t directive;
-        if (!directive_parse(&directive, &p, NULL)) {
+        if (!directive_parse(&directive, &p, NULL, true)) {
             libc_assert(false);
             output->error = true;
             return;
@@ -584,7 +1091,7 @@ static void print(const char* format, output_t* output, va_list args) {
         // Although we parse argument positions, we don't actually support them
         // (yet).
         if (directive.argument_positions) {
-            libc_assert(false);
+            __fatal("printf() GNU argument positions not yet implemented.");
             output->error = true;
             return;
         }
@@ -594,15 +1101,25 @@ static void print(const char* format, output_t* output, va_list args) {
                 print_output(output, "%", 1);
                 break;
 
+            // number
             case 'd':
             case 'i':
-                print_d(output, &directive, (va_list*)&args, number_buffer);
+                print_d(output, &directive, (va_list*)&args);
+                break;
+            case 'u':
+                print_u(output, &directive, (va_list*)&args);
+                break;
+            case 'p':
+            case 'x':
+            case 'X':
+                print_x(output, &directive, (va_list*)&args);
                 break;
 
+            // string
             case 's': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
-                    //libc_assert(false);
+                    __fatal("printf() string length modifiers not yet implemented.");
                     output->error = true;
                     return;
                 }
@@ -612,10 +1129,11 @@ static void print(const char* format, output_t* output, va_list args) {
                 break;
             }
 
+            // char
             case 'c': {
                 // TODO length modifier
                 if (directive.length_modifier != length_modifier_none) {
-                    //libc_assert(false);
+                    __fatal("printf() char length modifiers not yet implemented.");
                     output->error = true;
                     return;
                 }
@@ -624,45 +1142,8 @@ static void print(const char* format, output_t* output, va_list args) {
                 break;
             }
 
-            case 'u': {
-                uintmax_t value;
-                if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef NO_LONG_LONG
-                        value = va_arg(args, unsigned long long);
-                    #endif
-                    #ifdef NO_LONG_LONG
-                        output->error = true;
-                        return;
-                    #endif
-                } else {
-                    value = va_arg(args, unsigned);
-                }
-                size_t length = utod(value, number_buffer);
-                print_output(output, number_buffer, length);
-                break;
-            }
-
-            case 'p': // fallthrough
-            case 'x': // fallthrough
-            case 'X': {
-                uintmax_t value;
-                if (directive.length_modifier == length_modifier_ll) {
-                    #ifndef NO_LONG_LONG
-                        value = va_arg(args, unsigned long long);
-                    #endif
-                    #ifdef NO_LONG_LONG
-                        output->error = true;
-                        return;
-                    #endif
-                } else {
-                    value = va_arg(args, unsigned);
-                }
-                size_t length = utoh(value, number_buffer, directive.conversion == 'X');
-                print_output(output, number_buffer, length);
-                break;
-            }
-
             default:
+                // should be unreachable
                 libc_assert(false);
                 break;
         }
@@ -732,35 +1213,115 @@ int vasprintf(char** restrict out_string, const char* restrict format, va_list a
 }
 
 #ifdef DISABLED
-/**
- * Main scan function.
- *
- * TODO. Not clear we can implement this shared unless we also have a way to
- * peek data from a FILE or otherwise put it back in the buffer when we read
- * too much.
- */
-static int scan(
-        const char* format,
-        char* buffer,
-        size_t buffer_size,
-        int (*fill)(char** buffer, size_t* buffer_size), // TODO should probably be consume()
-        va_list args)
-{
-    // TODO
-    return -1;
-}
-
 int vfscanf(FILE* restrict stream, const char* restrict format, va_list args) {
     // TODO
     (void)scan;
     return -1;
 }
-
-int vsscanf(const char* restrict s, const char* restrict format, va_list args) {
-    // TODO
-    return -1;
-}
 #endif
+
+int vsscanf(
+        const char* restrict s /*string*/,
+        const char* restrict f /*format*/,
+        va_list args)
+{
+    int conversion_count = 0;
+
+    while (*f != 0) {
+
+        // If it's whitespace, we skip any amount of whitespace in both the
+        // format and the source.
+        if (isspace(*f)) {
+            while (isspace(*f)) ++f;
+            while (isspace(*s)) ++s;
+            continue;
+        }
+
+        // If it's not a directive, we must match the character exactly.
+        if (*f != '%') {
+            if (*f != *s) {
+                return conversion_count;
+            }
+            ++f;
+            ++s;
+            continue;
+        }
+
+        // We've found a directive. Parse it.
+        directive_t directive;
+        if (!directive_parse(&directive, (const char**)&f, NULL, false)) {
+            // TODO should we return EOF?
+            return conversion_count;
+        }
+
+        // Although we parse argument positions, we don't actually support them
+        // (yet).
+        if (directive.argument_positions) {
+            __fatal("sscanf() GNU argument positions not yet implemented.");
+            return conversion_count;
+        }
+
+        switch (directive.conversion) {
+            case '%':
+                if (*s != '%') {
+                    return conversion_count;
+                }
+                ++f;
+                ++s;
+                break;
+
+            case 'i':
+                if (!sscan_signed(&s, &f, &directive, (va_list*)&args, 0))
+                    return conversion_count;
+                ++conversion_count;
+                break;
+
+            case 'd':
+                if (!sscan_signed(&s, &f, &directive, (va_list*)&args, 10))
+                    return conversion_count;
+                ++conversion_count;
+                break;
+
+            case 'u':
+            case 'o':
+            case 'p':
+            case 'x':
+            case 'X':
+                if (!sscan_unsigned(&s, &f, &directive, (va_list*)&args))
+                    return conversion_count;
+                ++conversion_count;
+                break;
+
+            case 's':
+            case 'c':
+            case '[':
+                // TODO not yet implemented
+                __fatal("sscanf() string parsing not yet implemented.");
+                return conversion_count;
+
+            case 'f':
+            case 'e':
+            case 'g':
+            case 'E':
+            case 'a':
+                // TODO not yet implemented
+                __fatal("sscanf() float parsing not yet implemented.");
+                return conversion_count;
+
+            case 'n':
+                // TODO not yet implemented
+                __fatal("sscanf() %n not yet implemented.");
+                return conversion_count;
+
+            default:
+                // should be unreachable
+                libc_assert(false);
+                break;
+        }
+    }
+
+    return conversion_count;
+}
 
 /*
  * The rest of these functions just wrap the implementations above.
@@ -818,7 +1379,6 @@ int sprintf(char* restrict buffer, const char* restrict format, ...) {
     return ret;
 }
 
-#ifdef DISABLED
 int sscanf(const char* restrict s, const char* restrict format, ...) {
     va_list args;
     va_start(args, format);
@@ -826,7 +1386,6 @@ int sscanf(const char* restrict s, const char* restrict format, ...) {
     va_end(args);
     return ret;
 }
-#endif
 
 int vprintf(const char* restrict format, va_list args) {
     return vfprintf(stdout, format, args);

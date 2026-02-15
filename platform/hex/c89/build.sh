@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -30,7 +30,6 @@
 
 
 set -e
-cd "$(dirname "$0")/../../.."
 
 # Find a compiler
 if [ "x$CC" = "x" ]; then
@@ -48,6 +47,6 @@ if [ "x$CFLAGS" = "x" ]; then
 fi
 
 # Compile it
-mkdir -p build/test/hex-c89
-$CC $CFLAGS core/hex/1-c89/hex.c -o build/test/hex-c89/hex
-echo "Compiled: build/test/hex-c89/hex"
+mkdir -p output/configure/hex-c89
+$CC $CFLAGS core/hex/1-c89/hex.c -o output/configure/hex-c89/hex
+echo "Compiled: output/configure/hex-c89/hex"

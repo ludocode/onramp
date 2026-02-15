@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -57,5 +57,8 @@ off_t lseek(int __fd, off_t __offset, int __whence);
  */
 int usleep(useconds_t usec);
 #endif
+
+int unlink(const char *path);
+int rmdir(const char *path);
 
 #endif

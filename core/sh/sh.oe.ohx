@@ -3404,7 +3404,11 @@
     78 8D 00 8C    ; ldw rfp 0 rsp      ; pop rfp
     70 8C 8C 04    ; add rsp rsp 4      ; ^^^
 
-    ; Unload debug info, call syscall_debug
+    ; push the return code
+    71 8C 8C 04     ; sub rsp rsp 4     ; push r0
+    79 80 00 8C     ; stw r0 0 rsp      ; ...
+
+    ; Unload debug info, call syscall_debug()
     78 80 8E 68    ; ldw r0 rpp 0x68   ; heap_ptr
     70 81 00 00    ; add r1 0 0
     7C 8A 00 00    ; ims ra <syscall_debug
@@ -3414,6 +3418,10 @@
     79 8B 00 8C    ; stw rb 0 rsp
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; pop the return code
+    78 80 00 8C     ; ldw r0 0 rsp      ; pop r0
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^
 
     ; If the return code is non-zero, call error() with a null message. (We
     ; expect that the failing program printed its own error message.)
@@ -3443,8 +3451,6 @@
     78 8F 00 8C    ; ldw rip 0 rsp      ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00
 @0x1B90
 

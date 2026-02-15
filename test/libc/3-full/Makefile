@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2024-2025 Fraser Heavy Software
+# Copyright (c) 2024-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 BUILD1=$(BUILD)/libc-1-omc
 BUILD2=$(BUILD)/libc-2-opc
@@ -58,6 +58,7 @@ OBJS3=\
 		$(BUILD3)/signal.oo \
 		$(BUILD3)/stdbit_llong.oo \
 		$(BUILD3)/stdlib_3.oo \
+		$(BUILD3)/strtol.oo \
 		$(BUILD3)/time.oo \
 
 OBJS_ALL=\
@@ -65,8 +66,6 @@ OBJS_ALL=\
 		\
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
-		\
-		$(BUILD1)/strtol.oo \
 		\
 		$(BUILD2)/assert.oo \
 		$(BUILD2)/ctype.oo \
@@ -107,7 +106,8 @@ CPPFLAGS += \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libc/common/src \
 		-include $(ROOT)/test/portability.h \
-		-include __onramp/__predef.h
+		-include __onramp/__predef.h \
+		$(CFLAGS)
 
 all: build test FORCE
 FORCE:
@@ -190,6 +190,12 @@ $(BUILD3)/stdlib_3.oo: $(SRC3)/stdlib_3.c Makefile
 	@mkdir -p $(BUILD3)
 	$(CC) $(CPPFLAGS) -c $(SRC3)/stdlib_3.c -o $(BUILD3)/stdlib_3.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC3)/stdlib_3.c -o $@
+
+$(BUILD3)/strtol.oo: $(SRC3)/strtol.c Makefile
+	@rm -f $@
+	@mkdir -p $(BUILD3)
+	$(CC) $(CPPFLAGS) -c $(SRC3)/strtol.c -o $(BUILD3)/strtol.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC3)/strtol.c -o $@
 
 $(BUILD3)/time.oo: $(SRC3)/time.c Makefile
 	@rm -f $@

@@ -27,7 +27,7 @@ CPPFLAGS := -Wall -Wextra -Wpedantic -DDEBUG
 -include ../../local.mk
 
 ROOT=../../..
-BUILD=$(ROOT)/build/test
+BUILD=$(ROOT)/output/test
 
 OUT=$(BUILD)/cpp-2-full
 SRC=$(ROOT)/core/cpp/2-full/src

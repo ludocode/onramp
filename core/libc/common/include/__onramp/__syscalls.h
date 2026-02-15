@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,8 +22,8 @@
  * SOFTWARE.
  */
 
-#ifndef SYSCALLS_H_INCLUDED
-#define SYSCALLS_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_SYSCALLS_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_SYSCALLS_H_INCLUDED
 
 #include <stdbool.h>
 
@@ -53,6 +53,10 @@
 #define __SYS_ALLOC 23
 #define __SYS_FREE 24
 
+/**
+ * Returns true if the given syscall is supported by the environment (the VM or
+ * a parent program), false otherwise.
+ */
 bool __syscall_is_supported(int __syscall_number);
 
 // The below functions directly call syscalls. They do NOT check whether the

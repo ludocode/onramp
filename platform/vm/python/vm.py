@@ -143,19 +143,29 @@ def syscall_time():
     registers[0] = 0
 
 def syscall_fopen():
-    for i in range(len(handles)):
-        if handles[i] is None:
-            try:
-                handles[i] = open(loadString(registers[0]), registers[1] and "wb" or "rb")
-                registers[0] = i
-            except:
-                # TODO: VM_ERR_PATH is for file not found, and other errors
-                # should be VM_ERR_IO. We could catch FileNotFoundError but
-                # this is Python 3 only. For now we just give the generic
-                # error; this is allowed in the Onramp spec.
-                registers[0] = VM_ERR_GENERIC
-            return
-    registers[0] = VM_ERR_GENERIC
+    try:
+        i = next(x for x in range(len(handles)) if handles[x] is None)  # find an unused handle
+        path = loadString(registers[0])
+        if registers[1]:
+            if os.path.exists(path):
+                handles[i] = open(path, "r+b")
+            else:
+                handles[i] = open(path, "w+b")
+        else:
+            handles[i] = open(path, "rb")
+        registers[0] = i
+
+    except StopIteration:
+        # no free handles
+        # TODO v4 has a different error code for too many open files.
+        registers[0] = VM_ERR_GENERIC
+
+    except FileNotFoundError:
+        # TODO v4 spec has special error codes for this and other errors
+        registers[0] = VM_ERR_GENERIC
+
+    except:
+        registers[0] = VM_ERR_GENERIC
 
 def syscall_fclose():
     # Shouldn't be able to close standard streams, we don't bother to check
@@ -223,6 +233,13 @@ def syscall_chmod():
     except:
         registers[0] = VM_ERR_GENERIC
 
+def syscall_mkdir():
+    try:
+        os.mkdir(loadString(registers[0]), 0o755)
+        registers[0] = 0
+    except:
+        registers[0] = VM_ERR_GENERIC
+
 syscalls = {
     0: syscall_exit,
     2: syscall_time,
@@ -235,6 +252,7 @@ syscalls = {
     9: syscall_ftrunc,
     16: syscall_unlink,
     17: syscall_chmod,
+    18: syscall_mkdir,
 }
 
 def run():

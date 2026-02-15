@@ -1,4 +1,16 @@
+# normal build output, cleaned by ./configure.sh --clean
+/output/
+/config.log
+/config.log.history
+/build.sh
+/install.sh
+/env.sh
+/build.ninja
+/.ninja_log
+
+# a typical user-created build directory for out-of-tree builds
 /build/
+
+# other misc files
 /test/local.mk
 vgcore.*
-/.ninja_log

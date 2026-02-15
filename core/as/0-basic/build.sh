@@ -23,14 +23,14 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/as-0-basic
+mkdir -p output/intermediate/as-0-basic
 
 echo
 echo === Building as/0-basic
 
 echo Linking as/0-basic
-onrampvm build/intermediate/ld-0-global/ld.oe \
-    -o build/intermediate/as-0-basic/as.oe \
-        build/intermediate/libc-0-oo/libc.oa \
-        build/intermediate/libo-0-oo/libo.oa \
+onrampvm output/intermediate/ld-0-global/ld.oe \
+    -o output/intermediate/as-0-basic/as.oe \
+        output/intermediate/libc-0-oo/libc.oa \
+        output/intermediate/libo-0-oo/libo.oa \
         core/as/0-basic/as.oo

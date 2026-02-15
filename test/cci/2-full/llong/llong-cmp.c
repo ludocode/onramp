@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2024 Fraser Heavy Software
+// Copyright (c) 2024-2025 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
@@ -57,6 +57,12 @@ int main(void) {
     if (0x100000001ll <= 0ll) return 30;
     if (0ll > 0x100000001ll) return 31;
     if (0ll >= 0x100000001ll) return 32;
+
+    // low, high bit of low word set
+    if (0x80000000ll < 0ll) return 49;
+    if (0x80000000ll <= 0ll) return 50;
+    if (0ll > 0x80000000ll) return 51;
+    if (0ll >= 0x80000000ll) return 52;
 
 
     // signed, negative

@@ -7,7 +7,7 @@
 #
 # e.g.
 #
-#     test/ld/run.sh test/ld/0-global onrampvm build/intermediate/ld-0-global/ld.oe
+#     test/ld/run.sh test/ld/0-global onrampvm output/intermediate/ld-0-global/ld.oe
 #
 # - If a corresponding .fail file exists, the linker must return an error. Its
 # output is ignored.
@@ -72,7 +72,7 @@ ANY_ERROR=0
 # use libc/0 because early linker stages don't have the capacity to link the
 # later libcs.
 make -C $ROOT/test/libc/0-oo/ build
-LIBC=$ROOT/build/test/libc-0-oo/libc.oa
+LIBC=$ROOT/output/test/libc-0-oo/libc.oa
 
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $COMMAND"
@@ -129,10 +129,10 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
         set -e
         if [ $RET -ne 0 ]; then
             echo "ERROR: $TESTFILE failed to run."
-            ERROR=1
+            THIS_ERROR=1
         elif ! diff $TEMP_STDOUT $BASENAME.stdout > /dev/null; then
             echo "ERROR: $TESTFILE output did not match expected $BASENAME.stdout"
-            ERROR=1
+            THIS_ERROR=1
         fi
     fi
 

@@ -23,111 +23,111 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/cpp-2-full
+mkdir -p output/intermediate/cpp-2-full
 
 echo
 echo === Building cpp/2-full
 
 echo Compiling cpp/2-full common.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/common.c \
-    -o build/intermediate/cpp-2-full/common.oo
+    -o output/intermediate/cpp-2-full/common.oo
 
 echo Compiling cpp/2-full directive.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/directive.c \
-    -o build/intermediate/cpp-2-full/directive.oo
+    -o output/intermediate/cpp-2-full/directive.oo
 
 echo Compiling cpp/2-full emit.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/emit.c \
-    -o build/intermediate/cpp-2-full/emit.oo
+    -o output/intermediate/cpp-2-full/emit.oo
 
 echo Compiling cpp/2-full expression.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/expression.c \
-    -o build/intermediate/cpp-2-full/expression.oo
+    -o output/intermediate/cpp-2-full/expression.oo
 
 echo Compiling cpp/2-full file.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/file.c \
-    -o build/intermediate/cpp-2-full/file.oo
+    -o output/intermediate/cpp-2-full/file.oo
 
 echo Compiling cpp/2-full hideset.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/hideset.c \
-    -o build/intermediate/cpp-2-full/hideset.oo
+    -o output/intermediate/cpp-2-full/hideset.oo
 
 echo Compiling cpp/2-full lexer.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/lexer.c \
-    -o build/intermediate/cpp-2-full/lexer.oo
+    -o output/intermediate/cpp-2-full/lexer.oo
 
 echo Compiling cpp/2-full macro.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/macro.c \
-    -o build/intermediate/cpp-2-full/macro.oo
+    -o output/intermediate/cpp-2-full/macro.oo
 
 echo Compiling cpp/2-full main.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/main.c \
-    -o build/intermediate/cpp-2-full/main.oo
+    -o output/intermediate/cpp-2-full/main.oo
 
 echo Compiling cpp/2-full options.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/options.c \
-    -o build/intermediate/cpp-2-full/options.oo
+    -o output/intermediate/cpp-2-full/options.oo
 
 echo Compiling cpp/2-full preprocess.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/preprocess.c \
-    -o build/intermediate/cpp-2-full/preprocess.oo
+    -o output/intermediate/cpp-2-full/preprocess.oo
 
 echo Compiling cpp/2-full stream.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/stream.c \
-    -o build/intermediate/cpp-2-full/stream.oo
+    -o output/intermediate/cpp-2-full/stream.oo
 
 echo Compiling cpp/2-full strings.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/strings.c \
-    -o build/intermediate/cpp-2-full/strings.oo
+    -o output/intermediate/cpp-2-full/strings.oo
 
 echo Compiling cpp/2-full token.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/cpp/2-full/build-ccargs \
     -c core/cpp/2-full/src/token.c \
-    -o build/intermediate/cpp-2-full/token.oo
+    -o output/intermediate/cpp-2-full/token.oo
 
 echo Linking cpp/2-full
-onrampvm build/intermediate/ld-2-full/ld.oe \
-    build/intermediate/libc-2-opc/libc.oa \
-    build/intermediate/libo-1-opc/libo.oa \
-    build/intermediate/cpp-2-full/common.oo \
-    build/intermediate/cpp-2-full/directive.oo \
-    build/intermediate/cpp-2-full/emit.oo \
-    build/intermediate/cpp-2-full/expression.oo \
-    build/intermediate/cpp-2-full/file.oo \
-    build/intermediate/cpp-2-full/hideset.oo \
-    build/intermediate/cpp-2-full/lexer.oo \
-    build/intermediate/cpp-2-full/macro.oo \
-    build/intermediate/cpp-2-full/main.oo \
-    build/intermediate/cpp-2-full/options.oo \
-    build/intermediate/cpp-2-full/preprocess.oo \
-    build/intermediate/cpp-2-full/stream.oo \
-    build/intermediate/cpp-2-full/strings.oo \
-    build/intermediate/cpp-2-full/token.oo \
-    -o build/intermediate/cpp-2-full/cpp.oe
+onrampvm output/intermediate/ld-2-full/ld.oe \
+    output/intermediate/libc-2-opc/libc.oa \
+    output/intermediate/libo-1-opc/libo.oa \
+    output/intermediate/cpp-2-full/common.oo \
+    output/intermediate/cpp-2-full/directive.oo \
+    output/intermediate/cpp-2-full/emit.oo \
+    output/intermediate/cpp-2-full/expression.oo \
+    output/intermediate/cpp-2-full/file.oo \
+    output/intermediate/cpp-2-full/hideset.oo \
+    output/intermediate/cpp-2-full/lexer.oo \
+    output/intermediate/cpp-2-full/macro.oo \
+    output/intermediate/cpp-2-full/main.oo \
+    output/intermediate/cpp-2-full/options.oo \
+    output/intermediate/cpp-2-full/preprocess.oo \
+    output/intermediate/cpp-2-full/stream.oo \
+    output/intermediate/cpp-2-full/strings.oo \
+    output/intermediate/cpp-2-full/token.oo \
+    -o output/intermediate/cpp-2-full/cpp.oe

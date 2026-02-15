@@ -23,15 +23,15 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/libc-0-oo
+mkdir -p output/intermediate/libc-0-oo
 
 echo
 echo === Building libc/0-oo
 
 # Note: start.oo must come first!
 echo Archiving libc/0-oo
-onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libc-0-oo/libc.oa \
+onrampvm output/intermediate/ar-0-cat/ar.oe \
+    rc output/intermediate/libc-0-oo/libc.oa \
         \
         core/libc/0-oo/src/start.oo \
         \

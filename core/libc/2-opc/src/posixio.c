@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 #include <termios.h>
 
 #include <__onramp/__pit.h>
+#include <__onramp/__syscalls.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,7 +36,6 @@
 #include <sys/stat.h>
 
 #include "internal.h"
-#include "syscalls.h"
 
 /**
  * This implements low-level POSIX file I/O (e.g. open(), write(), etc.) The C
@@ -452,4 +452,36 @@ int tcsetattr(int fd, int actions, const struct termios* termios) {
     input_echo = termios->c_lflag & ECHO;
     input_canonical = termios->c_lflag & ICANON;
     return 0;
+}
+
+int unlink(const char* path) {
+    if (!__syscall_is_supported(__SYS_UNLINK)) {
+        errno = EIO;
+        return -1;
+    }
+
+    int ret = __sys_unlink(path);
+    if (ret == 0) {
+        return 0;
+    }
+
+    // TODO more precise error codes
+    errno = EIO;
+    return -1;
+}
+
+int rmdir(const char* path) {
+    if (!__syscall_is_supported(__SYS_RMDIR)) {
+        errno = EIO;
+        return -1;
+    }
+
+    int ret = __sys_rmdir(path);
+    if (ret == 0) {
+        return 0;
+    }
+
+    // TODO more precise error codes
+    errno = EIO;
+    return -1;
 }

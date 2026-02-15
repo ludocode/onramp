@@ -7,7 +7,7 @@
 #
 # e.g.
 #
-#     test/as/run.sh test/as/0-basic onrampvm build/intermediate/as-0-basic/as.oe
+#     test/as/run.sh test/as/0-basic onrampvm output/intermediate/as-0-basic/as.oe
 #
 # For each test case:
 #
@@ -77,7 +77,7 @@ set -e
 ROOT=$(dirname $0)/../..
 make -C $ROOT/test/ld/2-full/ build
 make -C $ROOT/test/libc/3-full/ build
-LIBC=$ROOT/build/test/libc-3-full/libc.oa
+LIBC=$ROOT/output/test/libc-3-full/libc.oa
 
 SOURCE_FOLDER="$1"
 shift
@@ -140,7 +140,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
     if [ $THIS_ERROR -ne 1 ] && ! [ -e $BASENAME.fail ]; then
 
         # link and run
-        if [ $THIS_ERROR -ne 1 ] && ! $ROOT/build/test/ld-2-full/ld -g \
+        if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/ld-2-full/ld -g \
                 $LIBC $TEMP_OO -o $TEMP_OE &> /dev/null; then
             echo "ERROR: $BASENAME failed to link."
             THIS_ERROR=1
@@ -179,7 +179,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.os'); do
         echo "Commands:"
         echo "    make build && \\"
         echo "    $COMMAND $ARGS && \\"
-        echo "    $ROOT/build/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
+        echo "    $ROOT/output/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
         echo "    onrampvm $TEMP_OE >$TEMP_STDOUT && \\"
         echo "    diff -u $BASENAME.oo $TEMP_OO"
         if [ -e $BASENAME.stdout ]; then

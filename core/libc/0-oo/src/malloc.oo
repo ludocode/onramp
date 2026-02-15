@@ -69,14 +69,36 @@
     7C 8B >__malloc_break   ; ims rb >__malloc_break
     79 80 8E 8B             ; stw r0 rpp rb
 
-    ; TODO we should also be choosing a stack size and saving the end of the
-    ; heap to make sure we aren't overrunning our stack
+    ; subtract 128 kB from the stack pointer to allocate a stack. (This seems
+    ; huge for bootstrapping but it's the same amount we use in libc/3 so it's
+    ; simpler if we keep it the same.)
+    76 82 01 11    ; shl r2 1 17    ; r1 = 131072  (128 KiB)
+    71 81 8C 82    ; sub r1 rsp r2
+
+    ; store it in __malloc_end
+    7C 8B <__malloc_end     ; ims rb <__malloc_end
+    7C 8B >__malloc_end     ; ims rb >__malloc_end
+    79 81 8E 8B             ; stw r1 rpp rb
+
+    ; check for overflow. ensure __malloc_break < __malloc_end < rsp
+    7D 83 80 81                 ; ltu r3 r0 r1
+    7E 83 &__malloc_init_fail   ; jz r3 &__malloc_init_fail
+    7D 83 81 8C                 ; ltu r3 r1 rsp
+    7E 83 &__malloc_init_fail   ; jz r3 &__malloc_init_fail
 
     ; return
     ;70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
     ;78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
     ;70 8C 8C 04     ; add rsp rsp 4     ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+:__malloc_init_fail
+    7C 80 <__malloc_fatal_str   ; ims ra <__malloc_fatal_str
+    7C 80 >__malloc_fatal_str   ; ims ra >__malloc_fatal_str
+    70 80 8E 80                 ; add r0 rpp r0
+    7C 8A <__fatal   ; ims ra <__fatal
+    7C 8A >__fatal   ; ims ra >__fatal
+    70 8F 8E 8A      ; add rip rpp ra   ; jump
 
 
 
@@ -87,6 +109,17 @@
 ; ==========================================================
 
 @__malloc_break
+    00 00 00 00
+
+
+
+; ==========================================================
+; void* __malloc_end;
+; ==========================================================
+; The end of the heap.
+; ==========================================================
+
+@__malloc_end
     00 00 00 00
 
 
@@ -159,7 +192,6 @@
     71 84 81 02    ; sub r4 r1 2    ; size class
 
     ; check the free list for this size class
-    ; TODO
     7C 85 <__free_lists   ; ims r5 <__free_lists
     7C 85 >__free_lists   ; ims r5 >__free_lists
     70 85 8E 85           ; add r5 rpp r5
@@ -190,10 +222,18 @@
     78 82 8E 81             ; ldw r2 rpp r1
 
     ; increment it by the size
-    ; TODO we should check that the size doesn't overflow the heap and
-    ; overwrite the stack
     70 83 82 80             ; add r3 r2 r0
     79 83 8E 81             ; stw r3 rpp r1
+
+    ; make sure we haven't gone past the end of the heap
+    7C 85 <__malloc_end     ; ims r5 <__malloc_end
+    7C 85 >__malloc_end     ; ims r5 >__malloc_end
+    78 85 8E 85             ; ldw r5 rpp r5
+    7D 86 85 83             ; ltu r6 r5 r3
+    7E 86 &__malloc_ok      ; jz r6 &__malloc_ok
+    7E 00 &__malloc_fatal   ; jz 0 &__malloc_fatal
+
+:__malloc_ok
 
     ; write the size class
     79 84 82 00             ; stw r4 r2 0
@@ -209,6 +249,99 @@
     7C 8A <__fatal   ; ims ra <__fatal
     7C 8A >__fatal   ; ims ra >__fatal
     70 8F 8E 8A      ; add rip rpp ra   ; jump
+
+
+
+; ==========================================================
+; void* realloc(void* old_p, size_t new_size)
+; ==========================================================
+; Resizes a memory block.
+;
+; Resizing is performed by allocating a new block, copying the contents, and
+; freeing the old block.
+;
+; vars:
+; - old_p: rfp-4
+; - new_size: rfp-8
+; - new_p: rfp-12
+; ==========================================================
+
+=realloc
+
+    ; check if the old pointer is null. if so, we'll forward to malloc.
+    7E 80 &__realloc_null_src     ; jz r0 &__realloc_null_src
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp      ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^           ; ^^^
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp   ; ^^^
+    71 8C 8C 0C     ; sub rsp rsp 12
+
+    ; save args
+    79 80 8D FC     ; stw r0 rfp -4    ; old_p
+    79 81 8D F8     ; stw r1 rfp -8    ; new_size
+
+    ; call malloc(new_size)
+    70 80 81 00      ; add r0 r1 0    ; mov r0 r1
+    7C 8A <malloc    ; ims ra <malloc
+    7C 8A >malloc    ; ims ra >malloc
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; this stage malloc aborts on failure so no need to check the return value.
+
+    ; save new_p
+    79 80 8D F4     ; stw r0 rfp -12   ; new_p
+
+    ; get old size. the size class is stored before the pointer.
+    78 81 8D FC     ; ldw r1 rfp -4    ; old_p
+    78 82 81 FC     ; ldw r2 r1 -4     ; old_size_class
+    70 82 82 02     ; add r2 r2 2
+    76 82 01 82     ; shl r2 1 r2      ; old_size
+
+    ; if new_size is less, use new_size instead
+    78 83 8D F8     ; ldw r3 rfp -8    ; new_size
+    7D 84 83 82     ; ltu r4 r3 r2
+    7E 84 &__realloc_size_ok   ; jz r4 &__realloc_size_ok
+    70 82 83 00     ; add r2 r3 0    ; mov r2 r3
+
+:__realloc_size_ok
+
+    ; call memcpy(new_p, old_p, min_size);
+    7C 8A <memcpy    ; ims ra <memcpy
+    7C 8A >memcpy    ; ims ra >memcpy
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; call free(old_p)
+    78 80 8D FC      ; ldw r0 rfp -4    ; old_p
+    7C 8A <free      ; ims ra <free
+    7C 8A >free      ; ims ra >free
+    71 8C 8C 04      ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08      ; add rb rip 8
+    79 8B 00 8C      ; stw rb 0 rsp
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
+    70 8C 8C 04      ; add rsp rsp 4     ; pop return address
+
+    ; return new_p
+    78 80 8D F4     ; ldw r0 rfp -12   ; new_p
+    70 8C 8D 00     ; add rsp rfp 0    ; mov rsp rfp  ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp    ; pop rfp      ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4    ; ^^^          ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
+
+:__realloc_null_src
+    ; no old pointer. tail-call malloc(new_size)
+    70 80 81 00      ; add r0 r1 0       ; mov r0 r1
+    7C 8A <malloc    ; ims ra <malloc
+    7C 8A >malloc    ; ims ra >malloc
+    70 8F 8E 8A      ; add rip rpp ra    ; jump
 
 
 
@@ -267,15 +400,29 @@
 
 
 ; ==========================================================
-; void* __malloc_largest_unused_region(size_t* out_size);
+; void* __malloc_unused_region(size_t* out_size);
 ; ==========================================================
-; Returns the bounds of the largest region of memory that is currently
-; unallocated.
+; Returns the bounds of the unallocated portion of the heap.
 ;
-; This can be used as the heap for child processes.
+; This is used as the heap for child processes.
 ; ==========================================================
 
-; TODO nothing uses this until libc/1 is bootstrapped. but spawn.oo refers to
-; it. TODO spawn.oo should move to libc/1
-=__malloc_largest_unused_region
-    FFFFFFFF;TODO
+=__malloc_unused_region
+
+    ; get the start
+    7C 8B <__malloc_break   ; ims rb <__malloc_break
+    7C 8B >__malloc_break   ; ims rb >__malloc_break
+    78 81 8E 8B             ; ldw r1 rpp rb
+
+    ; get the end
+    7C 8B <__malloc_end     ; ims rb <__malloc_end
+    7C 8B >__malloc_end     ; ims rb >__malloc_end
+    78 82 8E 8B             ; ldw r2 rpp rb
+
+    ; write the size
+    71 82 82 81    ; sub r2 r2 r1
+    79 82 80 00    ; stw r2 r0 0
+
+    ; return the start
+    70 80 81 00    ; add r0 r1 0     ; mov r0 r1
+    78 8F 00 8C    ; ldw rip 0 rsp   ; ret

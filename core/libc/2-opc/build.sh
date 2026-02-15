@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,149 +23,149 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/libc-2-opc
+mkdir -p output/intermediate/libc-2-opc
 
 echo
 echo === Building libc/2-opc
 
 echo Assembling libc/2-opc start.os
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/start.os \
-    -o build/intermediate/libc-2-opc/start.oo
+    -o output/intermediate/libc-2-opc/start.oo
 
 
 echo Compiling libc/2-opc assert.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/assert.c \
-    -o build/intermediate/libc-2-opc/assert.oo
+    -o output/intermediate/libc-2-opc/assert.oo
 
 echo Compiling libc/2-opc ctype.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/ctype.c \
-    -o build/intermediate/libc-2-opc/ctype.oo
+    -o output/intermediate/libc-2-opc/ctype.oo
 
 echo Compiling libc/2-opc environ.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/environ.c \
-    -o build/intermediate/libc-2-opc/environ.oo
+    -o output/intermediate/libc-2-opc/environ.oo
 
 echo Compiling libc/2-opc float.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/float.c \
-    -o build/intermediate/libc-2-opc/float.oo
+    -o output/intermediate/libc-2-opc/float.oo
 
 echo Compiling libc/2-opc format.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/format.c \
-    -o build/intermediate/libc-2-opc/format.oo
+    -o output/intermediate/libc-2-opc/format.oo
 
 echo Compiling libc/2-opc llong.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/llong.c \
-    -o build/intermediate/libc-2-opc/llong.oo
+    -o output/intermediate/libc-2-opc/llong.oo
 
 echo Compiling libc/2-opc multibyte.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/multibyte.c \
-    -o build/intermediate/libc-2-opc/multibyte.oo
+    -o output/intermediate/libc-2-opc/multibyte.oo
 
 echo Compiling libc/2-opc posixio.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/posixio.c \
-    -o build/intermediate/libc-2-opc/posixio.oo
+    -o output/intermediate/libc-2-opc/posixio.oo
 
 echo Assembling libc/2-opc setjmp.os
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/setjmp.os \
-    -o build/intermediate/libc-2-opc/setjmp.oo
+    -o output/intermediate/libc-2-opc/setjmp.oo
 
 echo Compiling libc/2-opc stdbit.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/stdbit.c \
-    -o build/intermediate/libc-2-opc/stdbit.oo
+    -o output/intermediate/libc-2-opc/stdbit.oo
 
 echo Compiling libc/2-opc stdio.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/stdio.c \
-    -o build/intermediate/libc-2-opc/stdio.oo
+    -o output/intermediate/libc-2-opc/stdio.oo
 
 echo Compiling libc/2-opc stdlib.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/stdlib.c \
-    -o build/intermediate/libc-2-opc/stdlib.oo
+    -o output/intermediate/libc-2-opc/stdlib.oo
 
 echo Compiling libc/2-opc string.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/string.c \
-    -o build/intermediate/libc-2-opc/string.oo
+    -o output/intermediate/libc-2-opc/string.oo
 
 echo Compiling libc/2-opc strings.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/strings.c \
-    -o build/intermediate/libc-2-opc/strings.oo
+    -o output/intermediate/libc-2-opc/strings.oo
 
 echo Compiling libc/2-opc stubs.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/stubs.c \
-    -o build/intermediate/libc-2-opc/stubs.oo
+    -o output/intermediate/libc-2-opc/stubs.oo
 
 echo Assembling libc/2-opc syscalls.os
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/syscalls.os \
-    -o build/intermediate/libc-2-opc/syscalls.oo
+    -o output/intermediate/libc-2-opc/syscalls.oo
 
 echo Compiling libc/2-opc system.c
-onrampvm build/intermediate/cc/cc.oe \
+onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/system.c \
-    -o build/intermediate/libc-2-opc/system.oo
+    -o output/intermediate/libc-2-opc/system.oo
 
 # Note: start.oo must come first!
 echo Archiving libc/2-opc
-onrampvm build/intermediate/ar-0-cat/ar.oe \
-    rc build/intermediate/libc-2-opc/libc.oa \
+onrampvm output/intermediate/ar-0-cat/ar.oe \
+    rc output/intermediate/libc-2-opc/libc.oa \
     \
-    build/intermediate/libc-2-opc/start.oo \
+    output/intermediate/libc-2-opc/start.oo \
     \
     core/libc/0-oo/src/errno.oo \
+    core/libc/0-oo/src/malloc.oo \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
     \
-    build/intermediate/libc-1-omc/malloc.oo \
-    build/intermediate/libc-1-omc/strtol.oo \
+    output/intermediate/libc-1-omc/strtol.oo \
     \
-    build/intermediate/libc-2-opc/assert.oo \
-    build/intermediate/libc-2-opc/ctype.oo \
-    build/intermediate/libc-2-opc/environ.oo \
-    build/intermediate/libc-2-opc/float.oo \
-    build/intermediate/libc-2-opc/format.oo \
-    build/intermediate/libc-2-opc/llong.oo \
-    build/intermediate/libc-2-opc/multibyte.oo \
-    build/intermediate/libc-2-opc/posixio.oo \
-    build/intermediate/libc-2-opc/setjmp.oo \
-    build/intermediate/libc-2-opc/stdbit.oo \
-    build/intermediate/libc-2-opc/stdio.oo \
-    build/intermediate/libc-2-opc/stdlib.oo \
-    build/intermediate/libc-2-opc/string.oo \
-    build/intermediate/libc-2-opc/strings.oo \
-    build/intermediate/libc-2-opc/stubs.oo \
-    build/intermediate/libc-2-opc/syscalls.oo \
-    build/intermediate/libc-2-opc/system.oo \
+    output/intermediate/libc-2-opc/assert.oo \
+    output/intermediate/libc-2-opc/ctype.oo \
+    output/intermediate/libc-2-opc/environ.oo \
+    output/intermediate/libc-2-opc/float.oo \
+    output/intermediate/libc-2-opc/format.oo \
+    output/intermediate/libc-2-opc/llong.oo \
+    output/intermediate/libc-2-opc/multibyte.oo \
+    output/intermediate/libc-2-opc/posixio.oo \
+    output/intermediate/libc-2-opc/setjmp.oo \
+    output/intermediate/libc-2-opc/stdbit.oo \
+    output/intermediate/libc-2-opc/stdio.oo \
+    output/intermediate/libc-2-opc/stdlib.oo \
+    output/intermediate/libc-2-opc/string.oo \
+    output/intermediate/libc-2-opc/strings.oo \
+    output/intermediate/libc-2-opc/stubs.oo \
+    output/intermediate/libc-2-opc/syscalls.oo \
+    output/intermediate/libc-2-opc/system.oo \
 

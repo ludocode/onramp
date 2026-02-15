@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -65,6 +65,18 @@
 ;
 ; Each syscall is implemented with a standalone function. Syscalls are
 ; dispatched by a function call table stored in rodata (see syscall_table.)
+;
+; Raw input mode is accomplished by a pair of idempotent functions:
+; enable_raw_input() and disable_raw_input(). These are wired up to be called
+; unconditionally by signal handlers to set or restore the terminal state in
+; response to various events (including job control events.)
+;
+; We try to set termios at startup via an initial call to enable_raw_input(). If
+; successful, we write non-canonical no-echo mode in the program PIT, and the
+; VM will clear and set termios settings in response to job control and other
+; signals. If the initial termios fails, we write canonical non-interactive in
+; the program PIT and permanently disable termios; enable_raw_input() and
+; disable_raw_input() will do nothing for the life of the VM.
 
 
 
@@ -87,18 +99,31 @@
 ;     0x600010 r4   0x600014 r5   0x600018 r6   0x60001C r7
 ;     0x600020 r8   0x600024 r9   0x600028 ra   0x60002C rb
 ;     0x600030 rsp  0x600034 rfp  0x600038 rpp  0x60003C rip
+;
 ; 0x600040 io handles (4x16==64 bytes)
 ;     the index in the array is the I/O handle passed to the program.
 ;     the value in the array is the Linux file descriptor.
+;
 ; 0x600080 saved terminal state (struct termios) (60 bytes)
-; 0x6000BC unused
-; 0x6000C0 end of global variables
+;     Only valid while below termios valid flag is set.
+;
+; 0x6000BC termios valid flag
+;     True if we've changed termios settings.
+;
+; 0x6000C0 interactive flag
+;     True if we declared non-canonical and no-echo in the program PIT. This is
+;     only true if we were launched in control of the terminal. If false, the
+;     VM will not attempt to set termios when moving from background to
+;     foreground.
+;
+; 0x6000C4 end of global variables
+;
 ;
 ;   vm heap
 ; 0x1000000 start of heap
 ;     0x1000000 process info table
 ;         0x1000000 version
-;         0x1000004 program break
+;         0x1000004 start of heap
 ;         0x1000008 syscall table
 ;         0x100000C input stream handle
 ;         0x1000010 output stream handle
@@ -112,6 +137,7 @@
 ;     0x1000030 syscall instruction (custom 0x7F opcode)
 ; 0x1FFFFFF last byte in heap (16 MB)
 ;
+;
 ;   function table
 ; 0x400500 _start
 ; 0x400570 print_error
@@ -124,7 +150,7 @@
 ; 0x400770 load_program
 ; 0x400800 check_buffer
 ; 0x400810 check_string
-; 0x400820 [padding]
+; 0x400820   [padding]
 ; 0x400870 load_working_directory
 ; 0x4008C0 initialize
 ; 0x4009B0 check_word
@@ -134,6 +160,7 @@
 ; 0x400B40 opcode_table
 ; 0x400D40 store_helper
 ; 0x400D90 opcode_jz
+; 0x400DC0 send_sigcont
 ; 0x400E20 syscall_exit
 ; 0x400E30 parse_io_handle
 ; 0x400E60 syscall_fwrite
@@ -146,10 +173,18 @@
 ; 0x401200 syscall_time
 ; 0x401270 skip_wrap_header
 ; 0x4012F0 io_setup
-; 0x401410 io_teardown
-; 0x401460 signal_handler
+; 0x401330 enable_raw_input
+; 0x401420 disable_raw_input
+; 0x401460 signal_exit
+; 0x401490 install_signal_handler
+; 0x401570 signal_ignore
 ; 0x401580 check_byte
-; 0x4015C0   end of program
+; 0x4015C0 syscall_mkdir
+; 0x401630 signal_trampoline
+; 0x401650 install_all_signal_handlers
+; 0x401830 apply_termios
+; 0x4018E0   [end of program]
+;
 ;
 ;   rodata table
 ; 0x500200 "ERROR: A program name is required.\n\0"
@@ -231,8 +266,8 @@
     00 05 00 00 00 00 00 00  ; offset within the file: 0x500
     00 05 40 00 00 00 00 00  ; virtual address in memory: 0x400500
     00 05 40 00 00 00 00 00  ; physical address in memory (ignored)
-    C0 10 00 00 00 00 00 00  ; size of the segment in the file: 0x10C0 (0x15C0-0x500)
-    C0 10 00 00 00 00 00 00  ; size of the segment in memory: 0x10C0 (0x15C0-0x500)
+    E0 13 00 00 00 00 00 00  ; size of the segment in the file: 0x13E0 (0x18E0-0x500)
+    E0 13 00 00 00 00 00 00  ; size of the segment in memory: 0x13E0 (0x18E0-0x500)
     00 10 00 00 00 00 00 00  ; required alignment: 4 KB
 @0x78
 
@@ -433,12 +468,12 @@
     00 00 00 00  00 00 40 00   ; 0x0F symlink (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x10 unlink (not yet implemented)
     30 00 00 01  A0 11 40 00   ; 0x11 chmod (0x4011A0)
-    00 00 00 00  00 00 40 00   ; 0x12 mkdir (not yet implemented)
+    30 00 00 01  C0 15 40 00   ; 0x12 mkdir (0x4015C0)
     00 00 00 00  00 00 40 00   ; 0x13 rmdir (not yet implemented)
 ; misc
     00 00 00 00  00 00 40 00   ; 0x14 spawn (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x14 waitpid (not yet implemented)
-    00 00 00 00  00 00 00 00   ; 0x14 debug (not implemented
+    00 00 00 00  00 00 00 00   ; 0x14 debug (not implemented)
 @0x4D8
 
     ; padding (room for more syscalls)
@@ -587,8 +622,8 @@
     ; TODO the ABI says there's an atexit function in a starting register we're
     ; supposed to call.
 
-    ; call io_teardown() to reset terminal state
-    B8 10 14 40 00    ; mov eax, io_teardown (0x401410)
+    ; call disable_raw_input() to reset terminal state
+    B8 20 14 40 00    ; mov eax, disable_raw_input (0x401420)
     FF D0             ; call rax
 
     ; call syscall exit
@@ -657,7 +692,7 @@
     48 8B 45 F8    ; mov rax, [rbp-8]
     48 8B 00       ; mov rax, [rax]
     48 83 F8 02    ; cmp rax, 2
-    7D 0C          ; jge load_args_env_ok (+12)    ; TODO compare unsigned
+    73 0C          ; jae load_args_env_ok (+12)
 
     ; not enough args. bail
     BF 00 02 50 00   ; mov edi, "ERROR: A program name..." (0x500200)
@@ -750,7 +785,7 @@
 ; Copies a null-terminated array of strings into the VM heap, returning its
 ; address.
 ;
-; The strings are copied to the current break address, and the break address is
+; The strings are copied to the heap address, and the heap address is
 ; incremented past the newly copied strings.
 ;
 ; params:
@@ -759,8 +794,9 @@
 ; - src_table (rbp-8)
 ; - dest_table (rbp-16)
 ; - current_src (rbp-24)
-; - break (rbp-32)
+; - heap_addr (rbp-32)
 ; - current_dest (rbp-40)
+; - loop_address (rbp-48)
 ; ==========================================================
 
 @0x6A0 copy_strings
@@ -771,15 +807,15 @@
     ; move our source string table to the stack
     57                             ; push rdi    ; src_table
 
-    ; also preserve the current break, that's where our destination string
+    ; also preserve the heap address, that's where our destination string
     ; table will be.
-    B8 04 00 00 01  ; mov eax, program break (0x1000004)
+    B8 04 00 00 01  ; mov eax, start of heap (0x1000004)
     8B 00           ; mov eax, [rax]
     50              ; push rax    ; dest_table
 
     ; push them again to be incremented in our copy loop
     57              ; push rdi    ; current_src
-    50              ; push rax    ; break
+    50              ; push rax    ; heap_addr
     50              ; push rax    ; current_dest
 
     ; count how many args there are (including the null-terminator)
@@ -793,23 +829,15 @@
     EB EE              ; jmp copy_strings_count (-18)
 ;copy_strings_count_done:
 
-    ; increment the break to reserve space for the array
+    ; increment the heap address to reserve space for the array
     48 8B 7D E0          ; mov rdi, [rbp-32]
     48 8D 3C 87          ; lea rdi, [rdi+rax*4]
     48 89 7D E0          ; mov [rbp-32], rdi
 
-    ; TODO break this into a separate pseudo-function copy_strings_loop, just
-    ; put a jump here to 0x6E0 instead of actually running all these nops
-
-    ; these are some big jumps so we use absolute addresses instead of working
-    ; out relative jumps. we add padding to align for cleanliness and so we can
-    ; change things without having to constantly adjust these numbers.
-    ; (this is also just initialization code so we aren't worried about
-    ; executing a bunch of nops)
-
-    90 90 90 90 90 90 90 90 ; nop
-    90 90 90 90 90 90 90
-@0x6E0 copy_strings_loop
+    ; save the loop address
+    48 8D 05 01 00 00 00  ; lea rax, [rel copy_strings_loop]  (+1)
+    50                    ; push rax
+;copy_strings_loop:
 
     ; check if this is the end of the source table
     48 8B 45 E8          ; mov rax, [rbp-24]
@@ -819,11 +847,11 @@
     ; if it is, jump to the end (inverted because there's no conditional
     ; indirect jump in x86)
     75 07                ; jne copy_strings_loop_not_done (+7)
-    B9 40 07 40 00       ; mov ecx, copy_strings_loop_done (0x400740)
+    B9 30 07 40 00       ; mov ecx, copy_strings_loop_done (0x400730)
     FF E1                ; jmp rcx
 ;copy_strings_loop_not_done:
 
-    ; assign the current break into the destination table; we're going to copy
+    ; assign the heap address into the destination table; we're going to copy
     ; the string there
     48 8B 7D E0          ; mov rdi, [rbp-32]
     48 8B 75 D8          ; mov rsi, [rbp-40]
@@ -831,13 +859,13 @@
     48 83 C6 04          ; add rsi, 4
     48 89 75 D8          ; mov [rbp-40], rsi
 
-    ; strcpy() the string to the current break
+    ; strcpy() the string to the heap address
     48 8B 75 E8          ; mov rsi, [rbp-24]
     48 8B 36             ; mov rsi, [rsi]
     B8 80 06 40 00       ; mov rax, strcpy (0x400680)
     FF D0                ; call rax
 
-    ; the return value of strcpy() is the new break
+    ; the return value of strcpy() is the new heap address
     ; (plus one for the null-terminator)
     48 FF C0            ; inc rax
     48 89 45 E0         ; mov [rbp-32], rax
@@ -847,38 +875,41 @@
     48 83 C6 08         ; add rsi, 8
     48 89 75 E8         ; mov [rbp-24], rsi
 
-    ; jmp copy_strings_loop
-    B9 E0 06 40 00      ; mov ecx, copy_strings_loop (0x4006EO)
-    FF E1               ; jmp rcx
+    ; jump to copy_strings_loop
+    48 8B 45 D0      ; mov rax, [rbp-48]   ; copy_strings_loop
+    FF E0            ; jmp rax
 
-    90 90 90 90 90 90 90 90
+    ; padding (nop)
     90 90 90 90 90 90 90 90
     90 90
-@0x740 copy_strings_loop_done
+
+@0x730 copy_strings_loop_done
 
     ; assign the null-terminator at the end of the table
     48 8B 75 D8          ; mov rsi, [rbp-40]
     48 31 C0             ; xor rax, rax
     89 06                ; mov [rsi], eax
 
-    ; align the break
+    ; align the heap
     48 8B 7D E0       ; mov rdi, [rbp-32]
     83 C7 03          ; add edi, 3
     B8 03 00 00 00    ; mov eax, 3
     48 F7 D0          ; not rax
     48 21 C7          ; and rdi, rax
 
-    ; store the break in the process info table
-    B8 04 00 00 01    ; mov eax, program break (0x1000004)
+    ; store the heap address in the process info table
+    B8 04 00 00 01    ; mov eax, start of heap (0x1000004)
     89 38             ; mov [rax], edi
 
-    ; return the original break, where we stored the destination table
+    ; return the original heap address, where we stored the destination table
     48 8B 45 F0                    ; mov rax, [rbp-16]
     48 89 EC                       ; mov rsp, rbp
     5D                             ; pop rbp
     C3                             ; ret
 
     ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
     90 90 90 90 90
 @0x770
 
@@ -912,8 +943,8 @@
     50                             ; push rax
     4889C7            ; mov rdi,rax
 
-    ; get the program break
-    B8 04 00 00 01   ; mov eax, program break (0x1000004)
+    ; get the start of heap
+    B8 04 00 00 01   ; mov eax, start of heap (0x1000004)
     8B 30            ; mov esi, dword [rax]
 
     ; calculate the remaining space
@@ -952,8 +983,8 @@
     B8 03 00 00 00           ; mov eax, 3         ; syscall: close (3)
     0F 05                    ; syscall
 
-    ; set the break
-    B8 04 00 00 01    ; mov eax, program break (0x1000004)
+    ; set the heap address
+    B8 04 00 00 01    ; mov eax, start of heap (0x1000004)
     89 30             ; mov [rax], esi
 
     ; check for a wrap header to skip
@@ -1032,8 +1063,8 @@
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
 
-    ; get the program break
-    BF 04 00 00 01   ; mov edi, program break (0x1000004)
+    ; get the start of heap
+    BF 04 00 00 01   ; mov edi, start of heap (0x1000004)
     8B 3F            ; mov edi, [rdi]
 
     ; store it as the working directory in the process info table
@@ -1062,15 +1093,15 @@
                 ;    FF C7          ; inc edi
                 ;    75 F8          ; jne load_working_directory_walk (-8)
 
-    ; increment and align the break
+    ; increment and align the heap
     01 C7             ; add edi, eax
     83 C7 03          ; add edi, 3
     B8 03 00 00 00    ; mov eax, 3
     48 F7 D0          ; not rax
     48 21 C7          ; and rdi, rax
 
-    ; store the new break
-    B8 04 00 00 01  ; mov eax, program break (0x1000004)
+    ; store the new heap address
+    B8 04 00 00 01  ; mov eax, start of heap (0x1000004)
     89 38           ; mov [rax], edi
 
     ; return
@@ -1099,6 +1130,7 @@
     57   ; push rdi
 
 
+
     ; Create the syscall instruction
     ; This address is used as rip in the syscall table. The program will jump
     ; here when it wants to make a syscall.
@@ -1109,12 +1141,13 @@
     89 06            ; mov [rsi], eax
 
 
+
     ; copy stuff into the vm heap
 
-    ; set the program break to after the process info table and syscall
+    ; set the start of the heap to after the process info table and syscall
     ; instruction. other initialization functions will use this to add stuff to
     ; the vm heap.
-    BE 04 00 00 01   ; mov esi, program break (0x1000004)
+    BE 04 00 00 01   ; mov esi, start of heap (0x1000004)
     B8 34 00 00 01   ; mov eax, end of syscall instruction (0x1000034)
     89 06            ; mov [rsi], eax
 
@@ -1126,8 +1159,8 @@
     B8 70 08 40 00    ; mov eax, load_working_directory (0x400870)
     FF D0             ; call rax
 
-    ; we will load the program next, set the break into rip and rpp
-    BF 04 00 00 01   ; mov edi, program break (0x1000004)
+    ; we will load the program next, set the heap address into rip and rpp
+    BF 04 00 00 01   ; mov edi, start of heap (0x1000004)
     8B 07            ; mov eax, [rdi]
     BF 38 00 60 00   ; mov edi, rpp (0x600038)
     89 07            ; mov [rdi], eax
@@ -1136,10 +1169,33 @@
 
     ; load the program into the vm heap (load_args_env above checked that it was given)
     ; this also skips the wrap header if any
-    488B7DF8          ; mov rdi, [rbp - 8]
-    488B7F10          ; mov rdi, [rdi + 16]    ; program path from command line
+    48 8B 7D F8       ; mov rdi, [rbp - 8]
+    48 8B 7F 10       ; mov rdi, [rdi + 16]    ; program path from command line
     B8 70 07 40 00    ; mov eax, load_program (0x400770)
     FF D0             ; call rax
+
+
+
+    ; Configure capabilities based on whether we successfully set termios.
+
+    ; check interactive flag
+    B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
+    8B 00             ; mov eax, [rax]
+    83 F8 00          ; cmp eax, 0
+    74 07             ; jz &initialize_non_interactive (+7)
+
+    ; interactive
+    B8 00 00 00 00   ; mov eax, 0   ; no echo, non-canonical
+    EB 05            ; jmp &initialize_capabilities (+5)
+
+;initialize_non_interactive:
+    ; non-interactive
+    B8 05 00 00 00   ; mov eax, 5   ; echo | line-oriented
+
+;initialize_capabilities:
+    BF 24 00 00 01   ; mov edi, capabilities (0x1000024)
+    89 07            ; mov [rdi], eax
+
 
 
     ; load the remaining data into the process info table
@@ -1169,11 +1225,6 @@
     B8 02 00 00 00   ; mov eax, 2
     89 07            ; mov [rdi], eax
 
-    ; capabilities
-    BF 24 00 00 01   ; mov edi, capabilities (0x1000024)
-    B8 00 00 00 00   ; mov eax, 0   ; no echo, non-blocking, non-canonical
-    89 07            ; mov [rdi], eax
-
     ; syscall count
     BF 28 00 00 01   ; mov edi, syscall count (0x1000028)
     B8 19 00 00 00   ; mov eax, 25
@@ -1185,25 +1236,19 @@
     89 07            ; mov [rdi], eax
 
 
+
     ; set the initial values of the remaining registers
 
-    ; r0 -- program break
+    ; r0 = process info table
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
     B8 00 00 00 01   ; mov eax, process info table (0x1000000)
     89 07            ; mov [rdi], eax
 
-    ; rsp -- end of heap
+    ; rsp = end of heap
     BF 30 00 60 00   ; mov edi, rsp (0x600030)
     B8 00 00 00 02   ; mov eax, end of heap (0x2000000)
     89 07            ; mov [rdi], eax
 
-;
-;                    ; the current break is where we will load the program. assign it to rbp and rip
-;                    8B 00             ; mov eax, dword [rax]
-;                    BF 38 00 60 00    ; mov edi, rpp (0x600038)
-;                    89 07             ; mov [rdi], eax
-;                    BF 3C 00 60 00    ; mov edi, rip (0x60003c)
-;                    89 07             ; mov [rdi], eax
 
 
     ; return
@@ -1214,9 +1259,7 @@
     ; padding
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90
+    90
 @0x9B0
 
 
@@ -1744,14 +1787,6 @@
     90 90 90 90 90 90 90
 
 
-    ;B8 C0 0D 40 00   ; mov eax, opcode_sys (0x400DC0)
-    ;FF E0            ; jmp rax
-    ;90 90 90 90 90 90 90 90
-    ;90 90 90 90 90 90 90 90
-    ;90 90 90 90 90 90 90 90
-    ;90
-
-
 
 ; ==========================================================
 ; store_helper
@@ -1830,10 +1865,6 @@
 
 @0xD90 opcode_jz
 
-    ; TODO we should parse the predicate first and ret immediately if it's
-    ; non-zero, no need for a +13 jump or all the register mixing. might make
-    ; this short enough to fit in the opcode table
-
     ; form the offset
     ; (it's in instructions, not in bytes, so we multiply by four)
     C1 E1 08         ; shl ecx, 8
@@ -1864,85 +1895,67 @@
 
 
 
-; padding for a removed function
-@0xDC0
+; ==========================================================
+; void send_sigcont(void)
+; ==========================================================
+; Sends a SIGCONT to our process group.
+;
+; If an attempt to set terminal settings in apply_termios() failed, our entire
+; process group received a SIGTTOU signal. We've ignored the signal but others
+; may not, which means they are now stopped.
+;
+; For example if we were run in a shell script with job control disabled, the
+; SIGTTOU will stop the calling shell. This can interfere with tools like
+; timeout when used with a shell script that ultimately calls us. c-testsuite
+; is an example: without this function the test runner will freeze. Ninja is
+; another example: it hangs on SIGTTOU if one of its jobs tries to set terminal
+; state.
+;
+; (Our process group check in apply_termios() will handle both of these cases
+; because when run in the background we'll never try setting the terminal state
+; in the first place. This is just to prevent a race condition if the
+; foreground process group changes right before we try to set termios.)
+;
+; We need to send a SIGCONT to our process group to unblock all processes that
+; received the SIGTTOU. We will also receive the SIGCONT so we need to ignore
+; it in the meantime.
+; ==========================================================
+
+@0xDC0 send_sigcont
+
+    ; call install_signal_handler(SIGCONT, SIG_IGN)
+    BF 12 00 00 00    ; mov edi, SIGCONT (18)
+    BE 01 00 00 00    ; mov esi, SIG_IGN (1)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; get our process group. call syscall getpgrp
+    B8 6F 00 00 00    ; mov eax, 0x6F  ; syscall: getpgrp (111)
+    0F 05             ; syscall
+
+    ; call syscall kill
+    48 89 C7          ; mov rdi, rax   ; argument: pgid
+    48 F7 DF          ; neg rdi        ; process group argument must be negative
+    BE 12 00 00 00    ; mov esi, 18    ; argument: SIGCONT
+    B8 3E 00 00 00    ; mov eax, 0x3E  ; syscall: kill (62)
+    0F 05             ; syscall
+
+    ; call install_signal_handler(SIGCONT, enable_raw_input)
+    BF 12 00 00 00    ; mov edi, SIGCONT (18)
+    BE 30 13 40 00    ; mov esi, enable_raw_input (0x401330)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; done
+    C3 ; ret
+
+    ; padding
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
+    90 90 90 90
 @0xE20
-
-
-
-;;;; ==========================================================
-;;;; opcode_sys
-;;;; ==========================================================
-;;;; Performs a syscall.
-;;;;
-;;;; params:
-;;;; - (edi is reserved for the parsed opcode number)
-;;;; - arg1: esi  (syscall number)
-;;;; - arg2: edx  (must be zero)
-;;;; - arg3: ecx  (must be zero)
-;;;; ==========================================================
-;;;
-;;;@0xDC0 opcode_sys
-;;;    ; set up stack frame
-;;;    55           ; push rbp
-;;;    48 89 E5     ; mov rbp, rsp
-;;;
-;;;    ; the second and third arguments to syscall must both be zero.
-;;;    09 CA      ; or edx, ecx
-;;;    83 FA 00   ; cmp edx, 0
-;;;    74 0C      ; je opcode_sys_no_extra_args (+12)
-;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-;;;    FF D0            ; call rax
-;;;;opcode_sys_no_extra_args:
-;;;
-;;;    ; our syscall table has 64 entries
-;;;    83 FE 40         ; cmp esi, 0x40
-;;;    72 0C            ; jb opcode_sys_in_range (+12)
-;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-;;;    FF D0            ; call rax
-;;;;opcode_sys_in_range:
-;;;
-;;;    ; get the syscall function address
-;;;    B8 80 04 50 00    ; mov eax, syscall_table (0x500480)
-;;;    C1 E6 01          ; shl esi, 1
-;;;    01 F0             ; add eax, esi
-;;;    0F BF 00          ; movsx eax, word [rax]
-;;;
-;;;    ; if the syscall is zero, we don't support it
-;;;    83 F8 00         ; cmp eax, 0
-;;;    75 0C            ; jne opcode_sys_not_zero (+12)
-;;;    BF 00 03 50 00   ; mov edi, "ERROR: Invalid syscall" (0x500300)
-;;;    B8 A0 05 40 00   ; mov eax, fatal (0x4005A0)
-;;;    FF D0            ; call rax
-;;;;opcode_sys_not_zero:
-;;;
-;;;    ; call it
-;;;    05 00 00 40 00    ; add eax, text section (0x400000)
-;;;    FF D0             ; call rax
-;;;
-;;;    ; return
-;;;    48 89 EC     ; mov rsp, rbp
-;;;    5D           ; pop rbp
-;;;    C3           ; ret
-;;;
-;;;    ; padding (nop)
-;;;    90 90 90 90 90 90 90 90
-;;;    90 90 90 90 90 90
-;;;@0xE20
 
 
 
@@ -2087,7 +2100,9 @@
 ; ==========================================================
 ; Reads from the given file handle to the given buffer.
 ;
-; If writing fails, the VM aborts.
+; We use poll() first to check whether there is data available in order to make
+; our read non-blocking. We poll all file descriptors because we don't know
+; which ones are streams and which ones are ordinary files.
 ;
 ; params:
 ;    - r0: file handle
@@ -2103,7 +2118,47 @@
     ; get the file descriptor (and check it)
     B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
     FF D0             ; call rax
+
+    ; save the file descriptor
     50                ; push rax
+
+    ; prepare args to poll
+    ; each struct pollfd is 8 bytes. we want the low 4 bytes to be the fd
+    ; (currently in rax) and the next two bytes to be POLLIN (1), so we shift
+    ; POLLIN up, mask it into rax and push it.
+    BE 01 00 00 00    ; mov esi, 1
+    48 C1 E6 20       ; shl rsi, 32 (0x20)
+    48 09 F0          ; or rax, rsi
+    50                ; push rax        ; this is our single struct pollfd
+    48 89 E7          ; mov rdi, rsp    ; struct pollfd* fds == rsp
+    BE 01 00 00 00    ; mov esi, 1      ; nfds == 1
+    BA 00 00 00 00    ; mov edx, 0      ; timeout == 0
+
+    ; call poll() syscall
+    B8 07 00 00 00   ; mov eax, 0x7  ; syscall: poll (7)
+    0F 05            ; syscall
+
+    ; If poll() returned 0, it means success and no file descriptors are ready.
+    ; In this case only, we skip the read and return ERROR_TRY_LATER to the
+    ; program. poll() may return 1 to say data is available or a negative
+    ; number on error; either way we try the read.
+    48 83 F8 00      ; cmp rax, 0
+    75 0E            ; jne syscall_fread_poll_nonzero (+14)
+
+    ; store ERROR_TRY_LATER in r0
+    BF 00 00 60 00   ; mov edi, r0 (0x600000)
+    ;67 C6 07 FB      ; mov byte [edi], 0xFB   ; move byte sign-extended
+    ; TODO: ERROR_TRY_LATER is v4, we'll switch over to it later. In v3 we
+    ; return 0 if data is unavailable.
+    67 C6 07 00      ; mov byte [edi], 0
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+;syscall_fread_poll_nonzero:
+    ; poll() returned non-zero. we're doing the read.
 
     ; get the buffer (and check it)
     B8 04 00 60 00    ; mov eax, r1 (0x600004)
@@ -2124,6 +2179,8 @@
 
     ; TODO convert return value to Onramp error codes. Linux syscalls return
     ; negative values on error so for now we just pass it through.
+    ; TODO for v4 if read returns zero we have to return ERROR_END_OF_FILE.
+    ; TODO we can just convert any other negative value to ERROR_GENERIC for now.
 
     ; store the return value in r0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
@@ -2135,13 +2192,7 @@
     C3           ; ret
 
     ; padding (nop)
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90
+    90
 @0xF40
 
 
@@ -2534,6 +2585,7 @@
 ; ==========================================================
 
 @0x1200 syscall_time
+
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2648,113 +2700,112 @@
 ; ==========================================================
 ; void io_setup(void)
 ; ==========================================================
-; Sets standard input to non-echo, non-canonical, and non-blocking.
+; Initializes the input.
 ;
-; Also sets up signal handlers to undo it on exit.
+; This attempts to configure the terminal for raw input mode.
+;
+; Signal handlers are installed to restore the terminal state on exit and to
+; manage the terminal state as the program moves between background and
+; foreground.
+; ==========================================================
+
+@0x12F0 io_setup
+
+    ; setup signal handlers first (to minimize race conditions)
+    ; call install_all_signal_handlers()
+    B8 50 16 40 00    ; mov eax, install_all_signal_handlers (0x401650)
+    FF D0             ; call rax
+
+    ; TODO call unblock_signals, not implemented yet
+
+    ; set the interactive flag to true to start
+    B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
+    C6 00 01          ; mov [rax], 1
+
+    ; call enable_raw_input()
+    B8 30 13 40 00    ; mov eax, enable_raw_input (0x401330)
+    FF D0             ; call rax
+
+    ; check if enable_raw_input() failed
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    8B 00             ; mov eax, [rax]
+    83 F8 00          ; cmp eax, 0
+    75 08             ; jne io_setup_termios_ok (+8)
+
+    ; failed. clear interactive flag
+    B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
+    C6 00 00          ; mov [rax], 0
+
+;io_setup_termios_ok:
+    C3                ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
+@0x1330
+
+
+
+; ==========================================================
+; void enable_raw_input(void)
+; ==========================================================
+; Attempts to set the terminal to non-echo, non-canonical (raw input) mode.
 ;
 ; This is really just to get Doom playable from command-line. All of this could
 ; be deleted to make this VM shorter. In fact an Onramp VM does not need to
 ; support input at all.
-;
-; TODO we don't need much error checking here but we do need to check whether
-; the input is actually a terminal. In particular we don't want to simulate
-; echo if the input is not a terminal.
 ; ==========================================================
 
-@0x12F0 io_setup
+@0x1330 enable_raw_input
 
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
 
+    ; if interactive is false, return
+    B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
+    8B 00             ; mov eax, [rax]
+    83 F8 00          ; cmp eax, 0
+    75 05             ; jnz enable_raw_input_interactive (+5)
+    48 89 EC          ; mov rsp, rbp
+    5D                ; pop rbp
+    C3                ; ret
+;enable_raw_input_interactive:
 
-    ; First we need to set O_NONBLOCK on the input stream.
+    ; if termios valid flag is already set, return
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    8B 00             ; mov eax, [rax]
+    83 F8 00          ; cmp eax, 0
+    74 05             ; jz enable_raw_input_valid (+5)
+    48 89 EC          ; mov rsp, rbp
+    5D                ; pop rbp
+    C3                ; ret
+;enable_raw_input_valid:
 
-    ; call fcntl(F_GETFL) to get input flags
-    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
-    BE 03 00 00 00     ; mov esi, 3    ; command: F_GETFL (3)
-    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
-    0F 05              ; syscall
-
-    ; add non-blocking flag
-    0D 00 08 00 00     ; or eax, O_NONBLOCK (0x800)
-
-    ; call fcntl(F_SETFL) to set input flags
-    89 C2              ; mov edx, eax  ; arg: flags
-    BF 00 00 00 00     ; mov edi, 0    ; file descriptor: stdin (0)
-    BE 04 00 00 00     ; mov esi, 4    ; command: F_SETFL (4)
-    B8 48 00 00 00     ; mov eax, 72   ; syscall: fcntl (72)
-    0F 05              ; syscall
-
-
-    ; Next we use ioctl(TCGETS) (equivalent to tcgetattr()) to preserve the
-    ; initial terminal state.
-
-    ; call ioctl(TCGETS) to save terminal state
+    ; call ioctl(TCGETS) to get terminal state (equivalent to tcgetattr())
     BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
     BE 01 54 00 00     ; mov esi, 0x5401    ; command: TCGETS (0x5401)
     BA 80 00 60 00     ; mov edx, 0x600080  ; arg: struct termios to save (0x600080)
     B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
     0F 05              ; syscall
 
+    ; if it failed, this is not a tty. return
+    83 F8 00          ; cmp eax, 0
+    74 05             ; jz enable_raw_input_tgets_ok (+5)
+    48 89 EC          ; mov rsp, rbp
+    5D                ; pop rbp
+    C3                ; ret
+;enable_raw_input_tgets_ok:
 
-    ; We install signal handlers to restore the terminal state on SIGTERM and
-    ; SIGINT. x86_64 has no signal() syscall so we have to use sigaction().
-    ;
-    ; The kernel's struct sigaction doesn't necessarily match that of the libc
-    ; (e.g. glibc's is different.) The kernel struct on x86_64 is 32 bytes and
-    ; has the following fields, each 8 bytes in size:
-    ;
-    ; - 0:  sa_handler
-    ; - 8:  sa_flags
-    ; - 16: sa_restorer
-    ; - 24: sa_mask
-    ;
-    ; SA_RESTORER seems to be required; I couldn't get it to not segfault
-    ; without it. We never actually return from our signal handler so instead
-    ; we set the restorer to a bogus address in our text section just to ensure
-    ; that it's mapped.
+    ; make stack space for a temporary struct termios (60 bytes, rounded up to multiple of 8)
+    48 83 EC 40        ; sub rsp, 64
 
-    ; make stack space for a temporary struct sigaction (40 bytes)
-    48 83 EC 28        ; sub rsp, 40
-
-    ; configure our struct sigaction
-    48 89 E6                 ; mov rsi, rsp                ; get struct sigaction
-    48 C7 06 60 14 40 00     ; mov [rsi], 0x401460         ; sigaction->sa_handler = signal_handler
-    48 C7 46 08 04 00 00 04  ; mov [rsi + 8], 0x04000004   ; sigaction->sa_flags = SA_RESTORER | SA_SIGINFO (0x04000000 | 4)
-    48 C7 46 10 00 05 40 00  ; mov [rsi + 16], 0x400500    ; sigaction->sa_restorer = 0x400500  (start of text section, not used)
-    48 C7 46 18 02 40 00 00  ; mov [rsi + 24], 0x4002      ; sigaction->sa_mask = SIGINT | SIGTERM ((1<<(2-1)) | (1<<(15-1)))
-
-    ; call sigaction() for SIGINT
-    B8 0D 00 00 00       ; mov eax, 13          ; syscall: rt_sigaction (13)
-    BF 02 00 00 00       ; mov edi, 2           ; signal: SIGINT (2)
-    48 89 E6             ; mov rsi, rsp         ; sigaction: struct sigaction on stack
-    BA 00 00 00 00       ; mov edx, 0           ; old_sigaction: NULL
-    41 BA 08 00 00 00    ; mov r10, 8           ; sigsetsize: 8 (sizeof sa_mask)
-    0F 05                ; syscall
-
-    ; call sigaction() for SIGTERM
-    B8 0D 00 00 00       ; mov eax, 13          ; syscall: rt_sigaction (13)
-    BF 0F 00 00 00       ; mov edi, 15          ; signal: SIGTERM (15)
-    48 89 E6             ; mov rsi, rsp         ; sigaction: struct sigaction on stack
-    BA 00 00 00 00       ; mov edx, 0           ; old_sigaction: NULL
-    41 BA 08 00 00 00    ; mov r10, 8           ; sigsetsize: 8 (sizeof sa_mask)
-    0F 05                ; syscall
-
-
-    ; Now we need to modify the terminal state with ioctl(TCSETS) (equivalent
-    ; to tcsetattr()).
-
-    ; make stack space for a temporary struct termios (60 bytes)
-    48 83 EC 3C        ; sub rsp, 60
-
-    ; call ioctl(TCGETS) again to get another copy of the terminal state
-    ; (this is simpler than copying the one we saved earlier)
-    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
-    BE 01 54 00 00     ; mov esi, 0x5401    ; command: TCGETS (0x5401)
-    48 89 E2           ; mov rdx, rsp       ; arg: struct termios on the stack
-    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
-    0F 05              ; syscall
+    ; copy saved struct termios to the stack
+    48 89 E7         ; mov rdi, rsp       ; destination: stack space
+    BE 80 00 60 00   ; mov esi, 0x600080  ; source: saved struct termios
+    B9 3C 00 00 00   ; mov ecx, 60        ; counter: size of struct termios
+    F3 A4            ; rep movsb
 
     ; load c_lflag, the fourth dword in the struct
     8B 44 24 0C        ; mov eax, [rsp + 12]
@@ -2767,12 +2818,28 @@
     ; put it back in the struct
     89 44 24 0C        ; mov [rsp + 12], eax
 
-    ; call ioctl(TCSETS) to change the terminal state
-    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
-    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
-    48 89 E2           ; mov rdx, rsp       ; arg: struct termios on the stack
-    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
-    0F 05              ; syscall
+    ; set termios valid flag
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    C6 00 01          ; mov [rax], 1
+
+    ; call apply_termios() on our stack copy
+    48 89 E7          ; mov rdi, rsp
+    B8 30 18 40 00    ; mov eax, apply_termios (0x401830)
+    FF D0             ; call rax
+
+    ; check for failure
+    83 F8 00          ; cmp eax, 0
+    75 05             ; jnz enable_raw_input_tcsets_fail (+5)
+
+    ; success. return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+;:enable_raw_input_tcsets_fail
+
+    ; failed. clear termios valid flag
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    C6 00 00          ; mov [rax], 1
 
     ; return
     48 89 EC     ; mov rsp, rbp
@@ -2788,34 +2855,57 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90
 
-@0x1410
+@0x1420
 
 
 
 ; ==========================================================
-; void io_teardown(void)
+; void disable_raw_input(void)
 ; ==========================================================
+; Restores the terminal settings back to their original state (if they were
+; changed.)
 ; ==========================================================
 
-@0x1410 io_teardown
+@0x1420 disable_raw_input
 
-    ; call ioctl(TCSETS) to restore the terminal state
-    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
-    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
-    BA 80 00 60 00     ; mov edx, 0x600080  ; arg: saved struct termios (0x600080)
-    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
-    0F 05              ; syscall
+    ; if interactive is false, return
+    B8 C0 00 60 00    ; mov eax, 0x6000C0   ; interactive flag
+    8B 00             ; mov eax, [rax]
+    83 F8 00          ; cmp eax, 0
+    75 01             ; jnz clear_termios_interactive (+1)
+    C3                ; ret
+;clear_termios_interactive:
 
+    ; if termios valid is false, return
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    8B 00             ; mov eax, [rax]
+    83 F8 00          ; cmp eax, 0
+    75 01             ; jnz clear_termios_valid (+1)
+    C3                ; ret
+;clear_termios_valid:
+
+    ; call apply_termios() on our saved struct termios
+    BF 80 00 60 00    ; mov edi, 0x600080  ; saved struct termios
+    B8 30 18 40 00    ; mov eax, apply_termios (0x401830)
+    FF D0             ; call rax
+
+    ; apply_termios() has sent SIGCONT if necessary. We otherwise ignore any
+    ; errors from resetting termios. There isn't really anything we can do
+    ; about it.
+
+    ; clear termios valid flag
+    B8 BC 00 60 00    ; mov eax, 0x6000BC   ; termios valid flag
+    C6 00 00          ; mov [rax], 0
+
+    ; done
     C3           ; ret
 
     ; padding (nop)
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90
@@ -2825,21 +2915,14 @@
 
 
 ; ==========================================================
-; void signal_handler(int signal)
+; void signal_exit(int signal)
 ; ==========================================================
+; A signal handler used to exit the program (for example SIGTERM or SIGINT.)
 ; ==========================================================
 
-@0x1460 signal_handler
-
-    ; preserve the signal
-    57                ; push rdi
-
-    ; call io_teardown() to reset terminal state
-    B8 10 14 40 00    ; mov eax, io_teardown (0x401410)
-    FF D0             ; call rax
+@0x1460 signal_exit
 
     ; call exit(128 + signal)
-    5F                ; pop rdi
     81 C7 80 00 00 00 ; add edi, 128
     B8 D0 05 40 00    ; mov eax, exit (0x4005D0)
     FF D0             ; call rax
@@ -2851,16 +2934,70 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90
+    90 90 90
 
-@0x14B0
+@0x1490
 
 
 
-@0x14B0
+; ==========================================================
+; void install_signal_handler(int signal_number, void (*signal_handler)(...))
+; ==========================================================
+; Installs the given signal handling function for the given signal.
+;
+; The signal function may be 0 (SIG_DFL), 1 (SIG_IGN), or the address of a
+; function.
+;
+; params:
+; - signal_number: rdi
+; - signal_handler: rsi
+; ==========================================================
+
+@0x1490 install_signal_handler
+
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; The kernel's struct sigaction doesn't necessarily match that of the libc
+    ; (e.g. glibc's is different.) The kernel struct on x86_64 is 32 bytes and
+    ; has the following fields, each 8 bytes in size:
+    ;
+    ; - 0:  sa_handler
+    ; - 8:  sa_flags
+    ; - 16: sa_restorer
+    ; - 24: sa_mask
+
+    ; make stack space for a temporary struct sigaction (40 bytes)
+    48 83 EC 28        ; sub rsp, 40
+
+    ; calculate flags. if signal is SIG_DFL, we add SA_RESTART.
+    BA 04 00 00 04     ; mov edx, 0x4000004  (SA_RESTORER | SA_SIGINFO)  (0x04000000 | 4)
+    83 FE 00           ; cmp esi, 0
+    75 06              ; jnz install_signal_handler_flags_ok (+6)
+    81 CA 00 00 00 10  ; or edx, 0x10000000  (SA_RESTART)
+;install_signal_handler_flags_ok:
+
+    ; configure struct sigaction
+    48 89 E0                 ; mov rax, rsp                ; get struct sigaction
+    48 89 30                 ; mov [rax], rdi              ; sigaction->sa_handler = signal_handler
+    48 89 50 08              ; mov [rax + 8], rdx          ; sigaction->sa_flags = rdx
+    48 C7 40 10 30 16 40 00  ; mov [rax + 16], 0x401630    ; sigaction->sa_restorer = signal_trampoline (0x401630)
+    48 C7 40 18 02 40 00 00  ; mov [rax + 24], 0x4002      ; sigaction->sa_mask = SIGINT | SIGTERM ((1<<(2-1)) | (1<<(15-1)))
+
+    ; syscall rt_sigaction()
+    ; (signal number is already in rdi)
+    B8 0D 00 00 00       ; mov eax, 13          ; syscall: rt_sigaction (13)
+    48 89 E6             ; mov rsi, rsp         ; sigaction: struct sigaction on stack
+    BA 00 00 00 00       ; mov edx, 0           ; old_sigaction: NULL
+    41 BA 08 00 00 00    ; mov r10, 8           ; sigsetsize: 8 (sizeof sa_mask)
+    0F 05                ; syscall
+
+    ; done
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
     ; padding (nop)
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
@@ -2880,14 +3017,30 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
+    90 90 90 90
+@0x1570
+
+
+
+; ==========================================================
+; void signal_ignore(...)
+; ==========================================================
+; A function that does nothing.
+;
+; This is used as a signal handler to ignore a signal. It's used instead of
+; SIG_IGN because SIG_IGN causes different behaviour on SIGTTOU (it allows
+; terminal writes to succeed, whereas we want them to fail.)
+; ==========================================================
+
+@0x1570 signal_ignore
+
+    ; return
+    C3    ; ret
+
+    ; padding
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+
 @0x1580
 
 
@@ -2934,7 +3087,325 @@
 
 
 
+; ==========================================================
+; void syscall_mkdir(void)
+; ==========================================================
+; Creates a directory.
+;
+; params:
+;    - r0: path
+; ==========================================================
+
+@0x15C0 syscall_mkdir
+
+    ; set up stack frame
+    ;55           ; push rbp
+    ;48 89 E5     ; mov rbp, rsp
+
+    ; get the filename in %rdi, check it
+    BF 00 00 60 00    ; mov rdi, r0 (0x600000)
+    8B 3F             ; mov edi, [rdi]
+    57                ; push rdi
+    B8 10 08 40 00    ; mov eax, check_string (0x400810)
+    FF D0             ; call rax
+
+    ; put mode in %rsi
+    BE ED 01 00 00    ; mov esi, 493  (rwxr-xr-x == 0755 == 493 == 0x1ED)
+
+    ; call mkdir syscall
+    B8 53 00 00 00   ; mov eax, 0x53  ; syscall: mkdir (83)
+    5F               ; pop rdi        ; file descriptor
+    0F 05            ; syscall
+
+    ; check if it failed
+    48 83 F8 00      ; cmp rax, 0
+    74 0C            ; je syscall_mkdir_ok (+12)
+
+    ; fail. store ERROR_GENERIC in r0
+    BF 00 00 60 00     ; mov edi, r0 (0x600000)
+    C7 07 FF FF FF FF  ; mov [rdi], ERROR_GENERIC (0xFFFFFFFF)
+
+    ; return
+    C3           ; ret
+
+;syscall_mkdir_ok:
+
+    ; success. store 0 in r0
+    BF 00 00 60 00     ; mov edi, r0 (0x600000)
+    C7 07 00 00 00 00  ; mov [rdi], 0
+
+    ; return
+    C3           ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90
+@0x1630
+
+
+
+; ==========================================================
+; void signal_trampoline(void)
+; ==========================================================
+; The trampoline to which a called signal handler returns.
+;
+; This is passed as the "restorer" field of an rt_sigaction syscall. It simply
+; calls the rt_sigreturn syscall.
+; ==========================================================
+
+@0x1630 signal_trampoline
+
+    ; syscall rt_sigreturn
+    B8 0F 00 00 00       ; mov eax, 15          ; syscall: rt_sigreturn (15)
+    0F 05                ; syscall
+
+    ; the syscall does not return control here.
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
+@0x1650
+
+
+
+; ==========================================================
+; void install_all_signal_handlers(void)
+; ==========================================================
+; Installs signal handlers to restore terminal state on exit and to toggle
+; terminal state when entering and leaving the background.
+; ==========================================================
+
+@0x1650 install_all_signal_handlers
+
+    ; signals that call signal_exit()
+
+    ; call install_signal_handler(SIGINT, signal_exit)
+    BF 02 00 00 00    ; mov edi, SIGINT (2)
+    BE 60 14 40 00    ; mov esi, signal_exit (0x401460)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; call install_signal_handler(SIGTERM, signal_exit)
+    BF 0F 00 00 00    ; mov edi, SIGTERM (15)
+    BE 60 14 40 00    ; mov esi, signal_exit (0x401460)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; call install_signal_handler(SIGFPE, signal_exit)
+    BF 08 00 00 00    ; mov edi, SIGFPE (8)
+    BE 60 14 40 00    ; mov esi, signal_exit (0x401460)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; call install_signal_handler(SIGHUP, signal_exit)
+    BF 01 00 00 00    ; mov edi, SIGHUP (1)
+    BE 60 14 40 00    ; mov esi, signal_exit (0x401460)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; call install_signal_handler(SIGPIPE, signal_exit)
+    BF 0D 00 00 00    ; mov edi, SIGPIPE (13)
+    BE 60 14 40 00    ; mov esi, signal_exit (0x401460)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+
+    ; signals that call enable_raw_input()
+
+    ; call install_signal_handler(SIGCONT, enable_raw_input)
+    BF 12 00 00 00    ; mov edi, SIGCONT (18)
+    BE 30 13 40 00    ; mov esi, enable_raw_input (0x401330)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+
+    ; signals that call disable_raw_input()
+
+    ; call install_signal_handler(SIGTSTP, disable_raw_input)
+    BF 14 00 00 00    ; mov edi, SIGTSTP (20)
+    BE 20 14 40 00    ; mov esi, disable_raw_input (0x401420)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+
+    ; done
+    C3   ; ret
+
+    ; padding (nop)
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+@0x1830
+
+
+
+; ==========================================================
+; int apply_termios(struct termios*)
+; ==========================================================
+; Attempts to set the terminal state to that given.
+;
+; Returns zero on success, non-zero on error.
+;
+; params:
+; - edi: struct termios*
+; ==========================================================
+
+@0x1830 apply_termios
+
+    ; set up stack frame
+    55           ; push rbp
+    48 89 E5     ; mov rbp, rsp
+
+    ; store the given terminal state
+    57      ; push rdi
+
+    ; get stdin foreground process group. call syscall ioctl(0, TIOCGPGRP, rsp)
+    6A 00              ; push 0             ; make stack space
+    48 89 E2           ; mov rdx, rsp       ; arg: stack space
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 0F 54 00 00     ; mov esi, 0x540F    ; command: TIOCGPGRP (0x540F)
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; get our process group. call syscall getpgrp
+    B8 6F 00 00 00    ; mov eax, 0x6F  ; syscall: getpgrp (111)
+    0F 05             ; syscall
+
+    ; compare the process groups. they must be the same.
+    5F         ; pop rdi
+    48 39 F8   ; cmp rax, rdi
+    74 05      ; je apply_termios_group_match (+5)
+
+    ; process groups don't match. we don't control the terminal; don't try to
+    ; set terminal state.
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+;apply_termios_group_match:
+
+    ; We ignore SIGTTOU with a non-restartable handler while setting terminal
+    ; state.
+    ;
+    ; If we are launched in the background we'll still have access to the
+    ; terminal but we'll get SIGTTOU if we try to change it. The default
+    ; behaviour of SIGTTOU is to stop the process until the program is
+    ; foregrounded. Instead we want to get an error when setting the terminal
+    ; state.
+    ;
+    ; Note that we can't use SIG_IGN because in that case the termios call will
+    ; actually succeed even if we're in the background. We want it to fail if
+    ; we're in the background, which is why we need a dummy signal handler.
+    ;
+    ; See: http://curiousthing.org/sigttin-sigttou-deep-dive-linux
+    ;
+    ; TODO we probably need to unblock SIGTTOU in case our parent process
+    ; blocked it.
+
+    ; call install_signal_handler(SIGTTOU, signal_ignore)
+    BF 16 00 00 00    ; mov edi, 22 (SIGTTOU)
+    BE 70 15 40 00    ; mov esi, signal_ignore (0x401570)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; call ioctl(TCSETS) to change the terminal state (equivalent to tcsetattr())
+    BF 00 00 00 00     ; mov edi, 0         ; file descriptor: stdin (0)
+    BE 02 54 00 00     ; mov esi, 0x5402    ; command: TCSETS (0x5402)
+    5A                 ; pop rdx            ; arg: struct termios*
+    B8 10 00 00 00     ; mov eax, 16        ; syscall: ioctl (16)
+    0F 05              ; syscall
+
+    ; store the result
+    50   ; push rax
+
+    ; call install_signal_handler(SIGTTOU, SIG_DFL)
+    BF 16 00 00 00    ; mov edi, 22 (SIGTTOU)
+    BE 00 00 00 00    ; mov esi, 0 (SIG_DFL)
+    B8 90 14 40 00    ; mov eax, install_signal_handler (0x401490)
+    FF D0             ; call rax
+
+    ; pop the result and check for failure
+    58                ; pop rax
+    83 F8 00          ; cmp eax, 0
+    75 05             ; jnz apply_termios_fail (+5)
+
+    ; success. return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+;apply_termios_fail:
+
+    ; failed. send SIGCONT to unblock process group, call send_sigcont()
+    B8 C0 0D 40 00    ; mov eax, send_sigcont (0x400DC0)
+    FF D0             ; call rax
+
+    ; return
+    48 89 EC     ; mov rsp, rbp
+    5D           ; pop rbp
+    C3           ; ret
+
+    ; padding
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90 90
+    90 90 90 90 90 90 90
+@0x18E0
+
+
+
 ; Note: When extending the text segment, the sizes in the header at 0x40 must
 ; be incremented to include it!
 
-@0x15C0  ; end of program, corresponds to size in ELF text header
+@0x18E0  ; end of program, corresponds to size in ELF text header

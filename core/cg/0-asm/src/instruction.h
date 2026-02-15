@@ -290,22 +290,14 @@ static void instructions_append(instruction_t* instruction) {
 
     // grow if needed
     if (instructions_count == instructions_capacity) {
-        size_t new_capacity;
         if (instructions_capacity == 0) {
-            new_capacity = 2;
+            instructions_capacity = 2;
         }
-        if (instructions_capacity != 0) {
-            new_capacity = (instructions_capacity * 2);
-        }
-        // We don't have realloc(). We have to grow manually.
-        instruction_t** new_block = malloc(sizeof(instruction_t*) * new_capacity);
-        if (new_block == NULL) {
+        instructions_capacity = (instructions_capacity * 2);
+        instructions = realloc(instructions, sizeof(instruction_t*) * instructions_capacity);
+        if (instructions == NULL) {
             fatal("Out of memory.");
         }
-        memcpy(new_block, instructions, sizeof(instruction_t*) * instructions_count);
-        free(instructions);
-        instructions = new_block;
-        instructions_capacity = new_capacity;
     }
 
     // append the instruction

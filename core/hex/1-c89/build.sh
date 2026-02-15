@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -37,8 +37,8 @@ echo
 echo === Building hex/1-c89
 
 echo Compiling hex/1-c89
-onrampvm build/output/bin/cc.oe \
+onrampvm output/final/bin/cc.oe \
     -O \
     -g \
     core/hex/1-c89/hex.c \
-    -o build/output/bin/hex.oe
+    -o output/final/bin/hex.oe

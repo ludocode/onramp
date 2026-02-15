@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,18 +23,20 @@
 # SOFTWARE.
 
 
-# This script installs the VM into the build output folder as the `onrampvm`
-# binary for POSIX systems.
+# This script configures the x86_64-linux VM.
+#
+# See the notes about building this in `build.sh`.
 
 
 set -e
-cd "$(dirname "$0")/../../.."
 
-if ! [ -e build/test/vm-x86_64-linux/vm ]; then
-    echo "$0: ERROR: VM not built yet. Run platform/vm/x86_64-linux/build.sh" >&1
+if [ "$(uname -m)" != "x86_64" ] || [ "$(uname -s)" != "Linux" ]; then
+    echo "$0: This is not x86_64 Linux."
     exit 1
 fi
 
-mkdir -p build/posix/share/onramp/platform
-cp build/test/vm-x86_64-linux/vm build/posix/share/onramp/platform/vm-x86_64-linux
-(cd build/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)
+"$(dirname "$0")"/build.sh
+mkdir -p output/posix/bin output/posix/share/onramp/platform
+cp output/configure/vm-x86_64-linux/vm output/posix/share/onramp/platform/vm-x86_64-linux
+mkdir -p output/posix/bin
+(cd output/posix/bin; ln -sf ../share/onramp/platform/vm-x86_64-linux onrampvm)

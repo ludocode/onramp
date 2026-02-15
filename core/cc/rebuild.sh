@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2024 Fraser Heavy Software
+# Copyright (c) 2024-2025 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -23,17 +23,17 @@
 # SOFTWARE.
 
 set -e
-mkdir -p build/intermediate/cc-re
-mkdir -p build/output/bin
+mkdir -p output/intermediate/cc-re
+mkdir -p output/final/bin
 
 echo
 echo === Rebuilding cc
 
 echo Compiling cc
-onrampvm build/intermediate/cc/cc.oe \
-    -with-cpp=build/intermediate/cpp-2-full/cpp.oe \
-    -with-cci=build/intermediate/cci-2-full/cci.oe \
-    -with-as=build/intermediate/as-2-full/as.oe \
+onrampvm output/intermediate/cc/cc.oe \
+    -with-cpp=output/intermediate/cpp-2-full/cpp.oe \
+    -with-cci=output/intermediate/cci-2-full/cci.oe \
+    -with-as=output/intermediate/as-2-full/as.oe \
     -nostdinc \
     -Icore/libc/common/include \
     -Icore/libo/1-opc/include \
@@ -41,12 +41,12 @@ onrampvm build/intermediate/cc/cc.oe \
     -O \
     -g \
     -c core/cc/cc.c \
-    -o build/intermediate/cc-re/cc.oo
+    -o output/intermediate/cc-re/cc.oo
 
 echo Linking cc
-onrampvm build/intermediate/ld-2-full/ld.oe \
+onrampvm output/intermediate/ld-2-full/ld.oe \
     -O -g \
-    build/output/lib/libc.oa \
-    build/intermediate/libo-1-opc-re/libo.oa \
-    build/intermediate/cc-re/cc.oo \
-    -o build/output/bin/cc.oe
+    output/final/lib/libc.oa \
+    output/intermediate/libo-1-opc-re/libo.oa \
+    output/intermediate/cc-re/cc.oo \
+    -o output/final/bin/cc.oe
