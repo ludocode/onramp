@@ -839,8 +839,8 @@ static uint32_t vm_open(vm_t* vm) {
         fputs("ERROR: Invalid path.\n", stderr);
         exit(125);
     }
-    const char* full_path = (const char*)(vm->memory + (path_addr - vm->memory_base));
-    strace("sys open() path \"%s\" mode %i", full_path, mode);
+    const char* path = (const char*)(vm->memory + (path_addr - vm->memory_base));
+    strace("sys open() path \"%s\" mode %i", path, mode);
 
     // find a free handle
     uint32_t file_index = UINT32_MAX;
@@ -855,20 +855,28 @@ static uint32_t vm_open(vm_t* vm) {
         return VM_ERROR_OVERFLOW;
     }
 
-    // open it
-    vm->files[file_index] = fopen(full_path, mode ? "w+b" : "rb");
-    //printf("OPENING %s %zi\n",full_path,(size_t)vm->files[file_index]);
-    if (vm->files[file_index] == vm_ghost_null) {
+    // open it in the correct mode
+    FILE* file;
+    if (mode) {
+        // Try to open the existing file read/write. If it fails, it's probably
+        // because it doesn't exist, so try opening for writing to create it.
+        // (We're not concerned with race conditions in Onramp.)
+        file = fopen(path, "r+b");
+        if (file == NULL) {
+            file = fopen(path, "w+b");
+        }
+    } else {
+        file = fopen(path, "rb");
+    }
+
+    vm->files[file_index] = file;
+    //printf("OPENING %s %zi\n",path,(size_t)vm->files[file_index]);
+    if (file == vm_ghost_null) {
         if (errno == ENOENT) {
             return VM_ERROR_NO_SUCH_PATH;
         }
         // TODO other errors
         return VM_ERROR_GENERIC;
-    }
-
-    // if writeable, seek to the beginning
-    if (mode) {
-        fseek(vm->files[file_index], 0, SEEK_SET);
     }
 
     return file_index + FILES_OFFSET;

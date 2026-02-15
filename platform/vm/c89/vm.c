@@ -420,15 +420,24 @@ static uint32_t vm_fopen(void) {
         return VM_ERR_GENERIC;
     }
 
-    /* open it */
-    file = fopen(path, mode ? "a+b" : "rb");
+    if (mode) {
+        /* Try to open the existing file read/write. If it fails, it's probably
+         * because it doesn't exist, so try opening for writing to create it.
+         * (We're not concerned with race conditions in Onramp.) */
+        file = fopen(path, "r+b");
+        if (file == NULL) {
+            file = fopen(path, "w+b");
+        }
+    } else {
+        file = fopen(path, "rb");
+    }
+
     if (file == NULL) {
+        /* TODO there may be other reasons it failed. Need to implement v4
+         * error codes. */
         return VM_ERR_PATH;
     }
     vm_files[handle] = file;
-
-    /* seek to the beginning (in case of append mode) */
-    fseek(file, 0, SEEK_SET);
 
     return handle;
 }

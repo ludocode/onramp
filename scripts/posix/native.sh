@@ -174,15 +174,15 @@ build native: phony $
     output/final/bin/cc $
     output/final/bin/hex $
     output/final/bin/vm $
-    output/final/bin/sh.oe $
-    output/final/bin/vminfo.oe $
 
 # builds all onramp tools
 # TODO move ar up once native
 build all: phony $
     native $
-    output/final/bin/ar.oe $
     output/final/lib/libc.oa $
+    output/final/bin/ar.oe $
+    output/final/bin/sh.oe $
+    output/final/bin/vminfo.oe $
 
 default all
 
