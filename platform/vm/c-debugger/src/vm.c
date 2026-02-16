@@ -368,25 +368,24 @@ static uint8_t vm_load_u8(vm_t* vm, uint32_t addr) {
 }
 
 static void usage(const char* command) {
+    fputs("\n", stderr);
     fprintf(stderr, "Usage: %s [vm options] <program> [program options]\n", command);
     fputs("\n", stderr);
 
     fputs("VM options:\n", stderr);
-    // TODO don't need this, use env or other host tools to configure environment
-    //fprintf(stderr, "    -e NAME=VAR       define environment variable\n");
     fputs("    -d                start the program paused in the debugger\n", stderr);
     //fputs("    -b <location>     add a breakpoint at the given location\n", stderr);
     //fputs("    -m <size>         size of program-accessible address space\n", stderr);
     //fputs("    -r <path>         path to root of filesystem\n", stderr);
     fputs("    -s                trace system calls\n", stderr);
     fputs("    -V <version>      version of Onramp spec to emulate (2, 3, 4); default 3\n", stderr);
+    fputs("    --                end of VM arguments (use to run programs that start with '-')\n", stderr);
+    fputs("    -h, --help        print this help\n", stderr);
     fputs("\n", stderr);
 
-    fputs("Breakpoint location syntax:\n", stderr);
-    fputs("    TODO\n", stderr);
-    fputs("\n", stderr);
-
-    exit(125);
+    //fputs("Breakpoint location syntax:\n", stderr);
+    //fputs("    TODO\n", stderr);
+    //fputs("\n", stderr);
 }
 
 static size_t vm_store_string(vm_t* vm, size_t addr, const char* str) {
@@ -441,53 +440,74 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t pit
     // parse vm args
     // TODO use getopt or whatever
     for (i = 1; i < argc; ++i) {
-        if (argv[i][0] == '-') {
-
-            // strace
-            if (0 == strcmp(argv[i], "-s")) {
-                strace_enabled = true;
-                continue;
-            }
-
-            // debugger
-            if (0 == strcmp(argv[i], "-d")) {
-                // TODO we need to either turn on non-blocking or poll on input
-                // when waiting for debugger commands
-                fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
-                vm->running = false;
-                vm->debugger_active = true;
-                continue;
-            }
-
-            // version
-            if (0 == strncmp(argv[i], "-V", 2)) {
-                const char* version_str;
-                if (argv[i][2]) {
-                    version_str = argv[i] + 2;
-                } else {
-                    ++i;
-                    if (!argv[i]) {
-                        fputs("ERROR: Expected an argument after `-V`.\n", stderr);
-                        usage(argv[0]);
-                    }
-                    version_str = argv[i];
-                }
-                if (1 != sscanf(version_str, "%i", &vm->version) ||
-                        (vm->version < 2) || vm->version > 4)
-                {
-                    fputs("ERROR: Version argument to `-V` invalid or out of range.\n", stderr);
-                    usage(argv[0]);
-                }
-                continue;
-            }
+        if (argv[i][0] != '-') {
+            break;
         }
-        break;
+
+        // strace
+        if (0 == strcmp(argv[i], "-s")) {
+            strace_enabled = true;
+            continue;
+        }
+
+        // debugger
+        if (0 == strcmp(argv[i], "-d")) {
+            // TODO we need to either turn on non-blocking or poll on input
+            // when waiting for debugger commands
+            fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) & ~O_NONBLOCK);
+            vm->running = false;
+            vm->debugger_active = true;
+            continue;
+        }
+
+        // version
+        if (0 == strncmp(argv[i], "-V", 2)) {
+            const char* version_str;
+            if (argv[i][2]) {
+                version_str = argv[i] + 2;
+            } else {
+                ++i;
+                if (!argv[i]) {
+                    fputs("ERROR: Expected an argument after `-V`.\n", stderr);
+                    usage(argv[0]);
+                    exit(125);
+                }
+                version_str = argv[i];
+            }
+            if (1 != sscanf(version_str, "%i", &vm->version) ||
+                    (vm->version < 2) || vm->version > 4)
+            {
+                fputs("ERROR: Version argument to `-V` invalid or out of range.\n", stderr);
+                usage(argv[0]);
+                exit(125);
+            }
+            continue;
+        }
+
+        // usage
+        if (0 == strcmp(argv[i], "--help") ||
+                0 == strcmp(argv[i], "-h") ||
+                0 == strcmp(argv[i], "-?"))
+        {
+            usage(argv[0]);
+            exit(0);
+        }
+
+        // explicit end of argument list
+        if (0 == strcmp(argv[i], "--")) {
+            break;
+        }
+
+        fprintf(stderr, "ERROR: Unrecognized command-line argument: %s\n", argv[i]);
+        usage(argv[0]);
+        exit(125);
     }
 
     // parse filename
     if (i == argc) {
         fputs("ERROR: No program filename specified.\n", stderr);
         usage(argv[0]);
+        exit(125);
     }
     vm->filename = argv[i];
 
