@@ -83,7 +83,7 @@
 
     ; Check VM version 1
     sub r2 r1 1
-    jnz r2 &__start_vm_not_0
+    jnz r2 &__start_vm_not_1
     jmp ^__vm_version_0_or_1
 :__start_vm_not_1
 
@@ -287,7 +287,7 @@
 
     ; set up a stack frame
     enter
-    sub rsp rsp 16
+    sub rsp rsp 20
     stw r0 rfp -4
     stw rpp rfp -20
 
@@ -315,9 +315,8 @@
     ldw r0 rfp -8   ; r0 = stderr
     ldw r1 rfp -12  ; r1 = string pointer
     ldw r2 rfp -16  ; r2 = remaining bytes
-    ldw rpp r5 52   ; rpp = syscall_table[SYS_FWRITE] (rpp)
+    ldw r9 r5 52    ; r9 = syscall_table[SYS_FWRITE] (r9)
     call r4
-    ldw rpp rfp -20 ; restore rpp
 
     ; if no bytes were written, or if an error occurs, we're done
     jz r0 &__vm_version_other_write_done
@@ -346,11 +345,12 @@
     ldw r0 rfp -4  ; r0 = process_info_table
     ldw r5 r0 8    ; r5 = process_info_table[SYSCALL_TABLE]
     ldw r4 r5 24   ; r4 = syscall exit (rip)
-    ldw rpp r5 4   ; rpp = syscall exit (rip)
+    ldw r9 r5 4    ; r9 = syscall exit (rip)
 
     ; call exit(1)
-    ; TODO should we change this to panic() instead? If the VM version is newer
-    ; than supported we can't guarantee that we haven't corrupted memory.
+    ; (Note: if the VM version is newer than supported we can't guarantee that
+    ; we haven't corrupted the parent's memory. We assume that future VM
+    ; versions will remain reasonably compatible enough to make this safe.)
     mov r0 1
     call r4
 
