@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -173,10 +173,6 @@ static void panic(const char* e) {
 #define FILES_COUNT 16
 #define FILES_OFFSET (INT_MAX-FILES_COUNT-1)
 
-/* Same with directories. */
-#define DIRECTORIES_COUNT 16
-#define DIRECTORIES_OFFSET (FILES_OFFSET-DIRECTORIES_COUNT)
-
 // Uncomment this to get warnings about unclosed file handles. This isn't on by
 // default because it's not an error to leave files unclosed.
 //#define WARN_UNCLOSED_FILES
@@ -250,11 +246,17 @@ static void breakpoint_format(const breakpoint_t* breakpoint, vm_ghost_string_t*
  * VM
  */
 
-// TODO get rid of all this program_t crap
-typedef struct program_t {
-   struct program_t* parent;
-   uint32_t rfp, rsp, rpp, rip;
-} program_t;
+typedef struct filedata_t {
+    bool is_open;
+    FILE* file;
+    DIR* dir;
+
+    // True if we just generated ERROR_TRY_LATER. When error generation is on,
+    // we always return ERROR_TRY_LATER from read and write calls unless the
+    // last error returned was ERROR_TRY_LATER. This tests retry behaviour on
+    // all reads and writes.
+    bool generated_error_later;
+} filedata_t;
 
 typedef enum step_t {
     step_in,   // run only the current instruction
@@ -279,9 +281,9 @@ typedef struct vm_t {
     #endif
 
     int version;
-    program_t* program;
-    FILE* files[FILES_COUNT];
-    DIR* directories[DIRECTORIES_COUNT];
+    bool generate_error_later;
+
+    filedata_t files[FILES_COUNT];
     uint32_t recent_addrs[3];
     bool running;
     bool debugger_active;
@@ -381,6 +383,7 @@ static void usage(const char* command) {
     fputs("    -V <version>      version of Onramp spec to emulate (2, 3, 4); default 3\n", stderr);
     fputs("    --                end of VM arguments (use to run programs that start with '-')\n", stderr);
     fputs("    -h, --help        print this help\n", stderr);
+    fputs("    --later           generate spurious ERROR_TRY_LATER wherever possible\n", stderr);
     fputs("\n", stderr);
 
     //fputs("Breakpoint location syntax:\n", stderr);
@@ -484,6 +487,12 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t pit
             continue;
         }
 
+        // later
+        if (0 == strcmp(argv[i], "--later")) {
+            vm->generate_error_later = true;
+            continue;
+        }
+
         // usage
         if (0 == strcmp(argv[i], "--help") ||
                 0 == strcmp(argv[i], "-h") ||
@@ -500,6 +509,11 @@ static size_t vm_parse_args(vm_t* vm, int argc, const char* argv[], uint32_t pit
 
         fprintf(stderr, "ERROR: Unrecognized command-line argument: %s\n", argv[i]);
         usage(argv[0]);
+        exit(125);
+    }
+
+    if (vm->generate_error_later && vm->version != 4) {
+        fputs("ERROR: --later requires -V4.\n", stderr);
         exit(125);
     }
 
@@ -626,9 +640,12 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     }
 
     /* setup files */
-    vm->files[0] = stdin;
-    vm->files[1] = stdout;
-    vm->files[2] = stderr;
+    vm->files[0].file = stdin;
+    vm->files[1].file = stdout;
+    vm->files[2].file = stderr;
+    vm->files[0].is_open = true;
+    vm->files[1].is_open = true;
+    vm->files[2].is_open = true;
     vm_store_u32(vm, pit + VM_INPUT, FILES_OFFSET);
     vm_store_u32(vm, pit + VM_OUTPUT, FILES_OFFSET + 1);
     vm_store_u32(vm, pit + VM_ERROR, FILES_OFFSET + 2);
@@ -763,14 +780,11 @@ static uint8_t vm_parse_register(vm_t* vm, uint8_t b) {
 }
 
 vm_ghost_noinline
-static FILE* vm_file(vm_t* vm, uint32_t handle) {
+static filedata_t* vm_filedata(vm_t* vm, uint32_t handle) {
     handle -= FILES_OFFSET;
     if (handle >= (uint32_t)vm_ghost_array_count(vm->files))
         panic("File handle is invalid");
-    FILE* file = vm->files[handle];
-    if (file == vm_ghost_null)
-        panic("File handle is not open");
-    return file;
+    return &vm->files[handle];
 }
 
 /*
@@ -865,7 +879,7 @@ static uint32_t vm_open(vm_t* vm) {
     // find a free handle
     uint32_t file_index = UINT32_MAX;
     for (size_t i = 0; i < vm_ghost_array_count(vm->files); ++i) {
-        if (vm->files[i] == vm_ghost_null) {
+        if (!vm->files[i].is_open) {
             file_index = i;
             break;
         }
@@ -889,7 +903,6 @@ static uint32_t vm_open(vm_t* vm) {
         file = fopen(path, "rb");
     }
 
-    vm->files[file_index] = file;
     //printf("OPENING %s %zi\n",path,(size_t)vm->files[file_index]);
     if (file == vm_ghost_null) {
         if (errno == ENOENT) {
@@ -899,48 +912,76 @@ static uint32_t vm_open(vm_t* vm) {
         return VM_ERROR_GENERIC;
     }
 
+    filedata_t* filedata = &vm->files[file_index];
+    filedata->file = file;
+    filedata->is_open = true;
+    filedata->generated_error_later = false;
     return file_index + FILES_OFFSET;
 }
 
 static uint32_t vm_close(vm_t* vm) {
     uint32_t handle = vm->registers[0];
-    FILE* file = vm_file(vm, handle);
     strace("sys close() handle 0x%x", handle);
-    if (file == vm_ghost_null) {
-        panic("File is not open.");
+    filedata_t* filedata = vm_filedata(vm, handle);
+    if (!filedata->is_open) {
+        panic("File handle is not open");
+    }
+    filedata->is_open = false;
+
+    if (filedata->dir) {
+        closedir(filedata->dir);
+        filedata->dir = NULL;
+        return 0;
     }
 
     // The program is allowed to close standard streams but we always ignore
     // closing stderr so we can print errors and we ignore closing the other
     // streams if we're in debugger mode.
+    FILE* file = filedata->file;
     if (!(file == stderr ||
             (vm->debugger_active && (file == stdin || file == stdout))))
     {
         fclose(file);
     }
-
-    vm->files[handle - FILES_OFFSET] = vm_ghost_null;
+    filedata->file = NULL;
     return 0;
 }
 
 static uint32_t vm_read(vm_t* vm) {
-    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t handle = vm->registers[0];
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
-    strace("sys read() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
+    strace("sys read() handle 0x%x addr 0x%x count %u", handle, addr, count);
+    filedata_t* filedata = vm_filedata(vm, handle);
 
+    if (!filedata->is_open) {
+        panic("File handle is not open");
+    }
+    if (filedata->file == NULL) {
+        // It's a directory.
+        strace(" failed, directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
+    if (count == 0) {
+        panic("A read of zero bytes is not allowed.");
+    }
+    if (!vm_is_buffer_valid(vm, addr, count)) {
+        panic("Invalid buffer given to syscall read.");
+    }
+
+    // generate ERROR_TRY_LATER if the user has requested it
+    if (vm->generate_error_later && !filedata->generated_error_later) {
+        filedata->generated_error_later = true;
+        return VM_ERROR_TRY_LATER;
+    }
+    filedata->generated_error_later = false;
+
+    FILE* file = filedata->file;
     if (file == stdin) {
         fflush(stderr);
         fflush(stdout);
     }
 
-    if (count == 0) {
-        // nothing to do, addr does not need to be valid
-        return 0;
-    }
-    if (!vm_is_buffer_valid(vm, addr, count)) {
-        panic("ERROR: Invalid buffer given to syscall read.");
-    }
     uint8_t* buffer = vm->memory + (addr - vm->memory_base);
 
     // In order to test that stages correctly handle short reads, we limit the
@@ -955,6 +996,8 @@ static uint32_t vm_read(vm_t* vm) {
     if (file == stdin) {
         // We want our input to be non-blocking. We use poll() with zero
         // timeout to check if input is available.
+        // TODO we should do this with all files so e.g. the program can open
+        // UDS streams non-blocking
         struct pollfd fds = {STDIN_FILENO, POLLIN, 0};
         int ret;
         do {
@@ -984,18 +1027,41 @@ static uint32_t vm_read(vm_t* vm) {
 }
 
 static uint32_t vm_write(vm_t* vm) {
-    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t handle = vm->registers[0];
     uint32_t addr = vm->registers[1];
     uint32_t count = vm->registers[2];
-    strace("sys write() handle 0x%x addr 0x%x count %u", vm->registers[0], addr, count);
+    strace("sys write() handle 0x%x addr 0x%x count %u", handle, addr, count);
+    filedata_t* filedata = vm_filedata(vm, handle);
 
+    if (!filedata->is_open) {
+        panic("File handle is not open");
+    }
+    if (filedata->file == NULL) {
+        // It's a directory.
+        strace(" failed, directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
     if (count == 0) {
-        // nothing to do, addr does not need to be valid
-        return 0;
+        panic("A write of zero bytes is not allowed.");
     }
     if (!vm_is_buffer_valid(vm, addr, count)) {
-        panic("ERROR: Invalid buffer given to syscall write.");
+        panic("Invalid buffer given to syscall write.");
     }
+
+    // generate ERROR_TRY_LATER if the user has requested it
+    if (vm->generate_error_later && !filedata->generated_error_later) {
+        filedata->generated_error_later = true;
+        return VM_ERROR_TRY_LATER;
+    }
+    filedata->generated_error_later = false;
+
+    FILE* file = filedata->file;
+    if (file == stdin) {
+        fflush(stderr);
+        fflush(stdout);
+    }
+
+    uint8_t* buffer = vm->memory + (addr - vm->memory_base);
 
     // In order to test that stages correctly handle short writes, we limit the
     // number of bytes that can be written at once. The default for writes is
@@ -1006,8 +1072,6 @@ static uint32_t vm_write(vm_t* vm) {
     if (count > MAX_WRITE_SIZE) {
         count = MAX_WRITE_SIZE;
     }
-
-    uint8_t* buffer = vm->memory + (addr - vm->memory_base);
 
     size_t ret;
     if (file == stdout || file == stderr) {
@@ -1048,16 +1112,27 @@ static uint32_t vm_write(vm_t* vm) {
 }
 
 static uint32_t vm_seek(vm_t* vm) {
-    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t handle = vm->registers[0];
     uint32_t base = vm->registers[1];
     int64_t offset = (int64_t)((uint64_t)vm->registers[2] | ((uint64_t)vm->registers[3] << 32));
-    strace("sys seek() handle 0x%x base %u offset %" PRIi64, vm->registers[0], base, offset);
+    strace("sys seek() handle 0x%x base %u offset %" PRIi64, handle, base, offset);
 
     if (base > 2) {
         panic("Invalid base given to syscall seek.");
     }
 
-    if (0 == fseek(file, offset,
+    filedata_t* filedata = vm_filedata(vm, handle);
+    if (!filedata->is_open) {
+        panic("File handle is not open");
+    }
+    if (filedata->file == NULL) {
+        // It's a directory.
+        strace(" failed, directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
+    filedata->generated_error_later = false;
+
+    if (0 == fseek(filedata->file, offset,
             base == 0 ? SEEK_SET : base == 1 ? SEEK_CUR : SEEK_END))
         return 0;
 
@@ -1066,20 +1141,47 @@ static uint32_t vm_seek(vm_t* vm) {
 }
 
 static uint32_t vm_tell(vm_t* vm) {
-    FILE* file = vm_file(vm, vm->registers[0]);
+    uint32_t handle = vm->registers[0];
     uint32_t addr = vm->registers[1];
-    long pos = ftell(file);
-    strace("sys tell() handle 0x%x position %" PRIu64, vm->registers[0], (uint64_t)pos);
+    strace("sys tell() handle 0x%x addr 0x%x", handle, addr);
+
+    filedata_t* filedata = vm_filedata(vm, handle);
+    if (!filedata->is_open) {
+        panic("File handle is not open");
+    }
+    if (filedata->file == NULL) {
+        // It's a directory.
+        strace(" failed, directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
+    filedata->generated_error_later = false;
+
+    long pos = ftell(filedata->file);
+    strace(" position %" PRIu64, (uint64_t)pos);
+
     vm_store_u32(vm, addr, (uint32_t)pos);
     vm_store_u32(vm, addr + 4, (uint32_t)(pos >> 32));
     return 0;
 }
 
 static uint32_t vm_trunc(vm_t* vm) {
-    FILE* file = vm_file(vm, vm->registers[0]);
-    fflush(file);
+    uint32_t handle = vm->registers[0];
     uint64_t length = (uint64_t)vm->registers[1] | ((uint64_t)vm->registers[2] << 32);
-    strace("sys trunc() handle 0x%x fileno %i length %" PRIu64, vm->registers[0], fileno(file), (uint64_t)length);
+    strace("sys trunc() handle 0x%x length %" PRIu64, vm->registers[0], (uint64_t)length);
+
+    filedata_t* filedata = vm_filedata(vm, handle);
+    if (!filedata->is_open) {
+        panic("File handle is not open");
+    }
+    if (filedata->file == NULL) {
+        // It's a directory.
+        strace(" failed, directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
+    filedata->generated_error_later = false;
+
+    FILE* file = filedata->file;
+    fflush(file);
     int ret = ftruncate(fileno(file), length);
     if (ret == 0)
         return 0;
