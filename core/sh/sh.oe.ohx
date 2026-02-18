@@ -1445,7 +1445,7 @@
     79 82 8D F4   ; stw r2 rfp -12
 
     ; if bytes remaining is zero, we're done
-    7E 82 02 00   ; jz r2 &write_all_loop_exit (+2)
+    7E 82 01 00   ; jz r2 &write_all_loop_exit (+1)
 
     ; otherwise loop.
     78 8F 8D F0   ; ldw rip rfp -16   ; jump to :write_all_loop
