@@ -126,7 +126,9 @@
 ;  1C80  command_cp
 ;  1DC0  command_cp_open_dest
 ;  1ED0  command_cp_copy_data
-;  2040  end_of_program
+;  2040  error_vm_version
+;  2070  init_child_pit
+;  21A0  end_of_program
 
 
 
@@ -740,38 +742,14 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; get both process info tables
-    78 80 8E 20   ; ldw r0 rpp 0x20       ; process_info_table
-    78 81 8E 5C   ; ldw r1 rpp 0x5C       ; child_pit
-
-; TODO: we need to check version here. if we're version 3 we need correct
-; syscall and pit lengths, and if we're version 4 we need to limit the minor
-; version to that known and we need to pass free regions.
-
-    ; copy most of the table into the child
-    78 82 80 00   ; ldw r2 r0 0x00   ; version
-    79 82 81 00   ; stw r2 r1 0x00
-    78 82 80 0C   ; ldw r2 r0 0x0C   ; input stream handle
-    79 82 81 0C   ; stw r2 r1 0x0C
-    78 82 80 10   ; ldw r2 r0 0x10   ; output stream handle
-    79 82 81 10   ; stw r2 r1 0x10
-    78 82 80 14   ; ldw r2 r0 0x14   ; error stream handle
-    79 82 81 14   ; stw r2 r1 0x14
-    78 82 80 20   ; ldw r2 r0 0x20   ; working directory
-    79 82 81 20   ; stw r2 r1 0x20
-    78 82 80 24   ; ldw r2 r0 0x24   ; capabilities
-    79 82 81 24   ; stw r2 r1 0x24
-    78 82 80 1C   ; ldw r2 r0 0x1C   ; environ
-    79 82 81 1C   ; stw r2 r1 0x1C
-
-    ; initialize other vars
-    79 19 81 28   ; stw 25 r1 0x28   ; system call count
-    79 0C 81 2C   ; stw 12 r1 0x2C   ; process info count
-
-    ; other pit fields:
-    ; - heap start varies based on the loaded program
-    ; - syscall table is already set by allocate()
-    ; - command-line args is set after parsing
+    ; call init_child_pit()
+    7C 8A 00 00    ; ims ra <init_child_pit
+    7C 8A 70 20    ; ims ra >init_child_pit (0x2070)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; call init_child_syscalls()
     7C 8A 00 00    ; ims ra <init_child_syscalls
@@ -789,6 +767,12 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x420
 
 
@@ -942,8 +926,12 @@
     79 82 8E 48   ; stw r2 rpp 0x48    ; input_buffer
     70 82 82 85   ; add r2 r2 r5
 
+    ; For the child PIT and child syscall table below, we always allocate both
+    ; to the maximum size they could be. The sizes that will actually be used
+    ; will depend on the version.
+
     ; allocate a child process info table
-    76 85 0C 02   ; shl r5 12 2        ; 12 * 4 == 48 bytes (largest size necessary)
+    76 85 0C 02   ; shl r5 12 2        ; 12 * 4 == 48 bytes
     79 82 8E 5C   ; stw r2 rpp 0x5C    ; child_pit
     70 83 82 85   ; add r3 r2 r5
 
@@ -3173,6 +3161,8 @@
 ; - child pit: r1
 ; - parent syscall table: r2
 ; - child syscall table: r3
+            ; - parent syscall table length: r4
+            ; - child syscall table length: r5
 ;==========================================
 
 @0x18A0 =init_child_syscalls
@@ -3184,6 +3174,15 @@
     ; get both syscall tables
     78 82 80 08   ; ldw r2 r0 0x08   ; r2 = parent syscall table
     78 83 81 08   ; ldw r3 r1 0x08   ; r3 = child syscall table
+
+    ; Determine the syscall table length.
+    ; For a version 2 VM, it's 23.
+    ; For a version 3 VM, it's 25. (The syscall table length field in the PIT
+    ; is ignored; it can't meaningfully be anything other than 25.)
+    ; For a version 4.0 VM, so far it's 25. This may increase with newer minor
+    ; versions.
+    ; TODO maybe for simplicity, just copy the first 23 syscalls, then do the rest manually based on version
+    ; TODO for even more simplicity, zero out the whole table first
 
     ; copy the syscall table
     78 84 81 28   ; ldw r4 r1 0x28   ; r4 = system call count
@@ -3283,7 +3282,7 @@
 
     ; get the size of the program
     7C 80 00 00    ; ims r0 <end_of_program
-    7C 80 40 20    ; ims r0 >end_of_program (0x2040)
+    7C 80 A0 21    ; ims r0 >end_of_program (0x21A0)
 
     ; make sure we have enough space, including space for the initial stack
     ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
@@ -3947,10 +3946,137 @@
 
 
 ;==========================================
+; const char error_vm_version[];
+;==========================================
+
+@0x2040 =error_vm_version
+    ; "ERROR: This VM version is not supported." '0A '00
+    45 52 52 4f 52 3a 20 54  68 69 73 20 56 4d 20 76
+  ;  E  R  R  O  R  :     T  h  i  s     V  M     v
+    65 72 73 69 6f 6e 20 69  73 20 6e 6f 74 20 73 75
+  ;  e  r  s  i  o  n     i  s     n  o  t     s  u
+    70 70 6f 72 74 65 64 2e  0a 00 00 00 00 00 00 00
+  ;  p  p  o  r  t  e  d  .  \n \0
+@0x2070
+
+
+
+;==========================================
+; void init_child_pit(void);
+;==========================================
+; Builds the child process info table.
+;
+; vars:
+; - parent pit: r0
+; - child pit: r1
+;==========================================
+
+@0x2070 =init_child_pit
+
+    ; get both process info tables
+    78 80 8E 20   ; ldw r0 rpp 0x20       ; process_info_table
+    78 81 8E 5C   ; ldw r1 rpp 0x5C       ; child_pit
+
+    ; copy most of the table into the child
+    78 82 80 00   ; ldw r2 r0 0x00   ; version
+    79 82 81 00   ; stw r2 r1 0x00
+    78 82 80 0C   ; ldw r2 r0 0x0C   ; input stream handle
+    79 82 81 0C   ; stw r2 r1 0x0C
+    78 82 80 10   ; ldw r2 r0 0x10   ; output stream handle
+    79 82 81 10   ; stw r2 r1 0x10
+    78 82 80 14   ; ldw r2 r0 0x14   ; error stream handle
+    79 82 81 14   ; stw r2 r1 0x14
+    78 82 80 20   ; ldw r2 r0 0x20   ; working directory
+    79 82 81 20   ; stw r2 r1 0x20
+    78 82 80 24   ; ldw r2 r0 0x24   ; capabilities
+    79 82 81 24   ; stw r2 r1 0x24
+    78 82 80 1C   ; ldw r2 r0 0x1C   ; environ
+    79 82 81 1C   ; stw r2 r1 0x1C
+
+    ; A few other PIT fields are not initialized here:
+    ; - heap start varies based on the loaded program
+    ; - syscall table is already set by allocate()
+    ; - command-line args is set upon parsing a command
+
+    ; The rest of the vars depend on version.
+
+    ; Check for version 2. In v2 there's nothing else to do.
+    78 82 80 00   ; ldw r2 r0 0x00   ; version
+    71 8A 82 02   ; sub ra r2 2
+    7E 8A 01 00   ; jz ra &init_child_pit_v2 (+1)
+    7E 00 01 00   ; jz 0 &init_child_pit_not_v2 (+1)
+;init_child_pit_v2
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;init_child_pit_not_v2
+
+    ; Check for version 3. In v3 the extra pit fields have fixed values; we
+    ; ignore those of the parent.
+    71 8A 82 03   ; sub ra r2 3
+    7E 8A 01 00   ; jz ra &init_child_pit_v3 (+1)
+    7E 00 03 00   ; jz 0 &init_child_pit_not_v3 (+3)
+;init_child_pit_v3
+    79 19 81 28   ; stw 25 r1 0x28   ; system call count
+    79 0C 81 2C   ; stw 12 r1 0x2C   ; process info count
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+;init_child_pit_not_v3
+
+    ; If it's not version 4, we don't support it.
+    71 8A 82 04   ; sub ra r2 4
+    7E 8A 06 00   ; jz ra &init_child_pit_v4 (+6)
+    ; fatal error, unsupported version
+    7C 80 00 00    ; ims r0 <error_vm_version
+    7C 80 40 20    ; ims r0 >error_vm_version (0x2040)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;:init_child_pit_v4
+
+    ; In v4 we have to limit the minor version to what we support. We only
+    ; support minor version 0 so we just set it to that.
+    79 00 81 28   ; stw 0 r1 0x28   ; minor version
+
+    ; TODO we need to copy the given memory regions to our own array and append
+    ; any returned by the proxied alloc syscall. For now we just pass them
+    ; through.
+    78 82 80 2C   ; ldw r2 r0 0x2C   ; additional memory regions
+    79 82 81 2C   ; stw r2 r1 0x2C
+
+    ; done
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+
+@0x21A0
+
+
+
+;==========================================
 ; void* end_of_program;
 ;==========================================
 ; This symbol marks the last address in the shell program. The shell runs a
 ; subshell by copying its own program up to this symbol.
+;
+; If you change this, make sure you change where it is used in command_sh()!
 ;==========================================
 
-@0x2040 =end_of_program
+@0x21A0 =end_of_program
