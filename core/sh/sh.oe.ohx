@@ -128,7 +128,7 @@
 ;  1ED0  command_cp_copy_data
 ;  2040  error_vm_version
 ;  2070  init_child_pit
-;  21A0  end_of_program
+;  22C0  end_of_program
 
 
 
@@ -3161,8 +3161,8 @@
 ; - child pit: r1
 ; - parent syscall table: r2
 ; - child syscall table: r3
-            ; - parent syscall table length: r4
-            ; - child syscall table length: r5
+; - syscall table length, size: r4
+; - vm version: r5
 ;==========================================
 
 @0x18A0 =init_child_syscalls
@@ -3176,16 +3176,17 @@
     78 83 81 08   ; ldw r3 r1 0x08   ; r3 = child syscall table
 
     ; Determine the syscall table length.
-    ; For a version 2 VM, it's 23.
-    ; For a version 3 VM, it's 25. (The syscall table length field in the PIT
-    ; is ignored; it can't meaningfully be anything other than 25.)
-    ; For a version 4.0 VM, so far it's 25. This may increase with newer minor
-    ; versions.
-    ; TODO maybe for simplicity, just copy the first 23 syscalls, then do the rest manually based on version
-    ; TODO for even more simplicity, zero out the whole table first
+    ; For v2 it's 23; for v3 and v4.0 it's 25.
+    ; We don't have to check for unsupported versions. init_child_pit() will
+    ; fail if the version is not supported.
+    70 84 00 17   ; add r4 0 23
+    78 85 80 00   ; ldw r5 r0 0x00   ; version
+    71 8A 85 02   ; sub ra r5 2
+    7E 8A 01 00   ; jz ra &init_child_syscalls_v2
+    70 84 00 19   ; add r4 0 25   ; not v2
+;init_child_syscalls_v2
 
     ; copy the syscall table
-    78 84 81 28   ; ldw r4 r1 0x28   ; r4 = system call count
     76 84 84 03   ; shl r4 r4 3      ; r4 = system call table size (in bytes)
     70 85 00 00   ; add r5 0 0       ; zero r5
 ;:initialize_syscalls_loop
@@ -3207,8 +3208,15 @@
     79 8A 83 00    ; stw ra r3 0
     79 8E 83 04    ; stw rpp r3 4
 
-    ; TODO we'll need to proxy more syscalls, especially fopen/fclose,
-    ; dopen/dclose and alloc/free to prevent leaks
+    ; proxy the close syscall
+    7C 8A 00 00    ; ims ra <child_syscall_close
+    7C 8A A0 21    ; ims ra >child_syscall_close (0x21A0)
+    70 8A 8E 8A    ; add ra rpp ra
+    79 8A 83 20    ; stw ra r3 32   (close is 4, times 8 is 32)
+    79 8E 83 24    ; stw rpp r3 36
+
+    ; TODO we'll need to proxy more syscalls, especially open and alloc/free to
+    ; prevent leaks
 
     ; done
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
@@ -3229,13 +3237,8 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -3282,7 +3285,7 @@
 
     ; get the size of the program
     7C 80 00 00    ; ims r0 <end_of_program
-    7C 80 A0 21    ; ims r0 >end_of_program (0x21A0)
+    7C 80 C0 22    ; ims r0 >end_of_program (0x22C0)
 
     ; make sure we have enough space, including space for the initial stack
     ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
@@ -4065,8 +4068,94 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
-
 @0x21A0
+
+
+
+;==========================================
+; int child_syscall_close(int handle);
+;==========================================
+; Called by subprograms as their `close` syscall. We proxy it to prevent
+; closing the standard streams and to keep track of file handles left open by
+; the subprogram so we can clean up any leaks.
+;
+; vars:
+;   - old rpp: rfp-4
+;==========================================
+
+@0x21A0 =child_syscall_close
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 04     ; sub rsp rsp 4
+
+    ; our rpp is in r9. we need to preserve the old one
+    79 8E 8D FC    ; stw rpp rfp -4
+    70 8E 89 00    ; add rpp r9 0   ; mov rpp r9
+
+    ; check if the handle matches any of our standard streams
+    78 81 8E 20   ; ldw r1 rpp 0x20  ; process_info_table
+    78 82 81 0C   ; ldw r2 r1 0x0C   ; input stream handle
+    71 8A 82 80   ; sub ra r2 r0
+    7E 8A 07 00   ; jz ra &child_syscall_close_std_stream (+7)
+    78 82 81 10   ; ldw r2 r1 0x10   ; output stream handle
+    71 8A 82 80   ; sub ra r2 r0
+    7E 8A 04 00   ; jz ra &child_syscall_close_std_stream (+4)
+    78 82 81 14   ; ldw r2 r1 0x14   ; error stream handle
+    71 8A 82 80   ; sub ra r2 r0
+    7E 8A 01 00   ; jz ra &child_syscall_close_std_stream (+1)
+    7E 00 05 00   ; jz ra &child_syscall_close_not_std_stream (+1)
+
+;:child_syscall_close_std_stream
+    ; handle matches a standard stream. nothing to do.
+    78 8E 8D FC    ; ldw rpp rfp -4  ; restore rpp
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+;:child_syscall_close_not_std_stream
+
+    ; TODO match it up with a child open syscall and pop it from the list
+
+    ; call syscall_fclose()
+    7C 8A 00 00    ; ims ra <syscall_fclose
+    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
+    78 8E 8D FC    ; ldw rpp rfp -4  ; restore rpp
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x22C0
 
 
 
@@ -4079,4 +4168,4 @@
 ; If you change this, make sure you change where it is used in command_sh()!
 ;==========================================
 
-@0x21A0 =end_of_program
+@0x22C0 =end_of_program

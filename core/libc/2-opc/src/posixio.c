@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -255,6 +255,10 @@ int close(int fd) {
     posixfile_t* posixfile = posixfiles[fd];
 
     // We don't close the standard streams.
+    // TODO this should only be done on v2 VMs, but before we fix it we need to
+    // proxy child syscalls. In libc/2 we need to reference count file
+    // descriptors; in other parts of the bootstrap we need to proxy close and
+    // ignore it on the standard streams.
     if (!posixfile->std_stream) {
         if (posixfile->is_dir) {
             __sys_dclose(posixfile->handle);
