@@ -102,9 +102,9 @@
 ;   F50  consume_comment
 ;   FC0  error
 ;  1090  error_read_program
-;  10B0  syscall_fclose
-;  10E0  syscall_fseek
-;  1110  syscall_ftell
+;  10B0  syscall_close
+;  10E0  syscall_seek
+;  1110  syscall_tell
 ;  1140  get_program_size
 ;  1290  read_all
 ;  1360  command_onrampvm
@@ -118,11 +118,11 @@
 ;  19B0  command_sh
 ;  1AC0  syscall_debug
 ;  1B00  child_syscall_exit
-;  1B90  syscall_fopen
+;  1B90  syscall_open
 ;  1BC0  error_source_file
 ;  1BF0  error_destination_file
-;  1C20  syscall_fread
-;  1C50  syscall_fwrite
+;  1C20  syscall_read
+;  1C50  syscall_write
 ;  1C80  command_cp
 ;  1DC0  command_cp_open_dest
 ;  1ED0  command_cp_copy_data
@@ -692,9 +692,9 @@
     71 81 81 80    ; sub r1 r1 r0
     7E 81 07 00    ; jz r1 &start_skip_close (+7)
 
-    ; call syscall_fclose()
-    7C 8A 00 00    ; ims ra <syscall_fclose
-    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    ; call syscall_close()
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -822,14 +822,14 @@
 
 ;:open_script_arg
 
-    ; prepare args for syscall fopen
+    ; prepare args for syscall open
     70 81 00 00    ; add r1 0 0     ; read-only
 
-    ; get syscall fopen into r7
+    ; get syscall open into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of open syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of open syscall
 
     ; make the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -841,7 +841,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 06 00    ; jz ra &open_script_fopen_fail (+6)
+    7E 8A 06 00    ; jz ra &open_script_open_fail (+6)
 
     ; failed to open input file. fatal
     7C 80 00 00    ; ims r0 <error_input
@@ -850,7 +850,7 @@
     7C 8A 00 00    ; ims ra <fatal
     7C 8A 00 08    ; ims ra >fatal (0x800)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:open_script_fopen_fail
+;:open_script_open_fail
 
     ; save handle
     79 80 8E 24     ; stw r0 rpp 0x24   ; input_io_handle
@@ -991,8 +991,8 @@
 ;;;78 80 89 10   ; ldw r0 r8 16     ; stdout
 ;;;70 82 00 01   ; add r2 0 1
 ;;;78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-;;;76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-;;;70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+;;;76 8A 06 03   ; shl ra 6 3        ; ra = offset of write syscall (6<<3)
+;;;70 87 88 8A   ; add r7 r8 8a      ; r7 = address of write syscall
 ;;;78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
 ;;;71 8C 8C 04    ; sub rsp rsp 4    ; push return address
 ;;;70 8B 8F 08    ; add rb rip 8     ; ^^^
@@ -1055,9 +1055,9 @@
     78 81 8E 48    ; ldw r1 rpp 0x48  ; input_buffer
     76 82 01 0C    ; shl r2 1 12      ; r2 = 4096
 
-    ; call syscall_fread()
-    7C 8A 00 00    ; ims ra <syscall_fread
-    7C 8A 20 1C    ; ims ra >syscall_fread (0x1C20)
+    ; call syscall_read()
+    7C 8A 00 00    ; ims ra <syscall_read
+    7C 8A 20 1C    ; ims ra >syscall_read (0x1C20)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1355,9 +1355,9 @@
     78 81 8D F8   ; ldw r1 rfp -8     ; data
     78 82 8D F4   ; ldw r2 rfp -12    ; remaining
 
-    ; call syscall_fwrite()
-    7C 8A 00 00    ; ims ra <syscall_fwrite
-    7C 8A 50 1C    ; ims ra >syscall_fwrite (0x1C50)
+    ; call syscall_write()
+    7C 8A 00 00    ; ims ra <syscall_write
+    7C 8A 50 1C    ; ims ra >syscall_write (0x1C50)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1664,8 +1664,8 @@
 ;78 80 89 10   ; ldw r0 r8 16     ; stdout
 ;70 82 00 01   ; add r2 0 1
 ;78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-;76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-;70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+;76 8A 06 03   ; shl ra 6 3        ; ra = offset of write syscall (6<<3)
+;70 87 88 8A   ; add r7 r8 8a      ; r7 = address of write syscall
 ;78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
 ;71 8C 8C 04    ; sub rsp rsp 4    ; push return address
 ;70 8B 8F 08    ; add rb rip 8     ; ^^^
@@ -2219,23 +2219,23 @@
 
 
 ;==========================================
-; int syscall_fclose(int handle);
+; int syscall_close(int handle);
 ;==========================================
 
-@0x10B0 =syscall_fclose
+@0x10B0 =syscall_close
 
-    ; get syscall fclose into r7
+    ; get syscall close into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 04 03   ; shl ra 4 3        ; ra = offset of fclose syscall (4<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fclose syscall
+    76 8A 04 03   ; shl ra 4 3        ; ra = offset of close syscall (4<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of close syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
 
     ; TODO probably should not tail-call and instead check the return value.
-    ; An error from fclose() is fatal.
+    ; An error from close() is fatal.
 
     ; padding
     00 00 00 00 00 00 00 00
@@ -2246,16 +2246,16 @@
 
 
 ;==========================================
-; int syscall_fseek(int file_handle, int base, unsigned offset_low, int offset_high);
+; int syscall_seek(int file_handle, int base, unsigned offset_low, int offset_high);
 ;==========================================
 
-@0x10E0 =syscall_fseek
+@0x10E0 =syscall_seek
 
-    ; get syscall fseek into r7
+    ; get syscall seek into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 07 03   ; shl ra 7 3        ; ra = offset of fseek syscall (7<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fseek syscall
+    76 8A 07 03   ; shl ra 7 3        ; ra = offset of seek syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of seek syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -2270,16 +2270,16 @@
 
 
 ;==========================================
-; int syscall_ftell(int file_handle, unsigned position[2]);
+; int syscall_tell(int file_handle, unsigned position[2]);
 ;==========================================
 
-@0x1110 =syscall_ftell
+@0x1110 =syscall_tell
 
-    ; get syscall ftell into r7
+    ; get syscall tell into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 08 03   ; shl ra 8 3        ; ra = offset of ftell syscall (8<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of ftell syscall
+    76 8A 08 03   ; shl ra 8 3        ; ra = offset of tell syscall (8<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of tell syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -2319,14 +2319,14 @@
     71 8C 8C 0C     ; sub rsp rsp 12
     79 80 8D FC     ; stw r0 rfp -4
 
-    ; prepare arguments to fseek, seek to the end
+    ; prepare arguments to seek, seek to the end
     70 81 00 02     ; add r1 0 2   ; mov r1 2
     70 82 00 00     ; add r2 0 0   ; zero r2
     70 83 00 00     ; add r3 0 0   ; zero r3
 
-    ; call syscall_fseek()
-    7C 8A 00 00    ; ims ra <syscall_fseek
-    7C 8A E0 10    ; ims ra >syscall_fseek (0x10E0)
+    ; call syscall_seek()
+    7C 8A 00 00    ; ims ra <syscall_seek
+    7C 8A E0 10    ; ims ra >syscall_seek (0x10E0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2335,7 +2335,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 05 00    ; jz ra &get_program_size_fseek_end_ok (+5)
+    7E 8A 05 00    ; jz ra &get_program_size_seek_end_ok (+5)
 
     ; error, return 0
     70 80 00 00     ; add r0 0 0        ; zero r0
@@ -2343,15 +2343,15 @@
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:get_program_size_fseek_end_ok
+;:get_program_size_seek_end_ok
 
-    ; prepare arguments to ftell
+    ; prepare arguments to tell
     78 80 8D FC     ; ldw r0 rfp -4
     70 81 8D F4     ; add r1 rfp -12
 
-    ; call syscall_ftell()
-    7C 8A 00 00    ; ims ra <syscall_ftell
-    7C 8A 10 11    ; ims ra >syscall_ftell (0x1110)
+    ; call syscall_tell()
+    7C 8A 00 00    ; ims ra <syscall_tell
+    7C 8A 10 11    ; ims ra >syscall_tell (0x1110)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2360,37 +2360,37 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 01 00    ; jz ra &get_program_size_ftell_call_ok (+1)
-    7E 00 06 00    ; jz 0 &get_program_size_ftell_fail (+6)
-;:get_program_size_ftell_call_ok
+    7E 8A 01 00    ; jz ra &get_program_size_tell_call_ok (+1)
+    7E 00 06 00    ; jz 0 &get_program_size_tell_fail (+6)
+;:get_program_size_tell_call_ok
     ; upper word must be zero
     78 8A 8D F8    ; ldw r0 rfp -8
-    7E 8A 01 00    ; jz ra &get_program_size_ftell_highword_ok (+1)
-    7E 00 03 00    ; jz 0 &get_program_size_ftell_fail (+3)
-;:get_program_size_ftell_highword_ok
+    7E 8A 01 00    ; jz ra &get_program_size_tell_highword_ok (+1)
+    7E 00 03 00    ; jz 0 &get_program_size_tell_fail (+3)
+;:get_program_size_tell_highword_ok
     ; high two bits of lower word must be zero (max 1GB)
     78 8A 8D F4    ; ldw ra rfp -12
     77 8A 80 1E    ; shru ra r0 30
-    7E 8A 05 00    ; jz ra &get_program_size_ftell_ok (+5)
+    7E 8A 05 00    ; jz ra &get_program_size_tell_ok (+5)
 
-;:get_program_size_ftell_fail
+;:get_program_size_tell_fail
     ; error, return 0
     70 80 00 00     ; add r0 0 0        ; zero r0
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:get_program_size_ftell_ok
+;:get_program_size_tell_ok
 
-    ; prepare arguments to fseek, seek to the start
+    ; prepare arguments to seek, seek to the start
     78 80 8D FC     ; ldw r0 rfp -4
     70 81 00 00     ; add r1 0 0   ; zero r1
     70 82 00 00     ; add r2 0 0   ; zero r2
     70 83 00 00     ; add r3 0 0   ; zero r3
 
-    ; call syscall_fseek()
-    7C 8A 00 00    ; ims ra <syscall_fseek
-    7C 8A E0 10    ; ims ra >syscall_fseek (0x10E0)
+    ; call syscall_seek()
+    7C 8A 00 00    ; ims ra <syscall_seek
+    7C 8A E0 10    ; ims ra >syscall_seek (0x10E0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2399,7 +2399,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 05 00    ; jz ra &get_program_size_fseek_end_ok (+5)
+    7E 8A 05 00    ; jz ra &get_program_size_seek_end_ok (+5)
 
     ; error, return 0
     70 80 00 00     ; add r0 0 0        ; zero r0
@@ -2465,9 +2465,9 @@
     78 81 8D F8   ; ldw r1 rfp -8     ; buffer
     78 82 8D F4   ; ldw r2 rfp -12    ; remaining
 
-    ; call syscall_fread()
-    7C 8A 00 00    ; ims ra <syscall_fread
-    7C 8A 20 1C    ; ims ra >syscall_fread (0x1C20)
+    ; call syscall_read()
+    7C 8A 00 00    ; ims ra <syscall_read
+    7C 8A 20 1C    ; ims ra >syscall_read (0x1C20)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2596,9 +2596,9 @@
     7E 00 07 00     ; jz ra &command_onrampvm_error_done (+7)
 
 ;:command_onrampvm_close
-    ; close the file, call syscall_fclose()
-    7C 8A 00 00    ; ims ra <syscall_fclose
-    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    ; close the file, call syscall_close()
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2632,16 +2632,16 @@
     ; TODO move this (and prepend wd) to a function open_file(), share with
     ; open_script()
 
-    ; prepare arguments to fopen
+    ; prepare arguments to open
     78 80 8E 60    ; ldw r0 rpp 0x60    ; args
     78 80 80 04    ; ldw r0 r0 4        ; args[1] (program filename)
     70 81 00 00    ; add r1 0 0         ; read-only
 
-    ; get syscall fopen into r7
+    ; get syscall open into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of open syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of open syscall
 
     ; make the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -2653,14 +2653,14 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 04 00    ; jz ra &command_onrampvm_fopen_ok (+4)
+    7E 8A 04 00    ; jz ra &command_onrampvm_open_ok (+4)
 
     ; failed to open program
     7C 80 00 00    ; ims r0 <error_read_program
     7C 80 90 10    ; ims r0 >error_read_program
     70 80 8E 80    ; add r0 rpp r0
     78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
-;:command_onrampvm_fopen_ok
+;:command_onrampvm_open_ok
 
     ; save the file handle
     79 80 8D FC     ; stw r0 rfp -4
@@ -2741,10 +2741,10 @@
     78 8F 8D F8    ; ldw rip rfp -8   ; goto error_handler
 ;:command_onrampvm_read_all_ok
 
-    ; close the file, call syscall_fclose()
+    ; close the file, call syscall_close()
     78 80 8D FC    ; ldw r0 rfp -4
-    7C 8A 00 00    ; ims ra <syscall_fclose
-    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2815,7 +2815,7 @@
     76 86 86 02    ; shl r6 r6 2        ; r6 *= 4
     79 00 85 86    ; stw 0 r5 r6        ; args[arg_count] = 0
 
-    ; TODO we should consider running ftell() on the source script and if it
+    ; TODO we should consider running tell() on the source script and if it
     ; works, close it and reopen after running the command. we want bootstrap
     ; to work even if the VM only supports a very small number of simultaneous
     ; open files.
@@ -3459,16 +3459,16 @@
 
 
 ;==========================================
-; int syscall_fopen(const char* path, bool writeable);
+; int syscall_open(const char* path, bool writeable);
 ;==========================================
 
-@0x1B90 =syscall_fopen
+@0x1B90 =syscall_open
 
-    ; get syscall fopen into r7
+    ; get syscall open into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 03 03   ; shl ra 3 3        ; ra = offset of fopen syscall (3<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fopen syscall
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of open syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of open syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -3515,16 +3515,16 @@
 
 
 ;==========================================
-; int syscall_fread(const char* path, bool writeable);
+; int syscall_read(const char* path, bool writeable);
 ;==========================================
 
-@0x1C20 =syscall_fread
+@0x1C20 =syscall_read
 
-    ; get syscall fread into r7
+    ; get syscall read into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fread syscall
+    76 8A 05 03   ; shl ra 5 3        ; ra = offset of read syscall (5<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of read syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -3539,16 +3539,16 @@
 
 
 ;==========================================
-; int syscall_fwrite(const char* path, bool writeable);
+; int syscall_write(const char* path, bool writeable);
 ;==========================================
 
-@0x1C50 =syscall_fwrite
+@0x1C50 =syscall_write
 
-    ; get syscall fwrite into r7
+    ; get syscall write into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fwrite syscall
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of write syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of write syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -3619,9 +3619,9 @@
     78 80 80 04    ; ldw r0 r0 4        ; args[1]
     70 81 00 00    ; add r1 0 0         ; read-only
 
-    ; call syscall_fopen()
-    7C 8A 00 00    ; ims ra <syscall_fopen
-    7C 8A 90 1B    ; ims ra >syscall_fopen (0x1B90)
+    ; call syscall_open()
+    7C 8A 00 00    ; ims ra <syscall_open
+    7C 8A 90 1B    ; ims ra >syscall_open (0x1B90)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3630,7 +3630,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 0A 00    ; jz ra &command_cp_fopen_ok (+10)
+    7E 8A 0A 00    ; jz ra &command_cp_open_ok (+10)
 
     ; failed to open source file. tail-call error()
     70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
@@ -3643,7 +3643,7 @@
     7C 8A 00 00    ; ims ra <error
     7C 8A C0 0F    ; ims ra >error (0xFC0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:command_cp_fopen_ok
+;:command_cp_open_ok
 
     ; save the source file
     79 80 8D FC     ; stw r0 rfp -4
@@ -3660,9 +3660,9 @@
     ; restore the source file
     78 80 8D FC    ; ldw r0 rfp -4   ; source_file
 
-    ; call syscall_fclose()
-    7C 8A 00 00    ; ims ra <syscall_fclose
-    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    ; call syscall_close()
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3719,9 +3719,9 @@
     78 80 80 08    ; ldw r0 r0 8        ; args[2]
     70 81 01 00    ; add r1 1 0         ; writeable
 
-    ; call syscall_fopen()
-    7C 8A 00 00    ; ims ra <syscall_fopen
-    7C 8A 90 1B    ; ims ra >syscall_fopen (0x1B90)
+    ; call syscall_open()
+    7C 8A 00 00    ; ims ra <syscall_open
+    7C 8A 90 1B    ; ims ra >syscall_open (0x1B90)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3730,7 +3730,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 0A 00    ; jz ra &command_cp_open_dest_fopen_fail (+10)
+    7E 8A 0A 00    ; jz ra &command_cp_open_dest_open_fail (+10)
 
     ; failed to open destination file. tail-call error()
     70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
@@ -3743,7 +3743,7 @@
     7C 8A 00 00    ; ims ra <error
     7C 8A C0 0F    ; ims ra >error (0xFC0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:command_cp_open_dest_fopen_fail
+;:command_cp_open_dest_open_fail
 
     ; save the destination file
     79 80 8D F8    ; stw r0 rfp -8
@@ -3764,9 +3764,9 @@
     ; restore the destination file
     78 80 8D F8    ; ldw r0 rfp -8   ; source_file
 
-    ; call syscall_fclose()
-    7C 8A 00 00    ; ims ra <syscall_fclose
-    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    ; call syscall_close()
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3844,14 +3844,14 @@
     79 8F 8D EC    ; stw rip rfp -20
 ;:command_cp_copy_data_loop
 
-    ; prepare args for fread
+    ; prepare args for read
     78 80 8D FC   ; ldw r0 rfp -4      ; source_handle
     78 81 8E 68   ; ldw r1 rpp 0x68    ; heap_ptr
     78 82 8D F4   ; ldw r2 rfp -12     ; buffer_size
 
-    ; call syscall_fread()
-    7C 8A 00 00    ; ims ra <syscall_fread
-    7C 8A 20 1C    ; ims ra >syscall_fread (0x1C20)
+    ; call syscall_read()
+    7C 8A 00 00    ; ims ra <syscall_read
+    7C 8A 20 1C    ; ims ra >syscall_read (0x1C20)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -4119,9 +4119,9 @@
 
     ; TODO match it up with a child open syscall and pop it from the list
 
-    ; call syscall_fclose()
-    7C 8A 00 00    ; ims ra <syscall_fclose
-    7C 8A B0 10    ; ims ra >syscall_fclose (0x10B0)
+    ; call syscall_close()
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
