@@ -43,8 +43,6 @@
 ; If a subprogram doesn't fit in the remaining heap, it gets its own
 ; allocation. (TODO alloc syscall is not implemented yet.)
 ;
-; TODO may also need to copy env vars; see environ discussion below.
-;
 ; Global variables start at 0x20 and end at 0x70. This allows all globals to be
 ; accessed with mix-type bytes.
 ;
@@ -53,9 +51,9 @@
 ; output, but the line to print is assembled into a single string and can be
 ; printed in one syscall. We do also implement `cp` by copying in chunks.
 ;
-; The shell runs a subshell by copying its program. For this reason, all global
-; variables must be manually initialized. They are given the initial value
-; 0xEEEEEEEE to ensure they are initialized properly.
+; The shell runs a subshell by copying its own bytecode from memory. For this
+; reason, all global variables must be manually initialized. They are given the
+; initial value 0xEEEEEEEE to ensure they are initialized properly.
 
 
 
@@ -746,6 +744,10 @@
     78 80 8E 20   ; ldw r0 rpp 0x20       ; process_info_table
     78 81 8E 5C   ; ldw r1 rpp 0x5C       ; child_pit
 
+; TODO: we need to check version here. if we're version 3 we need correct
+; syscall and pit lengths, and if we're version 4 we need to limit the minor
+; version to that known and we need to pass free regions.
+
     ; copy most of the table into the child
     78 82 80 00   ; ldw r2 r0 0x00   ; version
     79 82 81 00   ; stw r2 r1 0x00
@@ -759,31 +761,6 @@
     79 82 81 20   ; stw r2 r1 0x20
     78 82 80 24   ; ldw r2 r0 0x24   ; capabilities
     79 82 81 24   ; stw r2 r1 0x24
-
-    ; TODO for now we pass env vars as-is, but the child might modify them! We
-    ; need to solve this. Either:
-    ;
-    ; - We copy them here
-    ; - We forbid modifying env vars and the final libc will copy them
-    ; - We don't allow modifying env vars in child programs of this stage shell
-    ; - We don't pass along env vars in this stage shell at all
-    ;
-    ; The latter two solutions would require a second stage shell. If we can
-    ; get a real shell working (oksh?) then maybe we don't need to write our
-    ; own second stage. Or maybe we do want a simple second stage, nothing like
-    ; POSIX but something that is usable for some very basic interactive use,
-    ; like manually running a particular build script.
-    ;
-    ; Forbidding modifying env vars might be the best solution of all, for VMs
-    ; and for the libc and for keeping this shell simple. The main problem with
-    ; this is we can't necessarily copy them lazily; environ has to be
-    ; declarable as extern char* so it can't be a macro. But, maybe we can do
-    ; some magic where environ is a weak var so there's no copy if environ is
-    ; never used. Or, maybe we do some compiler magic where environ is replaced
-    ; by a builtin even if manually declared; but this could be a significant
-    ; pain point if ever anyone else wants to port another compiler (of any
-    ; language) to Onramp. Or maybe we're just overthinking the overhead of the
-    ; libc copying the environment.
     78 82 80 1C   ; ldw r2 r0 0x1C   ; environ
     79 82 81 1C   ; stw r2 r1 0x1C
 
@@ -966,7 +943,7 @@
     70 82 82 85   ; add r2 r2 r5
 
     ; allocate a child process info table
-    76 85 0C 02   ; shl r5 12 2        ; 12 * 4 == 48 bytes
+    76 85 0C 02   ; shl r5 12 2        ; 12 * 4 == 48 bytes (largest size necessary)
     79 82 8E 5C   ; stw r2 rpp 0x5C    ; child_pit
     70 83 82 85   ; add r3 r2 r5
 
@@ -1090,19 +1067,14 @@
     78 81 8E 48    ; ldw r1 rpp 0x48  ; input_buffer
     76 82 01 0C    ; shl r2 1 12      ; r2 = 4096
 
-    ; get syscall fread into r7
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fread syscall
-
-    ; make the syscall
-    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-    70 8B 8F 08    ; add rb rip 8     ; ^^^
-    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+    ; call syscall_fread()
+    7C 8A 00 00    ; ims ra <syscall_fread
+    7C 8A 20 1C    ; ims ra >syscall_fread (0x1C20)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check if we got ERROR_TRY_LATER. if so loop
     71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
@@ -1111,6 +1083,22 @@
 ;:next_char_impl_read_try_later
     78 8F 8D FC   ; ldw rip rfp -4   ; jump to :next_char_impl_read_loop
 ;:next_char_impl_read_not_try_later
+
+    ; check for ERROR_END_OF_FILE (or zero, which in this case we interpret as
+    ; EOF for backwards compatibility)
+    71 8A 80 FA   ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A 02 00   ; jz ra &next_char_impl_eof (+2)
+    7E 80 01 00   ; jz r0 &next_char_impl_eof (+1)
+    7E 00 05 00   ; jz 0 &next_char_impl_not_eof (+5)
+
+;:next_char_impl_eof
+    ; at end of file, put -1 (as an int) into current_char and return
+    79 FF 8E 3C    ; stw -1 rpp 0x3C  ; current_char
+    70 8C 8D 00    ; add rsp rfp 0    ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp    ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4    ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
+;:next_char_impl_not_eof
 
     ; high bit indicates other error
     77 8A 80 1F    ; shru ra r0 31
@@ -1125,20 +1113,7 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
 ;:next_char_impl_fill_ok
-
-    ; r0 contains the number of bytes read. if zero, it's end of file.
-    7E 80 01 00    ; jz r0 &next_char_impl_eof (+1)
-    7E 00 05 00    ; jz 0 &next_char_impl_not_eof (+5)
-
-;:next_char_impl_eof
-    ; at end of file, put -1 (as an int) into current_char and return
-    79 FF 8E 3C    ; stw -1 rpp 0x3C  ; current_char
-    70 8C 8D 00    ; add rsp rfp 0    ; mov rsp rfp   ; leave
-    78 8D 00 8C    ; ldw rfp 0 rsp    ; pop rfp       ; ^^^
-    70 8C 8C 04    ; add rsp rsp 4    ; ^^^           ; ^^^
-    78 8F 00 8C    ; ldw rip 0 rsp    ; ret
-
-;:next_char_impl_not_eof
+    ; r0 contains the number of bytes read.
 
     ; get the first character
     78 81 8E 48    ; ldw r1 rpp 0x48  ; input_buffer
@@ -1164,6 +1139,7 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+    00 00 00 00
 @0x6C0
 
 
@@ -1391,19 +1367,14 @@
     78 81 8D F8   ; ldw r1 rfp -8     ; data
     78 82 8D F4   ; ldw r2 rfp -12    ; remaining
 
-    ; get syscall fwrite into r7
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
-
-    ; make the syscall
-    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-    70 8B 8F 08    ; add rb rip 8     ; ^^^
-    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+    ; call syscall_fwrite()
+    7C 8A 00 00    ; ims ra <syscall_fwrite
+    7C 8A 50 1C    ; ims ra >syscall_fwrite (0x1C50)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; check if we got ERROR_TRY_LATER. if so loop
     71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
@@ -1427,8 +1398,9 @@
     7E 80 01 00   ; jz r0 &write_all_zero (+1)
     7E 00 05 00   ; jz 0 &write_all_not_zero (+5)
 ;:write_all_zero
-    ; zero bytes written. this should not be possible; the vm is
-    ; malfunctioning. fail, return generic error -1
+    ; Zero bytes written. This is not allowed on v4 VMs. On v3 VMs it could
+    ; mean try again, but it is more likely to mean the output stream is
+    ; closed, so it is not safe to loop. Fail, return generic error -1.
     70 80 00 FF     ; add r0 0 -1
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
@@ -1464,7 +1436,8 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x980
 
 
@@ -2499,24 +2472,45 @@
     79 8F 8D F0    ; stw rip rfp -16
 ;:read_all_loop
 
-    ; get syscall fread into r7
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fread syscall
+    ; prepare args to read
+    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
+    78 81 8D F8   ; ldw r1 rfp -8     ; buffer
+    78 82 8D F4   ; ldw r2 rfp -12    ; remaining
 
-    ; make the syscall
-    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-    70 8B 8F 08    ; add rb rip 8     ; ^^^
-    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+    ; call syscall_fread()
+    7C 8A 00 00    ; ims ra <syscall_fread
+    7C 8A 20 1C    ; ims ra >syscall_fread (0x1C20)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A 01 00    ; jz ra &read_all_try_later (+1)
+    7E 00 01 00    ; jz 0 &read_all_not_try_later (+1)
+;:read_all_try_later
+    78 8F 8D F0   ; ldw rip rfp -16  ; jump to :read_all_loop
+;:read_all_not_try_later
+
+    ; check for ERROR_END_OF_FILE (or zero, which in this case we interpret as
+    ; EOF for backwards compatibility)
+    71 8A 80 FA   ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A 02 00   ; jz ra &read_all_eof (+2)
+    7E 80 01 00   ; jz r0 &read_all_eof (+1)
+    7E 00 05 00   ; jz 0 &read_all_not_eof (+5)
+
+;:read_all_eof
+    ; return ERROR_END_OF_FILE
+    70 80 00 FA     ; add r0 0 'FA   ; r0 = ERROR_END_OF_FILE (in case it's zero)
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:read_all_not_eof
 
     ; check the high bit for error
-    ; TODO we should handle busy/wouldblock correctly (the VM spec will soon
-    ; allow this even for ordinary files.) the error code for it doesn't exist
-    ; yet.
     77 8A 80 1F   ; shru ra r0 31
     7E 8A 04 00   ; jz ra &read_all_no_error (+4)
     ; fail, return the error code
@@ -2525,20 +2519,6 @@
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 ;:read_all_no_error
-
-    ; check if we got zero
-    7E 80 01 00   ; jz r0 &read_all_zero (+1)
-    7E 00 05 00   ; jz 0 &read_all_not_zero (+5)
-;:read_all_zero
-    ; zero bytes read.
-    ; TODO a zero byte return won't be allowed soon. for now we interpret it as
-    ; EOF. return generic error code because EOF error doesn't exist yet.
-    70 80 00 FF     ; add r0 0 -1
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
-    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
-    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
-    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:read_all_not_zero
 
     ; adjust pointer and bytes remaining
     78 81 8D F8   ; ldw r1 rfp -8
@@ -2549,10 +2529,9 @@
     79 82 8D F4   ; stw r2 rfp -12
 
     ; if bytes remaining is zero, we're done
-    7E 82 02 00   ; jz r2 &read_all_loop_exit (+2)
+    7E 82 01 00   ; jz r2 &read_all_loop_exit (+1)
 
     ; otherwise loop.
-    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
     78 8F 8D F0   ; ldw rip rfp -16   ; jump to :read_all_loop
 
 ;:read_all_loop_exit
@@ -2566,9 +2545,6 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
 @0x1360
 
 
@@ -3880,19 +3856,28 @@
     70 8F 8E 8A    ; add rip rpp ra    ; jump
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; TODO handle EWOULDBLOCK, EOF
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A 01 00    ; jz ra &command_cp_copy_data_read_try_later (+1)
+    7E 00 01 00    ; jz 0 &command_cp_copy_data_read_not_try_later (+1)
+;:command_cp_copy_data_read_try_later
+    78 8F 8D EC   ; ldw rip rfp -20  ; jump to :command_cp_copy_data_loop
+;:command_cp_copy_data_read_not_try_later
 
-    ; check for a zero return value
-    7E 80 01 00   ; jz r2 &command_cp_copy_data_read_zero (+1)
-    7E 00 04 00   ; jz 0 &command_cp_copy_data_read_nonzero (+4)
+    ; check for ERROR_END_OF_FILE (or zero, which in this case we interpret as
+    ; EOF for backwards compatibility)
+    71 8A 80 FA   ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A 02 00   ; jz ra &command_cp_copy_data_read_eof (+2)
+    7E 80 01 00   ; jz r0 &command_cp_copy_data_read_eof (+1)
+    7E 00 04 00   ; jz 0 &command_cp_copy_data_read_not_eof (+4)
 
-;:command_cp_copy_data_read_zero
-    ; zero return is interpreted as EOF, we're done
+;:command_cp_copy_data_read_eof
+    ; end of file, we're done
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:command_cp_copy_data_read_nonzero
+;:command_cp_copy_data_read_not_eof
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
@@ -3946,9 +3931,6 @@
 ;:command_cp_copy_data_done
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
