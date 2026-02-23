@@ -4,6 +4,9 @@
 # Copyright (c) 2026 Fraser Heavy Software
 # This test case is part of the Onramp compiler project.
 
+# This script must be run in the Onramp shell to test that the shell will
+# prevent a child program from closing the shell's standard streams.
+
 echo Compiling test program to close stdout...
 mkdir -p output/test/sh
 onrampvm output/final/bin/cc.oe test/sh/test/close.c -o output/test/sh/close.oe

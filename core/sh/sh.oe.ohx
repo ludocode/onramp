@@ -109,7 +109,7 @@
 ;  1290  read_all
 ;  1360  command_onrampvm
 ;  1580  run_subprogram
-;  1630  cleanup_subprogram
+;  15F0  cleanup_subprogram
 ;  1640  skip_preamble
 ;  16D0  align_heap
 ;  1740  syscall_mkdir
@@ -128,7 +128,11 @@
 ;  1ED0  command_cp_copy_data
 ;  2040  error_vm_version
 ;  2070  init_child_pit
-;  22C0  end_of_program
+;  21A0  child_syscall_close
+;  22C0  child_syscall_open
+;  23B0  error_invalid_close
+;  23E0  close_child_handles
+;  24A0  end_of_program
 
 
 
@@ -173,9 +177,31 @@
 
 
 
+;==========================================
+; int* child_handles;
+;==========================================
+; An array of file handles the child has opened.
+;==========================================
+
+@0x28 =child_handles
+    EE EE EE EE
+@0x2C
+
+
+
+;==========================================
+; int child_handles_count;
+;==========================================
+; The number of file handles the child currently has open.
+;==========================================
+
+@0x2C =child_handles_count
+    EE EE EE EE
+@0x30
+
+
+
     ; unused vars
-    EE EE EE EE
-    EE EE EE EE
     EE EE EE EE
     EE EE EE EE
     EE EE EE EE
@@ -721,12 +747,16 @@
 ;
 ; A few variables are initialized separately in start() and allocate() before
 ; this. This initializes everything else.
+;
+; We need to initialize all variables here; we can't give them fixed values in
+; the bytecode because the program image is copied to run a subshell.
 ;==========================================
 
 @0x370 =initialize
     ; don't bother to set up a stack frame
 
     ; clear variables
+    79 00 8E 2C    ; stw 0 rpp 0x2C   ; child_handles_count
     79 00 8E 3C    ; stw 0 rpp 0x3C   ; current_char
     79 00 8E 50    ; stw 0 rpp 0x50   ; input_buffer_pos
     79 00 8E 54    ; stw 0 rpp 0x54   ; input_buffer_end
@@ -772,7 +802,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00
 @0x420
 
 
@@ -926,6 +955,12 @@
     79 82 8E 48   ; stw r2 rpp 0x48    ; input_buffer
     70 82 82 85   ; add r2 r2 r5
 
+    ; allocate 4 kB for our child handles
+    ; (we don't know the VM limit on open file handles so we allocate enough
+    ; for 1024.)
+    79 82 8E 28   ; stw r2 rpp 0x28    ; child_handles
+    70 82 82 85   ; add r2 r2 r5
+
     ; For the child PIT and child syscall table below, we always allocate both
     ; to the maximum size they could be. The sizes that will actually be used
     ; will depend on the version.
@@ -956,7 +991,6 @@
     78 8F 00 8C    ; ldw rip 0 rsp        ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
 @0x580
@@ -2832,16 +2866,8 @@
     ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00
-@0x1630
+@0x15F0
 
 
 
@@ -2849,16 +2875,37 @@
 ; void cleanup_subprogram(void)
 ;==========================================
 
-@0x1630 =cleanup_subprogram
+@0x15F0 =cleanup_subprogram
 
-    ; TODO close any open files and dirs, free allocs. For now this is just a
-    ; placeholder.
+    ; call close_child_handles()
+    7C 8A 00 00    ; ims ra <close_child_handles
+    7C 8A E0 23    ; ims ra >close_child_handles (0x23E0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
+    ; TODO free allocs
+;    ; call free_child_allocs()
+;    7C 8A 00 00    ; ims ra <free_child_allocs
+;    7C 8A ?0 ??    ; ims ra >free_child_allocs (0x???0)
+;    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+;    70 8B 8F 08    ; add rb rip 8
+;    79 8B 00 8C    ; stw rb 0 rsp
+;    70 8F 8E 8A    ; add rip rpp ra    ; jump
+;    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; done
     78 8F 00 8C    ; ldw rip 0 rsp      ; ret
 
     ; padding
     00 00 00 00 00 00 00 00
-    00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
 @0x1640
 
 
@@ -3208,6 +3255,13 @@
     79 8A 83 00    ; stw ra r3 0
     79 8E 83 04    ; stw rpp r3 4
 
+    ; proxy the open syscall
+    7C 8A 00 00    ; ims ra <child_syscall_open
+    7C 8A C0 22    ; ims ra >child_syscall_open (0x22C0)
+    70 8A 8E 8A    ; add ra rpp ra
+    79 8A 83 18    ; stw ra r3 24   (open is 3, times 8 is 24)
+    79 8E 83 1C    ; stw rpp r3 28
+
     ; proxy the close syscall
     7C 8A 00 00    ; ims ra <child_syscall_close
     7C 8A A0 21    ; ims ra >child_syscall_close (0x21A0)
@@ -3215,16 +3269,13 @@
     79 8A 83 20    ; stw ra r3 32   (close is 4, times 8 is 32)
     79 8E 83 24    ; stw rpp r3 36
 
-    ; TODO we'll need to proxy more syscalls, especially open and alloc/free to
+    ; TODO we'll need to proxy more syscalls, especially alloc/free to
     ; prevent leaks
 
     ; done
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
     ; padding for syscalls we'll soon add
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00
@@ -3285,7 +3336,7 @@
 
     ; get the size of the program
     7C 80 00 00    ; ims r0 <end_of_program
-    7C 80 C0 22    ; ims r0 >end_of_program (0x22C0)
+    7C 80 A0 24    ; ims r0 >end_of_program (0x24A0)
 
     ; make sure we have enough space, including space for the initial stack
     ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
@@ -3441,7 +3492,7 @@
 
     ; call cleanup_subprogram()
     7C 8A 00 00    ; ims ra <cleanup_subprogram
-    7C 8A 30 16    ; ims ra >cleanup_subprogram (0x1630)
+    7C 8A F0 15    ; ims ra >cleanup_subprogram (0x15F0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -3730,7 +3781,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 0A 00    ; jz ra &command_cp_open_dest_open_fail (+10)
+    7E 8A 0A 00    ; jz ra &command_cp_open_dest_open_ok (+10)
 
     ; failed to open destination file. tail-call error()
     70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
@@ -3743,7 +3794,7 @@
     7C 8A 00 00    ; ims ra <error
     7C 8A C0 0F    ; ims ra >error (0xFC0)
     70 8F 8E 8A    ; add rip rpp ra    ; jump
-;:command_cp_open_dest_open_fail
+;:command_cp_open_dest_open_ok
 
     ; save the destination file
     79 80 8D F8    ; stw r0 rfp -8
@@ -4080,6 +4131,7 @@
 ; the subprogram so we can clean up any leaks.
 ;
 ; vars:
+;   - handle: r0
 ;   - old rpp: rfp-4
 ;==========================================
 
@@ -4117,7 +4169,47 @@
     78 8F 00 8C    ; ldw rip 0 rsp     ; ret
 ;:child_syscall_close_not_std_stream
 
-    ; TODO match it up with a child open syscall and pop it from the list
+    ; find the handle in our list
+    78 81 8E 28   ; ldw r1 rpp 0x28   ; child_handles
+    78 82 8E 2C   ; ldw r2 rpp 0x2C   ; child_handles_count
+    70 83 00 00   ; add r3 0 0        ; i
+;:child_syscall_close_loop
+    ; (We don't actually need to do a bounds check because closing an invalid
+    ; handle is undefined behaviour. We do it anyway because it helps
+    ; debugging, and it's only 8 instructions plus the string.)
+    71 8A 83 82   ; sub ra r3 r2   ; bounds check
+    7E 8A 06 00   ; jz ra &child_syscall_close_fail (+6)
+    76 84 83 02   ; shl r4 r3 2
+    78 85 81 84   ; ldw r5 r1 r4
+    71 85 85 80   ; sub r5 r5 r0
+    7E 85 08 00   ; jz r5 &child_syscall_close_found (+8)
+    70 83 83 01   ; add r3 r3 1
+    7E 00 F8 FF   ; jz 0 &child_syscall_close_loop (-8)
+
+;:child_syscall_close_fail
+    ; no such file handle. fatal error
+    ; (TODO it doesn't really make sense for the shell to exit here. We should
+    ; either kill the child program and try to recover, or assume memory is
+    ; corrupt and panic. Maybe we should add an argument or flag to fatal() to
+    ; make it panic instead of exit.)
+    7C 80 00 00    ; ims r0 <error_invalid_close
+    7C 80 B0 23    ; ims r0 >error_invalid_close (0x23B0)
+    70 80 8E 80    ; add r0 rpp r0
+    7C 8A 00 00    ; ims ra <fatal
+    7C 8A 00 08    ; ims ra >fatal (0x800)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:child_syscall_close_found
+    ; decrement the size of the list
+    71 82 82 01   ; sub r2 r2 1
+    79 82 8E 2C   ; stw r2 rpp 0x2C   ; child_handles_count
+
+    ; replace the found child handle with the last one
+    ; (it's simpler to do this unconditionally even if it is already the last
+    ; handle.)
+    76 86 82 02   ; shl r6 r2 2
+    78 86 81 86   ; ldw r6 r1 r6   ; child_handles[child_handles_count]
+    79 86 81 84   ; stw r6 r1 r4   ; child_handles[i]
 
     ; call syscall_close()
     7C 8A 00 00    ; ims ra <syscall_close
@@ -4144,18 +4236,191 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
 @0x22C0
+
+
+
+;==========================================
+; int child_syscall_open(const char* path, bool writeable);
+;==========================================
+; Called by subprograms as their `open` syscall. We proxy it to keep track of
+; file handles left open by the subprogram so we can clean up any leaks.
+;
+; vars:
+; - old rpp: rfp-4
+;==========================================
+
+@0x22C0 =child_syscall_open
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 04     ; sub rsp rsp 4
+
+    ; our rpp is in r9. we need to preserve the old one
+    79 8E 8D FC    ; stw rpp rfp -4
+    70 8E 89 00    ; add rpp r9 0   ; mov rpp r9
+
+    ; our limit is 1024 open handles
+    78 85 8E 2C   ; ldw r5 rpp 0x2C   ; child_handles_count
+    76 86 01 0A   ; shl r6 1 10       ; 1 << 10 == 1024
+    71 86 86 85   ; sub r6 r6 r5
+    7E 86 01 00   ; jz r6 &child_syscall_open_count_overflow
+    7E 00 06 00   ; jz 0 &child_syscall_open_count_ok
+
+;:child_syscall_open_count_overflow
+    ; too many open file handles. return ERROR_OVERFLOW.
+    ; (This error code is new in v4 but we don't bother to check the VM
+    ; version because old programs will treat it as a generic error.)
+    70 80 00 F9    ; add r0 0 0xFFFFFFF9   ; ERROR_OVERFLOW
+    78 8E 8D FC    ; ldw rpp rfp -4  ; restore rpp
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+;:child_syscall_open_count_ok
+
+    ; call syscall_open
+    7C 8A 00 00    ; ims ra <syscall_open
+    7C 8A 90 1B    ; ims ra >syscall_open (0x1B90)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 01 00    ; jz ra &child_syscall_open_ok (+1)
+    7E 00 06 00    ; jz ra &child_syscall_open_fail (+6)
+
+;:child_syscall_open_ok
+    ; open succeeded. store the handle
+    78 85 8E 2C   ; ldw r5 rpp 0x2C   ; child_handles_count
+    78 84 8E 28   ; ldw r4 rpp 0x28   ; child_handles
+    76 86 85 02   ; shl r6 r5 2
+    79 80 84 86   ; stw r0 r4 r6
+
+    ; increment handle count
+    70 85 85 01   ; add r5 r5 1       ; inc r5
+    79 85 8E 2C   ; stw r5 rpp 0x2C   ; child_handles_count
+;:child_syscall_open_fail
+
+    ; done
+    78 8E 8D FC    ; ldw rpp rfp -4  ; restore rpp
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x23B0
+
+
+
+;==========================================
+; const char error_invalid_close[];
+;==========================================
+
+@0x23B0 =error_invalid_close
+    ; "ERROR: Invalid handle passed to close syscall." '0A '00
+    45 52 52 4f 52 3a 20 49  6e 76 61 6c 69 64 20 68
+  ;  E  R  R  O  R  :     I   n  v  a  l  i  d     h
+    61 6e 64 6c 65 20 70 61  73 73 65 64 20 74 6f 20
+  ;  a  n  d  l  e     p  a   s  s  e  d     t  o
+    63 6c 6f 73 65 20 73 79  73 63 61 6c 6c 2e 0a 00
+  ;  c  l  o  s  e     s  y   s  c  a  l  l  . \n \0
+@0x23E0
+
+
+
+;==========================================
+; void close_child_handles(void);
+;==========================================
+; Cleans up all handles the child program left open when it exited.
+;
+; vars:
+; - i: r1, rfp-4
+; - loop address: rfp-8
+;==========================================
+
+@0x23E0 =close_child_handles
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; initialize vars
+    70 81 00 00    ; add r1 0 0   ; zero r0
+    79 81 8D FC    ; stw r1 rfp -4    ; i
+
+    ; store the address to loop
+    79 8F 8D F8    ; stw rip rfp -8
+;:close_child_handles_loop
+
+    ; check for end of loop
+    78 81 8D FC   ; ldw r1 rfp -4     ; i
+    78 85 8E 2C   ; ldw r5 rpp 0x2C   ; child_handles_count
+    71 8A 85 81   ; sub ra r5 r1
+    7E 8A 0D 00   ; jz ra &close_child_handles_done (+13)
+
+    ; get the handle
+    76 82 81 02   ; shl r2 r1 2
+    78 83 8E 28   ; ldw r3 rpp 0x28   ; child_handles
+    78 80 83 82   ; ldw r0 r3 r2
+
+    ; increment index
+    70 81 81 01   ; add r1 r1 1   ; inc r1
+    79 81 8D FC   ; stw r1 rfp -4  ; i
+
+    ; call syscall_close()
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A B0 10    ; ims ra >syscall_close (0x10B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; loop.
+    78 8F 8D F8   ; ldw rip rfp -8   ; jump to :close_child_handles_loop
+;:close_child_handles_done
+
+    ; clear child handles
+    79 00 8E 2C   ; stw 0 rpp 0x2C    ; child_handles_count
+
+    ; done
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04    ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C    ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x24A0
 
 
 
@@ -4168,4 +4433,4 @@
 ; If you change this, make sure you change where it is used in command_sh()!
 ;==========================================
 
-@0x22C0 =end_of_program
+@0x24A0 =end_of_program
