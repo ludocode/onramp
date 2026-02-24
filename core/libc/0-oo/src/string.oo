@@ -176,7 +176,7 @@
     70 83 00 00              ; add r3 0 0            ; zero r3
 
     ; check whether we should copy down or up
-    7D 8A 80 81              ; ltu ra r0 r1
+    7D 8A 81 80              ; ltu ra r1 r0
     7E 8A &__memmove_up      ; jz ra &__memmove_up
 
     ; copy down
