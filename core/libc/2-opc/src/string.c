@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -82,20 +82,6 @@ void* memchr(const void* vdata, int c, size_t count) {
     return NULL;
 }
 
-int memcmp(const void* p1, const void* p2, size_t count) {
-    const unsigned char* c1 = (const unsigned char*)p1;
-    const unsigned char* c2 = (const unsigned char*)p2;
-    const unsigned char* end = c1 + count;
-    while (c1 != end) {
-        if (*c1 != *c2) {
-            return (int)(*c1) - (int)(*c2);
-        }
-        ++c1;
-        ++c2;
-    }
-    return 0;
-}
-
 int memlcmp(
         const void* v_a, size_t v_a_length,
         const void* v_b, size_t v_b_length)
@@ -163,26 +149,6 @@ void* memmem(const void* vhaystack, size_t haystack_length,
     return NULL;
 }
 
-void* memmove(void* vdest, const void* vsrc, size_t count) {
-    void* start = vdest;
-    const unsigned char* src = (const unsigned char*)vsrc;
-    unsigned char* dest = (unsigned char*)vdest;
-    if (dest < src) {
-        // TODO vectorize
-        unsigned char* end = dest + count;
-        while (dest != end)
-            *dest++ = *src++;
-    } else if (dest > src) {
-        // TODO vectorize
-        unsigned char* end = dest;
-        dest += count;
-        src += count;
-        while (dest != end)
-            *--dest = *--src;
-    }
-    return start;
-}
-
 void* mempcpy(void* restrict dest, const void* restrict src, size_t n) {
     memmove(dest, src, n);
     return (char*)dest + n;
@@ -196,18 +162,6 @@ void* memrchr(const void* vdata, int c, size_t count) {
         if (data[i] == c)
             ret = (char*)(data + i);
     return ret;
-}
-
-void* memset(void* vdest, int c, size_t count) {
-    /* TODO test this */
-    // TODO vectorize
-    unsigned char* restrict dest = (unsigned char*)vdest;
-    unsigned char* start = dest;
-    unsigned char* end = dest + count;
-    unsigned char uc = (unsigned char)c;
-    while (dest != end)
-        *dest++ = uc;
-    return start;
 }
 
 char* stpcpy(char* restrict dest, const char* restrict src) {
@@ -247,17 +201,6 @@ char* strcat(char* restrict dest, const char* restrict src) {
     return original_dest;
 }
 
-char* strchr(const char* s, int c) {
-    for (;;) {
-        if (*s == c)
-            return (char*)s;
-        if (*s == 0)
-            break;
-        ++s;
-    }
-    return NULL;
-}
-
 char* strchrnul(const char* s, int c) {
     while (*s != 0) {
         if (*s == c)
@@ -265,28 +208,6 @@ char* strchrnul(const char* s, int c) {
         ++s;
     }
     return (char*)s;
-}
-
-int strcmp(const char* a, const char* b) {
-    while (*a == *b) {
-        if (*a == 0)
-            return 0;
-        ++a;
-        ++b;
-    }
-    return (int)(unsigned char)(*a) - (int)(unsigned char)(*b);
-}
-
-char* strcpy(char* restrict dest, const char* restrict src) {
-    char* original_dest = dest;
-    for (;;) {
-        *dest = *src;
-        if (*src == 0)
-            break;
-        ++dest;
-        ++src;
-    }
-    return original_dest;
 }
 
 size_t strcspn(const char* s, const char* reject) {
@@ -361,13 +282,6 @@ size_t strlcpy(char* restrict to,
     while (*from)
         ++from;
     return (size_t)((const char*)from - from_start); // TODO (const char*) cast should not be necessary
-}
-
-size_t strlen(const char* s) {
-    const char* end = s;
-    while (*end != 0)
-        ++end;
-    return (size_t)(end - s);
 }
 
 char* strncat_impl(char* restrict dest, const char* restrict src, size_t n) {
@@ -528,31 +442,6 @@ char* strtok_r(char* restrict v_str,
     return ret;
 }
 
-/* TODO currently included in libc/0 malloc_util
-void* __memdup(const void* src, size_t size) {
-    if (src == NULL)
-        return NULL;
-    void* dest = malloc(size);
-    if (dest == NULL)
-        return NULL;
-    memmove(dest, src, size);
-    return dest;
-}
-*/
-
-
-
-/*
- * When <string.h> is included, bcmp() and memcpy() are aliased to memcmp() and
- * memmove(). We still need to provide definitions when bootstrapping because
- * they are used by bytecode/assembly.
- */
-// TODO we should #ifdef these out when doing the final rebuild
-
 int bcmp(const void* a, const void* b, size_t count) {
     return memcmp(a, b, count);
-}
-
-void* memcpy(void* dest, const void* src, size_t count) {
-    return memmove(dest, src, count);
 }

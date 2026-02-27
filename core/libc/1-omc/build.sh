@@ -36,6 +36,13 @@ echo === Building libc/1-omc
 
 
 
+echo Assembling libc/1-omc string-fast.os
+onrampvm output/intermediate/as-1-compound/as.oe \
+    core/libc/1-omc/src/string-fast.os \
+    -o output/intermediate/libc-1-omc/string-fast.oo
+
+
+
 echo Preprocessing libc/1-omc strtol.c
 onrampvm output/intermediate/cpp-1-omc/cpp.oe \
     -D__onramp__=1 \
@@ -102,7 +109,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
     core/libc/0-oo/src/stdio.oo \
-    core/libc/0-oo/src/string.oo \
     \
+    output/intermediate/libc-1-omc/string-fast.oo \
     output/intermediate/libc-1-omc/strrchr.oo \
     output/intermediate/libc-1-omc/strtol.oo

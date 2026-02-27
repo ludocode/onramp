@@ -98,6 +98,8 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
     \
+    output/intermediate/libc-1-omc/string-fast.oo \
+    \
     output/intermediate/libc-2-opc/assert.oo \
     output/intermediate/libc-2-opc/ctype.oo \
     output/intermediate/libc-2-opc/environ.oo \

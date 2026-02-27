@@ -298,6 +298,8 @@ comment "libc/3-full"
 srcs_onramp libc-3-full \
     core/libc/2-opc/src/start.os \
     \
+    core/libc/1-omc/src/string-fast.os \
+    \
     core/libc/2-opc/src/assert.c \
     core/libc/2-opc/src/ctype.c \
     core/libc/2-opc/src/environ.c \

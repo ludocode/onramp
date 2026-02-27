@@ -67,6 +67,8 @@ OBJS_ALL=\
 		$(ROOT)/core/libc/0-oo/src/errno.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
+		$(BUILD1)/string-fast.oo \
+		\
 		$(BUILD2)/assert.oo \
 		$(BUILD2)/ctype.oo \
 		$(BUILD2)/environ.oo \

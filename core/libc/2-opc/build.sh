@@ -149,6 +149,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
     \
+    output/intermediate/libc-1-omc/string-fast.oo \
     output/intermediate/libc-1-omc/strtol.oo \
     \
     output/intermediate/libc-2-opc/assert.oo \

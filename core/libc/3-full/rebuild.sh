@@ -30,6 +30,15 @@ echo
 echo === Rebuilding libc/3-full
 
 
+# libc/1 sources
+
+echo Assembling libc/1-omc string-fast.os
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/1-omc/src/string-fast.os \
+    -o output/intermediate/libc-3-full-re/string-fast.oo
+
+
 # libc/2 sources
 
 echo Assembling libc/2-opc start.os
@@ -210,6 +219,8 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
+    \
+    output/intermediate/libc-3-full-re/string-fast.oo \
     \
     output/intermediate/libc-3-full-re/assert.oo \
     output/intermediate/libc-3-full-re/ctype.oo \

@@ -53,6 +53,8 @@ OBJS=\
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
+		$(OUT)/string-fast.oo \
+		\
 		$(OUT)/assert.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
@@ -120,6 +122,11 @@ $(TOOL_AS): FORCE
 $(TOOL_LD): FORCE
 	@(make -C ../../ld/2-full build)
 
+
+$(OUT)/string-fast.oo: $(SRC1)/string-fast.os Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(TOOL_CC) $(CCARGS) -c $(SRC1)/string-fast.os -o $@
 
 $(OUT)/start.oo: $(SRC2)/start.os Makefile
 	@rm -f $@
@@ -234,6 +241,7 @@ $(OUT)/system.oo: $(SRC2)/system.c Makefile
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/system.c -o $@
 
 
+# TODO why are we using strtol from SRC3? shouldn't it be SRC1?
 $(OUT)/strtol.oo: $(SRC3)/strtol.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)

@@ -45,8 +45,8 @@ OBJS=\
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		$(ROOT)/core/libc/0-oo/src/stdio.oo \
-		$(ROOT)/core/libc/0-oo/src/string.oo \
 		\
+		$(OUT)/string-fast.oo \
 		$(OUT)/strrchr.oo \
 		$(OUT)/strtol.oo \
 
@@ -86,6 +86,11 @@ $(TOOL_AS): FORCE
 $(TOOL_LD): FORCE
 	@(make -C ../../ld/2-full build)   # TODO ld/1 build
 
+
+$(OUT)/string-fast.oo: $(SRC)/string-fast.os Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/string-fast.os -o $@
 
 $(OUT)/strrchr.oo: $(SRC)/strrchr.c Makefile
 	@rm -f $@
