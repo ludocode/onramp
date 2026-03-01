@@ -24,7 +24,13 @@
 
 ; This is a copy of libc/0 string.oo with the bytecode replaced by assembly.
 ;
-; Eventually these functions will be optimized.
+; Some of these are optimized for better performance.
+;
+; The null-terminated string functions (like strlen()) assume that for any byte
+; that is readable, the word that contains it is also readable. This means all
+; memory regions must be aligned to a 4-byte boundary. This will be required in
+; the v4 spec; it wasn't explicit in earlier versions but we assume they
+; provide the same guarantee.
 
 
 
@@ -44,15 +50,76 @@
 
 =strlen
     ; don't bother to set up a stack frame
-    ; we accumulate the count in r1, then move it to r0
+
+    ; Start with a zero count
     zero r1
+
+    ; Align the pointer to the next word, storing the alignment in r2
+    and r2 r0 3
+    jz r2 &__strlen_aligned
+    add r8 r0 3
+    and r8 r8 -4
+
+    ; Our starting count is negative alignment; if a null-terminator is found
+    ; we add alignment back in the jump table below.
+    sub r1 0 r2
+
+    ; Jump based on the alignment of the pointer
+    shl r3 r2 3       ; jump two instructions (8 bytes) per alignment
+    add rip rip r3
+
+    ; This is our jump table. Non-zero cases fall through.
+    0                         ; alignment 0 (unused)
+    0
+    ldb r9 r8 -3              ; alignment 1
+    jz r9 &__strlen_null_1
+    ldb r9 r8 -2              ; alignment 2
+    jz r9 &__strlen_null_2
+    ldb r9 r8 -1              ; alignment 3
+    jz r9 &__strlen_null_3
+
+    ; No null-terminator in the first few bytes. Our starting count is the
+    ; inverse of the alignment.
+    sub r1 4 r2
+
+:__strlen_aligned
+
+    ; Set up masks in r3-r7
+    shru r3 -1 24   ; r3 = 0x000000ff
+    shl r4 r3 8     ; r4 = 0x0000ff00
+    shl r5 r3 16    ; r5 = 0x00ff0000
+    shl r6 r3 24    ; r6 = 0xff000000
+
+    ; Now we loop on words, checking each byte. Each iteration takes 11
+    ; instructions to check for null bytes (with just a single load
+    ; instruction), as opposed to 16 instructions (four of them loads) if we
+    ; were to loop on bytes.
 :__strlen_loop
-    ldb ra r0 r1
-    jz ra &__strlen_done
-    inc r1
-    jz 0 &__strlen_loop
-:__strlen_done
-    mov r0 r1
+    ldw r2 r0 r1
+    and r9 r2 r3
+    jz r9 &__strlen_null_0
+    and r9 r2 r4
+    jz r9 &__strlen_null_1
+    and r9 r2 r5
+    jz r9 &__strlen_null_2
+    and r9 r2 r6
+    jz r9 &__strlen_null_3
+    add r1 r1 4
+    jmp &__strlen_loop
+
+    ; These are the function exits used once we've found a null-terminator. The
+    ; suffix indicates at what byte offset it was found.
+:__strlen_null_0
+    add r0 r1 0
+    ret
+:__strlen_null_1
+    add r0 r1 1
+    ret
+:__strlen_null_2
+    add r0 r1 2
+    ret
+:__strlen_null_3
+    add r0 r1 3
     ret
 
 
