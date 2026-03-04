@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2026 Fraser Heavy Software
+# Copyright (c) 2023-2024 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -24,22 +24,10 @@
 
 # This wrapper script is part of the Onramp compiler project. It runs the
 # Onramp compiler driver, telling it to produce Onramp binaries wrapped to run
-# in a POSIX environment. If the driver produces an executable, we give it
-# execute permissions with chmod.
+# in a POSIX environment.
 
 exec \
     "$(dirname "$0")"/onrampvm \
     "$(dirname "$0")"/../share/onramp/bin/cc.oe \
     -wrap-header="$(dirname "$0")"/../share/onramp/platform/wrap-header  \
-    -print-linked-executable \
-    "$@" \
-| while read LINE; do
-    case "$LINE" in
-        "Linked executable: "*)
-            chmod +x "${LINE#*: }"
-            ;;
-        *)
-            echo $LINE
-            ;;
-    esac
-done
+    "$@"
