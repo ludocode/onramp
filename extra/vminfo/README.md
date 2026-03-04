@@ -18,3 +18,23 @@ This tool is not part of the core bootstrap but it is nevertheless written direc
 - It can be run in all versions of the Onramp VM (though it may print less information on very old versions.)
 
 The tool prints most numbers in both hexadecimal and decimal. In some cases the decimal representation assumes numbers are in signed two's complement. This is not a requirement of the VM spec; the VM only needs to implement unsigned math. We just assume for convenience that large unsigned numbers are best represented as negative decimals.
+
+
+
+## Child Programs
+
+This tool can also be used to see what parent programs pass to their children. For example, to see the environment of a program running under the shell:
+
+```
+echo 'onrampvm output/final/bin/vminfo.oe a b c' | onrampvm output/configure/sh/sh.oe /dev/stdin
+```
+
+Or, to see the environment of a subprogram of [`cc`](../../core/cc/):
+
+```
+touch /tmp/a.c && onrampcc -with-cpp=output/final/bin/vminfo.oe /tmp/a.c -o /tmp/a.oe
+```
+
+(Of course this latter command will fail, but not before printing the environment used to run the preprocessor.)
+
+This can be useful to see the command-line arguments, proxied syscalls, and so on.
