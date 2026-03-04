@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -54,41 +54,33 @@
     ; We have to check the version before we do anything else. The VM spec has
     ; gone through several versions in which the instruction set and syscall
     ; mechanism have changed so it is not safe to run compiled C code until we
-    ; know we have a supported VM. (We can't even safely do a less-than check
-    ; because the comparison instruction has changed!)
+    ; know we have a supported VM.
 
-    ; Version history:
-    ; - 0: last experimental version before numbering
-    ; - 1: replaced cmpu instruction with ltu
-    ; - 2: replaced exit address with syscall table at pit[2]
-    ; - 3: added pit count and syscall count to pit
-
-    ; Check that VM version is 3
+    ; Get the version
     ldw r1 r0 0
-    sub r2 r1 3
-    jnz r2 &__start_version_fail
 
-    ; Version is good, jump into C
+    ; Versions 0 and 1 are not supported. (We have to check version 0 before
+    ; we can use ltu because it had a different comparison instruction.)
+    jz r1 &__start_version_0_or_1
+    sub r2 r1 1
+    jz r2 &__start_version_0_or_1
+
+    ; Versions greater than 4 are not supported.
+    ltu r1 4 r1
+    jz r1 &__start_version_ok
+    jmp ^__vm_version_unknown
+
+:__start_version_ok
+    ; Versions 2, 3 and 4 are supported. Version is good, jump into C.
     mov r1 rsp
     jmp ^__start_c
 
-:__start_version_fail
-    ; Version check failed. We need to see if we recognize the version. We
-    ; can't use ltu until we've confirmed the version is at least 1.
-
-    ; Check VM version 0
-    jnz r1 &__start_vm_not_0
+:__start_version_0_or_1
     jmp ^__vm_version_0_or_1
-:__start_vm_not_0
 
-    ; Check VM version 1
-    sub r2 r1 1
-    jnz r2 &__start_vm_not_1
-    jmp ^__vm_version_0_or_1
-:__start_vm_not_1
 
-    ; Version 2 or unknown version
-    jmp ^__vm_version_other
+
+
 
 
 
@@ -132,7 +124,7 @@
 
 
 ; ==========================================================
-; void __call_constructor(int argc, char** argv, char** envp, void* func);
+; void __call_constructor(int argc, char** argv, char** envp, uintptr_t rel_func);
 ; ==========================================================
 ; A helper to call a constructor function.
 ;
@@ -147,7 +139,7 @@
 
 
 ; ==========================================================
-; void __call_destructor(void* func);
+; void __call_destructor(uintptr_t rel_func);
 ; ==========================================================
 ; A helper to call a destructor function.
 ;
@@ -177,9 +169,8 @@
 ; Exits on VM version 0 or 1 with an error indicating that the VM version is
 ; not supported.
 ;
-; The only difference between VM versions 0 and 1 is the cmpu/ltu instruction.
-; As long as we avoid it here we can use the same error handler on both
-; versions.
+; In order to work on both versions, we avoid the instructions that have
+; changed (ltu, shl and shru) in this function.
 ;
 ; There aren't automated tests for old VM versions so don't change this without
 ; lots of manual testing.
@@ -262,12 +253,12 @@
 
 
 ; ==========================================================
-; [[noreturn]] void __vm_version_other(uint32_t* process_info_table);
+; [[noreturn]] void __vm_version_unknown(uint32_t* process_info_table);
 ; ==========================================================
 ; Exits with an error indicating that the VM version is not supported.
 ;
-; This is called on VM version 2, or VM versions higher than expected. It
-; prints an error message and exits through the system call table.
+; This is called on VM versions higher than expected. It attempts to print an
+; error message and exit through the system call table.
 ;
 ; This won't work correctly if anything used below is changed. Hopefully future
 ; VM versions will remain backwards compatible with the below instructions.
@@ -283,7 +274,7 @@
 ; - rfp-20: rpp
 ; ==========================================================
 
-=__vm_version_other
+=__vm_version_unknown
 
     ; set up a stack frame
     enter

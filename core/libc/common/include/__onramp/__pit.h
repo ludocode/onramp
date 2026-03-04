@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,6 +35,7 @@ extern int* __process_info_table;
 extern unsigned* __process_info_table;
 #endif
 
+// These fields are available in any supported version.
 #define __ONRAMP_PIT_VERSION 0
 #define __ONRAMP_PIT_BREAK 1
 #define __ONRAMP_PIT_SYSCALLS 2
@@ -45,14 +46,19 @@ extern unsigned* __process_info_table;
 #define __ONRAMP_PIT_ENVIRON 7
 #define __ONRAMP_PIT_WORKDIR 8
 #define __ONRAMP_PIT_CAPABILITIES 9
-#define __ONRAMP_PIT_COUNT 10
+
+// These are version-specific. Check the major version before accessing them.
+#define __ONRAMP_PIT_SYSCALL_COUNT 10  // v3
+#define __ONRAMP_PIT_PIT_COUNT 11 // v3
+#define __ONRAMP_PIT_MINOR_VERSION 10 // v4
+#define __ONRAMP_PIT_ADDITIONAL_MEMORY_REGIONS 11 // v4
 
 /**
  * Capabilities flags
  */
-
 #define __ONRAMP_CAPABILITIES_INPUT_ECHO           (1 << 0)
 #define __ONRAMP_CAPABILITIES_INPUT_BLOCKING       (1 << 1)
 #define __ONRAMP_CAPABILITIES_INPUT_LINE_ORIENTED  (1 << 2)
+#define __ONRAMP_CAPABILITIES_INTERACTIVE          (1 << 3)
 
 #endif
