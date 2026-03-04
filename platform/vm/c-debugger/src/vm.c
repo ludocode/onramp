@@ -588,7 +588,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm->memory_size = 16 * 1024 * 1024;
 
     vm->running = true;
-    vm->version = 4;
+    vm->version = 3;
 
     // allocate and dead-fill memory
     vm->memory = vm_ghost_alloc_array(uint8_t, vm->memory_size);
