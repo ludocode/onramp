@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -416,6 +416,8 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push c
     79 80 00 8C     ; stw r0 0 rsp      ; ...
 
+;:putchar_try_again
+
     ; prepare args for fwrite(stdout, rsp, 1);
     78 89 8E 60    ; ldw r9 rpp '60 (process_info_table)
     78 80 89 10    ; ldw r0 r9 16     ; r0 = pit[STDOUT]
@@ -435,8 +437,12 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; check the high bit for error
-    77 8A 80 1F   ; shru ra r0 31
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A F1 FF    ; jz ra &putchar_try_again (-15)
+
+    ; otherwise the return value must be 1
+    71 8A 80 01   ; sub ra r0 1
     7E 8A 05 00   ; jz ra &putchar_no_error (+5)
     ; fail, exit(1)
     70 80 00 01   ; add r0 0 1        ; exit code 1
@@ -453,7 +459,6 @@
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00

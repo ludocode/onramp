@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 
@@ -261,7 +261,19 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; check the high bit for error
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A 01 00    ; jz ra &read_file_try_later (+1)
+    7E 00 01 00    ; jz 0 &read_file_not_try_later (+1)
+;:read_file_try_later
+    78 8F 8D F4   ; ldw rip rfp -12   ; jump to :read_file_loop
+;:read_file_not_try_later
+
+    ; check for ERROR_END_OF_FILE
+    71 8A 80 FB    ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A 0B 00    ; jz ra &read_file_done (+11)
+
+    ; check the high bit for other errors
     77 8A 80 1F   ; shru ra r0 31
     7E 8A 04 00   ; jz ra &read_file_ok (+4)
     ; fail, exit(2)
@@ -272,6 +284,7 @@
 ;:read_file_ok
 
     ; if we got zero, it's eof
+    ; TODO this is not allowed on v4, replace this with error once VMs are upgraded
     7E 80 04 00   ; jz r0 &read_file_done (+4)
 
     ; add and loop
@@ -291,7 +304,8 @@
 
     ; padding
     00 00 00 00 00 00 00 00
-@0x200
+    00 00 00 00 00 00 00 00
+@0x220
 
 
 
@@ -301,7 +315,7 @@
 ; Compares the contents of the file to that expected.
 ;==========================================
 
-@0x200 =compare_file
+@0x220 =compare_file
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
@@ -348,10 +362,6 @@
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
@@ -411,7 +421,7 @@
     ; call compare_file(fd)
     78 80 8D FC    ; ldw r0 rfp -4
     7C 8A 00 00    ; ims ra <compare_file
-    7C 8A 00 02    ; ims ra >compare_file (0x200)
+    7C 8A 20 02    ; ims ra >compare_file (0x220)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp

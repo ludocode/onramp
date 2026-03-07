@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2025 Fraser Heavy Software
+; Copyright (c) 2025-2026 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 @0x00 =__start
@@ -12,12 +12,20 @@
     70 89 80 00   ; add r9 r0 0
 
     ; load version
-    78 81 89 00   ; ldw r1 r9 0
+    78 88 89 00   ; ldw r8 r9 0
 
-    ; the current version is 3. make sure the version matches
+    ; the current version is 4. make sure the version matches
     ; (set r0 to 0 if match, 1 if no match)
-    71 81 81 03   ; sub r1 r1 3
+    71 81 88 04   ; sub r1 r8 4
     7D 80 00 81   ; ltu r0 0 r1    ; bool r0 r1
+
+        ; TODO: we also temporarily accept 3 until the v4 branch is merged and all
+        ; VMs are upgraded.
+        71 82 88 03   ; sub r2 r8 3
+        7D 82 00 82   ; ltu r2 0 r2    ; bool r2 r2
+        74 80 80 82   ; and r0 r0 r2
+
+    ; TODO check minor version
 
     ; syscall exit
     78 88 89 08   ; ldw r8 r9 8   ; r8 = syscall table

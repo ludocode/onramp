@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2025 Fraser Heavy Software
+; Copyright (c) 2025-2026 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 ; This test ensures that the whole syscall table is accessible with ldw. We
@@ -26,8 +26,10 @@
     ; get the syscall table
     78 88 89 08   ; ldw r8 r9 8   ; r8 = syscall table
 
-    ; calculate the size of the syscall table. each syscall is eight bytes.
-    78 87 89 28   ; ldw r1 r9 40   ; r7 = pit[10]
+    ; calculate the size of the syscall table.
+    ; there are currently 25 entries; each entry is eight bytes.
+    ; TODO this should depend on minor version. we should check it and error if it's unsupported.
+    70 87 00 19   ; add r7 0 25
     72 80 87 08   ; mul r0 r7 8
 
     ; clear other vars
