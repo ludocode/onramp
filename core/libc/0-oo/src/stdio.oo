@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -764,10 +764,13 @@
     ; initialize vars
     79 80 8D FC     ; stw r0 rfp -4    ; file
 
+:__file_fill_try_later
+
     ; setup args for syscall fread(file->handle, file->buffer, 4096)
-    78 81 80 08   ; ldw r1 r0 8   ; r1 = file->buffer
-    78 80 80 00   ; ldw r0 r0 0   ; r0 = file->handle
-    76 82 01 0C   ; shl r2 1 12   ; r2 = 4096
+    78 80 8D FC   ; ldw r0 rfp -4   ; r0 = file
+    78 81 80 08   ; ldw r1 r0 8     ; r1 = file->buffer
+    78 80 80 00   ; ldw r0 r0 0     ; r0 = file->handle
+    76 82 01 0C   ; shl r2 1 12     ; r2 = 4096
 
     ; get syscall fread into r7
     7C 8A <__process_info_table    ; ims ra <__process_info_table
@@ -785,10 +788,27 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB                    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A &__file_fill_try_later   ; jz ra &__file_fill_try_later
+
+    ; check for ERROR_END_OF_FILE (or zero, which in this case we interpret as
+    ; EOF for backwards compatibility)
+    71 8A 80 FA              ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A &__file_fill_eof   ; jz ra &__file_fill_eof
+    7E 80 &__file_fill_eof   ; jz r0 &__file_fill_eof
+
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
     7E 8A &__file_fill_syscall_ok     ; jz ra &__file_fill_syscall_ok
     7E 00 &__file_fill_syscall_fail   ; jz ra &__file_fill_syscall_fail
+
+:__file_fill_eof
+
+    ; at end of file, just set the count to zero. this will empty
+    ; the buffer and return zero.
+    70 80 00 00     ; add r0 0 0    ; zero r0
+
 :__file_fill_syscall_ok
 
     ; configure buffer
@@ -996,6 +1016,11 @@
 
 :__write_all_loop
 
+    ; get args
+    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
+    78 81 8D F8   ; ldw r1 rfp -8     ; data
+    78 82 8D F4   ; ldw r2 rfp -12    ; remaining
+
     ; get syscall fwrite into r7
     7C 8A <__process_info_table    ; ims ra <__process_info_table
     7C 8A >__process_info_table    ; ims ra >__process_info_table
@@ -1012,7 +1037,11 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; check the high bit for error
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB               ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A &__write_all_loop   ; jz ra &__write_all_loop
+
+    ; check the high bit for other errors
     77 8A 80 1F                   ; shru ra r0 31
     7E 8A &__write_all_no_error   ; jz ra &__write_all_no_error
     7E 00 &__write_all_fail       ; jz 0 &__write_all_fail
@@ -1021,10 +1050,10 @@
     ; check if we got zero
     7E 80 &__write_all_zero       ; jz r0 &__write_all_zero
     7E 00 &__write_all_not_zero   ; jz 0 &__write_all_not_zero
-
 :__write_all_zero
-    ; zero bytes written. this should not be possible; the vm is
-    ; malfunctioning. fail, return generic error -1
+    ; Zero bytes written. This is not allowed on v4 VMs. On v3 VMs it could
+    ; mean try again, but it is more likely to mean the output stream is
+    ; closed, so it is not safe to loop. Fail, return generic error -1.
     70 80 00 FF     ; add r0 0 -1
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
