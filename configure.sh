@@ -495,13 +495,19 @@ setup_misc() {
     # Hex our Onramp bytecode hex tool
     echo "Hexing hex/onramp..."
     mkdir -p output/configure/hex-0-onramp
-    output/configure/onramphex core/hex/0-onramp/hex.oe.ohx -o output/configure/hex-0-onramp/hex.oe
+    if ! output/configure/onramphex core/hex/0-onramp/hex.oe.ohx -o output/configure/hex-0-onramp/hex.oe ; then
+        echo "ERROR: Failed to hex hex/onramp with the configured hex tool."
+        exit 1
+    fi
 
     # Hex our Onramp shell (with our bytecode tool because it is much faster
     # than the shell hex tool)
     echo "Hexing sh..."
     mkdir -p output/configure/sh
-    output/posix/bin/onrampvm output/configure/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/configure/sh/sh.oe
+    if ! output/posix/bin/onrampvm output/configure/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/configure/sh/sh.oe ; then
+        echo "ERROR: Failed to hex sh with hex/onramp."
+        exit 1
+    fi
 
     # copy POSIX wrappers into place
     # (The tools won't work until the build is complete but it's simpler to
