@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -116,7 +116,9 @@
 ;  1450  fatal
 ;  14E0  write_all
 ;  15D0  flush
-;  1660  read_char
+;  1660  next_char
+;  17A0  syscall_read
+;  17D0  syscall_write
 
 
 
@@ -333,12 +335,16 @@
 
 
 
-    ; padding for moved symbols
+    ; extra space for global vars
     00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
+
+
+
+    ; padding
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 
@@ -1429,8 +1435,8 @@
     79 8A 8E 38    ; stw ra rpp 0x38    ; current_address
 
     ; consume the character
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1483,8 +1489,8 @@
     70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
     ; consume the second hex character
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1534,8 +1540,8 @@
 ;:try_parse_comment_loop
 
     ; consume the character
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1604,8 +1610,8 @@
 ;:try_parse_whitespace_true
 
     ; it's whitespace. consume it
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1637,8 +1643,8 @@
 
     ; the previous character was either a definition or invocation symbol. we
     ; start by consuming it.
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -1687,8 +1693,8 @@
     79 81 00 8C     ; stw r1 0 rsp
 
     ; consume the char, read another
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2573,8 +2579,8 @@
     79 00 8E 54     ; stw 0 rpp 0x54  ; input_buffer_end
 
     ; read the first character
-    7C 8A 00 00    ; ims ra <read_char
-    7C 8A 60 16    ; ims ra >read_char (0x1660)
+    7C 8A 00 00    ; ims ra <next_char
+    7C 8A 60 16    ; ims ra >next_char (0x1660)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2800,29 +2806,37 @@
 
     ; store args
     71 8C 8C 10     ; sub rsp rsp 16
-    79 80 8D FC     ; stw r0 rfp -4
-    79 81 8D F8     ; stw r1 rfp -8
-    79 82 8D F4     ; stw r2 rfp -12
+    79 80 8D FC     ; stw r0 rfp -4   ; io_handle
+    79 81 8D F8     ; stw r1 rfp -8   ; data
+    79 82 8D F4     ; stw r2 rfp -12  ; remaining
 
     ; store the address to loop
     79 8F 8D F0    ; stw rip rfp -16
 ;:write_all_loop
 
-    ; get syscall fwrite into r7
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 06 03   ; shl ra 6 3        ; ra = offset of fwrite syscall (6<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fwrite syscall
+    ; get args
+    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
+    78 81 8D F8   ; ldw r1 rfp -8     ; data
+    78 82 8D F4   ; ldw r2 rfp -12    ; remaining
 
-    ; make the syscall
-    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-    70 8B 8F 08    ; add rb rip 8     ; ^^^
-    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+    ; call syscall_write()
+    7C 8A 00 00    ; ims ra <syscall_write
+    7C 8A D0 17    ; ims ra >syscall_write (0x17D0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; check the high bit for error
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A 01 00    ; jz ra &write_all_try_later (+1)
+    7E 00 01 00    ; jz 0 &write_all_not_try_later (+1)
+;:write_all_try_later
+    78 8F 8D F0   ; ldw rip rfp -16   ; jump to :write_all_loop
+;:write_all_not_try_later
+
+    ; check the high bit for other errors
     77 8A 80 1F   ; shru ra r0 31
     7E 8A 04 00   ; jz ra &write_all_no_error (+4)
     ; fail, return the error code
@@ -2836,8 +2850,9 @@
     7E 80 01 00   ; jz r0 &write_all_zero (+1)
     7E 00 05 00   ; jz 0 &write_all_not_zero (+5)
 ;:write_all_zero
-    ; zero bytes written. this should not be possible; the vm is
-    ; malfunctioning. fail, return generic error -1
+    ; Zero bytes written. This is not allowed on v4 VMs. On v3 VMs it could
+    ; mean try again, but it is more likely to mean the output stream is
+    ; closed, so it is not safe to loop. Fail, return generic error -1.
     70 80 00 FF     ; add r0 0 -1
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
@@ -2854,10 +2869,9 @@
     79 82 8D F4   ; stw r2 rfp -12
 
     ; if bytes remaining is zero, we're done
-    7E 82 02 00   ; jz r2 &write_all_loop_exit (+2)
+    7E 82 01 00   ; jz r2 &write_all_loop_exit (+1)
 
     ; otherwise loop.
-    78 80 8D FC   ; ldw r0 rfp -4     ; io_handle
     78 8F 8D F0   ; ldw rip rfp -16   ; jump to :write_all_loop
 
 ;:write_all_loop_exit
@@ -2876,8 +2890,6 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00
 @0x15D0
 
 
@@ -2948,17 +2960,16 @@
 
 
 ;==========================================
-; void read_char(void);
+; void next_char(void);
 ;==========================================
 ; Reads a character, or -1 if the end of the file has been reached, into
 ; current_char.
 ;
 ; Note that this does not return the character. This is usually called after
-; parsing a character in order to consume it. This might have been better named
-; consume_char().
+; parsing a character in order to consume it.
 ;==========================================
 
-@0x1660 =read_char
+@0x1660 =next_char
 
 ;; print the previous character
 ;78 80 8E 3C    ; ldw r0 rpp 0x3C    ; current_char
@@ -2982,10 +2993,10 @@
     ; check anyway just to make sure)
     78 80 8E 3C     ; ldw r0 rpp 0x3C  ; current_char
     71 82 82 FF     ; sub r2 r2 -1
-    7E 82 01 00     ; jz r2 &read_char_already_eof (+1)
-    7E 00 04 00     ; jz 0 &read_char_not_already_eof (+4)
+    7E 82 01 00     ; jz r2 &next_char_already_eof (+1)
+    7E 00 04 00     ; jz 0 &next_char_not_already_eof (+4)
 
-;:read_char_already_eof
+;:next_char_already_eof
     ; already at eof. just return.
     ; TODO alternatively we could call fatal() with an internal error (bug) message.
     70 8C 8D 00    ; add rsp rfp 0    ; mov rsp rfp   ; leave
@@ -2993,7 +3004,7 @@
     70 8C 8C 04    ; add rsp rsp 4    ; ^^^           ; ^^^
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
 
-;:read_char_not_already_eof
+;:next_char_not_already_eof
 
     ; get our buffer start and end pointers
     78 80 8E 50     ; ldw r0 rpp 0x50  ; input_buffer_pos
@@ -3001,7 +3012,7 @@
 
     ; check if they match. if so, the buffer is empty.
     71 81 81 80     ; sub r1 r1 r0
-    7E 81 08 00     ; jz r1 &read_char_buffer_empty (+8)
+    7E 81 08 00     ; jz r1 &next_char_buffer_empty (+8)
 
     ; the buffer has bytes in it. pop one into current_char; we're done.
     7A 82 80 00    ; ldw r2 r0 0
@@ -3013,30 +3024,35 @@
     70 8C 8C 04    ; add rsp rsp 4    ; ^^^           ; ^^^
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
 
-;:read_char_buffer_empty
+;:next_char_buffer_empty
 
     ; the buffer is empty. we need to fill it. prepare args
     78 80 8E 24    ; ldw r0 rpp 0x24  ; input_io_handle
     78 81 8E 48    ; ldw r1 rpp 0x48  ; input_buffer
     76 82 01 0C    ; shl r2 1 12      ; r2 = 4096
 
-    ; get syscall fread into r7
-    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
-    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 05 03   ; shl ra 5 3        ; ra = offset of fread syscall (5<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fread syscall
+    ; call syscall_read()
+    7C 8A 00 00    ; ims ra <syscall_read
+    7C 8A A0 17    ; ims ra >syscall_read (0x17A0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
 
-    ; make the syscall
-    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
-    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
-    70 8B 8F 08    ; add rb rip 8     ; ^^^
-    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
-    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
-    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+    ; check if we got ERROR_TRY_LATER. if so loop
+    71 8A 80 FB    ; sub ra r0 'FB   ; ERROR_TRY_LATER
+    7E 8A F4 FF    ; jz ra &next_char_buffer_empty (-12)
+
+    ; check for ERROR_END_OF_FILE (or zero, which in this case we interpret as
+    ; EOF for backwards compatibility)
+    71 8A 80 FA   ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A 09 00   ; jz ra &next_char_impl_eof (+9)
+    7E 80 08 00   ; jz r0 &next_char_impl_eof (+8)
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 06 00    ; jz ra &read_char_fill_ok (+6)
+    7E 8A 0B 00    ; jz ra &next_char_fill_ok (+11)
 
     ; failed to read from input file. fatal
     7C 80 00 00    ; ims r0 <error_input_file
@@ -3046,13 +3062,7 @@
     7C 8A 30 01    ; ims ra >fatal
     70 8F 8E 8A    ; add rip rpp ra    ; jump
 
-;:read_char_fill_ok
-
-    ; r0 contains the number of bytes read. if zero, it's end of file.
-    7E 80 01 00    ; jz r0 &read_char_eof (+1)
-    7E 00 05 00    ; jz 0 &read_char_not_eof (+5)
-
-;:read_char_eof
+;:next_char_eof
     ; at end of file, put -1 (as an int) into current_char and return
     79 FF 8E 3C    ; stw -1 rpp 0x3C  ; current_char
     70 8C 8D 00    ; add rsp rfp 0    ; mov rsp rfp   ; leave
@@ -3060,7 +3070,7 @@
     70 8C 8C 04    ; add rsp rsp 4    ; ^^^           ; ^^^
     78 8F 00 8C    ; ldw rip 0 rsp    ; ret
 
-;:read_char_not_eof
+;:next_char_fill_ok
 
     ; get the first character
     78 81 8E 48    ; ldw r1 rpp 0x48  ; input_buffer
@@ -3090,3 +3100,51 @@
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x17A0
+
+
+
+;==========================================
+; int syscall_read(const char* path, bool writeable);
+;==========================================
+
+@0x17A0 =syscall_read
+
+    ; get syscall read into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 05 03   ; shl ra 5 3        ; ra = offset of read syscall (5<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of read syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x17D0
+
+
+
+;==========================================
+; int syscall_write(const char* path, bool writeable);
+;==========================================
+
+@0x17D0 =syscall_write
+
+    ; get syscall write into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 06 03   ; shl ra 6 3        ; ra = offset of write syscall (6<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of write syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x1800

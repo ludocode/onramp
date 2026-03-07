@@ -106,7 +106,6 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.oo'); do
     # check link status and object code
     if [ $RET -eq 125 ]; then
         echo "ERROR: linker crashed on $BASENAME; expected success or error message."
-        cat $TEMP_STDERR
         THIS_ERROR=1
     elif [ -e $BASENAME.fail ]; then
         if [ $RET -eq 0 ]; then
