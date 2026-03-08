@@ -147,6 +147,7 @@ int open(const char* path, int flags, ...) {
     bool stat_ok = 0 == stat(path, buffer);
 
     // If the user didn't specify O_CREAT, the path must exist.
+    // TODO stat will be optional, if not O_CREAT, try opening for reading first to ensure it exists
     if (!(flags & O_CREAT)) {
         if (!stat_ok) {
             errno = ENOENT; // no such file
@@ -172,6 +173,7 @@ int open(const char* path, int flags, ...) {
         errno = EISDIR; // cannot open a directory writeable
         return -1;
     }
+    /* TODO: use dirent to see if it's a directory, cache the result */
     if ((flags & O_DIRECTORY) && !is_dir) {
         errno = ENOTDIR; // not a directory
         return -1;
@@ -196,19 +198,15 @@ int open(const char* path, int flags, ...) {
         return -1;
     }
 
-    // Open it. If the file exists and is a directory, we need to use dopen
-    // instead of fopen.
-    int handle;
-    if (is_dir) {
-        handle = __sys_dopen(path);
-    } else {
-        handle = __sys_fopen(path, !!writeable);
-    }
+    // Open it.
+    int handle = __sys_open(path, !!writeable);
     if (handle < 0) {
         // TODO parse out the different error types.
         errno = EACCES;
         return -1;
     }
+
+    // TODO if we can't tell with stat whether it's a directory, use dirent and cache the result
 
     // Change the mode (if the file was created)
     if (0/*TODO !stat_ok*/) {
@@ -217,7 +215,7 @@ int open(const char* path, int flags, ...) {
         mode_t mode = va_arg(args, mode_t);
         va_end(args);
         if (0 != chmod(path, mode)) {
-            (void)__sys_fclose(handle);
+            (void)__sys_close(handle);
             errno = EACCES; // failed to change file mode
             return -1;
         }
@@ -228,8 +226,8 @@ int open(const char* path, int flags, ...) {
         // TODO handle ftrunc not supported, it's supposed to be optional. We
         // should try to delete the file first.
         if (__syscall_is_supported(__SYS_FTRUNC)) {
-            if (0 != __sys_ftrunc(handle, 0, 0)) {
-                (void)__sys_fclose(handle);
+            if (0 != __sys_trunc(handle, 0, 0)) {
+                (void)__sys_close(handle);
                 errno = EIO; // failed to truncate
                 return -1;
             }
@@ -260,11 +258,7 @@ int close(int fd) {
     // descriptors; in other parts of the bootstrap we need to proxy close and
     // ignore it on the standard streams.
     if (!posixfile->std_stream) {
-        if (posixfile->is_dir) {
-            __sys_dclose(posixfile->handle);
-        } else {
-            __sys_fclose(posixfile->handle);
-        }
+        __sys_close(posixfile->handle);
     }
 
     posixfile_delete(posixfile);
@@ -285,7 +279,7 @@ off_t lseek(int fd, off_t offset, int whence) {
 
     // perform the seek (if necessary)
     if (whence != SEEK_CUR || offset != 0) {
-        int ret = __sys_fseek(posixfile->handle,
+        int ret = __sys_seek(posixfile->handle,
                 whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
                 (unsigned)offset, (unsigned)(offset >> 32));
         if (ret != 0) {
@@ -297,7 +291,7 @@ off_t lseek(int fd, off_t offset, int whence) {
 
     // return the current position
     off_t result;
-    int ret = __sys_ftell(posixfile->handle, (void*)&result);
+    int ret = __sys_tell(posixfile->handle, (void*)&result);
     if (ret != 0) {
         // TODO for now we assume stream isn't seekable
         errno = ESPIPE;
@@ -326,23 +320,41 @@ ssize_t read(int fd, void* buffer, size_t count) {
 
     int result;
     for (;;) {
-        result = __sys_fread(posixfile->handle, buffer, count);
-        if (result < 0) {
-            // TODO parse out the result code
-            errno = EIO; // io error
-            return -1;
-        }
+        result = __sys_read(posixfile->handle, buffer, count);
 
         // If the VM input is non-blocking but the program wants blocking and
-        // we received no data, we block internally until we get data.
+        // we received ERROR_TRY_LATER (or 0 for backwards compatibility), we
+        // block internally until we get data.
         // TODO check if program has called fcntl(O_NONBLOCK)
-        if (result == 0 && posixfile->std_stream && input_block &&
+        if (((result == 0 && posixfile->std_stream && input_block) || (result == __ERROR_TRY_LATER)) &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_BLOCKING))
         {
-            #ifndef __onramp_libc_opc__
-            usleep(10000);
-            #endif
             continue;
+        }
+
+        if (result == __ERROR_END_OF_FILE) {
+            result = 0;
+            break;
+        }
+        if (result >= 0) {
+            break;
+        }
+
+        switch (result) {
+            case __ERROR_END_OF_FILE:
+                result = 0; // in POSIX zero indicates end-of-file
+                break;
+            case __ERROR_TRY_LATER:
+                errno = EWOULDBLOCK; // non-blocking, read would block
+                return -1;
+            case __ERROR_UNSUPPORTED:
+                errno = EINVAL; // device does not support reading
+                return -1;
+            case __ERROR_GENERIC:
+            case __ERROR_IO:
+            default:
+                errno = EIO; // io error
+                return -1;
         }
 
         break;
@@ -351,10 +363,24 @@ ssize_t read(int fd, void* buffer, size_t count) {
     // If the VM input doesn't echo but the program wants echo, we echo
     // ourselves.
     // TODO handle escape sequences; backspace, arrow keys in canonical mode
+    // TODO this should be moved into a separate function, and we need to check the interactive bit in v4
     if (result > 0 && posixfile->std_stream && input_echo &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_ECHO))
     {
-        __sys_fwrite(__process_info_table[__ONRAMP_PIT_OUTPUT], buffer, result);
+        // Loop until all the data is written.
+        size_t remaining = result;
+        while (remaining > 0) {
+            int step = __sys_write(__process_info_table[__ONRAMP_PIT_OUTPUT], buffer, remaining);
+            if (step == __ERROR_TRY_LATER) {
+                continue;
+            }
+            if (step <= 0) {
+                break;
+            }
+            remaining -= step;
+            buffer = (char*)buffer + step;
+            continue;
+        }
     }
 
     return result;
@@ -372,11 +398,36 @@ ssize_t write(int fd, const void* buffer, size_t count) {
         return -1;
     }
 
-    int result = __sys_fwrite(posixfile->handle, buffer, count);
-    if (result < 0) {
-        // TODO parse out the result code
-        errno = EIO; // io error
-        return -1;
+    int result;
+    for (;;) {
+        result = __sys_write(posixfile->handle, buffer, count);
+
+        if (result > 0) {
+            break;
+        }
+
+        if (result == __ERROR_TRY_LATER) {
+            // TODO: don't loop if fcntl(O_NONBLOCK) was called
+            continue;
+        }
+
+        if (result == 0) {
+            // TODO: v4 VMs don't allow a zero return value. For backwards
+            // compatibility with v2/v3 we interpret it as an I/O error.
+            errno = EIO; // io error
+            return -1;
+        }
+
+        switch (result) {
+            case __ERROR_END_OF_FILE:
+                errno = EPIPE; // broken pipe
+                return -1;
+            case __ERROR_GENERIC:
+            case __ERROR_IO:
+            default:
+                errno = EIO; // io error
+                return -1;
+        }
     }
 
     return result;
@@ -464,7 +515,7 @@ int unlink(const char* path) {
         return -1;
     }
 
-    int ret = __sys_unlink(path);
+    int ret = __sys_delete(path);
     if (ret == 0) {
         return 0;
     }
@@ -480,7 +531,9 @@ int rmdir(const char* path) {
         return -1;
     }
 
-    int ret = __sys_rmdir(path);
+    // TODO we need to check that this is actually a directory
+
+    int ret = __sys_delete(path);
     if (ret == 0) {
         return 0;
     }
