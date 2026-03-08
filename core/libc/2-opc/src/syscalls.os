@@ -108,70 +108,70 @@
 
 
 ; ==========================================================
-; int __sys_open(const char* path, bool writeable);
+; int __sys_fopen(const char* path, bool writeable);
 ; ==========================================================
 
-=__sys_open
+=__sys_fopen
     mov r9 3
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; int __sys_close(int handle);
+; int __sys_fclose(int handle);
 ; ==========================================================
 
-=__sys_close
+=__sys_fclose
     mov r9 4
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; int __sys_read(int handle, void* out_buffer, unsigned size);
+; int __sys_fread(int handle, void* out_buffer, unsigned size);
 ; ==========================================================
 
-=__sys_read
+=__sys_fread
     mov r9 5
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; void __sys_write(int handle, const void* buffer, unsigned size);
+; void __sys_fwrite(int handle, const void* buffer, unsigned size);
 ; ==========================================================
 
-=__sys_write
+=__sys_fwrite
     mov r9 6
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; void __sys_seek(int handle, unsigned position_low, unsigned position_high);
+; void __sys_fseek(int handle, unsigned position_low, unsigned position_high);
 ; ==========================================================
 
-=__sys_seek
+=__sys_fseek
     mov r9 7
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; void __sys_tell(int handle, unsigned out_position[2]);
+; void __sys_ftell(int handle, unsigned out_position[2]);
 ; ==========================================================
 
-=__sys_tell
+=__sys_ftell
     mov r9 8
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; void __sys_trunc(int handle, unsigned position_low, unsigned position_high);
+; void __sys_ftrunc(int handle, unsigned position_low, unsigned position_high);
 ; ==========================================================
 
-=__sys_trunc
+=__sys_ftrunc
     mov r9 9
     jmp ^__syscall
 
@@ -208,10 +208,10 @@
 
 
 ; ==========================================================
-; void __sys_delete(const char* path);
+; void __sys_unlink(const char* path);
 ; ==========================================================
 
-=__sys_delete
+=__sys_unlink
     mov r9 16
     jmp ^__syscall
 
@@ -238,9 +238,39 @@
 
 
 ; ==========================================================
-; int __sys_dirent(int handle, char out_buffer[256]);
+; void __sys_rmdir(const char* path);
 ; ==========================================================
 
-=__sys_dirent
+=__sys_rmdir
+    mov r9 19
+    jmp ^__syscall
+
+
+
+; ==========================================================
+; int __sys_dopen(const char* path);
+; ==========================================================
+
+=__sys_dopen
+    mov r9 10
+    jmp ^__syscall
+
+
+
+; ==========================================================
+; void __sys_dclose(int handle);
+; ==========================================================
+
+=__sys_dclose
+    mov r9 11
+    jmp ^__syscall
+
+
+
+; ==========================================================
+; int __sys_dread(int handle, char out_buffer[256]);
+; ==========================================================
+
+=__sys_dread
     mov r9 12
     jmp ^__syscall

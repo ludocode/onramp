@@ -920,7 +920,7 @@ int fseek(FILE* file, long offset, int whence) {
 
     // We don't call lseek() here because our off_t is 64 bits which is not
     // available in opC. Instead we do the syscall manually.
-    int ret = __sys_seek(__fd_handle(file->fd),
+    int ret = __sys_fseek(__fd_handle(file->fd),
             whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
             offset,
             (offset < 0) ? UINT32_MAX : 0);
@@ -946,7 +946,7 @@ long ftell(FILE* file) {
 
     // We don't call lseek() here because our off_t is 64 bits which is not
     // available in opC. Instead we do the syscall manually.
-    int ret = __sys_tell(__fd_handle(file->fd), position);
+    int ret = __sys_ftell(__fd_handle(file->fd), position);
     if (ret < 0) {
         // TODO convert Onramp error codes. For now we assume the stream isn't
         // seekable.

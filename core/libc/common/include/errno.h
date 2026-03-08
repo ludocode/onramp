@@ -46,7 +46,6 @@
 #define ENOTSUP 15
 #define EAGAIN 16
 #define EWOULDBLOCK EAGAIN
-#define EPIPE 17
 
 extern int errno;
 

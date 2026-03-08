@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2026 Fraser Heavy Software
+ * Copyright (c) 2023-2025 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -53,15 +53,6 @@
 #define __SYS_ALLOC 23
 #define __SYS_FREE 24
 
-#define __ERROR_GENERIC (-1)
-#define __ERROR_NO_SUCH_PATH (-2)
-#define __ERROR_IO (-3)
-#define __ERROR_UNSUPPORTED (-4)
-#define __ERROR_TRY_LATER (-5)
-#define __ERROR_END_OF_FILE (-6)
-#define __ERROR_OVERFLOW (-7)
-#define __ERROR_BUSY (-8)
-
 /**
  * Returns true if the given syscall is supported by the environment (the VM or
  * a parent program), false otherwise.
@@ -76,19 +67,25 @@ bool __syscall_is_supported(int __syscall_number);
 _Noreturn void __sys_exit(int __exit_code);
 _Noreturn void __sys_panic(int __exit_code);
 int __sys_time(unsigned out_buffer[3]);
-int __sys_open(const char* path, bool writeable);
-int __sys_close(unsigned handle);
-int __sys_read(unsigned handle, void* out_buffer, unsigned size);
-int __sys_write(unsigned handle, const void* buffer, unsigned size);
-int __sys_seek(unsigned handle, unsigned base, unsigned offset_low, unsigned offset_high);
-int __sys_tell(unsigned handle, unsigned out_position[2]);
-int __sys_trunc(unsigned handle, unsigned position_low, unsigned position_high);
-int __sys_dirent(unsigned handle, char out_buffer[256]);
+int __sys_fopen(const char* path, bool writeable);
+int __sys_fclose(int handle);
+int __sys_fread(int handle, void* out_buffer, unsigned size);
+int __sys_fwrite(int handle, const void* buffer, unsigned size);
+int __sys_fseek(int handle, unsigned base, unsigned offset_low, unsigned offset_high);
+int __sys_ftell(int handle, unsigned out_position[2]);
+int __sys_ftrunc(int handle, unsigned position_low, unsigned position_high);
+int __sys_dopen(const char* path);
+int __sys_dclose(int handle);
+int __sys_dread(int handle, char out_buffer[256]);
 int __sys_stat(const char* path, unsigned out_stat[4]);
 int __sys_rename(const char* from, const char* to);
-int __sys_delete(const char* path);
-int __sys_chmod(const char* path, unsigned mode);
+int __sys_symlink(const char* from, const char* to);
+int __sys_unlink(const char* path);
+int __sys_chmod(const char* path, int mode);
 int __sys_mkdir(const char* path);
+int __sys_rmdir(const char* path);
+/*int __sys_spawn(...);*/
+/*int __sys_waitpid(...);*/
 /*int __sys_debug(...);*/
 /*int __sys_alloc(...);*/
 /*int __sys_free(...);*/
