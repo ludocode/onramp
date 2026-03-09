@@ -988,7 +988,7 @@
 
 
 ;==========================================
-; void __write_all(int handle, const char* data, size_t count);
+; static void __write_all(int handle, const char* data, size_t count);
 ;==========================================
 ; Writes all of the given data to the given I/O handle.
 ;
@@ -1001,7 +1001,7 @@
 ; - remaining: rfp-12
 ;==========================================
 
-=__write_all
+@__write_all
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
