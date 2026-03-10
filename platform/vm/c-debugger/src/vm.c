@@ -247,7 +247,6 @@ static void breakpoint_format(const breakpoint_t* breakpoint, vm_ghost_string_t*
  */
 
 typedef struct filedata_t {
-    bool is_open;
     FILE* file;
     DIR* dir;
 
@@ -257,6 +256,10 @@ typedef struct filedata_t {
     // all reads and writes.
     bool generated_error_later;
 } filedata_t;
+
+static inline bool filedata_is_open(filedata_t* filedata) {
+    return filedata->file || filedata->dir;
+}
 
 typedef enum step_t {
     step_in,   // run only the current instruction
@@ -629,7 +632,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
         if (vm->version < 4 && syscall_is_v3_forbidden(i)) {
             vm_store_u32(vm, syscall_table + i * 8, VM_SYSCALL_ADDRESS);
             vm_store_u32(vm, syscall_table + i * 8 + 4, VM_FORBIDDEN_SYSCALL);
-        } else if (i == VM_RENAME || i == VM_DIRENT || i == VM_ALLOC || i == VM_FREE) {
+        } else if (i == VM_RENAME || i == VM_ALLOC || i == VM_FREE) {
             // TODO these are not implemented yet
             vm_store_u32(vm, syscall_table + i * 8, 0);
             vm_store_u32(vm, syscall_table + i * 8 + 4, 0);
@@ -643,9 +646,6 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
     vm->files[0].file = stdin;
     vm->files[1].file = stdout;
     vm->files[2].file = stderr;
-    vm->files[0].is_open = true;
-    vm->files[1].is_open = true;
-    vm->files[2].is_open = true;
     vm_store_u32(vm, pit + VM_INPUT, FILES_OFFSET);
     vm_store_u32(vm, pit + VM_OUTPUT, FILES_OFFSET + 1);
     vm_store_u32(vm, pit + VM_ERROR, FILES_OFFSET + 2);
@@ -787,19 +787,6 @@ static filedata_t* vm_filedata(vm_t* vm, uint32_t handle) {
     return &vm->files[handle];
 }
 
-/*
-vm_ghost_noinline
-static DIR* vm_dir(vm_t* vm, uint32_t handle) {
-    handle -= DIRECTORIES_OFFSET;
-    if (handle >= (uint32_t)vm_ghost_array_count(vm->directories))
-        panic("Directory handle is invalid");
-    DIR* dir = vm->directories[handle];
-    if (dir == vm_ghost_null)
-        panic("Directory handle is not open");
-    return dir;
-}
-*/
-
 static uint32_t vm_exit(vm_t* vm) {
     // TODO pause debugger
     strace("sys exit() %i\n", vm->registers[0]);
@@ -879,7 +866,7 @@ static uint32_t vm_open(vm_t* vm) {
     // find a free handle
     uint32_t file_index = UINT32_MAX;
     for (size_t i = 0; i < vm_ghost_array_count(vm->files); ++i) {
-        if (!vm->files[i].is_open) {
+        if (!filedata_is_open(&vm->files[i])) {
             file_index = i;
             break;
         }
@@ -888,33 +875,37 @@ static uint32_t vm_open(vm_t* vm) {
         // too many open files
         return VM_ERROR_OVERFLOW;
     }
+    filedata_t* filedata = &vm->files[file_index];
 
     // open it in the correct mode
-    FILE* file;
     if (mode) {
         // Try to open the existing file read/write. If it fails, it's probably
         // because it doesn't exist, so try opening for writing to create it.
         // (We're not concerned with race conditions in Onramp.)
-        file = fopen(path, "r+b");
-        if (file == NULL) {
-            file = fopen(path, "w+b");
+        filedata->file = fopen(path, "r+b");
+        if (filedata->file == NULL) {
+            filedata->file = fopen(path, "w+b");
         }
     } else {
-        file = fopen(path, "rb");
-    }
-
-    //printf("OPENING %s %zi\n",path,(size_t)vm->files[file_index]);
-    if (file == vm_ghost_null) {
-        if (errno == ENOENT) {
-            return VM_ERROR_NO_SUCH_PATH;
+        // Try to open it as a directory first.
+        filedata->dir = opendir(path);
+        if (filedata->dir == NULL) {
+            filedata->file = fopen(path, "rb");
         }
-        // TODO other errors
-        return VM_ERROR_GENERIC;
     }
 
-    filedata_t* filedata = &vm->files[file_index];
-    filedata->file = file;
-    filedata->is_open = true;
+    if (!filedata_is_open(filedata)) {
+        switch (errno) {
+            case ENOENT:
+                return VM_ERROR_NO_SUCH_PATH;
+            case EACCES:
+            case EISDIR:
+                return VM_ERROR_UNSUPPORTED;
+            default:
+                return VM_ERROR_GENERIC;
+        }
+    }
+
     filedata->generated_error_later = false;
     return file_index + FILES_OFFSET;
 }
@@ -923,10 +914,9 @@ static uint32_t vm_close(vm_t* vm) {
     uint32_t handle = vm->registers[0];
     strace("sys close() handle 0x%x", handle);
     filedata_t* filedata = vm_filedata(vm, handle);
-    if (!filedata->is_open) {
+    if (!filedata_is_open(filedata)) {
         panic("File handle is not open");
     }
-    filedata->is_open = false;
 
     if (filedata->dir) {
         closedir(filedata->dir);
@@ -954,7 +944,7 @@ static uint32_t vm_read(vm_t* vm) {
     strace("sys read() handle 0x%x addr 0x%x count %u", handle, addr, count);
     filedata_t* filedata = vm_filedata(vm, handle);
 
-    if (!filedata->is_open) {
+    if (!filedata_is_open(filedata)) {
         panic("File handle is not open");
     }
     if (filedata->file == NULL) {
@@ -1019,8 +1009,13 @@ static uint32_t vm_read(vm_t* vm) {
 
     size_t ret = fread(buffer, 1, count, file);
     if (ret == 0) {
-        if (feof(file))
-            return 0;
+        if (feof(file)) {
+            if (vm->version < 4) {
+                // Old VM versions reported EOF by returning zero.
+                return 0;
+            }
+            return VM_ERROR_END_OF_FILE;
+        }
         return VM_ERROR_IO;
     }
     return (uint32_t)ret;
@@ -1033,7 +1028,7 @@ static uint32_t vm_write(vm_t* vm) {
     strace("sys write() handle 0x%x addr 0x%x count %u", handle, addr, count);
     filedata_t* filedata = vm_filedata(vm, handle);
 
-    if (!filedata->is_open) {
+    if (!filedata_is_open(filedata)) {
         panic("File handle is not open");
     }
     if (filedata->file == NULL) {
@@ -1083,9 +1078,14 @@ static uint32_t vm_write(vm_t* vm) {
         ssize_t sret = write(fileno(file), buffer, count);
         if (sret < 0) {
             if (errno == EWOULDBLOCK || errno == EAGAIN) {
-                return 0;
+                if (vm->version < 4) {
+                    // Old VM versions reported EWOULDBLOCK by returning zero.
+                    return 0;
+                }
+                return VM_ERROR_TRY_LATER;
             }
-            return -1;
+            // TODO error codes
+            return VM_ERROR_GENERIC;
         }
         ret = (size_t)sret;
     } else {
@@ -1122,7 +1122,7 @@ static uint32_t vm_seek(vm_t* vm) {
     }
 
     filedata_t* filedata = vm_filedata(vm, handle);
-    if (!filedata->is_open) {
+    if (!filedata_is_open(filedata)) {
         panic("File handle is not open");
     }
     if (filedata->file == NULL) {
@@ -1146,7 +1146,7 @@ static uint32_t vm_tell(vm_t* vm) {
     strace("sys tell() handle 0x%x addr 0x%x", handle, addr);
 
     filedata_t* filedata = vm_filedata(vm, handle);
-    if (!filedata->is_open) {
+    if (!filedata_is_open(filedata)) {
         panic("File handle is not open");
     }
     if (filedata->file == NULL) {
@@ -1170,7 +1170,7 @@ static uint32_t vm_trunc(vm_t* vm) {
     strace("sys trunc() handle 0x%x length %" PRIu64, vm->registers[0], (uint64_t)length);
 
     filedata_t* filedata = vm_filedata(vm, handle);
-    if (!filedata->is_open) {
+    if (!filedata_is_open(filedata)) {
         panic("File handle is not open");
     }
     if (filedata->file == NULL) {
@@ -1191,7 +1191,63 @@ static uint32_t vm_trunc(vm_t* vm) {
 }
 
 static uint32_t vm_dirent(vm_t* vm) {
-    panic("TODO dirent syscall not yet implemented");
+    uint32_t handle = vm->registers[0];
+    uint32_t buffer_addr = vm->registers[1];
+    strace("sys dirent() handle 0x%x buffer 0x%x", handle, buffer_addr);
+    if (!vm_is_buffer_valid(vm, buffer_addr, 1)) {
+        panic("Invalid buffer passed to syscall dirent");
+    }
+    if (!vm_is_buffer_valid(vm, buffer_addr, 256)) {
+        panic("Insufficient buffer passed to syscall dirent; must fit 256 bytes.");
+    }
+
+    filedata_t* filedata = vm_filedata(vm, handle);
+    if (!filedata_is_open(filedata)) {
+        panic("File handle is not open");
+    }
+    if (filedata->dir == NULL) {
+        // It's not a directory.
+        strace(" failed, not a directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    char* buffer = (char*)(vm->memory + (buffer_addr - vm->memory_base));
+    for (;;) {
+        struct dirent* dirent = readdir(filedata->dir);
+        if (dirent == NULL) {
+            // end of directory
+            if (vm->version < 4) {
+                // ERROR_END_OF_FILE didn't exist in v3 and earlier VMs. We
+                // report the end of the directory with an empty string.
+                *buffer = 0;
+                memset(buffer + 1, 0xFF, 255);
+                return 0;
+            }
+            // We fill the buffer with a non-zero value to ensure the program
+            // doesn't try to use it (but we still put a null-terminator on the
+            // end in case it's buggy.)
+            memset(buffer, 0xFF, 255);
+            buffer[255] = 0;
+            return VM_ERROR_END_OF_FILE;
+        }
+
+        size_t len = strlen(dirent->d_name);
+        if (len > 255) {
+            // This isn't possible on Linux but some platforms may permit
+            // longer file names. Onramp doesn't support such filenames so we
+            // print a warning and skip them.
+            fprintf(stderr, "VM warning: File name is too long: %s\n", dirent->d_name);
+            continue;
+        }
+
+        memcpy(buffer, dirent->d_name, len + 1);
+
+        // We clear the rest of the buffer with a non-zero value to ensure the
+        // program doesn't rely on its previous values being preserved. The VM
+        // is allowed to write to the entire buffer.
+        memset(buffer + len + 1, 0xFF, 256 - len - 1);
+        return 0;
+    }
 }
 
 // Converts stat.st_mode to Onramp
