@@ -31,13 +31,13 @@
 #define __SYS_EXIT 0
 #define __SYS_PANIC 1
 #define __SYS_TIME 2
-#define __SYS_FOPEN 3
-#define __SYS_FCLOSE 4
-#define __SYS_FREAD 5
-#define __SYS_FWRITE 6
-#define __SYS_FSEEK 7
-#define __SYS_FTELL 8
-#define __SYS_FTRUNC 9
+#define __SYS_OPEN 3
+#define __SYS_CLOSE 4
+#define __SYS_READ 5
+#define __SYS_WRITE 6
+#define __SYS_SEEK 7
+#define __SYS_TELL 8
+#define __SYS_TRUNC 9
 #define __SYS_DIRENT 12
 #define __SYS_STAT 13
 #define __SYS_RENAME 14
@@ -49,10 +49,17 @@
 #define __SYS_FREE 24
 
 // These were syscalls in v3. They are kept for backwards compatibility.
+#define __SYS_FOPEN __SYS_OPEN
+#define __SYS_FCLOSE __SYS_CLOSE
+#define __SYS_FREAD __SYS_READ
+#define __SYS_FWRITE __SYS_WRITE
+#define __SYS_FSEEK __SYS_SEEK
+#define __SYS_FTELL __SYS_TELL
+#define __SYS_FTRUNC __SYS_TRUNC
 #define __SYS_DOPEN 10
 #define __SYS_DCLOSE 11
 #define __SYS_DREAD __SYS_DIRENT
-#define __SYS_UNLINK 16
+#define __SYS_UNLINK __SYS_DELETE
 #define __SYS_RMDIR 19
 
 // System call error codes

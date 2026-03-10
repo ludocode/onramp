@@ -223,9 +223,9 @@ int open(const char* path, int flags, ...) {
 
     // Truncate
     if (flags & O_TRUNC) {
-        // TODO handle ftrunc not supported, it's supposed to be optional. We
+        // TODO handle trunc not supported, it's supposed to be optional. We
         // should try to delete the file first.
-        if (__syscall_is_supported(__SYS_FTRUNC)) {
+        if (__syscall_is_supported(__SYS_TRUNC)) {
             if (0 != __sys_trunc(handle, 0, 0)) {
                 (void)__sys_close(handle);
                 errno = EIO; // failed to truncate
