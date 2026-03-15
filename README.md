@@ -128,76 +128,14 @@ Authors retain copyright over their code contributions, but all code in this rep
 
 
 
-## Project Organization
-
-- [core/](core/) - The platform-independent parts of Onramp. Contains the compiler, linker, driver, libc, etc.
-- [platform/](platform/) - Implementations of the platform-specific components of Onramp for various platforms.
-- [extra/](extra/) - Additional tools beyond the core bootstrap.
-- [scripts/](scripts/) - Scripts for building and installing Onramp on various platforms.
-- [docs/](docs/) - Specifications of Onramp's languages and other documentation. Defines the Onramp subsets of C, Onramp Assembly, etc.
-- [test/](test/) - Test cases and scripts for testing the various Onramp components.
-
-
-
 ## Documentation
 
-Onramp documentation (including this `README.md`) is written in [GitHub-Flavored Markdown][gfm]. Onramp is heavily documented; specifications are written for all of Onramp's tools and languages.
-
-The following documentation pages are available:
+Some important guides for using Onramp are:
 
 - [Setup Guide](docs/setup-guide.md)
 - [Usage Guide](docs/usage-guide.md)
-- Tools
-    - Core Tools
-        - [`cc`: Driver](core/cc/README.md)
-        - [`cpp`: Preprocessor](core/cpp/README.md)
-        - [`cci`: Compiler](core/cci/README.md)
-        - [`cg`: Code Generator](core/cg/README.md)
-        - [`as`: Assembler](core/as/README.md)
-        - [`ar`: Archiver](core/ar/README.md)
-        - [`ld`: Linker](core/ld/README.md)
-        - [`libc`: Standard Library](core/libc/README.md)
-        - [`sh`: Shell](core/sh/README.md)
-        - [`os`: Operating System](core/os/README.md)
-    - Platform-specific Tools
-        - [`hex`: Hex Tool](platform/hex/)
-        - [`vm`: Virtual Machine](platform/vm/)
-- Specifications
-    - [Onramp Hexadecimal](docs/hexadecimal.md)
-    - [Onramp Virtual Machine](docs/virtual-machine.md)
-    - [Onramp Object Code](docs/object-code.md)
-    - [Onramp Assembly](docs/assembly.md)
-    - [Onramp Intermediate Representation](docs/intermediate-representation.md)
-    - [Onramp Minimal C](docs/minimal-c.md)
-    - [Onramp Practical C](docs/practical-c.md)
-    - [Onramp Shell](docs/shell.md)
-    - [Onramp Debug Info](docs/debug-info.md)
-- Miscellaneous
-    - [Implementation Status](docs/status.md)
-    - [Bootstrap Path](docs/bootstrap-path.md)
-    - [Core Components](core/README.md)
-    - [Testing Onramp](test/README.md)
-    - [Coding Without Labels](docs/coding-without-labels.md)
-    - [Inspiration](docs/inspiration.md)
 
-In addition, each tool, and each stage of each tool has a `README.md` describing the implementation. Look for the `README.md` in any directory for a description of its contents.
-
-
-
-## File Types
-
-| Extension   | Description                                                                  |
-|-------------|------------------------------------------------------------------------------|
-| `.ohx`      | [Onramp Hexadecimal][dochex], plain-text hexadecimal with comments           |
-| `.oe`       | [Onramp Executable][docvm], an Onramp bytecode program in binary             |
-| `.oo`       | [Onramp Object File][docobj], plain-text bytecode with labels                |
-| `.oa`       | [Onramp Archive][docobj], a static library of `.oo` files                    |
-| `.os`       | [Onramp Assembly][docasm], our custom assembly language                      |
-| `.oir`      | [Onramp Intermediate Representation][docir], our compiler IR                 |
-| `.i`        | Preprocessed C source code (no comments, no preprocessor directives)         |
-| `.c`        | C source code, an Onramp Subset ([omC] or [opC]) or a standard version       |
-| `.sh`       | [Onramp Shell][docsh], our subset of POSIX shell                             |
-| `.od`       | [Onramp Debug Info][docdebug], the debug symbols for an Onramp executable    |
+All Onramp tools and languages are extensively specified. See the [Documentation Reference](docs/README.md) for a complete listing of all Onramp documentation.
 
 
 
