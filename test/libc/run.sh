@@ -143,7 +143,7 @@ for TESTFILE in $FILES; do
 
     # run
     if [ $THIS_ERROR -ne 1 ]; then
-        onrampvm $TEMP_OE $ARGS >$TEMP_STDOUT 2>/dev/null
+        ( cd $ROOT ; onrampvm $TEMP_OE $ARGS >$TEMP_STDOUT 2>/dev/null )
         RET=$?
     fi
 

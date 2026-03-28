@@ -192,5 +192,8 @@ int setenv(const char* name, const char* value, int overwrite);
 int unsetenv(const char* name);
 int clearenv(void);
 
+#ifdef __onramp_ftm_posix_2008 // TODO or xopen>=500 or default source
+    char* realpath(const char* restrict path, char* restrict out_path);
+#endif
 
 #endif

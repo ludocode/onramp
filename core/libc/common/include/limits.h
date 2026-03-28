@@ -29,6 +29,8 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <features.h>
+
 #define BOOL_WIDTH 8
 
 #define CHAR_BIT 8
@@ -70,5 +72,13 @@
 #define MB_CUR_MAX 4
 
 #define BITINT_MAXWIDTH 64
+
+// TODO required by unistd.h
+//#ifdef __onramp_ftm_susv2
+    // Maximum bytes in a path, including null terminator
+    #define PATH_MAX 4096
+    // Maximum bytes in a path component, not including null terminator
+    #define NAME_MAX 255
+//#endif
 
 #endif

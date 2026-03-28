@@ -26,7 +26,9 @@
 #define INTERNAL_H_INCLUDED
 
 #include <__onramp/__fatal.h>
+#include <__onramp/__size_t.h>
 #include <assert.h>
+#include <stdint.h>
 
 #ifdef __onramp_cpp_omc__
     #define libc_assert assert
@@ -46,5 +48,10 @@ void __call_at_quick_exit(void);
 void __time_setup(void);
 void __stdio_setup(void);
 void __stdio_teardown(void);
+
+#ifndef __onramp_cci_omc__
+// u32 to decimal text. returns length, does not null-terminate
+size_t __utod(uint32_t value, char* output);
+#endif
 
 #endif

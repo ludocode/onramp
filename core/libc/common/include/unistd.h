@@ -33,6 +33,7 @@
 #include <__onramp/__size_t.h>
 #include <__onramp/__useconds_t.h>
 
+#include <limits.h> // TODO should include the whole header? or just some types?
 #include <sys/types.h> // TODO should include the whole header? or just some types?
 
 #define STDIN_FILENO 0
@@ -60,5 +61,16 @@ int usleep(useconds_t usec);
 
 int unlink(const char *path);
 int rmdir(const char *path);
+
+char* __onramp_workdir(void); // TODO move to internal somewhere
+int chdir(const char* path);
+
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+char* getcwd(char out_buffer[], size_t size);
+char* getwd(char out_buffer[PATH_MAX]); // TODO deprecated, xopen / old posix
+char* get_current_dir_name(void); // TODO GNU source only
+#endif
+#endif
 
 #endif

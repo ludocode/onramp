@@ -472,7 +472,7 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 /**
  * Converts an unsigned 32-bit integer to a decimal string.
  */
-static size_t utod(uint32_t value, char* output) {
+size_t __utod(uint32_t value, char* output) {
     if (value == 0) {
         *output = '0';
         return 1;
@@ -498,7 +498,7 @@ static size_t utod(uint32_t value, char* output) {
  */
 static size_t utod64(uint64_t value, char* output) {
     if (value <= UINT32_MAX) {
-        return utod((uint32_t)value, output);
+        return __utod((uint32_t)value, output);
     }
 
     // The rest of this function is identical to its 32-bit counterpart but it
@@ -748,7 +748,7 @@ static void print_u(output_t* output, directive_t* directive, va_list* args) {
                 output->error = true;
                 return;
         }
-        length = utod(value, buffer);
+        length = __utod(value, buffer);
     }
 
     print_number(output, directive, buffer, length, false);
@@ -867,7 +867,7 @@ static void print_d(output_t* output, directive_t* directive, va_list* args) {
             }
         }
 
-        length = utod(uvalue, buffer);
+        length = __utod(uvalue, buffer);
     }
 
     print_number(output, directive, buffer, length, negative);

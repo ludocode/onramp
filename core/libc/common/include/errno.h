@@ -29,6 +29,8 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <features.h>
+
 #define EDOM 1
 #define EILSEQ 2
 #define ERANGE 3
@@ -47,7 +49,19 @@
 #define EAGAIN 16
 #define EWOULDBLOCK EAGAIN
 #define EPIPE 17
+#define ENOENT 18
+#define ENAMETOOLONG 19
 
 extern int errno;
+
+#ifdef __onramp_ftm_default
+#ifndef __onramp_cci_omc__
+#ifndef __onramp_cci_opc__
+// TODO mark deprecated
+const char* const sys_errlist[];
+int sys_nerr;
+#endif
+#endif
+#endif
 
 #endif

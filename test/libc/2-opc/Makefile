@@ -48,7 +48,6 @@ TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL
 OBJS=\
 		$(OUT)/start.oo \
 		\
-		$(ROOT)/core/libc/0-oo/src/errno.oo \
 		$(ROOT)/core/libc/0-oo/src/malloc.oo \
 		$(ROOT)/core/libc/0-oo/src/malloc_util.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
@@ -58,10 +57,12 @@ OBJS=\
 		$(OUT)/assert.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
+		$(OUT)/errno.oo \
 		$(OUT)/float.oo \
 		$(OUT)/format.oo \
 		$(OUT)/llong.oo \
 		$(OUT)/multibyte.oo \
+		$(OUT)/path.oo \
 		$(OUT)/posixio.oo \
 		$(OUT)/setjmp.oo \
 		$(OUT)/stdbit.oo \
@@ -168,6 +169,12 @@ $(OUT)/environ.oo: $(SRC2)/environ.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/environ.c -o $(OUT)/environ.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/environ.c -o $@
 
+$(OUT)/errno.oo: $(SRC2)/errno.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/errno.c -o $(OUT)/errno.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/errno.c -o $@
+
 $(OUT)/float.oo: $(SRC2)/float.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
@@ -191,6 +198,12 @@ $(OUT)/multibyte.oo: $(SRC2)/multibyte.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/multibyte.c -o $(OUT)/multibyte.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/multibyte.c -o $@
+
+$(OUT)/path.oo: $(SRC2)/path.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/path.c -o $(OUT)/path.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/path.c -o $@
 
 $(OUT)/posixio.oo: $(SRC2)/posixio.c Makefile
 	@rm -f $@

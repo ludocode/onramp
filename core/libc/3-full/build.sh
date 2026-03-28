@@ -95,7 +95,6 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     output/intermediate/libc-2-opc/start.oo \
     \
-    core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
     \
     output/intermediate/libc-1-omc/string-fast.oo \
@@ -103,10 +102,12 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-2-opc/assert.oo \
     output/intermediate/libc-2-opc/ctype.oo \
     output/intermediate/libc-2-opc/environ.oo \
+    output/intermediate/libc-2-opc/errno.oo \
     output/intermediate/libc-2-opc/float.oo \
     output/intermediate/libc-2-opc/format.oo \
     output/intermediate/libc-2-opc/llong.oo \
     output/intermediate/libc-2-opc/multibyte.oo \
+    output/intermediate/libc-2-opc/path.oo \
     output/intermediate/libc-2-opc/posixio.oo \
     output/intermediate/libc-2-opc/setjmp.oo \
     output/intermediate/libc-2-opc/stdbit.oo \

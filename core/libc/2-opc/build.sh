@@ -53,6 +53,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/environ.c \
     -o output/intermediate/libc-2-opc/environ.oo
 
+echo Compiling libc/2-opc errno.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/errno.c \
+    -o output/intermediate/libc-2-opc/errno.oo
+
 echo Compiling libc/2-opc float.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -82,6 +88,12 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/posixio.c \
     -o output/intermediate/libc-2-opc/posixio.oo
+
+echo Compiling libc/2-opc path.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/path.c \
+    -o output/intermediate/libc-2-opc/path.oo
 
 echo Assembling libc/2-opc setjmp.os
 onrampvm output/intermediate/cc/cc.oe \
@@ -144,7 +156,6 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     output/intermediate/libc-2-opc/start.oo \
     \
-    core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/malloc.oo \
     core/libc/0-oo/src/malloc_util.oo \
     core/libc/0-oo/src/spawn.oo \
@@ -155,10 +166,12 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-2-opc/assert.oo \
     output/intermediate/libc-2-opc/ctype.oo \
     output/intermediate/libc-2-opc/environ.oo \
+    output/intermediate/libc-2-opc/errno.oo \
     output/intermediate/libc-2-opc/float.oo \
     output/intermediate/libc-2-opc/format.oo \
     output/intermediate/libc-2-opc/llong.oo \
     output/intermediate/libc-2-opc/multibyte.oo \
+    output/intermediate/libc-2-opc/path.oo \
     output/intermediate/libc-2-opc/posixio.oo \
     output/intermediate/libc-2-opc/setjmp.oo \
     output/intermediate/libc-2-opc/stdbit.oo \

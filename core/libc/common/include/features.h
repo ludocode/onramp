@@ -510,7 +510,9 @@ _REENTRANT //deprecated
     #define __onramp_ftm_susv4
     #define __onramp_ftm_xpg4
     #define __onramp_ftm_xpg4v2
-    #undef __onramp_ftm_default
+    #ifndef __onramp_cpp_omc__
+        #undef __onramp_ftm_default
+    #endif
 #endif
 
 

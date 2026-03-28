@@ -65,6 +65,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/environ.c \
     -o output/intermediate/libc-3-full-re/environ.oo
 
+echo Compiling libc/2-opc errno.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/errno.c \
+    -o output/intermediate/libc-3-full-re/errno.oo
+
 echo Compiling libc/2-opc float.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -94,6 +100,12 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
     -c core/libc/2-opc/src/posixio.c \
     -o output/intermediate/libc-3-full-re/posixio.oo
+
+echo Compiling libc/2-opc path.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/path.c \
+    -o output/intermediate/libc-3-full-re/path.oo
 
 echo Assembling libc/2-opc setjmp.os
 onrampvm output/intermediate/cc/cc.oe \
@@ -217,7 +229,6 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     output/intermediate/libc-2-opc/start.oo \
     \
-    core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo \
     \
     output/intermediate/libc-3-full-re/string-fast.oo \
@@ -225,10 +236,12 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-3-full-re/assert.oo \
     output/intermediate/libc-3-full-re/ctype.oo \
     output/intermediate/libc-3-full-re/environ.oo \
+    output/intermediate/libc-3-full-re/errno.oo \
     output/intermediate/libc-3-full-re/float.oo \
     output/intermediate/libc-3-full-re/format.oo \
     output/intermediate/libc-3-full-re/llong.oo \
     output/intermediate/libc-3-full-re/multibyte.oo \
+    output/intermediate/libc-3-full-re/path.oo \
     output/intermediate/libc-3-full-re/posixio.oo \
     output/intermediate/libc-3-full-re/setjmp.oo \
     output/intermediate/libc-3-full-re/stdbit.oo \

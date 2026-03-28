@@ -996,10 +996,6 @@ int ferror(FILE* file) {
     return file->error;
 }
 
-void perror(const char* s) {
-    // TODO
-}
-
 int remove(const char* filename) {
     if (__syscall_is_supported(__SYS_STAT)) {
         // TODO use stat to tell whether it's a file or directory

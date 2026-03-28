@@ -64,7 +64,6 @@ OBJS3=\
 OBJS_ALL=\
 		$(BUILD2)/start.oo \
 		\
-		$(ROOT)/core/libc/0-oo/src/errno.oo \
 		$(ROOT)/core/libc/0-oo/src/spawn.oo \
 		\
 		$(BUILD1)/string-fast.oo \
@@ -72,10 +71,12 @@ OBJS_ALL=\
 		$(BUILD2)/assert.oo \
 		$(BUILD2)/ctype.oo \
 		$(BUILD2)/environ.oo \
+		$(BUILD2)/errno.oo \
 		$(BUILD2)/float.oo \
 		$(BUILD2)/format.oo \
 		$(BUILD2)/llong.oo \
 		$(BUILD2)/multibyte.oo \
+		$(BUILD2)/path.oo \
 		$(BUILD2)/posixio.oo \
 		$(BUILD2)/setjmp.oo \
 		$(BUILD2)/stdbit.oo \
