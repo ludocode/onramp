@@ -184,7 +184,7 @@
     ldw r0 r0 rpp
     sub rsp rsp 4
     mov r1 rsp
-    call ^type_find
+    call ^type_lookup
     jz r0 &try_parse_type_not_found
 
     ; consume the token

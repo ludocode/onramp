@@ -210,10 +210,6 @@
 
 
 
-; TODO deduplicate the lookup code in the below functions
-
-
-
 ; ==========================================================
 ; void type_add(char type, char* name);
 ; ==========================================================
@@ -224,8 +220,7 @@
 ; vars:
 ; - type: rfp-4
 ; - name: rfp-8
-; - mask: r2, rfp-12
-; - index: r3, rfp-16
+; - index: rfp-12
 ; ==========================================================
 
 =type_add
@@ -244,73 +239,33 @@
     shru r9 r9 1    ; divide by two
     imw r1 ^type_count
     ldw r1 r1 rpp
-    cmpu r0 r1 r9
-    cmpu r0 r0 -1
-    jz r0 &type_add_count_ok
+    sub r0 r1 r9
+    jz r0 &type_add_full
 
-    ; the table is half full. fatal error
-    imw r0 ^error_too_many_typedefs
-    add r0 r0 rpp
-    call ^fatal
-:type_add_count_ok
+    ; find the bucket where this should be inserted
+    ldw r0 rfp -8    ; name
+    call ^type_find
+    push r0          ; index
 
-    ; calculate and store a table mask
-    imw r2 ^type_buckets
-    ldw r2 r2 rpp
-    dec r2
-    push r2
-
-    ; calculate the hash and store the starting index
-    ldw r0 rfp -8
-    call ^fnv1a_cstr
-    ldw r2 rfp -12
-    and r3 r0 r2
-    push r3
-
-:type_add_loop
-
-    ; get the name at this position
+    ; check if the name is already defined
     imw r9 ^type_names
     ldw r9 r9 rpp
-    ldw r3 rfp -16
-    shl r3 r3 2  ; index in bytes
-    ldw r8 r9 r3
+    shl r1 r0 2  ; index in bytes
+    ldw r2 r9 r1
+    jz r2 &type_add_empty
+    jmp &type_add_exists
 
-    ; if it's null, we've found our insertion slot
-    jz r8 &type_add_slot
-
-    ; compare it to the name given, make sure it doesn't match
-    ldw r0 rfp -8
-    mov r1 r8
-    call ^strcmp
-    jz r0 &type_add_match
-
-    ; increment the index, wrapping around
-    ldw r3 rfp -16
-    inc r3
-    ldw r2 rfp -12
-    and r3 r3 r2
-    stw r3 rfp -16
-
-    ; keep searching for a free slot
-    jmp &type_add_loop
-
-:type_add_slot
+:type_add_empty
 
     ; store the name
-    imw r9 ^type_names
-    ldw r9 r9 rpp
-    ldw r3 rfp -16
-    shl r3 r3 2  ; index in bytes
-    ldw r1 rfp -8
-    stw r1 r9 r3
+    ldw r3 rfp -8  ; name
+    stw r3 r9 r1
 
     ; store the type
     imw r9 ^type_types
     ldw r9 r9 rpp
-    ldw r3 rfp -16
-    ldb r0 rfp -4
-    stb r0 r9 r3
+    ldb r4 rfp -4
+    stb r4 r9 r0
 
     ; increment the count
     imw r1 ^type_count
@@ -318,18 +273,18 @@
     inc r0
     stw r0 r1 rpp
 
+    ; done
     leave
     ret
 
-:type_add_match
+:type_add_exists
 
     ; this type name is already defined. see if the type is the same
     imw r9 ^type_types
     ldw r9 r9 rpp
-    ldw r3 rfp -16
-    ldb r8 r9 r3
-    ldb r1 rfp -4
-    cmpu r0 r8 r1
+    ldb r8 r9 r0
+    ldb r7 rfp -4
+    sub r0 r7 r8
     jnz r0 &type_add_duplicate
 
     ; the type is the same. duplicate typedefs are not an error.
@@ -340,27 +295,32 @@
     ; type name redefined as a different type. fatal error.
     imw r0 ^error_type_redefined
     add r0 r0 rpp
-    call ^fatal
+    jmp ^fatal
+
+:type_add_full
+    ; the table is half full. fatal error
+    imw r0 ^error_too_many_typedefs
+    add r0 r0 rpp
+    jmp ^fatal
 
 
 
 ; ==========================================================
-; bool type_find(char* name, char* out_type);
+; static int type_find(char* name);
 ; ==========================================================
-; Finds the type with the given name.
+; Finds the index of the bucket containing the type with the given name, or the
+; bucket where it should be inserted if it does not exist.
 ;
 ; vars:
-; - out_type: rfp-4
 ; - name: rfp-8
 ; - mask: rfp-12
 ; - index: rfp-16
 ; ==========================================================
 
-=type_find
+@type_find
     enter
 
-    ; store our args
-    push r1
+    push 0   ; rfp-4 is unused
     push r0
 
     ; calculate and store a table mask
@@ -385,14 +345,14 @@
     shl r3 r3 2
     ldw r8 r9 r3
 
-    ; if it's null, the type is not found
-    jz r8 &type_find_false
+    ; if it's null, we're done
+    jz r8 &type_find_done
 
-    ; see if it matches
+    ; if it matches, we're done
     ldw r0 rfp -8
     mov r1 r8
     call ^strcmp
-    jz r0 &type_find_true
+    jz r0 &type_find_done
 
     ; increment the index, wrapping around
     ldw r3 rfp -16
@@ -404,13 +364,44 @@
     ; keep searching for the type name
     jmp &type_find_loop
 
-:type_find_true
+:type_find_done
 
-    ; output the type
+    ; return the index
+    ldw r0 rfp -16
+    leave
+    ret
+
+
+
+; ==========================================================
+; bool type_lookup(char* name, char* out_type);
+; ==========================================================
+; Finds the type with the given name.
+;
+; Returns true if found, false otherwise.
+;
+; TODO this should just return the type or 0.
+; ==========================================================
+
+=type_lookup
+    enter
+    push r1
+
+    ; find the bucket for this type
+    call ^type_find
+
+    ; check if it's empty
+    ; TODO we could simplify this by storing type 0 for empty buckets
+    imw r9 ^type_names
+    ldw r9 r9 rpp
+    shl r1 r0 2
+    ldw r8 r9 r1
+    jz r8 &type_lookup_not_found
+
+    ; type exists. output the type
     imw r9 ^type_types
     ldw r9 r9 rpp
-    ldw r3 rfp -16  ; get the index in the hashtable
-    ldb r0 r9 r3    ; get the type from the hashtable
+    ldb r0 r9 r0    ; get the type from the hashtable
     ldw r1 rfp -4   ; get the out_type pointer
     stb r0 r1 0     ; store the type in out_type
 
@@ -419,8 +410,8 @@
     leave
     ret
 
-:type_find_false
-    ; type not found. return false.
+:type_lookup_not_found
+    ; return false
     zero r0
     leave
     ret
