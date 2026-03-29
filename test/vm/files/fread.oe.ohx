@@ -270,7 +270,7 @@
 ;:read_file_not_try_later
 
     ; check for ERROR_END_OF_FILE
-    71 8A 80 FB    ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    71 8A 80 FA    ; sub ra r0 'FA   ; ERROR_END_OF_FILE
     7E 8A 0B 00    ; jz ra &read_file_done (+11)
 
     ; check the high bit for other errors
