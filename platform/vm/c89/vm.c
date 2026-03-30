@@ -105,11 +105,17 @@ static FILE* vm_files[VM_MAX_FILES];
 #define VM_RIP 0xF  /* instruction pointer */
 
 /* errors */
-#define VM_ERR_GENERIC     0xFFFFFFFF
-#define VM_ERR_PATH        0xFFFFFFFE
-#define VM_ERR_IO          0xFFFFFFFD
-#define VM_ERR_UNSUPPORTED 0xFFFFFFFC
+#define VM_ERROR_GENERIC      0xFFFFFFFF
+#define VM_ERROR_PATH         0xFFFFFFFE
+#define VM_ERROR_IO           0xFFFFFFFD
+#define VM_ERROR_UNSUPPORTED  0xFFFFFFFC
+#define VM_ERROR_TRY_LATER    0xFFFFFFFB
+#define VM_ERROR_END_OF_FILE  0xFFFFFFFA
+#define VM_ERROR_OVERFLOW     0xFFFFFFF9
+#define VM_ERROR_IN_USE       0xFFFFFFF8
 
+/* The number of entries in the syscall table (not the number we have actually
+ * implemented) */
 #define VM_SYSCALL_COUNT 25
 
 static uint8_t vm_load_u8(uint32_t addr);
@@ -310,12 +316,12 @@ static void vm_init(int argc, char** argv) {
     address += 48;
 
     /* configure process info table */
-    vm_store_u32(process_info_address + 0, 3); /* version */
+    vm_store_u32(process_info_address + 0, 4); /* version */
     vm_store_u32(process_info_address + 12, 0); /* stdin */
     vm_store_u32(process_info_address + 16, 1); /* stdout */
     vm_store_u32(process_info_address + 20, 2); /* stderr */
-    vm_store_u32(process_info_address + 40, 25); /* syscall count */
-    vm_store_u32(process_info_address + 44, 12); /* process info count */
+    vm_store_u32(process_info_address + 40, 0); /* minor version */
+    vm_store_u32(process_info_address + 44, 0); /* additional memory regions */
 
     /* make an instruction with opcode 0x7F to use for syscalls */
     syscall_address = address;
@@ -401,7 +407,7 @@ static uint32_t vm_exit(void) {
     exit(vm_registers[0]);
 }
 
-static uint32_t vm_fopen(void) {
+static uint32_t vm_open(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
     FILE* file;
@@ -417,7 +423,7 @@ static uint32_t vm_fopen(void) {
             vm_files[handle] != NULL; ++handle) {}
     if (handle == VM_MAX_FILES) {
         /* too many open files */
-        return VM_ERR_GENERIC;
+        return VM_ERROR_GENERIC;
     }
 
     if (mode) {
@@ -435,32 +441,32 @@ static uint32_t vm_fopen(void) {
     if (file == NULL) {
         /* TODO there may be other reasons it failed. Need to implement v4
          * error codes. */
-        return VM_ERR_PATH;
+        return VM_ERROR_PATH;
     }
     vm_files[handle] = file;
 
     return handle;
 }
 
-static uint32_t vm_fclose(void) {
+static uint32_t vm_close(void) {
     uint32_t handle = vm_registers[0];
     fclose(vm_files[handle]);
     vm_files[handle] = NULL;
     return 0;
 }
 
-static uint32_t vm_fread(void) {
+static uint32_t vm_read(void) {
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
     FILE* file = vm_file(vm_registers[0]);
     size_t ret = fread(vm_memory + addr, 1, count, file);
-    if (ret == 0 && !feof(file)) {
-        return VM_ERR_IO;
+    if (ret == 0) {
+        return feof(file) ? VM_ERROR_END_OF_FILE : VM_ERROR_GENERIC;
     }
     return (uint32_t)ret;
 }
 
-static uint32_t vm_fwrite(void) {
+static uint32_t vm_write(void) {
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
     FILE* file = vm_file(vm_registers[0]);
@@ -468,10 +474,10 @@ static uint32_t vm_fwrite(void) {
     if (ret == count) {
         return count;
     }
-    return VM_ERR_GENERIC;
+    return VM_ERROR_GENERIC;
 }
 
-static uint32_t vm_fseek(void) {
+static uint32_t vm_seek(void) {
     /*
      * We don't know how long `long` or `off_t` are. If they're only 32 bits we
      * won't have enough space for the high bits. We try anyway; we just won't
@@ -484,17 +490,17 @@ static uint32_t vm_fseek(void) {
     FILE* file = vm_file(vm_registers[0]);
     long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
     int ret = fseek(file, offset, base);
-    return ret ? VM_ERR_GENERIC : 0;
+    return ret ? VM_ERROR_GENERIC : 0;
 }
 
-static uint32_t vm_ftell(void) {
+static uint32_t vm_tell(void) {
     FILE* file = vm_file(vm_registers[0]);
     uint32_t addr = vm_registers[1];
     unsigned long upos;
     long pos = ftell(file);
 
     if (pos < 0) {
-        return VM_ERR_GENERIC;
+        return VM_ERROR_GENERIC;
     }
 
     /* As with fseek() we shift twice in case `long` or `off_t` is only
@@ -505,9 +511,8 @@ static uint32_t vm_ftell(void) {
     return 0;
 }
 
-/* TODO ftrunc is currently required. should be optional. */
 #ifdef VM_POSIX
-static uint32_t vm_ftrunc(void) {
+static uint32_t vm_trunc(void) {
     /* On POSIX systems we call ftruncate(). */
     uint32_t size_low = vm_registers[1];
     uint32_t size_high = vm_registers[2];
@@ -517,10 +522,10 @@ static uint32_t vm_ftrunc(void) {
     int ret;
     fflush(file);
     ret = ftruncate(fd, upos);
-    return ret ? VM_ERR_GENERIC : 0;
+    return ret ? VM_ERROR_GENERIC : 0;
 }
 #elif
-static uint32_t vm_ftrunc(void) {
+static uint32_t vm_trunc(void) {
     /* On Windows we have _chsize(). There is also _chsize_s() which is
      * 64-bit but our fseek()/ftell() functions aren't currently using
      * corresponding 64-bit functions so right now there's no point. */
@@ -532,18 +537,17 @@ static uint32_t vm_ftrunc(void) {
     int ret;
     fflush(file);
     ret = _chsize(fileno(file), upos);
-    return ret ? VM_ERR_GENERIC : 0;
+    return ret ? VM_ERROR_GENERIC : 0;
 }
 #else
-#define vm_ftrunc NULL
+#define vm_trunc NULL
 #endif
 
-/* The remove() function is standard C. We map it to both the unlink and rmdir
- * syscalls.*/
-static uint32_t vm_remove(void) {
-    uint32_t path_addr = vm_registers[0];
-    const char* path = (const char*)vm_memory + path_addr;
-    return remove(path) ? VM_ERR_GENERIC : 0;
+/* The remove() function is standard C. It can delete directories as long as
+ * they are empty. */
+static uint32_t vm_delete(void) {
+    const char* path = (const char*)vm_memory + vm_registers[0];
+    return remove(path) ? VM_ERROR_GENERIC : 0;
 }
 
 #ifdef VM_POSIX
@@ -553,7 +557,7 @@ static uint32_t vm_chmod(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
     const char* path = (const char*)vm_memory + path_addr;
-    return chmod(path, mode) ? VM_ERR_GENERIC : 0;
+    return chmod(path, mode) ? VM_ERROR_GENERIC : 0;
 }
 #else
 #define vm_chmod NULL
@@ -563,7 +567,7 @@ static uint32_t vm_chmod(void) {
 static uint32_t vm_mkdir(void) {
     /* Standard C doesn't have mkdir but POSIX does. */
     const char* path = (const char*)vm_memory + vm_registers[0];
-    return mkdir(path, 0755) ? VM_ERR_GENERIC : 0;
+    return mkdir(path, 0755) ? VM_ERROR_GENERIC : 0;
 }
 #else
 #define vm_mkdir NULL
@@ -573,25 +577,25 @@ static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
     vm_exit,
     NULL, /* panic */
     NULL, /* time */
-    vm_fopen,
-    vm_fclose,
-    vm_fread,
-    vm_fwrite,
-    vm_fseek,
-    vm_ftell,
-    vm_ftrunc, /* may be NULL */
-    NULL, /* dopen */
-    NULL, /* dclose */
-    NULL, /* dread */
+    vm_open,
+    vm_close,
+    vm_read,
+    vm_write,
+    vm_seek,
+    vm_tell,
+    vm_trunc, /* may be NULL */
+    NULL, /* (unused) */
+    NULL, /* (unused) */
+    NULL, /* dirent */
     NULL, /* stat */
     NULL, /* rename */
-    NULL, /* symlink */
-    vm_remove, /* unlink */
-    vm_chmod,
-    vm_mkdir,
-    vm_remove, /* rmdir */
-    NULL, /* spawn */
-    NULL, /* waitpid */
+    NULL, /* (unused) */
+    vm_delete, /* delete */
+    vm_chmod, /* may be NULL */
+    vm_mkdir, /* may be NULL */
+    NULL, /* (unused) */
+    NULL, /* (unused) */
+    NULL, /* (unused) */
     NULL, /* debug */
     NULL, /* alloc */
     NULL, /* free */
