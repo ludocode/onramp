@@ -31,6 +31,10 @@
 # skipped.
 #
 # You can pass --lax to skip test cases that check for illegal instructions.
+
+# Exit on Ctrl-C
+trap "exit" INT
+
 # Checking for illegal instructions is not required.
 
 LAX=0
