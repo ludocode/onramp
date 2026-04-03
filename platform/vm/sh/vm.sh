@@ -202,13 +202,13 @@ store_word() {
 registers_init() {
     I=0
     while [ $I -ne 16 ]; do
-        eval REGISTER_$I=0
+        : $(( REGISTER_$I = 0 ))
         I=$(( $I + 1 ))
     done
 }
 
 register_get() {
-    REGISTER_GET_RET=$(eval echo \$REGISTER_$1)
+    REGISTER_GET_RET=$(( REGISTER_$1 ))
 }
 
 register_set() {
@@ -223,10 +223,10 @@ register_set() {
 #        REGISTER_SET_VALUE=$2
 #    fi
 #    #echo register_set $1 $REGISTER_SET_VALUE $(printf %08X $REGISTER_SET_VALUE) >&2
-#    eval REGISTER_$1="\$REGISTER_SET_VALUE"
+#    : $(( REGISTER_$1 = $REGISTER_SET_VALUE ))
 
     #echo register_set $1 $2 $(printf %08X $2) >&2
-    eval REGISTER_$1="\$2"
+    : $(( REGISTER_$1 = $2 ))
 }
 
 registers_print() {
