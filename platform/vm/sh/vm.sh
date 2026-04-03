@@ -127,7 +127,8 @@ fatal() {
 ################################################################
 
 # The start of mapped VM memory. This is arbitrary.
-# Words are stored in shell variables, named like so _$((address))
+# Words are stored in shell variables, named like so _$((address)).
+# Uninitialized memory reads as 0 as per POSIX.
 MEMORY_START=$((0x10000))
 MEMORY_END=$(($MEMORY_START + 1024 * 1024 * 16)) # 16 MiB
 
