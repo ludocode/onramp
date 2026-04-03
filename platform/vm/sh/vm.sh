@@ -42,18 +42,8 @@
 
 # Implementation details:
 #
-# POSIX shell doesn't have arrays so we use dynamically named variables. They
-# are accessed using `eval`. POSIX shell also doesn't have a straightforward
-# way to store bytes so we store everything in hexadecimal.
-#
-# Memory is stored in a series of dynamically named variables containing long
-# hexadecimal strings. A cache sits in front with smaller hexadecimal strings,
-# and file I/O is (or could be) buffered in hexadecimal strings as well.
-#
-# Load and store operations are performed by string splicing of hexadecimal via
-# `cut` and `printf %X`. All memory and cache strings are stored in reverse
-# order so we don't have to re-order the bytes of a hexadecimal word. Our
-# machine is effectively big-endian.
+# POSIX shell doesn't have arrays so we use dynamically named variables, like
+# _0, _1, _2, etc. for memory and REGISTER_0, REGISTER_1, etc. for registers.
 #
 # The VM relies heavily on arithmetic expressions, i.e. `$(( ... ))`, which are
 # specified by POSIX. Your shell must support these for this VM to work. If you
@@ -76,8 +66,7 @@
 #
 # When run in bash, dash, zsh and BusyBox, all non-syscall instructions
 # *should* be done strictly with builtins (although I haven't really confirmed
-# that.) Other shells may use external commands if things like `cut` and
-# `printf` are not builtins.
+# that.)
 #
 # Syscalls, especially file access syscalls, may use external commands (e.g.
 # `ls`, `dd`, etc.)
@@ -94,12 +83,6 @@
 # The main thing needed first is a proper benchmarking suite to test the speed
 # of various instructions and syscalls individually so we can get an idea of
 # what's slow.
-#
-# The `cut` calls are a major problem. It seems all shells fork and create
-# pipes and such to do it even though they implement `cut` internally. I
-# haven't tested the performance of shell variable substitutions but if there
-# is a way to use them to eliminate `cut` calls in cache manipulation that
-# might greatly improve performance.
 #
 # I assume the `eval` calls are a major problem so any way to avoid them could
 # make a difference. If we can change functions like `parse_mix`,
@@ -138,303 +121,16 @@ fatal() {
     exit 125
 }
 
-# Replaces a substring of a string, returning it in REPLACE_SUBSTRING_RET.
-replace_substring() {
-    SUBSTRING_PAGE=$1
-    SUBSTRING_START=$2
-    SUBSTRING_VALUE=$3
-
-    SUBSTRING_END=$(($SUBSTRING_START + ${#SUBSTRING_VALUE}))
-
-    #echo "replace $SUBSTRING_PAGE $SUBSTRING_START $SUBSTRING_VALUE" >&2
-
-    # cut does not allow empty ranges. We have to check.
-    SUBSTRING_BEFORE=
-    if [ $SUBSTRING_START -ne 0 ]; then
-        SUBSTRING_BEFORE=$(echo $SUBSTRING_PAGE | cut -c-$SUBSTRING_START)
-    fi
-    SUBSTRING_AFTER=
-    if [ $SUBSTRING_END -ne ${#SUBSTRING_PAGE} ]; then
-        SUBSTRING_AFTER=$(echo $SUBSTRING_PAGE | cut -c$(($SUBSTRING_END + 1))-)
-    fi
-
-    REPLACE_SUBSTRING_RET=$SUBSTRING_BEFORE$SUBSTRING_VALUE$SUBSTRING_AFTER
-}
-
-
 
 ################################################################
 # Memory Backing
 ################################################################
 
-# The memory backing contains all of the VM memory. It does not contain
-# registers, files or other metadata.
-#
-# Memory is stored in pages. Each page contains a string of uppercase
-# hexadecimal characters of length 2 * $MEM_PAGE_SIZE, or 'x' if the page
-# is zero.
-#
-# Pages are stored in a series of variables of the form $MEM_{n} where {n} is
-# the page index. The page index ranges from 0 to $MEM_COUNT - 1.
-#
-# Note that there is a cache that sits in front of the memory. The memory
-# backing functions should only be used by the cache.
-#
-# All bytes are stored in reverse order. This allows us to do all memory access
-# as big-endian and convert between hexadecimal and decimal without having to
-# do expensive byte swapping. From the VM's perspective, all memory is
-# little-endian. The address inversion is done in the cache, not here.
-#
-
-# The size of an individual page in bytes. This must be a power of two. The
-# page will be stored in hexadecimal so the string length will be 2x this. The
-# string is passed to `cut` so if `cut` is not a shell builtin, the string must
-# be less than ARG_MAX. The shell may have string length limits of its own as
-# well. We keep it at 8kB (so 16k string length) to keep it conservative. The
-# higher this number is, the more expensive cache flushes will be as the entire
-# string must be recreated.
-# TODO convert this to bits, like cache TODO why?
-BACKING_PAGE_SIZE=4096
-
-# The number of pages. This times the page size gives the total amount of
-# address space available to the program. Most shells seem to work fine even if
-# this is 100000 or more although it adds a few seconds of startup time to
-# assign all the variables.
-BACKING_PAGE_COUNT=4096
-
 # The start of mapped VM memory. This is arbitrary.
+# Words are stored in shell variables, named like so _$((address)).
+# Uninitialized memory reads as 0 as per POSIX.
 MEMORY_START=$((0x10000))
-
-# The end of memory is the address just after the last byte. (This is the
-# initial value of the stack pointer.)
-MEMORY_END=$(($MEMORY_START + $BACKING_PAGE_SIZE * $BACKING_PAGE_COUNT))
-#echo "START $MEMORY_START END $MEMORY_END SIZE $(( $MEMORY_END - $MEMORY_START )) ALTSIZE $(( $BACKING_PAGE_SIZE * $BACKING_PAGE_COUNT ))" >&2
-
-# Initializes the backing.
-backing_init() {
-
-    # We initially assign all pages to 'x'. We only fill pages when storing a
-    # non-zero value.
-    BACKING_INDEX=0
-    while [ $BACKING_INDEX -ne $BACKING_PAGE_COUNT ]; do
-        eval BACKING_$BACKING_INDEX=x
-        BACKING_INDEX=$(($BACKING_INDEX + 1))
-    done
-
-    # Generate an empty page.
-    BACKING_INDEX=16
-    BACKING_EMPTY_PAGE=00000000000000000000000000000000
-    while [ $BACKING_INDEX -ne $BACKING_PAGE_SIZE ]; do
-        BACKING_EMPTY_PAGE=${BACKING_EMPTY_PAGE}${BACKING_EMPTY_PAGE}
-        BACKING_INDEX=$(($BACKING_INDEX * 2))
-    done
-}
-
-# Gets the memory page index of an address, returning it in BACKING_PAGE_INDEX.
-# The memory address must be valid.
-# TODO inline this function, no longer needed
-backing_page_index() {
-    BACKING_PAGE_INDEX_ADDR=$1
-#    if [ $BACKING_PAGE_INDEX_ADDR -lt $MEMORY_START ] || [ $BACKING_PAGE_INDEX_ADDR -ge $MEMORY_END ]; then
-#        fatal "Address $BACKING_PAGE_INDEX_ADDR is out of range."
-#    fi
-#    BACKING_PAGE_INDEX=$(( ($BACKING_PAGE_INDEX_ADDR - $MEMORY_START) / $BACKING_PAGE_SIZE ))
-    BACKING_PAGE_INDEX=$(( $BACKING_PAGE_INDEX_ADDR / $BACKING_PAGE_SIZE ))
-}
-
-# Loads a cache line from the backing, returning it in BACKING_LOAD_LINE.
-# The given address must be properly aligned.
-backing_load() {
-    BACKING_LOAD_ADDR=$1
-
-    backing_page_index $BACKING_LOAD_ADDR
-    BACKING_LOAD_INDEX=$BACKING_PAGE_INDEX
-    BACKING_LOAD_OFFSET=$((($BACKING_LOAD_ADDR % $BACKING_PAGE_SIZE) * 2))
-    BACKING_LOAD_PAGE=$(eval echo \$BACKING_$BACKING_LOAD_INDEX)
-
-    #echo "backing_load(): BACKING_LOAD_ADDR: $BACKING_LOAD_ADDR" >&2
-    #echo "backing_load(): BACKING_LOAD_INDEX: $BACKING_LOAD_INDEX" >&2
-    #echo "backing_load(): BACKING_LOAD_OFFSET: $BACKING_LOAD_OFFSET" >&2
-    #echo "backing_load(): BACKING_LOAD_PAGE: $BACKING_LOAD_PAGE" >&2
-
-    if [ "$BACKING_LOAD_PAGE" = "x" ]; then
-        #echo "backing_load(): Page is empty. Returning empty cache line: $CACHE_EMPTY_LINE" >&2
-        BACKING_LOAD_LINE=$CACHE_EMPTY_LINE
-    else
-        #echo "backing_load(): Returning cache line: $(echo $BACKING_LOAD_PAGE | cut -c$(($BACKING_LOAD_OFFSET +  1))-$(($BACKING_LOAD_OFFSET + 2 * $CACHE_LINE_SIZE)))" >&2
-        BACKING_LOAD_LINE="$($BACKING_LOAD_PAGE | cut -c$(($BACKING_LOAD_OFFSET +  1))-$(($BACKING_LOAD_OFFSET + 2 * $CACHE_LINE_SIZE)))"
-    fi
-}
-
-# Stores a cache line into the backing.
-# The given address must be properly aligned.
-backing_store() {
-    BACKING_STORE_ADDR=$1
-    BACKING_STORE_VALUE=$2
-
-    backing_page_index $BACKING_STORE_ADDR
-    BACKING_STORE_INDEX=$BACKING_PAGE_INDEX
-    BACKING_STORE_OFFSET=$((($BACKING_STORE_ADDR % $BACKING_PAGE_SIZE) * 2))
-    BACKING_STORE_PAGE=$(eval echo \$BACKING_$BACKING_STORE_INDEX)
-
-    #echo "backing_store(): BACKING_STORE_ADDR: $BACKING_STORE_ADDR" >&2
-    #echo "backing_store(): BACKING_STORE_VALUE: $BACKING_STORE_VALUE" >&2
-    #echo "backing_store(): BACKING_STORE_INDEX: $BACKING_STORE_INDEX" >&2
-    #echo "backing_store(): BACKING_STORE_OFFSET: $BACKING_STORE_OFFSET" >&2
-    #echo "backing_store(): BACKING_STORE_PAGE: $BACKING_STORE_PAGE" >&2
-
-    BACKING_STORE_NOTHING=0
-    if [ "$BACKING_STORE_PAGE" = "x" ]; then
-        if [ "$BACKING_STORE_VALUE" = "$CACHE_EMPTY_LINE" ]; then
-            #echo "backing_store(): Page is empty but we're storing a zero cache line. Doing nothing." >&2
-            BACKING_STORE_NOTHING=1
-        else
-            #echo "backing_store(): Page is empty. Generating a new zero page." >&2
-            BACKING_STORE_PAGE=$BACKING_EMPTY_PAGE
-        fi
-    fi
-
-    if [ $BACKING_STORE_NOTHING -eq 0 ]; then
-        replace_substring $BACKING_STORE_PAGE $BACKING_STORE_OFFSET $BACKING_STORE_VALUE
-        #echo "backing_store(): Replaced substring. New page: $REPLACE_SUBSTRING_RET" >&2
-        eval BACKING_$BACKING_STORE_INDEX="\$REPLACE_SUBSTRING_RET"
-    fi
-}
-
-
-
-################################################################
-# Memory Cache
-################################################################
-
-# The memory cache sits in front of the backing. Memory pages are huge strings
-# for which manipulation is expensive so the cache uses smaller strings to
-# provide faster memory operations.
-#
-# The cache is implemented as a hash table. Each bucket contains a number of
-# cache lines in most-recently-used order. Cache lines are fetched from the
-# backing on a cache miss and flushed to the backing when evicted.
-#
-# The number of cache lines per bucket is currently hardcoded to two to
-# simplify the fetch and eviction code. See cache_fetch().
-#
-
-# The number of bits used for the size in bytes of a cache line. This must be
-# smaller than the backing page size.
-CACHE_LINE_BITS=6   # 2^6 == 64 bytes
-
-# The size of a cache line in bytes. The cache line will be stored in
-# hexadecimal so the string length will be 2x this.
-CACHE_LINE_SIZE=$(( 1 << $CACHE_LINE_BITS ))
-
-# The length of a cache line in hex chars.
-CACHE_LINE_LENGTH=$(( $CACHE_LINE_SIZE << 1 ))
-
-# Mask used to grab the lower bits of an address.
-CACHE_LINE_MASK=$(( $CACHE_LINE_SIZE - 1 ))
-
-if [ $CACHE_LINE_SIZE -ge $BACKING_PAGE_SIZE ]; then
-    fatal "Invalid configuration. Cache line size $CACHE_LINE_SIZE must be less than page size $BACKING_PAGE_SIZE"
-fi
-
-# The number of bits used for hashing. The bucket count is two to the power of
-# this.
-CACHE_BUCKET_BITS=6  # 2^6 == 64 buckets
-
-# The total number of buckets.
-CACHE_BUCKET_COUNT=$(( 1 << $CACHE_BUCKET_BITS ))
-
-# Initializes the cache.
-cache_init() {
-
-    # All cache lines are set to address 0 and value 'x' to mark them as empty.
-    CACHE_BUCKET=0
-    while [ $CACHE_BUCKET -ne $CACHE_BUCKET_COUNT ]; do
-        # Currently using two lines per bucket; see cache_fetch().
-        eval CACHE_${CACHE_BUCKET}_0_ADDR=-1
-        eval CACHE_${CACHE_BUCKET}_0_VALUE=x
-        eval CACHE_${CACHE_BUCKET}_1_ADDR=-1
-        eval CACHE_${CACHE_BUCKET}_1_VALUE=x
-        CACHE_BUCKET=$(($CACHE_BUCKET + 1))
-    done
-
-    # Generate an empty cache line.
-    CACHE_INDEX=8
-    CACHE_EMPTY_LINE=0000000000000000
-    while [ $CACHE_INDEX -ne $CACHE_LINE_SIZE ]; do
-        CACHE_EMPTY_LINE=${CACHE_EMPTY_LINE}${CACHE_EMPTY_LINE}
-        CACHE_INDEX=$(($CACHE_INDEX * 2))
-    done
-}
-
-# Places the cache line for the given address into the front of its
-# corresponding bucket, returning the index in CACHE_FETCH_BUCKET.
-#
-# The cache line will be at $CACHE_{b}_0_VALUE where {b} is the returned index.
-#
-# If the cache line is not found in the cache, it will be fetched from the
-# backing, and another cache line will be evicted and flushed to make room.
-#CACHE_FETCH_DEBUG=1
-cache_fetch() {
-    # Invert the address and align it to a cache line
-    CACHE_FETCH_ADDR=$(( ($1 >> $CACHE_LINE_BITS) << $CACHE_LINE_BITS ))
-
-    # Hash the address to choose a bucket. We use a 31-bit Knuth multiplicative
-    # hash and trim the top bit to avoid any sign issues.
-    CACHE_FETCH_BUCKET=$(( (($CACHE_FETCH_ADDR * 1327217867) & 0x7FFFFFFF) >> (31 - $CACHE_BUCKET_BITS) ))
-
-    #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): !!! CACHE_FETCH_ADDR $CACHE_FETCH_ADDR CACHE_FETCH_BUCKET $CACHE_FETCH_BUCKET" >&2
-    #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): CACHE_${CACHE_FETCH_BUCKET}_0_ADDR=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_ADDR)" >&2
-    #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): CACHE_${CACHE_FETCH_BUCKET}_1_ADDR=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_1_ADDR)" >&2
-
-    # The number of lines per bucket is currently fixed at 2 to simplify the
-    # below code. It's probably faster than using a bunch of loops anyway. Also
-    # see the initialization code in cache_init() which assumes two lines.
-    if [ $CACHE_FETCH_ADDR -eq $(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_ADDR) ]; then
-        # It's already at the front. nothing to do.
-        #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Cache line already at front." >&2
-        :
-
-    elif [ $CACHE_FETCH_ADDR -eq $(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_1_ADDR) ]; then
-        # It's at index 1. Swap it with index 0.
-        #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Cache line at index 1. Swapping cache lines" >&2
-        CACHE_FETCH_LINE_ADDR=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_1_ADDR)
-        CACHE_FETCH_LINE_VALUE=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_1_VALUE)
-        eval CACHE_${CACHE_FETCH_BUCKET}_1_ADDR="$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_ADDR)"
-        eval CACHE_${CACHE_FETCH_BUCKET}_1_VALUE="$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)"
-        eval CACHE_${CACHE_FETCH_BUCKET}_0_ADDR="$CACHE_FETCH_LINE_ADDR"
-        eval CACHE_${CACHE_FETCH_BUCKET}_0_VALUE="$CACHE_FETCH_LINE_VALUE"
-
-    else
-        # It's not in the cache.
-        #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Cache line not in cache." >&2
-
-        # Evict the line at position 1
-        CACHE_FETCH_LINE_ADDR=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_1_ADDR)
-        CACHE_FETCH_LINE_VALUE=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_1_VALUE)
-        #echo "cache_fetch(): Evicting line $CACHE_FETCH_LINE_ADDR" >&2
-        if [ "$CACHE_FETCH_LINE_VALUE" != "x" ]; then
-            #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Evicting line $CACHE_FETCH_LINE_ADDR"
-            backing_store $CACHE_FETCH_LINE_ADDR $CACHE_FETCH_LINE_VALUE
-        else
-            #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Line to evict is uninitialized. Nothing to do." >&2
-            :
-        fi
-
-        # Move line at 0 to 1
-        #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Moving line 0 to 1" >&2
-        eval CACHE_${CACHE_FETCH_BUCKET}_1_ADDR="$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_ADDR)"
-        eval CACHE_${CACHE_FETCH_BUCKET}_1_VALUE="$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)"
-
-        # Fetch the line into position 0
-        #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Fetching line into 0" >&2
-        backing_load $CACHE_FETCH_ADDR
-        eval CACHE_${CACHE_FETCH_BUCKET}_0_ADDR="$CACHE_FETCH_ADDR"
-        eval CACHE_${CACHE_FETCH_BUCKET}_0_VALUE="$BACKING_LOAD_LINE"
-    fi
-
-    #[ $CACHE_FETCH_DEBUG -eq 0 ] || echo "cache_fetch(): Returning bucket $CACHE_FETCH_BUCKET containing $(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)" >&2
-}
+MEMORY_END=$(($MEMORY_START + 1024 * 1024 * 16)) # 16 MiB
 
 # Verifies that a memory address is valid. If it is not, the VM aborts.
 check_address() {
@@ -449,125 +145,51 @@ check_alignment() {
     fi
 }
 
-#
-# The load and store functions invert all memory addresses. In other words, all
-# memory strings, i.e. the backing pages and cache lines, are stored backwards.
-#
-# The reason for this is so that we can do big-endian hexadecimal loads and
-# stores. This removes the need for expensive byte-swapping conversions.
-#
-
-# Loads a byte at the given address, converts it to decimal, and places it in
-# LOAD_BYTE_RET.
+# Loads a byte at the given address and places it in LOAD_BYTE_RET.
 load_byte() {
-    # Check and invert the memory address
+    # Check the memory address
     check_address $1
-    LOAD_BYTE_ADDR=$(( $MEMORY_END - $1 - 1))
+    LOAD_BYTE_IX=$(( $1 / 4 ))
+    LOAD_BYTE_OFFSET=$(( ($1 & 0x3) * 8 ))
 
-    #echo "load_byte(): LOAD_BYTE_ADDR: $LOAD_BYTE_ADDR" >&2
-
-    # Fetch the cache line
-    cache_fetch $LOAD_BYTE_ADDR
-    LOAD_BYTE_LINE=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)
-    [ ${#LOAD_BYTE_LINE} -eq $CACHE_LINE_LENGTH ] || fatal "Invalid cache line: $LOAD_BYTE_LINE"
-
-    # Extract the value
-    LOAD_BYTE_OFFSET=$(( ($LOAD_BYTE_ADDR & $CACHE_LINE_MASK) * 2 ))
-    LOAD_BYTE_RET=$(( 0x$(echo $LOAD_BYTE_LINE | cut -c$(($LOAD_BYTE_OFFSET +  1))-$(($LOAD_BYTE_OFFSET + 2))) ))
-
-    #echo "load_byte(): CACHE_FETCH_BUCKET: $CACHE_FETCH_BUCKET" >&2
-    #echo "load_byte(): LOAD_BYTE_OFFSET: $LOAD_BYTE_OFFSET" >&2
-    #echo "load_byte(): LOAD_BYTE_LINE: $LOAD_BYTE_LINE" >&2
-    #echo "load_byte(): LOAD_BYTE_RET: $LOAD_BYTE_VALUE" >&2
+    # Extract the value from the appropriate shell variable and byte offset.
+    LOAD_BYTE_RET=$(( (_${LOAD_BYTE_IX} >> LOAD_BYTE_OFFSET) & 0xFF ))
 }
 
-# Loads a word from the given address, converts it to decimal, and places it
-# in LOAD_WORD_RET.
+# Loads a word from the given address and places it in LOAD_WORD_RET.
 load_word() {
-    # Check and invert the memory address
+    # Check the memory address
     check_address $1
     check_alignment $1
-    LOAD_WORD_ADDR=$(( $MEMORY_END - $1 - 4))
+    LOAD_BYTE_IX=$(( $1 / 4 ))
 
-    #echo "load_word(): loading at 0x$(printf %08X $1) (flipped addr $LOAD_WORD_ADDR)" >&2
-
-    # Fetch the cache line
-    cache_fetch $LOAD_WORD_ADDR
-    LOAD_WORD_LINE=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)
-    [ ${#LOAD_WORD_LINE} -eq $CACHE_LINE_LENGTH ] || fatal "Invalid cache line: $LOAD_WORD_LINE"
-
-    # Extract the value
-    LOAD_WORD_OFFSET=$(( ($LOAD_WORD_ADDR & $CACHE_LINE_MASK) * 2 ))
-    LOAD_WORD_RET=$(( 0x$(echo $LOAD_WORD_LINE | cut -c$(($LOAD_WORD_OFFSET + 1))-$(($LOAD_WORD_OFFSET + 8))) ))
-
-    #echo "load_word(): CACHE_FETCH_BUCKET: $CACHE_FETCH_BUCKET" >&2
-    #echo "load_word(): LOAD_WORD_OFFSET: $LOAD_WORD_OFFSET" >&2
-    #echo "load_word(): LOAD_WORD_LINE: $LOAD_WORD_LINE" >&2
-    #echo "load_word(): LOAD_WORD_RET: $LOAD_WORD_RET" >&2
+    # The adress is aligned so we know it's not split across 2 shell variables
+    LOAD_WORD_RET=$(( _${LOAD_BYTE_IX} & 0xFFFFFFFF ))
 }
 
 # Stores a byte at the given address.
 store_byte() {
-    # Check and invert the memory address
+    # Check the memory address
     check_address $1
-    STORE_BYTE_ADDR=$(( $MEMORY_END - $1 - 1))
 
-    # Convert to hex
-    STORE_BYTE_VALUE=$(printf %02X $2)
-    #echo "store_byte(): storing $2 as 0x$STORE_BYTE_VALUE at 0x$(printf %02X $1)"
-
-    #CACHE_FETCH_DEBUG=0
-    # Fetch the cache line
-    cache_fetch $STORE_BYTE_ADDR
-    STORE_BYTE_LINE=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)
-    [ ${#STORE_BYTE_LINE} -eq $CACHE_LINE_LENGTH ] || fatal "Invalid cache line: $STORE_BYTE_LINE"
-
-    # Mutate it
-    STORE_BYTE_OFFSET=$(( ($STORE_BYTE_ADDR & $CACHE_LINE_MASK) * 2 ))
-    replace_substring $STORE_BYTE_LINE $STORE_BYTE_OFFSET $STORE_BYTE_VALUE
-    [ ${#REPLACE_SUBSTRING_RET} -eq $CACHE_LINE_LENGTH ] || fatal "Cache line mutation failed"
-    eval CACHE_${CACHE_FETCH_BUCKET}_0_VALUE="\$REPLACE_SUBSTRING_RET"
-    #CACHE_FETCH_DEBUG=1
-
-    #echo "store_byte(): MEMORY_START: $MEMORY_START" >&2
-    #echo "store_byte(): MEMORY_END: $MEMORY_END" >&2
-    #echo "store_byte(): STORE_BYTE_ADDR: $STORE_BYTE_ADDR" >&2
-    #echo "store_byte(): CACHE_FETCH_BUCKET: $CACHE_FETCH_BUCKET" >&2
-    #echo "store_byte(): STORE_BYTE_OFFSET: $STORE_BYTE_OFFSET" >&2
-    #echo "store_byte(): STORE_BYTE_LINE (before): $STORE_BYTE_LINE" >&2
-    #echo "store_byte(): CACHE_${CACHE_FETCH_BUCKET}_0_VALUE (after): $(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)" >&2
+    LOAD_BYTE_IX=$(( $1 / 4 ))
+    LOAD_BYTE_OFFSET=$(( ($1 & 0x3) * 8 ))
+    # We clear the byte at the appropriate offset and then set it to the new value.
+    LOAD_WORD_RET=$(( _${LOAD_BYTE_IX} & 0xFFFFFFFF ))
+    LOAD_WORD_RET=$(( LOAD_WORD_RET & ~(0xFF << LOAD_BYTE_OFFSET) )) # clear the byte
+    LOAD_WORD_RET=$(( LOAD_WORD_RET | (($2 & 0xFF) << LOAD_BYTE_OFFSET) )) # set the byte to the new value
+    : $(( _${LOAD_BYTE_IX} = LOAD_WORD_RET ))
 }
 
 # Stores a word at the given address.
 store_word() {
-    # Check and invert the memory address
+    # Check the memory address
     check_address $1
     check_alignment $1
-    STORE_WORD_ADDR=$(( $MEMORY_END - $1 - 4))
 
-    # Convert to hex
-    STORE_WORD_VALUE=$(printf %08X $2)
-    #echo "store_word(): storing $2 as 0x$STORE_WORD_VALUE at 0x$(printf %08X $1) (flipped addr $STORE_WORD_ADDR)" >&2
-
-    # Fetch the cache line
-    cache_fetch $STORE_WORD_ADDR
-    STORE_WORD_LINE=$(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)
-    [ ${#STORE_WORD_LINE} -eq $CACHE_LINE_LENGTH ] || fatal "Invalid cache line: $STORE_WORD_LINE"
-
-    #echo "store_word(): MEMORY_START: $MEMORY_START" >&2
-    #echo "store_word(): MEMORY_END: $MEMORY_END" >&2
-    #echo "store_word(): STORE_WORD_ADDR: $STORE_WORD_ADDR" >&2
-    #echo "store_word(): CACHE_FETCH_BUCKET: $CACHE_FETCH_BUCKET" >&2
-    #echo "store_word(): STORE_WORD_OFFSET: $STORE_WORD_OFFSET" >&2
-    #echo "store_word(): STORE_WORD_LINE: $STORE_WORD_LINE" >&2
-    #echo "store_word(): CACHE_${CACHE_FETCH_BUCKET}_0_VALUE: $(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)" >&2
-
-    # Mutate it
-    STORE_WORD_OFFSET=$(( ($STORE_WORD_ADDR & $CACHE_LINE_MASK) * 2 ))
-    replace_substring $STORE_WORD_LINE $STORE_WORD_OFFSET $STORE_WORD_VALUE
-    [ ${#REPLACE_SUBSTRING_RET} -eq $CACHE_LINE_LENGTH ] || fatal "Cache line mutation failed"
-    eval CACHE_${CACHE_FETCH_BUCKET}_0_VALUE="\$REPLACE_SUBSTRING_RET"
-    #echo "store_word(): mutated line: $(eval echo \$CACHE_${CACHE_FETCH_BUCKET}_0_VALUE)"
+    LOAD_BYTE_IX=$(( $1 / 4 ))
+    # the adress is aligned so we know it's not split across 2 shell variables
+    : $(( _${LOAD_BYTE_IX} = $2 & 0xFFFFFFFF ))
 }
 
 
@@ -581,13 +203,13 @@ store_word() {
 registers_init() {
     I=0
     while [ $I -ne 16 ]; do
-        eval REGISTER_$I=0
+        : $(( REGISTER_$I = 0 ))
         I=$(( $I + 1 ))
     done
 }
 
 register_get() {
-    REGISTER_GET_RET=$(eval echo \$REGISTER_$1)
+    REGISTER_GET_RET=$(( REGISTER_$1 ))
 }
 
 register_set() {
@@ -602,10 +224,10 @@ register_set() {
 #        REGISTER_SET_VALUE=$2
 #    fi
 #    #echo register_set $1 $REGISTER_SET_VALUE $(printf %08X $REGISTER_SET_VALUE) >&2
-#    eval REGISTER_$1="\$REGISTER_SET_VALUE"
+#    : $(( REGISTER_$1 = $REGISTER_SET_VALUE ))
 
     #echo register_set $1 $2 $(printf %08X $2) >&2
-    eval REGISTER_$1="\$2"
+    : $(( REGISTER_$1 = $2 ))
 }
 
 registers_print() {
@@ -820,21 +442,22 @@ copy_strings() {
     # For each string...
     I=0
     while [ $I -ne $STRING_COUNT_RET ]; do
-        LEN=${#1}
+        STR="$1"
 
         # Copy the string to the heap
         J=0
-        while [ $J -ne $LEN ]; do
-            CUT_POS=$(( $J + 1 ))
-            BYTE=$(printf %d "\"$(echo "$1" | cut -c$CUT_POS-$CUT_POS)")
+        while [ ! -z "$STR" ]; do
+            CHR=${STR%"${STR#?}"}       # Get the first character
+            STR=${STR#?}                # Remove the first character
+            BYTE=$(printf %d "'$CHR")   # Get the byte value of the character
             store_byte $(( $CURRENT_ADDRESS + $J )) "$BYTE"
             J=$(($J + 1))
         done
-        store_byte $(( $CURRENT_ADDRESS + $LEN )) 0
+        store_byte $(( $CURRENT_ADDRESS + $J )) 0
 
         # Write the string's address to the array
         store_word $(( $COPY_STRINGS_RET + $I * 4 )) $CURRENT_ADDRESS
-        CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + $LEN + 1 ))
+        CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + $J + 1 ))
 
         shift
         I=$(( $I + 1 ))
@@ -999,13 +622,13 @@ syscall_write() {
 
 syscall() {
     case $1 in
-        00)  # halt
+        0)  # halt
             exit $(( $REGISTER_0 & 0xFF ))
             ;;
-        03) syscall_open ;;
-        04) syscall_close ;;
-        05) syscall_read ;;
-        06) syscall_write ;;
+        3) syscall_open ;;
+        4) syscall_close ;;
+        5) syscall_read ;;
+        6) syscall_write ;;
         *)
             fatal "Unhandled syscall: $1"
             ;;
@@ -1019,14 +642,14 @@ syscall() {
 ################################################################
 
 parse_register() {
-    PARSE_REGISTER_RET=$(( 0x$1 - 0x80 ))
+    PARSE_REGISTER_RET=$(( $1 - 0x80 ))
     if [ $PARSE_REGISTER_RET -lt 0 -o $PARSE_REGISTER_RET -ge 16 ]; then
         fatal "A register-type argument is invalid."
     fi
 }
 
 parse_mix() {
-    PARSE_MIX_RET=$(( 0x$1 ))
+    PARSE_MIX_RET=$(( $1 ))
     if [ $PARSE_MIX_RET -ge 144 ]; then
         PARSE_MIX_RET=$(( ($PARSE_MIX_RET - 256) & 0xFFFFFFFF ))
     elif [ $PARSE_MIX_RET -ge 128 ]; then
@@ -1039,11 +662,12 @@ run() {
     while true; do
         #echo "about to load instruction word at $REGISTER_15"
         load_word $REGISTER_15
-        HEX_INSTRUCTION=$(printf %08X $LOAD_WORD_RET)
-        OPCODE=$(echo $HEX_INSTRUCTION|cut -c 7-8)
-        ARG1=$(echo $HEX_INSTRUCTION|cut -c 5-6)
-        ARG2=$(echo $HEX_INSTRUCTION|cut -c 3-4)
-        ARG3=$(echo $HEX_INSTRUCTION|cut -c 1-2)
+        : $(( OPCODE = ($LOAD_WORD_RET >> 0)  & 0xFF ))
+        : $(( ARG1   = ($LOAD_WORD_RET >> 8)  & 0xFF ))
+        : $(( ARG2   = ($LOAD_WORD_RET >> 16) & 0xFF ))
+        : $(( ARG3   = ($LOAD_WORD_RET >> 24) & 0xFF ))
+        # for easier debugging, but should be removed for performance
+        OPCODE_HEX=$(printf %02X $OPCODE)
         #echo >&2
         #echo "instruction $OPCODE $ARG1 $ARG2 $ARG3" >&2
 #        if [ $OPCODE = "00" ]; then
@@ -1051,7 +675,7 @@ run() {
 #        fi
         REGISTER_15=$(( $REGISTER_15 + 4 ))
 
-        case $OPCODE in
+        case $OPCODE_HEX in
             70)
                 #echo add >&2
                 parse_register $ARG1
@@ -1163,7 +787,7 @@ run() {
                 #echo ims >&2
                 parse_register $ARG1
                 register_get $PARSE_REGISTER_RET
-                register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | 0x$ARG3$ARG2))
+                register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | (ARG3 << 8) | ARG2 ))
                 ;;
             7D)
                 #echo ltu >&2
@@ -1193,7 +817,7 @@ run() {
                 #echo jz >&2
                 parse_mix $ARG1
                 if [ 0 -eq $PARSE_MIX_RET ]; then
-                    OFFSET=$(( 0x$ARG3$ARG2 ))
+                    OFFSET=$(( (($ARG3 << 8) | ARG2) & 0xFFFF ))
                     if [ $OFFSET -ge 32768 ]; then
                         OFFSET=$(( $OFFSET - 65536 ))
                     fi
@@ -1205,20 +829,18 @@ run() {
                 fi
                 ;;
             7F)
-                if [ $(( 0x$ARG2 )) -ne 0 -o $(( 0x$ARG3 )) -ne 0 ]; then
+                if [ $(( ARG2 )) -ne 0 -o $(( ARG3 )) -ne 0 ]; then
                     fatal "The additional arguments to the sys instruction must be zero."
                 fi
                 syscall $ARG1
                 ;;
             *)
-                fatal "Invalid opcode: $OPCODE"
+                fatal "Invalid opcode: $OPCODE_HEX"
         esac
     done
 }
 
 registers_init
-backing_init
-cache_init
 files_init
 process_init
 args_init "$@"
