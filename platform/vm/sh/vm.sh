@@ -66,8 +66,7 @@
 #
 # When run in bash, dash, zsh and BusyBox, all non-syscall instructions
 # *should* be done strictly with builtins (although I haven't really confirmed
-# that.) Other shells may use external commands if things like `cut` and
-# `printf` are not builtins.
+# that.)
 #
 # Syscalls, especially file access syscalls, may use external commands (e.g.
 # `ls`, `dd`, etc.)
@@ -84,12 +83,6 @@
 # The main thing needed first is a proper benchmarking suite to test the speed
 # of various instructions and syscalls individually so we can get an idea of
 # what's slow.
-#
-# The `cut` calls are a major problem. It seems all shells fork and create
-# pipes and such to do it even though they implement `cut` internally. I
-# haven't tested the performance of shell variable substitutions but if there
-# is a way to use them to eliminate `cut` calls in cache manipulation that
-# might greatly improve performance.
 #
 # I assume the `eval` calls are a major problem so any way to avoid them could
 # make a difference. If we can change functions like `parse_mix`,
@@ -448,21 +441,22 @@ copy_strings() {
     # For each string...
     I=0
     while [ $I -ne $STRING_COUNT_RET ]; do
-        LEN=${#1}
+        STR="$1"
 
         # Copy the string to the heap
         J=0
-        while [ $J -ne $LEN ]; do
-            CUT_POS=$(( $J + 1 ))
-            BYTE=$(printf %d "\"$(echo "$1" | cut -c$CUT_POS-$CUT_POS)")
+        while [ ! -z "$STR" ]; do
+            CHR=${STR%"${STR#?}"}       # Get the first character
+            STR=${STR#?}                # Remove the first character
+            BYTE=$(printf %d "'$CHR")   # Get the byte value of the character
             store_byte $(( $CURRENT_ADDRESS + $J )) "$BYTE"
             J=$(($J + 1))
         done
-        store_byte $(( $CURRENT_ADDRESS + $LEN )) 0
+        store_byte $(( $CURRENT_ADDRESS + $J )) 0
 
         # Write the string's address to the array
         store_word $(( $COPY_STRINGS_RET + $I * 4 )) $CURRENT_ADDRESS
-        CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + $LEN + 1 ))
+        CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + $J + 1 ))
 
         shift
         I=$(( $I + 1 ))
@@ -627,13 +621,13 @@ syscall_write() {
 
 syscall() {
     case $1 in
-        00)  # halt
+        0)  # halt
             exit $(( $REGISTER_0 & 0xFF ))
             ;;
-        03) syscall_open ;;
-        04) syscall_close ;;
-        05) syscall_read ;;
-        06) syscall_write ;;
+        3) syscall_open ;;
+        4) syscall_close ;;
+        5) syscall_read ;;
+        6) syscall_write ;;
         *)
             fatal "Unhandled syscall: $1"
             ;;
@@ -647,14 +641,14 @@ syscall() {
 ################################################################
 
 parse_register() {
-    PARSE_REGISTER_RET=$(( 0x$1 - 0x80 ))
+    PARSE_REGISTER_RET=$(( $1 - 0x80 ))
     if [ $PARSE_REGISTER_RET -lt 0 -o $PARSE_REGISTER_RET -ge 16 ]; then
         fatal "A register-type argument is invalid."
     fi
 }
 
 parse_mix() {
-    PARSE_MIX_RET=$(( 0x$1 ))
+    PARSE_MIX_RET=$(( $1 ))
     if [ $PARSE_MIX_RET -ge 144 ]; then
         PARSE_MIX_RET=$(( ($PARSE_MIX_RET - 256) & 0xFFFFFFFF ))
     elif [ $PARSE_MIX_RET -ge 128 ]; then
@@ -667,11 +661,12 @@ run() {
     while true; do
         #echo "about to load instruction word at $REGISTER_15"
         load_word $REGISTER_15
-        HEX_INSTRUCTION=$(printf %08X $LOAD_WORD_RET)
-        OPCODE=$(echo $HEX_INSTRUCTION|cut -c 7-8)
-        ARG1=$(echo $HEX_INSTRUCTION|cut -c 5-6)
-        ARG2=$(echo $HEX_INSTRUCTION|cut -c 3-4)
-        ARG3=$(echo $HEX_INSTRUCTION|cut -c 1-2)
+        : $(( OPCODE = ($LOAD_WORD_RET >> 0)  & 0xFF ))
+        : $(( ARG1   = ($LOAD_WORD_RET >> 8)  & 0xFF ))
+        : $(( ARG2   = ($LOAD_WORD_RET >> 16) & 0xFF ))
+        : $(( ARG3   = ($LOAD_WORD_RET >> 24) & 0xFF ))
+        # for easier debugging, but should be removed for performance
+        OPCODE_HEX=$(printf %02X $OPCODE)
         #echo >&2
         #echo "instruction $OPCODE $ARG1 $ARG2 $ARG3" >&2
 #        if [ $OPCODE = "00" ]; then
@@ -679,7 +674,7 @@ run() {
 #        fi
         REGISTER_15=$(( $REGISTER_15 + 4 ))
 
-        case $OPCODE in
+        case $OPCODE_HEX in
             70)
                 #echo add >&2
                 parse_register $ARG1
@@ -791,7 +786,7 @@ run() {
                 #echo ims >&2
                 parse_register $ARG1
                 register_get $PARSE_REGISTER_RET
-                register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | 0x$ARG3$ARG2))
+                register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | (ARG3 << 8) | ARG2 ))
                 ;;
             7D)
                 #echo ltu >&2
@@ -821,7 +816,7 @@ run() {
                 #echo jz >&2
                 parse_mix $ARG1
                 if [ 0 -eq $PARSE_MIX_RET ]; then
-                    OFFSET=$(( 0x$ARG3$ARG2 ))
+                    OFFSET=$(( (($ARG3 << 8) | ARG2) & 0xFFFF ))
                     if [ $OFFSET -ge 32768 ]; then
                         OFFSET=$(( $OFFSET - 65536 ))
                     fi
@@ -833,13 +828,13 @@ run() {
                 fi
                 ;;
             7F)
-                if [ $(( 0x$ARG2 )) -ne 0 -o $(( 0x$ARG3 )) -ne 0 ]; then
+                if [ $(( ARG2 )) -ne 0 -o $(( ARG3 )) -ne 0 ]; then
                     fatal "The additional arguments to the sys instruction must be zero."
                 fi
                 syscall $ARG1
                 ;;
             *)
-                fatal "Invalid opcode: $OPCODE"
+                fatal "Invalid opcode: $OPCODE_HEX"
         esac
     done
 }
