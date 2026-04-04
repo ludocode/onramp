@@ -49,7 +49,9 @@
 # expansions (e.g. `: $(( _$i = $x ))`.)
 #
 # The VM relies heavily on arithmetic expressions, i.e. `$(( ... ))`, which are
-# specified by POSIX. Your shell must support these for this VM to work.
+# specified by POSIX. Your shell must support these for this VM to work. Some
+# syntax does not work in all shells; for example `$(( ++I ))` works in ksh but
+# not dash. We use `$(( I += 1 ))` instead.
 #
 # POSIX specifies that arithmetic expressions only need to support the range of
 # signed long, which on 32-bit platforms is 32 bits. To work around this, we
@@ -107,10 +109,6 @@
 #set -e
 #set -vx
 
-# Use line feed as the internal field separator. ANSI C quoting isn't in POSIX
-# so we use printf instead.
-IFS="$(printf '\012')"
-
 
 
 ################################################################
@@ -121,6 +119,16 @@ fatal() {
     echo ERROR: "$@" >&2
     exit 125
 }
+
+ERROR_GENERIC=$((0xFFFFFFFF))
+ERROR_NO_SUCH_PATH=$((0xFFFFFFFE))
+ERROR_IO=$((0xFFFFFFFD))
+ERROR_UNSUPPORTED=$((0xFFFFFFFC))
+ERROR_TRY_LATER=$((0xFFFFFFFB))
+ERROR_END_OF_FILE=$((0xFFFFFFFA))
+ERROR_OVERFLOW=$((0xFFFFFFF9))
+ERROR_IN_USE=$((0xFFFFFFF8))
+
 
 
 ################################################################
@@ -202,6 +210,7 @@ store_word() {
 # Registers are stored as 32-bit signed decimal strings.
 
 registers_init() {
+    #echo registers_init >&2
     I=0
     while [ $I -ne 16 ]; do
         : $(( REGISTER_$I = 0 ))
@@ -246,26 +255,33 @@ registers_print() {
 # I/O
 ################################################################
 
+FILES_MAX=16
+
 files_init() {
+    #echo files_init >&2
+
     I=0
-    while [ $I -ne 16 ]; do
+    while [ $I -ne $FILES_MAX ]; do
         #echo "$I" >&2
         eval FILE_${I}_NAME=
-        eval FILE_${I}_SIZE=-1
-        eval FILE_${I}_BUFFER=x
-        eval FILE_${I}_OFFSET=-1
-        eval FILE_${I}_MODE=0
-        I=$(( $I + 1 ))
+        : $(( FILE_${I}_SIZE = 0 ))
+        : $(( FILE_${I}_OFFSET = 0 ))
+        : $(( FILE_${I}_MODE = 0 ))
+        : $(( FILE_${I}_STREAM = 0 ))
+        : $(( I += 1 ))
     done
 
     FILE_0_NAME=/dev/stdin
     FILE_0_MODE=0
+    FILE_0_STREAM=1
 
     FILE_1_NAME=/dev/stdout
     FILE_1_MODE=1
+    FILE_1_STREAM=1
 
     FILE_2_NAME=/dev/stderr
     FILE_2_MODE=1
+    FILE_2_STREAM=1
 }
 
 file_print() {
@@ -273,151 +289,298 @@ file_print() {
     eval echo "  name" \$FILE_${1}_NAME
     eval echo "  size" \$FILE_${1}_SIZE
     eval echo "  offset" \$FILE_${1}_OFFSET
-    eval echo "  buffer" \$FILE_${1}_BUFFER
     eval echo "  mode" \$FILE_${1}_MODE
-}
-
-file_find_free() {
-    I=0
-    while [ $I -ne 16 ]; do
-        if [ "x$(eval echo \$FILE_${I}_NAME)" = "x" ]; then
-            FILE_FIND_FREE_RET=$I
-            break
-        fi
-        I=$(( $I + 1 ))
-    done
-
-    if [ $I -eq 16 ]; then
-        fatal "Too many open files."
-    fi
-
-    FILE_FIND_FREE_RET=$I
+    eval echo "  stream" \$FILE_${1}_STREAM
 }
 
 file_open() {
-    file_find_free
-    I=$FILE_FIND_FREE_RET
+
+    # Find a free file handle
+    I=0
+    while [ "$(eval echo \$FILE_${I}_NAME)" != "" ]; do
+        if [ $I -eq $FILES_MAX ]; then
+            #echo "Couldn't open \"$1\" in mode $2; too many open files." >&2
+            # too may open files
+            FILE_OPEN_RET=$ERROR_OVERFLOW
+            return
+        fi
+        : $(( I += 1 ))
+    done
+
+    #echo "Opening \"$1\" in mode $2 as handle $I" >&2
+
+    # Check if this is a device
+    case "$1" in
+        /dev/*)
+            # We only support /dev/urandom. No other devices are allowed.
+            if [ "$1" != "/dev/urandom" ]; then
+                echo "VM WARNING: Refusing to open device \"$1\"" >&2
+                FILE_OPEN_RET=$ERROR_NO_SUCH_PATH
+                return
+            fi
+            # Devices are not seekable.
+            : $(( FILE_${I}_STREAM = 1 ))
+            ;;
+        *)
+            # Assume the file is seekable. This won't work on UNIX domain
+            # sockets.
+            : $(( FILE_${I}_STREAM = 0 ))
+            ;;
+    esac
 
     # Open for reading
     if [ $2 -eq 0 ]; then
         if ! [ -e "$1" ]; then
-            # TODO for now if a file doesn't exist we abort. Eventually we'll
-            # need to return an error to the syscall.
-            fatal "File not found: $1"
+            FILE_OPEN_RET=$ERROR_NO_SUCH_PATH
+            return
         fi
-        eval FILE_${I}_SIZE=$(wc -c < $1)
-        eval FILE_${I}_OFFSET=0
+        : $(( FILE_${I}_SIZE = $(wc -c < "$1") ))
+        : $(( FILE_${I}_OFFSET = 0 ))
 
     # Open for writing
     elif [ $2 -eq 1 ]; then
-        rm -f "$1"
-        touch "$1"
-        eval FILE_${I}_SIZE=0
-        # TODO for now we don't support append. We always overwrite. We also
-        # assume it's a regular file, not a stream.
-        eval FILE_${I}_OFFSET=0
+        if [ -e "$1" ]; then
+            : $(( FILE_${I}_SIZE = $(wc -c < "$1") ))
+        else
+            touch "$1"
+            : $(( FILE_${I}_SIZE = 0 ))
+        fi
+        : $(( FILE_${I}_OFFSET = 0 ))
 
     else
         fatal "Invalid file mode"
     fi
 
     eval FILE_${I}_NAME="\$1"
-    eval FILE_${I}_MODE="\$2"
-    eval FILE_${I}_BUFFER=x
-
+    : $(( FILE_${I}_MODE = $2 ))
     FILE_OPEN_RET=$I
 }
 
 file_close() {
+    #echo "Closing handle $1" >&2
+
     if [ "x$(eval echo \$FILE_${1}_NAME)" = "x" ]; then
         fatal "Handle is already closed."
     fi
+
     eval FILE_${1}_NAME=
-    eval FILE_${1}_BUFFER=x
 }
 
-# Reads one byte from the given file, returning it as unsigned decimal in
-# FILE_READ_RET, or an empty string if the end of the file has been reached.
-#
-# TODO this could probably be sped up a lot by converting directly to hex with
-# `od` and avoiding the conversions to/from decimal when reading to memory
-# (which is always.)
-#
-# TODO buffering is not implemented yet. We call out to dd for each byte.
+# Reads bytes from the given file into the given address.
+# args: handle, address, count
 file_read() {
-    FILE_READ_NAME="$(eval echo \$FILE_${1}_NAME)"
-    if [ "x$FILE_READ_NAME" = "x" ]; then
-        fatal "Handle is not open."
+    FILE_READ_NAME="$(eval echo "\$FILE_${1}_NAME")"
+    FILE_READ_ADDRESS=$2
+    FILE_READ_COUNT=$3
+    : $(( FILE_READ_OFFSET = FILE_${1}_OFFSET ))
+    : $(( FILE_READ_SIZE = FILE_${1}_SIZE ))
+    : $(( FILE_READ_STREAM = FILE_${1}_STREAM ))
+
+    #echo "file read handle $1" >&2
+    #echo "file read name $FILE_READ_NAME" >&2
+    #echo "file read address $FILE_READ_ADDRESS" >&2
+    #echo "file read count $FILE_READ_COUNT" >&2
+    #echo "file read offset $FILE_READ_OFFSET" >&2
+    #echo "file read size $FILE_READ_SIZE" >&2
+
+    if [ "$FILE_READ_NAME" = "" ]; then
+        fatal "Handle $1 is not open."
     fi
 
-    FILE_READ_MODE="$(eval echo \$FILE_${1}_MODE)"
-    if [ $FILE_READ_MODE -ne 0 ]; then
-        fatal "Handle is not open for reading."
+    # Make sure we don't try to read past the end of the file
+    FILE_READ_REMAINING=$(( FILE_READ_SIZE - FILE_READ_OFFSET ))
+    if [ $FILE_READ_REMAINING -eq 0 ]; then
+        #echo "file read EOF" >&2
+        FILE_READ_RET=$ERROR_END_OF_FILE
+        return
+    fi
+    if [ $FILE_READ_REMAINING -lt $FILE_READ_COUNT ]; then
+        FILE_READ_COUNT=$FILE_READ_REMAINING
+        #echo "file read reduced count to $FILE_READ_COUNT" >&2
     fi
 
-    FILE_READ_OFFSET="$(eval echo \$FILE_${1}_OFFSET)"
-    FILE_READ_SIZE="$(eval echo \$FILE_${1}_SIZE)"
+    # We're going to read into a hex string so we limit ourselves to 512 bytes.
+    if [ $FILE_READ_COUNT -gt 512 ]; then
+        FILE_READ_COUNT=512
+    fi
 
-    if [ $FILE_READ_OFFSET -eq $FILE_READ_SIZE ]; then
-        # end-of-file
-        FILE_READ_RET=
+    # If the file is seekable, od will seek to the offset
+    if [ $FILE_READ_STREAM -eq 0 ]; then
+        FILE_READ_SEEK=-j$FILE_READ_OFFSET
     else
-        FILE_READ_RET=$(dd if="$FILE_READ_NAME" bs=1 count=1 skip=$FILE_READ_OFFSET 2>/dev/null | od -A n -N 1 -t u1 | tr -d " ")
-        eval FILE_${1}_OFFSET=$(( $FILE_READ_OFFSET + 1 ))
+        FILE_READ_SEEK=
     fi
+
+    # Read hex bytes into a string. (They are grouped multiple bytes per line
+    # but this doesn't matter because both space and newline are in our IFS.)
+    FILE_READ_BYTES=$(od -An -vtx1 $FILE_READ_SEEK -N$FILE_READ_COUNT "$FILE_READ_NAME")
+
+    # old code to delimit bytes by newlines
+#    FILE_READ_BYTES=$( \
+#        od -An -vtx1 $FILE_READ_SEEK -N$FILE_READ_COUNT "$FILE_READ_NAME" | \
+#        LC_ALL=C tr -cs '0-9a-fA-F' '[\n*]' | \
+#        grep .)
+
+    # Store each byte in memory.
+    : $(( FILE_READ_END = FILE_READ_ADDRESS + FILE_READ_COUNT ))
+    for FILE_READ_BYTE in $FILE_READ_BYTES; do
+        #echo "read byte $FILE_READ_BYTE"
+        store_byte $FILE_READ_ADDRESS 0x$FILE_READ_BYTE
+        : $(( FILE_READ_ADDRESS += 1 ))
+        : $(( FILE_READ_OFFSET += 1 ))
+    done
+    if [ $FILE_READ_END -ne $FILE_READ_ADDRESS ]; then
+        fatal "Read incorrect number of bytes."
+    fi
+
+    # (We don't have any error checking on the above. If the size is wrong, for
+    # example if the file was modified by something else since we "opened" it,
+    # this will blow up.)
+
+    : $(( FILE_${1}_OFFSET = FILE_READ_OFFSET ))
+    FILE_READ_RET=$FILE_READ_COUNT
 }
 
-# Writes to the given file the given unsigned decimal byte.
-#
-# TODO also no buffering yet
+# Writes bytes at the given address to the given file.
+# args: handle, address, count
 file_write() {
-    #echo file_write $1 $2 >&2
-    #echo filename: "$(eval echo \$FILE_${1}_NAME)" >&2
-    #echo filename: $FILE_1_NAME >&2
 
-    FILE_WRITE_NAME="$(eval echo \$FILE_${1}_NAME)"
-    if [ "x$FILE_WRITE_NAME" = "x" ]; then
+    # TODO this is probably not correct handling of filenames with spaces.
+    FILE_WRITE_NAME="$(eval echo "\$FILE_${1}_NAME")"
+    FILE_WRITE_ADDRESS=$2
+    FILE_WRITE_COUNT=$3
+    : $(( FILE_WRITE_MODE = FILE_${1}_MODE ))
+    : $(( FILE_WRITE_OFFSET = FILE_${1}_OFFSET ))
+    : $(( FILE_WRITE_STREAM = FILE_${1}_STREAM ))
+
+    #echo "file write handle $1" >&2
+    #echo "file write name $FILE_WRITE_NAME" >&2
+    #echo "file write address $FILE_WRITE_ADDRESS" >&2
+    #echo "file write count $FILE_WRITE_COUNT" >&2
+    #echo "file write offset $FILE_WRITE_OFFSET" >&2
+    #echo "file write size $FILE_WRITE_SIZE" >&2
+
+    if [ "$FILE_WRITE_NAME" = "" ]; then
         fatal "Handle is not open."
     fi
-
-    FILE_WRITE_MODE="$(eval echo \$FILE_${1}_MODE)"
     if [ $FILE_WRITE_MODE -ne 1 ]; then
         fatal "Handle is not open for writing."
     fi
 
-    FILE_WRITE_OFFSET="$(eval echo \$FILE_${1}_OFFSET)"
-    if [ $FILE_WRITE_OFFSET -eq -1 ]; then
-        # For streams we don't seek or increment the offset but we still need
-        # to tell dd to append in case it isn't really a stream (for example if
-        # the VM output is redirected to a file.)
-        # We have to break up these options because of our IFS.
-        FILE_WRITE_APPEND="oflag=append"
-        FILE_WRITE_NOTRUNC="conv=notrunc"
-        :
-    else
+    FILE_WRITE_SEEK=
+    if [ $FILE_WRITE_STREAM -eq 0 ]; then
         FILE_WRITE_SEEK="seek=$FILE_WRITE_OFFSET"
-        eval FILE_${1}_OFFSET=$(( $FILE_WRITE_OFFSET + 1 ))
     fi
 
-    # For some reason I couldn't get the dd command to work with our special
-    # streams in every shell (zsh...) so we just special case it.
-    if [ "$FILE_WRITE_NAME" = /dev/stdout ]; then
-        printf \\$(printf %o $2)
-    elif [ "$FILE_WRITE_NAME" = /dev/stderr ]; then
-        printf \\$(printf %o $2) >&2
-    else
-        printf \\$(printf %o $2) | dd if=/dev/stdin of=$FILE_WRITE_NAME bs=1 count=1 \
-            $FILE_WRITE_SEEK $FILE_WRITE_APPEND $FILE_WRITE_NOTRUNC 2>/dev/null
+    : $(( FILE_WRITE_END = FILE_WRITE_ADDRESS + FILE_WRITE_COUNT ))
+    while [ $FILE_WRITE_ADDRESS -ne $FILE_WRITE_END ]; do
+        load_byte $FILE_WRITE_ADDRESS
+        printf \\$(printf %o $LOAD_BYTE_RET)
+        : $(( FILE_WRITE_ADDRESS += 1 ))
+    done | \
+        if [ "$FILE_WRITE_NAME" = "/dev/stderr" ]; then
+            cat >&2
+        else
+            dd \
+                bs=1 \
+                count=$FILE_WRITE_COUNT \
+                of="$FILE_WRITE_NAME" \
+                $FILE_WRITE_SEEK \
+                conv=notrunc 2>/dev/null
+        fi
+
+    # Extend the offset, and the size if we've gone past the end
+    if [ $FILE_WRITE_STREAM -eq 0 ]; then
+        : $(( FILE_${1}_OFFSET += FILE_WRITE_COUNT ))
+        if [ $(( FILE_${1}_OFFSET )) -gt $(( FILE_${1}_SIZE )) ]; then
+            : $(( FILE_${1}_SIZE = FILE_${1}_OFFSET ))
+        fi
     fi
+
+    FILE_WRITE_RET=$FILE_WRITE_COUNT
 }
 
+# args: handle, base, offset
+# (to differentiate between the two offsets, we call them "target" and "current".)
 file_seek() {
     FILE_SEEK_FILENAME="$(eval echo \$FILE_${1}_NAME)"
-    if [ "x$FILE_SEEK_FILENAME" = "x" ]; then
+    FILE_SEEK_BASE=$2
+    FILE_SEEK_TARGET=$3
+    : $(( FILE_SEEK_CURRENT = FILE_${1}_OFFSET ))
+    : $(( FILE_SEEK_SIZE = FILE_${1}_SIZE ))
+    : $(( FILE_SEEK_STREAM = FILE_${1}_STREAM ))
+
+    if [ "$FILE_SEEK_FILENAME" = "" ]; then
         fatal "Handle is not open."
     fi
 
-    eval FILE_${1}_OFFSET=$2
+    if [ $FILE_SEEK_STREAM -eq 1 ]; then
+        # cannot seek stream
+        FILE_SEEK_RET=$ERROR_UNSUPPORTED
+        return
+    fi
+
+    if [ $FILE_SEEK_BASE -eq 1 ]; then
+        : $(( FILE_SEEK_TARGET += FILE_SEEK_CURRENT ))
+    elif [ $FILE_SEEK_BASE -eq 2 ]; then
+        : $(( FILE_SEEK_TARGET = ((FILE_SEEK_SIZE + FILE_SEEK_TARGET) & 0xFFFFFFFF) ))
+    fi
+
+    if [ $FILE_SEEK_TARGET -gt $FILE_SEEK_SIZE ]; then
+        # TODO overflow is not documented here, should update the spec
+        FILE_SEEK_RET=$ERROR_OVERFLOW
+        return
+    fi
+
+    : $(( FILE_${1}_OFFSET = FILE_SEEK_TARGET ))
+    FILE_SEEK_RET=0
+}
+
+# args: handle
+file_tell() {
+    FILE_TELL_FILENAME="$(eval echo \$FILE_${1}_NAME)"
+    : $(( FILE_TELL_STREAM = FILE_${1}_STREAM ))
+    : $(( FILE_TELL_OFFSET = FILE_${1}_OFFSET ))
+
+    if [ "$FILE_TELL_FILENAME" = "" ]; then
+        fatal "Handle is not open."
+    fi
+
+    if [ $FILE_TELL_STREAM -eq 1 ]; then
+        # cannot seek stream
+        FILE_TELL_RET=$ERROR_UNSUPPORTED
+        return
+    fi
+
+    FILE_TELL_RET=$FILE_TELL_OFFSET
+}
+
+# args: handle
+file_trunc() {
+
+    # TODO this is probably not correct handling of filenames with spaces.
+    FILE_WRITE_NAME="$(eval echo "\$FILE_${1}_NAME")"
+    : $(( FILE_WRITE_MODE = FILE_${1}_MODE ))
+    : $(( FILE_WRITE_OFFSET = FILE_${1}_OFFSET ))
+    : $(( FILE_WRITE_STREAM = FILE_${1}_STREAM ))
+
+    #echo "file write handle $1" >&2
+    #echo "file write name $FILE_WRITE_NAME" >&2
+    #echo "file write address $FILE_WRITE_ADDRESS" >&2
+    #echo "file write count $FILE_WRITE_COUNT" >&2
+    #echo "file write offset $FILE_WRITE_OFFSET" >&2
+    #echo "file write size $FILE_WRITE_SIZE" >&2
+
+    if [ "$FILE_WRITE_NAME" = "" ]; then
+        fatal "Handle is not open."
+    fi
+    if [ $FILE_WRITE_MODE -ne 1 ]; then
+        fatal "Handle is not open for writing."
+    fi
+
+    >"$FILE_WRITE_NAME"
+    : $(( FILE_${1}_OFFSET = 0 ))
+    : $(( FILE_${1}_SIZE = 0 ))
 }
 
 
@@ -479,6 +642,7 @@ syscall_enable() {
 }
 
 syscalls_init() {
+    #echo syscalls_init >&2
 
     # Allocate the syscall table
     SYSCALL_COUNT=25
@@ -501,9 +665,9 @@ syscalls_init() {
     syscall_enable 4   # close
     syscall_enable 5   # read
     syscall_enable 6   # write
-    #syscall_enable 7   # seek
-    #syscall_enable 8   # tell
-    #syscall_enable 9   # trunc
+    syscall_enable 7   # seek
+    syscall_enable 8   # tell
+    syscall_enable 9   # trunc
     #syscall_enable 12  # dirent
     #syscall_enable 13  # stat
     #syscall_enable 14  # rename
@@ -518,6 +682,8 @@ syscalls_init() {
 # Loads the process info vector and its contents (command-line arguments,
 # environment variables, halt code, etc.)
 process_init() {
+    #echo process_init >&2
+
     PROCESS_INFO_TABLE_COUNT=12
 
     # Allocate the process info table
@@ -541,11 +707,13 @@ process_init() {
 }
 
 args_init() {
+    #echo args_init >&2
     copy_strings "$@"
     store_word $(( $PROCESS_INFO_TABLE + 24 )) $COPY_STRINGS_RET   # argv
 }
 
 env_init() {
+    #echo env_init >&2
     #copy_strings $(env)
 COPY_STRINGS_RET=0  # TODO env_init not working yet
     store_word $(( $PROCESS_INFO_TABLE + 4 * 7 )) $COPY_STRINGS_RET   # environ
@@ -553,6 +721,8 @@ COPY_STRINGS_RET=0  # TODO env_init not working yet
 
 # Loads the program into memory and sets the program break.
 program_init() {
+    #echo program_init >&2
+
     PROGRAM_FILENAME=$1
     if [ "x$PROGRAM_FILENAME" = "x" ]; then
         fatal "A program name is required."
@@ -561,37 +731,33 @@ program_init() {
         fatal "The program file doesn't exist."
     fi
 
-    # Get file size with `ls -l`, the format of which is specified in POSIX.
-    PROGRAM_SIZE=$(wc -c < $PROGRAM_FILENAME)
-
-    # Load each byte from disk and store it in memory (TODO do this in blocks, this is really slow)
-    #echo "Loading program $PROGRAM_FILENAME" >&2
-    file_open $PROGRAM_FILENAME 0
-    HANDLE=$FILE_OPEN_RET
-    I=0
-    while [ $I -ne $PROGRAM_SIZE ]; do
-        file_read $HANDLE
-        BYTE=$FILE_READ_RET
-#        BYTE_HEX=$(od -A n -N 1 -j $I -t x1 $PROGRAM_FILENAME)
-#        if [ $? -ne 0 ]; then
-#            fatal "Failed to load a byte from the program."
-#        fi
-#        BYTE=$(( 0x$(echo $BYTE_HEX | tr -d " ") ))
-#        #echo "I: $I   BYTE: $BYTE"
-        store_byte $(( $CURRENT_ADDRESS + $I )) $BYTE
-        I=$(( $I + 1 ))
-    done
-    file_close $HANDLE
-    #echo "Done loading program" >&2
-
-    # Store the program break in the process info table
-    store_word $(( $PROCESS_INFO_TABLE + 4 )) $(( $CURRENT_ADDRESS + $PROGRAM_SIZE ))   # break
-
     # Set initial registers
     REGISTER_0=$PROCESS_INFO_TABLE  # r0
     REGISTER_12=$MEMORY_END         # rsp
     REGISTER_14=$CURRENT_ADDRESS    # rpp
     REGISTER_15=$CURRENT_ADDRESS    # rip
+
+    # Load the program
+    #echo "Loading program $PROGRAM_FILENAME" >&2
+    # TODO check to make sure the program doesn't overflow our heap
+    file_open $PROGRAM_FILENAME 0
+    HANDLE=$FILE_OPEN_RET
+    REMAINING=$(( FILE_${HANDLE}_SIZE ))
+    while [ $REMAINING -gt 0 ]; do
+        file_read $HANDLE $CURRENT_ADDRESS $REMAINING
+        #echo "read $FILE_READ_RET bytes"
+        if [ $(( $FILE_READ_RET & 0x80000000 )) -ne 0 ]; then
+            fatal "Failed to read program."
+        fi
+        : $(( REMAINING -= FILE_READ_RET ))
+        : $(( CURRENT_ADDRESS += FILE_READ_RET ))
+    done
+
+    # Store the remaining memory as the heap start in the process info table
+    store_word $(( $PROCESS_INFO_TABLE + 4 )) $(( $CURRENT_ADDRESS ))  # heap start
+
+    file_close $HANDLE
+    #echo "Done loading program" >&2
 }
 
 
@@ -623,6 +789,7 @@ syscall_open() {
 
 syscall_close() {
     file_close $REGISTER_0
+    register_set 0 0
 }
 
 syscall_read() {
@@ -635,17 +802,8 @@ syscall_read() {
         fatal "Invalid read size."
     fi
 
-    I=0
-    while [ $I -ne $COUNT ]; do
-        file_read $HANDLE
-        if [ "x$FILE_READ_RET" = "x" ]; then
-            break
-        fi
-        store_byte $(( ($ADDRESS + $I) & 0xFFFFFFFF )) $FILE_READ_RET
-        I=$(( $I + 1 ))
-    done
-
-    register_set 0 $I
+    file_read $HANDLE $ADDRESS $COUNT
+    register_set 0 $FILE_READ_RET
 }
 
 syscall_write() {
@@ -658,14 +816,58 @@ syscall_write() {
         fatal "Invalid write count."
     fi
 
-    I=0
-    while [ $I -ne $COUNT ]; do
-        load_byte $(( ($ADDRESS + $I) & 0xFFFFFFFF ))
-        file_write $HANDLE $LOAD_BYTE_RET
-        I=$(( $I + 1 ))
-    done
+    file_write $HANDLE $ADDRESS $COUNT
+    register_set 0 $FILE_WRITE_RET
+}
 
-    register_set 0 $I
+syscall_seek() {
+    HANDLE=$REGISTER_0
+    BASE=$REGISTER_1
+    OFFSET_LOW=$REGISTER_2
+    OFFSET_HIGH=$REGISTER_3
+
+    # We only support up to 2 GiB file size.
+    if [ $OFFSET_HIGH -ne 0 ] || [ $OFFSET_LOW -lt 0 ] || [ $OFFSET_LOW -gt $((0x7FFFFFFF)) ]; then
+        register_set 0 $ERROR_GENERIC
+        return
+    fi
+
+    file_seek $HANDLE $BASE $OFFSET_LOW
+    register_set 0 $FILE_SEEK_RET
+}
+
+syscall_tell() {
+    HANDLE=$REGISTER_0
+    POSITION=$REGISTER_1
+
+    file_tell $HANDLE
+
+    # We only support up to 2 GiB file size.
+    if [ $FILE_TELL_RET -lt 0 ] || [ $FILE_TELL_RET -gt $((0x7FFFFFFF)) ]; then
+        register_set 0 $FILE_TELL_RET
+        return
+    fi
+
+    store_word $POSITION $FILE_TELL_RET
+    store_word $(( POSITION + 4 )) 0
+    register_set 0 0
+}
+
+syscall_trunc() {
+    HANDLE=$REGISTER_0
+    SIZE_LOW=$REGISTER_1
+    SIZE_HIGH=$REGISTER_2
+
+    # We only support truncating to zero.
+    if [ $SIZE_LOW -ne 0 ] || [ $SIZE_HIGH -ne 0 ]; then
+        register_set 0 $ERROR_UNSUPPORTED
+        return
+    fi
+
+    # Attempting to truncate a non-writable handle is undefined behaviour. We
+    # don't need to check for errors.
+    file_trunc $HANDLE
+    register_set 0 0
 }
 
 syscall() {
@@ -677,6 +879,9 @@ syscall() {
         4) syscall_close ;;
         5) syscall_read ;;
         6) syscall_write ;;
+        7) syscall_seek ;;
+        8) syscall_tell ;;
+        9) syscall_trunc ;;
         *)
             fatal "Unhandled syscall: $1"
             ;;
@@ -721,7 +926,7 @@ run() {
         # for easier debugging, but should be removed for performance
         OPCODE_HEX=$(printf %02X $OPCODE)
         #echo >&2
-        #echo "instruction $(printf %02X $OPCODE) $(printf %02X $ARG1) $(printf %02X $ARG2) $(printf %02X $ARG3)" >&2
+        #echo "instruction at 0x$(printf %08X $REGISTER_15): $(printf %02X $OPCODE) $(printf %02X $ARG1) $(printf %02X $ARG2) $(printf %02X $ARG3)" >&2
 #        if [ $OPCODE = "00" ]; then
 #            registers_print
 #        fi

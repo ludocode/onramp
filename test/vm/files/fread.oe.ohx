@@ -131,7 +131,7 @@
     78 81 89 20   ; ldw r1 r9 32      ; r1 = working directory
 
     ; skip working directory if null
-    7E 81 05 00   ; jz r1 &open_file_wd_done (+5)
+    7E 81 06 00   ; jz r1 &open_file_wd_done (+6)
 
     ; copy the working directory to the program break
     70 82 00 00   ; add r2 0 0      ; zero r2       ; r2 is the destination index
