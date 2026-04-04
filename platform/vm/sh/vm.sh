@@ -1,6 +1,7 @@
 #!/bin/sh
 
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
+# Copyright (c) 2026 Laurent Huberdeau
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,12 +45,11 @@
 #
 # POSIX shell doesn't have arrays so we use dynamically named variables, like
 # _0, _1, _2, etc. for memory and REGISTER_0, REGISTER_1, etc. for registers.
+# Memory addresses are stored using variable assignment in arithmetic
+# expansions (e.g. `: $(( _$i = $x ))`.)
 #
 # The VM relies heavily on arithmetic expressions, i.e. `$(( ... ))`, which are
-# specified by POSIX. Your shell must support these for this VM to work. If you
-# have a POSIX-style shell that doesn't support these, it is in theory possible
-# to port this to use `bc` or some other tool, but it would be a fair amount of
-# work and it would make it much slower than it already is.
+# specified by POSIX. Your shell must support these for this VM to work.
 #
 # POSIX specifies that arithmetic expressions only need to support the range of
 # signed long, which on 32-bit platforms is 32 bits. To work around this, we
@@ -59,6 +59,10 @@
 # results, and those that don't are handled specially (see the implementation
 # of "ltu" for example) so it works on both. As far as I can tell this is both
 # the fastest and simplest way to make the shell independent of word size.
+#
+# We use 0x7F as an opcode for syscalls, same as most VMs. The address of a
+# word containing 0x7F is used as the rip for syscalls and the syscall number
+# is in r9.
 
 
 
@@ -74,7 +78,7 @@
 # Shells have wildly different performance. This VM is something like 20x
 # faster in BusyBox compared to Bash. The other shells I've tested are
 # somewhere in between. Even BusyBox is way too slow to make this work though.
-# Under BusyBox, this VM is roughly 200,000x slower than the C89 VM.
+# Under BusyBox, this VM is roughly 10,000x slower than the C89 VM.
 #
 # I have some ideas for how to potentially improve performance but I doubt I
 # could make up the >1000x improvement needed to make this useful. Still, I've
@@ -97,14 +101,11 @@
 # wouldn't help though. Since the backing is in hexadecimal you don't
 # necessarily save much if you need to convert entire cache lines to and from
 # hexadecimal whenever you get a cache miss.
-#
-# File I/O is not properly buffered yet. Buffering read calls should be fairly
-# easy and should make a difference. Buffering write calls I expect would be
-# harder, not impossible but maybe not worth it.
 
 
 
 #set -e
+#set -vx
 
 # Use line feed as the internal field separator. ANSI C quoting isn't in POSIX
 # so we use printf instead.
@@ -470,27 +471,73 @@ copy_strings() {
     CURRENT_ADDRESS=$(( ($CURRENT_ADDRESS + 3) & (0xFFFFFFFC) ))
 }
 
+# Inserts a syscall into the syscall table
+syscall_enable() {
+    #echo "enabling syscall $1" >&2
+    store_word $(( $SYSCALL_TABLE_ADDRESS + $1 * 8 )) $SYSCALL_INSTRUCTION_ADDRESS
+    store_word $(( $SYSCALL_TABLE_ADDRESS + $1 * 8 + 4 )) $1
+}
+
+syscalls_init() {
+
+    # Allocate the syscall table
+    SYSCALL_COUNT=25
+    SYSCALL_TABLE_ADDRESS=$CURRENT_ADDRESS
+    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 8 * $SYSCALL_COUNT ))
+    #echo "syscall table is at $SYSCALL_TABLE_ADDRESS" >&2
+
+    # Generate the syscall instruction
+    SYSCALL_INSTRUCTION_ADDRESS=$CURRENT_ADDRESS
+    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 4 ))
+    store_word $SYSCALL_INSTRUCTION_ADDRESS $((0x7F))
+    #echo "syscall instruction is at $SYSCALL_INSTRUCTION_ADDRESS" >&2
+
+    # Fill the syscall table
+    # TODO we should implement most of the below. those not implemented yet are
+    # commented.
+    syscall_enable 0   # exit
+    #syscall_enable 2   # time
+    syscall_enable 3   # open
+    syscall_enable 4   # close
+    syscall_enable 5   # read
+    syscall_enable 6   # write
+    #syscall_enable 7   # seek
+    #syscall_enable 8   # tell
+    #syscall_enable 9   # trunc
+    #syscall_enable 12  # dirent
+    #syscall_enable 13  # stat
+    #syscall_enable 14  # rename
+    #syscall_enable 16  # delete
+    #syscall_enable 17  # chmod
+    #syscall_enable 18  # mkdir
+
+    # Write the syscall table address into the process info table
+    store_word $(( $PROCESS_INFO_TABLE + 8 )) $SYSCALL_TABLE_ADDRESS
+}
+
 # Loads the process info vector and its contents (command-line arguments,
 # environment variables, halt code, etc.)
 process_init() {
+    PROCESS_INFO_TABLE_COUNT=12
+
+    # Allocate the process info table
     CURRENT_ADDRESS=$MEMORY_START
     PROCESS_INFO_TABLE=$CURRENT_ADDRESS
-    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 40 ))
-
-    # Generate the halt code
-    EXIT_ADDRESS=$CURRENT_ADDRESS
-    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 4 ))
-    store_word $EXIT_ADDRESS 127   # 0x0000007E == sys halt 0 0
+    CURRENT_ADDRESS=$(( $CURRENT_ADDRESS + 4 * $PROCESS_INFO_TABLE_COUNT ))
 
     # Fill the process info table
-    store_word $PROCESS_INFO_TABLE 1             # version
-    # break is set in program_init()
-    store_word $(( $PROCESS_INFO_TABLE +  8 )) $EXIT_ADDRESS   # exit address
-    store_word $(( $PROCESS_INFO_TABLE + 12 )) 0               # stdin
-    store_word $(( $PROCESS_INFO_TABLE + 16 )) 1               # stdout
-    store_word $(( $PROCESS_INFO_TABLE + 20 )) 2               # stderr
-    store_word $(( $PROCESS_INFO_TABLE + 32 )) 1               # wrapper style (TODO support it)
-    store_word $(( $PROCESS_INFO_TABLE + 36 )) 7               # capabilities = echo | blocking | line-oriented
+    store_word $PROCESS_INFO_TABLE 4                              # major version
+    # heap start is set in program_init()
+    # syscall table is set in syscalls_init()
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 3 )) 0               # stdin
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 4 )) 1               # stdout
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 5 )) 2               # stderr
+    # command-line args are set in args_init
+    # env vars are set in env_init
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 8 )) 0               # working directory TODO
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 9 )) 7               # capabilities = echo | blocking | line-oriented
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 10 )) 0              # minor version
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 11 )) 0              # additional memory regions
 }
 
 args_init() {
@@ -499,8 +546,9 @@ args_init() {
 }
 
 env_init() {
-    copy_strings $(env)
-    store_word $(( $PROCESS_INFO_TABLE + 28 )) $COPY_STRINGS_RET   # environ
+    #copy_strings $(env)
+COPY_STRINGS_RET=0  # TODO env_init not working yet
+    store_word $(( $PROCESS_INFO_TABLE + 4 * 7 )) $COPY_STRINGS_RET   # environ
 }
 
 # Loads the program into memory and sets the program break.
@@ -621,7 +669,7 @@ syscall_write() {
 }
 
 syscall() {
-    case $1 in
+    case $REGISTER_9 in
         0)  # halt
             exit $(( $REGISTER_0 & 0xFF ))
             ;;
@@ -633,6 +681,10 @@ syscall() {
             fatal "Unhandled syscall: $1"
             ;;
     esac
+
+    # load the top of the stack into the instruction pointer
+    load_word $REGISTER_12
+    register_set 15 $LOAD_WORD_RET
 }
 
 
@@ -669,7 +721,7 @@ run() {
         # for easier debugging, but should be removed for performance
         OPCODE_HEX=$(printf %02X $OPCODE)
         #echo >&2
-        #echo "instruction $OPCODE $ARG1 $ARG2 $ARG3" >&2
+        #echo "instruction $(printf %02X $OPCODE) $(printf %02X $ARG1) $(printf %02X $ARG2) $(printf %02X $ARG3)" >&2
 #        if [ $OPCODE = "00" ]; then
 #            registers_print
 #        fi
@@ -753,6 +805,7 @@ run() {
                 parse_mix $ARG2
                 ARG2=$PARSE_MIX_RET
                 parse_mix $ARG3
+                #echo ldw at $ARG2 + $PARSE_MIX_RET into reg $PARSE_REGISTER_RET >&2
                 load_word $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 register_set $PARSE_REGISTER_RET $LOAD_WORD_RET
                 ;;
@@ -804,14 +857,14 @@ run() {
                 # shell because values are 64-bit unsigned.)
                 #echo $ARG2 $ARG3 >&2
                 if [ $ARG2 -ge 0 -a $ARG3 -lt 0 ]; then
-                    CMPU=0
+                    LTU=0
                 elif [ $ARG2 -lt 0 -a $ARG3 -ge 0 ]; then
-                    CMPU=1
+                    LTU=1
                 else
-                    CMPU=$(( $ARG2 < $ARG3 ))
+                    LTU=$(( $ARG2 < $ARG3 ))
                 fi
 
-                register_set $PARSE_REGISTER_RET $CMPU
+                register_set $PARSE_REGISTER_RET $LTU
                 ;;
             7E)
                 #echo jz >&2
@@ -829,10 +882,7 @@ run() {
                 fi
                 ;;
             7F)
-                if [ $(( ARG2 )) -ne 0 -o $(( ARG3 )) -ne 0 ]; then
-                    fatal "The additional arguments to the sys instruction must be zero."
-                fi
-                syscall $ARG1
+                syscall
                 ;;
             *)
                 fatal "Invalid opcode: $OPCODE_HEX"
@@ -843,8 +893,9 @@ run() {
 registers_init
 files_init
 process_init
+syscalls_init
 args_init "$@"
-#env_init#TODO
+env_init
 program_init "$1"
 #        store_word $((0x0100FFFC)) 1  #debugging
 run
