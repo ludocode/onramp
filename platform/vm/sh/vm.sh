@@ -44,7 +44,7 @@
 # Implementation details:
 #
 # POSIX shell doesn't have arrays so we use dynamically named variables, like
-# _0, _1, _2, etc. for memory and REGISTER_0, REGISTER_1, etc. for registers.
+# _0, _4, _8, etc. for memory and REGISTER_0, REGISTER_1, etc. for registers.
 # Memory addresses are stored using variable assignment in arithmetic
 # expansions (e.g. `: $(( _$i = $x ))`.)
 #
@@ -156,49 +156,33 @@ check_alignment() {
 
 # Loads a byte at the given address and places it in LOAD_BYTE_RET.
 load_byte() {
-    # Check the memory address
-    check_address $1
-    LOAD_BYTE_IX=$(( $1 / 4 ))
-    LOAD_BYTE_OFFSET=$(( ($1 & 0x3) * 8 ))
-
-    # Extract the value from the appropriate shell variable and byte offset.
-    LOAD_BYTE_RET=$(( (_${LOAD_BYTE_IX} >> LOAD_BYTE_OFFSET) & 0xFF ))
+    #check_address $1
+    LOAD_BYTE_IX=$(( $1 & 0xFFFFFFFC ))
+    LOAD_BYTE_RET=$(( (_${LOAD_BYTE_IX} >> (($1 & 0x3) << 3)) & 0xFF ))
 }
 
 # Loads a word from the given address and places it in LOAD_WORD_RET.
 load_word() {
-    # Check the memory address
-    check_address $1
-    check_alignment $1
-    LOAD_BYTE_IX=$(( $1 / 4 ))
-
-    # The adress is aligned so we know it's not split across 2 shell variables
-    LOAD_WORD_RET=$(( _${LOAD_BYTE_IX} & 0xFFFFFFFF ))
+    #check_address $1
+    #check_alignment $1
+    LOAD_WORD_RET=$(( _$1 ))
 }
 
 # Stores a byte at the given address.
 store_byte() {
     # Check the memory address
     check_address $1
-
-    LOAD_BYTE_IX=$(( $1 / 4 ))
-    LOAD_BYTE_OFFSET=$(( ($1 & 0x3) * 8 ))
-    # We clear the byte at the appropriate offset and then set it to the new value.
-    LOAD_WORD_RET=$(( _${LOAD_BYTE_IX} & 0xFFFFFFFF ))
-    LOAD_WORD_RET=$(( LOAD_WORD_RET & ~(0xFF << LOAD_BYTE_OFFSET) )) # clear the byte
-    LOAD_WORD_RET=$(( LOAD_WORD_RET | (($2 & 0xFF) << LOAD_BYTE_OFFSET) )) # set the byte to the new value
-    : $(( _${LOAD_BYTE_IX} = LOAD_WORD_RET ))
+    STORE_BYTE_IX=$(( $1 & 0xFFFFFFFC ))
+    STORE_BYTE_OFFSET=$(( ($1 & 0x3) << 3 ))
+    : $(( _${STORE_BYTE_IX} &= ~(0xFF << STORE_BYTE_OFFSET) )) # clear the byte
+    : $(( _${STORE_BYTE_IX} |= (($2 & 0xFF) << STORE_BYTE_OFFSET) )) # replace the byte
 }
 
 # Stores a word at the given address.
 store_word() {
-    # Check the memory address
-    check_address $1
-    check_alignment $1
-
-    LOAD_BYTE_IX=$(( $1 / 4 ))
-    # the adress is aligned so we know it's not split across 2 shell variables
-    : $(( _${LOAD_BYTE_IX} = $2 & 0xFFFFFFFF ))
+    #check_address $1
+    #check_alignment $1
+    : $(( _$1 = $2 & 0xFFFFFFFF ))
 }
 
 
@@ -932,22 +916,26 @@ parse_mix() {
 run() {
     while true; do
         #echo "about to load instruction word at $REGISTER_15"
-        load_word $REGISTER_15
-        : $(( OPCODE = ($LOAD_WORD_RET >> 0)  & 0xFF ))
-        : $(( ARG1   = ($LOAD_WORD_RET >> 8)  & 0xFF ))
-        : $(( ARG2   = ($LOAD_WORD_RET >> 16) & 0xFF ))
-        : $(( ARG3   = ($LOAD_WORD_RET >> 24) & 0xFF ))
-        # for easier debugging, but should be removed for performance
-        OPCODE_HEX=$(printf %02X $OPCODE)
+        : $(( INSTRUCTION = _$REGISTER_15 ))
+        : $(( OPCODE      =  $INSTRUCTION        & 0x0F ))
+        : $(( ARG1        = ($INSTRUCTION >> 8)  & 0xFF ))
+        : $(( ARG2        = ($INSTRUCTION >> 16) & 0xFF ))
+        : $(( ARG3        = ($INSTRUCTION >> 24) & 0xFF ))
+
+        # check that opcode starts with 0x7x (disabled for performance)
+        #if [ $((0x70)) -ne $(( $INSTRUCTION & 0xF0 )) ]; then
+        #    fatal "Invalid opcode"
+        #fi
+
         #echo >&2
         #echo "instruction at 0x$(printf %08X $REGISTER_15): $(printf %02X $OPCODE) $(printf %02X $ARG1) $(printf %02X $ARG2) $(printf %02X $ARG3)" >&2
 #        if [ $OPCODE = "00" ]; then
 #            registers_print
 #        fi
-        REGISTER_15=$(( $REGISTER_15 + 4 ))
+        : $(( REGISTER_15 += 4 ))
 
-        case $OPCODE_HEX in
-            70)
+        case $OPCODE in
+            0)
                 #echo add >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -955,7 +943,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            71)
+            1)
                 #echo sub >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -963,7 +951,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 - $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            72)
+            2)
                 #echo mul >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -971,7 +959,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 * $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            73)
+            3)
                 #echo div >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -979,7 +967,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 / $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            74)
+            4)
                 #echo and >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -987,7 +975,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 & $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            75)
+            5)
                 #echo or >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -995,7 +983,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 | $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            76)
+            6)
                 #echo shl >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -1003,7 +991,7 @@ run() {
                 parse_mix $ARG3
                 register_set $PARSE_REGISTER_RET $(( ($ARG2 << $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 ;;
-            77)
+            7)
                 #echo shru >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -1018,7 +1006,7 @@ run() {
                     register_set $PARSE_REGISTER_RET $(( ((($ARG2 >> 1) & 0x7FFFFFFF) >> ($ARG3 - 1)) ))
                 fi
                 ;;
-            78)
+            8)
                 #echo ldw >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -1028,7 +1016,7 @@ run() {
                 load_word $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 register_set $PARSE_REGISTER_RET $LOAD_WORD_RET
                 ;;
-            79)
+            9)
                 #echo stw >&2
                 parse_mix $ARG1
                 ARG1=$PARSE_MIX_RET
@@ -1037,7 +1025,7 @@ run() {
                 parse_mix $ARG3
                 store_word $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF )) $ARG1
                 ;;
-            7A)
+            10)
                 #echo ldb >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -1046,7 +1034,7 @@ run() {
                 load_byte $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
                 register_set $PARSE_REGISTER_RET $LOAD_BYTE_RET
                 ;;
-            7B)
+            11)
                 #echo stb >&2
                 parse_mix $ARG1
                 ARG1=$PARSE_MIX_RET
@@ -1055,13 +1043,13 @@ run() {
                 parse_mix $ARG3
                 store_byte $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF )) $(( $ARG1 & 0xFF ))
                 ;;
-            7C)
+            12)
                 #echo ims >&2
                 parse_register $ARG1
                 register_get $PARSE_REGISTER_RET
                 register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | (ARG3 << 8) | ARG2 ))
                 ;;
-            7D)
+            13)
                 #echo ltu >&2
                 parse_register $ARG1
                 parse_mix $ARG2
@@ -1085,7 +1073,7 @@ run() {
 
                 register_set $PARSE_REGISTER_RET $LTU
                 ;;
-            7E)
+            14)
                 #echo jz >&2
                 parse_mix $ARG1
                 if [ 0 -eq $PARSE_MIX_RET ]; then
@@ -1100,7 +1088,7 @@ run() {
                     :
                 fi
                 ;;
-            7F)
+            15)
                 syscall
                 ;;
             *)
