@@ -752,12 +752,26 @@ program_init() {
         : $(( REMAINING -= FILE_READ_RET ))
         : $(( CURRENT_ADDRESS += FILE_READ_RET ))
     done
+    file_close $HANDLE
 
     # Store the remaining memory as the heap start in the process info table
     store_word $(( $PROCESS_INFO_TABLE + 4 )) $(( $CURRENT_ADDRESS ))  # heap start
 
-    file_close $HANDLE
     #echo "Done loading program" >&2
+
+    # Check for a wrap header ("#!" or "REM")
+    load_byte $REGISTER_15
+    B0=$LOAD_BYTE_RET
+    load_byte $(( REGISTER_15 + 1))
+    B1=$LOAD_BYTE_RET
+    load_byte $(( REGISTER_15 + 2))
+    B2=$LOAD_BYTE_RET
+    if ( [ $B0 -eq $((0x23)) ] && [ $B1 -eq $((0x21)) ] ) || \
+        ( [ $B0 -eq $((0x52)) ] && [ $B1 -eq $((0x45)) ] && [ $B2 -eq $((0x4D)) ] ); then
+        # wrap header found
+        : $(( REGISTER_14 += 128 ))
+        : $(( REGISTER_15 += 128 ))
+    fi
 }
 
 
