@@ -1,0 +1,810 @@
+; The MIT License (MIT)
+; Copyright (c) 2026 Fraser Heavy Software
+; This test case is part of the Onramp compiler project.
+
+
+
+; This test case checks that test/vm/testdata/dir/ contains four files:
+;
+; - alice
+; - bob
+; - carol
+; - dave
+;
+; The directory may also have "." and "..". It may not have any other files.
+;
+; The test case requires a v4 VM and a dirent syscall. If the VM major version
+; is older than 4 or if dirent is not implemented, the test exits with status 0
+; (success) because dirent is optional.
+
+
+
+;==========================================
+; [[noreturn]] void __start(uint32_t* process_info_table);
+;==========================================
+; The entry point of the program.
+;==========================================
+
+@0x00 =_start
+    ; format indicator `~Onr~amp~   `
+    7E 4F 6E 72   ; jz 79 29294
+    7E 61 6D 70   ; jz 97 28781
+    7E 20 20 20   ; jz 32 8224
+
+    ; store process info table
+    79 80 8E 20   ; stw r0 rpp 0x20
+
+    ; jump to test
+    7C 8A 00 00   ; ims ra <test   ; imw ra ^test
+    7C 8A 60 05   ; ims ra >test (0x560)
+    70 8F 8E 8A   ; add rip rpp ra
+
+    ; padding
+    00 00 00 00
+@0x20
+
+
+
+;==========================================
+; uint32_t* process_info_table;
+;==========================================
+
+@0x20 =process_info_table
+    00 00 00 00
+@0x24
+
+
+
+    ; padding
+    00 00 00 00
+
+
+
+;==========================================
+; int handle;
+;==========================================
+; The handle of the directory to read.
+;==========================================
+
+@0x28 =handle
+    00 00 00 00
+@0x2C
+
+
+
+;==========================================
+; bool files_found[6];
+;==========================================
+; An array of flags for checking for the existence of files and to check for
+; duplicates.
+;
+; We set each byte to 1 when encountering that file.
+;
+; "." and ".." may or may not appear. We only care that they are not duplicated.
+;==========================================
+
+@0x2C =files_found
+    00  ; .
+    00  ; ..
+    00  ; alice
+    00  ; bob
+    00  ; carol
+    00  ; dave
+
+    ; padding
+    00 00
+@0x34
+
+
+
+    ; padding
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+    00 00 00 00  00 00 00 00
+
+
+
+;==========================================
+; const char filenames[][8];
+;==========================================
+; The names of the expected files. The order matches the files_found array.
+;==========================================
+
+@0x6C =filenames
+    2e 00 00 00  00 00 00 00  ; "." '00
+    2e 2e 00 00  00 00 00 00  ; ".." '00
+    61 6c 69 63  65 00 00 00  ; "alice" '00
+    62 6f 62 00  00 00 00 00  ; "bob" '00
+    63 61 72 6f  6c 00 00 00  ; "carol" '00
+    64 61 76 65  00 00 00 00  ; "dave" '00
+    00 00 00 00  ; null terminator
+@0xA0
+
+
+
+;==========================================
+; const char path[32];
+;==========================================
+; The path at which to search for files.
+;==========================================
+
+@0xA0 =path
+    ; "test/vm/testdata/dir" '00
+    74 65 73 74 2f 76 6d 2f  74 65 73 74 64 61 74 61
+;    t  e  s  t  /  v  m  /   t  e  s  t  d  a  t  a
+    2f 64 69 72 00 00 00 00  00 00 00 00 00 00 00 00
+;    /  d  i  r \0
+@0xC0
+
+
+
+;==========================================
+; [[noreturn]] void exit(int);
+;==========================================
+
+@0xC0 =exit
+
+    ; push invalid return address on the stack in case exit returns
+    71 8C 8C 04   ; sub rsp rsp 4
+    79 FF 8C 00   ; stw -1 rsp 0    ; return address = 0xFFFFFFFF
+
+    ; syscall exit
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    78 89 88 04   ; ldw r9 r8 4       ; r9 = r9 of syscall exit
+    78 8F 88 00   ; ldw rip r8 0      ; rip = rip of syscall exit
+
+    ; padding
+    00 00 00 00 00 00 00 00
+@0xE0
+
+
+
+;==========================================
+; int syscall_open(const char* path, bool writeable);
+;==========================================
+
+@0xE0 =syscall_open
+
+    ; get syscall open into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 03 03   ; shl ra 3 3        ; ra = offset of open syscall (3<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of open syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x110
+
+
+
+;==========================================
+; int syscall_close(int handle);
+;==========================================
+
+@0x110 =syscall_close
+
+    ; get syscall close into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 04 03   ; shl ra 4 3        ; ra = offset of close syscall (4<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of close syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x140
+
+
+
+;==========================================
+; int syscall_dirent(int handle);
+;==========================================
+
+@0x140 =syscall_dirent
+
+    ; get syscall dirent into r7
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 0C 03   ; shl ra 12 3       ; ra = offset of dirent syscall (12<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of dirent syscall
+
+    ; tail-call the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x170
+
+
+
+;==========================================
+; void check_requirements(void)
+;==========================================
+
+@0x170 =check_requirements
+
+    ; check the major version
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 0       ; r8 = major version
+    7D 8A 88 04   ; ltu ra r8 4
+    7E 8A 04 00   ; jz ra &check_requirements_version_ok (+4)
+
+    ; old version, exit(0)
+    70 80 00 00   ; add r0 0 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+;:check_requirements_version_ok
+
+    ; check for a dirent syscall
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 0C 03   ; shl ra 12 3       ; ra = offset of dirent syscall (12<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of dirent syscall
+    78 86 87 00   ; ldw r6 r7 0       ; r6 = rip of syscall
+    7E 86 01 00   ; jz r6 &check_requirements_no_dirent (+1)
+    7E 00 04 00   ; jz 0 &check_requirements_dirent_ok (+4)
+
+;:check_requirements_no_dirent
+
+    ; no dirent syscall, exit(0)
+    70 80 00 00   ; add r0 0 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+;:check_requirements_dirent_ok
+
+    ; TODO we should check that we have at least 5 kB of heap space (4 kB to
+    ; assemble the path plus extra space for a stack.) If there is not enough
+    ; space we should exit with an error.
+
+    ; requirements met. continue with the test.
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+@0x1C0
+
+
+
+;==========================================
+; void open_directory(void)
+;==========================================
+; Opens the test directory.
+;
+; The path is assembled at the start of the heap, then a syscall open is
+; performed. The handle is stored in `handle`.
+;
+; On error, the test exits with a failure status.
+;
+; vars:
+;     - program break: r0
+;     - string to append: r1
+;     - wd/destination index: r2
+;     - path index: r3
+;     - current character: r4
+;     - process info table: r9
+;==========================================
+
+@0x1C0 =open_directory
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; get process info
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 80 89 04   ; ldw r0 r9 4       ; r0 = program break
+    78 81 89 20   ; ldw r1 r9 32      ; r1 = working directory
+
+    ; skip working directory if null
+    7E 81 05 00   ; jz r1 &open_directory_wd_done (+5)
+
+    ; copy the working directory to the program break
+    70 82 00 00   ; add r2 0 0      ; zero r2       ; r2 is the destination index
+;:open_directory_wd_loop
+    7A 84 81 82   ; ldb r4 r1 r2                    ; r4 is the current character
+    7E 84 03 00   ; jz r4 &open_directory_wd_done (+3)
+    7B 84 80 82   ; stb r4 r0 r2
+    70 82 82 01   ; add r2 r2 1               ; inc r2
+    7E 00 FB FF   ; jz 0 &open_directory_wd_loop   ; jmp &open_directory_wd_loop (-5)
+;:open_directory_wd_done
+
+    ; append a slash if the working directory is not empty and
+    ; it doesn't already have a trailing slash. (if the working
+    ; directory is empty we assume the vm wants us to use
+    ; relative paths.)
+    7E 82 06 00    ; jz r2 &open_directory_no_slash (+6)
+    71 8A 82 01    ; sub ra r2 1
+    7A 81 81 8A    ; ldb r1 r1 ra
+    71 81 81 2F    ; sub r1 r1 "/"
+    7E 81 02 00    ; jz r1 &open_directory_no_slash (+2)
+    7B 2F 80 82    ; stb "/" r0 r2
+    70 82 82 01    ; add r2 r2 1         ; inc r2
+;:open_directory_no_slash
+
+    ; append the test path to the working directory
+    7C 8A 00 00    ; ims ra <path   ; imw ra ^path
+    7C 8A A0 00    ; ims ra >path
+    70 81 8E 8A    ; add r1 rpp ra      ; r1 = path
+    70 83 00 00    ; add r3 0 0         ; zero r3
+;:open_directory_path_loop
+    7A 84 81 83   ; ldb r4 r1 r3
+    7B 84 80 82   ; stb r4 r0 r2   ; store before jz to null-terminate
+    7E 84 03 00   ; jz r4 &open_directory_path_done (+3)
+    70 82 82 01   ; add r2 r2 1                ; inc r2
+    70 83 83 01   ; add r3 r3 1                ; inc r3
+    7E 00 FA FF   ; jz 0 &open_directory_path_loop  ; jmp &open_directory_path_loop (-6)
+;:open_directory_path_done
+
+    ; args for open
+    ; filename is in r0
+    70 81 00 00   ; add r1 0 0        ; zero r1   ; not writeable
+
+    ; call syscall open
+    7C 8A 00 00    ; ims ra <syscall_open
+    7C 8A E0 00    ; ims ra >syscall_open (0xE0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 04 00   ; jz ra &open_directory_ok (+4)
+    ; fail, exit(1)
+    70 80 01 00   ; add r0 1 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+;:open_directory_ok
+
+    ; success. store the handle
+    79 80 8E 28   ; stw r0 rpp 28   ; handle (0x28)
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x2B0
+
+
+
+; ==========================================================
+; int strcmp(const char* left, const char* right)
+; ==========================================================
+; Compares null-terminated strings left to right lexicographically. Returns -1
+; if left comes before right, 1 if left comes after right, 0 if they are equal.
+;
+; This is the standard C strcmp() function.
+;
+; params:
+;     - left: r0
+;     - right: r1
+; vars:
+;     - index: r2
+; ==========================================================
+
+@0x2B0 =strcmp
+    ; don't bother to set up a stack frame
+
+    ; we use an index because it's faster than incrementing both src and dest
+    70 82 00 00                ; add r2 0 0           ; zero r2
+
+;:strcmp_loop
+    7A 8A 80 82                ; ldb ra r0 r2
+    7A 8B 81 82                ; ldb rb r1 r2
+    71 83 8A 8B                ; sub r3 ra rb
+    7E 83 06 00                ; jz r3 &strcmp_byte_match (+6)
+
+    ; bytes not equal, return a comparison result
+    ; TODO this would be much simpler if we just used the subtraction result,
+    ; except the rest of Onramp may assume the value is -1 or 1 because that's
+    ; what cmpu did, this needs to be fixed
+    7D 8A 8A 8B                ; ltu ra ra rb
+    7E 8A 01 00                ; jz ra &strcmp_greater (+2)
+;:strcmp_less
+    70 80 00 FF                ; add r0 0 -1          ; mov r0 -1
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+;:strcmp_greater
+    70 80 00 01                ; add r0 0 1           ; mov r0 1
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+
+;:strcmp_byte_match
+    ; bytes match. if the byte is zero, it's the null terminator, which means
+    ; the strings are equal.
+    7E 8B 02 00                ; jz rb &strcmp_equal (+2)
+
+    ; otherwise keep looping
+    70 82 82 01                ; add r2 r2 1             ; inc r2
+    7E 00 F3 FF                ; jz 0 &strcmp_loop (-13) ; jmp &strcmp_loop
+
+;:strcmp_equal
+    70 80 00 00                ; add r0 0 0           ; zero r0
+    78 8F 00 8C                ; ldw rip 0 rsp        ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x300
+
+
+
+;==========================================
+; void read_entries(void)
+;==========================================
+; Reads the entries in the directory.
+;
+; vars:
+; - i: rfp-4
+; - loop address: rfp-8
+;==========================================
+
+@0x300 =read_entries
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; prepare args for dirent
+    78 80 8E 28   ; ldw r0 rpp 28     ; r0 = handle (0x28)
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table (0x20)
+    78 81 89 04   ; ldw r1 r9 4       ; r1 = heap start
+
+    ; call syscall_dirent()
+    7C 8A 00 00    ; ims ra <syscall_dirent
+    7C 8A 40 01    ; ims ra >syscall_dirent (0x140)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check the high bit for error
+    77 8A 80 1F   ; shru ra r0 31
+    7E 8A 0B 00   ; jz ra &read_entries_ok (+11)
+
+    ; check for ERROR_END_OF_FILE
+    71 8A 80 FA    ; sub ra r0 'FA   ; ERROR_END_OF_FILE
+    7E 8A 01 00    ; jz ra &read_entries_done (+1)
+    7E 00 04 00    ; jz ra &read_entries_error (+4)
+
+;:read_entries_done
+    ; no more files.
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04     ; add rsp rsp 4     ; ...
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+;:read_entries_error
+    ; fail, exit(2)
+    70 80 02 00   ; add r0 3 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+;:read_entries_ok
+
+    ; We need to compare the name against each file in our filenames array.
+    ; When matched, set the appropriate flag in files_found. (The files may
+    ; appear in any order.)
+
+    ; initialize our loop variable
+    79 00 8D FC   ; stw 0 rfp -4   ; i = 0
+
+    ; store the address to loop
+    79 8F 8D F8    ; stw rip rfp -8
+;:read_entries_loop
+
+    ; get the filename in the array
+    70 89 8E 6C   ; add r9 rpp 0x6C   ; r9 = filenames
+    78 80 8D FC   ; ldw r0 rfp -4     ; r0 = i
+    76 80 80 03   ; shl r0 r0 3       ; r0 *= 8
+    70 80 80 89   ; add r0 r0 r9      ; r0 = filenames[i]
+
+    ; check if the filename is empty (we've reached the end of filenames)
+    7A 8A 80 00   ; ldw ra r0 0
+    7E 8A 01 00   ; jz ra &read_entries_end (+1)
+    7E 00 04 00   ; jz ra &read_entries_not_end (+4)
+
+;:read_entries_end
+
+    ; We've reached the end of the array and we still haven't matched the
+    ; file. This means we've encountered a file that is not supposed to exist
+    ; in this directory.
+
+    ; unrecognized file. fail, exit(3)
+    70 80 03 00   ; add r0 3 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+;:read_entries_not_end
+
+    ; get the directory entry
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table (0x20)
+    78 81 89 04   ; ldw r1 r9 4       ; r1 = heap start
+
+    ; call strcmp
+    7C 8A 00 00    ; ims ra <strcmp
+    7C 8A B0 02    ; ims ra >strcmp (0x2B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; check for a match
+    7E 80 04 00    ; jz r0 &read_entries_match (+4)
+
+    ; no match. increment and loop
+    78 80 8D FC   ; ldw r0 rfp -4
+    70 80 80 01   ; add r0 r0 1      ; inc r0
+    79 80 8D FC   ; stw r0 rfp -4
+    78 8F 8D F8   ; ldw rip rfp -8   ; jump to :read_entries_loop
+
+;:read_entries_match
+
+    ; match! check if the flag for this file already exists
+    78 80 8D FC   ; ldw r0 rfp -4     ; r0 = i
+    70 81 8E 2C   ; add r1 rpp 0x2C   ; r1 = files_found
+    7A 82 80 81   ; ldb r2 r0 r1      ; r2 = files_found[i]
+    7E 82 04 00   ; jz r2 &read_entries_no_duplicate (+4)
+
+    ; duplicate entry! fail, exit(4)
+    70 80 04 00   ; add r0 4 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+;:read_entries_no_duplicate
+
+    ; set the found flag for this entry
+    7B 01 80 81   ; stb 1 r0 r1   ; files_found[i] = 1
+
+    ; tail-call ourselves to read the next entry
+    70 8C 8D 00    ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C    ; ldw rfp 0 rsp     ; pop rfp
+    70 8C 8C 04    ; add rsp rsp 4     ; ...
+    7C 8A 00 00    ; ims ra <read_entries
+    7C 8A 00 03    ; ims ra >read_entries (0x300)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x440
+
+
+
+;==========================================
+; void close_directory(void)
+;==========================================
+; Closes the test directory.
+;
+; The close syscall cannot fail.
+;==========================================
+
+@0x440 =close_directory
+
+    ; get the handle
+    78 80 8E 28   ; ldw r0 rpp 28     ; r0 = handle (0x28)
+
+    ; call syscall close
+    7C 8A 00 00    ; ims ra <syscall_close
+    7C 8A 10 01    ; ims ra >syscall_close (0x110)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; the return value must be 0.
+    7E 80 04 00   ; jz r0 &close_directory_ok (+4)
+
+    ; return value is not 0. fail, exit(5)
+    70 80 05 00   ; add r0 5 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+;:close_directory_ok
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x4B0
+
+
+
+;==========================================
+; void check_results(void)
+;==========================================
+; Checks that all the expected files were found.
+;==========================================
+
+@0x4B0 =check_results
+
+    ; get the files_found array
+    70 81 8E 2C   ; add r1 rpp 0x2C
+
+
+    ; check if we found alice
+    7A 80 81 02   ; ldb r0 r1 2   ; r0 = files_found[2]
+    7E 80 01 00   ; jz r0 &close_directory_alice_missing (+1)
+    7E 00 04 00   ; jz 0 &close_directory_alice_ok (+4)
+
+;:close_directory_alice_missing
+    ; no alice. fail, exit(10)
+    70 80 0A 00   ; add r0 10 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+;:close_directory_alice_ok
+
+
+    ; check if we found bob
+    7A 80 81 03   ; ldb r0 r1 3   ; r0 = files_found[3]
+    7E 80 01 00   ; jz r0 &close_directory_bob_missing (+1)
+    7E 00 04 00   ; jz 0 &close_directory_bob_ok (+4)
+
+;:close_directory_bob_missing
+    ; no bob. fail, exit(11)
+    70 80 0B 00   ; add r0 11 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+;:close_directory_bob_ok
+
+
+    ; check if we found carol
+    7A 80 81 04   ; ldb r0 r1 4   ; r0 = files_found[4]
+    7E 80 01 00   ; jz r0 &close_directory_carol_missing (+1)
+    7E 00 04 00   ; jz 0 &close_directory_carol_ok (+4)
+
+;:close_directory_carol_missing
+    ; no carol. fail, exit(12)
+    70 80 0C 00   ; add r0 12 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+;:close_directory_carol_ok
+
+
+    ; check if we found dave
+    7A 80 81 05   ; ldb r0 r1 5   ; r0 = files_found[5]
+    7E 80 01 00   ; jz r0 &close_directory_dave_missing (+1)
+    7E 00 04 00   ; jz 0 &close_directory_dave_ok (+4)
+
+;:close_directory_dave_missing
+    ; no dave. fail, exit(13)
+    70 80 0D 00   ; add r0 13 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+;:close_directory_dave_ok
+
+
+    ; done
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+@0x560
+
+
+
+;==========================================
+; void test(void);
+;==========================================
+; The main function that performs the test.
+;==========================================
+
+@0x560 =test
+
+    ; call check_requirements()
+    7C 8A 00 00    ; ims ra <check_requirements
+    7C 8A 70 01    ; ims ra >check_requirements (0x170)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call open_directory()
+    7C 8A 00 00    ; ims ra <open_directory
+    7C 8A C0 01    ; ims ra >open_directory (0x1C0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call read_entries()
+    7C 8A 00 00    ; ims ra <read_entries
+    7C 8A 00 03    ; ims ra >read_entries (0x300)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call close_directory()
+    7C 8A 00 00    ; ims ra <close_directory
+    7C 8A 40 04    ; ims ra >close_directory (0x440)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; call check_results()
+    7C 8A 00 00    ; ims ra <check_results
+    7C 8A B0 04    ; ims ra >check_results (0x4B0)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; success! exit(0)
+    70 80 00 00   ; add r0 0 0
+    7C 8A 00 00   ; ims ra <exit   ; imw ra ^exit
+    7C 8A C0 00   ; ims ra >exit (0xC0)
+    70 8F 8E 8A   ; add rip rpp ra
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x620
