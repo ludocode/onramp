@@ -853,7 +853,7 @@ A _regular file_ is a file that stores data of arbitrary type and length and sup
 
 Regular files are the most common type of file. All of Onramp's data is stored in regular files, including source code, compiled programs, and documentation. Regular files typically persist indefinitely even when the machine storing them is powered off.
 
-Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can also be changed with the `trunc` system call.
+Regular files have a size. When a regular file is first created, it has size zero. Files grow automatically to accomodate data written to them. A file's size can be queried with the `size` syscall and changed with the `trunc` system call.
 
 A handle referring to a regular file has a "position". When a regular file is opened, the handle has position zero. When the `read` or `write` system calls are called on such a handle, bytes are read or written starting at the handle's position, and the handle's position is incremented by the number of bytes read or written.
 
@@ -1028,7 +1028,7 @@ All system calls (except for `exit` and `panic`) return a 32-bit word. It contai
 
 Arguments are passed in `r0`, `r1`, `r2` and `r3`, plus the context in `r9`. The return value is placed in `r0`.
 
-The system call table currently has **25** entries (200 bytes) with a total of 20 defined system calls. Entries not listed below are unused and reserved for future versions of this specification.
+The system call table currently has **25** entries (200 bytes) with a total of 21 defined system calls. Entries not listed below are unused and reserved for future versions of this specification.
 
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
@@ -1039,17 +1039,18 @@ The system call table currently has **25** entries (200 bytes) with a total of 2
 | 4      | hosted    | close    | handle                   |                          | closes a file                            |
 | 5      | hosted    | read     | handle, buffer, size     | bytes read               | reads from a file or stream              |
 | 6      | hosted    | write    | handle, buffer, size     | bytes written            | writes to a file or stream               |
-| 7      | hosted    | seek     | handle, base, pos (x2)   |                          | seeks to a position in a file            |
+| 7      | hosted    | seek     | handle, pos\_l, pos\_h   |                          | seeks to a position in a file            |
 | 8      | hosted    | tell     | handle, out\_pos[2]      |                          | gets the current position in a file      |
-| 9      |           | trunc    | handle, size (x2)        |                          | truncates a file                         |
+| 9      |           | trunc    | handle, size\_l, size\_h |                          | truncates a file                         |
+| 10     |           | size     | handle, out\_size[2]     |                          | gets the size of an open file            |
 | 12     |           | dirent   | handle, buffer           |                          | reads one file entry from a directory    |
-| 13     |           | stat     | path, out\_size[2]       | file type                | gets the type and size of a file         |
+| 13     |           | stat     | path, out\_size[2]       | file type                | gets the type and size of a file by name |
 | 14     |           | rename   | path, path               |                          | renames a file                           |
 | 16     | hosted    | delete   | path                     |                          | deletes a file                           |
 | 17     |           | chmod    | path, mode               |                          | changes permissions of a file            |
 | 18     |           | mkdir    | path                     |                          | creates a directory                      |
 | 22     |           | debug    | address, path            |                          | loads debug info for a child program     |
-| 23     |           | alloc    | size, out_address        | actual size              | allocates a block of memory              |
+| 23     |           | alloc    | size, out\_address       | actual size              | allocates a block of memory              |
 | 24     |           | free     | address, size            |                          | frees an allocated block of memory       |
 
 In the required column, system calls marked "hosted" must be implemented in a hosted environment. All other system calls are optional.
@@ -1331,31 +1332,20 @@ This can only be called on the output stream, the error stream, or a file opened
 ### `seek`
 
 ```c
-int __sys_seek(int handle, int base, unsigned offset_low, int offset_high);
+int __sys_seek(int handle, unsigned position_low, int position_high);
 ```
 
 - syscall number: 7
 - argument in r0: the handle of the file to seek
-- argument in r1: the base position (0, 1, 2) from which to seek
-- argument in r2: the low 32 bits of a 64-bit offset to add to the base position
-- argument in r3: the high 32 bits of a 64-bit offset to add to the base position
+- argument in r1: the low 32 bits of the desired position
+- argument in r2: the high 32 bits of the desired position
 - return value in r0: 0 on success or an error code
 
 Sets the current position in the file to the given position.
 
-The position is calculated as the given offset added to the given base.
+If the given position is larger than the size of the file, the VM may return `ERROR_OVERFLOW` or `ERROR_GENERIC`, or it may store the given position even though it is out of bounds. In the latter case, a subsequent read to a position out-of-bounds returns `ERROR_END_OF_FILE`, and a subsequent write to a position out-of-bounds causes the gap to be filled with zero bytes.
 
-- If `base` is 0, the offset is added to the start of the file. (In other words, the offset is the absolute position within the file.)
-- If `base` is 1, the offset is added to the current position.
-- If `base` is 2, the offset is added to the end of the file (i.e. the start plus its size.)
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the `offset_high` parameter can be ignored. Otherwise, the file position must be stored within the VM as a 64-bit value.
-
-If successful, this returns 0.
-
-If this is called on one of the standard input/output/error streams, the behaviour is undefined.
-
-If the file is not seekable (for platform-specific reasons), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+If the file is not seekable, this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. Only regular files (and some platform-specific devices) are seekable. Directories and streams are not seekable. (Programs rely on these error codes to differentiate between regular files and streams.)
 
 If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
 
@@ -1372,19 +1362,15 @@ int __sys_tell(int handle, unsigned position[2]);
 - argument in r1: the address at which to store the 64-bit position in the file
 - return value in r0: 0 on success or an error code
 
-Stores the current position in the given file to the given `position` address.
+Gets the current position in the given file, storing it at the given address.
 
-If successful, the VM stores two words at the address in r1: the low 32 bits of the position followed by the high 32 bits of the position.
+If successful, the VM stores two words starting at the address in r1: the low 32 bits of the position (at the given address) followed by the high 32 bits of the position (at the given address plus four.) The VM then returns 0.
 
-The outputted value can be used in a call to `seek` with base 0 to return to this position in the file.
+The outputted value can be used in a call to `seek` to return to this position in the file.
 
 If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4 GiB), the VM must still write a second word to the output with value zero.
 
-If successful, this returns 0.
-
-If this is called on one of the standard input/output/error streams, the behaviour is undefined.
-
-If the file is not seekable (for platform-specific reasons), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+If the file is not seekable, this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. Only regular files (and some platform-specific devices) are seekable. Directories and streams are not seekable. (Programs rely on these error codes to differentiate between regular files and streams.)
 
 If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
 
@@ -1408,9 +1394,38 @@ If the requested size is less than the current size of the file, the file is tru
 
 If the requested size is greater than the current size, the VM may ignore it and return `ERROR_UNSUPPORTED` or `ERROR_GENERIC`, or it may append zero bytes to the file until the size becomes that given. (VMs may internally optimize this to use sparse files.)
 
+If the file's size is reduced and the position of the handle (or of any other handle to the same file) is beyond the new size of the file, the position of such handles is changed to the new size of the file.
+
 Returns zero if successful. In case of success, the file's size matches that given.
 
 If the requested size is too large, the VM returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
+
+If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
+
+If the file does not have a size, this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. Only regular files (and some platform-specific devices) have a size. Directories and streams do not have a size.
+
+
+
+### `size`
+
+```c
+int __sys_size(int handle, unsigned position[2]);
+```
+
+- syscall number: 10
+- argument in r0: the handle of the file from which to query the size
+- argument in r1: the address at which to store the 64-bit size of the file
+- return value in r0: 0 on success or an error code
+
+Gets the size of the given file, storing it at the given address.
+
+If successful, the VM stores two words starting at the address in r1: the low 32 bits of the size (at the given address) followed by the high 32 bits of the size (at the given address plus four.) The VM then returns 0.
+
+The outputted value can be used in a call to `seek` to jump to the end of the file (for example to append data to it.)
+
+If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4 GiB), the VM must still write a second word to the output with value zero.
+
+If the file is not seekable (for platform-specific reasons), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
 
 If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
 
@@ -1772,7 +1787,9 @@ Changes include:
     - All contents of the process info table, including command-line arguments, environment variables, the syscall table and the working directory, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
     - The "interactive" bit has been added to the capabilities field. It is optional and can be left zero.
 - Some system call changes:
-    - The prototype for `alloc` has changed. The old function was never used.
+    - The arguments to `seek` have changed: it no longer takes a base parameter.
+    - `size` (10) has been added, taking the place of `dopen`. It returns the size of an open file handle.
+    - The arguments and return value of `alloc` have changed. The old syscall was never used.
     - `dread` has been renamed to `dirent`.
     - `unlink` has been renamed to `delete`.
     - `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
