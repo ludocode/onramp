@@ -20,7 +20,7 @@ You'll need to have a VM and hex tool on your PATH. The simplest way to do that 
 
 ```sh
 ./configure.sh --dev
-. env.sh
+. ./env.sh
 ```
 
 A better option if you plan to do Onramp development is to install developer symlinks. This will place symlinks in `~/.local/bin` for `onrampvm`, `onrampcc` and so on that point directly into your build folder. This allows you to easily test local changes without having to reinstall Onramp or source `env.sh` in every shell.

@@ -63,7 +63,7 @@ The standard build process is not incremental. If you run the script again, it w
 You can use the compiled Onramp without installing it by sourcing the `env.sh` script:
 
 ```sh
-. env.sh
+. ./env.sh
 ```
 
 This adds the compiled Onramp to your `PATH`. If you want to install it, continue to the next section.
@@ -78,7 +78,7 @@ Once built, Onramp can be installed with the install script:
 
 The default install path is `~/.local/` if run as a non-root user and `/usr/local/` if run as root. It is recommended to install as non-root in the default `~/.local/`.
 
-To run Onramp programs, the \`/bin/\` subdirectory of the install path must be on your `PATH`. This is necessary not only for compiling programs but also for running them since they depend on `onrampvm`. Some Linux distributions place `~/.local/bin/` on `PATH` by default but not all; check your `PATH` to make sure.
+To run Onramp programs, the `/bin/` subdirectory of the install path must be on your `PATH`. This is necessary not only for compiling programs but also for running them since they depend on `onrampvm`. Some Linux distributions place `~/.local/bin/` on `PATH` by default but not all; check your `PATH` to make sure.
 
 The Onramp installation is relocatable: you can choose the path after it is built; you can install to a staging area and move it later; etc. Use `--path` to set a custom install path.
 
