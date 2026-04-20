@@ -65,7 +65,7 @@ This document specifies an incomplete in-development version of the virtual mach
     - [`read`](#read)
     - [`write`](#write)
     - [`seek`](#seek)
-    - [`tell`](#tell)
+    - [`size`](#size)
     - [`trunc`](#trunc)
     - [`dirent`](#dirent)
     - [`stat`](#stat)
@@ -868,7 +868,7 @@ The size of a regular file and the position of a handle are represented by 64-bi
 
 A _stream_ is a file that only supports reading, writing, or both. It is used to transfer data from one program to another.
 
-Streams do not have a size. Handles referring to streams do not have a position and do not support seeking. `tell` and `seek` return an error when called on a stream handle.
+Streams do not have a size. Handles referring to streams do not have a position and do not support seeking. `size` and `seek` return an error when called on a stream handle. (Programs rely on this error to detect when a file is a stream.)
 
 A stream may support reading, writing, or both. If a stream only supports reading, `write` on the stream returns an error, and vice versa. A writable stream must be opened in read-write mode in order to write to it.
 
@@ -1028,7 +1028,7 @@ All system calls (except for `exit` and `panic`) return a 32-bit word. It contai
 
 Arguments are passed in `r0`, `r1`, `r2` and `r3`, plus the context in `r9`. The return value is placed in `r0`.
 
-The system call table currently has **25** entries (200 bytes) with a total of 21 defined system calls. Entries not listed below are unused and reserved for future versions of this specification.
+The system call table currently has **25** entries (200 bytes) with a total of 20 defined system calls. Entries not listed below are unused and reserved for future versions of this specification.
 
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
@@ -1040,9 +1040,8 @@ The system call table currently has **25** entries (200 bytes) with a total of 2
 | 5      | hosted    | read     | handle, buffer, size     | bytes read               | reads from a file or stream              |
 | 6      | hosted    | write    | handle, buffer, size     | bytes written            | writes to a file or stream               |
 | 7      | hosted    | seek     | handle, pos\_l, pos\_h   |                          | seeks to a position in a file            |
-| 8      | hosted    | tell     | handle, out\_pos[2]      |                          | gets the current position in a file      |
+| 8      | hosted    | size     | handle, out\_size[2]     |                          | gets the size of an open file            |
 | 9      |           | trunc    | handle, size\_l, size\_h |                          | truncates a file                         |
-| 10     |           | size     | handle, out\_size[2]     |                          | gets the size of an open file            |
 | 12     |           | dirent   | handle, buffer           |                          | reads one file entry from a directory    |
 | 13     |           | stat     | path, out\_size[2]       | file type                | gets the type and size of a file by name |
 | 14     |           | rename   | path, path               |                          | renames a file                           |
@@ -1351,28 +1350,28 @@ If some other error occurred in reading data, for example the storage device mal
 
 
 
-### `tell`
+### `size`
 
 ```c
-int __sys_tell(int handle, unsigned position[2]);
+int __sys_size(int handle, unsigned position[2]);
 ```
 
 - syscall number: 8
-- argument in r0: the handle of the file from which to query the position
-- argument in r1: the address at which to store the 64-bit position in the file
+- argument in r0: the handle of the file from which to query the size
+- argument in r1: the address at which to store the 64-bit size of the file
 - return value in r0: 0 on success or an error code
 
-Gets the current position in the given file, storing it at the given address.
+Gets the size of the given file, storing it at the given address.
 
-If successful, the VM stores two words starting at the address in r1: the low 32 bits of the position (at the given address) followed by the high 32 bits of the position (at the given address plus four.) The VM then returns 0.
+If successful, the VM stores two words starting at the address in r1: the low 32 bits of the size (at the given address) followed by the high 32 bits of the size (at the given address plus four.) The VM then returns 0.
 
-The outputted value can be used in a call to `seek` to return to this position in the file.
+The outputted value can be used in a call to `seek` to jump to the end of the file (for example to append data to it.)
 
 If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4 GiB), the VM must still write a second word to the output with value zero.
 
-If the file is not seekable, this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. Only regular files (and some platform-specific devices) are seekable. Directories and streams are not seekable. (Programs rely on these error codes to differentiate between regular files and streams.)
+If the file is not seekable, this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. (Programs rely on this error to detect when a file is a stream.)
 
-If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
+If some other error occurred, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
 
 
 
@@ -1403,31 +1402,6 @@ If the requested size is too large, the VM returns `ERROR_UNSUPPORTED` or `ERROR
 If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
 
 If the file does not have a size, this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`. Only regular files (and some platform-specific devices) have a size. Directories and streams do not have a size.
-
-
-
-### `size`
-
-```c
-int __sys_size(int handle, unsigned position[2]);
-```
-
-- syscall number: 10
-- argument in r0: the handle of the file from which to query the size
-- argument in r1: the address at which to store the 64-bit size of the file
-- return value in r0: 0 on success or an error code
-
-Gets the size of the given file, storing it at the given address.
-
-If successful, the VM stores two words starting at the address in r1: the low 32 bits of the size (at the given address) followed by the high 32 bits of the size (at the given address plus four.) The VM then returns 0.
-
-The outputted value can be used in a call to `seek` to jump to the end of the file (for example to append data to it.)
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4 GiB), the VM must still write a second word to the output with value zero.
-
-If the file is not seekable (for platform-specific reasons), this returns `ERROR_UNSUPPORTED` or `ERROR_GENERIC`.
-
-If some other error occurred in reading data, for example the storage device malfunctioned or file data is corrupted, the VM returns `ERROR_IO` or `ERROR_GENERIC`.
 
 
 
@@ -1496,7 +1470,7 @@ On any other error, `ERROR_GENERIC` is returned.
 
 This system call is optional, although functionality may be limited without it. The simplest implementation of this system call is to ignore the size argument and return 0 if a file exists and `ERROR_GENERIC` if it does not.
 
-This system call exists so that programs can check whether files exist and determine their properties without opening them, which may have side effects especially for devices. If this system call is not implemented, the libc will try to open files to check whether they exist and will use other syscalls (`seek`, `tell`, `dirent`) to determine their size and type.
+This system call exists so that programs can check whether files exist and determine their properties without opening them, which may have side effects especially for devices. If this system call is not implemented, the libc will try to open files to check whether they exist and will use other syscalls (`dirent`, `size`) to determine their size and type.
 
 
 
@@ -1788,13 +1762,13 @@ Changes include:
     - The "interactive" bit has been added to the capabilities field. It is optional and can be left zero.
 - Some system call changes:
     - The arguments to `seek` have changed: it no longer takes a base parameter.
-    - `size` (10) has been added, taking the place of `dopen`. It returns the size of an open file handle.
+    - `size` has been added, replacing `tell`. Instead of returning the current position, it returns the size of an open file handle.
     - The arguments and return value of `alloc` have changed. The old syscall was never used.
     - `dread` has been renamed to `dirent`.
     - `unlink` has been renamed to `delete`.
     - `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
     - `dopen` (10), `dclose` (11), and `rmdir` (19) have been removed. `open`, `close`, and `delete` are now used for directories as well.
-    - The `f` prefix has been dropped from many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftell`, `ftrunc`.
+    - The `f` prefix has been dropped from the name of many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftrunc`.
     - `read` and `write` can no longer return zero. The end of a file or a closed stream is indicated by `ERROR_END_OF_FILE`. A non-blocking stream without data or buffer space is indicated by `ERROR_TRY_LATER`.
     - `dirent` can no longer return an empty string. The end of a directory is indicated by `ERROR_END_OF_FILE`.
 - Cleaned up syscall error codes:
