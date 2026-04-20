@@ -68,7 +68,6 @@ This document specifies an incomplete in-development version of the virtual mach
     - [`size`](#size)
     - [`trunc`](#trunc)
     - [`dirent`](#dirent)
-    - [`stat`](#stat)
     - [`rename`](#rename)
     - [`delete`](#delete)
     - [`chmod`](#chmod)
@@ -895,7 +894,7 @@ The filesystem implemented by a VM resembles that of a POSIX system as described
 
 (In the Onramp filesystem, the special directory name "." is a reference to the current directory, and ".." is a reference to the parent directory. A VM does not need to support these. The Onramp libc generates these where needed and resolves them before passing paths to system calls.)
 
-The [`mkdir`](#mkdir) system call is used to create a directory. The [`dirent`](#dirent) system call is used to enumerate one. Since directories are files, several other system calls can manipulate them as well, including [`open`](#open), [`delete`](#delete), [`stat`](#stat), [`rename`](#rename) and more. Exceptions include [`read`](#read) and [`write`](#write) which cannot be used on directories.
+The [`mkdir`](#mkdir) system call is used to create a directory. The [`dirent`](#dirent) system call is used to enumerate one. Since directories are files, several other system calls can manipulate them as well, including [`open`](#open), [`delete`](#delete), [`rename`](#rename) and more. Exceptions include [`read`](#read) and [`write`](#write) which cannot be used on directories.
 
 
 #### Devices
@@ -1043,7 +1042,6 @@ The system call table currently has **25** entries (200 bytes) with a total of 2
 | 8      | hosted    | size     | handle, out\_size[2]     |                          | gets the size of an open file            |
 | 9      |           | trunc    | handle, size\_l, size\_h |                          | truncates a file                         |
 | 12     |           | dirent   | handle, buffer           |                          | reads one file entry from a directory    |
-| 13     |           | stat     | path, out\_size[2]       | file type                | gets the type and size of a file by name |
 | 14     |           | rename   | path, path               |                          | renames a file                           |
 | 16     | hosted    | delete   | path                     |                          | deletes a file                           |
 | 17     |           | chmod    | path, mode               |                          | changes permissions of a file            |
@@ -1093,7 +1091,7 @@ The error codes are specified as follows:
 
 - `ERROR_GENERIC` (`0xFFFFFFFF`): An unspecified error condition. It can be used for exceptional conditions where no other error codes are appropriate. It can also be used in nearly all cases instead of a more specific error code in order to simplify the VM. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
 
-- `ERROR_NO_SUCH_PATH` (`0xFFFFFFFE`): The given file or directory does not exist. It is returned by system calls that take a path that may be expected to exist, such as `open`, `stat`, `delete`, and so on.
+- `ERROR_NO_SUCH_PATH` (`0xFFFFFFFE`): The given file or directory does not exist. It is returned by system calls that take a path that may be expected to exist, such as `open`, `delete`, and so on.
 
 - `ERROR_IO` (`0xFFFFFFFD`): An input/output error occurred. This is used to indicate an unspecified and typically unrecoverable failure to transfer data. For example if the storage device malfunctions, the VM can return this code. This must not be used to indicate the end of a file or an empty or full stream; see `ERROR_END_OF_FILE` and `ERROR_TRY_LATER`.
 
@@ -1434,46 +1432,6 @@ The VM may provide or omit the special filenames "." and ".." for any directory.
 
 
 
-### `stat`
-
-```c
-int __sys_stat(const char* path, unsigned size[2]);
-```
-
-- syscall number: 13
-- argument in r0: address of a null-terminated string containing the path to query
-- argument in r1: address at which to write the 64-bit file size
-
-Queries the type and size of the named file. See [File Types](#file-types).
-
-If a file exists at the given path, the file's size is stored at the given address if possible, and the file's type is returned as one of the following values:
-
-- 0: unknown type
-- 1: [regular file](#regular-files)
-- 2: [directory](#directories)
-- 3: [device](#devices)
-- 4: [stream](#streams)
-
-The value 0 can be returned if the file exists and can be opened but the VM cannot determine the type of the file.
-
-The given `size` address must point to the location of two words (8 bytes) to which the size can be written. If the size of the file is available, the VM stores at this address the low and high 32 bits of the size of the file in that order. The two words together form a 64-bit little-endian file size.
-
-If the path is not a regular file, or if the size is not known, the VM can either ignore the size parameter and write nothing, or it can store 0xFFFFFFFFFFFFFFFF (all bits set) as the size, whichever is most convenient. (If the program is interested in the size, it should place this value at the location pointed to by the size parameter before calling this syscall in order to detect when the size is unavailable. The size argument cannot be null.)
-
-If the VM's maximum file size is less than the range of a 32-bit word (i.e. 4GB), the VM must still write zero to the second word if it writes a valid size to the first. It must write both words or none at the address pointed to by `size`.
-
-If the given path does not exist, this returns `ERROR_NO_SUCH_PATH` or `ERROR_GENERIC`.
-
-If the storage device malfunctions or the filesystem is corrupted, `ERROR_IO` or `ERROR_GENERIC` is returned.
-
-On any other error, `ERROR_GENERIC` is returned.
-
-This system call is optional, although functionality may be limited without it. The simplest implementation of this system call is to ignore the size argument and return 0 if a file exists and `ERROR_GENERIC` if it does not.
-
-This system call exists so that programs can check whether files exist and determine their properties without opening them, which may have side effects especially for devices. If this system call is not implemented, the libc will try to open files to check whether they exist and will use other syscalls (`dirent`, `size`) to determine their size and type.
-
-
-
 ### `rename`
 
 ```c
@@ -1744,7 +1702,7 @@ Onramp's VM design takes inspiration from such projects as Robert Elder's [one p
 
 This spec has undergone several changes in its history. Version changes are listed here.
 
-The libc and bootstrap code will attempt to remain compatible with versions 2 and later (when the syscall table was added) to avoid breaking existing VMs. Note however that several system calls were documented in versions 3 and earlier that were never used. The libc and bootstrap code will never call such syscalls on version 3 and earlier VMs even if they are used in version 4. Such system calls include `stat`, `rename`, `dirent`, `alloc` and `free`.
+The libc and bootstrap code will attempt to remain compatible with versions 2 and later (when the syscall table was added) to avoid breaking existing VMs. Note however that several system calls were documented in versions 3 and earlier that were never used. The libc and bootstrap code will never call such syscalls on version 3 and earlier VMs even if they are used in version 4. Such system calls include `rename`, `dirent`, `alloc` and `free`.
 
 
 #### Version 4.0
@@ -1766,7 +1724,7 @@ Changes include:
     - The arguments and return value of `alloc` have changed. The old syscall was never used.
     - `dread` has been renamed to `dirent`.
     - `unlink` has been renamed to `delete`.
-    - `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
+    - `stat` (13), `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
     - `dopen` (10), `dclose` (11), and `rmdir` (19) have been removed. `open`, `close`, and `delete` are now used for directories as well.
     - The `f` prefix has been dropped from the name of many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftrunc`.
     - `read` and `write` can no longer return zero. The end of a file or a closed stream is indicated by `ERROR_END_OF_FILE`. A non-blocking stream without data or buffer space is indicated by `ERROR_TRY_LATER`.
