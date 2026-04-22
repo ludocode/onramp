@@ -32,20 +32,27 @@
 set -e
 cd "$(dirname "$0")/../../.."
 
+trap "exit 1" INT
+
 test_shell() {
     echo
     echo "Testing with shell: $@"
-    test/vm/run.sh $@ platform/vm/sh/vm.sh
+    time ( test/vm/run.sh $@ platform/vm/sh/vm.sh >/dev/null )
 }
 
-test_shell ksh
-test_shell busybox ash
+# sorted roughly in order of speed, fastest to slowest
 test_shell dash
+test_shell busybox ash
+test_shell ksh
+test_shell bash
+test_shell oksh
+test_shell mksh
+test_shell osh
+test_shell yash
 test_shell zsh
 test_shell busybox hush
-test_shell bash
-test_shell osh
-test_shell oksh
-#test_shell nsh           # doesn't work, bugs in arithmetic expansions
-#test_shell yash          # doesn't work, haven't debugged why
-#test_shell toybox sh     # doesn't work, see e.g. https://github.com/landley/toybox/issues/460
+
+# these shells don't work, see test.sh
+#test_shell nsh
+#test_shell posh
+#test_shell toybox sh

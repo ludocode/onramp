@@ -25,8 +25,8 @@
 
 # This is an experimental pure POSIX shell implementation of the Onramp virtual
 # machine. It's mostly just a proof of concept at this point, too slow to be
-# useful. It does technically "work", if you're okay with waiting months to get
-# anything done.
+# useful. It would take a week or more to complete the bootstrap on a modern
+# PC.
 #
 # I wrote this in part to prove that you really can implement the Onramp VM in
 # "anything" (not particularly surprising), but also in part because the shell
@@ -38,20 +38,59 @@
 # Of course if it's too slow then it doesn't actually work, so this is probably
 # all pointless. Given the difficulty of getting this working, it was actually
 # much easier to write a VM directly in x86_64 machine code.
+#
+# Nevertheless, the shell VM implements enough of the spec to (in theory)
+# complete the bootstrap, and it is portable enough to work in many shells.
+# This VM passes all tests in the following shells:
+#
+# - bash
+# - busybox ash
+# - busybox hush
+# - dash
+# - ksh (2000)
+# - ksh93u+m
+# - mksh
+# - oksh
+# - osh
+# - yash
+# - zsh
+#
+# The following shells currently fail due to missing or incomplete POSIX
+# features (see test.sh for details):
+#
+# - nsh
+# - posh
+# - toybox sh
 
 
 
 # Implementation details:
 #
-# POSIX shell doesn't have arrays so we use dynamically named variables, like
-# _0, _4, _8, etc. for memory and REGISTER_0, REGISTER_1, etc. for registers.
-# Memory addresses are stored using variable assignment in arithmetic
-# expansions (e.g. `: $(( _$i = $x ))`.)
+# This VM is based on some ideas from Laurent Huberdeau's pnut compiler which
+# compiles C to POSIX shell:
+#
+#     https://github.com/udem-dlteam/pnut
+#
+# POSIX shell doesn't have arrays so we use dynamically named variables. _0,
+# _4, _8, etc. are used for memory and r0 to r15 are used for registers.
 #
 # The VM relies heavily on arithmetic expressions, i.e. `$(( ... ))`, which are
 # specified by POSIX. Your shell must support these for this VM to work. Some
 # syntax does not work in all shells; for example `$(( ++I ))` works in ksh but
 # not dash. We use `$(( I += 1 ))` instead.
+#
+# Memory addresses and registers are stored using variable assignment in
+# arithmetic expressions (e.g. `: $(( _$i = $x ))`.) When the address or
+# register is computed, the arithmetic expressions are nested. For example:
+#     : $(( r$(( expr2 )) = expr1 ))
+# This assigns the value of expr1 to the register named by expr2.
+#
+# Since a full variable is used for each word of memory, the memory overhead is
+# probably quite significant, but it is necessary for even tiny programs to run
+# in a tolerable amount of time. The full bootstrap currently completes in
+# under 2 MB of memory usage, so if the VM inflates this by for example 32x
+# (taking 128 bytes per memory variable) that's 64 MB of real memory usage for
+# the bootstrap.
 #
 # POSIX specifies that arithmetic expressions only need to support the range of
 # signed long, which on 32-bit platforms is 32 bits. To work around this, we
@@ -70,44 +109,86 @@
 
 # Performance notes:
 #
-# When run in bash, dash, zsh and BusyBox, all non-syscall instructions
-# *should* be done strictly with builtins (although I haven't really confirmed
-# that.)
+# The main instruction loop uses only `if`, `[` and arithmetic expressions.
+# Assuming these are builtins, the shell should run most instructions without
+# forking.
 #
-# Syscalls, especially file access syscalls, may use external commands (e.g.
-# `ls`, `dd`, etc.)
+# Unfortunately, the names and contents of all variables are decimal strings,
+# which means every instruction does several decimal conversions. This is
+# probably the biggest performance killer in all shells.
 #
-# Shells have wildly different performance. This VM is something like 20x
-# faster in BusyBox compared to Bash. The other shells I've tested are
-# somewhere in between. Even BusyBox is way too slow to make this work though.
-# Under BusyBox, this VM is roughly 10,000x slower than the C89 VM.
+# Reads and writes to files may fork external processes (`od` for reads and
+# `dd` for writes.) This is expensive but the bootstrap and libc buffer all I/O
+# now.
 #
-# I have some ideas for how to potentially improve performance but I doubt I
-# could make up the >1000x improvement needed to make this useful. Still, I've
-# written stuff below in case I ever want to revisit this.
+# These are the shell runtimes from the last time I ran all tests. Most of the
+# time is taken up by the eight queens test so I don't know how representative
+# this is of the bootstrap.
 #
-# The main thing needed first is a proper benchmarking suite to test the speed
-# of various instructions and syscalls individually so we can get an idea of
-# what's slow.
+#     dash          0.5.12       17s
+#     ksh93u+m      git 2026-04  22s
+#     busybox ash   1.36.1       24s
+#     ksh (2000)    final        43s
+#     bash          5.3.9        52s
+#     oksh          git 2026-03  52s
+#     mksh          59.c         57s
+#     osh           0.37.0       57s
+#     yash          2.61         57s
+#     zsh           5.9          58s
+#     busybox hush  1.36.1       2m19s
 #
-# I assume the `eval` calls are a major problem so any way to avoid them could
-# make a difference. If we can change functions like `parse_mix`,
-# `set_register` and `cache_fetch` (on a hit) to not use `eval` (perhaps using
-# large `case` statements instead), it might make a big difference. On the
-# other hand large case statements might be even slower (as evidenced by the
-# slow hex/sh-alt tools.)
+# Even the fastest shell is still hundreds of times too slow to be useful. The
+# Python VM completes all tests in 1.7s (and most of that is its slow startup
+# time) and it is still way too slow to do the bootstrap reasonably.
 #
-# I have some ideas for how to improve cache line performance but none of them
-# are good. Cache lines could potentially be decimal strings delimited by IFS,
-# or each byte in each cache line could be its own variable. This probably
-# wouldn't help though. Since the backing is in hexadecimal you don't
-# necessarily save much if you need to convert entire cache lines to and from
-# hexadecimal whenever you get a cache miss.
+# Based on a partial test of the bootstrap, the shell VM under bash is roughly
+# 5000x slower than the debugger. So if the debugger takes, say, two minutes to
+# run the bootstrap, the shell VM would take over 7 days (and several times
+# that to use it to bootstrap a native compiler.) This is likely to be an
+# underestimate because pnut's analysis shows that some shells slow down the
+# more variables are defined, and the later stages of bootstrap will use nearly
+# 2 MB of RAM (~500k variables.)
 
 
 
 #set -e
 #set -vx
+
+
+
+################################################################
+# Compatibility
+################################################################
+
+# zsh is by far the biggest offender of not following POSIX rules.
+#
+# We need at the very least the options sh_word_split (POSIX word splitting on
+# parameters) and c_precedences (the precedence of shifts is different.) We
+# also need to disable alternate variable bases. For example:
+#
+#     : $(( A = 5 & 0x1 )) ; echo $A
+#
+# Without a compatibility mode, zsh prints "16#1". If you do `setopt c_bases`,
+# it prints "0x1". I haven't found an option to disable this; you have to
+# manually `typeset -i 10 A` to stop this which is not practical for
+# dynamically generated variables.
+#
+# Instead we just do `emulate sh` which disables as much zsh weirdness as
+# possible.
+
+if [ -n "$ZSH_VERSION" ]; then
+    emulate sh
+    #setopt sh_word_split  # POSIX word splitting on parameters
+    #setopt c_precedences  # POSIX arithmetic expression precedence
+fi
+
+# Bash works just fine in its normal mode but we set POSIX compatibility anyway
+# to avoid accidentally depending on Bash extensions when using it for
+# development. It doesn't seem to run any faster in POSIX mode.
+
+if [ -n "$BASH_VERSION" ]; then
+    set -o posix
+fi
 
 
 
@@ -185,6 +266,21 @@ store_word() {
     : $(( _$1 = $2 & 0xFFFFFFFF ))
 }
 
+# Loads a null-terminated string into LOAD_STRING_RET
+load_string() {
+    LOAD_STRING_RET=
+    I=$1
+    while true; do
+        load_byte $I
+        if [ $LOAD_BYTE_RET -eq 0 ]; then
+            break
+        fi
+        LOAD_STRING_RET="$LOAD_STRING_RET$(printf \\$(printf %o $LOAD_BYTE_RET))"
+        : $(( I += 1 ))
+    done
+    #echo "loaded string: $LOAD_STRING_RET"
+}
+
 
 
 ################################################################
@@ -197,38 +293,24 @@ registers_init() {
     #echo registers_init >&2
     I=0
     while [ $I -ne 16 ]; do
-        : $(( REGISTER_$I = 0 ))
+        : $(( r$I = 0 ))
         I=$(( $I + 1 ))
     done
 }
 
 register_get() {
-    REGISTER_GET_RET=$(( REGISTER_$1 ))
+    REGISTER_GET_RET=$(( r$1 ))
 }
 
 register_set() {
-#    if [ $2 -gt 2147483647 ]; then
-#        REGISTER_SET_VALUE=$(( $2 - 4294967296 ))
-#        #echo a $2 $REGISTER_SET_VALUE >&2
-#    elif [ $2 -lt -2147483648 ]; then
-#        #echo b >&2
-#        REGISTER_SET_VALUE=$(( $2 + 4294967296 ))
-#    else
-#        #echo c >&2
-#        REGISTER_SET_VALUE=$2
-#    fi
-#    #echo register_set $1 $REGISTER_SET_VALUE $(printf %08X $REGISTER_SET_VALUE) >&2
-#    : $(( REGISTER_$1 = $REGISTER_SET_VALUE ))
-
-    #echo register_set $1 $2 $(printf %08X $2) >&2
-    : $(( REGISTER_$1 = $2 ))
+    : $(( r$1 = $2 ))
 }
 
 registers_print() {
     I=0
     while [ $I -ne 16 ]; do
         register_get $I
-        echo REGISTER_$I=$REGISTER_GET_RET >&2
+        echo "r$I = $((r$I)) (0x$(printf %08X $((r$I)))" >&2
         I=$(( $I + 1 ))
     done
 }
@@ -407,7 +489,7 @@ file_read() {
 
     # Store each byte in memory.
     : $(( FILE_READ_END = FILE_READ_ADDRESS + FILE_READ_COUNT ))
-    for FILE_READ_BYTE in $FILE_READ_BYTES; do
+    for FILE_READ_BYTE in $FILE_READ_BYTES; do  # zsh needs sh_word_split here
         #echo "read byte $FILE_READ_BYTE"
         store_byte $FILE_READ_ADDRESS 0x$FILE_READ_BYTE
         : $(( FILE_READ_ADDRESS += 1 ))
@@ -423,6 +505,16 @@ file_read() {
 
     : $(( FILE_${1}_OFFSET = FILE_READ_OFFSET ))
     FILE_READ_RET=$FILE_READ_COUNT
+}
+
+# An internal helper for file_write.
+file_write_loop() {
+    I=0
+    while [ $I -ne $FILE_WRITE_COUNT ]; do
+        load_byte $(( $FILE_WRITE_ADDRESS + $I ))
+        printf \\$(printf %o $LOAD_BYTE_RET)
+        : $(( I += 1 ))
+    done
 }
 
 # Writes bytes at the given address to the given file.
@@ -456,22 +548,23 @@ file_write() {
         FILE_WRITE_SEEK="seek=$FILE_WRITE_OFFSET"
     fi
 
-    : $(( FILE_WRITE_END = FILE_WRITE_ADDRESS + FILE_WRITE_COUNT ))
-    while [ $FILE_WRITE_ADDRESS -ne $FILE_WRITE_END ]; do
-        load_byte $FILE_WRITE_ADDRESS
-        printf \\$(printf %o $LOAD_BYTE_RET)
-        : $(( FILE_WRITE_ADDRESS += 1 ))
-    done | \
-        if [ "$FILE_WRITE_NAME" = "/dev/stderr" ]; then
-            cat >&2
-        else
-            dd \
+    # We duplicate the loop rather than piping it the if statement because
+    # piping creates a subprocess, and we need to avoid forking as much as
+    # possible for performance. When writing to files we have to call out to dd
+    # which is not usually a builtin (busybox and toybox are exceptions), but
+    # file writes are entirely buffered in the libc and bootstrap process.
+    if [ "$FILE_WRITE_NAME" = "/dev/stdout" ]; then
+        file_write_loop
+    elif [ "$FILE_WRITE_NAME" = "/dev/stderr" ]; then
+        file_write_loop >&2
+    else
+        file_write_loop | dd \
                 bs=1 \
                 count=$FILE_WRITE_COUNT \
                 of="$FILE_WRITE_NAME" \
                 $FILE_WRITE_SEEK \
                 conv=notrunc 2>/dev/null
-        fi
+    fi
 
     # Extend the offset, and the size if we've gone past the end
     if [ $FILE_WRITE_STREAM -eq 0 ]; then
@@ -657,14 +750,14 @@ syscalls_init() {
     #syscall_enable 14  # rename
     #syscall_enable 16  # delete
     #syscall_enable 17  # chmod
-    #syscall_enable 18  # mkdir
+    syscall_enable 18  # mkdir
 
     # Write the syscall table address into the process info table
     store_word $(( $PROCESS_INFO_TABLE + 8 )) $SYSCALL_TABLE_ADDRESS
 }
 
 # Loads the process info vector and its contents (command-line arguments,
-# environment variables, halt code, etc.)
+# environment variables, syscall table, etc.)
 process_init() {
     #echo process_init >&2
 
@@ -703,7 +796,7 @@ COPY_STRINGS_RET=0  # TODO env_init not working yet
     store_word $(( $PROCESS_INFO_TABLE + 4 * 7 )) $COPY_STRINGS_RET   # environ
 }
 
-# Loads the program into memory and sets the program break.
+# Loads the program into memory and sets the heap start.
 program_init() {
     #echo program_init >&2
 
@@ -716,10 +809,11 @@ program_init() {
     fi
 
     # Set initial registers
-    REGISTER_0=$PROCESS_INFO_TABLE  # r0
-    REGISTER_12=$MEMORY_END         # rsp
-    REGISTER_14=$CURRENT_ADDRESS    # rpp
-    REGISTER_15=$CURRENT_ADDRESS    # rip
+    PROGRAM_BASE_ADDRESS=$CURRENT_ADDRESS
+    r0=$PROCESS_INFO_TABLE     # r0
+    r12=$MEMORY_END            # rsp
+    r14=$PROGRAM_BASE_ADDRESS  # rpp
+    r15=$PROGRAM_BASE_ADDRESS    # rip
 
     # Load the program
     #echo "Loading program $PROGRAM_FILENAME" >&2
@@ -744,17 +838,17 @@ program_init() {
     #echo "Done loading program" >&2
 
     # Check for a wrap header ("#!" or "REM")
-    load_byte $REGISTER_15
+    load_byte $r15
     B0=$LOAD_BYTE_RET
-    load_byte $(( REGISTER_15 + 1))
+    load_byte $(( r15 + 1))
     B1=$LOAD_BYTE_RET
-    load_byte $(( REGISTER_15 + 2))
+    load_byte $(( r15 + 2))
     B2=$LOAD_BYTE_RET
     if ( [ $B0 -eq $((0x23)) ] && [ $B1 -eq $((0x21)) ] ) || \
         ( [ $B0 -eq $((0x52)) ] && [ $B1 -eq $((0x45)) ] && [ $B2 -eq $((0x4D)) ] ); then
         # wrap header found
-        : $(( REGISTER_14 += 128 ))
-        : $(( REGISTER_15 += 128 ))
+        : $(( r14 += 128 ))
+        : $(( r15 += 128 ))
     fi
 }
 
@@ -766,34 +860,25 @@ program_init() {
 
 syscall_open() {
     # Read the filename from memory
-    FILENAME=
-    I=$REGISTER_0
-    while true; do
-        load_byte $I
-        if [ $LOAD_BYTE_RET -eq 0 ]; then
-            break
-        fi
-        FILENAME="$FILENAME$(printf \\$(printf %o $LOAD_BYTE_RET))"
-        I=$(( $I + 1 ))
-    done
+    load_string $r0
 
     # Call open
-    MODE=$REGISTER_1
-    file_open "$FILENAME" $MODE
+    MODE=$r1
+    file_open "$LOAD_STRING_RET" $MODE
 
     # Put the result in r0
     register_set 0 $FILE_OPEN_RET
 }
 
 syscall_close() {
-    file_close $REGISTER_0
+    file_close $r0
     register_set 0 0
 }
 
 syscall_read() {
-    HANDLE=$REGISTER_0
-    ADDRESS=$REGISTER_1
-    COUNT=$REGISTER_2
+    HANDLE=$r0
+    ADDRESS=$r1
+    COUNT=$r2
 
     # Safety for 32-bit shells
     if [ $COUNT -lt 0 ]; then
@@ -805,9 +890,9 @@ syscall_read() {
 }
 
 syscall_write() {
-    HANDLE=$REGISTER_0
-    ADDRESS=$REGISTER_1
-    COUNT=$REGISTER_2
+    HANDLE=$r0
+    ADDRESS=$r1
+    COUNT=$r2
 
     # Safety for 32-bit shells
     if [ $COUNT -lt 0 ]; then
@@ -819,10 +904,10 @@ syscall_write() {
 }
 
 syscall_seek() {
-    HANDLE=$REGISTER_0
-    BASE=$REGISTER_1
-    OFFSET_LOW=$REGISTER_2
-    OFFSET_HIGH=$REGISTER_3
+    HANDLE=$r0
+    BASE=$r1
+    OFFSET_LOW=$r2
+    OFFSET_HIGH=$r3
 
     # We only support up to 2 GiB file size.
     if [ $OFFSET_HIGH -ne 0 ] || [ $OFFSET_LOW -lt 0 ] || [ $OFFSET_LOW -gt $((0x7FFFFFFF)) ]; then
@@ -835,8 +920,8 @@ syscall_seek() {
 }
 
 syscall_tell() {
-    HANDLE=$REGISTER_0
-    POSITION=$REGISTER_1
+    HANDLE=$r0
+    POSITION=$r1
 
     file_tell $HANDLE
 
@@ -852,9 +937,9 @@ syscall_tell() {
 }
 
 syscall_trunc() {
-    HANDLE=$REGISTER_0
-    SIZE_LOW=$REGISTER_1
-    SIZE_HIGH=$REGISTER_2
+    HANDLE=$r0
+    SIZE_LOW=$r1
+    SIZE_HIGH=$r2
 
     # We only support truncating to zero.
     if [ $SIZE_LOW -ne 0 ] || [ $SIZE_HIGH -ne 0 ]; then
@@ -868,10 +953,16 @@ syscall_trunc() {
     register_set 0 0
 }
 
+syscall_mkdir() {
+    load_string $r0
+    mkdir "$LOAD_STRING_RET" 2>/dev/null 1>&2
+    : $(( r0 = ($? == 0) ? 0 : 0xFFFFFFFF ))
+}
+
 syscall() {
-    case $REGISTER_9 in
+    case $r9 in
         0)  # halt
-            exit $(( $REGISTER_0 & 0xFF ))
+            exit $(( $r0 & 0xFF ))
             ;;
         3) syscall_open ;;
         4) syscall_close ;;
@@ -880,13 +971,14 @@ syscall() {
         7) syscall_seek ;;
         8) syscall_tell ;;
         9) syscall_trunc ;;
+        18) syscall_mkdir ;;
         *)
             fatal "Unhandled syscall: $1"
             ;;
     esac
 
     # load the top of the stack into the instruction pointer
-    load_word $REGISTER_12
+    load_word $r12
     register_set 15 $LOAD_WORD_RET
 }
 
@@ -913,179 +1005,201 @@ parse_mix() {
     fi
 }
 
+# Parses mix-type ARG1.
+parse_mix_arg1() {
+    if [ $ARG1 -ge 128 ]; then
+        if [ $ARG1 -ge 144 ]; then
+            : $(( ARG1 |= 0xFFFFFF00 ))
+        else
+            : $(( ARG1 = r$(( ARG1&0xF )) ))
+        fi
+    fi
+}
+
+# Parses mix-type ARG2.
+parse_mix_arg2() {
+    if [ $ARG2 -ge 128 ]; then
+        if [ $ARG2 -ge 144 ]; then
+            : $(( ARG2 |= 0xFFFFFF00 ))
+        else
+            : $(( ARG2 = r$(( ARG2&0xF )) ))
+        fi
+    fi
+}
+
+# Parses mix-type ARG3.
+parse_mix_arg3() {
+    if [ $ARG3 -ge 128 ]; then
+        if [ $ARG3 -ge 144 ]; then
+            : $(( ARG3 |= 0xFFFFFF00 ))
+        else
+            : $(( ARG3 = r$(( ARG3&0xF )) ))
+        fi
+    fi
+}
+
 run() {
     while true; do
-        #echo "about to load instruction word at $REGISTER_15"
-        : $(( INSTRUCTION = _$REGISTER_15 ))
-        : $(( OPCODE      =  $INSTRUCTION        & 0x0F ))
-        : $(( ARG1        = ($INSTRUCTION >> 8)  & 0xFF ))
-        : $(( ARG2        = ($INSTRUCTION >> 16) & 0xFF ))
-        : $(( ARG3        = ($INSTRUCTION >> 24) & 0xFF ))
-
-        # check that opcode starts with 0x7x (disabled for performance)
-        #if [ $((0x70)) -ne $(( $INSTRUCTION & 0xF0 )) ]; then
-        #    fatal "Invalid opcode"
-        #fi
+        #echo "about to load instruction word at $r15"
+        : $(( INSTRUCTION = _$r15 ))
+        : $(( OPCODE      = INSTRUCTION & 0x0F ))
+        : $(( ARG1        = (INSTRUCTION >> 8)  & 0xFF ))
+        : $(( ARG2        = (INSTRUCTION >> 16) & 0xFF ))
+        : $(( ARG3        = (INSTRUCTION >> 24) & 0xFF ))
 
         #echo >&2
-        #echo "instruction at 0x$(printf %08X $REGISTER_15): $(printf %02X $OPCODE) $(printf %02X $ARG1) $(printf %02X $ARG2) $(printf %02X $ARG3)" >&2
+        #echo "instruction at 0x$(printf %08X $((r15-PROGRAM_BASE_ADDRESS)) ):" \
+        #    "$(printf %02X $((INSTRUCTION&0xFF))) $(printf %02X $ARG1) $(printf %02X $ARG2) $(printf %02X $ARG3)" >&2
+
+        # check that opcode starts with 0x7x (disabled for performance)
+#        if [ $((0x70)) -ne $(( $INSTRUCTION & 0xF0 )) ]; then
+#            fatal "Invalid opcode"
+#        fi
+
 #        if [ $OPCODE = "00" ]; then
 #            registers_print
 #        fi
-        : $(( REGISTER_15 += 4 ))
+
+        : $(( r15 += 4 ))
 
         case $OPCODE in
             0)
                 #echo add >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( r$(( ARG1&0xF )) = (ARG2 + ARG3) & 0xFFFFFFFF ))
                 ;;
             1)
                 #echo sub >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 - $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( r$(( ARG1&0xF )) = (ARG2 - ARG3) & 0xFFFFFFFF ))
                 ;;
             2)
                 #echo mul >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 * $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( r$(( ARG1&0xF )) = (ARG2 * ARG3) & 0xFFFFFFFF ))
                 ;;
             3)
-                #echo div >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 / $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                #echo divu >&2
+                parse_mix_arg2
+                parse_mix_arg3
+                if [ $ARG2 -lt 0 -o $ARG3 -lt 0 ]; then
+                    echo "VM ERROR: division out of bounds; TODO unsigned division is not properly implemented."
+                    # Probably whichever are negative should be shifted down
+                    # (unsigned) by one bit, then shift the result
+                    # appropriately and do a test multiplication to correct it.
+                    # I haven't bothered to set up a 32-bit shell to test with
+                    # at the moment.
+                fi
+                : $(( r$(( ARG1&0xF )) = (ARG2 / ARG3) & 0xFFFFFFFF ))
                 ;;
             4)
                 #echo and >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 & $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( r$(( ARG1&0xF )) = ARG2 & ARG3 ))
                 ;;
             5)
                 #echo or >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 | $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( r$(( ARG1&0xF )) = ARG2 | ARG3 ))
                 ;;
             6)
                 #echo shl >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                register_set $PARSE_REGISTER_RET $(( ($ARG2 << $PARSE_MIX_RET) & 0xFFFFFFFF ))
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( r$(( ARG1&0xF )) = (ARG2 << ARG3) & 0xFFFFFFFF ))
                 ;;
             7)
                 #echo shru >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                ARG3=$PARSE_MIX_RET
+                parse_mix_arg2
+                parse_mix_arg3
                 # We only have a signed shift. We shift down by 1, mask out the
                 # high bit, then shift the rest.
-                if [ $ARG3 -eq 0 ]; then
-                    register_set $PARSE_REGISTER_RET $ARG2
-                else
-                    register_set $PARSE_REGISTER_RET $(( ((($ARG2 >> 1) & 0x7FFFFFFF) >> ($ARG3 - 1)) ))
-                fi
+                : $(( r$(( ARG1&0xF )) = (ARG3 == 0) ? ARG2 :
+                    ((($ARG2 >> 1) & 0x7FFFFFFF) >> ($ARG3 - 1)) ))
                 ;;
             8)
                 #echo ldw >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
+                parse_mix_arg2
+                parse_mix_arg3
                 #echo ldw at $ARG2 + $PARSE_MIX_RET into reg $PARSE_REGISTER_RET >&2
-                load_word $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
-                register_set $PARSE_REGISTER_RET $LOAD_WORD_RET
+                : $(( r$(( ARG1&0xF )) = _$(( (ARG2 + ARG3) & 0xFFFFFFFF )) ))
                 ;;
             9)
                 #echo stw >&2
-                parse_mix $ARG1
-                ARG1=$PARSE_MIX_RET
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                store_word $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF )) $ARG1
+                parse_mix_arg1
+                parse_mix_arg2
+                parse_mix_arg3
+                : $(( _$(( (ARG2 + ARG3) & 0xFFFFFFFF )) = $ARG1 ))
                 ;;
             10)
                 #echo ldb >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                load_byte $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF ))
-                register_set $PARSE_REGISTER_RET $LOAD_BYTE_RET
+                parse_mix_arg2
+                parse_mix_arg3
+                load_byte $(( (ARG2 + ARG3) & 0xFFFFFFFF ))
+                : $(( r$(( ARG1&0xF )) = LOAD_BYTE_RET ))
                 ;;
             11)
                 #echo stb >&2
-                parse_mix $ARG1
-                ARG1=$PARSE_MIX_RET
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                store_byte $(( ($ARG2 + $PARSE_MIX_RET) & 0xFFFFFFFF )) $(( $ARG1 & 0xFF ))
+                parse_mix_arg1
+                parse_mix_arg2
+                parse_mix_arg3
+                store_byte $(( (ARG2 + ARG3) & 0xFFFFFFFF )) $(( ARG1 & 0xFF ))
                 ;;
             12)
                 #echo ims >&2
-                parse_register $ARG1
-                register_get $PARSE_REGISTER_RET
-                register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | (ARG3 << 8) | ARG2 ))
+                : $(( r$(( ARG1&0xF )) = (r$(( ARG1&0xF )) << 16) & 0xFFFF0000 | (ARG3 << 8) | ARG2 ))
+#                parse_register $ARG1
+#                register_get $PARSE_REGISTER_RET
+#                register_set $PARSE_REGISTER_RET $(( ($REGISTER_GET_RET << 16) & 0xFFFFFFFF | (ARG3 << 8) | ARG2 ))
                 ;;
             13)
                 #echo ltu >&2
-                parse_register $ARG1
-                parse_mix $ARG2
-                ARG2=$PARSE_MIX_RET
-                parse_mix $ARG3
-                ARG3=$PARSE_MIX_RET
+                parse_mix_arg2
+                parse_mix_arg3
 
                 # Our comparison is supposed to be unsigned but a POSIX shell
                 # only needs to support signed long arithmetic which will be
                 # 32 bits on a 32-bit platform. We need to check for signedness
-                # manually. (These first two cases never happen on a 64-bit
-                # shell because values are 64-bit unsigned.)
-                #echo $ARG2 $ARG3 >&2
-                if [ $ARG2 -ge 0 -a $ARG3 -lt 0 ]; then
-                    LTU=0
-                elif [ $ARG2 -lt 0 -a $ARG3 -ge 0 ]; then
+                # manually.
+                #
+                # Only the first case ever happens on a shell with unsigned
+                # 32-bit or signed 64-bit integers because all values will be
+                # non-negative.
+                #
+                # mksh is an example of a shell where this logic is needed
+                # because numbers are 32-bit signed even when compiled for
+                # 64-bit.
+                if [ $ARG2 -ge 0 -a $ARG3 -ge 0 ]; then
+                    : $(( LTU = ARG2 < ARG3 ))
+                elif [ $ARG2 -ge 0 -a $ARG3 -lt 0 ]; then
                     LTU=1
+                elif [ $ARG2 -lt 0 -a $ARG3 -ge 0 ]; then
+                    LTU=0
                 else
-                    LTU=$(( $ARG2 < $ARG3 ))
+                    : $(( LTU = ARG2 > ARG3 ))
                 fi
+                #echo ltu $ARG2 $ARG3 '-->' $LTU >&2
 
-                register_set $PARSE_REGISTER_RET $LTU
+                : $(( r$(( ARG1&0xF )) = LTU ))
                 ;;
             14)
                 #echo jz >&2
-                parse_mix $ARG1
-                if [ 0 -eq $PARSE_MIX_RET ]; then
-                    OFFSET=$(( (($ARG3 << 8) | ARG2) & 0xFFFF ))
+                parse_mix_arg1
+                if [ 0 -eq $ARG1 ]; then
+                    : $(( OFFSET = ((ARG3 << 8) | ARG2) & 0xFFFF ))
                     if [ $OFFSET -ge 32768 ]; then
-                        OFFSET=$(( $OFFSET - 65536 ))
+                        : $(( OFFSET |= 0xFFFF0000 ))
                     fi
                     #echo "jump $OFFSET words" >&2
-                    REGISTER_15=$(( $REGISTER_15 + ($OFFSET << 2) ))
-                else
-                    #echo "no jump" >&2
-                    :
+                    : $(( r15 = (r15 + (OFFSET << 2)) & 0xFFFFFFFF ))
+                #else
+                #    echo "no jump" >&2
+                #    :
                 fi
                 ;;
             15)

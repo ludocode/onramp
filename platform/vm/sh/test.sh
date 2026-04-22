@@ -29,6 +29,7 @@
 set -e
 cd "$(dirname "$0")/../../.."
 
+trap "exit 1" INT
 
 # It takes a while to run the tests so we search for a shell roughly in order
 # of speed, fastest to slowest. To run with a particular shell, just run the
@@ -42,19 +43,31 @@ try_shell() {
     fi
 }
 
-# The times below are from the last time I measured the tests. Most of the time
-# is taken by the eight queens test.
-try_shell ksh           # 1m53s
-try_shell busybox ash   # 4m55s
-try_shell dash          # 6m7s
-try_shell zsh           # 12m48s
-try_shell busybox hush  # 14m15s
-try_shell bash          # 17m35s
-try_shell osh           # 22m25s
-try_shell oksh          # 24m21s
-#try_shell nsh           # doesn't work, bugs in arithmetic expansions
-#try_shell yash          # doesn't work, haven't debugged why
-#try_shell toybox sh     # doesn't work, see e.g. https://github.com/landley/toybox/issues/460
+# sorted roughly in order of speed, fastest to slowest
+try_shell dash
+try_shell busybox ash
+try_shell ksh
+try_shell bash
+try_shell oksh
+try_shell mksh
+try_shell osh
+try_shell yash
+try_shell zsh
+try_shell busybox hush
+
+# nsh doesn't work:
+# - no support for shifts in arithmetic expansions
+# - no support for additional arguments when passing script argument to nsh
+#try_shell nsh
+
+# posh doesn't work:
+# - no support for reading variables by name (without $) in arithmetic expressions
+# - no support for compound assignment operators (e.g. +=, &=)
+#try_shell posh
+
+# toybox sh is incomplete:
+# - elif is broken: https://github.com/landley/toybox/issues/460
+#try_shell toybox sh
 
 # If we haven't found a shell by now, just run with the default shell.
 exec test/vm/run.sh platform/vm/sh/vm.sh

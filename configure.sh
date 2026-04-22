@@ -441,6 +441,9 @@ try_vm() {
     if [ "$1" = "python" ]; then
         echo "WARNING: The Python VM is very slow. It will take several hours to bootstrap Onramp."
     fi
+    if [ "$1" = "sh" ]; then
+        echo "WARNING: The POSIX shell VM is extremely slow. It could take weeks to bootstrap Onramp."
+    fi
 }
 
 setup_vm() {
