@@ -334,7 +334,7 @@ try_hex() {
     logi "Configured hex tool: $1"
 
     if [ "$1" = "sh-alt" ]; then
-        echo "WARNING: The sh-alt hex tool is very slow. It will take a long time to finish the configuration."
+        logi "WARNING: The sh-alt hex tool is very slow. It will take a long time to finish the configuration."
     fi
 }
 
@@ -439,7 +439,7 @@ try_vm() {
     logi "Configured VM: $1"
 
     if [ "$1" = "python" ]; then
-        echo "WARNING: The Python VM is very slow. It will take several hours to bootstrap Onramp."
+        logi "WARNING: The Python VM is very slow. It will take several hours to bootstrap Onramp."
     fi
     if [ "$1" = "sh" ]; then
         echo "WARNING: The POSIX shell VM is extremely slow. It could take weeks to bootstrap Onramp."
@@ -496,19 +496,23 @@ setup_vm() {
 setup_misc() {
 
     # Hex our Onramp bytecode hex tool
-    echo "Hexing hex/onramp..."
+    logi "Hexing hex/onramp..."
     mkdir -p output/configure/hex-0-onramp
-    if ! output/configure/onramphex core/hex/0-onramp/hex.oe.ohx -o output/configure/hex-0-onramp/hex.oe ; then
-        echo "ERROR: Failed to hex hex/onramp with the configured hex tool."
+    if ! output/configure/onramphex core/hex/0-onramp/hex.oe.ohx \
+            -o output/configure/hex-0-onramp/hex.oe 2>>config.log 1>&2
+    then
+        logi "ERROR: Failed to hex hex/onramp with the configured hex tool."
         exit 1
     fi
 
     # Hex our Onramp shell (with our bytecode tool because it is much faster
     # than the shell hex tool)
-    echo "Hexing sh..."
+    logi "Hexing sh..."
     mkdir -p output/configure/sh
-    if ! output/posix/bin/onrampvm output/configure/hex-0-onramp/hex.oe core/sh/sh.oe.ohx -o output/configure/sh/sh.oe ; then
-        echo "ERROR: Failed to hex sh with hex/onramp."
+    if ! output/posix/bin/onrampvm output/configure/hex-0-onramp/hex.oe \
+            core/sh/sh.oe.ohx -o output/configure/sh/sh.oe 2>>config.log 1>&2
+    then
+        logi "ERROR: Failed to hex sh with hex/onramp."
         exit 1
     fi
 
