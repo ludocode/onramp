@@ -30,6 +30,8 @@
 void debug_init(void);
 void debug_destroy(void);
 
+bool debug_callstack_is_empty(void);
+
 /**
  * Loads debug info (if it exists) for the given executable loaded at the given
  * address.

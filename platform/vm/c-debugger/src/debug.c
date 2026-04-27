@@ -346,7 +346,7 @@ size_t debug_frames_capacity;
 size_t debug_frames_count;
 
 void debug_callstack_push(uint32_t source_address, uint32_t return_address, bool tail_call) {
-    //printf("DEBUG CALLSTACK PUSH\n");
+    //fprintf(stderr, "DEBUG CALLSTACK PUSH "); debug_print_location(source_address, true); fputc('\n', stderr);
 
     // grow if needed
     if (debug_frames_count == debug_frames_capacity) {
@@ -369,8 +369,9 @@ void debug_callstack_push(uint32_t source_address, uint32_t return_address, bool
 }
 
 void debug_callstack_pop(uint32_t return_address) {
-    //printf("DEBUG CALLSTACK POP\n");
+    //fprintf(stderr, "DEBUG CALLSTACK POP "); debug_print_location(return_address, true); fputc('\n', stderr);
     while (debug_frames_count > 0 && debug_frames[debug_frames_count - 1].return_address == return_address) {
+        //fprintf(stderr, "    pop frame "); debug_print_location(debug_frames[debug_frames_count - 1].source_address, true); fputc('\n', stderr);
         --debug_frames_count;
     }
 }
@@ -419,6 +420,10 @@ bool debug_stack_has_return(uint32_t return_address) {
         return false;
     }
     return return_address == debug_frames[debug_frames_count - 1].return_address;
+}
+
+bool debug_callstack_is_empty(void) {
+    return debug_frames_count == 0;
 }
 
 

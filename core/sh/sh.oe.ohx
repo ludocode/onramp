@@ -2861,6 +2861,9 @@
 
     ; Jump to the child program. Note that we don't clean up our stack frame;
     ; it is restored and cleaned up in child_syscall_exit().
+; TODO the debugger can't figure out that we've jumped to a new function
+; here so both the run_subprogram stackframe and the __start stackframe of the
+; subprogram disappear in the stack trace. This needs to be fixed.
     70 8F 8E 00   ; add rip rpp 0
 
     ; padding

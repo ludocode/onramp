@@ -1422,7 +1422,9 @@ static void vm_syscall(vm_t* vm) {
     }
 
     // jump to return address
-    vm->registers[VM_RIP] = vm_load_u32(vm, vm->registers[VM_RSP]);
+    uint32_t return_addr = vm_load_u32(vm, vm->registers[VM_RSP]);
+    debug_callstack_pop(return_addr);
+    vm->registers[VM_RIP] = return_addr;
 }
 
 static void vm_step(vm_t* vm) {
@@ -1462,7 +1464,7 @@ static void vm_step(vm_t* vm) {
 
         if (result != VM_SYSCALL_ADDRESS && vm_is_addr_valid(vm, rsp)) {
             uint32_t top = vm_load_u32(vm, rsp);
-            //printf("ins %X rip 0x%X result 0x%X top 0x%X\n", instruction, rip-4, result, top);
+            //fprintf(stderr, "ins %X rip 0x%X result 0x%X top 0x%X\n", instruction, rip-4, result, top);
 
             // check if this is a return (i.e. the result matches the top of the stack)
             if (result == top) {
@@ -1481,12 +1483,19 @@ static void vm_step(vm_t* vm) {
                     // instruction. This is a normal function call.
                     debug_callstack_push(rip - 4, top, false);
                 } else if (debug_stack_has_return(top)) {
-                    // The top of the stack contains the return address of a parent
-                    // function call in our stack. This is a tail call.
+                    // The top of the stack contains the same return address as
+                    // the current function. This is a tail call.
                     debug_callstack_push(rip - 4, top, true);
                 }
             }
+        } else if (result != VM_SYSCALL_ADDRESS && debug_callstack_is_empty()) {
+            // This is a tail-call from the entry point. We push it so that
+            // __start() (or whatever the entry point is called) is in the call
+            // stack.
+            debug_callstack_push(rip - 4, 0, true);
         }
+
+        //fprintf(stderr, "function is now: 0x%08x ",result); debug_print_location(result, true); fputc('\n', stderr);
     }
 
     switch (opcode) {
