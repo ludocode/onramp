@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,10 +36,11 @@ typedef int uid_t;
 typedef int gid_t;
 typedef int id_t;
 
-#ifndef __onramp_cci_omc__
-#ifndef __onramp_cci_opc__
-typedef long long off_t;
+#ifdef __onramp_abi_bootstrap__
+typedef int off_t;
 #endif
+#ifndef __onramp_abi_bootstrap__
+typedef long long off_t;
 #endif
 
 #endif

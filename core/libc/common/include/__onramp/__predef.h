@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -60,5 +60,9 @@
         _Noreturn void __builtin_unreachable(void) __asm__("abort");
     #endif
 #endif
+
+// TODO this needs to be defined by -mabi=bootstrap, see #40. For now it's on
+// all the time.
+#define __onramp_abi_bootstrap__ 1
 
 #endif

@@ -289,7 +289,14 @@ off_t lseek(int fd, off_t offset, int whence) {
     if (whence != SEEK_CUR || offset != 0) {
         int ret = __sys_seek(posixfile->handle,
                 whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
-                (unsigned)offset, (unsigned)(offset >> 32));
+                (unsigned)offset,
+                #ifdef __onramp_abi_bootstrap__
+                0
+                #endif
+                #ifndef __onramp_abi_bootstrap__
+                (unsigned)(offset >> 32)
+                #endif
+                );
         if (ret != 0) {
             // TODO for now we assume stream isn't seekable
             errno = ESPIPE;
@@ -298,14 +305,31 @@ off_t lseek(int fd, off_t offset, int whence) {
     }
 
     // return the current position
+    #ifdef __onramp_abi_bootstrap__
+    unsigned result[2];
+    #endif
+    #ifndef __onramp_abi_bootstrap__
     off_t result;
+    #endif
+
     int ret = __sys_tell(posixfile->handle, (void*)&result);
+
     if (ret != 0) {
         // TODO for now we assume stream isn't seekable
         errno = ESPIPE;
         return -1;
     }
+
+    #ifdef __onramp_abi_bootstrap__
+    if (result[1] != 0 || (int)result[0] < 0) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    return result[0];
+    #endif
+    #ifndef __onramp_abi_bootstrap__
     return result;
+    #endif
 }
 #endif
 
