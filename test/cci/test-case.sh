@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2025 Fraser Heavy Software
+# Copyright (c) 2025-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -350,12 +350,12 @@ if echo "$TESTFILE" | grep -q '\.c$'; then
     else
         $COMMAND &> $TOOL_LOG
     fi
-    set -e
     if [ $? -ne 0 ]; then
         echo "$0: ERROR: Preprocessing failed." >&2
         cat $TOOL_LOG
         exit 1
     fi
+    set -e
     INPUT="$OUTPUT"
 elif echo $TESTFILE | grep -q '\.i$'; then
     INPUT="$TESTFILE"
@@ -430,6 +430,7 @@ AS_OUTPUT=$OUTPUT_PATH/$BASENAME.oo
 INPUT=$OUTPUT
 OUTPUT=$AS_OUTPUT
 COMMAND="$AS_PREFIX $AS $INPUT -o $OUTPUT"
+set +e
 if [ $VERBOSE -eq 1 ]; then
     echo Running assembler: $COMMAND
     $COMMAND
@@ -441,12 +442,14 @@ if [ $? -ne 0 ]; then
     cat $TOOL_LOG >&2
     exit 1
 fi
+set -e
 
 # Link
 LD_OUTPUT=$OUTPUT_PATH/$BASENAME.oe
 INPUT=$OUTPUT
 OUTPUT=$LD_OUTPUT
 COMMAND="$LD_PREFIX $LD -g $LIBC $INPUT -o $OUTPUT"
+set +e
 if [ $VERBOSE -eq 1 ]; then
     echo Running linker: $COMMAND
     $COMMAND
@@ -459,6 +462,7 @@ if [ $? -ne 0 ]; then
     cat $TOOL_LOG >&2
     exit 1
 fi
+set -e
 
 
 

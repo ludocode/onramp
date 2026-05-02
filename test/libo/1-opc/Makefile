@@ -116,12 +116,6 @@ $(OUT)/libo-data.oo: $(SRC)/libo-data.os Makefile
 # the resulting objects (at least, not unless we want to implement all of our
 # syscalls for Linux.)
 
-$(OUT)/libo-data.oo: $(SRC)/libo-data.os Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	# no C file to compile
-	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-data.os -o $@
-
 $(OUT)/libo-error.oo: $(SRC)/libo-error.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)

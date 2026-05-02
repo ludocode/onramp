@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -29,11 +29,8 @@ OUT=$(BUILD)/cci-0-omc
 VM=$(BUILD)/vm-c-debugger/vm
 LD=$(BUILD)/ld-2-full/ld
 AS=$(BUILD)/as-2-full/as
-# TODO libc/2-full not buildable yet
-#LIBC=$(BUILD)/libc-2-full/libc.oa
-LIBC=$(BUILD)/libc-0-oo/libc.oa
-# TODO libo/1-opc not buildable yet
-LIBO=$(BUILD)/libo-0-oo/libo.oa
+LIBC=$(BUILD)/libc-3-full/libc.oa
+LIBO=$(BUILD)/libo-1-opc/libo.oa
 
 all: build test FORCE
 FORCE:
@@ -52,14 +49,10 @@ $(AS): FORCE
 	@(make -C ../../as/2-full build)
 
 $(LIBC): FORCE
-	# TODO libc/2-full not buildable yet
-	#@(make -C ../../libc/2-full build)
-	@(make -C ../../libc/0-oo build)
+	@(make -C ../../libc/3-full build)
 
 $(LIBO): FORCE
-	# TODO libo/1-opc not buildable yet
-	#@(make -C ../../libo/1-opc build)
-	@(make -C ../../libo/0-oo build)
+	@(make -C ../../libo/1-opc build)
 
 $(OUT):
 	@mkdir -p $(OUT)

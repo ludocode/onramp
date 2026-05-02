@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024-2025 Fraser Heavy Software
+; Copyright (c) 2024-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -172,11 +172,6 @@
     imw r0 ^input_file
     ldw r0 rpp r0
     call ^fclose
-
-    ; free filename
-    imw r1 ^current_filename
-    ldw r0 rpp r1
-    call ^free
 
     ret
 
