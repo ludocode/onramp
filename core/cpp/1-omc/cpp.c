@@ -136,8 +136,8 @@
  * is parsed, this changes and the previous file is stored on the call stack. */
 static FILE* current_file;
 
-/* The current character being handled by the preprocessor, after the scanner
- * has stripped comments and escaped newlines. */
+/* The current character being handled by the preprocessor after the scanner
+ * has stripped comments and escaped newlines, or 0 on EOF. */
 static char current_char;
 
 /* The next character after current_char, which has not yet been scanned. */
@@ -212,7 +212,7 @@ static void emit_line_directive(void) {
  * bytes.)
  */
 static char read_char(void) {
-    char c = fgetc(current_file);
+    int c = fgetc(current_file);
     if (c == -1) {
         if (!feof(current_file)) {
             fatal("Failed to read input file.");
@@ -382,14 +382,16 @@ static void emit_string_or_character_literal(void) {
     next_char();
 
     // emit contents
+    // (check for newline only; no need to check for EOF, we synthesize a
+    // newline if missing)
     while (current_char != quote) {
-        if ((current_char == '\n') | (current_char == 0)) {
+        if (current_char == '\n') {
             fatal("Unclosed single or double quote");
         }
         if (current_char == '\\') {
             emit_char(current_char);
             next_char();
-            if ((current_char == '\n') | (current_char == 0)) {
+            if (current_char == '\n') {
                 fatal("Unclosed single or double quote");
             }
         }
@@ -398,7 +400,7 @@ static void emit_string_or_character_literal(void) {
     }
 
     // emit closing quote
-    if ((current_char == '\n') | (current_char == 0)) {
+    if (current_char == '\n') {
         fatal("Unclosed single or double quote");
     }
     emit_char(current_char);
@@ -507,7 +509,8 @@ static void consume_expansion(void) {
             fatal("Macro expansion is too long.");
         }
 
-        if ((current_char == 0) | ((current_char == '\n') | (current_char == '\r'))) {
+        // no need to check for EOF, we synthesize a newline if missing
+        if ((current_char == '\n') | (current_char == '\r')) {
             break;
         }
 
@@ -807,7 +810,11 @@ static void handle_include(void) {
     i = 0;
     while (current_char != end_char) {
         // check for end of line
-        if (((current_char == 0xA) | (current_char == 0xD)) | (current_char == -1)) {
+        // (no need to check for EOF, we synthesize a newline if missing)
+        if ((current_char == 0xA) | (current_char == 0xD)) {
+            fputs("current_char ", stdout);
+            fputd(current_char, stdout);
+            fputs("\n", stdout);
             fatal("Unclosed include");
         }
         *(current_string + i) = current_char;
