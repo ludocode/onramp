@@ -3,19 +3,10 @@
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
-    char y;
-    y = 5;
-    if (y != 5) {
+    unsigned char x = -1; // truncates to 0xFF
+    int y = x;
+    if (y != 0xFF) {
         return 1;
     }
-
-    unsigned char x;
-    x = 250;
-    int w;
-    w = x;
-    if (w != 250) {
-        return 2;
-    }
-
     return 0;
 }

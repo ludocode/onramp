@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2023-2024 Fraser Heavy Software
+// Copyright (c) 2023-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
@@ -9,8 +9,8 @@ int main(void) {
         return 1;
     }
 
-    // truncating cast with sign extension
-    if ((char)0x2aa != 0xffffffaa) {
+    // truncating cast without sign extension
+    if ((unsigned char)0x2aa != 0xaa) {
         return 2;
     }
 

@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024-2025 Fraser Heavy Software
+; Copyright (c) 2024-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -171,6 +171,7 @@
 =str_const "const" '00
 =str_int "int" '00
 =str_char "char" '00
+=str_unsigned "unsigned" '00
 =str_void "void" '00
 =str_if "if" '00
 =str_while "while" '00
@@ -221,7 +222,7 @@
 =str_inc "inc" '00
 =str_dec "dec" '00
 =str_mov "mov" '00
-=str_sxb "sxb" '00
+=str_trb "trb" '00
 
 =str_and "and" '00
 =str_or "or" '00

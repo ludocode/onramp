@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024-2025 Fraser Heavy Software
+; Copyright (c) 2024-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -1580,7 +1580,10 @@
 
     ; all other pointer types have an arithmetic factor of 4, so we shift (signed) by 2.
 
-    ; if we're multiplying, emit shl; if we're diving, emit shrs.
+    ; if we're multiplying, emit shl; if we're dividing, emit shrs.
+; TODO this is shrs because the type is assumed to be int; if it's
+; unsigned we should use shru. this will probably matter when we add the
+; unsigned (int) type.
     jz r2 &compile_arithmetic_factor_shrs
     imw r0 ^str_shl
     jmp &compile_arithmetic_factor_shl
@@ -1856,20 +1859,23 @@
     push r1
     push r2
 
-    ; cast from char or to char does sign extension.
-    ; TODO probably we shouldn't bother if both types are char though?
+    ; if the types are the same, nothing to do.
+    sub r9 r0 r1
+    jz r9 &compile_cast_done
+
+    ; cast from char or to char truncates (char is unsigned.)
     sub r3 r0 0x20
-    jz r3 &compile_cast_sxb
+    jz r3 &compile_cast_trb
     sub r3 r1 0x20
-    jz r3 &compile_cast_sxb
+    jz r3 &compile_cast_trb
 
     ; cast to anything else does nothing.
     jmp &compile_cast_done
 
-:compile_cast_sxb
+:compile_cast_trb
 
-    ; emit "sxb <reg> <reg>"
-    imw r0 ^str_sxb
+    ; emit "trb <reg> <reg>"
+    imw r0 ^str_trb
     add r0 rpp r0
     call ^emit_term
     ldw r0 rfp -12

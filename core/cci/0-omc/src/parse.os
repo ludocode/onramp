@@ -179,6 +179,12 @@
     call ^lexer_accept
     push r0
 
+    ; check for `unsigned`.
+    imw r0 ^str_unsigned
+    add r0 r0 rpp
+    call ^lexer_accept
+    jnz r0 &try_parse_type_unsigned
+
     ; try to find the base type
     imw r0 ^lexer_token
     ldw r0 r0 rpp
@@ -187,8 +193,25 @@
     call ^type_lookup
     jz r0 &try_parse_type_not_found
 
-    ; consume the token
+    ; found a base type! consume it
     call ^lexer_consume
+    jmp &try_parse_type_found
+
+:try_parse_type_unsigned
+
+    ; found `unsigned`. the next keyword must be `char`.
+    ; TODO the `char` here should be optional; we intend to add 32-bit
+    ; `unsigned` as its own type.
+    imw r0 ^str_char
+    add r0 r0 rpp
+    ; TODO the error message here is awful. maybe we should get rid of
+    ; lexer_expect altogether and always provide a reasonable error message.
+    call ^lexer_expect
+
+    ; the type is `char`
+    push 0x20
+
+:try_parse_type_found
 
     ; put "*" on the stack to collect indirections
     push "*"

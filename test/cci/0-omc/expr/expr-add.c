@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2023-2024 Fraser Heavy Software
+// Copyright (c) 2023-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
@@ -12,8 +12,8 @@ int main(void) {
     }
 
     // test promotion from char to int
-    char x = -3;
-    if ((x + -5) != -8) {
+    unsigned char x = -3; // truncates to 253
+    if ((x + -5) != 248) {
         return 3;
     }
 
@@ -21,7 +21,7 @@ int main(void) {
     if (((char)0x101 + (char)0x102) != 3) {
         return 4;
     }
-    if (((char)0xffffff03 + (char)0xeeeeee04) != 7) {
+    if (((unsigned char)0xffffff03 + (unsigned char)0xeeeeee04) != 7) {
         return 5;
     }
 

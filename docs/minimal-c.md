@@ -6,7 +6,7 @@ It contains the minimum number of C features required to reasonably implement th
 
 Its features are, in brief:
 
-- `void`, `int` and `char` types, and pointers to them
+- `void`, `int` and (unsigned) `char` types, and pointers to them
 - `if`, `while`, `continue`, `break` and `return` for control flow
 - `typedef` type names, and `extern` and `static` global variable declarations
 - String, character, and integer constants
@@ -40,7 +40,7 @@ The main difference between NB and omC is, rather than making it an extension of
 
 Compared to C, omC has:
 
-- Only `void`, `int` and `char` types and pointers to them.
+- Only `void`, `int` and (unsigned) `char` types and pointers to them.
     - No `struct`/`union`/`enum`;
     - No arrays;
     - No `unsigned`, `long`, `short`;
@@ -218,9 +218,15 @@ If a function's parameter list is followed by a semicolon, it is a function decl
 
 _type_: `const`? _base_ `const`? ( `*` `const`? )\*
 
-_base_: `void` / `int` / `char`
+_base_: `void` / `int` / `char` / ( `unsigned` `char` )
 
 A type consists of a base type followed by 0 to 15 pointer declarators. `const` is accepted and ignored anywhere before, after and in between.
+
+The available base types are:
+
+- `void`: The absence of a value. There are no values of type `void`. Function arguments cannot be of type `void`.
+- `char` (or `unsigned char`): An 8-bit unsigned integer.
+- `int`: A 32-bit signed integer.
 
 Note that types are always parsed separately from identifiers. There is no support for any postfix or parenthesized declarators.
 
