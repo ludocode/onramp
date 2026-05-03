@@ -108,7 +108,8 @@ static void panic(const char* e) {
 #define VM_READ      5
 #define VM_WRITE     6
 #define VM_SEEK      7
-#define VM_TELL      8
+#define VM_TELL      8  // replaced by size
+#define VM_SIZE      8
 #define VM_TRUNC     9
 #define VM_DOPEN     10
 #define VM_DCLOSE    11
@@ -632,7 +633,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
         if (vm->version < 4 && syscall_is_v3_forbidden(i)) {
             vm_store_u32(vm, syscall_table + i * 8, VM_SYSCALL_ADDRESS);
             vm_store_u32(vm, syscall_table + i * 8 + 4, VM_FORBIDDEN_SYSCALL);
-        } else if (i == VM_RENAME || i == VM_ALLOC || i == VM_FREE) {
+        } else if (i == VM_STAT || i == VM_RENAME || i == VM_ALLOC || i == VM_FREE) {
             // TODO these are not implemented yet
             vm_store_u32(vm, syscall_table + i * 8, 0);
             vm_store_u32(vm, syscall_table + i * 8 + 4, 0);
@@ -1113,12 +1114,36 @@ static uint32_t vm_write(vm_t* vm) {
 
 static uint32_t vm_seek(vm_t* vm) {
     uint32_t handle = vm->registers[0];
-    uint32_t base = vm->registers[1];
-    int64_t offset = (int64_t)((uint64_t)vm->registers[2] | ((uint64_t)vm->registers[3] << 32));
-    strace("sys seek() handle 0x%x base %u offset %" PRIi64, handle, base, offset);
+
+    // seek parameters changed between versions 3 and 4.
+    uint32_t base, offset_low, offset_high;
+    if (vm->version < 4) {
+        base = vm->registers[1];
+        offset_low = vm->registers[2];
+        offset_high = vm->registers[3];
+    } else {
+        base = 0;
+        offset_low = vm->registers[1];
+        offset_high = vm->registers[2];
+    }
+
+    int64_t offset = (int64_t)((uint64_t)offset_low | ((uint64_t)offset_high << 32));
+
+    if (vm->version < 4) {
+        strace("sys seek() handle 0x%x base %u offset %" PRIi64, handle, base, offset);
+    } else {
+        strace("sys seek() handle 0x%x offset %" PRIi64, handle, offset);
+    }
 
     if (base > 2) {
         panic("Invalid base given to syscall seek.");
+    }
+
+    // If compiled as 32 bits, we don't have large file support.
+    // TODO use fseeko() where available or switch to POSIX APIs
+    if (offset > LONG_MAX || offset < LONG_MIN) {
+        strace(" overflow");
+        return VM_ERROR_OVERFLOW;
     }
 
     filedata_t* filedata = vm_filedata(vm, handle);
@@ -1157,6 +1182,10 @@ static uint32_t vm_tell(vm_t* vm) {
     filedata->generated_error_later = false;
 
     long pos = ftell(filedata->file);
+    if (pos < 0) {
+        strace(" failed, must be stream");
+        return VM_ERROR_UNSUPPORTED;
+    }
     strace(" position %" PRIu64, (uint64_t)pos);
 
     vm_store_u32(vm, addr, (uint32_t)pos);
@@ -1188,6 +1217,45 @@ static uint32_t vm_trunc(vm_t* vm) {
     strace(" failed, ret %i errno %i", ret, errno);
     // TODO error codes
     return VM_ERROR_GENERIC;
+}
+
+static uint32_t vm_size(vm_t* vm) {
+    uint32_t handle = vm->registers[0];
+    uint32_t out_addr = vm->registers[1];
+    strace("sys size() handle 0x%x addr 0x%x", handle, out_addr);
+
+    filedata_t* filedata = vm_filedata(vm, handle);
+    if (!filedata_is_open(filedata)) {
+        panic("File handle is not open");
+    }
+    if (filedata->file == NULL) {
+        // It's a directory.
+        strace(" failed, directory");
+        return VM_ERROR_UNSUPPORTED;
+    }
+    filedata->generated_error_later = false;
+
+    fflush(filedata->file);
+    struct stat statbuf;
+    int ret = fstat(fileno(filedata->file), &statbuf);
+    if (ret != 0) {
+        strace(" failed, must be stream");
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    // The statbuf size is supposed to be signed but it should never be
+    // negative. We check just in case so we don't get nonsense from our shifts
+    // below.
+    if (statbuf.st_size < 0) {
+        strace(" size is negative??");
+        return VM_ERROR_GENERIC;
+    }
+    strace(" size %" PRIu64, (uint64_t)statbuf.st_size);
+
+    // Store size (shift twice in case off_t is 32 bits)
+    vm_store_u32(vm, out_addr, (uint32_t)statbuf.st_size);
+    vm_store_u32(vm, out_addr + 4, (uint32_t)((statbuf.st_size >> 16) >> 16));
+    return 0;
 }
 
 static uint32_t vm_dirent(vm_t* vm) {
@@ -1250,6 +1318,7 @@ static uint32_t vm_dirent(vm_t* vm) {
     }
 }
 
+#if 0
 // Converts stat.st_mode to Onramp
 static int vm_stat_type(int mode) {
     if (S_ISREG(mode)) {
@@ -1317,6 +1386,7 @@ static uint32_t vm_stat(vm_t* vm) {
         strace(" size is negative??");
         return VM_ERROR_GENERIC;
     }
+    strace(" size %" PRIu64, (uint64_t)statbuf.st_size);
 
     // Store size (shift twice in case off_t is 32 bits)
     vm_store_u32(vm, out_addr, (uint32_t)statbuf.st_size);
@@ -1324,6 +1394,7 @@ static uint32_t vm_stat(vm_t* vm) {
 
     return vm_stat_type(statbuf.st_mode);
 }
+#endif
 
 static uint32_t vm_rename(vm_t* vm) {
     panic("TODO rename syscall not yet implemented");
@@ -1393,12 +1464,12 @@ static void vm_syscall(vm_t* vm) {
         case VM_READ:      ret = vm_read(vm); break;
         case VM_WRITE:     ret = vm_write(vm); break;
         case VM_SEEK:      ret = vm_seek(vm); break;
-        case VM_TELL:      ret = vm_tell(vm); break;
+        case VM_SIZE:      ret = (vm->version >= 4 ? vm_size(vm) : vm_tell(vm)); break;
         case VM_TRUNC:     ret = vm_trunc(vm); break;
         // directory
         case VM_DIRENT:    ret = vm_dirent(vm); break;
         // filesystem
-        case VM_STAT:      ret = vm_stat(vm); break;
+        //case VM_STAT:      ret = vm_stat(vm); break;
         case VM_RENAME:    ret = vm_rename(vm); break;
         case VM_DELETE:    ret = vm_delete(vm); break;
         case VM_CHMOD:     ret = vm_chmod(vm); break;
