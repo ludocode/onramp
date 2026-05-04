@@ -883,9 +883,11 @@ size_t fwrite(const void* restrict vdata, size_t element_size, size_t element_co
 }
 
 int fgetpos(FILE* restrict file, fpos_t* restrict pos) {
+    // TODO this should support 64-bit
     long x = ftell(file);
-    if (x < 0)
+    if (x < 0) {
         return -1;
+    }
     *pos = x;
     return 0;
 }
@@ -902,8 +904,8 @@ int fseek(FILE* file, long offset, int whence) {
     if (file->buffer_use == buffer_use_reading) {
 
         // We have to offset SEEK_CUR by the amount of data remaining in the buffer.
-        if (whence == SEEK_CUR && file->buffer_use == buffer_use_reading) {
-            long new_offset = offset - (file->buffer_end - file->buffer_pos);
+        if (whence == SEEK_CUR) {
+            long new_offset = offset - (file->buffer_end - file->buffer_pos); // TODO signed overflow undefined behaviour. works on onramp but we should stick to standard c
             if (new_offset > offset) {
                 errno = EOVERFLOW;
                 return -1;
@@ -918,19 +920,9 @@ int fseek(FILE* file, long offset, int whence) {
         file->buffer_ungetc = NULL;
     }
 
-    // We don't call lseek() here because our off_t is 64 bits which is not
-    // available in opC. Instead we do the syscall manually.
-    int ret = __sys_seek(__fd_handle(file->fd),
-            whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
-            offset,
-            (offset < 0) ? UINT32_MAX : 0);
-    if (ret < 0) {
-        // TODO convert Onramp error codes. For now we assume the stream isn't
-        // seekable.
-        // TODO the VM is allowed to forbid seeking beyond the end of the file,
-        // in which case (if the file is writeable) we need to extend it
-        // manually, and maybe lazily.
-        errno = ESPIPE;
+    off_t result = lseek(file->fd, offset, whence);
+    if (result == -1) {
+        // lseek() set errno
         return -1;
     }
 
@@ -938,54 +930,63 @@ int fseek(FILE* file, long offset, int whence) {
 }
 
 int fsetpos(FILE* file, const fpos_t* pos) {
-    return fseek(file, *pos, SEEK_SET);
+    // TODO this should support 64-bit
+    int ret= fseek(file, *pos, SEEK_SET);
+    return ret;
 }
 
-long ftell(FILE* file) {
-    unsigned position[2];
-
-    // We don't call lseek() here because our off_t is 64 bits which is not
-    // available in opC. Instead we do the syscall manually.
-    int ret = __sys_tell(__fd_handle(file->fd), position);
-    if (ret < 0) {
-        // TODO convert Onramp error codes. For now we assume the stream isn't
-        // seekable.
-        errno = ESPIPE;
+long __fsize(FILE* file) {
+    off_t size = __fd_size(file->fd);
+    if (size < 0) {
+        // __fd_size() set errno
         return -1;
     }
-
-    if (position[1] != 0 || position[0] > (unsigned)INT_MAX) {
+    if (size > LONG_MAX) {
         errno = EOVERFLOW;
         return -1;
     }
+    return (long)size;
+}
+
+long ftell(FILE* file) {
+    off_t off = lseek(file->fd, 0, SEEK_CUR);
+    if (off < 0) {
+        // __fd_size() set errno
+        return -1;
+    }
+    if (off > INT_MAX) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    unsigned position = (unsigned)off;
 
     // For a write buffer, add the pending buffer contents. For a read buffer,
     // subtract the remaining buffer contents.
+    unsigned new_pos;
     if (file->buffer_use == buffer_use_writing) {
-        unsigned new_pos = position[0] + (file->buffer_pos - file->buffer);
-        if (new_pos < position[0]) {
-            errno = EOVERFLOW;
-            return -1;
-        }
-        position[0] = new_pos;
+        new_pos = position + (file->buffer_pos - file->buffer);
     } else if (file->buffer_use == buffer_use_reading) {
-        unsigned new_pos = position[0] - (file->buffer_end - file->buffer_pos);
-        if (new_pos > position[0]) {
-            errno = EOVERFLOW;
-            return -1;
-        }
-        position[0] = new_pos;
+        new_pos = position - (file->buffer_end - file->buffer_pos);
+    } else {
+        new_pos = position;
     }
 
-    return position[0];
+    if (new_pos > LONG_MAX) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    return (long)new_pos;
 }
 
 void rewind(FILE* file) {
-    // TODO
+    // ignore errors from fseek
+    fseek(file, 0, SEEK_SET);
+    file->error = false;
 }
 
 void clearerr(FILE* file) {
-    // TODO
+    file->eof = false;
+    file->error = false;
 }
 
 int feof(FILE* file) {

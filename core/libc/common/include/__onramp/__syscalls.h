@@ -36,7 +36,7 @@
 #define __SYS_READ 5
 #define __SYS_WRITE 6
 #define __SYS_SEEK 7
-#define __SYS_TELL 8
+#define __SYS_SIZE 8
 #define __SYS_TRUNC 9
 #define __SYS_DIRENT 12
 #define __SYS_STAT 13
@@ -54,7 +54,7 @@
 #define __SYS_FREAD __SYS_READ
 #define __SYS_FWRITE __SYS_WRITE
 #define __SYS_FSEEK __SYS_SEEK
-#define __SYS_FTELL __SYS_TELL
+#define __SYS_FTELL 8
 #define __SYS_FTRUNC __SYS_TRUNC
 #define __SYS_DOPEN 10
 #define __SYS_DCLOSE 11
@@ -90,9 +90,10 @@ int __sys_open(const char* path, bool writeable);
 int __sys_close(unsigned handle);
 int __sys_read(unsigned handle, void* out_buffer, unsigned size);
 int __sys_write(unsigned handle, const void* buffer, unsigned size);
-int __sys_seek(unsigned handle, unsigned base, unsigned offset_low, unsigned offset_high);
-int __sys_tell(unsigned handle, unsigned out_position[2]);
+int __sys_seek(unsigned handle, unsigned offset_low, unsigned offset_high); // does not work on v3 or earlier!
+int __sys_size(unsigned handle, unsigned out_position[2]);
 int __sys_trunc(unsigned handle, unsigned position_low, unsigned position_high);
+int __sys_size(unsigned handle, unsigned out_position[2]); // does not work on v3 or earlier!
 int __sys_dirent(unsigned handle, char out_buffer[256]);
 int __sys_stat(const char* path, unsigned* out_size);
 int __sys_rename(const char* from, const char* to);
@@ -108,8 +109,8 @@ int __sys_mkdir(const char* path);
 #define __sys_fclose __sys_close
 #define __sys_fread __sys_read
 #define __sys_fwrite __sys_write
-#define __sys_fseek __sys_seek
-#define __sys_ftell __sys_tell
+int __sys_fseek(unsigned handle, unsigned base, unsigned offset_low, unsigned offset_high); // does not work on v4 or later!
+#define __sys_ftell __sys_size  // same arguments and syscall number. does not work on v4 or later!
 #define __sys_ftrunc __sys_trunc
 int __sys_dopen(const char* path);
 int __sys_dclose(int handle);

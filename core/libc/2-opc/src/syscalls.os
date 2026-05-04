@@ -150,18 +150,44 @@
 ; ==========================================================
 ; void __sys_seek(int handle, unsigned position_low, unsigned position_high);
 ; ==========================================================
+; This is the v4 version of the seek syscall which does not take an additional
+; base parameter.
+;
+; See __sys_fseek() which implements the old API.
+; ==========================================================
 
 =__sys_seek
+
+; TODO backwards compatibility is disabled for now, probably permanently.
+; Callers should check the version and call __sys_fseek() on v3.
+
+;    ; check if the version is 4 or greater
+;    imw r8 ^__process_info_table
+;    ldw r8 rpp r8     ; r8 = process_info_table
+;    ldw r7 r8 0       ; r7 = major version
+;    ltu r6 r7 4
+;    jz r6 & __sys_seek_v4
+;
+;    ; version is 3 or less. insert base 0
+;    mov r3 r2
+;    mov r2 r1
+;    mov r1 0
+;
+;:__sys_seek_v4
+
+    ; tail-call the seek syscall
     mov r9 7
     jmp ^__syscall
 
 
 
 ; ==========================================================
-; void __sys_tell(int handle, unsigned out_position[2]);
+; void __sys_size(int handle, unsigned out_position[2]);
+; ==========================================================
+; This is called as __sys_tell() on v3 and earlier.
 ; ==========================================================
 
-=__sys_tell
+=__sys_size
     mov r9 8
     jmp ^__syscall
 
@@ -255,4 +281,57 @@
 
 =__sys_rmdir
     mov r9 19
+    jmp ^__syscall
+
+
+
+; ==========================================================
+; char __sys_fseek_bad_base[];
+; ==========================================================
+
+=__sys_fseek_bad_base
+    "ERROR: A non-zero base was given to the deprecated fseek syscall." '0A '00
+
+
+
+; ==========================================================
+; void __sys_fseek(int handle, unsigned base, unsigned position_low, unsigned position_high);
+; ==========================================================
+; This is the v3 fseek syscall which took an extra base parameter. We need this
+; for backwards compatibility.
+;
+; See __sys_seek for the modern syscall.
+; ==========================================================
+
+=__sys_fseek
+
+    ; check if the version is 4 or greater
+    imw r8 ^__process_info_table
+    ldw r8 rpp r8     ; r8 = process_info_table
+    ldw r7 r8 0       ; r7 = major version
+    ltu r6 r7 4
+    jz r6 &__sys_fseek_v4
+
+    ; version is 3 or less. tail-call old fseek syscall
+    mov r9 7
+    jmp ^__syscall
+
+:__sys_fseek_v4
+
+    ; version is 4 or greater. base must be 0.
+    jz r1 &__sys_fseek_v4_base_ok
+
+    ; base is not 0. fatal error
+    imw r0 ^__sys_fseek_bad_base
+    add r0 rpp r0
+    jmp ^__fatal
+
+:__sys_fseek_v4_base_ok
+
+    ; permute parameters
+    mov r1 r2
+    mov r2 r3
+
+    ; tail-call new seek syscall
+    mov r9 7
     jmp ^__syscall

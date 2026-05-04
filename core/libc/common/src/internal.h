@@ -39,8 +39,6 @@
             __assert_fail(#expression, __FILE__, __LINE__, __func__))
 #endif
 
-int __fd_handle(int __fd);
-
 void __call_atexit(void);
 void __call_at_quick_exit(void);
 

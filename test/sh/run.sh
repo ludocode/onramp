@@ -1,4 +1,2 @@
 #!/bin/bash
-
-# TODO
-echo "Pass."
+echo "TODO run sh tests"

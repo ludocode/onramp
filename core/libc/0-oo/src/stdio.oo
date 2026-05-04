@@ -32,6 +32,8 @@
 ;     char* buffer; // pointer to allocated 4 KB buffer
 ;     char* start; // position of first valid byte in buffer
 ;     char* end; // one past last valid byte in buffer
+;     int position; // logical position within the file (including buffered
+;                   // writes, not including buffered reads)
 ; } FILE;
 ;
 ; The struct and its buffer are each allocated with malloc() and freed when the
@@ -318,10 +320,10 @@
 
 
 ; ==========================================================
-; const char* __files_error_invalid_seek;
+; const char* __files_error_seek_mode;
 ; ==========================================================
 
-=__files_error_invalid_seek
+=__files_error_seek_mode
     ; "ERROR: Cannot seek a file in write mode." '0A '00
     45 52 52 4f 52 3a 20 43  61 6e 6e 6f 74 20 73 65
   ;  E  R  R  O  R  :     C   a  n  n  o  t     s  e
@@ -330,6 +332,25 @@
     74 65 20 6d 6f 64 65 2e  0a 00
   ;  t  e     m  o  d  e  .  \n \0
 
+
+
+; ==========================================================
+; const char* __files_error_seek_base;
+; ==========================================================
+
+=__files_error_seek_base
+    ; "ERROR: Cannot seek with bases other than SEEK_SET during bootstrapping."
+    ; '0A '00
+    45 52 52 4f 52 3a 20 43  61 6e 6e 6f 74 20 73 65
+  ;  E  R  R  O  R  :     C   a  n  n  o  t     s  e
+    65 6b 20 77 69 74 68 20  62 61 73 65 73 20 6f 74
+  ;  e  k     w  i  t  h      b  a  s  e  s     o  t
+    68 65 72 20 74 68 61 6e  20 53 45 45 4b 5f 53 45
+  ;  h  e  r     t  h  a  n      S  E  E  K  _  S  E
+    54 20 64 75 72 69 6e 67  20 62 6f 6f 74 73 74 72
+  ;  T     d  u  r  i  n  g      b  o  o  t  s  t  r
+    61 70 70 69 6e 67 2e 0a  00
+  ;  a  p  p  i  n  g  . \n  \0
 
 
 ; ==========================================================
@@ -386,8 +407,8 @@
     71 8C 8C 04     ; sub rsp rsp 4     ; push r0
     79 80 00 8C     ; stw r0 0 rsp      ; ...
 
-    ; call malloc(20)
-    70 80 00 14     ; add r0 0 20
+    ; call malloc(sizeof(FILE))
+    70 80 00 18     ; add r0 0 24
     7C 8A <malloc   ; ims ra <malloc
     7C 8A >malloc   ; ims ra >malloc
     71 8C 8C 04     ; sub rsp rsp 4     ; push return address
@@ -402,6 +423,11 @@
     79 81 80 08     ; stw r1 r0 8      ; file->buffer = buffer
     79 81 80 0C     ; stw r1 r0 12     ; file->start = buffer
     79 81 80 10     ; stw r1 r0 16     ; file->end = buffer
+
+    ; clear the position
+    79 00 80 14     ; stw 0 r0 20      ; file->position = 0
+
+    ; the handle and mode fields will be set by the caller.
 
     ; done
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
@@ -970,6 +996,13 @@
     78 80 8D EC     ; ldw 0 rfp -20     ; total
 
 :__fread_done
+
+    ; store new position (total is in r0)
+    78 83 8D FC     ; ldw r3 rfp -4    ; file
+    78 81 83 14     ; ldw r1 r3 20     ; file->pos += total
+    70 81 81 80     ; add r1 r1 r0     ; ^^^
+    79 81 83 14     ; stw r1 r3 20     ; ^^^
+
     ; total is in r0. return it
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
@@ -1203,7 +1236,7 @@
     70 8C 8C 04         ; add rsp rsp 4     ; pop return address
 
     ; done
-    7E 00 &__fwrite_return  ; jz 0 &__fwrite_return
+    7E 00 &__fwrite_done  ; jz 0 &__fwrite_done
 
 :__fwrite_memcpy
     ; the data fits in the buffer.
@@ -1227,9 +1260,18 @@
     70 8F 8E 8A     ; add rip rpp ra    ; jump
     70 8C 8C 04     ; add rsp rsp 4     ; pop return address
 
-:__fwrite_return
+:__fwrite_done
+
+    ; increment the file position
+    ; TODO we don't support fseek on writable files so this is probably
+    ; pointless, we shouldn't maintain file pos
+    78 80 8D F4     ; ldw r0 rfp -12   ; count
+    78 83 8D FC     ; ldw r3 rfp -4    ; file
+    78 81 83 14     ; ldw r1 r3 20     ; file->pos += count
+    70 81 81 80     ; add r1 r1 r0     ; ^^^
+    79 81 83 14     ; stw r1 r3 20     ; ^^^
+
     ; return the given count
-    78 80 8D F4     ; ldw r0 rfp -12    ; count
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
     70 8C 8C 04     ; add rsp rsp 4     ; ...
@@ -1313,25 +1355,101 @@
 ; long ftell(FILE* file);
 ; ==========================================================
 ; Returns the current file position.
-;
-; vars:
-; - file: rfp-4
-; - result: rfp-12 (8 bytes)
 ; ==========================================================
 
 =ftell
+    78 80 80 14   ; ldw r0 r0 20    ; file->position
+    78 8F 00 8C   ; ldw rip 0 rsp   ; ret
+
+
+
+; ==========================================================
+; long __fsize(FILE* file);
+; ==========================================================
+; Returns the size of the given file.
+;
+; This returns a long to match ftell(), and because we don't need 64-bit during
+; bootstrapping. It fails with EOVERFLOW if the file is too large.
+;
+; vars:
+; - file: rfp-4
+; - size (64-bit): rfp-12
+; ==========================================================
+
+=__fsize
 
     ; set up a stack frame
-    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp
-    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
-    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp      ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^           ; ^^^
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp   ; ^^^
     71 8C 8C 0C     ; sub rsp rsp 12
+    79 80 8D FC     ; stw r0 rfp -4   ; store file
 
-    ; store the file
-    79 80 8D FC     ; stw r0 rfp -4    ; file
+    ; get the process info table into r9
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+
+    ; on v4 and later, we have a size syscall.
+    78 8A 89 00    ; ldw ra r9 0   ; major version
+    7D 8A 8A 04    ; ltu ra ra 4
+    7E 8A &__fsize_v4  ; jz ra &__fsize_v4
+    7E 00 &__fsize_v3  ; jz 0 &__fsize_v3
+
+:__fsize_v4
+
+    ; (This syscall could eventually be made optional. We should be able to get
+    ; the size by reading to the end and seeking back.)
+
+    ; prepare args for size
+    78 80 80 00   ; ldw r0 r0 0      ; handle
+    70 81 8D F4   ; add r1 rsp 0     ; out_size (64-bit)
+
+    ; get syscall size into r7
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 08 03   ; shl ra 08 3       ; ra = offset of size syscall (8<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of size syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; TODO check for errors
+
+    7E 00 &__fsize_done  ; jz 0 &__fsize_done
+
+:__fsize_v3
+
+    ; on v3 and earlier VMs we need to seek to the end, use tell to get the
+    ; size, and seek back.
+
+    ; prepare args for fseek(handle, 0, SEEK_END)
+    78 80 80 00   ; ldw r0 r0 0   ; handle
+    70 81 00 02   ; add r1 0 2    ; base (SEEK_END)
+    70 82 00 00   ; add r2 0 0    ; offset (0)
+
+    ; get syscall seek into r7
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 07 03   ; shl ra 7 3        ; ra = offset of seek syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of seek syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+    ; TODO check for errors
 
     ; get args for syscall ftell
-    78 80 80 00     ; ldw r0 r0 0      ; file handle
+    78 80 8D FC     ; ldw r0 rfp -4    ; file
+    78 80 80 00     ; ldw r0 r0 0      ; handle
     70 81 8D F4     ; add r1 rfp -12   ; &result
 
     ; get syscall ftell into r7
@@ -1350,49 +1468,74 @@
     78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
     70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; TODO error checking!
-    ; TODO check that the high 32 bits are zero (not that this is really
-    ; necessary since this libc is replaced before we get to the possibility of
-    ; large files)
+    ; TODO check for errors
 
-    ; calculate the number of bytes in the buffer
-    78 83 8D FC     ; ldw r3 rfp -4    ; file
-    78 81 83 0C     ; ldw r1 r3 12     ; file->start
-    78 82 83 10     ; ldw r2 r3 16     ; file->end
-    71 81 82 81     ; sub r1 r2 r1     ; buffer count
+    ; seek back to the previous position
+    ; prepare args for fseek(handle, pos, SEEK_SET)
+    78 80 8D FC   ; ldw r0 rfp -4   ; file
+    78 82 80 14   ; ldw r2 r0 20    ; file->position
+    70 83 00 00   ; add r3 0 0      ; ^^^
+    78 80 80 00   ; ldw r0 r0 0     ; file->handle
+    70 81 00 00   ; add r1 0 0      ; base (SEEK_SET)
 
-    ; get the result
-    78 80 8D F4     ; ldw r0 rfp -12   ; result (ignoring high 32 bits)
+    ; get syscall seek into r7
+    7C 8A <__process_info_table    ; ims ra <__process_info_table
+    7C 8A >__process_info_table    ; ims ra >__process_info_table
+    78 89 8E 8A                    ; ldw r9 rpp ra
+    78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
+    76 8A 07 03   ; shl ra 7 3        ; ra = offset of seek syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of seek syscall
 
-    ; add or subtract result based on the mode
-    78 8A 83 04           ; ldw ra r3 4   ; mode
-    7E 8A &__ftell_read   ; jz ra &__ftell_read
-    ; write mode: add the buffer count
-    70 80 80 81           ; add r0 r0 r1
-    7E 00 &__ftell_done   ; jz 0 &__ftell_done
-:__ftell_read
-    ; read mode: subtract the buffer count
-    71 80 80 81           ; sub r0 r0 r1
-:__ftell_done
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
 
-    ; done
-    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
-    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp
-    70 8C 8C 04     ; add rsp rsp 4     ; ...
-    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+    ; TODO check for errors
+
+:__fsize_done
+
+    ; TODO check that the high word is zero
+
+    ; return the size
+    78 80 8D F4     ; ldw r0 rfp -12  ; low bits of size
+    70 8C 8D 00     ; add rsp rfp 0    ; mov rsp rfp  ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp    ; pop rfp      ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4    ; ^^^          ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp    ; ret
 
 
 
 ; ==========================================================
-; int fseek(FILE* stream, int offset, int whence);
+; int fseek(FILE* file, int offset, int base);
 ; ==========================================================
 ; This is only supported on files open for reading, not writing. (The first
 ; stage Onramp OS does not support seeking writable files.)
 ;
-; For simplicity, we just dump the buffer and call the fseek syscall.
+; The only option supported for base during bootstrapping is SEEK_SET. (Other
+; bases are supported in later stages of the libc.)
+;
+; For simplicity, we just dump the buffer and call the seek syscall.
+;
+; vars:
+; - file: rfp-4
+; - offset: rfp-8
 ; ==========================================================
 
 =fseek
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp      ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ^^^           ; ^^^
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp   ; ^^^
+    71 8C 8C 08     ; sub rsp rsp 8
+
+    ; store args
+    79 80 8D FC     ; stw r0 rfp -4   ; store file
+    79 81 8D F8     ; stw r1 rfp -8   ; store offset
 
     ; make sure mode is 0
     78 8A 80 04   ; ldw ra r0 4
@@ -1400,25 +1543,46 @@
     7E 00 &__fseek_mode_fail
 :__fseek_mode_ok
 
+    ; make sure base is 0 (we only support SEEK_SET in bootstrapping)
+    7E 82 &__fseek_base_ok
+    7E 00 &__fseek_base_fail
+
+:__fseek_base_ok
+
     ; dump the buffer
     78 83 80 10     ; ldw r3 r0 16     ; file->end
     79 83 80 0C     ; stw r3 r0 12     ; file->start = file->end
 
-    ; in the system call, base comes first and offset is 64 bits. we need to
-    ; move the arguments around.
-    78 80 80 00     ; ldw r0 r0 0                 ; handle
-    70 8A 81 00     ; add ra r1 0   ; mov ra r1
-    70 81 82 00     ; add r1 r2 0   ; mov r1 r2   ; base
-    70 82 8A 00     ; add r2 ra 0   ; mov r2 ra   ; offset low
-    70 83 00 00     ; add r3 0 0    ; mov r3 0    ; offset high (0)
-
-    ; get syscall fseek into r7
+    ; get the process info table into r9
     7C 8A <__process_info_table    ; ims ra <__process_info_table
     7C 8A >__process_info_table    ; ims ra >__process_info_table
     78 89 8E 8A                    ; ldw r9 rpp ra
+
+    ; the offset for the system call is 64 bits, and in v3 and earlier, seek
+    ; took an additional base argument. we need to figure out the version and
+    ; permute the arguments appropriately.
+    78 80 80 00    ; ldw r0 r0 0   ; handle
+    78 8A 89 00    ; ldw ra r9 0   ; major version
+    7D 8A 8A 04    ; ltu ra ra 4
+    7E 8A &__fseek_v4   ; jz ra &__fseek_v4
+
+    ; v3
+    70 8A 82 00    ; add ra r2 0   ; base
+    70 82 81 00    ; add r2 r1 0   ; offset_low
+    70 83 00 00    ; add r3 0 0    ; offset_high
+    70 81 8A 00    ; add r1 ra 0   ; base
+    ;7E 00 &__fseek_args_done   ; jz 0 &__fseek_args_done
+
+:__fseek_v4
+    ; offset_high is already 0 because base is 0
+    ;70 82 00 00    ; add r2 0 0    ; offset_high
+
+:__fseek_args_done
+
+    ; get syscall seek into r7
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 07 03   ; shl ra 7 3        ; ra = offset of fseek syscall (7<<3)
-    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of fseek syscall
+    76 8A 07 03   ; shl ra 7 3        ; ra = offset of seek syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 8a      ; r7 = address of seek syscall
 
     ; make the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -1430,12 +1594,30 @@
 
     ; TODO error checking!
 
+    ; store new position
+    78 81 8D F8     ; ldw r1 rfp -8   ; offset
+    78 8A 8D FC     ; ldw ra rfp -4   ; file
+    79 81 8A 14     ; stw r1 ra 20    ; file->position = offset
+
+    ; done
+    70 8C 8D 00     ; add rsp rfp 0    ; mov rsp rfp  ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp    ; pop rfp      ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4    ; ^^^          ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 :__fseek_mode_fail
     ; wrong mode, fatal error
-    7C 80 <__files_error_invalid_seek   ; ims r0 <__files_error_invalid_seek
-    7C 80 >__files_error_invalid_seek   ; ims r0 >__files_error_invalid_seek
+    7C 80 <__files_error_seek_mode   ; ims r0 <__files_error_seek_mode
+    7C 80 >__files_error_seek_mode   ; ims r0 >__files_error_seek_mode
+    70 80 8E 80        ; add r0 rpp r0
+    7C 8A <__fatal     ; ims ra <__fatal
+    7C 8A >__fatal     ; ims ra >__fatal
+    70 8F 8E 8A        ; add rip rpp ra
+
+:__fseek_base_fail
+    ; wrong base, fatal error
+    7C 80 <__files_error_seek_base   ; ims r0 <__files_error_seek_base
+    7C 80 >__files_error_seek_base   ; ims r0 >__files_error_seek_base
     70 80 8E 80        ; add r0 rpp r0
     7C 8A <__fatal     ; ims ra <__fatal
     7C 8A >__fatal     ; ims ra >__fatal
@@ -1473,6 +1655,11 @@
     78 82 80 10             ; ldw r2 r0 16
     71 82 81 82             ; sub r2 r1 r2
     7E 82 &__fgetc_fread    ; jz r2 &__fgetc_fread
+
+    ; increment pos
+    78 8A 80 14     ; ldw ra r0 20     ; ++file->pos
+    70 8A 8A 01     ; add ra ra 1      ; ^^^
+    79 8A 80 14     ; stw ra r0 20     ; ^^^
 
     ; pop a character
     7A 83 81 00    ; ldw r3 r1 0

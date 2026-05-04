@@ -65,7 +65,12 @@ extern FILE* stderr;
 
 
 
-typedef long fpos_t;
+#ifdef __onramp_abi_bootstrap__
+typedef int fpos_t;
+#endif
+#ifndef __onramp_abi_bootstrap__
+typedef long long fpos_t;
+#endif
 
 #define _IOFBF 1
 #define _IOLBF 2
@@ -98,6 +103,7 @@ int puts(const char* s);
 
 int fseek(FILE* file, long offset, int whence);
 long ftell(FILE* file);
+long __fsize(FILE* file);
 
 int chmod(const char* filename, int mode); // TODO this belongs in sys/stat.h
 

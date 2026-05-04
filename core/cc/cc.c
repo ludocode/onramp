@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -834,12 +834,11 @@ static void delete_temp_files(void) {
 
 #ifdef __onramp__
 static void run_onramp(size_t argc, char** argv) {
-//    fputs("spawning: ", stdout);
-//    puts(*argv);
-
-    // TODO: We should be making a copy of argv and environ here in case our
-    // child process modifies them. We happen to know that none of our Onramp
-    // tools modify them so for now we don't worry about it.
+    /*
+    fputs("spawning: ", stdout);
+    puts(*argv);
+    fflush(stdout);
+    */
 
     // open the child program
     FILE* file = fopen(*argv, "rb");
@@ -848,9 +847,17 @@ static void run_onramp(size_t argc, char** argv) {
     }
 
     // get the program size
-    fseek(file, 0, SEEK_END);
-    long size = ftell(file);
-    fseek(file, 0, SEEK_SET);
+    long size = __fsize(file);
+
+    // print the size
+    /*
+    char* sizestr = malloc(12);
+    itoa_d(size, sizestr);
+    fputs("size: ", stdout);
+    puts(sizestr);
+    free(sizestr);
+    fflush(stdout);
+    */
 
     // allocate the program
     // TODO eventually this should allocate the program plus stack space. For

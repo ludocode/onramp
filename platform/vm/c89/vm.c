@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -486,28 +486,51 @@ static uint32_t vm_seek(void) {
      * In case they are only 32 bits, we have to shift twice since a shift by
      * the word size is undefined behaviour.
      */
-    uint32_t base = vm_registers[1];
     FILE* file = vm_file(vm_registers[0]);
-    long offset = (long)vm_registers[2] | (((long)vm_registers[3] << 16) << 16);
-    int ret = fseek(file, offset, base);
+    long offset = (long)vm_registers[1] | (((long)vm_registers[2] << 16) << 16);
+    int ret = fseek(file, offset, SEEK_SET);
     return ret ? VM_ERROR_GENERIC : 0;
 }
 
-static uint32_t vm_tell(void) {
+static uint32_t vm_size(void) {
     FILE* file = vm_file(vm_registers[0]);
     uint32_t addr = vm_registers[1];
-    unsigned long upos;
-    long pos = ftell(file);
+    unsigned long usize;
+    long pos, size;
+    int ret;
 
+    /* We get the size by seeking to the end, then seeking back. We need to
+     * store the current position so we can restore it afterwards. */
+    pos = ftell(file);
     if (pos < 0) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    ret = fseek(file, 0, SEEK_END);
+    if (ret != 0) {
         return VM_ERROR_GENERIC;
     }
 
-    /* As with fseek() we shift twice in case `long` or `off_t` is only
+    size = ftell(file);
+    if (size < 0) {
+        /* Can't get the size. At least try to seek back to where we were.
+         * We already have an error so ignore the return value. */
+        (void)fseek(file, pos, SEEK_SET);
+        return VM_ERROR_GENERIC;
+    }
+
+    if (0 != fseek(file, pos, SEEK_SET)) {
+        /* Can't seek back to where we were! TODO this leaves the file in a
+         * broken state. We should probably do something else here, maybe panic
+         * (and also panic if the previous fseek fails) */
+        return VM_ERROR_GENERIC;
+    }
+
+    /* As with vm_seek() we shift twice in case `long` or `off_t` is only
      * 32 bits. We convert to unsigned first to get an unsigned shift. */
-    upos = (unsigned long)pos;
-    vm_store_u32(addr, (uint32_t)upos);
-    vm_store_u32(addr + 4, (uint32_t)((upos >> 16) >> 16));
+    usize = (unsigned long)size;
+    vm_store_u32(addr, (uint32_t)usize);
+    vm_store_u32(addr + 4, (uint32_t)((usize >> 16) >> 16));
     return 0;
 }
 
@@ -518,6 +541,7 @@ static uint32_t vm_trunc(void) {
     uint32_t size_high = vm_registers[2];
     FILE* file = vm_file(vm_registers[0]);
     int fd = fileno(file);
+    /* Again we shift twice in case off_t is 32 bits. */
     off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
     int ret;
     fflush(file);
@@ -582,7 +606,7 @@ static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
     vm_read,
     vm_write,
     vm_seek,
-    vm_tell,
+    vm_size,
     vm_trunc, /* may be NULL */
     NULL, /* (unused) */
     NULL, /* (unused) */

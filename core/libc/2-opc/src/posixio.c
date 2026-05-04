@@ -34,6 +34,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "internal.h"
 
@@ -60,6 +61,13 @@ typedef struct posixfile_t {
     bool is_dir;      // true if this is a directory
     bool std_stream;  // true if this is a standard stream (which must not be closed)
     char* path;       // The path to the file
+
+    #ifdef __onramp_cci_opc__  // TODO omc, see #25
+    long position; // 32 bits during bootstrapping
+    #endif
+    #ifndef __onramp_cci_opc__
+    off_t position; // 64 bits in final libc
+    #endif
 } posixfile_t;
 
 static posixfile_t* posixfiles[32];
@@ -118,14 +126,6 @@ void __io_destroy(void) {
             posixfile_delete(posixfiles[fd]);
         }
     }
-}
-
-int __fd_handle(int fd) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
-        errno = EBADF; // no such file descriptor
-        return -1;
-    }
-    return posixfiles[fd]->handle;
 }
 
 int open(const char* path, int flags, ...) {
@@ -274,46 +274,157 @@ int close(int fd) {
     return 0;
 }
 
-// lseek() requires long long for off_t. We don't use it during bootstrapping
-// so we only need this when the final toolchain is rebuilt. We don't bother to
-// put it in libc/3.
-#ifndef __onramp_cci_opc__
-off_t lseek(int fd, off_t offset, int whence) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
-        errno = EBADF; // no such file descriptor
-        return -1;
-    }
+static off_t __fd_size_v3(int fd) {
     posixfile_t* posixfile = posixfiles[fd];
 
-    // perform the seek (if necessary)
-    if (whence != SEEK_CUR || offset != 0) {
-        int ret = __sys_seek(posixfile->handle,
-                whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
-                (unsigned)offset,
-                #ifdef __onramp_abi_bootstrap__
-                0
-                #endif
-                #ifndef __onramp_abi_bootstrap__
-                (unsigned)(offset >> 32)
-                #endif
-                );
-        if (ret != 0) {
-            // TODO for now we assume stream isn't seekable
-            errno = ESPIPE;
-            return -1;
-        }
+    // seek to the end
+    int ret = __sys_fseek(posixfile->handle, SEEK_END, 0, 0);
+    if (ret != 0) {
+        // TODO for now we assume stream isn't seekable
+        errno = ESPIPE;
+        return -1;
     }
 
-    // return the current position
+    // get the size
     #ifdef __onramp_abi_bootstrap__
-    unsigned result[2];
+    unsigned result[2]; // TODO will have to malloc this to build with cci/0
+    #endif
+    #ifndef __onramp_abi_bootstrap__
+    off_t result;
+    #endif
+    off_t size = 0;
+
+    ret = __sys_size(posixfile->handle, (void*)&result);
+    switch (ret) {
+        case 0:
+            break;
+        default:
+            // TODO other errors. assume it's a pipe
+            errno = ESPIPE;
+            size = -1;
+    }
+
+    #ifdef __onramp_abi_bootstrap__
+    if (size == 0 && (result[1] != 0 || (int)result[0] < 0)) {
+        errno = EOVERFLOW;
+        size = -1;
+    }
+    if (size == 0) {
+        size = result[0];
+    }
+    #endif
+
+    #ifndef __onramp_abi_bootstrap__
+    if (result < 0) {
+        errno = EOVERFLOW;
+        size = -1;
+    }
+    if (size == 0) {
+        size = result;
+    }
+    #endif
+
+    // seek back
+    ret = __sys_fseek(posixfile->handle, SEEK_SET,
+            (uint32_t)posixfile->position,
+            (uint32_t)((posixfile->position >> 16) >> 16)); // shift twice for when off_t is 32 bits
+    if (ret != 0) {
+        // we're in trouble, we successfully seeked but we can't seek back!
+        // TODO we should probably set a flag to put this fd in an error state
+        // and prevent any further I/O on it
+        errno = ESPIPE;
+        return -1;
+    }
+
+    return size;
+}
+
+static off_t __fd_size_v4(int fd) {
+    posixfile_t* posixfile = posixfiles[fd];
+
+    #ifdef __onramp_abi_bootstrap__
+    unsigned result[2]; // TODO will have to malloc this to build with cci/0
     #endif
     #ifndef __onramp_abi_bootstrap__
     off_t result;
     #endif
 
-    int ret = __sys_tell(posixfile->handle, (void*)&result);
+    int ret = __sys_size(posixfile->handle, (void*)&result);
+    switch (ret) {
+        case 0:
+            break;
+        default:
+            // TODO other errors. assume it's a pipe
+            errno = ESPIPE;
+            return -1;
+    }
 
+    #ifdef __onramp_abi_bootstrap__
+    if (result[1] != 0 || (int)result[0] < 0) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    return result[0];
+    #endif
+
+    #ifndef __onramp_abi_bootstrap__
+    if (result < 0) {
+        errno = EOVERFLOW;
+        return -1;
+    }
+    return result;
+    #endif
+}
+
+off_t __fd_size(int fd) {
+    // TODO this is copy-pasted a bunch of places, make it a function, also
+    // because we need to allow callers to set arbitrary ids with dup2 so we
+    // will need a more sophisticated id table
+    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+        errno = EBADF; // no such file descriptor
+        return -1;
+    }
+
+    if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
+        return __fd_size_v3(fd);
+    }
+    return __fd_size_v4(fd);
+}
+
+static off_t lseek_v3(posixfile_t* posixfile, off_t offset, int whence) {
+
+    // perform the seek
+    int ret = __sys_fseek(posixfile->handle,
+            whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
+            (unsigned)offset,
+            #ifdef __onramp_abi_bootstrap__
+            0
+            #endif
+            #ifndef __onramp_abi_bootstrap__
+            (unsigned)(offset >> 32)
+            #endif
+            );
+    if (ret != 0) {
+        // TODO for now we assume stream isn't seekable
+        errno = ESPIPE;
+        return -1;
+    }
+
+    // for SEEK_SET the offset is the new position
+    if (whence == SEEK_SET) {
+        posixfile->position = offset;
+        return offset;
+    }
+
+    // otherwise we have to query the position
+    #ifdef __onramp_abi_bootstrap__
+    unsigned result[2]; // TODO will have to malloc this to build with cci/0
+    #endif
+    #ifndef __onramp_abi_bootstrap__
+    off_t result;
+    #endif
+
+    ret = __sys_ftell(posixfile->handle, (void*)&result);
     if (ret != 0) {
         // TODO for now we assume stream isn't seekable
         errno = ESPIPE;
@@ -325,13 +436,87 @@ off_t lseek(int fd, off_t offset, int whence) {
         errno = EOVERFLOW;
         return -1;
     }
+    posixfile->position = result[0];
     return result[0];
     #endif
     #ifndef __onramp_abi_bootstrap__
+    posixfile->position = result;
     return result;
     #endif
 }
-#endif
+
+static off_t lseek_v4(posixfile_t* posixfile, off_t offset, int whence) {
+    switch (whence) {
+        case SEEK_SET:
+            break;
+        case SEEK_CUR:
+            offset += posixfile->position;
+            break;
+        case SEEK_END: {
+            off_t size = __fd_size(posixfile->fd);
+            if (size < 0) {
+                // __fd_size() set errno
+                return -1;
+            }
+            offset += size;
+            break;
+        }
+        default:
+            // TODO unreachable
+    }
+
+    if (offset == posixfile->position) {
+        return offset;
+    }
+
+    int ret = __sys_seek(posixfile->handle,
+            (unsigned)offset,
+            (unsigned)((offset >> 16) >> 16)); // shift twice for when off_t is 64 bits
+
+    // TODO POSIX requires support for setting an out-of-bounds file position;
+    // a subsequent write causes the space to be zero-filled. Our VM spec
+    // allows this behaviour for syscall seek but does not require it. We need
+    // to catch cases where the seek fails, store the position and set an
+    // out-of-bounds flag. On a read, if the flag is set, EOF. On a write, if
+    // the flag is set, we seek to the end, zero-fill the padding, then proceed
+    // with the write.
+
+    // TODO we need a function to convert a syscall error to errno
+    switch (ret) {
+        case 0:
+            break;
+        default:
+            // TODO other errors. assume it's a pipe.
+            errno = ESPIPE;
+            return -1;
+    }
+
+    posixfile->position = offset;
+    return offset;
+}
+
+off_t lseek(int fd, off_t offset, int whence) {
+    if (whence < 0 || whence > 2) {
+        errno = EINVAL;
+        return -1;
+    }
+
+    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+        errno = EBADF; // no such file descriptor
+        return -1;
+    }
+    posixfile_t* posixfile = posixfiles[fd];
+
+    if (whence == SEEK_CUR && offset == 0) {
+        // TODO not if file is not seekable
+        return posixfile->position;
+    }
+
+    if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
+        return lseek_v3(posixfile, offset, whence);
+    }
+    return lseek_v4(posixfile, offset, whence);
+}
 
 ssize_t read(int fd, void* buffer, size_t count) {
     if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
@@ -364,6 +549,8 @@ ssize_t read(int fd, void* buffer, size_t count) {
             continue;
         }
 
+        // If we received 0 on a blocking stream, we treat it as EOF for
+        // backwards compatibility. POSIX read() returns 0 on EOF.
         if (result == __ERROR_END_OF_FILE) {
             result = 0;
             break;
@@ -391,12 +578,13 @@ ssize_t read(int fd, void* buffer, size_t count) {
 
         break;
     }
+    posixfile->position += (unsigned)result;
 
     // If the VM input doesn't echo but the program wants echo, we echo
     // ourselves.
     // TODO handle escape sequences; backspace, arrow keys in canonical mode
     // TODO this should be moved into a separate function, and we need to check the interactive bit in v4
-    if (result > 0 && posixfile->std_stream && input_echo &&
+    if (input_echo && posixfile->std_stream &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_ECHO))
     {
         // Loop until all the data is written.
@@ -462,6 +650,7 @@ ssize_t write(int fd, const void* buffer, size_t count) {
         }
     }
 
+    posixfile->position += (unsigned)result;
     return result;
 }
 

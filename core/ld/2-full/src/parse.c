@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -480,7 +480,7 @@ static bool try_parse_archive(void) {
 
     // If we're in pass 2, we jump back to the top and start pass 3.
     if (pass == 2) {
-        //printf("restoring file state, moving to pass 2\n");
+        //printf("restoring file state, moving to pass 3\n");
         pass = 3;
         restore_file_state();
 

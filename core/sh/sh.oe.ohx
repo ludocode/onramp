@@ -103,9 +103,10 @@
 ;   FC0  error
 ;  1090  error_read_program
 ;  10B0  syscall_close
-;  10E0  syscall_seek
-;  1110  syscall_tell
-;  1140  get_program_size
+;  10E0  syscall_fseek_v3
+;  1110  syscall_size_or_ftell
+;  1140  get_file_size
+;  1170  get_file_size_v3
 ;  1290  read_all
 ;  1360  command_onrampvm
 ;  1580  run_subprogram
@@ -132,7 +133,8 @@
 ;  22C0  child_syscall_open
 ;  23B0  error_invalid_close
 ;  23E0  close_child_handles
-;  24A0  end_of_program
+;  24D0  get_file_size_v4
+;  2570  end_of_program
 
 
 
@@ -2280,16 +2282,20 @@
 
 
 ;==========================================
-; int syscall_seek(int file_handle, int base, unsigned offset_low, int offset_high);
+; int syscall_fseek_v3(int file_handle, int base, unsigned offset_low, int offset_high);
+;==========================================
+; Call the fseek syscall on a v3 or earlier VM.
+;
+; The v4 seek syscall is not implemented because it is not used yet.
 ;==========================================
 
-@0x10E0 =syscall_seek
+@0x10E0 =syscall_fseek_v3
 
-    ; get syscall seek into r7
+    ; get syscall fseek into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 07 03   ; shl ra 7 3        ; ra = offset of seek syscall (7<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of seek syscall
+    76 8A 07 03   ; shl ra 7 3        ; ra = offset of fseek syscall (7<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of fseek syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -2304,16 +2310,21 @@
 
 
 ;==========================================
-; int syscall_tell(int file_handle, unsigned position[2]);
+; int syscall_size_or_ftell(int file_handle, unsigned position[2]);
+;==========================================
+; Call the size syscall on a v4 or later VM, or the ftell syscall on a v3 or
+; earlier VM.
+;
+; These share the same syscall number (and the same function signature.)
 ;==========================================
 
-@0x1110 =syscall_tell
+@0x1110 =syscall_size_or_ftell
 
     ; get syscall tell into r7
     78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
     78 88 89 08   ; ldw r8 r9 8       ; r8 = syscall table
-    76 8A 08 03   ; shl ra 8 3        ; ra = offset of tell syscall (8<<3)
-    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of tell syscall
+    76 8A 08 03   ; shl ra 8 3        ; ra = offset of size or ftell syscall (8<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of size or ftell syscall
 
     ; tail-call the syscall
     78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
@@ -2328,9 +2339,47 @@
 
 
 ;==========================================
-; int get_program_size(int file_handle);
+; int get_file_size(int file_handle);
 ;==========================================
-; Returns the program size, or 0 if there was an error.
+; Returns the size of the given file handle (and seeks back to the beginning if
+; seek was needed), or 0 if there was an error.
+;
+; This calls get_file_size_v3() or get_file_size_v4() depending on the VM
+; version.
+;==========================================
+
+@0x1140 =get_file_size
+
+    ; Getting the size of a handle is very different in v4 and later so we
+    ; split it into two functions. We check the version and tail-call the
+    ; appropriate one.
+    78 89 8E 20   ; ldw r9 rpp 0x20   ; r9 = process_info_table
+    78 88 89 00   ; ldw r8 r9 0       ; r8 = major_version
+    7D 8A 88 04   ; ltu ra r8 4
+    7E 8A 03 00   ; jz ra &get_file_size_4_or_later
+
+    ; v3, tail-call get_file_size_v3()
+    7C 8A 00 00    ; ims ra <get_file_size_v3
+    7C 8A 70 11    ; ims ra >get_file_size_v3 (0x1170)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+;:get_file_size_4_or_later
+    ; v4, tail-call get_file_size_v4()
+    7C 8A 00 00    ; ims ra <get_file_size_v4
+    7C 8A D0 24    ; ims ra >get_file_size_v4 (0x24D0)
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+
+    ; padding
+    00 00 00 00 00 00 00 00
+@0x1170
+
+
+
+;==========================================
+; int get_file_size_v3(int file_handle);
+;==========================================
+; Returns the program size on a v3 or earlier VM and seeks back to the
+; beginning, or returns 0 if there was an error.
 ;
 ; The maximum program size supported by this shell is 1 GB. If the given file
 ; is larger, this returns 0. (Such a large program is unlikely to work anyway
@@ -2342,7 +2391,7 @@
 ; - position: rfp-12
 ;==========================================
 
-@0x1140 =get_program_size
+@0x1170 =get_file_size_v3
 
     ; set up a stack frame
     71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
@@ -2353,14 +2402,14 @@
     71 8C 8C 0C     ; sub rsp rsp 12
     79 80 8D FC     ; stw r0 rfp -4
 
-    ; prepare arguments to seek, seek to the end
+    ; prepare arguments to fseek, seek to the end
     70 81 00 02     ; add r1 0 2   ; mov r1 2
     70 82 00 00     ; add r2 0 0   ; zero r2
     70 83 00 00     ; add r3 0 0   ; zero r3
 
-    ; call syscall_seek()
-    7C 8A 00 00    ; ims ra <syscall_seek
-    7C 8A E0 10    ; ims ra >syscall_seek (0x10E0)
+    ; call syscall_fseek()
+    7C 8A 00 00    ; ims ra <syscall_fseek
+    7C 8A E0 10    ; ims ra >syscall_fseek (0x10E0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2369,7 +2418,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 05 00    ; jz ra &get_program_size_seek_end_ok (+5)
+    7E 8A 05 00    ; jz ra &get_file_size_seek_end_ok (+5)
 
     ; error, return 0
     70 80 00 00     ; add r0 0 0        ; zero r0
@@ -2377,15 +2426,15 @@
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:get_program_size_seek_end_ok
+;:get_file_size_seek_end_ok
 
-    ; prepare arguments to tell
+    ; prepare arguments to ftell
     78 80 8D FC     ; ldw r0 rfp -4
     70 81 8D F4     ; add r1 rfp -12
 
-    ; call syscall_tell()
-    7C 8A 00 00    ; ims ra <syscall_tell
-    7C 8A 10 11    ; ims ra >syscall_tell (0x1110)
+    ; call syscall_size_or_ftell()
+    7C 8A 00 00    ; ims ra <syscall_size_or_ftell
+    7C 8A 10 11    ; ims ra >syscall_size_or_ftell (0x1110)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2394,37 +2443,37 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 01 00    ; jz ra &get_program_size_tell_call_ok (+1)
-    7E 00 06 00    ; jz 0 &get_program_size_tell_fail (+6)
-;:get_program_size_tell_call_ok
+    7E 8A 01 00    ; jz ra &get_file_size_tell_call_ok (+1)
+    7E 00 06 00    ; jz 0 &get_file_size_tell_fail (+6)
+;:get_file_size_tell_call_ok
     ; upper word must be zero
     78 8A 8D F8    ; ldw r0 rfp -8
-    7E 8A 01 00    ; jz ra &get_program_size_tell_highword_ok (+1)
-    7E 00 03 00    ; jz 0 &get_program_size_tell_fail (+3)
-;:get_program_size_tell_highword_ok
+    7E 8A 01 00    ; jz ra &get_file_size_tell_highword_ok (+1)
+    7E 00 03 00    ; jz 0 &get_file_size_tell_fail (+3)
+;:get_file_size_tell_highword_ok
     ; high two bits of lower word must be zero (max 1GB)
     78 8A 8D F4    ; ldw ra rfp -12
     77 8A 80 1E    ; shru ra r0 30
-    7E 8A 05 00    ; jz ra &get_program_size_tell_ok (+5)
+    7E 8A 05 00    ; jz ra &get_file_size_tell_ok (+5)
 
-;:get_program_size_tell_fail
+;:get_file_size_tell_fail
     ; error, return 0
     70 80 00 00     ; add r0 0 0        ; zero r0
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
-;:get_program_size_tell_ok
+;:get_file_size_tell_ok
 
-    ; prepare arguments to seek, seek to the start
+    ; prepare arguments to fseek, seek to the start
     78 80 8D FC     ; ldw r0 rfp -4
     70 81 00 00     ; add r1 0 0   ; zero r1
     70 82 00 00     ; add r2 0 0   ; zero r2
     70 83 00 00     ; add r3 0 0   ; zero r3
 
-    ; call syscall_seek()
-    7C 8A 00 00    ; ims ra <syscall_seek
-    7C 8A E0 10    ; ims ra >syscall_seek (0x10E0)
+    ; call syscall_fseek()
+    7C 8A 00 00    ; ims ra <syscall_fseek
+    7C 8A E0 10    ; ims ra >syscall_fseek (0x10E0)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2433,7 +2482,7 @@
 
     ; high bit indicates error
     77 8A 80 1F    ; shru ra r0 31
-    7E 8A 05 00    ; jz ra &get_program_size_seek_end_ok (+5)
+    7E 8A 05 00    ; jz ra &get_file_size_seek_end_ok (+5)
 
     ; error, return 0
     70 80 00 00     ; add r0 0 0        ; zero r0
@@ -2450,12 +2499,6 @@
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
     ; padding
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
-    00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
     00 00 00 00 00 00 00 00
 @0x1290
@@ -2700,9 +2743,9 @@
     79 80 8D FC     ; stw r0 rfp -4
 
 
-    ; call get_program_size()
-    7C 8A 00 00    ; ims ra <get_program_size
-    7C 8A 40 11    ; ims ra >get_program_size (0x1140)
+    ; call get_file_size()
+    7C 8A 00 00    ; ims ra <get_file_size
+    7C 8A 40 11    ; ims ra >get_file_size (0x1140)
     71 8C 8C 04    ; sub rsp rsp 4     ; push return address
     70 8B 8F 08    ; add rb rip 8
     79 8B 00 8C    ; stw rb 0 rsp
@@ -2724,7 +2767,7 @@
     ; make sure we have enough space, including space for the initial stack
     ; TODO this should be 128 bytes, minimum needed for a stack, but we don't
     ; have alloc syscall yet. for now make sure we have an extra 128 kB.
-    ; (this can't overflow because get_program_size() has limited the size)
+    ; (this can't overflow because get_file_size() has limited the size)
     ; TODO when we change this to 128 bytes we have to also align the program end
     76 8A 01 11    ; shl ra 1 17   ; ra = 128 kB
     70 8B 80 8A    ; add rb r0 ra
@@ -3339,7 +3382,7 @@
 
     ; get the size of the program
     7C 80 00 00    ; ims r0 <end_of_program
-    7C 80 A0 24    ; ims r0 >end_of_program (0x24A0)
+    7C 80 70 25    ; ims r0 >end_of_program (0x2570)
 
     ; make sure we have enough space, including space for the initial stack
     ; TODO as with command_onrampvm, this is 128 kB. when we add allocation we
@@ -4427,6 +4470,85 @@
 
 
 
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+
+
+
+;==========================================
+; int get_file_size_v4(int file_handle);
+;==========================================
+; Returns the program size on a v4 or later VM (and seeks back to the
+; beginning if seek was needed), or returns 0 if there was an error.
+;==========================================
+
+@0x24D0 =get_file_size_v4
+
+    ; set up a stack frame
+    71 8C 8C 04     ; sub rsp rsp 4     ; push rfp       ; enter
+    79 8D 00 8C     ; stw rfp 0 rsp     ; ...
+    70 8D 8C 00     ; add rfp rsp 0     ; mov rfp rsp
+
+    ; TODO size syscall should be optional. for now we assume it's implemented.
+    ; if it's not we should read to the end and seek back (and if seek is
+    ; eventually made optional we should close and re-open the file.).
+
+    ; make stack space for size output
+    71 8C 8C 08    ; sub rsp rsp 8
+    70 81 8C 00    ; add r1 rsp 0
+
+    ; call syscall_size_or_ftell()
+    7C 8A 00 00    ; ims ra <syscall_size_or_ftell
+    7C 8A 10 11    ; ims ra >syscall_size_or_ftell (0x1110)
+    71 8C 8C 04    ; sub rsp rsp 4     ; push return address
+    70 8B 8F 08    ; add rb rip 8
+    79 8B 00 8C    ; stw rb 0 rsp
+    70 8F 8E 8A    ; add rip rpp ra    ; jump
+    70 8C 8C 04    ; add rsp rsp 4     ; pop return address
+
+    ; high bit indicates error
+    77 8A 80 1F    ; shru ra r0 31
+    7E 8A 01 00    ; jz ra &get_file_size_v4_no_error (+1)
+    7E 00 02 00    ; jz ra &get_file_size_v4_error (+2)
+
+;:get_file_size_v4_no_error
+    ; non-zero high word indicates error
+    78 8A 8C 04    ; ldw ra rsp 4
+    7E 8A 05 00    ; jz ra &get_file_size_v4_ok (+5)
+
+;:get_file_size_v4_error
+    ; error, return 0
+    70 80 00 00     ; add r0 0 0        ; zero r0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+;:get_file_size_v4_ok
+
+    ; return the low word
+    78 80 8C 00     ; ldw r0 rsp 0
+    70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
+    78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
+    70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+    ; padding
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00 00 00 00 00
+    00 00 00 00
+@0x2570
+
+
+
 ;==========================================
 ; void* end_of_program;
 ;==========================================
@@ -4436,4 +4558,4 @@
 ; If you change this, make sure you change where it is used in command_sh()!
 ;==========================================
 
-@0x24A0 =end_of_program
+@0x2570 =end_of_program

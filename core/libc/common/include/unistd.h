@@ -45,12 +45,8 @@
 int close(int __fd);
 ssize_t write(int __fd, const void* __buffer, size_t __count);
 ssize_t read(int __fd, void* __buffer, size_t __count);
-
-#ifndef __onramp_cci_omc__
-#ifndef __onramp_cci_opc__
 off_t lseek(int __fd, off_t __offset, int __whence);
-#endif
-#endif
+off_t __fd_size(int __fd);
 
 #ifndef __onramp_cci_omc__
 /**
