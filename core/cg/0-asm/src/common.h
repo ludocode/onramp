@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -88,7 +88,10 @@ static bool is_register(int reg) {
 // Converts the given non-register mix-type argument to an integer.
 static int mix_to_int(int x) {
     assert((x & 0xF0) != 0x80); // cannot be a register
-    return (int)(char)x; // sxb, sign-extend byte
+    if (x >= 0x80) {
+        x = (x | 0xFFFFFF00); // sign extend
+    }
+    return x;
 }
 
 // TODO hack, __assert() is not defined in libc/0 which cg/0 is linked against.
