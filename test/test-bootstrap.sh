@@ -69,18 +69,18 @@ test/sh/run.sh onrampvm output/configure/sh/sh.oe
 
 # Next build our omC compiler
 ( core/cpp/0-strip/build.sh && cd test/cpp/0-strip && ../run.sh --strict --nonstd . onrampvm ../../../output/intermediate/cpp-0-strip/cpp.oe )
-core/cci/0-omc/build.sh && \
-    test/cci/run.sh --tests test/cci/0-omc --nonstd --output output/intermediate/cci-0-omc --cci output/intermediate/cci-0-omc/cci.oe --cci-id omc
+( core/cci/0-omc/build.sh && \
+    test/cci/run.sh --tests test/cci/0-omc --nonstd --output output/intermediate/cci-0-omc --cci output/intermediate/cci-0-omc/cci.oe --cci-id omc )
 
 # Build our preprocessor and optimizer
 ( core/cpp/1-omc/build.sh && \
     ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../output/intermediate/cpp-1-omc-unopt/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../output/intermediate/cpp-1-omc-unopt/cpp.oe ) )
-core/cg/0-asm/build.sh && \
+( core/cg/0-asm/build.sh && \
 	test/cci/run.sh --tests test/cci/0-omc --nonstd --output output/intermediate/cg-0-asm/cci0 \
             --cg output/intermediate/cg-0-asm-unopt/cg.oe --cci output/intermediate/cci-0-omc/cci.oe --cci-id omc && \
 	test/cci/run.sh --tests test/cci/0-omc --nonstd --output output/intermediate/cg-0-asm/cci0 \
-            --cg output/intermediate/cg-0-asm/cg.oe --cci output/intermediate/cci-0-omc/cci.oe --cci-id omc
+            --cg output/intermediate/cg-0-asm/cg.oe --cci output/intermediate/cci-0-omc/cci.oe --cci-id omc )
 ( core/cpp/1-omc/rebuild.sh && \
     ( cd test/cpp/0-strip && ../run.sh                   . onrampvm ../../../output/intermediate/cpp-1-omc/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh --strict --nonstd . onrampvm ../../../output/intermediate/cpp-1-omc/cpp.oe ) )
@@ -93,13 +93,13 @@ core/cg/0-asm/build.sh && \
 ( core/cc/build.sh && cd test/cc && ./run.sh . onrampvm ../../../output/intermediate/cc/cc.oe )
 
 # Build the opC toolchain
-core/cci/1-opc/build.sh && \
+( core/cci/1-opc/build.sh && \
     test/cci/run.sh --tests test/cci/0-omc          --output output/intermediate/cci-1-opc --cci output/intermediate/cci-1-opc/cci.oe --cci-id opc && \
     test/cci/run.sh --tests test/cci/1-opc --nonstd --output output/intermediate/cci-1-opc --cci output/intermediate/cci-1-opc/cci.oe --cci-id opc && \
     test/cci/run.sh --tests test/cci/0-omc          --output output/intermediate/cg-0-asm/cci1 \
             --cg output/intermediate/cg-0-asm/cg.oe --cci output/intermediate/cci-1-opc/cci.oe --cci-id opc && \
     test/cci/run.sh --tests test/cci/1-opc --nonstd --output output/intermediate/cg-0-asm/cci1 \
-            --cg output/intermediate/cg-0-asm/cg.oe --cci output/intermediate/cci-1-opc/cci.oe --cci-id opc
+            --cg output/intermediate/cg-0-asm/cg.oe --cci output/intermediate/cci-1-opc/cci.oe --cci-id opc )
 ( core/libc/2-opc/build.sh && cd test/libc/2-opc && \
     ../run.sh ../0-oo  opc ../../../output/intermediate/libc-2-opc/libc.oa && \
     ../run.sh ../1-omc opc ../../../output/intermediate/libc-2-opc/libc.oa && \
@@ -108,10 +108,10 @@ core/cci/1-opc/build.sh && \
 # Build the full C compiler
 ( core/libo/1-opc/build.sh && true ) #TODO libo tests don't exist yet
 ( core/ld/2-full/build.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../output/intermediate/ld-2-full/ld.oe )
-core/cci/2-full/build.sh && \
+( core/cci/2-full/build.sh && \
     test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full && \
     test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full
+    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full )
 
 # Build the rest of the C toolchain
 ( core/cpp/2-full/build.sh && \
@@ -143,10 +143,10 @@ core/libc/common/build.sh
     ../run.sh --other-stage ../0-basic onrampvm ../../../output/final/bin/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../output/final/bin/as.oe && \
     ../run.sh . onrampvm ../../../output/final/bin/as.oe )
-core/cci/2-full/rebuild.sh && \
+( core/cci/2-full/rebuild.sh && \
     test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full && \
     test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
+    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full )
 ( core/cpp/2-full/rebuild.sh && \
     ( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe ) && \
