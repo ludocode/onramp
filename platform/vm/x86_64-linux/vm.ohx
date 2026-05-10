@@ -132,8 +132,8 @@
 ;         0x100001C environment variables
 ;         0x1000020 working directory
 ;         0x1000024 capabilities bits
-;         0x1000028 syscall count
-;         0x100002C process info count
+;         0x1000028 minor version
+;         0x100002C additional memory regions
 ;     0x1000030 syscall instruction (custom 0x7F opcode)
 ; 0x1FFFFFF last byte in heap (16 MB)
 ;
@@ -163,12 +163,13 @@
 ; 0x400DC0 send_sigcont
 ; 0x400E20 syscall_exit
 ; 0x400E30 parse_io_handle
-; 0x400E60 syscall_fwrite
-; 0x400ED0 syscall_fread
-; 0x400F40 syscall_fclose
-; 0x401010 syscall_fseek
-; 0x4010A0 syscall_ftell
-; 0x401130 syscall_ftrunc
+; 0x400E60 syscall_write
+; 0x400EC0 syscall_read
+; 0x400F50 syscall_close
+; 0x400F90 syscall_open
+; 0x401010 syscall_seek
+; 0x4010A0 syscall_size
+; 0x401130 syscall_trunc
 ; 0x4011A0 syscall_chmod
 ; 0x401200 syscall_time
 ; 0x401270 skip_wrap_header
@@ -451,13 +452,13 @@
     00 00 00 00  00 00 00 00   ; 0x01 panic (not implemented)
     30 00 00 01  00 12 40 00   ; 0x02 time (0x401200)
 ; files
-    30 00 00 01  90 0F 40 00   ; 0x03 fopen (0x400F90)
-    30 00 00 01  40 0F 40 00   ; 0x04 fclose (0x400F40)
-    30 00 00 01  D0 0E 40 00   ; 0x05 fread (0x400ED0)
-    30 00 00 01  60 0E 40 00   ; 0x06 fwrite (0x400E60)
-    30 00 00 01  10 10 40 00   ; 0x07 fseek (0x401010)
-    30 00 00 01  A0 10 40 00   ; 0x08 ftell (0x4010A0)
-    30 00 00 01  30 11 40 00   ; 0x09 ftrunc (0x401130)
+    30 00 00 01  90 0F 40 00   ; 0x03 open (0x400F90)
+    30 00 00 01  50 0F 40 00   ; 0x04 close (0x400F50)
+    30 00 00 01  C0 0E 40 00   ; 0x05 read (0x400EC0)
+    30 00 00 01  60 0E 40 00   ; 0x06 write (0x400E60)
+    30 00 00 01  10 10 40 00   ; 0x07 size (0x401010)
+    30 00 00 01  A0 10 40 00   ; 0x08 tell (0x4010A0)
+    30 00 00 01  30 11 40 00   ; 0x09 trunc (0x401130)
 ; directories
     00 00 00 00  00 00 40 00   ; 0x0A dopen (not yet implemented)
     00 00 00 00  00 00 40 00   ; 0x0B dclose (not yet implemented)
@@ -1202,7 +1203,7 @@
 
     ; version
     BF 00 00 00 01   ; mov edi, version (0x1000000)
-    B8 03 00 00 00   ; mov eax, 3
+    B8 04 00 00 00   ; mov eax, 4
     89 07            ; mov [rdi], eax
 
     ; syscall table
@@ -1225,14 +1226,14 @@
     B8 02 00 00 00   ; mov eax, 2
     89 07            ; mov [rdi], eax
 
-    ; syscall count
-    BF 28 00 00 01   ; mov edi, syscall count (0x1000028)
-    B8 19 00 00 00   ; mov eax, 25
+    ; minor version
+    BF 28 00 00 01   ; mov edi, minor version (0x1000028)
+    31 C0            ; xor eax, eax
     89 07            ; mov [rdi], eax
 
-    ; process info count
-    BF 2C 00 00 01   ; mov edi, process info count (0x100002C)
-    B8 0C 00 00 00   ; mov eax, 12
+    ; additional memory regions
+    BF 2C 00 00 01   ; mov edi, additional memory regions (0x100002C)
+    ; eax is already 0
     89 07            ; mov [rdi], eax
 
 
@@ -1257,6 +1258,7 @@
     C3        ; ret
 
     ; padding
+    90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90
@@ -2028,7 +2030,7 @@
 
 
 ; ==========================================================
-; void syscall_fwrite(void)
+; void syscall_write(void)
 ; ==========================================================
 ; Writes the given buffer to the given file handle.
 ;
@@ -2038,7 +2040,7 @@
 ;    - r2: count
 ; ==========================================================
 
-@0xE60 syscall_fwrite
+@0xE60 syscall_write
 
     ; set up stack frame
     55           ; push rbp
@@ -2066,14 +2068,20 @@
     5F               ; pop rdi       ; file descriptor
     0F 05            ; syscall
 
-    ; if the return value is EAGAIN/EWOULDBLOCK, change it to 0
+    ; check for EAGAIN/EWOULDBLOCK, if so, replace it with ERROR_TRY_LATER
     3D F5 FF FF FF   ; cmp eax, -11   ; EAGAIN (11), kernel returns negative
-    75 05            ; jne syscall_fwrite_ok (+5)
-    B8 00 00 00 00   ; mov eax, 0
-;syscall_fwrite_ok:
+    75 05            ; jne syscall_write_not_eagain (+5)
+    B8 FB FF FF FF   ; mov eax, -5   ; ERROR_TRY_LATER
+    EB 0B            ; jmp syscall_write_done (+11)
+;syscall_write_not_eagain:
 
-    ; TODO convert return value to Onramp error codes. Linux syscalls return
-    ; negative values on error so for now we just pass it through.
+    ; check for other error or 0. if so, replace with ERROR_GENERIC.
+    48 83 F8 00      ; cmp rax, 0
+    7F 05            ; jg syscall_write_not_error (+5)
+    B8 FF FF FF FF   ; mov eax, -1   ; ERROR_GENERIC
+;syscall_write_not_error:
+
+;syscall_write_done:
 
     ; store the return value in r0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
@@ -2086,17 +2094,13 @@
 
     ; padding (nop)
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90
-@0xED0
+    90 90 90 90 90
+@0xEC0
 
 
 
 ; ==========================================================
-; void syscall_fread(void)
+; void syscall_read(void)
 ; ==========================================================
 ; Reads from the given file handle to the given buffer.
 ;
@@ -2110,7 +2114,7 @@
 ;    - r2: count
 ; ==========================================================
 
-@0xED0 syscall_fread
+@0xEC0 syscall_read
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2143,21 +2147,18 @@
     ; program. poll() may return 1 to say data is available or a negative
     ; number on error; either way we try the read.
     48 83 F8 00      ; cmp rax, 0
-    75 0E            ; jne syscall_fread_poll_nonzero (+14)
+    75 0E            ; jne syscall_read_poll_nonzero (+14)
 
     ; store ERROR_TRY_LATER in r0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
-    ;67 C6 07 FB      ; mov byte [edi], 0xFB   ; move byte sign-extended
-    ; TODO: ERROR_TRY_LATER is v4, we'll switch over to it later. In v3 we
-    ; return 0 if data is unavailable.
-    67 C6 07 00      ; mov byte [edi], 0
+    67 C6 07 FB      ; mov byte [edi], 0xFB   ; ERROR_TRY_LATER
 
     ; return
     48 89 EC     ; mov rsp, rbp
     5D           ; pop rbp
     C3           ; ret
 
-;syscall_fread_poll_nonzero:
+;syscall_read_poll_nonzero:
     ; poll() returned non-zero. we're doing the read.
 
     ; get the buffer (and check it)
@@ -2177,10 +2178,20 @@
     5F               ; pop rdi       ; file descriptor
     0F 05            ; syscall
 
-    ; TODO convert return value to Onramp error codes. Linux syscalls return
-    ; negative values on error so for now we just pass it through.
-    ; TODO for v4 if read returns zero we have to return ERROR_END_OF_FILE.
-    ; TODO we can just convert any other negative value to ERROR_GENERIC for now.
+    ; check for error. if so, replace with ERROR_GENERIC
+    48 83 F8 00      ; cmp rax, 0
+    7D 07            ; jnl syscall_read_not_error (+7)
+    B8 FF FF FF FF   ; mov eax, -1   ; ERROR_GENERIC
+    EB 0B            ; jmp syscall_read_done (+11)
+;syscall_read_not_error:
+
+    ; check if zero. if so, replace with ERROR_END_OF_FILE
+    48 83 F8 00      ; cmp rax, 0   ; probably redundant, we already compared above
+    75 05            ; jne syscall_read_not_zero (+5)
+    B8 FA FF FF FF   ; mov eax, -6   ; ERROR_END_OF_FILE
+;syscall_read_not_zero:
+
+;syscall_read_done:
 
     ; store the return value in r0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
@@ -2192,13 +2203,14 @@
     C3           ; ret
 
     ; padding (nop)
+    90 90 90 90 90 90 90 90
     90
-@0xF40
+@0xF50
 
 
 
 ; ==========================================================
-; void syscall_fclose(void)
+; void syscall_close(void)
 ; ==========================================================
 ; Closes the given file handle.
 ;
@@ -2206,7 +2218,7 @@
 ;    - r0: file handle
 ; ==========================================================
 
-@0xF40 syscall_fclose
+@0xF50 syscall_close
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2235,15 +2247,13 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
     90 90 90 90 90
 @0xF90
 
 
 
 ; ==========================================================
-; void syscall_fopen(void)
+; void syscall_open(void)
 ; ==========================================================
 ; Opens a file handle for the given filename.
 ;
@@ -2252,7 +2262,7 @@
 ;    - r1: writeable
 ; ==========================================================
 
-@0xF90 syscall_fopen
+@0xF90 syscall_open
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2268,19 +2278,19 @@
     B8 04 00 60 00    ; mov eax, r1 (0x600004)
     8B 00             ; mov eax, [rax]
     48 83 F8 00       ; cmp rax, 0
-    74 0C             ; je syscall_fopen_readonly (+12)
+    74 0C             ; je syscall_open_readonly (+12)
 
     ; writeable
     BE 42 00 00 00      ;  mov esi, 66    ; flags = O_CREAT (64) | O_RDWR (2)
     BA A4 01 00 00      ;  mov edx, 0644  ; mode = read/write owner, read group/others
-    EB 04               ; jmp syscall_fopen_syscall (+4)
+    EB 04               ; jmp syscall_open_syscall (+4)
 
-;syscall_fopen_readonly:
+;syscall_open_readonly:
     ; read-only. flags 0, mode O_RDONLY (0)   (i.e. zero both registers)
     31 F6            ;  xor esi,esi    ; flags = O_RDONLY
     31 D2            ;  xor edx,edx    ; mode = 0 (ignored)
 
-;syscall_fopen_syscall:
+;syscall_open_syscall:
     ; call open() syscall
     B8 02 00 00 00   ; mov eax, 0x2  ; syscall: open (2)
     5F               ; pop rdi       ; filename
@@ -2312,18 +2322,17 @@
 
 
 ; ==========================================================
-; void syscall_fseek(void)
+; void syscall_seek(void)
 ; ==========================================================
 ; Seeks the given file handle.
 ;
 ; params:
 ;    - r0: file handle
-;    - r1: base
-;    - r2: position low
-;    - r3: position high
+;    - r1: position low
+;    - r2: position high
 ; ==========================================================
 
-@0x1010 syscall_fseek
+@0x1010 syscall_seek
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
@@ -2334,39 +2343,36 @@
     50                ; push rax
 
     ; get the offset
-    B8 08 00 60 00    ; mov eax, r2 (0x600008)
+    B8 04 00 60 00    ; mov eax, r1 (0x600004)
     8B 38             ; mov edi, [rax]
-    B8 0C 00 60 00    ; mov eax, r3 (0x60000C)
+    B8 08 00 60 00    ; mov eax, r2 (0x600008)
     8B 30             ; mov esi, [rax]
     48 C1 E6 20       ; shl rsi, 32
     48 01 FE          ; add rsi, rdi
 
-    ; get the base (TODO check it, should be 0, 1 or 2)
-    BA 04 00 60 00   ; mov edx, r1 (0x600004)
-    8B 12            ; mov edx, [rdx]
-
     ; call lseek() syscall
+    31 D2            ; xor edx, edx  ; SEEK_SET
     B8 08 00 00 00   ; mov eax, 0x8  ; syscall: lseek (8)
     5F               ; pop rdi       ; file descriptor
     0F 05            ; syscall
 
     ; check for error
     48 83 F8 00    ; cmp rax, 0
-    7C 0C          ; jl syscall_fseek_fail (+12)
+    7C 0C          ; jl syscall_seek_fail (+12)
 
     ; no error. store return value of 0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
     31 C0            ; xor eax, eax
     67 89 07         ; mov [edi], eax
-    EB 0D            ; jmp syscall_fseek_done (+13)
+    EB 0D            ; jmp syscall_seek_done (+13)
 
-;syscall_fseek_fail:
+;syscall_seek_fail:
     ; error. store return value of -1 (generic error)
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
     B8 FF FF FF FF   ; mov eax, -1
     67 89 07         ; mov [edi], eax
 
-;syscall_fseek_done:
+;syscall_seek_done:
     ; return
     48 89 EC     ; mov rsp, rbp
     5D           ; pop rbp
@@ -2380,66 +2386,72 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90
+    90 90 90 90 90 90 90 90
+    90
 @0x10A0
 
 
 
 ; ==========================================================
-; void syscall_ftell(void)
+; void syscall_size(void)
 ; ==========================================================
-; Gets the position in the given file handle.
+; Gets the size of the given file handle.
 ;
 ; params:
 ;    - r0: file handle
-;    - r1: out_position
+;    - r1: out_size
 ; ==========================================================
 
-@0x10A0 syscall_ftell
+@0x10A0 syscall_size
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
 
-    ; get the file descriptor (and check it)
+    ; TODO call check_buffer on out_position, need room for 8 bytes
+
+    ; get the file descriptor
     B8 30 0E 40 00    ; mov eax, parse_io_handle (0x400E30)
     FF D0             ; call rax
     50                ; push rax
 
-    ; TODO call check_buffer on out_position, need room for 8 bytes
+    ; make room for a `struct stat`
+    48 83 EC 90        ; sub rsp, 144   ; sizeof(struct stat)
 
-    ; call lseek() with SEEK_CUR, offset 0
-    B8 08 00 00 00   ; mov eax, 0x8  ; syscall: lseek (8)
-    5F               ; pop rdi       ; file descriptor
-    31 F6            ; xor esi,esi   ; offset == 0
-    BA 01 00 00 00   ; mov edx,0x1   ; origin == SEEK_CUR
+    ; call fstat()
+    48 89 C7         ; mov rdi, rax  ; fd
+    48 89 E6         ; mov rsi, rsp
+    B8 05 00 00 00   ; mov eax, 0x5  ; syscall: fstat (5)
     0F 05            ; syscall
 
     ; check for error
     48 83 F8 00    ; cmp rax, 0
-    7C 17          ; jl syscall_ftell_fail (+23)
+    7C 2C          ; jl syscall_size_fail (+44)
 
-    ; no error. write return value to output address
+    ; make sure the mode is S_IFREG
+    8B 44 24 18      ; mov eax, [rsp + 24]    ; st_size
+    25 00 F0 00 00   ; and eax, S_IFMT  (0xF000) (0o170000) (61440)
+    3D 00 80 00 00   ; cmp eax, S_IFREG (0x8000) (0o100000) (32768)
+    75 1C            ; jne syscall_size_fail (+28)
+
+    ; write size to output address
+    48 8B 44 24 30   ; mov rax, [rsp + 48]    ; st_size
     BA 04 00 60 00   ; mov edx, r1 (0x600004)
     67 8B 12         ; mov edx, [edx]
-    48 89 02         ; mov [rdx], rax
-    ; 89 02            ; mov [rdx], eax    ; store low
-    ; 83 C2 04         ; add edx, 4
-    ; 48 C1 E8 20      ; shr rax, 32
-    ; 89 02            ; mov [rdx], eax    ; store high
+    48 89 02         ; mov [rdx], rax    ; may be only 4-byte aligned, that's ok
 
     ; store return value of 0 in r0
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
     31 C0            ; xor eax, eax
     67 89 07         ; mov [edi], eax
-    EB 0D            ; jmp syscall_ftell_done (+13)
+    EB 0D            ; jmp syscall_size_done (+13)
 
-;syscall_ftell_fail:
+;syscall_size_fail:
     ; error. store return value of -1 (generic error)
     BF 00 00 60 00   ; mov edi, r0 (0x600000)
     B8 FF FF FF FF   ; mov eax, -1
     67 89 07         ; mov [edi], eax
 
-;syscall_ftell_done:
+;syscall_size_done:
     ; return
     48 89 EC     ; mov rsp, rbp
     5D           ; pop rbp
@@ -2451,16 +2463,13 @@
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90 90
+    90 90 90 90 90 90 90
 @0x1130
 
 
 
 ; ==========================================================
-; void syscall_ftrunc(void)
+; void syscall_trunc(void)
 ; ==========================================================
 ; Sets the size of the given file handle.
 ;
@@ -2470,7 +2479,7 @@
 ;    - r2: position_high
 ; ==========================================================
 
-@0x1130 syscall_ftrunc
+@0x1130 syscall_trunc
     ; set up stack frame
     55           ; push rbp
     48 89 E5     ; mov rbp, rsp
