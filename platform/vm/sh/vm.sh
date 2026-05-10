@@ -597,6 +597,8 @@ file_seek() {
         return
     fi
 
+    # TODO these can probably be removed, only syscall seek uses this and it
+    # doesn't take a base parameter anymore
     if [ $FILE_SEEK_BASE -eq 1 ]; then
         : $(( FILE_SEEK_TARGET += FILE_SEEK_CURRENT ))
     elif [ $FILE_SEEK_BASE -eq 2 ]; then
@@ -614,22 +616,28 @@ file_seek() {
 }
 
 # args: handle
-file_tell() {
-    FILE_TELL_FILENAME="$(eval echo \$FILE_${1}_NAME)"
-    : $(( FILE_TELL_STREAM = FILE_${1}_STREAM ))
-    : $(( FILE_TELL_OFFSET = FILE_${1}_OFFSET ))
+file_size() {
+    FILE_SIZE_FILENAME="$(eval echo \$FILE_${1}_NAME)"
+    : $(( FILE_SIZE_STREAM = FILE_${1}_STREAM ))
 
-    if [ "$FILE_TELL_FILENAME" = "" ]; then
+    if [ "$FILE_SIZE_FILENAME" = "" ]; then
         fatal "Handle is not open."
     fi
 
-    if [ $FILE_TELL_STREAM -eq 1 ]; then
+    if [ $FILE_SIZE_STREAM -eq 1 ]; then
         # cannot seek stream
-        FILE_TELL_RET=$ERROR_UNSUPPORTED
+        FILE_SIZE_RET=$ERROR_UNSUPPORTED
         return
     fi
 
-    FILE_TELL_RET=$FILE_TELL_OFFSET
+    # `du -b` is not POSIX; we have to use `wc -c` which might read the whole
+    # file. It might also print leading spaces or use tabs as delimiter so we
+    # use sed to clean them up.
+    #     https://unix.stackexchange.com/a/747527
+    FILE_SIZE_RET=$(wc -c "$FILE_SIZE_FILENAME" \
+        | sed 's/\t/ /g' \
+        | sed 's/^ *//' \
+        | cut -d\  -f1)
 }
 
 # args: handle
@@ -905,9 +913,8 @@ syscall_write() {
 
 syscall_seek() {
     HANDLE=$r0
-    BASE=$r1
-    OFFSET_LOW=$r2
-    OFFSET_HIGH=$r3
+    OFFSET_LOW=$r1
+    OFFSET_HIGH=$r2
 
     # We only support up to 2 GiB file size.
     if [ $OFFSET_HIGH -ne 0 ] || [ $OFFSET_LOW -lt 0 ] || [ $OFFSET_LOW -gt $((0x7FFFFFFF)) ]; then
@@ -915,23 +922,23 @@ syscall_seek() {
         return
     fi
 
-    file_seek $HANDLE $BASE $OFFSET_LOW
+    file_seek $HANDLE 0 $OFFSET_LOW
     register_set 0 $FILE_SEEK_RET
 }
 
-syscall_tell() {
+syscall_size() {
     HANDLE=$r0
     POSITION=$r1
 
-    file_tell $HANDLE
+    file_size $HANDLE
 
     # We only support up to 2 GiB file size.
-    if [ $FILE_TELL_RET -lt 0 ] || [ $FILE_TELL_RET -gt $((0x7FFFFFFF)) ]; then
-        register_set 0 $FILE_TELL_RET
+    if [ $FILE_SIZE_RET -lt 0 ] || [ $FILE_SIZE_RET -gt $((0x7FFFFFFF)) ]; then
+        register_set 0 $FILE_SIZE_RET
         return
     fi
 
-    store_word $POSITION $FILE_TELL_RET
+    store_word $POSITION $FILE_SIZE_RET
     store_word $(( POSITION + 4 )) 0
     register_set 0 0
 }
@@ -969,7 +976,7 @@ syscall() {
         5) syscall_read ;;
         6) syscall_write ;;
         7) syscall_seek ;;
-        8) syscall_tell ;;
+        8) syscall_size ;;
         9) syscall_trunc ;;
         18) syscall_mkdir ;;
         *)
