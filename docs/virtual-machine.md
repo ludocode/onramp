@@ -2,7 +2,9 @@
 
 The Onramp Virtual Machine is a simple virtual machine designed for portable bootstrapping.
 
-This document specifies an incomplete in-development version of the virtual machine (tentatively version 4.0.) For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
+This document specifies version 4.0 of the virtual machine. Previous versions are available under [Version History](#version-history).
+
+For a description of implementations, see [Onramp Virtual Machine Implementations](../platform/vm).
 
 
 
@@ -86,17 +88,17 @@ This document specifies an incomplete in-development version of the virtual mach
 
 The Onramp VM is a register-based reduced instruction set computer (RISC). It uses 32-bit little-endian words addressed over 8-bit memory.
 
-A large contiguous region of memory is available to the program which stores both code and data. The memory region is initialized with the program code, along with a process info table (PIT) containing information about the environment: command-line arguments, environment variables and so on. Programs typically divide the remainder of memory into a heap and a stack.
+Regions of memory are provided to the program for various purposes. The VM provides a region containing the code of the program to run, as well as a free memory region for the program to store data. (Programs typically divide the free memory region into a heap and a stack.) Additionally, memory is provided containing information about the environment: a process info table (PIT), command-line arguments, environment variables and so on.
 
-Programs are stored as a series of 32-bit bytecode instructions in a binary file format. Each instruction is four bytes: the first byte is the opcode and the three remaining bytes are the arguments. Opcodes, register arguments, and immediate values have distinct hexadecimal prefixes which makes it easy to read and write bytecode in hexadecimal.
+Programs are stored as a series of 32-bit bytecode instructions and other data in a binary file format. Each instruction is four bytes: the first byte is the opcode and the three remaining bytes are the arguments. Opcodes, register arguments, and immediate values have distinct hexadecimal prefixes which makes it easy to read and write bytecode in hexadecimal.
 
-There are 16 registers. Registers `r0` through `r9` are general purpose. Registers `ra` and `rb` are scratch registers reserved by the Onramp assembler. The last four registers are the stack pointer `rpp`, frame pointer `rfp`, program pointer `rpp` and instruction pointer `rip` respectively. There is no flags register. Carry and overflow must be detected manually, and conditional instructions use arbitrary registers as predicates.
+There are 16 registers. Registers `r0` through `r9` are general purpose. Registers `ra` and `rb` are scratch registers reserved by the Onramp assembler. The last four registers are the stack pointer `rsp`, frame pointer `rfp`, program pointer `rpp` and instruction pointer `rip` respectively. There is no flags register. Carry and overflow must be detected manually, and conditional instructions use arbitrary registers as predicates.
 
-There are 15 opcodes. All of them provide extremely basic functionality, such as adding two values into a register or storing a word at a memory address. High-level instructions such as pushing data onto the stack or calling a function do not have dedicated opcodes: they must be emulated with several low-level instructions. Emulation of high-level instructions is provided by the Onramp assembler using the scratch registers (`ra` and `rb`.)
+There are 15 opcodes. All of them provide very simple functionality, such as adding two values into a register or storing a word at a memory address. High-level instructions such as pushing data onto the stack or calling a function do not have dedicated opcodes: they must be emulated with several low-level instructions. Emulation of high-level instructions is provided by the Onramp assembler using the scratch registers (`ra` and `rb`.)
 
 There are (currently) no interrupts. The VM is designed for non-interactive computation. It does however optionally support input and time so it is possible to write interactive terminal applications.
 
-All programs are position-independent. This makes it possible for programs to run other programs without the need for virtual memory. The program pointer (`rpp`) contains the base address of the currently running program.
+All programs are position-independent. This makes it possible for programs to load and run other programs without the need for virtual memory. The program pointer (`rpp`) contains the base address of the currently running program.
 
 The VM accesses the outside environment via system calls (or "syscalls".) These are provided by the VM to the program as a table of function pointers which the program calls using a special calling convention. System calls include input and output streams; file and directory access; time and more.
 
@@ -122,13 +124,13 @@ All instructions can operate on all registers, but some registers have special b
 
     - Registers `r0`, `r1`, `r2` and `r3` are used as the first four function and syscall arguments.
 
-    - Register `r0` is often used as a return value. It is set to the process info table at the start of the program.
+    - Register `r0` is often used as a return value. It contains the address of the process info table when the program starts.
 
     - Register `r9` is used as a context parameter for syscalls.
 
 - Registers `ra` and `rb` are "scratch space" registers. They are clobbered not only by function calls but also by compound assembly instructions. They can be used for temporary space when writing bytecode by hand but they are best avoided when writing or emitting assembly.
 
-- Register `rsp` is the stack pointer. It points to the last value pushed on the stack. The Onramp VM stack grows down. The stack pointer must always be aligned to a 4-byte boundary and must always have 128 bytes free under it for interrupts and syscalls. There is no [red zone][wp-redzone]; it is an error to read or write to the stack area under the stack pointer. The stack pointer is set to the end of the initial free memory region when the program starts.
+- Register `rsp` is the stack pointer. It points to the last value pushed on the stack. The Onramp VM stack grows down. The stack pointer must always be aligned to a 4-byte boundary and must always have 128 bytes free under it for syscalls (and interrupts in case they are implemented in the future.) There is no [red zone][wp-redzone]; it is an error to read or write to the stack area under the stack pointer. The stack pointer is set to the end of the initial free memory region when the program starts.
 
 - Register `rfp` is the frame pointer. It points to the start of the current function's stack frame. This is the location where the previous frame pointer was pushed, forming a linked list of stack frames.
 
@@ -160,13 +162,13 @@ Note that although `rip` is initially set to the start of the program, it will m
 
 Onramp uses a flat memory architecture in which instructions and data are stored in the same address space. All addresses are 32 bits, so the maximum amount of addressible memory is 4 GiB.
 
-The VM loads the initial program and maps it to an arbitrary address in memory. The initial value of registers `rpp` and `rip` are the address of the start of the program, where bytecode execution begins. The address of the program must be aligned to a multiple of 4 (and cannot be 0.)
+The VM loads a program and maps it to an arbitrary address in memory. The initial value of registers `rpp` and `rip` are the address of the start of the program, where bytecode execution begins. The address of the program must be aligned to a multiple of 4 (and cannot be 0.)
 
-The VM must also provide at least one free memory region to the program. Programs typically divide a free memory region into a [heap][wp-heap] and a [stack][wp-stack]. The heap starts at the beginning of the memory region; the stack starts at the end and grows down. The start of the free memory region is therefore called the [heap start address](#heap-start-address) in the process info table, and the initial value of the stack pointer `rsp` is the end of the free memory region. The initial contents of the free memory region (and of all additional and allocated memory regions) are undefined.
+The VM must also provide at least one free memory region to the program. Programs typically divide the free memory region into a [heap][wp-heap] and a [stack][wp-stack]. The heap starts at the beginning of the memory region; the stack starts at the end and grows down. The start of the free memory region is therefore called the [heap start address](#heap-start-address) in the process info table, and the initial value of the stack pointer `rsp` is the end of the free memory region. The initial contents of the free memory region (and of all additional and allocated memory regions) are undefined.
 
 If the VM implements the [`alloc` syscall](#alloc), or if it provides [additional memory regions][p-mem], the free memory region can be as little as 256 bytes. The program will use the additional memory regions or request additional memory via `alloc`. If the VM provides neither, it must provide a large amount of memory (ideally as much memory as possible) up front in one contiguous block.
 
-The total amount of memory required depends on the program being run. 4 MiB is sufficient for the initial bootstrap but many programs will require more. 16 MiB is a reasonable default. (This needs to be updated later with requirements for bootstrapping and for compiling and running various programs.)
+The total amount of memory required depends on the program being run. 4 MiB is sufficient for the initial bootstrap but many programs will require more. 16 MiB is a reasonable default. (This will be updated later with requirements for bootstrapping and for compiling and running various programs.)
 
 (WARNING: The `alloc` syscall is not used yet. At least 4 MiB should be provided for the bootstrap.)
 
@@ -187,15 +189,15 @@ Here's a diagram showing the regions of memory, the initial values of the regist
 
 Note that the regions do not have to appear in this order in memory. The process info can be before, after, or in between the program and free memory; the program can be before or after the free memory; there can be gaps between all regions; the process info can be spread out in multiple regions; and so on. The VM may place any memory region at any address, as long as that address is not zero and is a multiple of four.
 
-The address 0 is special: it is an invalid address for all purposes. An address of zero is often called a null pointer, and it is sometimes used to represent no value when an address is optional. Loading or storing data to address 0 is undefined behaviour, as is passing it to most syscalls. The VM must therefore not place anything at address zero. (The VM does not need to detect accesses to address zero. Some VMs have memory mapped starting at address zero and simply skip the first word before writing the process info table.)
+The address 0 is special: it is an invalid address for all purposes. An address of zero is often called a null pointer, and it is sometimes used to represent no value when an address is optional. Loading or storing data to the word at address 0 is undefined behaviour. Passing address 0 to syscalls that take an address is also undefined behaviour unless the parameter is specified as optional. The VM must therefore not place anything at address zero. (The VM does not need to detect accesses to address zero. Some VMs have memory mapped starting at address zero and simply skip the first word before writing the process info table.)
 
 (In many VM implementations, the process info, the program, and the free memory are all placed in one contiguous region of memory. A single large block is allocated; the process info is placed at the start; the program is loaded afterwards; and the remainder of the block is the program's free memory. The end of the program is therefore the start of the heap. It was historically called the ["program break"][wp-sbrk] for this reason, and is still called that by some VMs. This contiguous layout is not required but it is often a convenient way to implement a VM.)
 
-The "read only" and "read/write/execute" labels show how the memory is used, and suggests potential access limitations the VM may place on memory regions. These limitations refer to the Onramp bytecode; in particular "execute" means the VM must be able to execute Onramp bytecode in this region, not its own native code. Note that the free memory region must be executable so that the program can load and run subprograms.
+The "read only" and "read/write/execute" labels show how the memory is used, and suggests potential access limitations the VM may place on memory regions. These limitations refer to the Onramp bytecode; in particular "execute" means the VM must be able to execute Onramp bytecode in this region, not its own native code (a hosted VM should not mark these pages executable in the host OS!) Note that the VM must be able to execute bytecode in free memory regions so that the program can load and run subprograms.
 
-The VM does not need to enforce any such access restrictions. There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, or reads or writes address zero, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, the VM may simply allow the write, etc.)
+The VM does not need to enforce any access restrictions. There is no memory protection for the running program. If the program accesses memory outside of these ranges, or writes to a read-only memory region, or reads or writes address zero, the behaviour is undefined. (The VM may crash, the parent process may be corrupted, the VM may simply allow the write, etc.)
 
-The start and end of all accessible regions of memory must be aligned to a four byte boundary. This includes the program image, the initial heap, all additional memory regions, and all memory regions allocated with the [`alloc`](#alloc) syscall. Another way of putting it is, if the program can read or write any byte in memory, it must be able to read or write the word that contains that byte. (This is necessary for some optimizations, i.e. the vectorization of string function like `memcpy()` and `strlen()`.)
+The start and end of all accessible regions of memory must be aligned to a four byte boundary. This includes the program image, the initial heap, all additional memory regions, and all memory regions allocated with the [`alloc`](#alloc) syscall. Another way of putting it is, if the program can read or write any byte in memory, it must be able to read or write the word that contains that byte. (This is necessary for some optimizations, i.e. the vectorization of string functions like `memcpy()` and `strlen()`.)
 
 
 
@@ -203,7 +205,7 @@ The start and end of all accessible regions of memory must be aligned to a four 
 
 The process information table (PIT) is an array of twelve 32-bit words (48 bytes total.) Here's a quick reference table of its contents:
 
-| Index | Value                              | type     | Description                                                              |
+| Index | Value                              | C Type   | Description                                                              |
 |-------|------------------------------------|----------|--------------------------------------------------------------------------|
 | 0     | [Major Version][p-maj]             | `int`    | Always 4 for this version.                                               |
 | 1     | [Heap Start Address][p-heap]       | `void*`  | Address of the free memory region provided by the VM.                    |
@@ -218,9 +220,9 @@ The process information table (PIT) is an array of twelve 32-bit words (48 bytes
 | 10    | [Minor Version][p-min]             | `int`    | Always 0 for this version.                                               |
 | 11    | [Additional Memory Regions][p-mem] | `void*`  | Null-terminated array of additional regions of available memory.         |
 
-The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program. It then places its address in `r0` before executing the program. The memory may be read-only; the program must not attempt to modify the table.
+The parent process of a program (the VM or otherwise) must assemble this table somewhere in memory accessible to the program (outside of any free memory region.) It then places its address in `r0` before executing the program.
 
-The process info table and its associated information (system call table, command-line arguments, environment variables, working directory) cannot be written to or executed by the program. An attempt by the program to write to or execute bytecode from these addresses is undefined behaviour. (VMs typically do not enforce this, but this restriction may simplify certain VMs, and it is important in order to simplify certain tools including the shell in the bootstrap process.)
+ The process info table and its associated information (system call table, command-line arguments, environment variables, working directory, free memory region list) is read-only: it cannot be written to or executed by the program. An attempt by the program to write to or execute bytecode from these addresses is undefined behaviour. (VMs typically do not enforce this, but this restriction may simplify certain VMs, and it is important in order to simplify certain tools including the shell in the bootstrap process.)
 
 All addresses that point to a word, or to an array of words, must be aligned to a multiple of four bytes. In the process info table, this includes the heap start address, the system call table address, the command-line arguments list and the environment variables. This also includes the initial `r0`, `rpp`, `rsp` and `rip` of the program. The addresses of strings, namely the working directory and the individual command-line arguments and environment variables, do not need to be aligned.
 
@@ -252,17 +254,19 @@ The system call table address field contains the address of the [System Call Tab
 
 The standard input handle is a handle to a stream that provides input to the program. It is used as an argument to [`read`](#read) for the program to get input data. See the description of [streams](#streams) and [handles](#handles).
 
-For programs run interactively, this is typically connected to an input terminal (such as a keyboard). For programs run non-interactively (perhaps as part of a pipeline), the input of the program may be an arbitrary file or the output of another program.
+For programs run interactively, this is typically connected to an input terminal (such as a keyboard), and input comes directly from a user. For programs run non-interactively (perhaps as part of a pipeline), the input of the program may be a file or the output of another program. The "interactive" bit must be set correctly in the [Capabilities](#capabilities) field of the process info table.
 
 Standard input is optional. If standard input is not supported by the VM, or if standard input is otherwise unavailable to the program, this field contains 0xFFFFFFFF. This is normal for example for a minimal VM or for non-interactive bootstrapping in a freestanding environment.
 
 Valid handles for standard input, output and error may have any value as long as the high bit is not set. The program can use these handles to communicate with its environment.
 
-The VM may "echo" its input; i.e. it may copy all input to its own output. In this case the "echo" bit must be set in the capabilities field of the process info table. It is recommended that VMs not echo if possible. The Onramp libc can simulate echo internally for interactive programs.
+The VM may "echo" its input, i.e. it may copy all input to its own output. In this case the "echo" bit must be set in the capabilities field of the process info table. (This is common for hosted command-line programs in contemporary operating systems.) It is recommended that VMs not echo if possible. The Onramp libc can simulate echo internally for interactive programs.
 
-The VM may also "line buffer" its input, i.e. it may withhold input from the program until the user inputs a newline character. In this case the "line-oriented" bit must be set in the capabilities field of the process info table. It is recommended that VMs not line-buffer if possible.
+The VM may "line buffer" its input, i.e. it may withhold input from the program until the user inputs a newline character. In this case the "line-oriented" bit must be set in the capabilities field of the process info table. (This is common in particular on POSIX systems.) It is recommended that VMs not line-buffer if possible.
 
-(On POSIX systems, this means the input handle should ideally be in non-canonical mode and should have echo disabled. This is not easy to do correctly on POSIX, so the VM can instead simply leave it in canonical mode and set the appropriate capabilities bits.)
+The VM may "block" on input. If the program attempts to read and input is not available yet, the VM may pause execution of the program until input becomes available (for example the user types something, or the previous program in the pipeline outputs some data.) In this case the "input blocks" bit must be set in the capabilities field of the process info table. It is recommended that VMs not block and instead return `ERROR_TRY_LATER` if possible. See the description of [`read`](#read) for more details.
+
+(For command-line programs on POSIX systems, this means the input handle should ideally be in non-canonical mode, should have echo disabled, and should be polled before reading. This is not easy to do correctly, so the VM can instead simply leave it in canonical mode and set the appropriate capabilities bits.)
 
 
 
@@ -280,13 +284,13 @@ Standard output is optional. If standard output is not supported by the VM, or i
 
 ### Standard Error Handle
 
-The standard error handle is a handle to which the program can write error messages. It is used as a handle to [`write`](#write) for the program to write error messages. See the description of [streams](#streams) and [handles](#handles).
+The standard error handle is a handle to which the program can write error messages. It is used as a handle to [`write`](#write). See the description of [streams](#streams) and [handles](#handles).
 
 Standard error is intended for displaying errors, warnings and other abnormal output to a user. Data printed to standard error is therefore usually in plain text. It is separate from the output stream so that programs in a pipeline will display error messages to the user instead of feeding their errors to the next program.
 
 The standard output and error handles are otherwise identical. If no distinction is required between them, the VM can use the same handle for both, and it can also use the same handle for input. Note however that if the same handle is used for multiple streams, closing it once must not close it for all of them. For example closing the standard output stream must not also close the standard error stream; if the handles are the same, the VM should either require calling [`close`](#close) twice to close it, or it should ignore `close` on the standard streams altogether.
 
-Standard error is optional. If a standard error handle is not supported by the VM, this field contains 0xFFFFFFFF. If this has value 0xFFFFFFFF and the standard output handle is valid, programs usually write error messages to the output stream handle instead.
+Standard error is optional. If a standard error handle is not supported by the VM, this field contains 0xFFFFFFFF. If this has value 0xFFFFFFFF and the standard output handle is valid, programs usually write error messages to the output stream handle instead. If the VM supports only one output stream (and cannot share handles), it should be assigned to standard output, not standard error.
 
 
 
@@ -294,7 +298,7 @@ Standard error is optional. If a standard error handle is not supported by the V
 
 Command-line arguments are stored in a null-terminated array of null-terminated strings. These are used to pass arguments to the program.
 
-The first command-line argument is the name of or path to the program being run. If it's a path, the program can use it to find its program image, and it can use the last component of this path to determine its name.
+The first command-line argument is the name of or path to the program being run. If it's a path, the program can use it to find its program image, and it can use the last component of this path to determine its filename.
 
 Arguments beyond the first are used to control the behaviour of the program. For example, a program that parses a file may expect an argument providing the path to the file to be parsed.
 
@@ -328,24 +332,22 @@ The working directory may be null (zero.) In this case the Onramp VM may pass re
 
 The capabilities entry is a 32-bit word containing a set of 1-bit flags. They are numbered from least to most significant bit:
 
-| Bit Position | Value               |                                                            |
-|--------------|---------------------|------------------------------------------------------------|
-| 0            | Input Echo          | 1 if the VM echoes input to the output.                    |
-| 1            | Input Blocks        | 1 if read(input) blocks until input is available.          |
-| 2            | Input Line-Oriented | 1 if VM buffers input in lines (i.e. POSIX canonical)      |
-| 3            | Interactive         | 1 if standard input comes directly from a user             |
+| Bit Position | Value | Name                |                                                            |
+|--------------|-------|---------------------|------------------------------------------------------------|
+| 0            | 1     | Input Echo          | 1 if the VM echoes input to the output.                    |
+| 1            | 2     | Input Blocks        | 1 if read(input) blocks until input is available.          |
+| 2            | 4     | Input Line-Oriented | 1 if VM buffers input in lines (i.e. POSIX canonical)      |
+| 3            | 8     | Interactive         | 1 if standard input comes directly from a user             |
 
 The capabilities field contains a set of flags describing what features are supported by the VM. The following flags exist, with bits numbered from low to high:
 
-- bit 0: input echo. 1 if the input stream is echoed to the output; 0 otherwise. If possible the VM should not echo input.
+- bit 0: input echo. 1 if the [standard input stream](#standard-input-handle) is echoed to the output by the VM; 0 otherwise. If possible the VM should not echo input; the program can simulate it where necessary. (Input echo is the default behaviour of interactive terminal programs on most contemporary operating systems.)
 
-- bit 1: input blocks. 1 if the read syscall blocks until a byte is available; 0 if it doesn't, instead reading zero bytes successfully when no input data exists. If possible the VM should not block on input. If you are unsure whether the input blocks, set this to 1 to prevent programs from setting the input to non-blocking.
+- bit 1: input blocks. 1 if the [`read` syscall](#read) pauses execution until a byte is available; 0 if it returns `ERROR_TRY_LATER`. If possible the VM should not block on input. If you are unsure whether the input blocks, set this to 1 to prevent programs from setting the input to non-blocking.
 
-- bit 2: input line-oriented (i.e. [POSIX canonical][wp-canon]). 1 if input is only available once a full line has been processed; 0 if input is available immediately on each keystroke. If possible the VM should not line-buffer input. If you are unsure whether the input is line-oriented, set this to 1 to prevent programs from turning off canonical mode. (This is the default behaviour of terminal programs on POSIX platforms and it is surprisingly difficult to turn off so most POSIX VMs should set this bit.)
+- bit 2: input line-oriented (i.e. [POSIX canonical][wp-canon]). 1 if standard input is only made available to the program once a full line has been processed; 0 if standard input is available immediately on a per-byte basis (e.g. on each keystroke.) If possible the VM should not line-buffer input. If you are unsure whether the input is line-oriented, set this to 1 to prevent programs from turning off canonical mode. (This is the default behaviour of terminal programs on POSIX platforms.)
 
-- bit 3: interactive. 1 if the standard input and output streams are connected directly to a user, for example to a keyboard and display; 0 if they are not or if unsure. An interactive program that expects input must wait until the user enters that input, for example by pressing keys. (The keys pressed by the user will then be displayed back to them; see "echo" above.) A non-interactive program may get its input from or send its output to another program, a file, etc.
-
-(The libc will simulate echo if "input echo" is 0 and "interactive" is 1.)
+- bit 3: interactive. 1 if the standard input and output streams are connected directly to a user, for example to a keyboard and display; 0 if they are not or if unsure. An interactive program that expects input must wait until the user enters that input, for example by pressing keys. (The keys pressed by the user will typically be displayed back to them; see "echo" above.) A non-interactive program may get its input from or send its output to another program, a file, etc.
 
 (On POSIX systems, interactive input is echoed and is line-oriented by default, and these are not easy to change. It is simpler to just set those bits in the capabilities field, and to set interactive if and only if `isatty(0) && isatty(1)`.)
 
@@ -386,11 +388,11 @@ For example, suppose the Additional Memory Regions field of the PIT is `0x3000`,
 
 When an entry's address is zero, this indicates the end of the list. An additional memory region cannot start at address zero. Its size also cannot be zero. The null-terminating address zero does not need to have an associated size. The full table in this example is therefore 20 bytes.
 
-The memory regions listed in this table must not overlap with each other or with the program or heap. They also must not include any of the memory in which the PIT and its contents are stored. They must be distinct memory regions which are otherwise unused and which the program may use for any purpose.
+The memory regions listed in this table must not overlap with each other or with the program or the initial free memory region. They also must not include any of the memory in which the PIT and its contents are stored. They must be distinct memory regions which are otherwise unused and which the program may use for any purpose.
 
 This can be useful if the VM or parent program has several disjoint regions of address space that are available to the program. This is common in freestanding VMs in which the memory regions represent areas of address space available in a machine's physical memory map. It is also useful for parent programs on VMs that implement `alloc` and not `free`.
 
-(The program may also allocate memory regions at runtime via the [`alloc`](#alloc) syscall. Such regions are the only ones that may be passed to [`free`](#free). The program may not free its own image, its heap, or any of the additional memory regions passed through this field.)
+(The program may also allocate memory regions at runtime via the [`alloc`](#alloc) syscall. Such regions are the only ones that may be passed to [`free`](#free). The program may not free its own image, its initial memory region, or any of the additional memory regions passed through this field.)
 
 
 
@@ -499,7 +501,7 @@ Opcodes are divided into four groups: arithmetic, logic, memory and control.
 Arguments have the following types:
 
 - `r`: A register
-- `m`: A mix-type byte, either a register or an immediate value in the range [-112,127]
+- `m`: A mix-type byte, either a register or an immediate value (see [Instructions](#instructions) above)
 - `i`: An immediate byte (any value)
 
 Here's a quick reference table for all supported instruction opcodes:
@@ -1027,7 +1029,7 @@ All system calls (except for `exit` and `panic`) return a 32-bit word. It contai
 
 Arguments are passed in `r0`, `r1`, `r2` and `r3`, plus the context in `r9`. The return value is placed in `r0`.
 
-The system call table currently has **25** entries (200 bytes) with a total of 20 defined system calls. Entries not listed below are unused and reserved for future versions of this specification.
+The system call table currently has **25** entries (200 bytes) with a total of 18 defined system calls. Entries not listed below are unused and reserved for future versions of this specification.
 
 | Number | Required  | Name     | Arguments                | Return Value             |  Description                             |
 |--------|-----------|----------|--------------------------|--------------------------|------------------------------------------|
@@ -1718,20 +1720,21 @@ Changes include:
     - A new [Additional Memory Regions][p-mem] field is added (taking the place of the Process Info Count field.)
     - All contents of the process info table, including command-line arguments, environment variables, the syscall table and the working directory, are now read-only. (This change is backwards-compatible for VMs; it's a new restriction on programs only.)
     - The "interactive" bit has been added to the capabilities field. It is optional and can be left zero.
-- Some system call changes:
-    - The arguments to `seek` have changed: it no longer takes a base parameter.
-    - `size` has been added, replacing `tell`. Instead of returning the current position, it returns the size of an open file handle.
-    - The arguments and return value of `alloc` have changed. The old syscall was never used.
+- A number of system calls have been renamed:
+    - The `f` prefix has been dropped from the name of many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftrunc`.
     - `dread` has been renamed to `dirent`.
     - `unlink` has been renamed to `delete`.
+- Some system calls have changed functionality:
+    - The arguments to `seek` have changed: it no longer takes a base parameter.
+    - `size` has been added, replacing `tell`. Instead of returning the current position, it returns the file size.
+    - The arguments and return value of `alloc` have changed. The old syscall was never used.
     - `stat` (13), `symlink` (15), `spawn` (20), and `waitpid` (21) have been removed.
     - `dopen` (10), `dclose` (11), and `rmdir` (19) have been removed. `open`, `close`, and `delete` are now used for directories as well.
-    - The `f` prefix has been dropped from the name of many syscalls: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftrunc`.
     - `read` and `write` can no longer return zero. The end of a file or a closed stream is indicated by `ERROR_END_OF_FILE`. A non-blocking stream without data or buffer space is indicated by `ERROR_TRY_LATER`.
     - `dirent` can no longer return an empty string. The end of a directory is indicated by `ERROR_END_OF_FILE`.
 - Cleaned up syscall error codes:
     - Added `ERROR_END_OF_FILE` and `ERROR_TRY_LATER` to clearly differentiate between closed and non-blocking streams.
-    - Added `ERROR_OVERFLOW` for situations in which the VM runs out of resources.
+    - Added `ERROR_OVERFLOW` and `ERROR_IN_USE` for situations in which resources are exhausted or unavailable.
     - All error codes except `ERROR_GENERIC` and `ERROR_END_OF_FILE` are now optional. The spec now fully documents the expected error codes for all exceptional conditions in all syscalls.
 - Added a definition of devices and the device `/dev/urandom`.
 
