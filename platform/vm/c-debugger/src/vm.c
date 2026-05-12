@@ -1207,11 +1207,14 @@ static uint32_t vm_trunc(vm_t* vm) {
         strace(" failed, directory");
         return VM_ERROR_UNSUPPORTED;
     }
+    if (length != (uint64_t)(off_t)length) {
+        return VM_ERROR_OVERFLOW;
+    }
     filedata->generated_error_later = false;
 
     FILE* file = filedata->file;
     fflush(file);
-    int ret = ftruncate(fileno(file), length);
+    int ret = ftruncate(fileno(file), (off_t)length);
     if (ret == 0)
         return 0;
     strace(" failed, ret %i errno %i", ret, errno);

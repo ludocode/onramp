@@ -25,9 +25,12 @@
 
 
 /**
- * This is a simple-as-possible implementation of the Onramp virtual machine in
- * ANSI C. It implements the minimum necessary system calls for bootstrapping a
- * compiler.
+ * This is a simple implementation of the Onramp virtual machine in ANSI C.
+ *
+ * It is designed to work in plain C with no extensions, but it provides extra
+ * functionality on POSIX and on Windows. There is a fair bit of extra code to
+ * make it portable. Not all features are available on all platforms; for
+ * example there is no way to read directories or truncate files in standard C.
  *
  * If you're trying to port Onramp to an old system that only has a C89
  * compiler, this is probably the best place to start.
@@ -41,20 +44,28 @@
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
     #define _POSIX_C_SOURCE 200809L
     #define VM_POSIX
+    #include <dirent.h>
     #include <unistd.h>
     #include <sys/stat.h>
+    #include <sys/types.h>
     extern char** environ;
-#elif defined _WIN32
+#endif
+
+#if defined _WIN32
     #include <direct.h>
+    #include <io.h>
     #define getcwd _getcwd
     #define environ _environ
     #define mkdir(path, mode) _mkdir(path)
     extern char** _environ;
-#else
+#endif
+
+#if !defined(VM_POSIX) && !defined(_WIN32)
     #define NO_ENVIRON
     #define NO_GETCWD
 #endif
 
+#include <errno.h>
 #include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -90,13 +101,10 @@
  */
 
 #define VM_MEMORY_SIZE (16 * 1024 * 1024) /* 16 MB */
-#define VM_MAX_FILES 16u
-#define VM_MAX_DIRECTORIES 16u
+#define VM_MAX_HANDLES 16u
 
 static uint32_t vm_registers[16];
 static uint8_t vm_memory[VM_MEMORY_SIZE];
-static FILE* vm_files[VM_MAX_FILES];
-/*static uint32_t vm_directories[VM_MAX_DIRECTORIES];*/
 
 /* array indices of named registers */
 #define VM_RSP 0xC  /* stack pointer */
@@ -105,14 +113,14 @@ static FILE* vm_files[VM_MAX_FILES];
 #define VM_RIP 0xF  /* instruction pointer */
 
 /* errors */
-#define VM_ERROR_GENERIC      0xFFFFFFFF
-#define VM_ERROR_PATH         0xFFFFFFFE
-#define VM_ERROR_IO           0xFFFFFFFD
-#define VM_ERROR_UNSUPPORTED  0xFFFFFFFC
-#define VM_ERROR_TRY_LATER    0xFFFFFFFB
-#define VM_ERROR_END_OF_FILE  0xFFFFFFFA
-#define VM_ERROR_OVERFLOW     0xFFFFFFF9
-#define VM_ERROR_IN_USE       0xFFFFFFF8
+#define VM_ERROR_GENERIC       0xFFFFFFFF
+#define VM_ERROR_NO_SUCH_PATH  0xFFFFFFFE
+#define VM_ERROR_IO            0xFFFFFFFD
+#define VM_ERROR_UNSUPPORTED   0xFFFFFFFC
+#define VM_ERROR_TRY_LATER     0xFFFFFFFB
+#define VM_ERROR_END_OF_FILE   0xFFFFFFFA
+#define VM_ERROR_OVERFLOW      0xFFFFFFF9
+#define VM_ERROR_IN_USE        0xFFFFFFF8
 
 /* The number of entries in the syscall table (not the number we have actually
  * implemented) */
@@ -232,8 +240,48 @@ static uint8_t vm_parse_register(uint8_t b) {
     return b & 0x0F;
 }
 
-static FILE* vm_file(uint32_t handle) {
-    return vm_files[handle];
+/* Get a pointer to the slot where the given file handle is stored. */
+static FILE** vm_file(uint32_t handle) {
+    static FILE* files[VM_MAX_HANDLES];
+    if (handle >= VM_MAX_HANDLES) {
+        vm_panic("file handle out of bounds");
+    }
+    return &files[handle];
+}
+
+#ifdef VM_POSIX
+/* Get a pointer to the slot where the given directory handle is stored. */
+static DIR** vm_directory(uint32_t handle) {
+    static DIR* directories[VM_MAX_HANDLES];
+    if (handle >= VM_MAX_HANDLES) {
+        vm_panic("file handle out of bounds");
+    }
+    return &directories[handle];
+}
+#endif
+
+static int vm_handle_is_directory(uint32_t handle) {
+    #ifdef VM_POSIX
+    if (*vm_directory(handle)) {
+        return 1;
+    }
+    #endif
+
+    #ifdef _WIN32
+    // TODO check if FindFirstFile() handle exists
+    #endif
+
+    return 0;
+}
+
+static int vm_handle_in_use(uint32_t handle) {
+    if (*vm_file(handle)) {
+        return 1;
+    }
+    if (vm_handle_is_directory(handle)) {
+        return 1;
+    }
+    return 0;
 }
 
 
@@ -379,9 +427,9 @@ static void vm_init(int argc, char** argv) {
             7);
 
     /* files */
-    vm_files[0] = stdin;
-    vm_files[1] = stdout;
-    vm_files[2] = stderr;
+    *vm_file(0) = stdin;
+    *vm_file(1) = stdout;
+    *vm_file(2) = stderr;
 
     /* Load the program */
     program_start = address;
@@ -410,56 +458,104 @@ static uint32_t vm_exit(void) {
 static uint32_t vm_open(void) {
     uint32_t path_addr = vm_registers[0];
     uint32_t mode = vm_registers[1];
-    FILE* file;
 
     const char* path;
-    size_t handle;
+    uint32_t handle;
 
     path = (const char*)vm_memory + path_addr;
     /*fprintf(stderr, "open %s %u\n", path, mode);*/
 
     /* find a free handle (not the standard streams 0,1,2) */
-    for (handle = 3; handle < VM_MAX_FILES &&
-            vm_files[handle] != NULL; ++handle) {}
-    if (handle == VM_MAX_FILES) {
+    for (handle = 0; handle < VM_MAX_HANDLES && vm_handle_in_use(handle); ++handle) {}
+    if (handle == VM_MAX_HANDLES) {
         /* too many open files */
-        return VM_ERROR_GENERIC;
+        return VM_ERROR_OVERFLOW;
     }
 
     if (mode) {
         /* Try to open the existing file read/write. If it fails, it's probably
          * because it doesn't exist, so try opening for writing to create it.
          * (We're not concerned with race conditions in Onramp.) */
-        file = fopen(path, "r+b");
-        if (file == NULL) {
-            file = fopen(path, "w+b");
+        if ((*vm_file(handle) = fopen(path, "r+b"))) {
+            return handle;
+        }
+        if ((*vm_file(handle) = fopen(path, "w+b"))) {
+            return handle;
         }
     } else {
-        file = fopen(path, "rb");
+        /* Try to open as a directory first */
+        #ifdef VM_POSIX
+        if ((*vm_directory(handle) = opendir(path))) {
+            return handle;
+        }
+        #elif defined _WIN32
+        // TODO
+        #endif
+
+        /* Otherwise open as a file */
+        if ((*vm_file(handle) = fopen(path, "rb"))) {
+            return handle;
+        }
     }
 
-    if (file == NULL) {
-        /* TODO there may be other reasons it failed. Need to implement v4
-         * error codes. */
-        return VM_ERROR_PATH;
+    /* fopen() failed. Translate errno. */
+    switch (errno) {
+        /* TODO make sure these errors are POSIX standard */
+        case ENOMEM:
+        case ENAMETOOLONG:
+        case EOVERFLOW:
+        case ELOOP:
+            return VM_ERROR_OVERFLOW;
+        case ENOENT:
+            return VM_ERROR_NO_SUCH_PATH;
+        case EISDIR:
+            /* We either tried to opendir() it and failed, in which case we
+             * don't have permissions, or the writable flag was set. Either way
+             * we return unsupported. */
+            return VM_ERROR_UNSUPPORTED;
+        default:
+            break;
     }
-    vm_files[handle] = file;
 
-    return handle;
+    return VM_ERROR_GENERIC;
 }
 
 static uint32_t vm_close(void) {
     uint32_t handle = vm_registers[0];
-    fclose(vm_files[handle]);
-    vm_files[handle] = NULL;
-    return 0;
+
+    if (*vm_file(handle)) {
+        fclose(*vm_file(handle));
+        *vm_file(handle) = NULL;
+        return 0;
+    }
+
+    #ifdef VM_POSIX
+    if (*vm_directory(handle)) {
+        closedir(*vm_directory(handle));
+        *vm_directory(handle) = NULL;
+        return 0;
+    }
+    #elif defined _WIN32
+    // TODO check if FindFirstFile() handle exists
+    #endif
+
+    vm_panic("syscall close called on invalid handle");
+    return VM_ERROR_GENERIC;
 }
 
 static uint32_t vm_read(void) {
+    uint32_t handle = vm_registers[0];
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
-    FILE* file = vm_file(vm_registers[0]);
-    size_t ret = fread(vm_memory + addr, 1, count, file);
+    FILE* file;
+    size_t ret;
+
+    if (vm_handle_is_directory(handle)) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    file = *vm_file(handle);
+    ret = fread(vm_memory + addr, 1, count, file);
     if (ret == 0) {
         return feof(file) ? VM_ERROR_END_OF_FILE : VM_ERROR_GENERIC;
     }
@@ -467,10 +563,18 @@ static uint32_t vm_read(void) {
 }
 
 static uint32_t vm_write(void) {
+    uint32_t handle = vm_registers[0];
     uint32_t addr = vm_registers[1];
     uint32_t count = vm_registers[2];
-    FILE* file = vm_file(vm_registers[0]);
-    size_t ret = fwrite(vm_memory + addr, 1, count, file);
+    FILE* file;
+    size_t ret;
+
+    if (vm_handle_is_directory(handle)) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    file = *vm_file(handle);
+    ret = fwrite(vm_memory + addr, 1, count, file);
     if (ret == count) {
         return count;
     }
@@ -478,29 +582,48 @@ static uint32_t vm_write(void) {
 }
 
 static uint32_t vm_seek(void) {
+    uint32_t handle = vm_registers[0];
+    uint32_t offset_low = vm_registers[1];
+    uint32_t offset_high = vm_registers[2];
+    FILE* file;
+    long offset;
+    int result;
+
+    if (vm_handle_is_directory(handle)) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
     /*
      * We don't know how long `long` or `off_t` are. If they're only 32 bits we
      * won't have enough space for the high bits. We try anyway; we just won't
      * support files larger than 2 GB otherwise.
      *
      * In case they are only 32 bits, we have to shift twice since a shift by
-     * the word size is undefined behaviour.
+     * the word size is undefined behaviour. In case they are 64 bits we have
+     * to mask to prevent sign extension.
      */
-    FILE* file = vm_file(vm_registers[0]);
-    long offset = (long)vm_registers[1] | (((long)vm_registers[2] << 16) << 16);
-    int ret = fseek(file, offset, SEEK_SET);
-    return ret ? VM_ERROR_GENERIC : 0;
+    file = *vm_file(handle);
+    offset = ((long)offset_low & 0xFFFFFFFF) | ((((long)offset_high & 0xFFFFFFFF) << 16) << 16);
+    result = fseek(file, offset, SEEK_SET);
+    return result ? VM_ERROR_GENERIC : 0;
 }
 
 static uint32_t vm_size(void) {
-    FILE* file = vm_file(vm_registers[0]);
+    uint32_t handle = vm_registers[0];
     uint32_t addr = vm_registers[1];
+    FILE* file;
     unsigned long usize;
     long pos, size;
     int ret;
 
+    if (vm_handle_is_directory(handle)) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
     /* We get the size by seeking to the end, then seeking back. We need to
      * store the current position so we can restore it afterwards. */
+
+    file = *vm_file(handle);
     pos = ftell(file);
     if (pos < 0) {
         return VM_ERROR_UNSUPPORTED;
@@ -534,37 +657,80 @@ static uint32_t vm_size(void) {
     return 0;
 }
 
-#ifdef VM_POSIX
+#if defined(VM_POSIX) || defined(_WIN32)
 static uint32_t vm_trunc(void) {
     /* On POSIX systems we call ftruncate(). */
+    uint32_t handle = vm_registers[0];
     uint32_t size_low = vm_registers[1];
     uint32_t size_high = vm_registers[2];
-    FILE* file = vm_file(vm_registers[0]);
-    int fd = fileno(file);
+    FILE* file;
+    int result;
+
+    if (vm_handle_is_directory(handle)) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    file = *vm_file(handle);
+    fflush(file);
+
+    #ifdef VM_POSIX
+    {
+        off_t upos = ((off_t)size_low & 0xFFFFFFFF) | ((((off_t)size_high & 0xFFFFFFFF) << 16) << 16);
+        result = ftruncate(fileno(file), upos);
+    }
+    #elif defined(_WIN32)
+    {
+        uint64_t upos = (uint64_t)size_low | (((uint64_t)size_high << 16) << 16);
+        result = _chsize_s(fileno(file), (int64_t)upos);
+    }
+    #endif
+
     /* Again we shift twice in case off_t is 32 bits. */
-    off_t upos = (off_t)size_low | (((off_t)size_high << 16) << 16);
-    int ret;
-    fflush(file);
-    ret = ftruncate(fd, upos);
-    return ret ? VM_ERROR_GENERIC : 0;
-}
-#elif
-static uint32_t vm_trunc(void) {
-    /* On Windows we have _chsize(). There is also _chsize_s() which is
-     * 64-bit but our fseek()/ftell() functions aren't currently using
-     * corresponding 64-bit functions so right now there's no point. */
-    uint32_t size_low = vm_registers[1];
-    uint32_t size_high = vm_registers[2];
-    FILE* file = vm_file(vm_registers[0]);
-    unsigned long upos = (unsigned long)size_low |
-            (((unsigned long)size_high << 16) << 16);
-    int ret;
-    fflush(file);
-    ret = _chsize(fileno(file), upos);
-    return ret ? VM_ERROR_GENERIC : 0;
+    return result ? VM_ERROR_GENERIC : 0;
 }
 #else
 #define vm_trunc NULL
+#endif
+
+#ifdef VM_POSIX
+static uint32_t vm_dirent(void) {
+    uint32_t handle = vm_registers[0];
+    uint32_t buffer = vm_registers[1];
+    struct dirent* dirent;
+
+    if (!vm_handle_is_directory(handle)) {
+        return VM_ERROR_UNSUPPORTED;
+    }
+
+    errno = 0;
+    dirent = readdir(*vm_directory(handle));
+    if (dirent) {
+        size_t len = strlen(dirent->d_name);
+        if (len > 255) {
+            return VM_ERROR_OVERFLOW;
+        }
+        memcpy(vm_memory + buffer, dirent->d_name, len + 1);
+        return 0;
+    }
+
+    switch (errno) {
+        case 0:
+            return VM_ERROR_END_OF_FILE;
+        case EBADF:
+            /* This shouldn't be possible; we've checked above that we have an
+             * open directory. */
+            vm_panic("readdir() returned EBADF");
+        default:
+            break;
+    }
+    return VM_ERROR_GENERIC;
+
+}
+#elif defined(_WIN32)
+// TODO need to implement with FindFirstFile() or whatever
+#define vm_dirent NULL
+#else
+#define vm_dirent NULL
 #endif
 
 /* The remove() function is standard C. It can delete directories as long as
@@ -610,7 +776,7 @@ static syscall_fn_t* vm_syscall_table[VM_SYSCALL_COUNT] = {
     vm_trunc, /* may be NULL */
     NULL, /* (unused) */
     NULL, /* (unused) */
-    NULL, /* dirent */
+    vm_dirent, /* may be NULL */
     NULL, /* stat */
     NULL, /* rename */
     NULL, /* (unused) */

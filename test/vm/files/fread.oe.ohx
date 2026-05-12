@@ -168,7 +168,7 @@
     7E 00 FA FF   ; jz 0 &open_file_path_loop  ; jmp &open_file_path_loop (-6)
 ;:open_file_path_done
 
-    ; args for fopen
+    ; args for open
     ; filename is in r0
     70 81 00 00   ; add r1 0 0        ; zero r1   ; not writeable
 
