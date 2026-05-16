@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -217,11 +217,12 @@
 ; ==========================================================
 
 =memset
+:__memset_loop
     ; don't bother to set up a stack frame
     7E 82 &__memset_done    ; jz r2 &__memset_done
     71 82 82 01             ; sub r2 r2 1           ; dec r2
     7B 81 80 82             ; stb r1 r0 r2
-    7E 00 &memset           ; jz 0 &memset          ; jmp &memset
+    7E 00 &__memset_loop    ; jz 0 &__memset_loop   ; jmp &__memset_loop
 :__memset_done
     ; dest is already in r0
     78 8F 00 8C             ; ldw rip 0 rsp        ; ret

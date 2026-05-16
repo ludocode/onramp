@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 =__start
@@ -7,9 +7,10 @@
 ^bar
 
 =foo
+:foo_start
 05 06 07 08
 >bar
-&__start
+&foo_start
 
 =bar
 09 0a 0b 0c

@@ -33,9 +33,6 @@
 static void start_file(const char* new_filename) {
     ++file_index;
     set_current_filename(new_filename);
-    if (pass != 0) {
-        labels_clear();
-    }
 }
 
 static void save_file_state(void) {
@@ -290,14 +287,17 @@ static bool try_parse_invoke(void) {
 
     // find the label or symbol address
     int address;
-    label_t* label = labels_find(buffer, buffer_length);
-    if (label) {
-        address = label->symbol->address + label->address;
-        //printf("invocation %c is label: sym %i + label %i == %i\n", type, (int)label->symbol->address, (int)label->address, address);
+    if (type == '&') {
+        label_t* label = symbol_find_label(current_symbol, buffer, buffer_length);
+        if (!label) {
+            fatal("Label not found: %s", buffer);
+        }
+        address = current_symbol->address + label->offset;
+        //printf("invocation %c is label: sym %i + label %i == %i\n", type, (int)current_symbol->address, (int)label->offset, address);
     } else {
         symbol_t* symbol = symbols_find(buffer, buffer_length, file_index);
         if (!symbol) {
-            fatal("Definition not found: %s", buffer);
+            fatal("Symbol not found: %s", buffer);
         }
         address = symbol->address;
         //printf("invocation %c is symbol: %i\n", type, address);
@@ -306,23 +306,19 @@ static bool try_parse_invoke(void) {
     // emit the address
     if (type == '^') {
         emit_int(address);
-    }
-    if (type == '<') {
+    } else if (type == '<') {
         emit_short(address >> 16);
-    }
-    if (type == '>') {
+    } else if (type == '>') {
         emit_short(address);
-    }
-    if (type == '&') {
+    } else if (type == '&') {
         int offset = address - (current_address + current_symbol->address);
-        if ((offset < -0x8000) | (offset > 0xFFFF)) {
+        if (offset < -0x8000 || offset > 0xFFFF) {
             fatal("Relative invocation out of bounds.");
         }
         if (offset & 0x3) {
             fatal("Relative invocation is misaligned.");
         }
-        offset >>= 2;
-        emit_short(offset);
+        emit_short((unsigned)offset >> 2);
     }
     return true;
 }
@@ -361,8 +357,8 @@ static bool try_parse_symbol(void) {
     bool zero = false;
     bool constructor = false;
     bool destructor = false;
-    int constructor_priority;
-    int destructor_priority;
+    int constructor_priority = -1;
+    int destructor_priority = -1;
 
     // parse flags
     for (;;) {
@@ -457,7 +453,7 @@ static bool try_parse_label(void) {
     }
 
     // check that this label isn't already defined
-    if (labels_find(buffer, buffer_length) != 0) {
+    if (symbol_find_label(current_symbol, buffer, buffer_length) != 0) {
         fatal("Duplicate label definition");
     }
     if (symbols_find(buffer, buffer_length, file_index) != 0) {
@@ -465,9 +461,8 @@ static bool try_parse_label(void) {
     }
 
     // define the label
-    label_t* label = labels_define(buffer, buffer_length);
-    label->symbol = current_symbol;
-    label->address = current_address;
+    label_t* label = symbol_define_label(current_symbol, buffer, buffer_length);
+    label->offset = current_address;
     return true;
 }
 

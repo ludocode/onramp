@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,10 +36,9 @@ struct symbol_t;
  */
 
 typedef struct label_t {
-    struct symbol_t* symbol;
-    struct label_t* next;
+    table_entry_t entry;
     string_t* name;
-    size_t address; // relative to start of symbol
+    size_t offset; // relative to start of symbol
 } label_t;
 
 /**
@@ -54,23 +53,5 @@ label_t* label_new(string_t* name);
  * Deletes the given label.
  */
 void label_delete(label_t* label);
-
-
-
-/*
- * Label hashtable
- */
-
-void labels_init(void);
-
-void labels_destroy(void);
-
-void labels_clear(void);
-
-label_t* labels_define(const char* bytes, size_t length);
-
-label_t* labels_find(const char* bytes, size_t length);
-
-void labels_insert(label_t* label);
 
 #endif

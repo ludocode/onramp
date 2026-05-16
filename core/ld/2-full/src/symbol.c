@@ -26,6 +26,7 @@
 
 #include "common.h"
 #include "emit.h"
+#include "label.h"
 
 
 
@@ -45,6 +46,21 @@ symbol_t* symbol_new(string_t* name) {
 
 void symbol_delete(symbol_t* symbol) {
     //printf("delete symbol %s\n",symbol->name->bytes);
+
+    // Free labels
+    if (symbol->labels) {
+        for (table_entry_t** bucket = table_first_bucket(symbol->labels);
+                bucket; bucket = table_next_bucket(symbol->labels, bucket))
+        {
+            for (table_entry_t* entry = *bucket; entry;) {
+                table_entry_t* next = table_entry_next(entry);
+                label_delete((label_t*)entry);
+                entry = next;
+            }
+        }
+        table_delete(symbol->labels);
+    }
+
     vector_destroy(&symbol->uses);
     string_deref(symbol->name);
     free(symbol);
@@ -67,6 +83,28 @@ static void symbol_walk(symbol_t* symbol) {
     }
     symbol->is_used = true;
     symbol_walk_vector(&symbol->uses);
+}
+
+label_t* symbol_define_label(symbol_t* symbol, const char* bytes, size_t length) {
+    if (symbol->labels == NULL) {
+        symbol->labels = table_new();
+    }
+    label_t* label = label_new(string_intern_bytes(bytes, length));
+    table_put(symbol->labels, &label->entry, string_hash(label->name));
+    return label;
+}
+
+label_t* symbol_find_label(symbol_t* symbol, const char* bytes, size_t length) {
+    if (symbol->labels != NULL) {
+        table_entry_t* entry = table_bucket(symbol->labels, fnv1a_bytes(bytes, length));
+        for (; entry; entry = table_entry_next(entry)) {
+            label_t* label = (label_t*)entry;
+            if (string_equal_bytes(label->name, bytes, length)) {
+                return label;
+            }
+        }
+    }
+    return NULL;
 }
 
 

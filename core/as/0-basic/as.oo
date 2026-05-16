@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -944,13 +944,28 @@
 
     ; check if it's the start of a comment
     71 8A 80 3B    ; sub ra r0 ";"
-    7E 8A &try_parse_comment_loop
+    7E 8A &try_parse_comment_found
 
     ; not a comment, return false
     70 80 00 00         ; add r0 0 0
     78 8F 00 8C         ; ldw rip 0 rsp        ; ret
 
-:try_parse_comment_loop
+:try_parse_comment_found
+    ; tail-call parse_comment_impl()
+    7C 8A <parse_comment_impl    ; ims ra <parse_comment_impl
+    7C 8A >parse_comment_impl    ; ims ra >parse_comment_impl
+    70 8F 8E 8A                  ; add rip rpp ra
+
+
+
+; ==========================================================
+; void parse_comment_impl(void);
+; ==========================================================
+; Consumes a comment, when the first character is known to be a comment.
+; ==========================================================
+
+=parse_comment_impl
+:parse_comment_impl_loop
 
     ; consume the current char, call read_char()
     7C 8A <read_char   ; ims ra <read_char
@@ -968,16 +983,16 @@
 
     ; check if it's the end of a line or the end of the file
     71 8A 80 0A                    ; sub ra r0 "\n"  (line feed)
-    7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
+    7E 8A &parse_comment_impl_done  ; jz ra &parse_comment_impl_done
     71 8A 80 0D                    ; sub ra r0 "\r"  (carriage return)
-    7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
+    7E 8A &parse_comment_impl_done  ; jz ra &parse_comment_impl_done
     71 8A 80 FF                    ; sub ra r0 -1  (end-of-file)
-    7E 8A &try_parse_comment_done  ; jz ra &try_parse_comment_done
+    7E 8A &parse_comment_impl_done  ; jz ra &parse_comment_impl_done
 
     ; keep looping
-    7E 00 &try_parse_comment_loop  ; jz 0 &try_parse_comment_loop
+    7E 00 &parse_comment_impl_loop  ; jz 0 &parse_comment_impl_loop
 
-:try_parse_comment_done
+:parse_comment_impl_done
 
     ;return true
     70 80 00 01         ; add r0 0 1
@@ -1007,8 +1022,8 @@
 :try_parse_debug_found
 
     ; TODO for now we treat it as a comment
-    7C 8A <try_parse_comment_loop
-    7C 8A >try_parse_comment_loop
+    7C 8A <parse_comment_impl
+    7C 8A >parse_comment_impl
     70 8F 8E 8A                    ; add rip rpp ra
 
 

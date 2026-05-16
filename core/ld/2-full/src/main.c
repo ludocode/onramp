@@ -36,7 +36,6 @@
 
 #include "common.h"
 #include "symbol.h"
-#include "label.h"
 #include "parse.h"
 #include "emit.h"
 
@@ -171,7 +170,6 @@ int main(int argc, const char** argv) {
     string_setup();
     emit_init();
     symbols_init();
-    labels_init();
 
     buffer = malloc(BUFFER_SIZE);
 
@@ -206,7 +204,6 @@ int main(int argc, const char** argv) {
     set_current_filename(NULL);
     free(buffer);
 
-    labels_destroy();
     symbols_destroy();
     emit_destroy();
     string_teardown();

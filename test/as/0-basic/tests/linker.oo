@@ -5,13 +5,12 @@
 =foo 
 00:bar 
 10@baz 
-<a >b ^c 
-abcd&d 
+<a >b :x ^c 
+abcd&x 
 
 =a 
 =b 
 =c 
-=d 
 
 =main 
 70800000

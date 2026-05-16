@@ -29,6 +29,8 @@
 #include "libo-vector.h"
 #include "libo-table.h"
 
+struct label_t;
+
 
 
 /*
@@ -44,6 +46,7 @@ typedef struct symbol_t {
     size_t size; // The size of the symbol in bytes
     bool is_used; // Whether this symbol is use (transitively from a root)
     vector_t uses; // Symbols this symbol references
+    table_t* labels; // All labels defined in this symbol, or NULL if none
 
     // The index of the file in which this static symbol is defined, or -1 if
     // it's global
@@ -75,6 +78,19 @@ void symbol_delete(symbol_t* symbol);
  * Adds a reference to a symbol that is use by this symbol.
  */
 void symbol_add_use(symbol_t* symbol, symbol_t* other);
+
+/**
+ * Defines a label with the given name within the symbol.
+ *
+ * The label's offset is not assigned here; it is done in the parser. This also
+ * doesn't check for duplicates; the parser does.
+ */
+struct label_t* symbol_define_label(symbol_t* symbol, const char* bytes, size_t length);
+
+/**
+ * Gets the label with the given name.
+ */
+struct label_t* symbol_find_label(symbol_t* symbol, const char* bytes, size_t length);
 
 
 
