@@ -26,6 +26,7 @@
 #define SYMBOL_H_INCLUDED
 
 #include "common.h"
+#include "libo-vector.h"
 
 
 
@@ -41,15 +42,11 @@ typedef struct symbol_t {
     size_t address; // The address assigned to this symbol in the output
     size_t size; // The size of the symbol in bytes
     bool is_used; // Whether this symbol is use (transitively from a root)
+    vector_t uses; // Symbols this symbol references
 
     // The index of the file in which this static symbol is defined, or -1 if
     // it's global
     int file_index;
-
-    // A growable array of symbols this symbol references
-    struct symbol_t** use;
-    size_t use_capacity;
-    size_t use_count;
 
     // Flags
     bool constructor : 1;

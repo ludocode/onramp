@@ -37,32 +37,19 @@ symbol_t* symbol_new(string_t* name) {
     //printf("new symbol %s\n",name->bytes);
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->name = name;
+    vector_init(&symbol->uses);
     return symbol;
 }
 
 void symbol_delete(symbol_t* symbol) {
     //printf("delete symbol %s\n",symbol->name->bytes);
+    vector_destroy(&symbol->uses);
     string_deref(symbol->name);
-    free(symbol->use);
     free(symbol);
 }
 
 void symbol_add_use(symbol_t* symbol, symbol_t* other) {
-
-    // grow if needed
-    if (symbol->use_count == symbol->use_capacity) {
-        size_t new_capacity = symbol->use_capacity * 2;
-        if (new_capacity < 2)
-            new_capacity = 2;
-        if (new_capacity <= symbol->use_capacity)
-            fatal("Out of memory.");
-        symbol->use = realloc(symbol->use, new_capacity);
-        if (symbol->use == NULL)
-            fatal("Out of memory.");
-        symbol->use_capacity = new_capacity;
-    }
-
-    symbol->use[symbol->use_count++] = other;
+    vector_append(&symbol->uses, other);
 }
 
 static void symbol_walk(symbol_t* symbol) {
@@ -70,8 +57,8 @@ static void symbol_walk(symbol_t* symbol) {
         return;
     }
     symbol->is_used = true;
-    for (size_t i = 0; i < symbol->use_count; ++i) {
-        symbol_walk(symbol->use[i]);
+    for (size_t i = vector_count(&symbol->uses); i-- > 0;) {
+        symbol_walk(vector_at(&symbol->uses, i));
     }
 }
 
