@@ -342,7 +342,7 @@ size_t strnlen_s(const char* s, size_t maxlen) {
 }
 
 char* strnstr(const char* haystack, const char* needle, size_t n) {
-    return (char*)memmem(haystack, MAX(n, strlen(haystack)), needle, strlen(needle));
+    return (char*)memmem(haystack, strnlen(haystack, n), needle, strlen(needle));
 }
 
 char* strpbrk(const char* s, const char* accept) {
