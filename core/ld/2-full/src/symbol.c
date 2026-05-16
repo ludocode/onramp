@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -85,41 +85,41 @@ static vector_t destructors;
  */
 
 // The hashtable that contains all symbols, global and static.
-static symbol_t** symbols;
-#define SYMBOLS_SIZE 1024
-#define SYMBOLS_MASK 1023
+table_t symbols;
 
 // The linked list of all symbols in the order they are encountered.
 static symbol_t* all_symbols;
 static symbol_t* all_symbols_end;
 
 void symbols_init(void) {
-    symbols = calloc(SYMBOLS_SIZE, sizeof(symbol_t*));
+    table_init(&symbols);
     vector_init(&constructors);
     vector_init(&destructors);
+
+    // growing the table is expensive so reserve a pretty big size right away.
+    table_reserve_bits(&symbols, 14); // 16k buckets, 64 kB
 }
 
 void symbols_destroy(void) {
     vector_destroy(&destructors);
     vector_destroy(&constructors);
+    table_destroy(&symbols);
 
     symbol_t* symbol = all_symbols;
     while (symbol) {
-        symbol_t* next = symbol->next_all;
+        symbol_t* next = symbol->next;
         symbol_delete(symbol);
         symbol = next;
     }
-
-    free(symbols);
 }
 
 symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
     uint32_t hash = fnv1a_bytes(bytes, length);
-    //printf("%s %i %x\n", bytes, (int)(hash & SYMBOLS_MASK), (int)hash);
     symbol_t* global = NULL;
 
-    symbol_t* symbol = symbols[hash & SYMBOLS_MASK];
-    while (symbol) {
+    table_entry_t* entry = table_bucket(&symbols, hash);
+    for (; entry; entry = table_entry_next(entry)) {
+        symbol_t* symbol = (symbol_t*)entry;
         if (string_equal_bytes(symbol->name, bytes, length)) {
             // Prefer a matching static symbol to a global symbol.
             if (symbol->file_index == file_index)
@@ -129,28 +129,23 @@ symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
                 global = symbol;
             }
         }
-        symbol = symbol->next_bucket;
     }
     // If no static symbol was found, return the global if any.
     return global;
 }
 
 symbol_t* symbols_define(const char* bytes, size_t length, int file_index) {
-    string_t* name = string_intern_bytes(bytes, length);
-    uint32_t hash = fnv1a_bytes(bytes, length);
 
-    // walk through symbols looking for a match
-    symbol_t* symbol = symbols[hash & SYMBOLS_MASK];
-    while (symbol) {
-        if (string_equal(symbol->name, name) && symbol->file_index == file_index) {
-            fatal("Duplicate %s symbol: %s", file_index == -1 ? "global" : "static",
-                    symbol->name->bytes);
-        }
-        symbol = symbol->next_bucket;
+    // Check for duplicates
+    symbol_t* symbol = symbols_find(bytes, length, file_index);
+    if (symbol && symbol->file_index == file_index) {
+        fatal("Duplicate %s symbol: %s",
+                file_index == -1 ? "global" : "static",
+                symbol->name->bytes);
     }
 
-    // create the symbol
-    symbol = symbol_new(name);
+    // Create the symbol
+    symbol = symbol_new(string_intern_bytes(bytes, length));
     symbol->file_index = file_index;
     if (!optimize) {
         symbol->is_used = true;
@@ -159,8 +154,7 @@ symbol_t* symbols_define(const char* bytes, size_t length, int file_index) {
 }
 
 void symbols_insert(symbol_t* symbol) {
-    assert(symbol->next_all == NULL);
-    assert(symbol->next_bucket == NULL);
+    assert(symbol->next == NULL);
 
     // Insert the symbol into the global symbol list
     if (all_symbols == NULL) {
@@ -170,15 +164,12 @@ void symbols_insert(symbol_t* symbol) {
         }
         all_symbols = symbol;
     } else {
-        all_symbols_end->next_all = symbol;
+        all_symbols_end->next = symbol;
     }
     all_symbols_end = symbol;
 
     // Insert the symbol into the hashtable
-    size_t index = string_hash(symbol->name) & SYMBOLS_MASK;
-    //printf("%s %i %x\n", symbol->name->bytes, (int)index, symbol->name->hash);
-    symbol->next_bucket = symbols[index];
-    symbols[index] = symbol;
+    table_put(&symbols, &symbol->entry, string_hash(symbol->name));
 
     // Append it to the relevant lists
     if (symbol->constructor) {
@@ -210,7 +201,7 @@ void symbols_assign_addresses(void) {
             address += symbol->size;
             address = (address + 3) & (~3); // align to a word boundary
         }
-        symbol = symbol->next_all;
+        symbol = symbol->next;
     }
 }
 

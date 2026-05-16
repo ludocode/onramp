@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,6 +27,7 @@
 
 #include "common.h"
 #include "libo-vector.h"
+#include "libo-table.h"
 
 
 
@@ -35,8 +36,8 @@
  */
 
 typedef struct symbol_t {
-    struct symbol_t* next_all;     // The next symbol in the list of all symbols
-    struct symbol_t* next_bucket;  // The next symbol in this hashtable bucket
+    table_entry_t entry; // Entry in the symbol hashtable
+    struct symbol_t* next; // The next symbol in the list of all symbols
 
     string_t* name;
     size_t address; // The address assigned to this symbol in the output
