@@ -80,19 +80,22 @@ The Onramp assembly language uses the same syntax for labels and symbols as Onra
 
 Here's a quick reference table:
 
-| Syntax | Meaning                                       |
-|--------|-----------------------------------------------|
-| `^`    | invocation: absolute, 32 bits                 |
-| `<`    | invocation: absolute, 16 high bits            |
-| `>`    | invocation: absolute, 16 low bits             |
-| `&`    | invocation: relative, 16-bit signed words     |
-| `:`    | definition: label                             |
-| `=`    | definition: global symbol                     |
-| `@`    | definition: static symbol                     |
-| `+`    | flag: zero symbol                             |
-| `?`    | flag: weak definition or invocation           |
-| `{`    | flag: constructor, optional priority 0-65535  |
-| `}`    | flag: destructor, optional priority 0-65535   |
+| Syntax | Meaning                                          |
+|--------|--------------------------------------------------|
+| `^`    | invocation: absolute symbol, 32 bits             |
+| `<`    | invocation: absolute symbol, 16 high bits        |
+| `>`    | invocation: absolute symbol, 16 low bits         |
+| `&`    | invocation: relative label, 16-bit signed words  |
+| `=`    | definition: global symbol                        |
+| `@`    | definition: static symbol                        |
+| `:`    | definition: label                                |
+| `?`    | flag: weak definition or invocation              |
+| `{`    | flag: constructor, optional priority 0-65535     |
+| `}`    | flag: destructor, optional priority 0-65535      |
+
+<!-- TODO probably will be removed, see zero symbol in object code
+| `+`    | flag: zero symbol                                |
+-->
 
 For full usage details, see the [Onramp object code spec](object-code.md).
 

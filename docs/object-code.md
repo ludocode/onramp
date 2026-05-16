@@ -23,22 +23,25 @@ The Onramp object file format is described here.
 
 ## Quick Reference
 
-| Syntax | Meaning                                       |
-|--------|-----------------------------------------------|
-| `;`    | line comment                                  |
-| `#`    | debug info                                    |
-| `%`    | static library member info                    |
-| `^`    | invocation: absolute, 32 bits                 |
-| `<`    | invocation: absolute, 16 high bits            |
-| `>`    | invocation: absolute, 16 low bits             |
-| `&`    | invocation: relative, 16-bit signed words     |
-| `:`    | definition: label                             |
-| `=`    | definition: global symbol                     |
-| `@`    | definition: static symbol                     |
-| `+`    | flag: zero symbol                             |
-| `?`    | flag: weak definition or invocation           |
-| `{`    | flag: constructor, optional priority 0-65535  |
-| `}`    | flag: destructor, optional priority 0-65535   |
+| Syntax | Meaning                                          |
+|--------|--------------------------------------------------|
+| `;`    | line comment                                     |
+| `#`    | debug info                                       |
+| `%`    | static library member info                       |
+| `^`    | invocation: absolute symbol, 32 bits             |
+| `<`    | invocation: absolute symbol, 16 high bits        |
+| `>`    | invocation: absolute symbol, 16 low bits         |
+| `&`    | invocation: relative label, 16-bit signed words  |
+| `=`    | definition: global symbol                        |
+| `@`    | definition: static symbol                        |
+| `:`    | definition: label                                |
+| `?`    | flag: weak definition or invocation              |
+| `{`    | flag: constructor, optional priority 0-65535     |
+| `}`    | flag: destructor, optional priority 0-65535      |
+
+<!-- TODO probably remove, see zero symbol definition below
+| `+`    | flag: zero symbol                                |
+-->
 
 
 
@@ -86,7 +89,9 @@ Identifiers starting with two underscores or an underscore and an uppercase lett
 
 In the first stage linker, labels have global scope, and symbols are treated the same as labels. You must make sure to use globally unique names for labels. (Typically this is done by prepending the name of the function that contains them.)
 
-In later stages of the linker, labels are local to object files, as in a conventional assembler. Labels can be re-used for different meanings in different object files.
+In the second stage linker, labels are local to object files, as in a conventional assembler. Labels can be re-used for different meanings in different object files. The first and second stage compiler generate labels that are unique within the translation unit.
+
+In the final stage linker, labels are local to symbols. Relative invocations can only be used for labels within the same symbol.
 
 
 
@@ -97,7 +102,7 @@ A symbol is a named group of bytes and labels in an object file.
 - `=` `<identifier>` defines a global symbol with the given name.
 - `@` `<identifier>` defines a static symbol with the given name.
 
-A global symbol is visible to all files being linked by the linker. At most one global symbol can be defined with the given name (unless the definition is weak; see below.)
+A global symbol is visible to all files being linked by the linker. At most one global symbol can be defined with the given name (unless the definition is weak; see below.) At most one global symbol with a given name exists in a linked executable.
 
 A static symbol is only visible within its object file. The same name can be re-used for unrelated static symbols or labels in different object files.
 
@@ -115,15 +120,15 @@ Symbols are padded as necessary so that each symbol starts on a four byte bounda
 
 Invocations are used to insert the address of a label or symbol into the program code.
 
-- `^` `<identifier>` invokes the full 32 bits of a label or symbol. It is replaced by the four bytes of the absolute address of the definition in little-endian order.
+- `^` `<identifier>` invokes the full 32 bits of a symbol. It is replaced by the four bytes of the absolute address of the definition in little-endian order.
 
-- `<` `<identifier>` invokes the high 16 bits of a label or symbol. It is replaced by the high two bytes of the absolute address of the definition in little-endian order.
+- `<` `<identifier>` invokes the high 16 bits of a symbol. It is replaced by the high two bytes of the absolute address of the definition in little-endian order.
 
-- `>` `<identifier>` invokes the low 16 bits of a label or symbol. It is replaced by the low two bytes of the absolute address of the definition in little-endian order.
+- `>` `<identifier>` invokes the low 16 bits of a symbol. It is replaced by the low two bytes of the absolute address of the definition in little-endian order.
 
-- `&` `<identifier>` invokes the 16-bit relative address of a label or symbol. It is replaced by the signed difference in words between the address after the invocation and the address of the definition in little-endian order.
+- `&` `<identifier>` invokes the 16-bit relative address of a label. It is replaced by the signed difference in words between the address after the invocation and the address of the definition in little-endian order.
 
-The high and low invocations are virtually always used together to load the complete address of a label into a register. For example:
+The high and low invocations are virtually always used together to load the complete address of a symbol into a register. For example:
 
 ```asm
 7C 8A <malloc   ; ims ra <malloc
@@ -137,7 +142,7 @@ This loads the address of `malloc()` into register `ra`. If the address of mallo
 7C 8A 78 56
 ```
 
-The 32-bit invocation is used to insert label and symbol addresses as constant data, not as part of an instruction. This is used to create arrays of string literals for example.
+The 32-bit invocation is used to insert symbol addresses as constant data, not as part of an instruction. This is used to create arrays of string literals for example.
 
 The relative invocation is used for relative jumps with the conditional jump instruction. For example:
 
@@ -145,7 +150,7 @@ The relative invocation is used for relative jumps with the conditional jump ins
 7E 80 &foo   ; jz r0 &foo   ; if r0 is zero, jump to foo
 ```
 
-The relative address of the label must fit within a 16-bit signed number. (The first stage linker may not diagnose this error but the later stage linkers do.)
+The relative address of the label must fit within a 16-bit signed number. (The first stage linker may not diagnose this error but the final linker and assembler do.)
 
 Note that the relative difference is *in words*, not in bytes. The address difference between the invocation and label it references must be a multiple of 4. This is always the case when the relative invocation is used correctly: it must appear at the end of an instruction and must reference a label between instructions.
 
@@ -153,20 +158,22 @@ Note that the relative difference is *in words*, not in bytes. The address diffe
 
 ### Weak Symbols
 
-A global symbol definition or an absolute invocation can be prefixed with `?` to make it weak.
+A global symbol definition or an absolute symbol invocation can be prefixed with `?` to make it weak.
 
 - `=` `?` `<identifier>` defines a weak global symbol with the given name.
-- `^` `?` `<identifier>` invokes the full 32 bits of a definition, or four zero bytes if the definition does not exist.
-- `<` `?` `<identifier>` invokes the high 16 bits of a definition, or two zero bytes if the definition does not exist.
-- `>` `?` `<identifier>` invokes the low 16 bits of a definition, or two zero bytes if the definition does not exist.
+- `^` `?` `<identifier>` invokes the full 32 bits of a symbol, or four zero bytes if the symbol does not exist.
+- `<` `?` `<identifier>` invokes the high 16 bits of a symbol, or two zero bytes if the symbol does not exist.
+- `>` `?` `<identifier>` invokes the low 16 bits of a symbol, or two zero bytes if the symbol does not exist.
 
 A global symbol definition that is not weak is called strong. If a strong definition of a symbol exists, the weak definitions are stripped. Otherwise, if multiple weak definitions exist, only the first is kept and the others are stripped.
 
-A weak invocation can be used whether or not the label or symbol exists. If the symbol exists, the invocation functions normally. If the symbol does not exist, the invocation is replaced with zero.
+A weak invocation can be used whether or not the symbol exists. If the symbol exists, the invocation functions normally. If the symbol does not exist, the invocation is replaced with zero.
 
 Static symbol definitions, label definitions, and relative invocations cannot be weak.
 
 
+
+<!-- TODO this definition of zero symbols will most likely be removed; the compiler will use indirections for large symbols, and large symbol definitions without initializers will be allocated by the libc on startup, probably using constructor functions.
 
 ### Zero Symbols
 
@@ -186,6 +193,8 @@ This symbol contains a single little-endian word which is the size of the area t
 This is analogous to the [bss section](https://en.wikipedia.org/wiki/.bss) of an object file or executable on UNIX and Windows systems.
 
 The weak and zero flags can both be provided on a global symbol definition in either order. (In such a case, it is strongly recommended that all instances of a weak zero symbol have the same size.)
+
+-->
 
 
 
