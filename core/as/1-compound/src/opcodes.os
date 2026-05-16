@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -123,62 +123,62 @@
     '00 '00 '00 '00
 
 ; arithmetic
-:opcode_str_add "add" '00
-:opcode_str_sub "sub" '00
-:opcode_str_mul "mul" '00
-:opcode_str_divu "divu" '00
-:opcode_str_divs "divs" '00
-:opcode_str_modu "modu" '00
-:opcode_str_mods "mods" '00
-:opcode_str_zero "zero" '00
-:opcode_str_inc "inc" '00
-:opcode_str_dec "dec" '00
-:opcode_str_sxs "sxs" '00
-:opcode_str_sxb "sxb" '00
-:opcode_str_trs "trs" '00
-:opcode_str_trb "trb" '00
+=opcode_str_add "add" '00
+=opcode_str_sub "sub" '00
+=opcode_str_mul "mul" '00
+=opcode_str_divu "divu" '00
+=opcode_str_divs "divs" '00
+=opcode_str_modu "modu" '00
+=opcode_str_mods "mods" '00
+=opcode_str_zero "zero" '00
+=opcode_str_inc "inc" '00
+=opcode_str_dec "dec" '00
+=opcode_str_sxs "sxs" '00
+=opcode_str_sxb "sxb" '00
+=opcode_str_trs "trs" '00
+=opcode_str_trb "trb" '00
 
 ; logic
-:opcode_str_and "and" '00
-:opcode_str_or "or" '00
-:opcode_str_xor "xor" '00
+=opcode_str_and "and" '00
+=opcode_str_or "or" '00
+=opcode_str_xor "xor" '00
 ;:opcode_str_ror "ror" '00
-:opcode_str_mov "mov" '00
-:opcode_str_not "not" '00
+=opcode_str_mov "mov" '00
+=opcode_str_not "not" '00
 ;:opcode_str_rol "rol" '00    ; TODO remove
-:opcode_str_shrs "shrs" '00
-:opcode_str_shru "shru" '00
-:opcode_str_shl "shl" '00
-:opcode_str_bool "bool" '00
-:opcode_str_isz "isz" '00
+=opcode_str_shrs "shrs" '00
+=opcode_str_shru "shru" '00
+=opcode_str_shl "shl" '00
+=opcode_str_bool "bool" '00
+=opcode_str_isz "isz" '00
 
 ; memory
-:opcode_str_ldw "ldw" '00
-:opcode_str_lds "lds" '00
-:opcode_str_ldb "ldb" '00
-:opcode_str_stw "stw" '00
-:opcode_str_sts "sts" '00
-:opcode_str_stb "stb" '00
-:opcode_str_push "push" '00
-:opcode_str_pop "pop" '00
-:opcode_str_pushn "pushn" '00
-:opcode_str_popn "popn" '00
-:opcode_str_popd "popd" '00
+=opcode_str_ldw "ldw" '00
+=opcode_str_lds "lds" '00
+=opcode_str_ldb "ldb" '00
+=opcode_str_stw "stw" '00
+=opcode_str_sts "sts" '00
+=opcode_str_stb "stb" '00
+=opcode_str_push "push" '00
+=opcode_str_pop "pop" '00
+=opcode_str_pushn "pushn" '00
+=opcode_str_popn "popn" '00
+=opcode_str_popd "popd" '00
 
 ; control
-:opcode_str_ims "ims" '00
-:opcode_str_jz "jz" '00
-:opcode_str_imw "imw" '00
-:opcode_str_cmpu "cmpu" '00
-:opcode_str_cmps "cmps" '00
-:opcode_str_ltu "ltu" '00
-:opcode_str_lts "lts" '00
-:opcode_str_jnz "jnz" '00
-:opcode_str_jmp "jmp" '00
-:opcode_str_enter "enter" '00
-:opcode_str_leave "leave" '00
-:opcode_str_call "call" '00
-:opcode_str_ret "ret" '00
+=opcode_str_ims "ims" '00
+=opcode_str_jz "jz" '00
+=opcode_str_imw "imw" '00
+=opcode_str_cmpu "cmpu" '00
+=opcode_str_cmps "cmps" '00
+=opcode_str_ltu "ltu" '00
+=opcode_str_lts "lts" '00
+=opcode_str_jnz "jnz" '00
+=opcode_str_jmp "jmp" '00
+=opcode_str_enter "enter" '00
+=opcode_str_leave "leave" '00
+=opcode_str_call "call" '00
+=opcode_str_ret "ret" '00
 
 
 

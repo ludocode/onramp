@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -294,7 +294,7 @@
 ;===========================================================
 
 =consume_whitespace_and_comments
-    ; no stack frame
+:consume_whitespace_and_comments_loop
 
     ; call try_parse_whitespace()
     ims ra <try_parse_whitespace
@@ -307,7 +307,7 @@
 
     ; if it returned true, start over
     jz r0 &consume_whitespace_and_comments_not_whitespace
-    jz '00 &consume_whitespace_and_comments
+    jz '00 &consume_whitespace_and_comments_loop
 
 :consume_whitespace_and_comments_not_whitespace
 
@@ -322,7 +322,7 @@
 
     ; if it returned true, start over
     jz r0 &consume_whitespace_and_comments_not_comment
-    jz '00 &consume_whitespace_and_comments
+    jz '00 &consume_whitespace_and_comments_loop
 
 :consume_whitespace_and_comments_not_comment
 
@@ -337,7 +337,7 @@
 
     ; if it returned true, start over
     jz r0 &consume_whitespace_and_comments_not_debug
-    jz '00 &consume_whitespace_and_comments
+    jz '00 &consume_whitespace_and_comments_loop
 
 :consume_whitespace_and_comments_not_debug
 

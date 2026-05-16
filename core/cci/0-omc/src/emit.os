@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024-2025 Fraser Heavy Software
+; Copyright (c) 2024-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -294,7 +294,7 @@
     ; write the last char (unconditionally)
     pop r0
     and r0 r0 0xF
-    jmp &emit_hex_char
+    jmp ^emit_hex_char
 
 
 

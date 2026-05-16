@@ -7,7 +7,7 @@
 
 7C8A<foo 
 7C8A>foo 
-7C8A&foo 
+^foo 
 
 
 7C80D204

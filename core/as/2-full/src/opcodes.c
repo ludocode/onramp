@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -28,7 +28,7 @@
 #include <string.h>
 
 #include "parse.h"
-#include "emit.h"
+#include "symbol.h"
 
 #include "libo-util.h"
 
@@ -62,13 +62,24 @@
  * Helpers
  */
 
-// Parses and emits the offset (destination) of a jz instruction.
-static void parse_and_emit_jump_offset(void) {
+// Parses the offset (destination) of a jmp, jz or jnz instruction and adds it
+// to the symbol.
+static void opcode_jump_offset(void) {
     if (try_parse_invocation_relative()) {
-        emit_label(identifier, label_type_invocation_relative, label_flags, -1, -1);
+        symbol_add_label(identifier, label_type_invocation_relative, label_flags);
         return;
     }
     fatal("Expected relative label as jump destination.");
+}
+
+// Adds an imw with an absolute label into the given register.
+void opcode_imw_absolute(uint8_t reg) {
+    symbol_add_hex_byte(IMS);
+    symbol_add_hex_byte(reg);
+    symbol_add_label(identifier, label_type_invocation_high, label_flags);
+    symbol_add_hex_byte(IMS);
+    symbol_add_hex_byte(reg);
+    symbol_add_label(identifier, label_type_invocation_low, label_flags);
 }
 
 static void opcode_reg_mix_mix(uint8_t opcode) {
@@ -76,7 +87,7 @@ static void opcode_reg_mix_mix(uint8_t opcode) {
     uint8_t src1 = parse_mix();
     uint8_t src2 = parse_mix();
     uint8_t bytes[] = {opcode, dest, src1, src2};
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_mix_mix_mix(uint8_t opcode) {
@@ -84,7 +95,7 @@ static void opcode_mix_mix_mix(uint8_t opcode) {
     uint8_t src1 = parse_mix();
     uint8_t src2 = parse_mix();
     uint8_t bytes[] = {opcode, dest, src1, src2};
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -157,7 +168,7 @@ static void opcode_divs(void) {
             JZ, 0, 1, 0,
             ADD, dest, 0, RA,
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
 
     } else {
         uint8_t bytes[] = {
@@ -201,7 +212,7 @@ static void opcode_divs(void) {
             SUB, dest, 0, dest,
 
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
     }
 }
 
@@ -216,7 +227,7 @@ static void opcode_modu(void) {
         MUL, RB, RA, src2,
         SUB, dest, src1, RB,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_mods(void) {
@@ -266,7 +277,7 @@ static void opcode_mods(void) {
         SUB, dest, 0, dest,
 
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_zero(void) {
@@ -274,7 +285,7 @@ static void opcode_zero(void) {
     uint8_t bytes[] = {
         ADD, dest, 0x00, 0x00,  // add dest 0 0
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_inc(void) {
@@ -282,7 +293,7 @@ static void opcode_inc(void) {
     uint8_t bytes[] = {
         ADD, dest, dest, 0x01,  // add dest dest 1
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_dec(void) {
@@ -290,7 +301,7 @@ static void opcode_dec(void) {
     uint8_t bytes[] = {
         SUB, dest, dest, 0x01,  // sub dest dest 1
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 // TODO document that this can't be used on ra, rb, rsp, rip
@@ -304,7 +315,7 @@ static void opcode_sxs(void) {
         AND, dest, dest, RB,  // dest &= 0xFFFF
         SUB, dest, RA, dest,  // dest = 0x7FFF - dest
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 // TODO document that this can't be used on ra, rb, rsp, rip
@@ -318,7 +329,7 @@ static void opcode_sxb(void) {
         AND, dest, dest, RB,  // dest &= 0xFF
         SUB, dest, RA, dest,  // dest = 0x7F - dest
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_trs(void) {
@@ -328,7 +339,7 @@ static void opcode_trs(void) {
         SHRU, RA, 0xFF, 16,   // ra = 0xFFFF
         AND, dest, src, RA,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_trb(void) {
@@ -338,7 +349,7 @@ static void opcode_trb(void) {
         SHRU, RA, 0xFF, 24,   // ra = 0xFF
         AND, dest, src, RA,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -364,7 +375,7 @@ static void opcode_xor(void) {
         AND, RB, arg1, arg2,   // and rb arg2 arg2
         SUB, dest, RA, RB,     // sub dest ra rb
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 /*
@@ -379,7 +390,7 @@ static void opcode_mov(void) {
     uint8_t bytes[] = {
         ADD, dest, 0x00, src,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_not(void) {
@@ -388,7 +399,7 @@ static void opcode_not(void) {
     uint8_t bytes[] = {
         SUB, dest, 0xFF, src,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 /*
@@ -403,7 +414,7 @@ static void opcode_rol(void) {
         SUB, RA, 32, bits,
         ROR, dest, src, RA,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 */
 
@@ -431,7 +442,7 @@ static void opcode_shrs(void) {
         // non-negative. do unsigned shift
         SHRU, dest, src, bits,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_shru(void) {
@@ -446,14 +457,14 @@ static void opcode_bool(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {LTU, dest, 0, src};
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_isz(void) {
     uint8_t dest = parse_register();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {LTU, dest, src, 1};
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -494,7 +505,7 @@ static void opcode_lds(void) {
             SHL, RB, RB, 8,
             OR, dest, RA, RB,
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
 
     } else {
         uint8_t bytes[] = {
@@ -504,7 +515,7 @@ static void opcode_lds(void) {
             SHL, RB, RB, 8,
             OR, dest, RA, RB,
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
     }
 }
 
@@ -523,7 +534,7 @@ static void opcode_sts(void) {
             SHRU, RA, value, 8,
             STB, RA, addr, 1,
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
     } else {
         uint8_t bytes[] = {
             ADD, RB, base, offset,
@@ -531,7 +542,7 @@ static void opcode_sts(void) {
             SHRU, RA, value, 8,
             STB, RA, RB, 1,
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
     }
 }
 
@@ -541,7 +552,7 @@ static void opcode_push(void) {
         SUB, RSP, RSP, 0x04,
         STW, value, RSP, 0x00,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_pop(void) {
@@ -550,14 +561,14 @@ static void opcode_pop(void) {
         LDW, reg, RSP, 0x00,
         ADD, RSP, RSP, 0x04,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_popd(void) {
     uint8_t bytes[] = {
         ADD, RSP, RSP, 0x04,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 
@@ -569,16 +580,16 @@ static void opcode_popd(void) {
 static void opcode_ims(void) {
     uint8_t reg = parse_register();
 
-    emit_hex_byte(IMS);
-    emit_hex_byte(reg);
+    symbol_add_hex_byte(IMS);
+    symbol_add_hex_byte(reg);
 
     if (try_parse_invocation_short()) {
-        emit_label(identifier, label_type, label_flags, -1, -1);
+        symbol_add_label(identifier, label_type, label_flags);
         return;
     }
 
     // number or two quoted bytes
-    if (try_parse_and_emit_short()) {
+    if (try_parse_and_add_short()) {
         return;
     }
 
@@ -586,8 +597,8 @@ static void opcode_ims(void) {
     if (try_parse_character_or_quoted_byte(&a) &&
             try_parse_character_or_quoted_byte(&b))
     {
-        emit_hex_byte(a);
-        emit_hex_byte(b);
+        symbol_add_hex_byte(a);
+        symbol_add_hex_byte(b);
         return;
     }
 
@@ -611,13 +622,13 @@ static void opcode_imw(void) {
             IMS, reg, (uint8_t)((value >> 16) & 0xFF), (uint8_t)((value >> 24) & 0xFF),  // ims reg byte3 byte4
             IMS, reg, (uint8_t)((value      ) & 0xFF), (uint8_t)((value >>  8) & 0xFF),  // ims reg byte1 byte2
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
     // absolute label
     if (try_parse_invocation_absolute()) {
-        emit_imw_absolute(reg);
+        opcode_imw_absolute(reg);
         return;
     }
 
@@ -627,8 +638,8 @@ static void opcode_imw(void) {
             ADD, reg, 0x00, 0x00,  // add reg 0 0
             IMS, reg,              // ims reg &label
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
-        emit_label(identifier, label_type_invocation_relative, label_flags, -1, -1);
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_label(identifier, label_type_invocation_relative, label_flags);
         return;
     }
 
@@ -643,7 +654,7 @@ static void opcode_imw(void) {
             IMS, reg, c, d,  // ims reg c d
             IMS, reg, a, b,  // ims reg a b
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
@@ -664,7 +675,7 @@ static void opcode_lts(void) {
         ADD, RB, arg2, RB,    // add rb arg2 rb
         LTU, dest, RA, RB,    // ltu dest ra 1
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 // TODO this only exists temporarily until we convert the compiler to use
@@ -684,7 +695,7 @@ static void opcode_cmpu(void) {
         JZ, 0x00, 0x01, 0x00,   // jz 0 +1          // jmp +1
         ADD, dest, 0x00, 0x00,  // add dest 0 0     // zero dest
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 // TODO this only exists temporarily until we convert the compiler to use
@@ -710,14 +721,14 @@ static void opcode_cmps(void) {
         JZ, 0x00, 0x01, 0x00,   // jz 0 +1          // jmp +1
         ADD, dest, 0x00, 0x00,  // add dest 0 0     // zero dest
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_jz(void) {
     uint8_t pred = parse_mix();
-    emit_hex_byte(JZ);
-    emit_hex_byte(pred);
-    parse_and_emit_jump_offset();
+    symbol_add_hex_byte(JZ);
+    symbol_add_hex_byte(pred);
+    opcode_jump_offset();
 }
 
 static void opcode_jnz(void) {
@@ -726,26 +737,26 @@ static void opcode_jnz(void) {
         JZ, pred, 0x01, 0x00,  // jz pred +1    // TODO replace with isz once we have ltu
         JZ, 0x00,              // jz 0 label
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
-    parse_and_emit_jump_offset();
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
+    opcode_jump_offset();
 }
 
 static void opcode_jmp(void) {
 
     // absolute
     if (try_parse_invocation_absolute()) {
-        emit_imw_absolute(RA);  // imw ra ^label
+        opcode_imw_absolute(RA);  // imw ra ^label
         uint8_t bytes[] = {
             ADD, RIP, RPP, RA,  // add rip rpp ra
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
     // relative
-    emit_hex_byte(JZ);  // jz
-    emit_hex_byte(0x00);  // 0
-    parse_and_emit_jump_offset();
+    symbol_add_hex_byte(JZ);  // jz
+    symbol_add_hex_byte(0x00);  // 0
+    opcode_jump_offset();
 }
 
 static void opcode_enter(void) {
@@ -754,7 +765,7 @@ static void opcode_enter(void) {
         STW, RFP, 0x00, RSP,  // ^^^
         ADD, RFP, RSP, 0x00,  // mov rfp rsp
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_leave(void) {
@@ -763,14 +774,14 @@ static void opcode_leave(void) {
         LDW, RFP, 0x00, RSP,  // pop rfp
         ADD, RSP, RSP, 0x04,  // ^^^
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 static void opcode_call(void) {
 
     // absolute
     if (try_parse_invocation_absolute()) {
-        emit_imw_absolute(RA); // imw ra ^label
+        opcode_imw_absolute(RA); // imw ra ^label
         uint8_t bytes[] = {
             SUB, RSP, RSP, 4,  // push return address
             ADD, RB, RIP, 8,   // ^^^
@@ -778,7 +789,7 @@ static void opcode_call(void) {
             ADD, RIP, RPP, RA, // jump
             ADD, RSP, RSP, 4,  // pop return address
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
@@ -792,7 +803,7 @@ static void opcode_call(void) {
             ADD, RIP, 0, reg,  // jump
             ADD, RSP, RSP, 4,  // pop return address
         };
-        emit_hex_bytes(bytes, sizeof(bytes));
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
         return;
     }
 
@@ -803,7 +814,7 @@ static void opcode_ret(void) {
     uint8_t bytes[] = {
         LDW, RIP, 0x00, RSP,
     };
-    emit_hex_bytes(bytes, sizeof(bytes));
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
 

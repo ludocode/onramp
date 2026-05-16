@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -58,6 +58,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/as/2-full/src/parse.c \
     -o output/intermediate/as-2-full/parse.oo
 
+echo Compiling as/2-full symbol.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/as/2-full/build-ccargs \
+    -c core/as/2-full/src/symbol.c \
+    -o output/intermediate/as-2-full/symbol.oo
+
 echo Linking as/2-full
 onrampvm output/intermediate/ld-2-full/ld.oe \
     output/intermediate/libc-3-full/libc.oa \
@@ -67,4 +73,5 @@ onrampvm output/intermediate/ld-2-full/ld.oe \
     output/intermediate/as-2-full/main.oo \
     output/intermediate/as-2-full/opcodes.oo \
     output/intermediate/as-2-full/parse.oo \
+    output/intermediate/as-2-full/symbol.oo \
     -o output/intermediate/as-2-full/as.oe

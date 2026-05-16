@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -30,6 +30,7 @@
 
 #include "emit.h"
 #include "opcodes.h"
+#include "symbol.h"
 
 
 
@@ -75,13 +76,13 @@ int hex_to_int(char c) {
 
 static bool try_parse_character(uint8_t* out);
 
-bool try_parse_and_emit_short(void) {
+bool try_parse_and_add_short(void) {
     int32_t offset;
     if (try_parse_number(&offset)) {
         if (offset < INT16_MIN || offset > INT16_MAX)
             fatal("Number is out of range of relative jump: %i", offset);
-        emit_hex_byte((uint8_t)(offset & 0xFF));
-        emit_hex_byte((uint8_t)((offset >> 8) & 0xFF));
+        symbol_add_hex_byte((uint8_t)(offset & 0xFF));
+        symbol_add_hex_byte((uint8_t)((offset >> 8) & 0xFF));
         return true;
     }
     return false;
@@ -93,7 +94,7 @@ static bool try_parse_whitespace(void) {
 
     bool was_carriage_return = current_char == '\r';
     if (was_carriage_return || current_char == '\n') {
-        emit_char('\n');
+        symbol_add_byte('\n');
         ++current_line;
     }
     read_char();
@@ -127,7 +128,7 @@ static bool try_parse_debug(void) {
     // debug line found. consume it and feed it verbatim to the output
     // TODO also parse the line info, handle manual mode
     do {
-        emit_char(current_char);
+        symbol_add_byte(current_char);
         read_char();
     } while (current_char != '\r' && current_char != '\n');
 
@@ -407,15 +408,15 @@ bool try_parse_number(int32_t* out) {
     return true;
 }
 
-static bool try_parse_and_emit_number(void) {
+static bool try_parse_and_add_number(void) {
     int32_t number;
     if (!try_parse_number(&number)) {
         return false;
     }
-    emit_hex_byte((uint8_t)(number & 0xFF));
-    emit_hex_byte((uint8_t)((number >> 8) & 0xFF));
-    emit_hex_byte((uint8_t)((number >> 16) & 0xFF));
-    emit_hex_byte((uint8_t)((number >> 24) & 0xFF));
+    symbol_add_hex_byte((uint8_t)(number & 0xFF));
+    symbol_add_hex_byte((uint8_t)((number >> 8) & 0xFF));
+    symbol_add_hex_byte((uint8_t)((number >> 16) & 0xFF));
+    symbol_add_hex_byte((uint8_t)((number >> 24) & 0xFF));
     return true;
 }
 
@@ -600,7 +601,7 @@ static bool is_string_char_valid(char c) {
     return isprint(c);
 }
 
-bool try_parse_and_emit_string(size_t* out_length) {
+bool try_parse_and_add_string(size_t* out_length) {
     consume_whitespace_and_comments();
 
     // match an opening quote
@@ -623,7 +624,7 @@ bool try_parse_and_emit_string(size_t* out_length) {
         }
 
         // emit it as hex
-        emit_hex_byte(current_char);
+        symbol_add_hex_byte(current_char);
         ++length;
     }
 
@@ -666,7 +667,7 @@ bool parse(void) {
 
     // parse an identifier. if found, it must be an opcode.
     if (try_parse_identifier()) {
-        if (output_alignment != 0) {
+        if (!symbol_is_aligned()) {
             fatal("Misaligned instruction");
         }
         opcodes_dispatch(identifier);
@@ -676,23 +677,33 @@ bool parse(void) {
     // quoted byte
     uint8_t byte;
     if (try_parse_quoted_byte(&byte)) {
-        emit_hex_byte(byte);
+        symbol_add_hex_byte(byte);
         return true;
     }
 
     // string
-    if (try_parse_and_emit_string(NULL))
+    if (try_parse_and_add_string(NULL))
         return true;
 
     // label
     if (try_parse_label()) {
-        emit_label(identifier, label_type, label_flags,
-                label_constructor_priority, label_destructor_priority);
+        if (label_type == label_type_definition_symbol || label_type == label_type_definition_static) {
+
+            // This is a new symbol! Emit the last one.
+            symbol_emit();
+
+            // Now emit the definition of the new symbol.
+            emit_label(identifier, label_type, label_flags,
+                    label_constructor_priority, label_destructor_priority);
+
+        } else {
+            symbol_add_label(identifier, label_type, label_flags);
+        }
         return true;
     }
 
     // number
-    if (try_parse_and_emit_number()) {
+    if (try_parse_and_add_number()) {
         return true;
     }
 

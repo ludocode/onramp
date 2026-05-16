@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -53,8 +53,8 @@ bool try_parse_identifier(void);
 bool try_parse_number(int32_t* value);
 bool try_parse_quoted_byte(uint8_t* out);
 bool try_parse_character_or_quoted_byte(uint8_t* out);
-bool try_parse_and_emit_short(void);
-bool try_parse_and_emit_string(size_t* out_length);
+bool try_parse_and_add_short(void);
+bool try_parse_and_add_string(size_t* out_length);
 bool try_parse_register(uint8_t* out);
 
 void parse_invocation_absolute(void);

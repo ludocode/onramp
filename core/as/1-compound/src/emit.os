@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2023-2025 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -118,18 +118,18 @@
 
     ; see if we need a letter or a number
     ltu r1 r0 '0A
-    jz r1 &emit_hex_bits_alpha
+    jz r1 &emit_hex_char_alpha
 
     ; number
     add r0 r0 "0"
-    jz '00 &emit_hex_bits_done
+    jz '00 &emit_hex_char_done
 
     ; letter
-:emit_hex_bits_alpha
+:emit_hex_char_alpha
     add r0 r0 '37  ; 'A' - 10
 
     ; tail-call emit_byte
-:emit_hex_bits_done
+:emit_hex_char_done
     ims ra <emit_byte
     ims ra >emit_byte
     add rip rpp ra

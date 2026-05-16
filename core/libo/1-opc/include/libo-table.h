@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -36,9 +36,9 @@
  * The hashtable uses closed hashing with linked lists for collision
  * resolution. It initially uses a single bucket so it starts out as a simple
  * linked list. The number of buckets grows automatically as it fills and
- * shrinks as it empties. Buckets store their collision list as an asymmetric
- * doubly-linked list to make it as fast and simple as possible to remove
- * elements from the table.
+ * can shrink when emptied if desired. Buckets store their collision list as an
+ * asymmetric doubly-linked list to make it as fast and simple as possible to
+ * remove elements from the table.
  *
  * Some Onramp components use large numbers of maps and sets. For example, in
  * the preprocessor, each expansion token needs its own set to store which
@@ -192,7 +192,30 @@ table_entry_t* table_bucket(table_t* table, uint32_t hash);
 
 /**
  * Removes the given entry from the table.
+ *
+ * This does not reduce the size of the table. Call table_shrink() afterwards
+ * to reclaim space if desired.
  */
 void table_remove(table_t* table, table_entry_t* entry);
+
+/**
+ * Clears the table.
+ *
+ * This does not reduce the size of the table. Call table_shrink() afterwards
+ * to reclaim space if desired.
+ */
+void table_remove_all(table_t* table);
+
+/**
+ * Reduces the size of the table if possible.
+ *
+ * If the table has shrunk significantly from its largest size, this can reduce
+ * the size to something more reasonable for the current contents. If the table
+ * is already the correct size, this does nothing. It is safe to call this
+ * after every removal if you always want to keep the table a reasonable size.
+ *
+ * Call this after removing entries if you'd like to reclaim space.
+ */
+void table_shrink(table_t* table);
 
 #endif

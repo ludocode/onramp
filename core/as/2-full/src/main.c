@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -35,8 +35,9 @@
 
 #include "common.h"
 #include "emit.h"
-#include "parse.h"
 #include "opcodes.h"
+#include "parse.h"
+#include "symbol.h"
 
 int main(int argc, const char** argv) {
 
@@ -77,6 +78,9 @@ int main(int argc, const char** argv) {
 
     // Run parse loop
     while (parse()) {}
+
+    // Emit the final parsed symbol
+    symbol_emit();
 
     // Clean up
     fclose(output_file);

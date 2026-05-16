@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,6 +29,14 @@
 FILE* output_file;
 size_t output_alignment;
 
+void emit_char(char c) {
+    fputc(c, output_file);
+}
+
+void emit_bytes(const uint8_t* bytes, size_t count) {
+    fwrite(bytes, 1, count, output_file);
+}
+
 static char label_type_to_char(label_type_t type) {
     switch (type) {
         case label_type_invocation_absolute: return '^';
@@ -46,6 +54,11 @@ static void emit_priority(int priority) {
     if (priority != -1) {
         fprintf(output_file, "%d", priority);
     }
+}
+
+void emit_hex_byte(uint8_t byte) {
+    emit_char(int_to_hex(byte >> 4));
+    emit_char(int_to_hex(byte & 0xF));
 }
 
 void emit_label(const char* name, label_type_t type, int flags,
@@ -85,39 +98,6 @@ void emit_label(const char* name, label_type_t type, int flags,
     // Always follow a label with a space to ensure we aren't concatenating
     // subsequent hex chars to it
     emit_char(' ');
-}
-
-void emit_imw_absolute(uint8_t reg) {
-    emit_hex_byte(0x7C); // ims
-    emit_hex_byte(reg);
-    emit_label(identifier, label_type_invocation_high, label_flags, -1, -1);
-    emit_hex_byte(0x7C); // ims
-    emit_hex_byte(reg);
-    emit_label(identifier, label_type_invocation_low, label_flags, -1, -1);
-}
-
-static char int_to_hex(unsigned value) {
-    if (value <= 9)
-        return '0' + value;
-    if (value <= 15)
-        return 'A' + value - 10;
-    fatal("Internal error: invalid hex value");
-}
-
-void emit_char(char c) {
-    fputc(c, output_file);
-}
-
-void emit_hex_byte(uint8_t byte) {
-    emit_char(int_to_hex(byte >> 4));
-    emit_char(int_to_hex(byte & 0xF));
-    output_alignment = (output_alignment + 1) & 3;
-}
-
-void emit_hex_bytes(const uint8_t* bytes, size_t count) {
-    for (size_t i = 0; i < count; ++i) {
-        emit_hex_byte(bytes[i]);
-    }
 }
 
 void emit_line_directive(int line, const char* /*nullable*/ filename) {

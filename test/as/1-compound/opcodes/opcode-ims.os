@@ -1,5 +1,5 @@
 ; The MIT License (MIT)
-; Copyright (c) 2023-2024 Fraser Heavy Software
+; Copyright (c) 2023-2026 Fraser Heavy Software
 ; This test case is part of the Onramp compiler project.
 
 =test
@@ -7,7 +7,7 @@
 ; invocations
 ims ra <foo
 ims ra >foo
-ims ra &foo
+^foo
 
 ; numbers
 ims r0 1234

@@ -1,6 +1,6 @@
 ; The MIT License (MIT)
 ;
-; Copyright (c) 2024-2025 Fraser Heavy Software
+; Copyright (c) 2024-2026 Fraser Heavy Software
 ;
 ; Permission is hereby granted, free of charge, to any person obtaining a copy
 ; of this software and associated documentation files (the "Software"), to deal
@@ -1168,6 +1168,7 @@
 ; ==========================================================
 
 @lexer_discard_line
+:lexer_discard_line_loop
 
     ; get the current character
     imw r0 ^lexer_char
@@ -1185,7 +1186,7 @@
     call ^lexer_read_char
 
     ; keep looping
-    jmp &lexer_discard_line
+    jmp &lexer_discard_line_loop
 
 :lexer_discard_line_done
     ret
@@ -1199,6 +1200,7 @@
 ; ==========================================================
 
 @lexer_consume_horizontal_space
+:lexer_consume_horizontal_space_loop
 
     ; check if the current character is space or tab
     imw r0 ^lexer_char
@@ -1212,7 +1214,7 @@
 :lexer_consume_horizontal_space_found
     ; consume it and loop
     call ^lexer_read_char
-    jmp &lexer_consume_horizontal_space
+    jmp &lexer_consume_horizontal_space_loop
 
 :lexer_consume_horizontal_space_done
     ret

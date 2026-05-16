@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,14 +37,12 @@ extern size_t output_alignment;
 void emit_label(const char* name, label_type_t type, int flags,
         int constructor_priority, int destructor_priority);
 
-void emit_imw_absolute(uint8_t reg);
+void emit_bytes(const uint8_t* bytes, size_t count);
 
 void emit_hex_byte(uint8_t byte);
 
-void emit_hex_bytes(const uint8_t* bytes, size_t count);
+void emit_line_directive(int line, const char* /*nullable*/ filename);
 
 void emit_char(char c);
-
-void emit_line_directive(int line, const char* /*nullable*/ filename);
 
 #endif

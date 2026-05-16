@@ -401,11 +401,11 @@
 ; ==========================================================
 
 =memset
-    ; don't bother to set up a stack frame
+:__memset_loop
     jz r2 &__memset_done
     dec r2
     stb r1 r0 r2
-    jmp &memset
+    jmp &__memset_loop
 :__memset_done
     ; dest is already in r0
     ret

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2026 Fraser Heavy Software
+ * Copyright (c) 2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,34 +22,44 @@
  * SOFTWARE.
  */
 
-#ifndef COMMON_H_INCLUDED
-#define COMMON_H_INCLUDED
+#ifndef SYMBOL_H_INCLUDED
+#define SYMBOL_H_INCLUDED
 
-#include "libo-error.h"
-#include "libo-util.h"
+#include <stdbool.h>
 
-typedef enum label_type_t {
-    label_type_invocation_absolute,
-    label_type_invocation_high,
-    label_type_invocation_low,
-    label_type_invocation_relative,
-    label_type_definition_label,
-    label_type_definition_symbol,
-    label_type_definition_static,
-} label_type_t;
+#include "common.h"
 
-#define LABEL_FLAG_WEAK 1
-#define LABEL_FLAG_ZERO 2
-#define LABEL_FLAG_CONSTRUCTOR 4
-#define LABEL_FLAG_DESTRUCTOR 8
+void symbol_setup(void);
 
-// TODO libo
-static inline char int_to_hex(unsigned value) {
-    if (value <= 9)
-        return '0' + value;
-    if (value <= 15)
-        return 'A' + value - 10;
-    fatal("Internal error: invalid hex value");
-}
+void symbol_teardown(void);
+
+void symbol_clear(void);
+
+/**
+ * Returns true if the current position is correctly aligned for an instruction.
+ */
+bool symbol_is_aligned(void);
+
+/**
+ * Appends the given bytes as hexadecimal to the current symbol.
+ */
+void symbol_add_hex_bytes(const uint8_t* bytes, size_t count);
+
+/**
+ * Appends the given byte as hexadecimal to the current symbol.
+ */
+void symbol_add_hex_byte(uint8_t byte);
+
+void symbol_add_byte(uint8_t byte);
+
+/**
+ * Appends the given label to the current symbol.
+ */
+void symbol_add_label(const char* name, label_type_t type, int flags);
+
+/**
+ * Emits the symbol, resolving any relative labels.
+ */
+void symbol_emit(void);
 
 #endif

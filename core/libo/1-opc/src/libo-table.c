@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -190,9 +190,21 @@ void table_remove(table_t* table, table_entry_t* entry) {
         entry->next->previous = entry->previous;
     }
     *entry->previous = entry->next;
+}
 
-    // if our hashtable capacity is more than 8x count, shrink to 1/4 capacity
+void table_shrink(table_t* table) {
+    // if our hashtable capacity is more than 8x count, shrink to 1/4 capacity.
+    // TODO actually this should calculate a new capacity, fix it later.
     if (table->bits >= 4 && table->count < (1 << (table->bits - 3))) {
         table_resize(table, table->bits - 2);
     }
+}
+
+void table_remove_all(table_t* table) {
+    for (table_entry_t** bucket = table_first_bucket(table);
+            bucket; bucket = table_next_bucket(table, bucket))
+    {
+        *bucket = NULL;
+    }
+    table->count = 0;
 }

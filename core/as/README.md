@@ -10,8 +10,8 @@ This is a description of the implementation stages of the assembler. For a speci
 
 The Onramp assembler is implemented in the following stages:
 
-- [`0-basic`](0-basic/): The basic assembler supports quoted bytes, raw strings, and keyword replacement for primitive opcodes, registers and syscalls. It supports the same label syntax as Onramp object files.
+- [`0-basic`](0-basic/): The basic assembler supports quoted bytes, raw strings, and keyword replacement for primitive opcodes, registers and syscalls. It supports the same label syntax as Onramp object files, and simply passes labels through to the linker.
 
 - [`1-compound`](1-compound/): The compound assembler adds compound instructions, e.g. `push`/`pop`, `call`/`ret`. These are assembled into multiple primitive instructions in bytecode. It also adds decimal numbers which expand contextually to the appropriate number of bytes. It greatly improves error-checking over the previous stage as it verifies that opcodes are used correctly.
 
-- [`2-full`](2-full/): The full assembler adds debug info and optimizations for some compound instructions. It further improves error checking and gives better error messages.
+- [`2-full`](2-full/): The full assembler resolves relative labels, greatly reducing link time and link memory usage. It also adds debug info and optimizations for some compound instructions. It further improves error checking and gives better error messages.
