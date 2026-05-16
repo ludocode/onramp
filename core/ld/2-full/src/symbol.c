@@ -33,6 +33,8 @@
  * Symbol
  */
 
+static void symbol_walk(symbol_t* symbol);
+
 symbol_t* symbol_new(string_t* name) {
     //printf("new symbol %s\n",name->bytes);
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
@@ -52,14 +54,19 @@ void symbol_add_use(symbol_t* symbol, symbol_t* other) {
     vector_append(&symbol->uses, other);
 }
 
+// Walk a vector of symbols.
+static void symbol_walk_vector(vector_t* vector) {
+    for (size_t i = vector_count(vector); i-- > 0;) {
+        symbol_walk(vector_at(vector, i));
+    }
+}
+
 static void symbol_walk(symbol_t* symbol) {
     if (symbol->is_used) {
         return;
     }
     symbol->is_used = true;
-    for (size_t i = vector_count(&symbol->uses); i-- > 0;) {
-        symbol_walk(vector_at(&symbol->uses, i));
-    }
+    symbol_walk_vector(&symbol->uses);
 }
 
 
@@ -68,31 +75,8 @@ static void symbol_walk(symbol_t* symbol) {
  * Symbol lists
  */
 
-typedef struct symbol_node_t {
-    symbol_t* symbol;
-    struct symbol_node_t* next;
-} symbol_node_t;
-
-static symbol_node_t* constructors; // constructors in declaration order
-static symbol_node_t* constructors_end; // (constructors are appended to the end)
-static symbol_node_t* destructors; // destructors in reverse declaration order
-static int constructors_count;
-static int destructors_count;
-
-static void symbol_node_walk(symbol_node_t* node) {
-    while (node) {
-        symbol_walk(node->symbol);
-        node = node->next;
-    }
-}
-
-static void symbol_node_destroy(symbol_node_t* node) {
-    while (node) {
-        symbol_node_t* next = node->next;
-        free(node);
-        node = next;
-    }
-}
+static vector_t constructors;
+static vector_t destructors;
 
 
 
@@ -111,9 +95,14 @@ static symbol_t* all_symbols_end;
 
 void symbols_init(void) {
     symbols = calloc(SYMBOLS_SIZE, sizeof(symbol_t*));
+    vector_init(&constructors);
+    vector_init(&destructors);
 }
 
 void symbols_destroy(void) {
+    vector_destroy(&destructors);
+    vector_destroy(&constructors);
+
     symbol_t* symbol = all_symbols;
     while (symbol) {
         symbol_t* next = symbol->next_all;
@@ -122,9 +111,6 @@ void symbols_destroy(void) {
     }
 
     free(symbols);
-
-    symbol_node_destroy(constructors);
-    symbol_node_destroy(destructors);
 }
 
 symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
@@ -194,27 +180,12 @@ void symbols_insert(symbol_t* symbol) {
     symbol->next_bucket = symbols[index];
     symbols[index] = symbol;
 
-    // If it's a constructor, append it to the constructor list
+    // Append it to the relevant lists
     if (symbol->constructor) {
-        symbol_node_t* node = malloc(sizeof(symbol_node_t));
-        node->symbol = symbol;
-        node->next = NULL;
-        if (constructors_end) {
-            constructors_end->next = node;
-        } else {
-            constructors = node;
-        }
-        constructors_end = node;
-        ++constructors_count;
+        vector_append(&constructors, symbol);
     }
-
-    // If it's a destructor, insert it at the front of the destructor list
     if (symbol->destructor) {
-        symbol_node_t* node = malloc(sizeof(symbol_node_t));
-        node->symbol = symbol;
-        node->next = destructors;
-        destructors = node;
-        ++destructors_count;
+        vector_append(&destructors, symbol);
     }
 }
 
@@ -226,8 +197,8 @@ void symbols_walk_use(void) {
     }
 
     // Constructors and destructors are always kept.
-    symbol_node_walk(constructors);
-    symbol_node_walk(destructors);
+    symbol_walk_vector(&constructors);
+    symbol_walk_vector(&destructors);
 }
 
 void symbols_assign_addresses(void) {
@@ -250,15 +221,23 @@ static void symbols_create_generated_list(const char* name, size_t count) {
 }
 
 void symbols_create_generated(void) {
-    symbols_create_generated_list("__constructors", constructors_count);
-    symbols_create_generated_list("__destructors", destructors_count);
+    symbols_create_generated_list("__constructors", vector_count(&constructors));
+    symbols_create_generated_list("__destructors", vector_count(&destructors));
 }
 
-static void symbols_emit_generated_list(const char* name, symbol_node_t* list) {
+static void symbols_emit_generated_list(const char* name, vector_t* vector, bool reverse) {
     emit_source_location("<builtin>", 0);
     emit_symbol(name);
-    for (; list; list = list->next) {
-        emit_int(list->symbol->address);
+
+    if (reverse) {
+        for (size_t i = vector_count(vector); i-- > 0;) {
+            emit_int(((symbol_t*)vector_at(vector, i))->address);
+        }
+    } else {
+        size_t count = vector_count(vector);
+        for (size_t i = 0; i < count; ++i) {
+            emit_int(((symbol_t*)vector_at(vector, i))->address);
+        }
     }
     emit_int(0);
 }
@@ -272,6 +251,6 @@ void symbols_emit_generated(void) {
 
     // TODO lists must be sorted by priority!
 
-    symbols_emit_generated_list("__constructors", constructors);
-    symbols_emit_generated_list("__destructors", destructors);
+    symbols_emit_generated_list("__constructors", &constructors, false);
+    symbols_emit_generated_list("__destructors", &destructors, true);
 }
