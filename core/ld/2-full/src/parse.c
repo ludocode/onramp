@@ -354,7 +354,6 @@ static bool try_parse_symbol(void) {
     next_char();
 
     bool weak = false;
-    bool zero = false;
     bool constructor = false;
     bool destructor = false;
     int constructor_priority = -1;
@@ -367,12 +366,6 @@ static bool try_parse_symbol(void) {
                 if (weak)
                     fatal("Duplicate `?` flag on symbol definition.");
                 weak = true;
-                next_char();
-                break;
-            case '+':
-                if (zero)
-                    fatal("Duplicate `+` flag on symbol definition.");
-                zero = true;
                 next_char();
                 break;
             case '{':
@@ -419,7 +412,6 @@ done_flags:
             (type == '=') ? -1 : file_index);
 
     symbol->weak = weak;
-    symbol->zero = zero;
     symbol->constructor = constructor;
     symbol->destructor = destructor;
     symbol->constructor_priority = constructor_priority;
