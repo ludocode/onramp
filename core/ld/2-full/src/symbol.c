@@ -162,7 +162,8 @@ symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
             // Prefer a matching static symbol to a global symbol.
             if (symbol->file_index == file_index)
                 return symbol;
-            if (symbol->file_index == -1) {
+            if (!symbol->is_static) {
+                //printf("found global symbol %s file %i\n", symbol->name->bytes, symbol->file_index);
                 assert(!global);
                 global = symbol;
             }
@@ -172,19 +173,20 @@ symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
     return global;
 }
 
-symbol_t* symbols_define(const char* bytes, size_t length, int file_index) {
+symbol_t* symbols_define(const char* bytes, size_t length, int file_index, bool is_static) {
 
     // Check for duplicates
     symbol_t* symbol = symbols_find(bytes, length, file_index);
     if (symbol && symbol->file_index == file_index) {
         fatal("Duplicate %s symbol: %s",
-                file_index == -1 ? "global" : "static",
+                is_static ? "static" : "global",
                 symbol->name->bytes);
     }
 
     // Create the symbol
     symbol = symbol_new(string_intern_bytes(bytes, length));
     symbol->file_index = file_index;
+    symbol->is_static = is_static;
     if (!optimize) {
         symbol->is_used = true;
     }
@@ -244,7 +246,7 @@ void symbols_assign_addresses(void) {
 }
 
 static void symbols_create_generated_list(const char* name, size_t count) {
-    symbol_t* symbol = symbols_define(name, strlen(name), -1);
+    symbol_t* symbol = symbols_define(name, strlen(name), -1, false);
     symbol->size = 4 * (count + 1);
     symbols_insert(symbol);
 }

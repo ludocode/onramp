@@ -45,12 +45,10 @@ typedef struct symbol_t {
     size_t address; // The address assigned to this symbol in the output
     size_t size; // The size of the symbol in bytes
     bool is_used; // Whether this symbol is use (transitively from a root)
+    bool is_static; // True if static, false if global
+    int file_index; // Index of the object file in which this symbol is defined
     vector_t uses; // Symbols this symbol references
     table_t* labels; // All labels defined in this symbol, or NULL if none
-
-    // The index of the file in which this static symbol is defined, or -1 if
-    // it's global
-    int file_index;
 
     // Flags
     bool constructor : 1;
@@ -106,10 +104,8 @@ void symbols_destroy(void);
  *
  * This does not insert the symbol into the various symbol tables. This must be
  * done after configuring the symbol.
- *
- * TODO change this to be symbols_new().
  */
-symbol_t* symbols_define(const char* bytes, size_t length, int file_index);
+symbol_t* symbols_define(const char* bytes, size_t length, int file_index, bool is_static);
 
 /**
  * Finds a static symbol in the given file with the given name, or a global

@@ -392,9 +392,8 @@ done_flags:
     assign_current_symbol_size();
 
     // define the new symbol
-    //printf("symbol %s index %i\n", buffer,(type == '=') ? -1 : file_index);
-    symbol_t* symbol = symbols_define(buffer, buffer_length,
-            (type == '=') ? -1 : file_index);
+    //printf("symbol %s type %c index %i\n", buffer, type, file_index);
+    symbol_t* symbol = symbols_define(buffer, buffer_length, file_index, type == '@');
 
     symbol->weak = weak;
     symbol->constructor = constructor;
