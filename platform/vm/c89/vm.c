@@ -796,6 +796,9 @@ static void vm_sys(void) {
     if (syscall >= VM_SYSCALL_COUNT) {
         vm_panic("Invalid syscall number.");
     }
+    if (vm_syscall_table[syscall] == NULL) {
+        vm_panic("Syscall not implemented.");
+    }
     vm_registers[0] = vm_syscall_table[syscall]();
     vm_registers[VM_RIP] = vm_load_u32(vm_registers[VM_RSP]);
 }
