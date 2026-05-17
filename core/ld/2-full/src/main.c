@@ -176,15 +176,10 @@ int main(int argc, const char** argv) {
     parse_args(argv);
 
     // first pass: collect all symbol names and measure sizes.
-    pass = 0;
     perform_pass(input_filenames, input_filenames_count);
     symbols_create_generated();
 
     if (optimize) {
-        // second pass: collect symbol usage information.
-        pass = 1;
-        perform_pass(input_filenames, input_filenames_count);
-
         // walk from the roots to mark used symbols
         symbols_walk_use();
     }
@@ -192,13 +187,10 @@ int main(int argc, const char** argv) {
     symbols_assign_addresses();
     open_output_files();
 
-    // third and fourth passes: collect labels and output symbols.
-    pass = 2;
+    // second pass: output symbols.
+    //printf("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\noutput pass starting\n\n");
+    output_pass = true;
     perform_pass(input_filenames, input_filenames_count);
-
-    // emit generated symbols. (we have to manually set the pass to 3 because
-    // emit calls are ignored otherwise.)
-    pass = 3;
     symbols_emit_generated();
 
     set_current_filename(NULL);

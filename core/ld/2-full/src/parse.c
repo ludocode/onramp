@@ -35,24 +35,6 @@ static void start_file(const char* new_filename) {
     set_current_filename(new_filename);
 }
 
-static void save_file_state(void) {
-    // We store the state of all these things so we can restore them later.
-    if (0 != fgetpos(input_file, &file_start_pos))
-        fatal("Failed to seek input file.");
-    file_start_address = current_address;
-    file_first_char = current_char;
-}
-
-/** Restarts a file for another parsing pass. */
-static void restore_file_state(void) {
-    if (0 != fsetpos(input_file, &file_start_pos))
-        fatal("Failed to seek input file.");
-    current_line = 1;
-    current_address = file_start_address;
-    current_char = file_first_char;
-    emit_source_location(current_filename, 1);
-}
-
 static void next_char(void) {
     //printf("last char %x\n",current_char);
     //printf("reading char...\n");
@@ -261,7 +243,7 @@ static bool try_parse_hex(void) {
     return true;
 }
 
-static bool try_parse_invoke(void) {
+static bool try_parse_invocation(void) {
     char type;
     type = current_char;
     if ((type != '&') && (type != '^') && (type != '<') && (type != '>')) {
@@ -281,7 +263,7 @@ static bool try_parse_invoke(void) {
     read_name();
 
     // we only check for validity and emit the address in the final pass
-    if (pass != 3) {
+    if (!output_pass) {
         return true;
     }
 
@@ -300,7 +282,7 @@ static bool try_parse_invoke(void) {
             fatal("Symbol not found: %s", buffer);
         }
         address = symbol->address;
-        //printf("invocation %c is symbol: %i\n", type, address);
+        //printf("invocation %c is symbol %s address %i\n", type, symbol->name->bytes, address);
     }
 
     // emit the address
@@ -327,6 +309,7 @@ static void assign_current_symbol_size(void) {
     if (current_symbol != NULL) {
         //printf("Assigning size %i to symbol %s\n", current_address, current_symbol->name->bytes);
         current_symbol->size = current_address;
+        current_symbol = NULL;
     }
 }
 
@@ -388,16 +371,18 @@ done_flags:
 
     // read the symbol name into the buffer
     read_name();
-    //printf("define symbol %c%s %i\n",type,buffer,file_index);
+    //printf("define symbol %c%s file %i\n", type, buffer, file_index);
 
-    // symbols are defined only on the first pass. on subsequent passes we
+    // symbols are defined only on the collection pass. on the output pass we
     // restore the current symbol and pad to a word boundary.
-    if (pass != 0) {
+    if (output_pass) {
         for (int i = current_address; i & 3; ++i) {
+            //printf("    emitting padding byte\n");
             emit_byte(0);
         }
         current_address = 0;
         current_symbol = symbols_find(buffer, buffer_length, file_index);
+        //printf("    symbol address %zu\n", current_symbol->address);
         assert(current_symbol != NULL);
         emit_symbol(buffer);
         return true;
@@ -439,8 +424,8 @@ static bool try_parse_label(void) {
     next_char();
     read_name();
 
-    // locals are defined in pass 2.
-    if (pass != 2) {
+    // labels are defined in the collection pass and ignored during output.
+    if (output_pass) {
         return true;
     }
 
@@ -463,19 +448,7 @@ static bool try_parse_archive(void) {
     if (current_char != '%') {
         return false;
     }
-    //printf("found archive line, pass %i\n", pass);
-
-    // If we're in pass 2, we jump back to the top and start pass 3.
-    if (pass == 2) {
-        //printf("restoring file state, moving to pass 3\n");
-        pass = 3;
-        restore_file_state();
-
-        // We haven't parsed the line ending of the archive metadata yet so we
-        // start at line 0.
-        current_line = 0;
-        return true;
-    }
+    //printf("found archive line, output_pass %i\n", output_pass);
 
     // Read the filename
     next_char();
@@ -491,13 +464,6 @@ static bool try_parse_archive(void) {
     }
     *(buffer + buffer_length) = 0;
     //printf("archive line file: %s\n",buffer);
-
-    // If we're in pass 3, we'll start pass 2 for the next file
-    if (pass == 3) {
-        //printf("saving file state, moving to pass 1\n");
-        pass = 2;
-        save_file_state();
-    }
 
     // We haven't parsed the line ending of the archive metadata yet so we
     // start at line 0.
@@ -521,7 +487,7 @@ static void parse(void) {
     if (try_parse_debug()) {
         return;
     }
-    if (try_parse_invoke()) {
+    if (try_parse_invocation()) {
         return;
     }
     if (try_parse_symbol()) {
@@ -548,27 +514,17 @@ static void perform_pass_input(const char* input_filename) {
 
     current_char = 0;
     next_char();
-    save_file_state();
     current_line = 1;
 
-    while (1) {
-        if (current_char == EOF) {
-            if (pass == 2) {
-                pass = 3;
-                restore_file_state();
-                continue;
-            }
-            if (pass == 3) {
-                // Pass three of this file or archive is done. Switch back to
-                // pass two for the next file.
-                pass = 2;
-            }
-            break;
-        }
+    while (current_char != EOF) {
         parse();
     }
 
-    symbols_emit_generated();
+    // assign the size of the last symbol in the file
+    if (!output_pass) {
+        assign_current_symbol_size();
+    }
+
     fclose(input_file);
 }
 
@@ -578,10 +534,5 @@ void perform_pass(const char** input_filenames, size_t input_filenames_count) {
 
     for (size_t i = 0; i < input_filenames_count; ++i) {
         perform_pass_input(input_filenames[i]);
-    }
-
-    // assign the size of the last symbol
-    if (pass == 0) {
-        assign_current_symbol_size();
     }
 }

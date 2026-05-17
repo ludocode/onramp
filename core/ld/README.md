@@ -14,4 +14,4 @@ The linker is written in three stages:
 
 - [`1-c89`](1-c89/) adds support for file scope for static symbols and labels. This allows it to link multiple C source files together without clashes in generated label names. It also lifts previous restrictions on symbol and label count. It is sufficient for our omC and opC compilers. It is written in a single omC file so it can be linked using the previous stage.
 
-- [`2-full`](2-full/) adds support for weak symbols, zero symbols and constructor/destructor lists. It allows us to implement weak symbols, constructors, tentative definitions (`-fcommon`), and everything else we need for full C plus extensions. It performs garbage collection of unused symbols to reduce binary size. It also generates full debug info.
+- [`2-full`](2-full/) adds support for weak references and constructor/destructor lists. It allows us to implement weak symbols, constructor functions, tentative definitions (`-fcommon`), and everything else we need for full C plus extensions. It performs garbage collection of unused symbols to reduce binary size. It also generates full debug info.

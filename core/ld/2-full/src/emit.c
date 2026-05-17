@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -50,8 +50,8 @@ void emit_destroy(void) {
 }
 
 void emit_byte(char c) {
-    //printf("emit byte '%x pass %i\n", c, pass);
-    if (pass == 3) {
+    //printf("emit byte '%x output_pass %i\n", c, output_pass);
+    if (output_pass) {
         fputc(c, output_file);
         ++bytes_emitted;
     }
@@ -70,7 +70,7 @@ void emit_int(int s) {
 }
 
 void emit_debug(char c) {
-    if (pass != 3) {
+    if (!output_pass) {
         return;
     }
     if (!option_debug) {
@@ -80,8 +80,8 @@ void emit_debug(char c) {
 }
 
 void emit_source_location(const char* /*nullable*/ filename, int line) {
-    //printf("set source %s %i %i\n",filename,line, pass);
-    if (pass != 3) {
+    //printf("set source %s:%i output_pass %i\n",filename,line, output_pass);
+    if (!output_pass) {
         return;
     }
     if (!option_debug) {
@@ -119,7 +119,7 @@ void emit_source_location(const char* /*nullable*/ filename, int line) {
 }
 
 void emit_symbol(const char* symbol) {
-    if (pass != 3) {
+    if (!output_pass) {
         return;
     }
     if (!option_debug) {

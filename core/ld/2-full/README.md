@@ -13,40 +13,26 @@ This linker is good enough to link virtually all C programs but there are severa
 - [ ] weak symbols
 - [ ] constructor/destructor
 - [ ] garbage collection (only partially implemented)
-- [ ] zero symbols (bss)
 - [ ] print stats
-
-In addition, this linker was adapted from the first stage omC linker and was written before we had the libo string and hashtable. The code is therefore quite messy. It could use a good cleanup.
 
 
 
 ## Algorithm
 
-The linker performs four passes over all input.
+The linker performs two passes over all input.
 
-The first pass collects all symbol names and measures their sizes. This also includes static symbols so that we can perform garbage collection on them.
+The first pass collects all symbol names and measures their sizes. If optimization is enabled, it also collects all symbol invocations, forming a dependency graph of symbols.
 
-The second pass collects usage info. For each symbol, we gather a list of symbols it references. (This is a separate pass because we only want to gather symbol usage, not label usage, to avoid storing all labels for all files in memory.)
+(The first pass also collects labels that are not resolved by the final stage assembler. During bootstrapping, this means all labels since the bootstrap assemblers don't resolve them. After the final assembler is bootstrapped, there should be no labels left, but the functionality is still available to allow linking handwritten object files.)
 
-We then walk the usage graph from `__start` (and from all constructors and destructors) marking any reached symbols as used. When finding a weak symbol, we continue searching to try to find a strong one. Any unreached symbols are unused and will be skipped in future passes.
+Once all symbols and labels are collected, if optimization is enabled, the linker walks the graph from `__start` (and from all constructors and destructors) marking any reached symbols as used. The linker then performs the layout of the object file. It goes through the symbol list (in parse order) and calculates the address of each symbol (skipping unused symbols under optimization.) When finding a weak symbol, we continue searching to try to find a strong one.
 
-We then walk through the full list of symbols in order. Any kept symbols are assigned an address.
-
-We then perform the third and fourth passes for each input file (or each file part of a static library.) The third pass collects label addresses (in relation to their containing symbol) and the fourth pass outputs all used symbols.
-
-Finally, we output metadata: the constructor list, the destructor list and the zero size symbol (bss).
+The linker then performs the second pass over the input, emitting all symbols (or all used symbols) with computed values substituted for all invocations. Finally, the linker outputs metadata symbols, such as the constructor and destructor lists.
 
 
 
 ## Data Structures
 
-Each symbol is stored in a struct with two linked list pointers, a static file index, and a list of used symbols.
+A global hashtable stores all symbols. Each symbol has a hashtable to store its labels and a vector to store the symbols it references (for garbage collection.)
 
-The static file index is used to differentiate local scope. Global symbols have file index -1. There can be multiple symbols with the same name as long as they have different file indexes.
-
-There are two hashtables. One stores symbols and one stores labels. They use closed hashing with linked lists for collision resolution. The hashtables use FNV-1a on the name only.
-
-The symbol table is filled out on the first pass and kept for the entire link in order to perform garbage collection and assign addresses. The label table is filled in the third pass and cleared after the fourth for each file.
-
-
-
+Each symbol has a file index used to differentiate static symbols. Global symbols have file index -1. There can be multiple symbols with the same name as long as they have different file indexes.

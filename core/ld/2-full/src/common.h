@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -53,7 +53,7 @@ extern FILE* input_file;
 extern FILE* output_file;
 extern FILE* debug_file;
 extern fpos_t file_start_pos;
-extern int pass;
+extern bool output_pass; // false during collection pass; true during output pass
 extern char file_first_char;
 
 extern char* buffer;
