@@ -218,6 +218,11 @@ static bool try_parse_debug(void) {
         fatal("Unexpected trailing characters in #line directive");
     }
 
+    // Garbage collected symbols are not emitted
+    if (current_symbol && !current_symbol->is_used) {
+        return true;
+    }
+
     // Emit it
     emit_source_location(current_filename, current_line + 1);
     return true;
@@ -235,10 +240,16 @@ static bool try_parse_hex(void) {
     next_char();
 
     if (current_symbol == NULL) {
-        fatal("Bytes cannot appear outside of a symbol.");
+        fatal("Bytes cannot appear before the first symbol.");
     }
 
     current_address = (current_address + 1);
+
+    // Garbage collected symbols are not emitted
+    if (!current_symbol->is_used) {
+        return true;
+    }
+
     emit_byte(value);
     return true;
 }
@@ -248,6 +259,10 @@ static bool try_parse_invocation(void) {
     type = current_char;
     if ((type != '&') && (type != '^') && (type != '<') && (type != '>')) {
         return false;
+    }
+
+    if (current_symbol == NULL) {
+        fatal("An invocation cannot appear before the first symbol.");
     }
 
     // increment current address. if ^ it's 4, otherwise it's 2.
@@ -264,25 +279,35 @@ static bool try_parse_invocation(void) {
 
     // we only check for validity and emit the address in the final pass
     if (!output_pass) {
+        if (optimize && type != '&') {
+            symbol_add_use(current_symbol, string_intern_bytes(buffer, buffer_length));
+        }
         return true;
     }
 
     // find the label or symbol address
+    string_t* name = string_intern_bytes(buffer, buffer_length);
     int address;
     if (type == '&') {
-        label_t* label = symbol_find_label(current_symbol, buffer, buffer_length);
+        label_t* label = symbol_find_label(current_symbol, name);
         if (!label) {
             fatal("Label not found: %s", buffer);
         }
         address = current_symbol->address + label->offset;
         //printf("invocation %c is label: sym %i + label %i == %i\n", type, (int)current_symbol->address, (int)label->offset, address);
     } else {
-        symbol_t* symbol = symbols_find(buffer, buffer_length, file_index);
+        symbol_t* symbol = symbols_find(name, file_index);
         if (!symbol) {
             fatal("Symbol not found: %s", buffer);
         }
         address = symbol->address;
         //printf("invocation %c is symbol %s address %i\n", type, symbol->name->bytes, address);
+    }
+    string_deref(name);
+
+    // Garbage collected symbols are not emitted
+    if (!current_symbol->is_used) {
+        return true;
     }
 
     // emit the address
@@ -302,6 +327,7 @@ static bool try_parse_invocation(void) {
         }
         emit_short((unsigned)offset >> 2);
     }
+
     return true;
 }
 
@@ -371,20 +397,33 @@ done_flags:
 
     // read the symbol name into the buffer
     read_name();
-    //printf("define symbol %c%s file %i\n", type, buffer, file_index);
+    string_t* name = string_intern_bytes(buffer, buffer_length);
+    //printf("define symbol %c%s file %i\n", type, name->bytes, file_index);
 
     // symbols are defined only on the collection pass. on the output pass we
     // restore the current symbol and pad to a word boundary.
     if (output_pass) {
-        for (int i = current_address; i & 3; ++i) {
-            //printf("    emitting padding byte\n");
-            emit_byte(0);
+
+        // pad to a word boundary
+        if (current_symbol && current_symbol->is_used) {
+            for (int i = current_address; i & 3; ++i) {
+                //printf("    emitting padding byte\n");
+                emit_byte(0);
+            }
         }
+
+        // setup the new symbol
         current_address = 0;
-        current_symbol = symbols_find(buffer, buffer_length, file_index);
+        current_symbol = symbols_find(name, file_index);
         //printf("    symbol address %zu\n", current_symbol->address);
         assert(current_symbol != NULL);
-        emit_symbol(buffer);
+
+        // emit debug info for it
+        if (current_symbol->is_used) {
+            emit_symbol_debug(name);
+        }
+
+        string_deref(name);
         return true;
     }
 
@@ -393,7 +432,7 @@ done_flags:
 
     // define the new symbol
     //printf("symbol %s type %c index %i\n", buffer, type, file_index);
-    symbol_t* symbol = symbols_define(buffer, buffer_length, file_index, type == '@');
+    symbol_t* symbol = symbols_define(name, file_index, type == '@');
 
     symbol->weak = weak;
     symbol->constructor = constructor;
@@ -429,15 +468,16 @@ static bool try_parse_label(void) {
     }
 
     // check that this label isn't already defined
-    if (symbol_find_label(current_symbol, buffer, buffer_length) != 0) {
+    string_t* name = string_intern_bytes(buffer, buffer_length);
+    if (symbol_find_label(current_symbol, name) != 0) {
         fatal("Duplicate label definition");
     }
-    if (symbols_find(buffer, buffer_length, file_index) != 0) {
+    if (symbols_find(name, file_index) != 0) {
         fatal("Label is already defined as a symbol");
     }
 
     // define the label
-    label_t* label = symbol_define_label(current_symbol, buffer, buffer_length);
+    label_t* label = symbol_define_label(current_symbol, name);
     label->offset = current_address;
     return true;
 }
@@ -464,9 +504,9 @@ static bool try_parse_archive(void) {
     *(buffer + buffer_length) = 0;
     //printf("archive line file: %s\n",buffer);
 
-    // We haven't parsed the line ending of the archive metadata yet so we
-    // start at line 0.
-    current_line = 0;
+    next_char(); // consume line ending
+    current_line = 1;
+    emit_source_location(buffer, current_line);
     start_file(buffer);
     return true;
 }
@@ -514,6 +554,7 @@ static void perform_pass_input(const char* input_filename) {
     current_char = 0;
     next_char();
     current_line = 1;
+    emit_source_location(input_filename, current_line);
 
     while (current_char != EOF) {
         parse();

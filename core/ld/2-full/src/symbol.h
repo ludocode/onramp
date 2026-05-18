@@ -46,8 +46,8 @@ typedef struct symbol_t {
     size_t size; // The size of the symbol in bytes
     bool is_used; // Whether this symbol is use (transitively from a root)
     bool is_static; // True if static, false if global
-    int file_index; // Index of the object file in which this symbol is defined
-    vector_t uses; // Symbols this symbol references
+    int file_index; // Index of the object file in which this symbol is defined, or -1 for builtins
+    vector_t uses; // owned string_t* symbol names this symbol references
     table_t* labels; // All labels defined in this symbol, or NULL if none
 
     // Flags
@@ -73,21 +73,25 @@ void symbol_delete(symbol_t* symbol);
 
 /**
  * Adds a reference to a symbol that is use by this symbol.
+ *
+ * This takes ownership of the given string.
  */
-void symbol_add_use(symbol_t* symbol, symbol_t* other);
+void symbol_add_use(symbol_t* symbol, string_t* other);
 
 /**
  * Defines a label with the given name within the symbol.
  *
+ * This takes ownership of the given string.
+ *
  * The label's offset is not assigned here; it is done in the parser. This also
  * doesn't check for duplicates; the parser does.
  */
-struct label_t* symbol_define_label(symbol_t* symbol, const char* bytes, size_t length);
+struct label_t* symbol_define_label(symbol_t* symbol, string_t* name);
 
 /**
  * Gets the label with the given name.
  */
-struct label_t* symbol_find_label(symbol_t* symbol, const char* bytes, size_t length);
+struct label_t* symbol_find_label(symbol_t* symbol, const string_t* name);
 
 
 
@@ -100,18 +104,20 @@ void symbols_init(void);
 void symbols_destroy(void);
 
 /**
- * Defines a new symbol with the given bytes, length and file, returning it.
+ * Defines a new symbol, returning it.
+ *
+ * This takes ownership of the given string.
  *
  * This does not insert the symbol into the various symbol tables. This must be
  * done after configuring the symbol.
  */
-symbol_t* symbols_define(const char* bytes, size_t length, int file_index, bool is_static);
+symbol_t* symbols_define(string_t* name, int file_index, bool is_static);
 
 /**
  * Finds a static symbol in the given file with the given name, or a global
  * symbol with the given name, or null if the symbol isn't found.
  */
-symbol_t* symbols_find(const char* bytes, size_t length, int file_index);
+symbol_t* symbols_find(const string_t* name, int file_index);
 
 void symbols_insert(symbol_t* symbol);
 

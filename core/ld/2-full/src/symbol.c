@@ -61,20 +61,19 @@ void symbol_delete(symbol_t* symbol) {
         table_delete(symbol->labels);
     }
 
+    // Free used symbols
+    for (size_t i = vector_count(&symbol->uses); i-- != 0;) {
+        string_deref(vector_at(&symbol->uses, i));
+    }
     vector_destroy(&symbol->uses);
+
     string_deref(symbol->name);
     free(symbol);
 }
 
-void symbol_add_use(symbol_t* symbol, symbol_t* other) {
+void symbol_add_use(symbol_t* symbol, string_t* other) {
+    // We don't bother to check for duplicates.
     vector_append(&symbol->uses, other);
-}
-
-// Walk a vector of symbols.
-static void symbol_walk_vector(vector_t* vector) {
-    for (size_t i = vector_count(vector); i-- > 0;) {
-        symbol_walk(vector_at(vector, i));
-    }
 }
 
 static void symbol_walk(symbol_t* symbol) {
@@ -82,24 +81,35 @@ static void symbol_walk(symbol_t* symbol) {
         return;
     }
     symbol->is_used = true;
-    symbol_walk_vector(&symbol->uses);
+
+    for (size_t i = vector_count(&symbol->uses); i-- > 0;) {
+        string_t* string = vector_at(&symbol->uses, i);
+        symbol_t* use = symbols_find(string, symbol->file_index);
+        if (use == NULL) {
+            // TODO print location. vector should probably store locations as well as strings
+            fprintf(stderr, "Undefined reference to symbol %s in symbol %s\n",
+                    string->bytes, symbol->name->bytes);
+            fatal("Undefined reference.");
+        }
+        symbol_walk(use);
+    }
 }
 
-label_t* symbol_define_label(symbol_t* symbol, const char* bytes, size_t length) {
+label_t* symbol_define_label(symbol_t* symbol, string_t* name) {
     if (symbol->labels == NULL) {
         symbol->labels = table_new();
     }
-    label_t* label = label_new(string_intern_bytes(bytes, length));
+    label_t* label = label_new(name);
     table_put(symbol->labels, &label->entry, string_hash(label->name));
     return label;
 }
 
-label_t* symbol_find_label(symbol_t* symbol, const char* bytes, size_t length) {
+label_t* symbol_find_label(symbol_t* symbol, const string_t* name) {
     if (symbol->labels != NULL) {
-        table_entry_t* entry = table_bucket(symbol->labels, fnv1a_bytes(bytes, length));
+        table_entry_t* entry = table_bucket(symbol->labels, string_hash(name));
         for (; entry; entry = table_entry_next(entry)) {
             label_t* label = (label_t*)entry;
-            if (string_equal_bytes(label->name, bytes, length)) {
+            if (string_equal(label->name, name)) {
                 return label;
             }
         }
@@ -126,7 +136,7 @@ static vector_t destructors;
 table_t symbols;
 
 // The linked list of all symbols in the order they are encountered.
-static symbol_t* all_symbols;
+symbol_t* all_symbols;
 static symbol_t* all_symbols_end;
 
 void symbols_init(void) {
@@ -151,14 +161,13 @@ void symbols_destroy(void) {
     }
 }
 
-symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
-    uint32_t hash = fnv1a_bytes(bytes, length);
+symbol_t* symbols_find(const string_t* name, int file_index) {
     symbol_t* global = NULL;
 
-    table_entry_t* entry = table_bucket(&symbols, hash);
+    table_entry_t* entry = table_bucket(&symbols, string_hash(name));
     for (; entry; entry = table_entry_next(entry)) {
         symbol_t* symbol = (symbol_t*)entry;
-        if (string_equal_bytes(symbol->name, bytes, length)) {
+        if (string_equal(symbol->name, name)) {
             // Prefer a matching static symbol to a global symbol.
             if (symbol->file_index == file_index)
                 return symbol;
@@ -173,10 +182,10 @@ symbol_t* symbols_find(const char* bytes, size_t length, int file_index) {
     return global;
 }
 
-symbol_t* symbols_define(const char* bytes, size_t length, int file_index, bool is_static) {
+symbol_t* symbols_define(string_t* name, int file_index, bool is_static) {
 
     // Check for duplicates
-    symbol_t* symbol = symbols_find(bytes, length, file_index);
+    symbol_t* symbol = symbols_find(name, file_index);
     if (symbol && symbol->file_index == file_index) {
         fatal("Duplicate %s symbol: %s",
                 is_static ? "static" : "global",
@@ -184,7 +193,7 @@ symbol_t* symbols_define(const char* bytes, size_t length, int file_index, bool 
     }
 
     // Create the symbol
-    symbol = symbol_new(string_intern_bytes(bytes, length));
+    symbol = symbol_new(name);
     symbol->file_index = file_index;
     symbol->is_static = is_static;
     if (!optimize) {
@@ -220,6 +229,14 @@ void symbols_insert(symbol_t* symbol) {
     }
 }
 
+// Walk a vector of symbols.
+static void symbol_walk_vector(vector_t* vector) {
+    for (size_t i = vector_count(vector); i-- > 0;) {
+        symbol_t* symbol = vector_at(vector, i);
+        symbol_walk(symbol);
+    }
+}
+
 void symbols_walk_use(void) {
 
     // The first symbol is the entry point.
@@ -246,7 +263,7 @@ void symbols_assign_addresses(void) {
 }
 
 static void symbols_create_generated_list(const char* name, size_t count) {
-    symbol_t* symbol = symbols_define(name, strlen(name), -1, false);
+    symbol_t* symbol = symbols_define(string_intern_bytes(name, strlen(name)), -1, false);
     symbol->size = 4 * (count + 1);
     symbols_insert(symbol);
 }
@@ -256,9 +273,12 @@ void symbols_create_generated(void) {
     symbols_create_generated_list("__destructors", vector_count(&destructors));
 }
 
-static void symbols_emit_generated_list(const char* name, vector_t* vector, bool reverse) {
+static void symbols_emit_generated_list(const char* cname, vector_t* vector, bool reverse) {
     emit_source_location("<builtin>", 0);
-    emit_symbol(name);
+
+    string_t* name = string_intern_cstr(cname);
+    emit_symbol_debug(name);
+    string_deref(name);
 
     if (reverse) {
         for (size_t i = vector_count(vector); i-- > 0;) {

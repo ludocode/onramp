@@ -55,7 +55,7 @@ void emit_source_location(const char* /*nullable*/ filename, int line);
  *
  * This emits a #symbol directive in the debug info.
  */
-void emit_symbol(const char* symbol);
+void emit_symbol_debug(string_t* name);
 
 /**
  * Increments the line number by 1 (and emits a byte count for the previous

@@ -61,7 +61,7 @@ static void parse_args(const char** argv) {
 
         // optimization
         if (0 == strcmp(*argv, "-O")) {
-            option_optimize = true;
+            optimize = true;
             ++argv;
             continue;
         }
@@ -188,7 +188,6 @@ int main(int argc, const char** argv) {
     open_output_files();
 
     // second pass: output symbols.
-    //printf("\n@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@\noutput pass starting\n\n");
     output_pass = true;
     perform_pass(input_filenames, input_filenames_count);
     symbols_emit_generated();
@@ -200,13 +199,11 @@ int main(int argc, const char** argv) {
     emit_destroy();
     string_teardown();
 
-    ;//printf("closing output\n");
     if (debug_file) {
         fclose(debug_file);
     }
     fclose(output_file);
 
-    //printf("total %i\n",total_labels);
     return EXIT_SUCCESS;
 }
 

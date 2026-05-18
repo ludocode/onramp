@@ -24,8 +24,10 @@
 
 #include "emit.h"
 
+#include "symbol.h"
+
 char* emit_filename;
-char* emit_current_symbol;
+string_t* emit_current_symbol;
 int emit_line;
 static int bytes_emitted;
 
@@ -33,7 +35,7 @@ void emit_byte_count(void) {
     if (bytes_emitted == 0) {
         return;
     }
-    if (option_debug && emit_filename) {
+    if (option_debug) {
         fprintf(debug_file, "%i\n", bytes_emitted);
     }
     bytes_emitted = 0;
@@ -46,11 +48,12 @@ void emit_init(void) {
 void emit_destroy(void) {
     emit_byte_count();
     free(emit_filename);
-    free(emit_current_symbol);
+    if (emit_current_symbol) {
+        string_deref(emit_current_symbol);
+    }
 }
 
 void emit_byte(char c) {
-    //printf("emit byte '%x output_pass %i\n", c, output_pass);
     if (output_pass) {
         fputc(c, output_file);
         ++bytes_emitted;
@@ -76,9 +79,17 @@ void emit_debug(char c) {
     if (!option_debug) {
         return;
     }
+    if (current_symbol && !current_symbol->is_used) {
+        return;
+    }
     fputc(c, debug_file);
 }
 
+// TODO this function, and in fact this whole file, is a big mess. We need to
+// get location in libo and use it. Then we need to make this only track source
+// locations, and we should emit a source location lazily, only right before
+// emitting some other directive or byte count. Currently we flush and emit
+// right away which makes no sense, it's backwards.
 void emit_source_location(const char* /*nullable*/ filename, int line) {
     //printf("set source %s:%i output_pass %i\n",filename,line, output_pass);
     if (!output_pass) {
@@ -89,6 +100,17 @@ void emit_source_location(const char* /*nullable*/ filename, int line) {
     }
 
     // TODO if neither have changed, do nothing (e.g. when starting a file or an archive member)
+
+    // shortcut for a single line directive
+    if (emit_filename != NULL && // we have previous debug info
+            (filename == NULL || 0 == strcmp(filename, emit_filename)) && // filename hasn't changed
+            line == emit_line + 1) // line has incremented by one
+    {
+        emit_byte_count();
+        emit_line = line;
+        fputs("#\n", debug_file);
+        return;
+    }
 
     // shortcut for a single line directive
     if (emit_filename != NULL && // we have previous debug info
@@ -118,7 +140,7 @@ void emit_source_location(const char* /*nullable*/ filename, int line) {
     }
 }
 
-void emit_symbol(const char* symbol) {
+void emit_symbol_debug(string_t* name) {
     if (!output_pass) {
         return;
     }
@@ -127,15 +149,18 @@ void emit_symbol(const char* symbol) {
     }
 
     // if the symbol hasn't changed, do nothing
-    if (emit_current_symbol != NULL && 0 == strcmp(symbol, emit_current_symbol)) {
+    if (emit_current_symbol != NULL && string_equal(name, emit_current_symbol)) {
         return;
     }
 
-    // update the symbol
     emit_byte_count();
-    free(emit_current_symbol);
-    emit_current_symbol = strdup(symbol);
-    fprintf(debug_file, "#symbol %s\n", emit_current_symbol);
+
+    if (emit_current_symbol) {
+        string_deref(emit_current_symbol);
+    }
+    emit_current_symbol = string_ref(name);
+
+    fprintf(debug_file, "#symbol %s\n", emit_current_symbol->bytes);
 }
 
 void emit_increment_line(int line) {

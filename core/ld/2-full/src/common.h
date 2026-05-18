@@ -62,7 +62,6 @@ extern size_t buffer_length;
 
 extern struct symbol_t* current_symbol;
 
-extern bool option_optimize;
 extern bool option_debug;
 
 int hex_to_int(char c);
