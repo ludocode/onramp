@@ -126,6 +126,8 @@ The primary Onramp repository is hosted [here on GitHub][upstream] but you don't
 
 Authors retain copyright over their code contributions, but all code in this repository must be MIT licensed. By contributing to Onramp you agree to license your contributions under the MIT license and you assert that you have the right to do so.
 
+Onramp is handwritten by humans. Please do not use large language models in your contributions. LLM-generated pull requests and LLM-generated bug reports will be rejected, and autonomous agents are not permitted to interact with the project. If you are not comfortable in English, feel free to file bug reports in your native language.
+
 
 
 ## Documentation
