@@ -52,6 +52,7 @@ TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL
 OBJS3=\
 		$(BUILD3)/atexit.oo \
 		$(BUILD3)/bsearch.oo \
+		$(BUILD3)/dirent.oo \
 		$(BUILD3)/malloc.oo \
 		$(BUILD3)/qsort.oo \
 		$(BUILD3)/rand.oo \
@@ -157,6 +158,12 @@ $(BUILD3)/bsearch.oo: $(SRC3)/bsearch.c Makefile
 	@mkdir -p $(BUILD3)
 	$(CC) $(CPPFLAGS) -c $(SRC3)/bsearch.c -o $(BUILD3)/bsearch.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC3)/bsearch.c -o $@
+
+$(BUILD3)/dirent.oo: $(SRC3)/dirent.c Makefile
+	@rm -f $@
+	@mkdir -p $(BUILD3)
+	$(CC) $(CPPFLAGS) -c $(SRC3)/dirent.c -o $(BUILD3)/dirent.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC3)/dirent.c -o $@
 
 $(BUILD3)/malloc.oo: $(SRC3)/malloc.c Makefile
 	@rm -f $@

@@ -52,22 +52,23 @@ static bool input_block;
 static bool input_canonical;
 
 /*
- * A POSIX file descriptor.
+ * A POSIX file description.
+ *
+ * TODO this should be reference counted, and multiple file descriptors can
+ * reference the same file description. File descriptor flags (close-on-exec)
+ * don't go here.
  */
 typedef struct posixfile_t {
-    int fd;           // The POSIX file descriptor
+    int fd;           // The POSIX file descriptor (TODO this must be moved out)
     unsigned handle;  // The underlying Onramp file or directory handle
     unsigned flags;   // The flags with which the file was opened
     bool is_dir;      // true if this is a directory
-    bool std_stream;  // true if this is a standard stream (which must not be closed)
+    bool std_stream;  // true if this is a standard stream (which on v2 are not closed)
     char* path;       // The path to the file
-
-    #ifdef __onramp_cci_opc__  // TODO omc, see #25
-    long position; // 32 bits during bootstrapping
-    #endif
-    #ifndef __onramp_cci_opc__
-    off_t position; // 64 bits in final libc
-    #endif
+    off_t position;   // Current position in the file
+    char* dirent;             // 256-byte buffer, exists only if there is a cached dirent
+    bool dirent_overflowed;   // true if there is a cached dirent that overflowed
+    bool dirent_eof;          // true if the last dirent was end of file
 } posixfile_t;
 
 static posixfile_t* posixfiles[32];
@@ -93,8 +94,8 @@ static posixfile_t* posixfile_new(int fd, int handle, int flags, const char* pat
 }
 
 static void posixfile_delete(posixfile_t* posixfile) {
-    // Note we delete without closing. We don't close the standard
-    // input/output/error streams; other files must be closed manually.
+    // Note we delete without closing. This is called by close().
+    free(posixfile->dirent);
     free(posixfile->path);
     free(posixfile);
 }
@@ -139,49 +140,12 @@ int open(const char* path, int flags, ...) {
     }
     bool writeable = (flags & O_WRONLY) || (flags & O_RDWR);
 
-    // Collect information about the existing path now. We'll need it for
-    // various checks.
-// TODO stat is not implemented yet. Most of these checks are disabled for now.
-/*
-    struct stat buffer;
-    bool stat_ok = 0 == stat(path, buffer);
-
-    // If the user didn't specify O_CREAT, the path must exist.
-    // TODO stat will be optional, if not O_CREAT, try opening for reading first to ensure it exists
-    if (!(flags & O_CREAT)) {
-        if (!stat_ok) {
-            errno = ENOENT; // no such file
-            return -1;
-        }
-    }
-
-    // If the user requested exclusive create, writing is required, and the
-    // path must not exist.
-    if ((flags & O_CREAT) && (flags & O_EXCL)) {
-        if (!writeable) {
-            errno = EINVAL; // invalid flags
-            return -1;
-        }
-        if (stat_ok) {
-            errno = EEXIST; // file cannot exist
-            return -1;
-        }
-    }
-*/
-    bool is_dir = 0/*stat_ok && stat.st_mode & S_IFDIR*/;
-    if (is_dir && writeable) {
-        errno = EISDIR; // cannot open a directory writeable
+    // Check for other flag incompatibilities
+    if ((flags & O_EXCL) && !(flags & O_CREAT)) {
+        errno = EINVAL; // invalid flags
         return -1;
     }
-    /* TODO: use dirent to see if it's a directory, cache the result */
-    if ((flags & O_DIRECTORY) && !is_dir) {
-        errno = ENOTDIR; // not a directory
-        return -1;
-    }
-
-    // The behaviour of O_TRUNC with O_RDONLY or with a directory is
-    // unspecified. We consider it an error.
-    if ((flags & O_TRUNC) && ((flags & O_RDONLY) || is_dir)) {
+    if ((flags & O_TRUNC) && (flags & O_RDONLY)) {
         errno = EINVAL; // invalid flags
         return -1;
     }
@@ -198,6 +162,29 @@ int open(const char* path, int flags, ...) {
         return -1;
     }
 
+    // TODO normalize the path. should append it onto the working directory
+
+    // If the file is being opened for creation only, we have to make sure the
+    // file doesn't exist first. We do that by opening for reading.
+    if ((flags & O_CREAT) && (flags & O_EXCL)) {
+        int handle = __sys_open(path, false);
+        if (handle >= 0) {
+            // The file exists and O_EXCL was specified.
+            if (0 != __sys_close(handle)) {
+                // TODO we've leaked a file descriptor, this should panic.
+                __fatal("Failed to close a file!");
+            }
+            errno = EEXIST;
+            return -1;
+        }
+
+        // It is possible to specify (O_CREAT | O_EXCL | O_RDONLY). In this
+        // case we have to open the file for writing to create it, but we'll
+        // still store O_RDONLY in the file description flags so we won't allow
+        // write() on it.
+        writeable = true;
+    }
+
     // Open it.
     int handle = __sys_open(path, !!writeable);
     if (handle < 0) {
@@ -206,7 +193,71 @@ int open(const char* path, int flags, ...) {
         return -1;
     }
 
-    // TODO if we can't tell with stat whether it's a directory, use dirent and cache the result
+    // Create the wrapper
+    posixfile_t* posixfile = posixfile_new(0, handle, flags, path);
+    posixfiles[fd] = posixfile;
+    posixfile->handle = handle;
+
+    // TODO use stat to check the type if implemented. the stat syscall isn't specified yet; see #39.
+
+    // TODO move directory stuff to a function in libc/3 dirent.c
+
+    // Check if this could be a directory.
+    bool maybe_directory = true;
+    if ((flags & O_CREAT) && (flags & O_EXCL)) {
+        maybe_directory = false;
+    } else if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
+        maybe_directory = false;
+    } else if (!__syscall_is_supported(__SYS_DIRENT)) {
+        maybe_directory = false;
+    }
+
+    // Make a dirent call to check if it's a directory.
+    if (maybe_directory) {
+        char dirent_buffer[256];
+        int ret = __sys_dirent(handle, dirent_buffer);
+        if (ret == 0 || ret == __ERROR_END_OF_FILE || ret == __ERROR_OVERFLOW) {
+
+            // It's a directory!
+            posixfile->is_dir = true;
+
+            // If this was opened for writing, the VM should have refused to
+            // open it, but in case it didn't we fail here.
+            if (writeable) {
+                close(fd);
+                errno = EISDIR;
+                return -1;
+            }
+
+            // Cache the result so we can return it from the next __dirent()
+            if (ret == __ERROR_OVERFLOW) {
+                posixfile->dirent_overflowed = true;
+            } else if (ret == __ERROR_END_OF_FILE) {
+                posixfile->dirent_eof = true;
+            } else {
+                // We need to store the dirent to be returned on the next
+                // __dirent().
+                posixfile->dirent = malloc(_NAME_MAX + 1);
+                if (!posixfile->dirent) {
+                    close(fd);
+                    errno = ENOMEM;
+                    return -1;
+                }
+
+                // We're trusting that the VM has properly null-terminated the
+                // buffer.
+                strcpy(posixfile->dirent, dirent_buffer);
+            }
+            return fd;
+        }
+    }
+
+    // It's not a directory. Make sure O_DIRECTORY was not specified.
+    if (flags & O_DIRECTORY) {
+        close(fd);
+        errno = EISDIR;
+        return -1;
+    }
 
     // Change the mode (if the file was created)
     if (0/*TODO !stat_ok*/) {
@@ -234,10 +285,6 @@ int open(const char* path, int flags, ...) {
         }
     }
 
-    // Create the wrapper
-    posixfile_t* posixfile = posixfile_new(0, handle, flags, path);
-    posixfile->is_dir = is_dir;
-    posixfiles[fd] = posixfile;
     return fd;
 }
 
@@ -263,9 +310,15 @@ int close(int fd) {
                 __process_info_table[__ONRAMP_PIT_VERSION] < 4 &&
                 __syscall_is_supported(__SYS_DCLOSE))
         {
-            __sys_dclose(posixfile->handle);
+            if (0 != __sys_dclose(posixfile->handle)) {
+                // TODO we've leaked a file descriptor, this should panic.
+                __fatal("Failed to dclose a directory!");
+            }
         } else {
-            __sys_close(posixfile->handle);
+            if (0 != __sys_close(posixfile->handle)) {
+                // TODO we've leaked a file descriptor, this should panic.
+                __fatal("Failed to close a file!");
+            }
         }
     }
 
@@ -276,6 +329,11 @@ int close(int fd) {
 
 static off_t __fd_size_v3(int fd) {
     posixfile_t* posixfile = posixfiles[fd];
+
+    if (posixfile->is_dir) {
+        errno = EISDIR;
+        return -1;
+    }
 
     // seek to the end
     int ret = __sys_fseek(posixfile->handle, SEEK_END, 0, 0);
@@ -341,6 +399,11 @@ static off_t __fd_size_v3(int fd) {
 
 static off_t __fd_size_v4(int fd) {
     posixfile_t* posixfile = posixfiles[fd];
+
+    if (posixfile->is_dir) {
+        errno = EISDIR;
+        return -1;
+    }
 
     #ifdef __onramp_abi_bootstrap__
     unsigned result[2]; // TODO will have to malloc this to build with cci/0
@@ -614,7 +677,7 @@ ssize_t write(int fd, const void* buffer, size_t count) {
     posixfile_t* posixfile = posixfiles[fd];
 
     if (posixfile->is_dir || (posixfile->flags & O_RDONLY)) {
-        errno = EINVAL; // this is not writeable
+        errno = EBADF; // this is not writeable
         return -1;
     }
 
@@ -652,6 +715,82 @@ ssize_t write(int fd, const void* buffer, size_t count) {
 
     posixfile->position += (unsigned)result;
     return result;
+}
+
+// TODO move to libc/3, need to move posixfile_t to header
+int __dirent(int fd, char name[256]) {
+    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+        errno = EBADF; // no such file descriptor
+        return -1;
+    }
+    posixfile_t* posixfile = posixfiles[fd];
+
+    if (!posixfile->is_dir) {
+        errno = EBADF;
+        return -1;
+    }
+
+    // If we have a cached dirent, return it.
+
+    if (posixfile->dirent_overflowed) {
+        posixfile->dirent_overflowed = false;
+        errno = EOVERFLOW;
+        return -1;
+    }
+
+    if (posixfile->dirent_eof) {
+        return 0;
+    }
+
+    if (posixfile->dirent) {
+        strcpy(name, posixfile->dirent);
+        free(posixfile->dirent);
+        posixfile->dirent = 0;
+        return 1;
+    }
+
+    // Otherwise we need to make a syscall.
+    int ret = __sys_dirent(posixfile->handle, name);
+    if (ret == 0) {
+        // For backwards compatibility we treat a blank name as end of
+        // directory.
+        if (*name == 0) {
+            return 0;
+        }
+
+        // TODO parse out ".", ".."
+
+        return 1;
+    }
+
+    if (ret > 0) {
+        // TODO panic, nonsense return value
+        __fatal("syscall dirent returning positive value!");
+    }
+
+    switch (ret) {
+        case __ERROR_END_OF_FILE:
+            // must not set errno (see readdir())
+            return 0;
+
+        case __ERROR_OVERFLOW:
+            errno = EOVERFLOW;
+            return -1;
+
+        case __ERROR_UNSUPPORTED:
+            // Something went wrong; we should have recognized that this is not
+            // a directory when we opened it.
+            errno = ENOTSUP;
+            return -1;
+
+        case __ERROR_IO:
+        case __ERROR_GENERIC: // assume it's an I/O error
+        default:
+            errno = EIO;
+            return -1;
+    }
+
+    // unreachable
 }
 
 int chmod(const char* path, mode_t mode) {

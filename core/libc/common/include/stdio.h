@@ -29,6 +29,7 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__mode_t.h>
 #include <__onramp/__null.h>
 #include <__onramp/__seek.h>
 #include <__onramp/__size_t.h>
@@ -105,8 +106,6 @@ int fseek(FILE* file, long offset, int whence);
 long ftell(FILE* file);
 long __fsize(FILE* file);
 
-int chmod(const char* filename, int mode); // TODO this belongs in sys/stat.h
-
 
 
 // opC
@@ -161,7 +160,6 @@ int vasprintf(char** restrict out_string, const char* restrict format, va_list a
 
 // posix
 int fileno(FILE* file);
-typedef int mode_t;
 
 #endif
 

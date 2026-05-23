@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,47 +22,9 @@
  * SOFTWARE.
  */
 
-#ifndef __ONRAMP_LIBC_ERRNO_H_INCLUDED
-#define __ONRAMP_LIBC_ERRNO_H_INCLUDED
+#ifndef __ONRAMP_LIBC_ONRAMP_NAME_MAX_H_INCLUDED
+#define __ONRAMP_LIBC_ONRAMP_NAME_MAX_H_INCLUDED
 
-#ifndef __onramp_libc__
-    #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
-#endif
-
-#include <features.h>
-
-#define EDOM 1
-#define EILSEQ 2
-#define ERANGE 3
-#define EINVAL 4
-#define ENOMEM 5
-#define EINTR 6
-#define EISDIR 7
-#define ENOTDIR 8
-#define ENFILE 9
-#define EACCES 10
-#define EBADF 11
-#define EIO 12
-#define ESPIPE 13
-#define EOVERFLOW 14
-#define ENOTSUP 15
-#define EAGAIN 16
-#define EWOULDBLOCK EAGAIN
-#define EPIPE 17
-#define ENOENT 18
-#define ENAMETOOLONG 19
-#define EEXIST 20
-
-extern int errno;
-
-#ifdef __onramp_ftm_default
-#ifndef __onramp_cci_omc__
-#ifndef __onramp_cci_opc__
-// TODO mark deprecated
-const char* const sys_errlist[];
-int sys_nerr;
-#endif
-#endif
-#endif
+#define _NAME_MAX 255
 
 #endif

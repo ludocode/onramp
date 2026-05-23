@@ -40,6 +40,7 @@ cp core/libc/common/include/__onramp/__arithmetic.h output/final/include/__onram
 cp core/libc/common/include/__onramp/__bool.h output/final/include/__onramp/__bool.h
 cp core/libc/common/include/__onramp/__fatal.h output/final/include/__onramp/__fatal.h
 cp core/libc/common/include/__onramp/__mode_t.h output/final/include/__onramp/__mode_t.h
+cp core/libc/common/include/__onramp/__name_max.h output/final/include/__onramp/__name_max.h
 cp core/libc/common/include/__onramp/__null.h output/final/include/__onramp/__null.h
 cp core/libc/common/include/__onramp/__pit.h output/final/include/__onramp/__pit.h
 cp core/libc/common/include/__onramp/__predef.h output/final/include/__onramp/__predef.h
@@ -57,6 +58,7 @@ cp core/libc/common/include/__onramp/__wint_t.h output/final/include/__onramp/__
 echo Copying standard headers
 cp core/libc/common/include/assert.h output/final/include/assert.h
 cp core/libc/common/include/ctype.h output/final/include/ctype.h
+cp core/libc/common/include/dirent.h output/final/include/dirent.h
 cp core/libc/common/include/errno.h output/final/include/errno.h
 cp core/libc/common/include/fcntl.h output/final/include/fcntl.h
 cp core/libc/common/include/features.h output/final/include/features.h

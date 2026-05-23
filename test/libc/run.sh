@@ -177,7 +177,7 @@ for TESTFILE in $FILES; do
         echo "    $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS && \\"
         echo "    $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/output/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
-        echo "    onrampvm $TEMP_OE >$TEMP_STDOUT"
+        echo "    ( cd $ROOT ; onrampvm $TEMP_OE ) >$TEMP_STDOUT"
         if [ -e $BASENAME.stdout ]; then
             echo "    diff -q $BASENAME.stdout $TEMP_STDOUT"
         fi

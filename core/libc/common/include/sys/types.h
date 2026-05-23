@@ -29,12 +29,20 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+// TODO we should define everything here:
+//     https://pubs.opengroup.org/onlinepubs/9699919799/basedefs/sys_types.h.html
+
 typedef int ssize_t;
 
 typedef int pid_t;
 typedef int uid_t;
 typedef int gid_t;
 typedef int id_t;
+
+#ifndef __onramp_cci_omc__  // TODO remove when we add unsigned to cci/0
+typedef unsigned ino_t;
+typedef unsigned reclen_t;
+#endif
 
 #ifdef __onramp_abi_bootstrap__
 typedef int off_t;

@@ -52,4 +52,22 @@ void __stdio_teardown(void);
 size_t __utod(uint32_t value, char* output);
 #endif
 
+#ifndef __onramp_cci_omc__
+/**
+ * Reads a directory entry from the given file descriptor.
+ *
+ * Returns 1 on success; __name contains a null-terminated filename.
+ *
+ * Returns 0 on end of directory; __name is not set.
+ *
+ * Returns -1 and sets errno on error; __name contains garbage and must not be
+ * used.
+ *
+ * - EBADF: No such file descriptor or not a directory.
+ * - EOVERFLOW: File name of entry is too long. (You may continue reading other
+ *              entries.)
+ */
+int __dirent(int __fd, char __name[256]);
+#endif
+
 #endif

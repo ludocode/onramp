@@ -171,6 +171,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/bsearch.c \
     -o output/intermediate/libc-3-full-re/bsearch.oo
 
+echo Compiling libc/3-full dirent.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/3-full/src/dirent.c \
+    -o output/intermediate/libc-3-full-re/dirent.oo
+
 echo Compiling libc/3-full malloc.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -254,6 +260,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     output/intermediate/libc-3-full-re/atexit.oo \
     output/intermediate/libc-3-full-re/bsearch.oo \
+    output/intermediate/libc-3-full-re/dirent.oo \
     output/intermediate/libc-3-full-re/malloc.oo \
     output/intermediate/libc-3-full-re/qsort.oo \
     output/intermediate/libc-3-full-re/rand.oo \

@@ -29,6 +29,7 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__name_max.h>
 #include <features.h>
 
 #define BOOL_WIDTH 8
@@ -78,7 +79,7 @@
     // Maximum bytes in a path, including null terminator
     #define PATH_MAX 4096
     // Maximum bytes in a path component, not including null terminator
-    #define NAME_MAX 255
+    #define NAME_MAX _NAME_MAX
 //#endif
 
 #endif

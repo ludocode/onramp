@@ -42,12 +42,13 @@
 #define O_DIRECTORY  0x20
 #define O_TRUNC      0x40
 #define O_NONBLOCK   0x80
+#define O_EXCL       0x100
+#define O_CLOEXEC    0x200
 
 // ignored flags
 #define O_ASYNC      0
 #define O_DSYNC      0
 #define O_SYNC       0
-#define O_CLOEXEC    0
 #define O_DIRECT     0
 #define O_NOATIME    0
 

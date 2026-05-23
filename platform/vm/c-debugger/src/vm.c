@@ -593,6 +593,7 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
 
     vm->running = true;
     vm->version = 4;
+            vm->generate_error_later = true;
 
     // allocate and dead-fill memory
     vm->memory = vm_ghost_alloc_array(uint8_t, vm->memory_size);
@@ -1284,8 +1285,15 @@ static uint32_t vm_dirent(vm_t* vm) {
 
     char* buffer = (char*)(vm->memory + (buffer_addr - vm->memory_base));
     for (;;) {
+        errno = 0;
         struct dirent* dirent = readdir(filedata->dir);
         if (dirent == NULL) {
+            if (errno) {
+                // TODO parse out errno. We were able to open the directory so
+                // if we can't read it we assume it's an I/O error.
+                return VM_ERROR_IO;
+            }
+
             // end of directory
             if (vm->version < 4) {
                 // ERROR_END_OF_FILE didn't exist in v3 and earlier VMs. We
@@ -1301,6 +1309,13 @@ static uint32_t vm_dirent(vm_t* vm) {
             buffer[255] = 0;
             return VM_ERROR_END_OF_FILE;
         }
+
+        /* TODO enable this
+        if (0 == strcmp(dirent->d_name, ".") || 0 == strcmp(dirent->d_name, "..")) {
+            // test skipping these; the libc should simulate them
+            continue;
+        }
+        */
 
         size_t len = strlen(dirent->d_name);
         if (len > 255) {
@@ -1913,7 +1928,8 @@ static void vm_print_stats(vm_t* vm) {
             }
         }
     }
-    fprintf(stderr, "Total memory usage: %zi bytes (%zi pages)\n", pages * 4096, pages);
+    fprintf(stderr, "Total memory usage: %zi bytes, %.2f MiB (%zi pages)\n",
+            pages * 4096, pages * 4096 / 1024. / 1024., pages);
     #endif
 }
 
