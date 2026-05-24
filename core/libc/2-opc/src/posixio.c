@@ -22,6 +22,14 @@
  * SOFTWARE.
  */
 
+/*
+ * This implements POSIX-style file I/O with file descriptors.
+ *
+ * See core/libc/README.md for details.
+ */
+
+#define _DEFAULT_SOURCE
+
 #include <unistd.h>
 #include <fcntl.h>
 #include <termios.h>
@@ -53,13 +61,9 @@ static bool input_canonical;
 
 /*
  * A POSIX file description.
- *
- * TODO this should be reference counted, and multiple file descriptors can
- * reference the same file description. File descriptor flags (close-on-exec)
- * don't go here.
  */
-typedef struct posixfile_t {
-    int fd;           // The POSIX file descriptor (TODO this must be moved out)
+typedef struct fdn_t {
+    unsigned refcount; // The number of file descriptors that reference this file description
     unsigned handle;  // The underlying Onramp file or directory handle
     unsigned flags;   // The flags with which the file was opened
     bool is_dir;      // true if this is a directory
@@ -69,62 +73,109 @@ typedef struct posixfile_t {
     char* dirent;             // 256-byte buffer, exists only if there is a cached dirent
     bool dirent_overflowed;   // true if there is a cached dirent that overflowed
     bool dirent_eof;          // true if the last dirent was end of file
-} posixfile_t;
+} fdn_t;
 
-static posixfile_t* posixfiles[32];
+/**
+ * A POSIX file descriptor.
+ */
+typedef struct fdr_t {
+    fdn_t* fdn; // The file description this references
+    int fd; // The file descriptor value
+    bool cloexec; // The close-on-exec flag
+} fdr_t;
 
-#define POSIXFILES_CAPACITY (int)(sizeof(posixfiles)/sizeof(*posixfiles))
+// TODO we'd like to increase OPEN_MAX to 4096 or 65536 but we need to split
+// the table into a flat array for low numbers and a sparse array for larger
+// numbers.
+static fdr_t* fdrs[OPEN_MAX];
 
-static posixfile_t* posixfile_new(int fd, int handle, int flags, const char* path) {
-    posixfile_t* posixfile = calloc(1, sizeof(posixfile_t));
-    if (posixfile == NULL) {
+#define FDRS_CAPACITY (int)(sizeof(fdrs) / sizeof(*fdrs))
+
+/**
+ * Gets the given file descriptor, or NULL if it doesn't exist.
+ */
+static fdr_t* fdr_get(int fd) {
+    if (fd < 0 || fd > FDRS_CAPACITY) {
+        return NULL;
+    }
+    return fdrs[fd];
+}
+
+static fdn_t* fdn_new(int handle, int flags, const char* path) {
+    fdn_t* fdn = calloc(1, sizeof(fdn_t));
+    if (fdn == NULL) {
         return NULL;
     }
 
-    posixfile->fd = fd;
-    posixfile->handle = handle;
-    posixfile->flags = flags;
-    posixfile->path = strdup(path);
-    if (posixfile->path == NULL) {
-        free(posixfile);
+    if (path == 0) {
+        // TODO shouldn't happen. should have better error handling
+        __fatal("Out of memory.");
+    }
+
+    fdn->refcount = 1;
+    fdn->handle = handle;
+    fdn->flags = flags;
+    fdn->path = strdup(path);
+    if (fdn->path == NULL) {
+        free(fdn);
         return NULL;
     }
 
-    return posixfile;
+    return fdn;
 }
 
-static void posixfile_delete(posixfile_t* posixfile) {
-    // Note we delete without closing. This is called by close().
-    free(posixfile->dirent);
-    free(posixfile->path);
-    free(posixfile);
+/*
+static fdn_t* fdn_ref(fdn_t* fdn) {
+    ++fdn->refcount;
+    return fdn;
+}
+*/
+
+static void fdn_deref(fdn_t* fdn);
+
+static fdr_t* fdr_new(int fd, fdn_t* fdn, bool cloexec) {
+    fdr_t* fdr = malloc(sizeof(fdr_t));
+    fdr->fdn = fdn; // must be just created or ref'd already!
+    fdr->fd = fd;
+    fdr->cloexec = cloexec;
+    return fdr;
 }
 
-void __io_init(void) {
+static void fdr_delete(fdr_t* fdr) {
+    free(fdr);
+}
+
+void __posixio_setup(void) {
 
     // By default we match POSIX
     input_echo = true;
     input_block = true;
     input_canonical = true;
 
-    // Create POSIX file descriptors
-    posixfiles[0] = posixfile_new(0, __process_info_table[__ONRAMP_PIT_INPUT], O_RDONLY, "/dev/stdin");
-    posixfiles[1] = posixfile_new(1, __process_info_table[__ONRAMP_PIT_OUTPUT], O_WRONLY, "/dev/stdout");
-    posixfiles[2] = posixfile_new(2, __process_info_table[__ONRAMP_PIT_ERROR], O_WRONLY, "/dev/stderr");
+    // Create file descriptors for standard streams
+    fdrs[0] = fdr_new(0,
+            fdn_new(__process_info_table[__ONRAMP_PIT_INPUT], O_RDONLY, strdup("/dev/stdin")),
+            false);
+    fdrs[1] = fdr_new(1,
+            fdn_new(__process_info_table[__ONRAMP_PIT_OUTPUT], O_WRONLY, strdup("/dev/stdout")),
+            false);
+    fdrs[2] = fdr_new(2,
+            fdn_new(__process_info_table[__ONRAMP_PIT_ERROR], O_WRONLY, strdup("/dev/stderr")),
+            false);
 
-    // Mark the standard streams so we don't close them
-    posixfiles[0]->std_stream = true;
-    posixfiles[1]->std_stream = true;
-    posixfiles[2]->std_stream = true;
+    // Mark the standard streams so we don't close them on v2 VMs
+    fdrs[0]->fdn->std_stream = true;
+    fdrs[1]->fdn->std_stream = true;
+    fdrs[2]->fdn->std_stream = true;
 }
 
-void __io_destroy(void) {
-    for (int fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
-        if (posixfiles[fd] != NULL) {
+void __posixio_teardown(void) {
+    for (int fd = 0; fd < FDRS_CAPACITY; ++fd) {
+        if (fdrs[fd] != NULL) {
             // We're deleting all files because we eventually want to build a
-            // leak checker into the libc. On a quick exit we only need to
-            // close the file descriptors.
-            posixfile_delete(posixfiles[fd]);
+            // leak checker into the libc. (On a quick exit we don't need to
+            // close anything.)
+            close(fd);
         }
     }
 }
@@ -159,12 +210,12 @@ int open(const char* path, int flags, ...) {
 
     // Find a free file descriptor
     size_t fd;
-    for (fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
-        if (posixfiles[fd] == 0) {
+    for (fd = 0; fd < FDRS_CAPACITY; ++fd) {
+        if (fdrs[fd] == 0) {
             break;
         }
     }
-    if (fd == POSIXFILES_CAPACITY) {
+    if (fd == FDRS_CAPACITY) {
         errno = ENFILE; // too many open files
         return -1;
     }
@@ -200,10 +251,26 @@ int open(const char* path, int flags, ...) {
         return -1;
     }
 
-    // Create the wrapper
-    posixfile_t* posixfile = posixfile_new(0, handle, flags, path);
-    posixfiles[fd] = posixfile;
-    posixfile->handle = handle;
+    // Create the file description
+    fdn_t* fdn = fdn_new(handle, flags, path);
+    if (fdn == NULL) {
+        if (0 != __sys_close(handle)) {
+            // TODO we've leaked a file descriptor, this should panic.
+            __fatal("Failed to close a file!");
+        }
+        errno = ENOMEM;
+        return -1;
+    }
+    fdn->handle = handle;
+
+    // Create the file descriptor
+    fdr_t* fdr = fdr_new(fd, fdn, flags & O_CLOEXEC);
+    if (fdr == NULL) {
+        fdn_deref(fdn);
+        errno = ENOMEM;
+        return -1;
+    }
+    fdrs[fd] = fdr;
 
     // TODO use stat to check the type if implemented. the stat syscall isn't specified yet; see #39.
 
@@ -226,7 +293,7 @@ int open(const char* path, int flags, ...) {
         if (ret == 0 || ret == __ERROR_END_OF_FILE || ret == __ERROR_OVERFLOW) {
 
             // It's a directory!
-            posixfile->is_dir = true;
+            fdn->is_dir = true;
 
             // If this was opened for writing, the VM should have refused to
             // open it, but in case it didn't we fail here.
@@ -238,14 +305,14 @@ int open(const char* path, int flags, ...) {
 
             // Cache the result so we can return it from the next __dirent()
             if (ret == __ERROR_OVERFLOW) {
-                posixfile->dirent_overflowed = true;
+                fdn->dirent_overflowed = true;
             } else if (ret == __ERROR_END_OF_FILE) {
-                posixfile->dirent_eof = true;
+                fdn->dirent_eof = true;
             } else {
                 // We need to store the dirent to be returned on the next
                 // __dirent().
-                posixfile->dirent = malloc(_NAME_MAX + 1);
-                if (!posixfile->dirent) {
+                fdn->dirent = malloc(_NAME_MAX + 1);
+                if (!fdn->dirent) {
                     close(fd);
                     errno = ENOMEM;
                     return -1;
@@ -253,7 +320,7 @@ int open(const char* path, int flags, ...) {
 
                 // We're trusting that the VM has properly null-terminated the
                 // buffer.
-                strcpy(posixfile->dirent, dirent_buffer);
+                strcpy(fdn->dirent, dirent_buffer);
             }
             return fd;
         }
@@ -300,50 +367,62 @@ int creat(const char* path, mode_t mode) {
 }
 
 int close(int fd) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
-    posixfile_t* posixfile = posixfiles[fd];
 
-    // We don't close the standard streams.
-    // TODO this should only be done on v2 VMs, but before we fix it we need to
-    // proxy child syscalls. In libc/2 we need to reference count file
-    // descriptors; in other parts of the bootstrap we need to proxy close and
-    // ignore it on the standard streams.
-    if (!posixfile->std_stream) {
+    fdn_deref(fdr->fdn);
+
+    fdr_delete(fdr);
+    fdrs[fd] = NULL;
+    return 0;
+}
+
+static void fdn_deref(fdn_t* fdn) {
+    if (--fdn->refcount != 0) {
+        return;
+    }
+
+    // On v2 VMs, we don't close the standard streams.
+    // TODO for now we don't close on any version because we need to proxy
+    // child syscalls on all parent programs to prevent closing standard
+    // streams.
+    // - sh already does it
+    // - on libc/0 we need spawn.oo to proxy close() and ignore it on standard streams
+    // - on libc/2 we need to fdn_ref() the streams we give to child programs
+    //   and create its own file handle table
+    if (!fdn->std_stream /*|| __process_info_table[__ONRAMP_PIT_VERSION] > 2*/) {
+
         // v2/v3 had a dclose syscall for directories. In v4 it's just close.
-        if (posixfile->is_dir &&
+        // TODO this doesn't make sense, we don't implement directories in v2/v3
+        /*
+        if (fdn->is_dir &&
                 __process_info_table[__ONRAMP_PIT_VERSION] < 4 &&
                 __syscall_is_supported(__SYS_DCLOSE))
         {
-            if (0 != __sys_dclose(posixfile->handle)) {
+            if (0 != __sys_dclose(fdn->handle)) {
                 // TODO we've leaked a file descriptor, this should panic.
                 __fatal("Failed to dclose a directory!");
             }
-        } else {
-            if (0 != __sys_close(posixfile->handle)) {
+        } else*/ {
+            if (0 != __sys_close(fdn->handle)) {
                 // TODO we've leaked a file descriptor, this should panic.
-                __fatal("Failed to close a file!");
+                __fatal("Failed to close a file! @");
             }
         }
     }
 
-    posixfile_delete(posixfile);
-    posixfiles[fd] = NULL;
-    return 0;
+    free(fdn->dirent);
+    free(fdn->path);
+    free(fdn);
 }
 
-static off_t __fd_size_v3(int fd) {
-    posixfile_t* posixfile = posixfiles[fd];
-
-    if (posixfile->is_dir) {
-        errno = EISDIR;
-        return -1;
-    }
+static off_t __fd_size_v3(fdn_t* fdn) {
 
     // seek to the end
-    int ret = __sys_fseek(posixfile->handle, SEEK_END, 0, 0);
+    int ret = __sys_fseek(fdn->handle, SEEK_END, 0, 0);
     if (ret != 0) {
         // TODO for now we assume stream isn't seekable
         errno = ESPIPE;
@@ -359,7 +438,7 @@ static off_t __fd_size_v3(int fd) {
     #endif
     off_t size = 0;
 
-    ret = __sys_size(posixfile->handle, (void*)&result);
+    ret = __sys_size(fdn->handle, (void*)&result);
     switch (ret) {
         case 0:
             break;
@@ -390,9 +469,9 @@ static off_t __fd_size_v3(int fd) {
     #endif
 
     // seek back
-    ret = __sys_fseek(posixfile->handle, SEEK_SET,
-            (uint32_t)posixfile->position,
-            (uint32_t)((posixfile->position >> 16) >> 16)); // shift twice for when off_t is 32 bits
+    ret = __sys_fseek(fdn->handle, SEEK_SET,
+            (uint32_t)fdn->position,
+            (uint32_t)((fdn->position >> 16) >> 16)); // shift twice for when off_t is 32 bits
     if (ret != 0) {
         // we're in trouble, we successfully seeked but we can't seek back!
         // TODO we should probably set a flag to put this fd in an error state
@@ -404,14 +483,7 @@ static off_t __fd_size_v3(int fd) {
     return size;
 }
 
-static off_t __fd_size_v4(int fd) {
-    posixfile_t* posixfile = posixfiles[fd];
-
-    if (posixfile->is_dir) {
-        errno = EISDIR;
-        return -1;
-    }
-
+static off_t __fd_size_v4(fdn_t* fdn) {
     #ifdef __onramp_abi_bootstrap__
     unsigned result[2]; // TODO will have to malloc this to build with cci/0
     #endif
@@ -419,7 +491,7 @@ static off_t __fd_size_v4(int fd) {
     off_t result;
     #endif
 
-    int ret = __sys_size(posixfile->handle, (void*)&result);
+    int ret = __sys_size(fdn->handle, (void*)&result);
     switch (ret) {
         case 0:
             break;
@@ -447,24 +519,28 @@ static off_t __fd_size_v4(int fd) {
 }
 
 off_t __fd_size(int fd) {
-    // TODO this is copy-pasted a bunch of places, make it a function, also
-    // because we need to allow callers to set arbitrary ids with dup2 so we
-    // will need a more sophisticated id table
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
 
-    if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
-        return __fd_size_v3(fd);
+    fdn_t* fdn = fdr->fdn;
+    if (fdn->is_dir) {
+        errno = EISDIR;
+        return -1;
     }
-    return __fd_size_v4(fd);
+
+    if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
+        return __fd_size_v3(fdn);
+    }
+    return __fd_size_v4(fdn);
 }
 
-static off_t lseek_v3(posixfile_t* posixfile, off_t offset, int whence) {
+static off_t lseek_v3(fdn_t* fdn, off_t offset, int whence) {
 
     // perform the seek
-    int ret = __sys_fseek(posixfile->handle,
+    int ret = __sys_fseek(fdn->handle,
             whence == SEEK_SET ? 0 : whence == SEEK_CUR ? 1 : 2,
             (unsigned)offset,
             #ifdef __onramp_abi_bootstrap__
@@ -482,7 +558,7 @@ static off_t lseek_v3(posixfile_t* posixfile, off_t offset, int whence) {
 
     // for SEEK_SET the offset is the new position
     if (whence == SEEK_SET) {
-        posixfile->position = offset;
+        fdn->position = offset;
         return offset;
     }
 
@@ -494,7 +570,7 @@ static off_t lseek_v3(posixfile_t* posixfile, off_t offset, int whence) {
     off_t result;
     #endif
 
-    ret = __sys_ftell(posixfile->handle, (void*)&result);
+    ret = __sys_ftell(fdn->handle, (void*)&result);
     if (ret != 0) {
         // TODO for now we assume stream isn't seekable
         errno = ESPIPE;
@@ -506,24 +582,24 @@ static off_t lseek_v3(posixfile_t* posixfile, off_t offset, int whence) {
         errno = EOVERFLOW;
         return -1;
     }
-    posixfile->position = result[0];
+    fdn->position = result[0];
     return result[0];
     #endif
     #ifndef __onramp_abi_bootstrap__
-    posixfile->position = result;
+    fdn->position = result;
     return result;
     #endif
 }
 
-static off_t lseek_v4(posixfile_t* posixfile, off_t offset, int whence) {
+static off_t lseek_v4(fdn_t* fdn, off_t offset, int whence) {
     switch (whence) {
         case SEEK_SET:
             break;
         case SEEK_CUR:
-            offset += posixfile->position;
+            offset += fdn->position;
             break;
         case SEEK_END: {
-            off_t size = __fd_size(posixfile->fd);
+            off_t size = __fd_size_v4(fdn);
             if (size < 0) {
                 // __fd_size() set errno
                 return -1;
@@ -535,11 +611,11 @@ static off_t lseek_v4(posixfile_t* posixfile, off_t offset, int whence) {
             // TODO unreachable
     }
 
-    if (offset == posixfile->position) {
+    if (offset == fdn->position) {
         return offset;
     }
 
-    int ret = __sys_seek(posixfile->handle,
+    int ret = __sys_seek(fdn->handle,
             (unsigned)offset,
             (unsigned)((offset >> 16) >> 16)); // shift twice for when off_t is 64 bits
 
@@ -561,7 +637,7 @@ static off_t lseek_v4(posixfile_t* posixfile, off_t offset, int whence) {
             return -1;
     }
 
-    posixfile->position = offset;
+    fdn->position = offset;
     return offset;
 }
 
@@ -571,49 +647,57 @@ off_t lseek(int fd, off_t offset, int whence) {
         return -1;
     }
 
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
-    posixfile_t* posixfile = posixfiles[fd];
+
+    // lseek on directories is implementation-defined. We don't support it (yet?)
+    fdn_t* fdn = fdr->fdn;
+    if (fdn->is_dir) {
+        errno = EISDIR;
+        return -1;
+    }
 
     if (whence == SEEK_CUR && offset == 0) {
         // TODO not if file is not seekable
-        return posixfile->position;
+        return fdn->position;
     }
 
     if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
-        return lseek_v3(posixfile, offset, whence);
+        return lseek_v3(fdn, offset, whence);
     }
-    return lseek_v4(posixfile, offset, whence);
+    return lseek_v4(fdn, offset, whence);
 }
 
 ssize_t read(int fd, void* buffer, size_t count) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
-    posixfile_t* posixfile = posixfiles[fd];
 
-    if (posixfile->is_dir) {
+    fdn_t* fdn = fdr->fdn;
+    if (fdn->is_dir) {
         errno = EISDIR; // this is a directory
         return -1;
     }
 
-    if (posixfile->flags & O_WRONLY) {
+    if (fdn->flags & O_WRONLY) {
         errno = EINVAL; // this is not readable
         return -1;
     }
 
     int result;
     for (;;) {
-        result = __sys_read(posixfile->handle, buffer, count);
+        result = __sys_read(fdn->handle, buffer, count);
 
         // If the VM input is non-blocking but the program wants blocking and
         // we received ERROR_TRY_LATER (or 0 for backwards compatibility), we
         // block internally until we get data.
         // TODO check if program has called fcntl(O_NONBLOCK)
-        if (((result == 0 && posixfile->std_stream && input_block) || (result == __ERROR_TRY_LATER)) &&
+        if (((result == 0 && fdn->std_stream && input_block) || (result == __ERROR_TRY_LATER)) &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_BLOCKING))
         {
             continue;
@@ -648,13 +732,13 @@ ssize_t read(int fd, void* buffer, size_t count) {
 
         break;
     }
-    posixfile->position += (unsigned)result;
+    fdn->position += (unsigned)result;
 
     // If the VM input doesn't echo but the program wants echo, we echo
     // ourselves.
     // TODO handle escape sequences; backspace, arrow keys in canonical mode
     // TODO this should be moved into a separate function, and we need to check the interactive bit in v4
-    if (input_echo && posixfile->std_stream &&
+    if (input_echo && fdn->std_stream &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_ECHO))
     {
         // Loop until all the data is written.
@@ -677,20 +761,21 @@ ssize_t read(int fd, void* buffer, size_t count) {
 }
 
 ssize_t write(int fd, const void* buffer, size_t count) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
-    posixfile_t* posixfile = posixfiles[fd];
 
-    if (posixfile->is_dir || (posixfile->flags & O_RDONLY)) {
+    fdn_t* fdn = fdr->fdn;
+    if (fdn->is_dir || (fdn->flags & O_RDONLY)) {
         errno = EBADF; // this is not writeable
         return -1;
     }
 
     int result;
     for (;;) {
-        result = __sys_write(posixfile->handle, buffer, count);
+        result = __sys_write(fdn->handle, buffer, count);
 
         if (result > 0) {
             break;
@@ -720,44 +805,45 @@ ssize_t write(int fd, const void* buffer, size_t count) {
         }
     }
 
-    posixfile->position += (unsigned)result;
+    fdn->position += (unsigned)result;
     return result;
 }
 
-// TODO move to libc/3, need to move posixfile_t to header
+// TODO move to libc/3, need to move fdn_t to header
 int __dirent(int fd, char name[256]) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
-    posixfile_t* posixfile = posixfiles[fd];
 
-    if (!posixfile->is_dir) {
+    fdn_t* fdn = fdr->fdn;
+    if (!fdn->is_dir) {
         errno = EBADF;
         return -1;
     }
 
     // If we have a cached dirent, return it.
 
-    if (posixfile->dirent_overflowed) {
-        posixfile->dirent_overflowed = false;
+    if (fdn->dirent_overflowed) {
+        fdn->dirent_overflowed = false;
         errno = EOVERFLOW;
         return -1;
     }
 
-    if (posixfile->dirent_eof) {
+    if (fdn->dirent_eof) {
         return 0;
     }
 
-    if (posixfile->dirent) {
-        strcpy(name, posixfile->dirent);
-        free(posixfile->dirent);
-        posixfile->dirent = 0;
+    if (fdn->dirent) {
+        strcpy(name, fdn->dirent);
+        free(fdn->dirent);
+        fdn->dirent = 0;
         return 1;
     }
 
     // Otherwise we need to make a syscall.
-    int ret = __sys_dirent(posixfile->handle, name);
+    int ret = __sys_dirent(fdn->handle, name);
     if (ret == 0) {
         // For backwards compatibility we treat a blank name as end of
         // directory.
@@ -817,12 +903,14 @@ int chmod(const char* path, mode_t mode) {
 }
 
 int fchmod(int fd, mode_t mode) {
-    if (fd < 0 || fd >= POSIXFILES_CAPACITY || posixfiles[fd] == NULL) {
+    fdr_t* fdr = fdr_get(fd);
+    if (fdrs[fd] == NULL) {
         errno = EBADF; // no such file descriptor
         return -1;
     }
-    posixfile_t* posixfile = posixfiles[fd];
-    return chmod(posixfile->path, mode);
+
+    fdn_t* fdn = fdr->fdn;
+    return chmod(fdn->path, mode);
 }
 
 int fcntl(int fd, int command, ...) {

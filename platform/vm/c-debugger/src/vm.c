@@ -172,7 +172,7 @@ static void panic(const char* e) {
 /* Files. We offset the file count in order to ensure programs are using them
  * correctly (and not just assuming 1 is stdout for example.) */
 #define FILES_COUNT 16
-#define FILES_OFFSET (INT_MAX-FILES_COUNT-1)
+#define FILES_OFFSET (INT_MAX-FILES_COUNT+1)
 
 // Uncomment this to get warnings about unclosed file handles. This isn't on by
 // default because it's not an error to leave files unclosed.
@@ -928,16 +928,22 @@ static uint32_t vm_close(vm_t* vm) {
     // The program is allowed to close standard streams but we always ignore
     // closing stderr so we can print errors and we ignore closing the other
     // streams if we're in debugger mode.
+    // TODO we should still mark these as closed to ensure the program doesn't
+    // try to write to them (but we still want __debugprint() to work, which
+    // means probably the libc should have an option to ignore closes to stderr
+    // and redirect printf to __debugwrite)
     FILE* file = filedata->file;
-    if (!(file == stderr ||
-            (vm->debugger_active && (file == stdin || file == stdout))))
-    {
+    if (file == stderr) {
+        strace(" ignoring close of stderr");
+    } else if (vm->debugger_active && (file == stdin || file == stdout)) {
+        strace(" ignoring close of stdin/stdout due to debugger active");
+    } else {
         if (file == stdin) {
             disable_raw_input();
         }
         fclose(file);
+        filedata->file = NULL;
     }
-    filedata->file = NULL;
     return 0;
 }
 
@@ -1503,7 +1509,7 @@ static void vm_syscall(vm_t* vm) {
             panic("Unrecognized syscall");
     }
 
-    strace(" == %i\n", ret); // TODO parse into error code
+    strace(" == %i (0x%x)\n", ret, ret); // TODO parse into error code
     vm->registers[0] = ret;
 
     // We quash all other caller-preserved registers to ensure that programs do

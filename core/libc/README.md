@@ -14,6 +14,30 @@ Unlike other components, the libc is built up incrementally. Each stage does not
 
 
 
+## File I/O
+
+The first stage libc implements only the basic C `FILE*` APIs: `fopen()`, `fread()`, `puts()` and so on. These support primitive buffering, but otherwise call file system calls directly. The implementation is entirely in [`0-oo/src/stdio.oo`](0-oo/src/stdio.oo).
+
+Starting from [libc/2](2-opc), the libc implements POSIX-style file I/O: `open()`, `read()` and so on. The implementation is pretty complicated compared to a typical libc because much of what we have to build would normally be provided by the kernel. We have to manage our own file descriptor table for example.
+
+It's important to distinguish between a *file descriptor* and a *file description*. A file descriptor is represented by an `int` and refers to a file description. Multiple file descriptors can reference the same file description, in which case they share most state (such as the seek position in the underlying file.)
+
+See the [POSIX spec](https://pubs.opengroup.org/onlinepubs/9799919799/) for definitions.
+
+These are the types used in the Onramp libc:
+
+- `fdn_t` -- An open file description. This includes the VM handle (if any), the file's type, the path to the file, the file description flags (but not file descriptor flags), and cached data (such as a directory entry.)
+
+- `fdr_t` -- A file descriptor. This contains a retained reference to an open file description along with file descriptor flags (close-on-exec.) This is represented by an `int` which is a key to the `fdr_t*` in the file descriptor table.
+
+Most of the above is implemented in [`2-opc/src/posixio.c`](2-opc/src/posixio.c). Additional code for directories is in [`3-full/src/dirent.c`](3-full/src/dirent.c).
+
+The C `FILE*` API (`fopen()`, `fread()`, `printf()` and so on) is built on top of the POSIX APIs. A `FILE` contains a file descriptor and a read/write buffer.
+
+The POSIX `DIR*` directory APIs (`opendir()`, `readdir()` and so on) are also built on top of the low-level POSIX code. A `__dirent()` function is used to read a directory entry from a file descriptor.
+
+
+
 ## Exiting a program
 
 There are many ways to exit a program in C. This describes their implementation in Onramp.

@@ -70,4 +70,22 @@ size_t __utod(uint32_t value, char* output);
 int __dirent(int __fd, char __name[256]);
 #endif
 
+/**
+ * Writes the given bytes directly to the standard error handle.
+ *
+ * This can be used to print debug messages during startup and shutdown (before
+ * the libc's I/O is initialized or after it is torn down.)
+ *
+ * The c-debugger VM and all parent programs ignore calls to close the error
+ * handle so this can often be used even if stderr or fd 2 is closed.
+ */
+void __debugwrite(const char* bytes, size_t count);
+
+/**
+ * Writes the given null-terminated string directly to the standard error handle.
+ *
+ * See __debugwrite().
+ */
+void __debugprint(const char* cstr);
+
 #endif

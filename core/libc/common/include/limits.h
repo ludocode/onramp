@@ -76,10 +76,23 @@
 
 // TODO required by unistd.h
 //#ifdef __onramp_ftm_susv2
+
+    #define _POSIX_PATH_MAX 256
+    #define _XOPEN_PATH_MAX 1024
+
     // Maximum bytes in a path, including null terminator
     #define PATH_MAX 4096
     // Maximum bytes in a path component, not including null terminator
     #define NAME_MAX _NAME_MAX
 //#endif
+
+#ifdef __onramp_ftm_posix_1990
+    #define _POSIX_OPEN_MAX 20
+
+    // TODO 32 is pretty low; the VM may allow many more open files, and
+    // programs may wish to use larger numbers with dup2(). Some work is
+    // required in the file descriptor table to increase this.
+    #define OPEN_MAX 32 // Maximum file descriptors (and largest file descriptor number plus one)
+#endif
 
 #endif

@@ -186,7 +186,7 @@ symbol_t* symbols_define(string_t* name, int file_index, bool is_static) {
 
     // Check for duplicates
     symbol_t* symbol = symbols_find(name, file_index);
-    if (symbol && symbol->file_index == file_index) {
+    if (symbol && ((symbol->file_index == file_index) || (!symbol->is_static && !is_static))) {
         fatal("Duplicate %s symbol: %s",
                 is_static ? "static" : "global",
                 symbol->name->bytes);

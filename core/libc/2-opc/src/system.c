@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -46,8 +46,8 @@ extern char** environ;
 _Noreturn void __end(unsigned exit_code, unsigned exit_address);
 extern void __environ_setup(void);
 extern void __malloc_init(void);
-extern void __io_init(void);
-extern void __io_destroy(void);
+extern void __posixio_setup(void);
+extern void __posixio_teardown(void);
 static void exit_flush(void);
 extern int main(int argc, char** argv, char** envp);
 
@@ -89,7 +89,7 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
     __environ_setup();
     __time_setup();
     __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
-    __io_init();
+    __posixio_setup();
     __stdio_setup();
 
     // run user code. exit() does not return.
@@ -144,7 +144,7 @@ _Noreturn void exit(int status) {
     // close files
     exit_flush();
     __stdio_teardown();
-    __io_destroy();
+    __posixio_teardown();
 
     _Exit(status);
 }
@@ -164,16 +164,8 @@ _Noreturn void quick_exit(int status) {
     _Exit(status);
 }
 
-static bool fatal_called;
-
 _Noreturn void __fatal(const char* string) {
-    if (!fatal_called) {
-        // Only try to print the error message once. We don't want to recurse
-        // if it fails.
-        fatal_called = true;
-        fputs(string, stderr);
-        fflush(stderr);
-    }
+    __debugprint(string);
     _Exit(1);
 }
 
@@ -218,4 +210,23 @@ static void call_destructors(void) {
     (void)call_constructors;
     (void)__argv_setup;
     #endif
+}
+
+void __debugwrite(const char* bytes, size_t count) {
+    while (count > 0) {
+        int ret = __sys_write(__process_info_table[__ONRAMP_PIT_ERROR], bytes, count);
+        if (ret == __ERROR_TRY_LATER) {
+            continue;
+        }
+        if (ret <= 0 || (size_t)ret > count) {
+            // can't print. nothing to do.
+            break;
+        }
+        bytes += (size_t)ret;
+        count -= (size_t)ret;
+    }
+}
+
+void __debugprint(const char* cstr) {
+    __debugwrite(cstr, strlen(cstr));
 }
