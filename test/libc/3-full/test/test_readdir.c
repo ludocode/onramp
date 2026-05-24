@@ -15,6 +15,10 @@
 int main(void) {
     DIR* dir = opendir("test/vm/testdata/dir");
     if (!dir) {
+        if (errno == ENOTSUP) {
+            // Directory support in VMs is optional.
+            exit(0);
+        }
         perror("opendir");
         exit(1);
     }

@@ -593,7 +593,6 @@ static void vm_init(vm_t* vm, int argc, const char* argv[]) {
 
     vm->running = true;
     vm->version = 4;
-            vm->generate_error_later = true;
 
     // allocate and dead-fill memory
     vm->memory = vm_ghost_alloc_array(uint8_t, vm->memory_size);

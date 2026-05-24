@@ -150,6 +150,13 @@ int open(const char* path, int flags, ...) {
         return -1;
     }
 
+    // If we don't have dirent support, we can't open directories.
+    bool has_dirent = __syscall_is_supported(__SYS_DIRENT);
+    if ((flags & O_DIRECTORY) && !has_dirent) {
+        errno = ENOTSUP;
+        return -1;
+    }
+
     // Find a free file descriptor
     size_t fd;
     for (fd = 0; fd < POSIXFILES_CAPACITY; ++fd) {
@@ -208,7 +215,7 @@ int open(const char* path, int flags, ...) {
         maybe_directory = false;
     } else if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
         maybe_directory = false;
-    } else if (!__syscall_is_supported(__SYS_DIRENT)) {
+    } else if (!has_dirent) {
         maybe_directory = false;
     }
 
@@ -255,7 +262,7 @@ int open(const char* path, int flags, ...) {
     // It's not a directory. Make sure O_DIRECTORY was not specified.
     if (flags & O_DIRECTORY) {
         close(fd);
-        errno = EISDIR;
+        errno = ENOTDIR;
         return -1;
     }
 
