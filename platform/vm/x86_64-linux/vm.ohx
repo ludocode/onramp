@@ -2228,6 +2228,13 @@
     FF D0             ; call rax
     50                ; push rax
 
+    ; if it's stdin, call disable_raw_input() to reset terminal state
+    83 F8 00          ; cmp eax, 0
+    75 07             ; jne syscall_close_not_stdin (+7)
+    B8 20 14 40 00    ; mov eax, disable_raw_input (0x401420)
+    FF D0             ; call rax
+;syscall_close_not_stdin:
+
     ; call close() syscall
     B8 03 00 00 00   ; mov eax, 0x3  ; syscall: close (3)
     5F               ; pop rdi       ; file descriptor
@@ -2246,8 +2253,7 @@
     ; padding (nop)
     90 90 90 90 90 90 90 90
     90 90 90 90 90 90 90 90
-    90 90 90 90 90 90 90 90
-    90 90 90 90 90
+    90
 @0xF90
 
 
