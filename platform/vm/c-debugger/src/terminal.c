@@ -146,9 +146,11 @@ static void enable_raw_input(void) {
     signal(SIGTTOU, SIG_DFL);
 }
 
-static void disable_raw_input(void) {
+void disable_raw_input(void) {
     if (raw_input_set) {
-        tcsetattr(STDIN_FILENO, TCSANOW, &original_termios);
+        if (0 != tcsetattr(STDIN_FILENO, TCSANOW, &original_termios)) {
+            fprintf(stderr, "WARNING: Failed to restore terminal state! errno %i\n", errno);
+        }
         raw_input_set = false;
     }
 }

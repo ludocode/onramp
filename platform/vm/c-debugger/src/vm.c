@@ -932,6 +932,9 @@ static uint32_t vm_close(vm_t* vm) {
     if (!(file == stderr ||
             (vm->debugger_active && (file == stdin || file == stdout))))
     {
+        if (file == stdin) {
+            disable_raw_input();
+        }
         fclose(file);
     }
     filedata->file = NULL;
