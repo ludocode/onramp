@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -67,8 +67,9 @@ unsigned __float_divu(unsigned a, unsigned b);
 unsigned __float_divs(unsigned a, unsigned b);
 unsigned __float_modu(unsigned a, unsigned b);
 unsigned __float_mods(unsigned a, unsigned b);
+_Bool __float_eq(unsigned a, unsigned b);
 _Bool __float_lt(unsigned a, unsigned b);
-_Bool __float_ne(unsigned a, unsigned b);
+_Bool __float_lte(unsigned a, unsigned b);
 
 int __double_to_int(unsigned* a);
 void __double_to_llong(unsigned* out, unsigned* a);
@@ -83,7 +84,8 @@ unsigned* __double_divu(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_divs(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_modu(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __double_mods(unsigned* out, const unsigned* a, const unsigned* b);
+_Bool __double_eq(const unsigned* a, const unsigned* b);
 _Bool __double_lt(const unsigned* a, const unsigned* b);
-_Bool __double_ne(const unsigned* a, const unsigned* b);
+_Bool __double_lte(const unsigned* a, const unsigned* b);
 
 #endif

@@ -1,5 +1,5 @@
 // The MIT License (MIT)
-// Copyright (c) 2025 Fraser Heavy Software
+// Copyright (c) 2025-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 #include <stdbool.h>
@@ -155,6 +155,150 @@ static void test_sub(void) {
 
 }
 
+static void test_eq_impl(float x, float y, bool expected) {
+    floatunion_t xf, yf;
+    xf.f = x;
+    yf.f = y;
+    bool actual = __float_eq(xf.u, yf.u);
+    //printf("0x%x == 0x%x   e %i a %i\n",xf.u,yf.u,expected,actual);
+
+    if (expected != actual) {
+        fprintf(stderr, "Failed to compare %.9g == %.9g: expected %i, got %i\n",
+                x, y, expected, actual);
+        exit(1);
+    }
+}
+
+static void test_lt_impl(float x, float y, bool expected) {
+    floatunion_t xf, yf;
+    xf.f = x;
+    yf.f = y;
+    bool actual = __float_lt(xf.u, yf.u);
+    //printf("0x%x < 0x%x   e %i a %i\n",xf.u,yf.u,expected,actual);
+
+    if (expected != actual) {
+        fprintf(stderr, "Failed to compare %.9g < %.9g: expected %i, got %i\n",
+                x, y, expected, actual);
+        exit(1);
+    }
+}
+
+static void test_lte_impl(float x, float y, bool expected) {
+    floatunion_t xf, yf;
+    xf.f = x;
+    yf.f = y;
+    bool actual = __float_lte(xf.u, yf.u);
+    //printf("0x%x <= 0x%x   e %i a %i\n",xf.u,yf.u,expected,actual);
+
+    if (expected != actual) {
+        fprintf(stderr, "Failed to compare %.9g <= %.9g: expected %i, got %i\n",
+                x, y, expected, actual);
+        exit(1);
+    }
+}
+
+static void test_eq(void) {
+
+    // positive and negative zero are equal
+    test_eq_impl(0.0, 0.0, true);
+    test_eq_impl(0.0, -0.0, true);
+    test_eq_impl(-0.0, 0.0, true);
+    test_eq_impl(-0.0, -0.0, true);
+
+    // some equal numbers
+    test_eq_impl(3.0f, 3.0f, true);
+    test_eq_impl(-8.0f, -8.0f, true);
+
+    // nan compares unequal to everything, even itself
+    test_eq_impl(u2f(0xFFFFFFFF), u2f(0xFFFFFFFF), false);
+    test_eq_impl(u2f(0xFFFFFFFF), u2f(0xFFFFFFFE), false);
+    test_eq_impl(INFINITY, u2f(0xFFFFFFFF), false);
+    test_eq_impl(-INFINITY, u2f(0xFFFFFFFF), false);
+
+    // infinity should work
+    test_eq_impl((float)INFINITY, (float)INFINITY, true);
+    test_eq_impl((float)-INFINITY, (float)-INFINITY, true);
+    test_eq_impl((float)INFINITY, (float)-INFINITY, false);
+    test_eq_impl(0.0f, INFINITY, false);
+    test_eq_impl(0.0f, -INFINITY, false);
+
+}
+
+static void test_lt(void) {
+
+    // positive and negative zero are equal
+    test_lt_impl(0.0, 0.0, false);
+    test_lt_impl(0.0, -0.0, false);
+    test_lt_impl(-0.0, 0.0, false);
+    test_lt_impl(-0.0, -0.0, false);
+
+    // small number comparisons should work fine
+    test_lt_impl(3.0f, 3.0f, false);
+    test_lt_impl(3.0f, 4.0f, true);
+    test_lt_impl(5.0f, 1.0f, false);
+    test_lt_impl(-3.0f, -3.0f, false);
+    test_lt_impl(-3.0f, -4.0f, false);
+    test_lt_impl(-5.0f, -1.0f, true);
+
+    // differing signs
+    test_lt_impl(-5.0f, 1.0f, true);
+    test_lt_impl(-1.0f, 5.0f, true);
+    test_lt_impl(5.0f, -1.0f, false);
+    test_lt_impl(1.0f, -5.0f, false);
+
+    // nan is always false, even when compared to itself
+    test_lt_impl(u2f(0xFFFFFFFF), u2f(0xFFFFFFFF), false);
+    test_lt_impl(u2f(0xFFFFFFFF), u2f(0xFFFFFFFE), false);
+    test_lt_impl(INFINITY, u2f(0xFFFFFFFF), false);
+    test_lt_impl(-INFINITY, u2f(0xFFFFFFFF), false);
+
+    // infinity should work
+    test_lt_impl((float)INFINITY, (float)INFINITY, false);
+    test_lt_impl((float)-INFINITY, (float)-INFINITY, false);
+    test_lt_impl((float)INFINITY, (float)-INFINITY, false);
+    test_lt_impl((float)-INFINITY, (float)INFINITY, true);
+    test_lt_impl(0.0f, INFINITY, true);
+    test_lt_impl(0.0f, -INFINITY, false);
+
+}
+
+static void test_lte(void) {
+
+    // positive and negative zero are equal
+    test_lte_impl(0.0, 0.0, true);
+    test_lte_impl(0.0, -0.0, true);
+    test_lte_impl(-0.0, 0.0, true);
+    test_lte_impl(-0.0, -0.0, true);
+
+    // small number comparisons should work fine
+    test_lte_impl(3.0f, 3.0f, true);
+    test_lte_impl(3.0f, 4.0f, true);
+    test_lte_impl(5.0f, 1.0f, false);
+    test_lte_impl(-3.0f, -3.0f, true);
+    test_lte_impl(-3.0f, -4.0f, false);
+    test_lte_impl(-5.0f, -1.0f, true);
+
+    // differing signs
+    test_lte_impl(-5.0f, 1.0f, true);
+    test_lte_impl(-1.0f, 5.0f, true);
+    test_lte_impl(5.0f, -1.0f, false);
+    test_lte_impl(1.0f, -5.0f, false);
+
+    // nan is always false, even when compared to itself
+    test_lte_impl(u2f(0xFFFFFFFF), u2f(0xFFFFFFFF), false);
+    test_lte_impl(u2f(0xFFFFFFFF), u2f(0xFFFFFFFE), false);
+    test_lte_impl(INFINITY, u2f(0xFFFFFFFF), false);
+    test_lte_impl(-INFINITY, u2f(0xFFFFFFFF), false);
+
+    // infinity should work
+    test_lte_impl((float)INFINITY, (float)INFINITY, true);
+    test_lte_impl((float)-INFINITY, (float)-INFINITY, true);
+    test_lte_impl((float)INFINITY, (float)-INFINITY, false);
+    test_lte_impl((float)-INFINITY, (float)INFINITY, true);
+    test_lte_impl(0.0f, INFINITY, true);
+    test_lte_impl(0.0f, -INFINITY, false);
+}
+
 // The random float tests don't make sense on Onramp because we need another
 // floating point implementation to compare to. When running on x86_64 for
 // example, we are comparing it to the x86_64 CPU implementation. Probably this
@@ -262,10 +406,17 @@ int main(void) {
 
     test_add();
     test_sub();
+    test_eq();
+    test_lt();
+    test_lte();
 
     #ifndef __onramp__
     //test_add_loop();
     //test_sub_loop();
     #endif
+
+    (void)f2u;
+    (void)test_add_loop;
+    (void)test_sub_loop;
             #endif
 }

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -77,7 +77,7 @@
 
 #define FLOAT_SIGN_SHIFT (FLOAT_SIGNIFICAND_BITS + FLOAT_EXPONENT_BITS)
 
-#define FLOAT_SIGN_BIT ((uint32_t)1u << FLOAT_SIGN_SHIFT)
+#define FLOAT_SIGN_BIT ((uint32_t)1u << FLOAT_SIGN_SHIFT)  // 1 is negative, 0 is positive
 #define FLOAT_HIDDEN_BIT ((uint32_t)1u << FLOAT_SIGNIFICAND_BITS)
 #define FLOAT_QUIET_BIT ((uint32_t)1u << (FLOAT_SIGNIFICAND_BITS - 1u))
 
@@ -495,9 +495,7 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
     // Handle NaNs
     if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
 
-        // Signal if either NaN is signaling.
-        // TODO should we signal twice if both are signaling? Assuming not but
-        // this should be tested.
+        // Signal (once) if either NaN is signaling.
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
@@ -530,7 +528,7 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
         result = bs | float_sub_impl(be, ae, bf, af);
     }
     //printf("__float_add() got sub result 0x%x\n", result);
-    
+
     // (x+-x) is always +0. We need a special case for it.
     if ((result & ~FLOAT_SIGN_BIT) == 0) {
         //printf("  result is zero. returning +0\n");
@@ -566,9 +564,7 @@ uint32_t __float_sub(uint32_t a, uint32_t b) {
     // Handle NaNs
     if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
 
-        // Signal if either NaN is signaling.
-        // TODO should we signal twice if both are signaling? Assuming not but
-        // this should be tested.
+        // Signal (once) if either NaN is signaling.
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
@@ -608,4 +604,161 @@ uint32_t __float_sub(uint32_t a, uint32_t b) {
         // The sign of the subtrahend is flipped.
         return (bs ^ FLOAT_SIGN_BIT) | float_sub_impl(be, ae, bf, af);
     }
+}
+
+/**
+ * Returns true if the given floats are equal.
+ *
+ * Positive zero equals negative zero, and NaN does not equal anything (not
+ * even itself.) Otherwise, floats are equal if they have the same bit
+ * representation.
+ *
+ * A call to this function is emitted by the compiler for operator== and
+ * operator!= (with the result inverted) on floats.
+ */
+_Bool __float_eq(unsigned a, unsigned b) {
+
+    // Handle NaNs
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+        uint32_t af = FLOAT_SIGNIFICAND(a);
+        uint32_t bf = FLOAT_SIGNIFICAND(b);
+
+        // Signal (once) if either NaN is signaling.
+        if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
+        {
+            raise(SIGFPE);
+        }
+
+        // If either argument is NaN, we return false.
+        if (ae == FLOAT_EXPONENT_MASK && af != 0u) {
+            return false;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bf != 0u) {
+            return false;
+        }
+    }
+
+    // Negative zero equals positive zero. We can use bitwise or to check if
+    // any bits are set.
+    if (((a | b) & ~FLOAT_SIGN_BIT) == 0) {
+        return true;
+    }
+
+    // Otherwise the numbers are equal if and only if the bit representation
+    // exactly matches.
+    return a == b;
+}
+
+/**
+ * Returns true if a is less than b.
+ *
+ * Positive zero equals negative zero, and NaN does not equal anything (not
+ * even itself.)
+ *
+ * A call to this function is emitted by the compiler for operator< and
+ * operator>= (with arguments swapped) on floats.
+ */
+_Bool __float_lt(unsigned a, unsigned b) {
+
+    // Handle NaNs
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+        uint32_t af = FLOAT_SIGNIFICAND(a);
+        uint32_t bf = FLOAT_SIGNIFICAND(b);
+
+        // Signal (once) if either NaN is signaling.
+        if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
+        {
+            raise(SIGFPE);
+        }
+
+        // If either argument is NaN, we return false.
+        if (ae == FLOAT_EXPONENT_MASK && af != 0u) {
+            return false;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bf != 0u) {
+            return false;
+        }
+    }
+
+    // Check whether the signs match.
+    uint32_t as = a & FLOAT_SIGN_BIT;
+    uint32_t bs = b & FLOAT_SIGN_BIT;
+    if (as != bs) {
+        // Signs differ.
+
+        // Negative zero equals positive zero. We can use bitwise or to check if
+        // any bits are set.
+        if ((a | b) == FLOAT_SIGN_BIT) {
+            return false;
+        }
+
+        // Otherwise the negative number comes before the positive one.
+        return as;
+    }
+
+    // Otherwise we can compare the numbers bitwise. If the numbers are
+    // negative we have to reverse the arguments. (We can't just flip the
+    // result because we still have to return false on equal numbers.)
+    return as ? (b < a) : (a < b);
+}
+
+/**
+ * Returns true if a is less than or equal to b.
+ *
+ * Positive zero equals negative zero, and NaN does not equal anything (not
+ * even itself.)
+ *
+ * A call to this function is emitted by the compiler for operator<= and
+ * operator> (with arguments swapped) on floats.
+ */
+_Bool __float_lte(unsigned a, unsigned b) {
+
+    // Handle NaNs
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+        uint32_t af = FLOAT_SIGNIFICAND(a);
+        uint32_t bf = FLOAT_SIGNIFICAND(b);
+
+        // Signal (once) if either NaN is signaling.
+        if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
+        {
+            raise(SIGFPE);
+        }
+
+        // If either argument is NaN, we return false.
+        if (ae == FLOAT_EXPONENT_MASK && af != 0u) {
+            return false;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bf != 0u) {
+            return false;
+        }
+    }
+
+    // Check whether the signs match.
+    uint32_t as = a & FLOAT_SIGN_BIT;
+    uint32_t bs = b & FLOAT_SIGN_BIT;
+    if (as != bs) {
+        // Signs differ.
+
+        // Negative zero equals positive zero. We can use bitwise or to check if
+        // any bits are set.
+        if ((a | b) == FLOAT_SIGN_BIT) {
+            return true;
+        }
+
+        // Otherwise the negative number comes before the positive one.
+        return as;
+    }
+
+    // Otherwise we can compare the numbers bitwise. If the numbers are
+    // negative we have to flip the result.
+    return as ? (b <= a) : (a <= b);
 }
