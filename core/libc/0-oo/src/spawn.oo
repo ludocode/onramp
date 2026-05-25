@@ -142,9 +142,16 @@
     79 8A 80 00     ; stw ra r0 0
     79 8C 80 04     ; stw rsp r0 4
 
-    ; TODO we also need to replace fopen/fclose and malloc/free so we can close
-    ; any open files and free any allocated memory when the program exits. We
-    ; might not bother doing this in bootstrapping.
+    ; Proxy the close syscall to prevent closing standard streams.
+    ; (We don't bother to proxy open or malloc/free. Only cc uses this during
+    ; bootstrapping; it prints an error and quits when a child program fails,
+    ; and the parent shell will take care of leaks. We'll have a more complete
+    ; spawn implementation in a later libc stage.)
+    7C 8A <__onramp_spawn_syscall_close   ; ims ra <__onramp_spawn_syscall_close
+    7C 8A >__onramp_spawn_syscall_close   ; ims ra >__onramp_spawn_syscall_close
+    70 8A 8E 8A     ; add ra rpp ra
+    79 8A 80 20     ; stw ra r0 32
+    79 8C 80 24     ; stw rsp r0 36
 
     ; call __malloc_unused_region()
     70 80 8D F0     ; add r0 rfp -16
@@ -245,6 +252,56 @@
     70 8C 8D 00     ; add rsp rfp 0     ; mov rsp rfp   ; leave
     78 8D 00 8C     ; ldw rfp 0 rsp     ; pop rfp       ; ^^^
     70 8C 8C 04     ; add rsp rsp 4     ; ^^^           ; ^^^
+    78 8F 00 8C     ; ldw rip 0 rsp     ; ret
+
+
+
+; ==========================================================
+; static void __onramp_spawn_syscall_close(int handle);
+; ==========================================================
+; The proxied close syscall.
+;
+; We ignore closing the standard streams.
+; ==========================================================
+
+@__onramp_spawn_syscall_close
+
+    ; The original stack pointer is in r9. We can get our original program
+    ; pointer from it, and from there the process info table.
+    70 88 89 20   ; add r8 rp 32   ; r8 = original rfp
+    78 87 88 E0   ; ldw r7 r8 32   ; r7 = original rpp
+    7C 8A <__process_info_table   ; ims ra <__process_info_table
+    7C 8A >__process_info_table   ; ims ra >__process_info_table
+    78 86 87 8A                   ; ldw r6 r7 ra    ; r6 = __process_info_table
+
+    ; Compare against our standard streams. If it matches any of them, skip the
+    ; close.
+    78 85 86 0C   ; ldw r5 r6 12     ; stdin
+    71 84 85 80   ; sub r4 r5 r0
+    7E 84 0F 00   ; jz r4 &__onramp_spawn_syscall_close_done (+15)
+    78 85 86 10   ; ldw r5 r6 16     ; stdout
+    71 84 85 80   ; sub r4 r5 r0
+    7E 84 0C 00   ; jz r4 &__onramp_spawn_syscall_close_done (+12)
+    78 85 86 14   ; ldw r5 r6 20     ; stderr
+    71 84 85 80   ; sub r4 r5 r0
+    7E 84 09 00   ; jz r4 &__onramp_spawn_syscall_close_done (+9)
+
+    ; get syscall close into r7
+    78 88 86 08   ; ldw r8 r6 8       ; r8 = syscall table
+    76 8A 04 03   ; shl ra 4 3        ; ra = offset of close syscall (4<<3)
+    70 87 88 8A   ; add r7 r8 ra      ; r7 = address of close syscall
+
+    ; make the syscall
+    78 89 87 04    ; ldw r9 r7 4      ; r9 = r9 of syscall
+    71 8C 8C 04    ; sub rsp rsp 4    ; push return address
+    70 8B 8F 08    ; add rb rip 8     ; ^^^
+    79 8B 00 8C    ; stw rb 0 rsp     ; ^^^
+    78 8F 87 00    ; ldw rip r7 0     ; rip = rip of syscall
+    70 8C 8C 04    ; add rsp rsp 4    ; pop return address
+
+;:__onramp_spawn_syscall_close_done
+    ; return 0
+    70 80 00 00     ; add r0 0 0        ; zero r0
     78 8F 00 8C     ; ldw rip 0 rsp     ; ret
 
 

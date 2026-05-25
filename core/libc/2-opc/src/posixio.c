@@ -386,31 +386,10 @@ static void fdn_deref(fdn_t* fdn) {
     }
 
     // On v2 VMs, we don't close the standard streams.
-    // TODO for now we don't close on any version because we need to proxy
-    // child syscalls on all parent programs to prevent closing standard
-    // streams.
-    // - sh already does it
-    // - on libc/0 we need spawn.oo to proxy close() and ignore it on standard streams
-    // - on libc/2 we need to fdn_ref() the streams we give to child programs
-    //   and create its own file handle table
-    if (!fdn->std_stream /*|| __process_info_table[__ONRAMP_PIT_VERSION] > 2*/) {
-
-        // v2/v3 had a dclose syscall for directories. In v4 it's just close.
-        // TODO this doesn't make sense, we don't implement directories in v2/v3
-        /*
-        if (fdn->is_dir &&
-                __process_info_table[__ONRAMP_PIT_VERSION] < 4 &&
-                __syscall_is_supported(__SYS_DCLOSE))
-        {
-            if (0 != __sys_dclose(fdn->handle)) {
-                // TODO we've leaked a file descriptor, this should panic.
-                __fatal("Failed to dclose a directory!");
-            }
-        } else*/ {
-            if (0 != __sys_close(fdn->handle)) {
-                // TODO we've leaked a file descriptor, this should panic.
-                __fatal("Failed to close a file! @");
-            }
+    if (!fdn->std_stream || __process_info_table[__ONRAMP_PIT_VERSION] > 2) {
+        if (0 != __sys_close(fdn->handle)) {
+            // TODO we've leaked a file descriptor, this should panic.
+            __fatal("Failed to close a file!");
         }
     }
 
