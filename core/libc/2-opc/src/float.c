@@ -38,7 +38,10 @@
  * operations are themselves emulated on Onramp.)
  */
 
+#define __ONRAMP_LIBC_FLOAT_IMPL
+
 #include <assert.h>   // TODO define NDEBUG when compiling final stages
+#include <math.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -60,6 +63,7 @@
         exit(1);
     }
     #define stdc_leading_zerosui __builtin_clz
+    #define copysignf __onramp_copysignf
 #endif
 
 
@@ -761,4 +765,31 @@ _Bool __float_lte(unsigned a, unsigned b) {
     // Otherwise we can compare the numbers bitwise. If the numbers are
     // negative we have to flip the result.
     return as ? (b <= a) : (a <= b);
+}
+
+int __float_fpclassify(unsigned x) {
+    uint32_t xe = FLOAT_EXPONENT(x);
+    uint32_t xf = FLOAT_SIGNIFICAND(x);
+    if (xe == 0) {
+        return xf == 0 ? FP_ZERO : FP_SUBNORMAL;
+    }
+    if (xe == FLOAT_EXPONENT_MASK) {
+        return xf == 0 ? FP_INFINITE : FP_NAN;
+    }
+    return FP_NORMAL;
+}
+
+int __float_signbit(unsigned x) {
+    return x >> (FLOAT_BITS - 1);
+}
+
+unsigned copysignf(unsigned magnitude, unsigned sign) {
+    return (magnitude & ~FLOAT_SIGN_BIT) | (sign & FLOAT_SIGN_BIT);
+}
+
+#include <stdio.h>
+int __float_issignaling(unsigned x) {
+    uint32_t xe = FLOAT_EXPONENT(x);
+    uint32_t xf = FLOAT_SIGNIFICAND(x);
+    return xe == FLOAT_EXPONENT_MASK && xf != 0 && !(xf & FLOAT_QUIET_BIT);
 }

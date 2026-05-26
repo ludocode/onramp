@@ -299,6 +299,261 @@ static void test_lte(void) {
     test_lte_impl(0.0f, -INFINITY, false);
 }
 
+static void test_signbit_impl(float x, int expected) {
+    test_sigfpe_count = 0;
+
+    floatunion_t xf;
+    xf.f = x;
+    int actual = __float_signbit(xf.u);
+    //printf("signbit(%.9g) expected %i, got %i\n", x, expected, actual);
+
+    if (test_sigfpe_count) {
+        fprintf(stderr, "signbit(%.9g) signaled.\n", x);
+        exit(1);
+    }
+
+    if (expected != actual) {
+        fprintf(stderr, "signbit(%.9g) incorrect: expected %i, got %i\n",
+                x, expected, actual);
+        exit(1);
+    }
+}
+
+static void test_signbit() {
+    test_signbit_impl(0.0f, 0);
+    test_signbit_impl(-0.0f, 1);
+    test_signbit_impl(1.0f, 0);
+    test_signbit_impl(-1.0f, 1);
+    test_signbit_impl((float)INFINITY, 0);
+    test_signbit_impl(-(float)INFINITY, 1);
+    test_signbit_impl(u2f(0x00000001), 0); // subnormal
+    test_signbit_impl(u2f(0x80000001), 1); // subnormal
+    test_signbit_impl(u2f(0x7FFFFFFF), 0); // signaling nan (shouldn't signal)
+    test_signbit_impl(u2f(0xFFFFFFFF), 1); // signaling nan (shouldn't signal)
+}
+
+static void test_copysignf_impl(float x, float y, float expected) {
+    test_sigfpe_count = 0;
+
+    floatunion_t xf, yf, ef, af;
+    xf.f = x;
+    yf.f = y;
+    ef.f = expected;
+    af.u = copysignf(xf.u, yf.u);
+    //printf("copysignf(%.9g, %.9g) expected %.9g, got %.9g\n", x, y, expected, af.f);
+
+    if (test_sigfpe_count) {
+        fprintf(stderr, "copysignf(%.9g, %.9g) signaled.\n", x, y);
+        exit(1);
+    }
+
+    if (ef.u != af.u) {
+        fprintf(stderr, "copysignf(%.9g, %.9g) incorrect: expected %.9g, got %.9g\n",
+                x, y, expected, af.f);
+        exit(1);
+    }
+}
+
+static void test_copysignf() {
+    test_copysignf_impl(0.0f, 0.0f, 0.0f);
+    test_copysignf_impl(-0.0f, 0.0f, 0.0f);
+    test_copysignf_impl(0.0f, -0.0f, -0.0f);
+    test_copysignf_impl(-0.0f, -0.0f, -0.0f);
+
+    test_copysignf_impl(5.0f, 1.0f, 5.0f);
+    test_copysignf_impl(-5.0f, 1.0f, 5.0f);
+    test_copysignf_impl(5.0f, -1.0f, -5.0f);
+    test_copysignf_impl(-5.0f, -1.0f, -5.0f);
+
+    // test all combinations
+
+    test_copysignf_impl(0.0f, 0.0f, 0.0f);
+    test_copysignf_impl(0.0f, -0.0f, -0.0f);
+    test_copysignf_impl(0.0f, u2f(0x00000001), 0.0f); // subnormal
+    test_copysignf_impl(0.0f, u2f(0x80000001), -0.0f); // subnormal
+    test_copysignf_impl(0.0f, (float)INFINITY, 0.0f);
+    test_copysignf_impl(0.0f, -(float)INFINITY, -0.0f);
+    test_copysignf_impl(0.0f, u2f(0x7fffffff), 0.0f); // signaling nan (shouldn't signal)
+    test_copysignf_impl(0.0f, u2f(0xffffffff), -0.0f); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(-0.0f, 0.0f, 0.0f);
+    test_copysignf_impl(-0.0f, -0.0f, -0.0f);
+    test_copysignf_impl(-0.0f, u2f(0x00000001), 0.0f); // subnormal
+    test_copysignf_impl(-0.0f, u2f(0x80000001), -0.0f); // subnormal
+    test_copysignf_impl(-0.0f, (float)INFINITY, 0.0f);
+    test_copysignf_impl(-0.0f, -(float)INFINITY, -0.0f);
+    test_copysignf_impl(-0.0f, u2f(0x7fffffff), 0.0f); // signaling nan (shouldn't signal)
+    test_copysignf_impl(-0.0f, u2f(0xffffffff), -0.0f); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(5.0f, 0.0f, 5.0f);
+    test_copysignf_impl(5.0f, -0.0f, -5.0f);
+    test_copysignf_impl(5.0f, u2f(0x00000001), 5.0f); // subnormal
+    test_copysignf_impl(5.0f, u2f(0x80000001), -5.0f); // subnormal
+    test_copysignf_impl(5.0f, (float)INFINITY, 5.0f);
+    test_copysignf_impl(5.0f, -(float)INFINITY, -5.0f);
+    test_copysignf_impl(5.0f, u2f(0x7fffffff), 5.0f); // signaling nan (shouldn't signal)
+    test_copysignf_impl(5.0f, u2f(0xffffffff), -5.0f); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(-5.0f, 0.0f, 5.0f);
+    test_copysignf_impl(-5.0f, -0.0f, -5.0f);
+    test_copysignf_impl(-5.0f, u2f(0x00000001), 5.0f); // subnormal
+    test_copysignf_impl(-5.0f, u2f(0x80000001), -5.0f); // subnormal
+    test_copysignf_impl(-5.0f, (float)INFINITY, 5.0f);
+    test_copysignf_impl(-5.0f, -(float)INFINITY, -5.0f);
+    test_copysignf_impl(-5.0f, u2f(0x7fffffff), 5.0f); // signaling nan (shouldn't signal)
+    test_copysignf_impl(-5.0f, u2f(0xffffffff), -5.0f); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(u2f(0x00000001), 0.0f, u2f(0x00000001));
+    test_copysignf_impl(u2f(0x00000001), -0.0f, u2f(0x80000001));
+    test_copysignf_impl(u2f(0x00000001), u2f(0x00000001), u2f(0x00000001));
+    test_copysignf_impl(u2f(0x00000001), u2f(0x80000001), u2f(0x80000001));
+    test_copysignf_impl(u2f(0x00000001), (float)INFINITY, u2f(0x00000001));
+    test_copysignf_impl(u2f(0x00000001), -(float)INFINITY, u2f(0x80000001));
+    test_copysignf_impl(u2f(0x00000001), u2f(0x7fffffff), u2f(0x00000001));
+    test_copysignf_impl(u2f(0x00000001), u2f(0xffffffff), u2f(0x80000001));
+
+    test_copysignf_impl(u2f(0x80000001), 0.0f, u2f(0x00000001));
+    test_copysignf_impl(u2f(0x80000001), -0.0f, u2f(0x80000001));
+    test_copysignf_impl(u2f(0x80000001), u2f(0x00000001), u2f(0x00000001));
+    test_copysignf_impl(u2f(0x80000001), u2f(0x80000001), u2f(0x80000001));
+    test_copysignf_impl(u2f(0x80000001), (float)INFINITY, u2f(0x00000001));
+    test_copysignf_impl(u2f(0x80000001), -(float)INFINITY, u2f(0x80000001));
+    test_copysignf_impl(u2f(0x80000001), u2f(0x7fffffff), u2f(0x00000001));
+    test_copysignf_impl(u2f(0x80000001), u2f(0xffffffff), u2f(0x80000001));
+
+    test_copysignf_impl((float)INFINITY, 0.0f, (float)INFINITY);
+    test_copysignf_impl((float)INFINITY, -0.0f, -(float)INFINITY);
+    test_copysignf_impl((float)INFINITY, u2f(0x00000001), (float)INFINITY); // subnormal
+    test_copysignf_impl((float)INFINITY, u2f(0x80000001), -(float)INFINITY); // subnormal
+    test_copysignf_impl((float)INFINITY, (float)INFINITY, (float)INFINITY);
+    test_copysignf_impl((float)INFINITY, -(float)INFINITY, -(float)INFINITY);
+    test_copysignf_impl((float)INFINITY, u2f(0x7fffffff), (float)INFINITY); // signaling nan (shouldn't signal)
+    test_copysignf_impl((float)INFINITY, u2f(0xffffffff), -(float)INFINITY); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(-(float)INFINITY, 0.0f, (float)INFINITY);
+    test_copysignf_impl(-(float)INFINITY, -0.0f, -(float)INFINITY);
+    test_copysignf_impl(-(float)INFINITY, u2f(0x00000001), (float)INFINITY); // subnormal
+    test_copysignf_impl(-(float)INFINITY, u2f(0x80000001), -(float)INFINITY); // subnormal
+    test_copysignf_impl(-(float)INFINITY, (float)INFINITY, (float)INFINITY);
+    test_copysignf_impl(-(float)INFINITY, -(float)INFINITY, -(float)INFINITY);
+    test_copysignf_impl(-(float)INFINITY, u2f(0x7fffffff), (float)INFINITY); // signaling nan (shouldn't signal)
+    test_copysignf_impl(-(float)INFINITY, u2f(0xffffffff), -(float)INFINITY); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(u2f(0x7FFFFFFF), 0.0f, u2f(0x7FFFFFFF));
+    test_copysignf_impl(u2f(0x7FFFFFFF), -0.0f, u2f(0xFFFFFFFF));
+    test_copysignf_impl(u2f(0x7FFFFFFF), u2f(0x00000001), u2f(0x7FFFFFFF)); // subnormal
+    test_copysignf_impl(u2f(0x7FFFFFFF), u2f(0x80000001), u2f(0xFFFFFFFF)); // subnormal
+    test_copysignf_impl(u2f(0x7FFFFFFF), (float)INFINITY, u2f(0x7FFFFFFF));
+    test_copysignf_impl(u2f(0x7FFFFFFF), -(float)INFINITY, u2f(0xFFFFFFFF));
+    test_copysignf_impl(u2f(0x7FFFFFFF), u2f(0x7fffffff), u2f(0x7FFFFFFF)); // signaling nan (shouldn't signal)
+    test_copysignf_impl(u2f(0x7FFFFFFF), u2f(0xffffffff), u2f(0xFFFFFFFF)); // signaling nan (shouldn't signal)
+
+    test_copysignf_impl(u2f(0xFFFFFFFF), 0.0f, u2f(0x7FFFFFFF));
+    test_copysignf_impl(u2f(0xFFFFFFFF), -0.0f, u2f(0xFFFFFFFF));
+    test_copysignf_impl(u2f(0xFFFFFFFF), u2f(0x00000001), u2f(0x7FFFFFFF)); // subnormal
+    test_copysignf_impl(u2f(0xFFFFFFFF), u2f(0x80000001), u2f(0xFFFFFFFF)); // subnormal
+    test_copysignf_impl(u2f(0xFFFFFFFF), (float)INFINITY, u2f(0x7FFFFFFF));
+    test_copysignf_impl(u2f(0xFFFFFFFF), -(float)INFINITY, u2f(0xFFFFFFFF));
+    test_copysignf_impl(u2f(0xFFFFFFFF), u2f(0x7fffffff), u2f(0x7FFFFFFF)); // signaling nan (shouldn't signal)
+    test_copysignf_impl(u2f(0xFFFFFFFF), u2f(0xffffffff), u2f(0xFFFFFFFF)); // signaling nan (shouldn't signal)
+}
+
+static void test_fpclassify_impl(float x, int expected) {
+    test_sigfpe_count = 0;
+
+    floatunion_t xf;
+    xf.f = x;
+    int actual = __float_fpclassify(xf.u);
+    printf("fpclassify(%.9g) expected %i, got %i\n", x, expected, actual);
+
+    if (test_sigfpe_count) {
+        fprintf(stderr, "fpclassify(%.9g) signaled.\n", x);
+        exit(1);
+    }
+
+    if (expected != actual) {
+        fprintf(stderr, "fpclassify(%.9g) incorrect: expected %i, got %i\n",
+                x, expected, actual);
+        exit(1);
+    }
+}
+
+static void test_fpclassify() {
+    test_fpclassify_impl(0.0f, FP_ZERO);
+    test_fpclassify_impl(-0.0f, FP_ZERO);
+    test_fpclassify_impl(u2f(0x00000001), FP_SUBNORMAL);
+    test_fpclassify_impl(u2f(0x80000001), FP_SUBNORMAL);
+    test_fpclassify_impl(5.0f, FP_NORMAL);
+    test_fpclassify_impl(-5.0f, FP_NORMAL);
+    test_fpclassify_impl(u2f(0x3FFFFFFF), FP_NORMAL);
+    test_fpclassify_impl(u2f(0xBFFFFFFF), FP_NORMAL);
+    test_fpclassify_impl((float)INFINITY, FP_INFINITE);
+    test_fpclassify_impl(-(float)INFINITY, FP_INFINITE);
+    test_fpclassify_impl(u2f(0x7FFFFFFF), FP_NAN);
+    test_fpclassify_impl(u2f(0xFFFFFFFF), FP_NAN);
+}
+
+static void test_issignaling_impl(float x, int expected) {
+    test_sigfpe_count = 0;
+
+    floatunion_t xf;
+    xf.f = x;
+    int actual = __float_issignaling(xf.u);
+    printf("issignaling(%.9g) expected %i, got %i\n", x, expected, actual);
+
+    if (test_sigfpe_count) {
+        fprintf(stderr, "issignaling(%.9g) signaled.\n", x);
+        exit(1);
+    }
+
+    if (expected != actual) {
+        fprintf(stderr, "issignaling(%.9g) incorrect: expected %i, got %i\n",
+                x, expected, actual);
+        exit(1);
+    }
+}
+
+static void test_issignaling() {
+    test_issignaling_impl(0.0f, 0);
+    test_issignaling_impl(-0.0f, 0);
+    test_issignaling_impl(u2f(0x00000001), 0);
+    test_issignaling_impl(u2f(0x80000001), 0);
+    test_issignaling_impl(5.0f, 0);
+    test_issignaling_impl(-5.0f, 0);
+    test_issignaling_impl(u2f(0x3FFFFFFF), 0);
+    test_issignaling_impl(u2f(0xBFFFFFFF), 0);
+    test_issignaling_impl((float)INFINITY, 0);
+    test_issignaling_impl(-(float)INFINITY, 0);
+    test_issignaling_impl(u2f(0x7FBFFFFF), 1); // top significand bit is the quiet bit
+    test_issignaling_impl(u2f(0xFFBFFFFF), 1);
+    test_issignaling_impl(u2f(0x7FFFFFFF), 0);
+    test_issignaling_impl(u2f(0xFFFFFFFF), 0);
+}
+
+/* TODO these are all just trivial macros that wrap fpclassify(). We don't
+ * currently have a way to test them because when compiling natively we get
+ * native headers with native macros. These will need to be tested only on
+ * Onramp once we can build this with cci/2 and libc/2. */
+#ifdef __onramp__
+static void test_isinf() {
+}
+
+static void test_isnan() {
+}
+
+static void test_isnormal() {
+}
+
+static void test_isfinite() {
+}
+
+static void test_iszero() {
+}
+
+static void test_issubnormal() {
+}
+#endif
+
 // The random float tests don't make sense on Onramp because we need another
 // floating point implementation to compare to. When running on x86_64 for
 // example, we are comparing it to the x86_64 CPU implementation. Probably this
@@ -404,18 +659,36 @@ int main(void) {
         exit(100);
     }
 
+    // arithmetic
     test_add();
     test_sub();
+
+    // comparisons
     test_eq();
     test_lt();
     test_lte();
 
+    // classification
+    test_signbit();
+    test_copysignf();
+    test_fpclassify();
+    test_issignaling();
+    #ifdef __onramp__
+    test_isinf();
+    test_isnan();
+    test_isnormal();
+    test_isfinite();
+    test_iszero();
+    test_issubnormal();
+    #endif
+
+    (void)f2u;
+
+    // long-running tests
     #ifndef __onramp__
     //test_add_loop();
     //test_sub_loop();
     #endif
-
-    (void)f2u;
     (void)test_add_loop;
     (void)test_sub_loop;
             #endif
