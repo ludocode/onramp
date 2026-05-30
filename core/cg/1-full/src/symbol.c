@@ -29,12 +29,14 @@
 
 #include "block.h"
 #include "libo-vector.h"
+#include "location.h"
 
 //symbol_t* current_symbol;
 
-symbol_t* symbol_new(const char* name) {
+symbol_t* symbol_new(const char* name, location_t* location) {
     symbol_t* symbol = malloc(sizeof(symbol_t));
     symbol->name = strdup(name);
+    symbol->location = location;
     symbol->blocks = vector_new();
     return symbol;
 }
@@ -44,6 +46,7 @@ void symbol_delete(symbol_t* symbol) {
         block_delete(vector_at(symbol->blocks, i));
     }
     vector_delete(symbol->blocks);
+    location_delete(symbol->location);
     free(symbol->name);
     free(symbol);
 }

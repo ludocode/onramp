@@ -42,6 +42,26 @@ bool opcode_is_block_end(opcode_t opcode) {
     return false;
 }
 
+const char* opcode_to_string(opcode_t opcode) {
+
+    // Some of these exist only for debugging purposes. For example "br" cannot
+    // appear in assembly, but we can print it in debug output.
+
+    switch (opcode) {
+        case opcode_mov: return "mov";
+
+        // function
+        case opcode_enter: return "enter";
+        case opcode_leave: return "leave";
+
+        // branches
+        case opcode_ret: return "ret";
+        case opcode_jmp: return "jmp";
+        case opcode_br:  return "br";
+    }
+    fatal("Unrecognized opcode.");
+}
+
 // The opcodes hashtable. Simple open addressing with linear probing using
 // the FNV-1a hash, same as most other hashtables in Onramp.
 static const char** opcodes_identifier;
@@ -79,6 +99,11 @@ opcode_t opcode_from_identifier(const char* identifier) {
 void opcode_setup(void) {
     opcodes_identifier = calloc(opcodes_capacity, sizeof(char*));
     opcodes_value = calloc(opcodes_capacity, sizeof(opcode_t));
+
+    // Note: We don't include any opcodes that can't appear in the IR, for
+    // example "enter" and "leave".
+
+    opcode_add("mov", opcode_ret);
 
     opcode_add("ret", opcode_ret);
     opcode_add("jmp", opcode_jmp);

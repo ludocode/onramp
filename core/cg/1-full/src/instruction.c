@@ -35,6 +35,7 @@ instruction_t* instruction_new(const location_t* location, opcode_t opcode) {
         fatal("Out of memory.");
     }
 
+fprintf(stderr,"instruction_new %p\n",(void*)instruction);
     instruction->location = location_new_copy(location);
     instruction->opcode = opcode;
     vector_init(&instruction->arguments);
@@ -43,6 +44,7 @@ instruction_t* instruction_new(const location_t* location, opcode_t opcode) {
 }
 
 void instruction_delete(instruction_t* instruction) {
+fprintf(stderr,"instruction_delete %p\n",(void*)instruction);
     location_delete(instruction->location);
     for (size_t i = 0; i < vector_count(&instruction->arguments); ++i) {
         argument_delete(vector_at(&instruction->arguments, i));

@@ -29,8 +29,8 @@
 
 typedef enum argument_type_t {
     argument_type_sentinel = 0,
-    argument_type_register, // number is register (0-15)
     argument_type_temporary,
+    argument_type_register, // number is register (0-15)
     argument_type_number,
     argument_type_absolute, // absolute symbol invocation (uses string field)
     argument_type_relative, // relative numbered label invocation (uses number field)

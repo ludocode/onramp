@@ -24,16 +24,119 @@
 
 #include "emit.h"
 
+#include "argument.h"
+#include "block.h"
 #include "common.h"
+#include "instruction.h"
+#include "libo-error.h"
+#include "libo-string.h"
+#include "location.h"
+#include "symbol.h"
 
-void emit_char(char c) {
+static void emit_location(location_t* location) {
+    // TODO
+}
+
+static void emit_char(char c) {
     fputc(c, output_file);
 }
 
-void emit_cstr(const char* cstr) {
+static void emit_cstr(const char* cstr) {
     fputs(cstr, output_file);
 }
 
-void emit_function(void) {
-    // TODO
+static void emit_string(const string_t* string) {
+    fwrite(string->bytes, 1, string->length, output_file);
+}
+
+static void emit_uint(uint32_t value) {
+    fprintf(output_file, "%u", value);
+}
+
+static void emit_register(uint32_t num) {
+    switch (num) {
+        case 0: emit_cstr("r0"); break;
+        case 1: emit_cstr("r1"); break;
+        case 2: emit_cstr("r2"); break;
+        case 3: emit_cstr("r3"); break;
+        case 4: emit_cstr("r4"); break;
+        case 5: emit_cstr("r5"); break;
+        case 6: emit_cstr("r6"); break;
+        case 7: emit_cstr("r7"); break;
+        case 8: emit_cstr("r8"); break;
+        case 9: emit_cstr("r9"); break;
+        case 10: emit_cstr("ra"); break;
+        case 11: emit_cstr("rb"); break;
+        case 12: emit_cstr("rsp"); break;
+        case 13: emit_cstr("rfp"); break;
+        case 14: emit_cstr("rpp"); break;
+        case 15: emit_cstr("rip"); break;
+        default:
+            fatal("Internal error: invalid register");
+            break;
+    }
+}
+
+static void emit_argument(argument_t* argument) {
+    emit_char(' ');
+    switch (argument->type) {
+        case argument_type_sentinel:
+            // This only exists for debugging purposes.
+            emit_char('%');
+            break;
+        case argument_type_temporary:
+            // This only exists for debugging purposes.
+            emit_string(argument->string);
+            break;
+        case argument_type_register:
+            emit_register(argument->number);
+            break;
+        case argument_type_number:
+            emit_uint(argument->number);
+            break;
+        case argument_type_absolute:
+            emit_char('^');
+            emit_string(argument->string);
+            break;
+        case argument_type_relative:
+            emit_char('&');
+            emit_string(argument->string);
+            break;
+        default:
+            fatal("Internal error: invalid argument type");
+            break;
+    }
+}
+
+static void emit_instruction(instruction_t* instruction) {
+    emit_location(instruction->location);
+    emit_cstr(opcode_to_string(instruction->opcode));
+    for (size_t i = 0; i < vector_count(&instruction->arguments); ++i) {
+        emit_argument(vector_at(&instruction->arguments, i));
+    }
+    emit_char('\n');
+}
+
+void emit_symbol(symbol_t* symbol) {
+
+    // emit the symbol name
+    emit_location(symbol->location);
+    emit_char('=');
+    emit_cstr(symbol->name);
+    emit_char('\n');
+
+    // emit the blocks
+    // TODO don't emit any unreachable blocks
+
+    for (size_t i = 0; i < vector_count(symbol->blocks); ++i) {
+        block_t* block = vector_at(symbol->blocks, i);
+        emit_location(block->location);
+        emit_char(':');
+        emit_cstr(block->name);
+        emit_char('\n');
+
+        for (size_t i = 0; i < vector_count(block->instructions); ++i) {
+            emit_instruction(vector_at(block->instructions, i));
+        }
+    }
 }

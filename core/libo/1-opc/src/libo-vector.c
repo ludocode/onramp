@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -105,7 +105,7 @@ void vector_insert(vector_t* vector, size_t index, void* element) {
     vector_resize_impl(vector, vector->count + 1);
     memmove(vector->elements + index + 1,
             vector->elements + index,
-            vector->count - index - 1);
+            sizeof(*vector->elements) * (vector->count - index - 1));
     vector->elements[index] = element;
 }
 
@@ -115,7 +115,7 @@ void* vector_remove(vector_t* vector, size_t index) {
     --vector->count;
     memmove(vector->elements + index,
             vector->elements + index + 1,
-            vector->count - index);
+            sizeof(*vector->elements) * (vector->count - index));
     return element;
 }
 

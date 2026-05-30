@@ -25,9 +25,8 @@
 #ifndef EMIT_H_INCLUDED
 #define EMIT_H_INCLUDED
 
-void emit_char(char c);
-void emit_cstr(const char* cstr);
+struct symbol_t;
 
-void emit_function(void);
+void emit_symbol(struct symbol_t* symbol);
 
 #endif

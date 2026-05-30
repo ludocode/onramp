@@ -57,6 +57,10 @@ argument_t* argument_new_sentinel(void) {
 
 argument_t* argument_new_number(argument_type_t type, uint32_t number) {
     assert(type == argument_type_number || type == argument_type_register);
+    if (type == argument_type_register) {
+        assert(number <= 15);
+    }
+
     argument_t* argument = argument_new_type(type);
     argument->number = number;
     return argument;

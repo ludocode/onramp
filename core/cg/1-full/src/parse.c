@@ -31,7 +31,6 @@
 #include "argument.h"
 #include "block.h"
 #include "common.h"
-#include "emit.h"
 #include "instruction.h"
 #include "libo-error.h"
 #include "libo-reader.h"
@@ -369,15 +368,11 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     if (current_char != '=') {
         fatal("Expected a symbol declaration.");
     }
+    location_t* location = location_new_copy(&current_location);
     parse_next_char();
     parse_identifier(false);
-    symbol_t* symbol = symbol_new(identifier);
+    symbol_t* symbol = symbol_new(identifier, location);
     parse_whitespace_and_comments();
-
-    // emit the symbol name
-    emit_char('=');
-    emit_cstr(symbol->name);
-    emit_char('\n');
 
     // parse preamble (containing a temporary for each parameter, including
     // possibly a varargs parameter)

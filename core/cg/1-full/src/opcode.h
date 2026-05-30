@@ -26,9 +26,19 @@
 #define OPCODE_INCLUDED
 
 typedef enum opcode_t {
+
+    // logic
+    opcode_mov,
+
+    // function
+    opcode_enter,
+    opcode_leave,
+
+    // branches
     opcode_ret,
     opcode_jmp,
     opcode_br,
+
 } opcode_t;
 
 /**
@@ -37,6 +47,7 @@ typedef enum opcode_t {
 bool opcode_is_block_end(opcode_t opcode);
 
 opcode_t opcode_from_identifier(const char* identifier);
+const char* opcode_to_string(opcode_t opcode);
 
 void opcode_setup(void);
 void opcode_teardown(void);

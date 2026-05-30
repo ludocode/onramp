@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025-2026 Fraser Heavy Software
+ * Copyright (c) 2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,27 +22,23 @@
  * SOFTWARE.
  */
 
-#ifndef BLOCK_H_INCLUDED
-#define BLOCK_H_INCLUDED
+/*
+ * Functions to convert IR to assemvbly.
+ */
 
-struct instruction_t;
-struct location_t;
-struct vector_t;
+#ifndef CONVERT_H_INCLUDED
+#define CONVERT_H_INCLUDED
 
-typedef struct block_t {
-    struct location_t* location;
-    char* name;
+struct symbol_t;
 
-    // The list of instructions. Upon parsing the input, the last instruction
-    // must be a block end instruction (ret, jmp, br), and no other
-    // instructions can be block ends. The instructions are then transformed in
-    // place into assembly.
-    struct vector_t* instructions;
-} block_t;
+/**
+ * Convert the entry point of the function to assembly.
+ */
+void convert_entry(struct symbol_t* symbol);
 
-// TODO location
-block_t* block_new(const char* name);
-
-void block_delete(block_t* block);
+/**
+ * Convert all ret instructions from IR to assembly.
+ */
+void convert_ret(struct symbol_t* symbol);
 
 #endif

@@ -27,6 +27,7 @@
 
 struct block_t;
 struct vector_t;
+struct location_t;
 
 /**
  * All data for the current symbol being compiled.
@@ -36,12 +37,18 @@ struct vector_t;
  */
 typedef struct symbol_t {
     char* name;
+    struct location_t* location;
     struct vector_t* blocks;
 } symbol_t;
 
 //extern symbol_t* current_symbol;
 
-symbol_t* symbol_new(const char* name);
+/**
+ * Creates a symbol.
+ *
+ * Takes ownership of the given location.
+ */
+symbol_t* symbol_new(const char* name, struct location_t* location);
 
 void symbol_delete(symbol_t* symbol);
 

@@ -52,6 +52,7 @@ location_t* location_new(
         location_t* /*nullable*/ source)
 {
     location_t* location = malloc(sizeof(location_t));
+fprintf(stderr,"location_new %p\n",(void*)location);
     if (!location) {
         fatal("Out of memory.");
     }
@@ -67,6 +68,7 @@ location_t* location_new_copy(const location_t* other) {
 }
 
 void location_delete(location_t* location) {
+fprintf(stderr,"location_delete %p\n",(void*)location);
     location_destroy(location);
     free(location);
 }

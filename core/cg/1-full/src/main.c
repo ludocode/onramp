@@ -34,8 +34,10 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "convert.h"
 #include "emit.h"
 #include "libo-error.h"
+#include "libo-vector.h"
 #include "opcode.h"
 #include "optimize.h"
 #include "parse.h"
@@ -133,9 +135,18 @@ int main(int argc, char** argv) {
         if (!symbol) {
             break;
         }
+
+        if (vector_is_empty(symbol->blocks)) {
+            fatal("TODO empty symbol");
+        }
+
         // TODO optimizations
-        // TODO conversion to assembly
-        emit_function();
+
+        // convert to assembly
+        convert_entry(symbol);
+        convert_ret(symbol);
+
+        emit_symbol(symbol);
         symbol_delete(symbol);
     }
 

@@ -50,6 +50,7 @@ SRCS=\
 	$(SRC)/src/argument.c \
 	$(SRC)/src/block.c \
 	$(SRC)/src/common.c \
+	$(SRC)/src/convert.c \
 	$(SRC)/src/emit.c \
 	$(SRC)/src/instruction.c \
 	$(SRC)/src/location.c \
@@ -63,6 +64,7 @@ HEADERS=\
 	$(SRC)/src/argument.h \
 	$(SRC)/src/block.h \
 	$(SRC)/src/common.h \
+	$(SRC)/src/convert.h \
 	$(SRC)/src/emit.h \
 	$(SRC)/src/instruction.h \
 	$(SRC)/src/location.h \
