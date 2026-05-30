@@ -29,9 +29,10 @@
  * Pass -d as the first argument to start a program in the debugger.
  */
 
-#include "vmcommon.h"
 #include "debug.h"
+#include "libo-string.h"
 #include "terminal.h"
+#include "vmcommon.h"
 
 #include <time.h>
 #include <inttypes.h>
@@ -1953,6 +1954,7 @@ static void vm_loop(vm_t* vm) {
 }
 
 int main(int argc, const char* argv[]) {
+    string_setup();
     terminal_setup();
 
     common_init();
@@ -1966,6 +1968,7 @@ static_vm = &vm;
 
     debug_destroy();
     common_destroy();
+    string_teardown();
 }
 
 static void print_callstack(void) {
