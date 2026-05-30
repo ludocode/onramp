@@ -250,7 +250,7 @@ size_t strlcat(char* restrict to,
     /* return the total length of from */
     while (*from)
         ++from;
-    return (size_t)((const char*)from - from_start); // TODO (const char*) cast should not be necessary
+    return (size_t)(from - from_start);
 }
 
 size_t strlcpy(char* restrict to,
@@ -281,7 +281,7 @@ size_t strlcpy(char* restrict to,
     /* return the total length of from */
     while (*from)
         ++from;
-    return (size_t)((const char*)from - from_start); // TODO (const char*) cast should not be necessary
+    return (size_t)(from - from_start);
 }
 
 char* strncat_impl(char* restrict dest, const char* restrict src, size_t n) {

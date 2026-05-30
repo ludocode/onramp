@@ -93,5 +93,5 @@ void token_print(token_t* token) {
     prefix[0] = token->prefix;
     prefix[1] = 0;
     printf("<token: %c %s\"%s\">\n", token->type, prefix,
-            token->value ? (const char*)string_cstr(token->value) : (const char*)""); // TODO casts should not be necessary
+            token->value ? string_cstr(token->value) : "");
 }

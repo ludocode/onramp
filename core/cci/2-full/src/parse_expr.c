@@ -1083,41 +1083,48 @@ static type_t* parse_conditional_expression_types(node_t** left, node_t** right)
     // One side is an indirection.
     if (type_is_indirection(left_type) || type_is_indirection(right_type)) {
 
-        // Check if both are indirections and they point to compatible types
-        if (type_is_indirection(left_type) && type_is_indirection(right_type)
-                && type_equal_unqual(left_type->ref, right_type->ref))
-        {
-            // Merge qualifiers of pointed-to types
-            type_t* common = type_qualify(type_ref(left_type->ref),
-                    left_type->ref->is_const || right_type->ref->is_const,
-                    left_type->ref->is_volatile || right_type->ref->is_volatile);
+        // Check if both are indirections
+        if (type_is_indirection(left_type) && type_is_indirection(right_type)) {
 
-            // Decay to pointer
-            type_t* ptr = type_new_pointer(common, false, false, false);
-            type_deref(common);
-            return ptr;
+            // Check if they point to compatible types
+            if (type_equal_unqual(left_type->ref, right_type->ref)) {
+
+                // Merge qualifiers of pointed-to types
+                type_t* common = type_qualify(type_ref(left_type->ref),
+                        left_type->ref->is_const || right_type->ref->is_const,
+                        left_type->ref->is_volatile || right_type->ref->is_volatile);
+
+                // Decay to pointer
+                type_t* ptr = type_new_pointer(common, false, false, false);
+                type_deref(common);
+                return ptr;
+            }
+
+            // Otherwise one has to be a void pointer. Cast it to the other's
+            // type.
+            if (type_is_indirection(left_type) && type_matches_base(left_type->ref, BASE_VOID)) {
+                *left = node_cast(*left, (*right)->type, NULL);
+                return type_ref((*right)->type);
+            }
+            if (type_is_indirection(right_type) && type_matches_base(right_type->ref, BASE_VOID)) {
+                *right = node_cast(*right, (*left)->type, NULL);
+                return type_ref((*left)->type);
+            }
+
+            fatal("Incompatible pointer types.");
         }
 
-        node_t** ptr;
-        node_t** other;
-        if (type_is_indirection(left_type)) {
-            ptr = left;
-            other = right;
-        } else {
-            ptr = right;
-            other = left;
+        // Otherwise one side must be null. Cast it to the other pointer type.
+        if (node_is_null(*left)) {
+            *left = node_cast(*left, (*right)->type, NULL);
+            return type_ref((*right)->type);
+        }
+        if (node_is_null(*right)) {
+            *right = node_cast(*right, (*left)->type, NULL);
+            return type_ref((*left)->type);
         }
 
-        // If the other side is null or a void pointer, cast it to the pointer type
-        type_t* other_type = (*other)->type;
-        if (node_is_null(*other) || (type_is_indirection(other_type) &&
-                    type_matches_base(other_type->ref, BASE_VOID)))
-        {
-            *other = node_cast(*other, (*ptr)->type, NULL);
-            return type_ref((*ptr)->type);
-        }
-
-        fatal("TODO find compatible ptr type");
+        fatal("Incompatible pointer types.");
     }
 
     // Both sides are arithmetic

@@ -391,7 +391,7 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
         // know if they're # or ##.
         void** previous_p = token_previous(p, start);
         void** next_p = token_next(p, end);
-        token_t* previous = previous_p ? (token_t*)*previous_p : token_end;  // TODO cast should not be necessary, need to implement compatible ptr types in cci/2
+        token_t* previous = previous_p ? *previous_p : token_end;
         token_t* next = next_p ? (token_t*)*next_p : token_end;
         //trace(" Next is "); token_print(next);
         //trace(" Previous is "); token_print(previous);
