@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,7 @@
 
 #include "libo-string.h"
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -57,6 +58,7 @@ void string_teardown(void) {
 }
 
 string_t* string_intern_bytes(const char* bytes, size_t length) {
+    assert(string_table.bits != 0); // string_setup() must be called in main()
 
     // look for an existing string in the table
     uint32_t hash = fnv1a_bytes(bytes, length);
@@ -90,11 +92,13 @@ string_t* string_intern_cstr(const char* s) {
 }
 
 string_t* string_ref(string_t* string) {
+    assert(string);
     ++string->refcount;
     return string;
 }
 
 void string_deref(string_t* string) {
+    assert(string);
     if (--string->refcount != 0) {
         return;
     }

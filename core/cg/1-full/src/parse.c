@@ -43,7 +43,6 @@
 //static reader_t reader;
 
 static int current_char;
-static location_t current_location;
 
 char* identifier;
 static size_t identifier_capacity;
@@ -68,7 +67,7 @@ static bool try_parse_whitespace(void) {
 
     bool was_carriage_return = current_char == '\r';
     if (was_carriage_return || current_char == '\n') {
-        ++current_location.line;
+        ++current_line;
     }
     parse_next_char();
 
@@ -308,7 +307,7 @@ static argument_t* parse_argument(void) {
 static instruction_t* parse_instruction(void) {
     parse_whitespace_and_comments();
     opcode_t opcode = parse_opcode();
-    instruction_t* instruction = instruction_new(&current_location, opcode);
+    instruction_t* instruction = instruction_new(location_new_current(), opcode);
 
     switch (opcode) {
         case opcode_ret:
@@ -326,7 +325,7 @@ static void parse_block(symbol_t* symbol) {
     parse_next_char();
     printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     parse_identifier(false);
-    block_t* block = block_new(identifier);
+    block_t* block = block_new(identifier, location_new_current());
     vector_append(symbol->blocks, block);
 
     for (;;) {
@@ -368,7 +367,7 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     if (current_char != '=') {
         fatal("Expected a symbol declaration.");
     }
-    location_t* location = location_new_copy(&current_location);
+    location_t* location = location_new_current();
     parse_next_char();
     parse_identifier(false);
     symbol_t* symbol = symbol_new(identifier, location);
@@ -399,10 +398,13 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
 
 void parse_setup(const char* input_filename) {
     string_t* filename_str = string_intern_cstr(input_filename);
-    location_init(&current_location, filename_str, 1, NULL);
+    set_current_filename_string(filename_str);
     string_deref(filename_str);
+    current_line = 1;
+
+    // prime parser
+    parse_next_char();
 }
 
 void parse_teardown(void) {
-    location_destroy(&current_location);
 }

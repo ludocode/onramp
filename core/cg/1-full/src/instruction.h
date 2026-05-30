@@ -62,7 +62,11 @@ typedef struct instruction_t {
     vector_t arguments;
 } instruction_t;
 
-instruction_t* instruction_new(const location_t* location, opcode_t opcode);
+/**
+ *
+ * Takes ownership of location.
+ */
+instruction_t* instruction_new(location_t* location, opcode_t opcode);
 
 void instruction_delete(instruction_t* instruction);
 

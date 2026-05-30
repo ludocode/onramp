@@ -35,7 +35,7 @@ void convert_entry(symbol_t* symbol) {
     // insert enter
     block_t* block = vector_at(symbol->blocks, 0);
     vector_insert(block->instructions, 0,
-            instruction_new(symbol->location, opcode_enter));
+            instruction_new(location_new_copy(symbol->location), opcode_enter));
 
     // TODO insert sub rsp stack space
 
@@ -63,7 +63,7 @@ void convert_ret(symbol_t* symbol) {
             argument_delete(retval);
         } else {
             // insert mov r0 <arg>, taking ret's argument
-            instruction_t* mov = instruction_new(last->location, opcode_mov);
+            instruction_t* mov = instruction_new(location_new_copy(last->location), opcode_mov);
             instruction_append(mov, argument_new_number(argument_type_register, 0));
             instruction_append(mov, retval);
             vector_insert(block->instructions, vector_count(block->instructions) - 1, mov);
@@ -72,6 +72,6 @@ void convert_ret(symbol_t* symbol) {
 
         // insert leave
         vector_insert(block->instructions, vector_count(block->instructions) - 1,
-                instruction_new(last->location, opcode_leave));
+                instruction_new(location_new_copy(last->location), opcode_leave));
     }
 }

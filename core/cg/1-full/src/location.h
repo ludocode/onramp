@@ -41,11 +41,14 @@
  * converted to match first.
  */
 typedef struct location_t {
-    string_t* /*nullable*/ filename;
+    string_t* filename;
     unsigned line;
     unsigned column;
     struct location_t* /*nullable*/ source;
 } location_t;
+
+void location_setup();
+void location_teardown();
 
 /**
  * Initializes a source location.
@@ -66,8 +69,18 @@ location_t* location_new(
         int line,
         location_t* /*nullable*/ source);
 
+/**
+ * Creates a location based on current_filename and current_line.
+ */
+location_t* location_new_current(void);
+
+/**
+ * Clones a location.
+ */
 location_t* location_new_copy(const location_t* other);
 
 void location_delete(location_t* location);
+
+void location_set_filename(location_t* location, string_t* /*nullable*/ filename);
 
 #endif

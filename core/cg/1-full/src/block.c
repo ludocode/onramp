@@ -30,9 +30,10 @@
 #include "instruction.h"
 #include "libo-vector.h"
 
-block_t* block_new(const char* name) {
+block_t* block_new(const char* name, location_t* location) {
     block_t* block = malloc(sizeof(block_t));
     block->name = strdup(name);
+    block->location = location;
     block->instructions = vector_new();
     return block;
 }
@@ -42,6 +43,7 @@ void block_delete(block_t* block) {
         instruction_delete(vector_at(block->instructions, i));
     }
     vector_delete(block->instructions);
+    location_delete(block->location);
     free(block->name);
     free(block);
 }

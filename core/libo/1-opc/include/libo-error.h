@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@ extern const char error_out_of_memory[];
 
 extern char* current_filename;
 
+// TODO should be unsigned once we add unsigned to cci/0
 extern int current_line;
 
 void set_current_filename(const char* filename);

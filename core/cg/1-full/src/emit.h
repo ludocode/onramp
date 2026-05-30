@@ -29,4 +29,8 @@ struct symbol_t;
 
 void emit_symbol(struct symbol_t* symbol);
 
+void emit_setup(void);
+
+void emit_teardown(void);
+
 #endif

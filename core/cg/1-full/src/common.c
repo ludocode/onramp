@@ -26,6 +26,7 @@
 
 #include "location.h"
 #include "libo-error.h"
+#include "libo-string.h"
 
 FILE* input_file;
 FILE* output_file;
@@ -34,4 +35,24 @@ _Noreturn
 void fatal_loc(location_t* location, const char* message) {
     // TODO
     fatal(message);
+}
+
+// This is the same string as current_filename. We keep a strong reference to
+// it here.
+string_t* current_filename_string;
+
+void set_current_filename_string(string_t* string) {
+    string_ref(string);
+    string_deref(current_filename_string);
+    current_filename_string = string;
+    current_filename = string->bytes;
+}
+
+void current_filename_string_setup(void) {
+    current_filename_string = string_intern_cstr("<builtin>");
+    current_filename = current_filename_string->bytes;
+}
+
+void current_filename_string_teardown(void) {
+    string_deref(current_filename_string);
 }

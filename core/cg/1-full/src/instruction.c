@@ -29,14 +29,14 @@
 #include "libo-error.h"
 #include "argument.h"
 
-instruction_t* instruction_new(const location_t* location, opcode_t opcode) {
+instruction_t* instruction_new(location_t* location, opcode_t opcode) {
     instruction_t* instruction = malloc(sizeof(instruction_t));
     if (!instruction) {
         fatal("Out of memory.");
     }
 
 fprintf(stderr,"instruction_new %p\n",(void*)instruction);
-    instruction->location = location_new_copy(location);
+    instruction->location = location;
     instruction->opcode = opcode;
     vector_init(&instruction->arguments);
 

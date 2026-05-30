@@ -24,35 +24,48 @@
 
 #include "location.h"
 
+#include <assert.h>
 #include <stdlib.h>
 
+#include "common.h"
 #include "libo-error.h"
+
+void location_setup() {
+    /*
+    string_t* builtin = string_intern_cstr("<builtin>");
+    current_location = location_new(builtin, 0, NULL);
+    string_deref(builtin);
+    */
+}
+
+void location_teardown() {
+    //location_delete(current_location);
+}
 
 void location_init(
         location_t* location,
-        string_t* /*nullable*/ filename,
+        string_t* filename,
         int line,
         location_t* /*nullable*/ source)
 {
-    location->filename = filename ? string_ref(filename) : NULL;
+    assert(filename);
+    location->filename = string_ref(filename);
     location->line = line;
     location->column = 0;
     location->source = source;
 }
 
 void location_destroy(location_t* location) {
-    if (location->filename) {
-        string_deref(location->filename);
-    }
+    string_deref(location->filename);
 }
 
 location_t* location_new(
-        string_t* /*nullable*/ filename,
+        string_t* filename,
         int line,
         location_t* /*nullable*/ source)
 {
     location_t* location = malloc(sizeof(location_t));
-fprintf(stderr,"location_new %p\n",(void*)location);
+//fprintf(stderr,"location_new %p\n",(void*)location);
     if (!location) {
         fatal("Out of memory.");
     }
@@ -67,8 +80,21 @@ location_t* location_new_copy(const location_t* other) {
             other->source);
 }
 
+location_t* location_new_current(void) {
+    return location_new(current_filename_string, current_line, NULL);
+}
+
 void location_delete(location_t* location) {
-fprintf(stderr,"location_delete %p\n",(void*)location);
+//fprintf(stderr,"location_delete %p\n",(void*)location);
     location_destroy(location);
     free(location);
+}
+
+void location_set_filename(location_t* location, string_t* filename) {
+    assert(filename);
+    string_ref(filename);
+    if (location->filename) {
+        string_deref(location->filename);
+    }
+    location->filename = filename;
 }

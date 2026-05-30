@@ -31,7 +31,7 @@ struct vector_t;
 
 typedef struct block_t {
     struct location_t* location;
-    char* name;
+    char* name; // TODO string_t
 
     // The list of instructions. Upon parsing the input, the last instruction
     // must be a block end instruction (ret, jmp, br), and no other
@@ -40,8 +40,12 @@ typedef struct block_t {
     struct vector_t* instructions;
 } block_t;
 
-// TODO location
-block_t* block_new(const char* name);
+/**
+ * Creates a block.
+ *
+ * Takes ownership of location.
+ */
+block_t* block_new(const char* name, struct location_t* location);
 
 void block_delete(block_t* block);
 

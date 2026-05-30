@@ -31,8 +31,24 @@ extern FILE* input_file;
 extern FILE* output_file;
 
 struct location_t;
+struct string_t;
 
 _Noreturn
 void fatal_loc(struct location_t* location, const char* message);
+
+extern struct string_t* current_filename_string;
+
+/**
+ * Sets current_filename to the given string.
+ *
+ * A strong reference is held to the string instead of copying it. If this is
+ * used, set_current_filename() can't be used because it would free the bytes
+ * of the string instead of dereferencing it.
+ */
+void set_current_filename_string(struct string_t* string);
+
+// TODO this stuff is temporary until we move location_t to libo
+void current_filename_string_setup(void);
+void current_filename_string_teardown(void);
 
 #endif

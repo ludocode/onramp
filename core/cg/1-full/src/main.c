@@ -38,6 +38,7 @@
 #include "emit.h"
 #include "libo-error.h"
 #include "libo-vector.h"
+#include "location.h"
 #include "opcode.h"
 #include "optimize.h"
 #include "parse.h"
@@ -119,15 +120,16 @@ int main(int argc, char** argv) {
         usage(argv[0]);
     }
 
+    string_setup();
+    current_filename_string_setup();
+    location_setup();
     opcode_setup();
 
     // setup files
     open_output(output_filename);
     open_input(input_filename);
     parse_setup(input_filename);
-
-    // prime parser
-    parse_next_char();
+    emit_setup();
 
     // parse, optimize, codegen and emit symbols
     for (;;) {
@@ -154,7 +156,11 @@ int main(int argc, char** argv) {
     fclose(input_file);
     fclose(output_file);
 
+    emit_teardown();
     opcode_teardown();
+    location_teardown();
+    current_filename_string_teardown();
+    string_teardown();
 
     return 0;
 }

@@ -33,8 +33,13 @@
 #include "location.h"
 #include "symbol.h"
 
-static void emit_location(location_t* location) {
-    // TODO
+static void emit_location_force(void);
+
+void emit_setup(void) {
+    emit_location_force();
+}
+
+void emit_teardown(void) {
 }
 
 static void emit_char(char c) {
@@ -51,6 +56,50 @@ static void emit_string(const string_t* string) {
 
 static void emit_uint(uint32_t value) {
     fprintf(output_file, "%u", value);
+}
+
+static void emit_location_force(void) {
+    emit_cstr("#line ");
+    emit_uint(current_line);
+    emit_char(' ');
+    emit_string(current_filename_string);
+    emit_char('\n');
+}
+
+static void emit_location(location_t* location) {
+    assert(location);
+fprintf(stderr, "%s() %s:%i %p %p\n", __func__, __FILE__, __LINE__, (void*)location, (void*)current_filename_string);
+
+    if (!string_equal(location->filename, current_filename_string)) {
+        set_current_filename_string(location->filename);
+        current_line = location->line;
+        // filename has changed. emit full debug info.
+        emit_location_force();
+        return;
+    }
+
+    // TODO remove all these unsigned casts once we make current_line unsigned
+
+    if (location->line == (unsigned)current_line) {
+        return;
+    }
+
+    if (current_line != 0 && location->line != 0
+            && location->line > (unsigned)current_line
+            && location->line < (unsigned)current_line + 5)
+    {
+        for (; location->line < (unsigned)current_line; ++current_line) {
+            emit_char('#');
+            emit_char('\n');
+        }
+        return;
+    }
+
+    current_line = location->line;
+    emit_cstr("#line ");
+    emit_uint(current_line);
+    emit_char('\n');
+    return;
 }
 
 static void emit_register(uint32_t num) {
