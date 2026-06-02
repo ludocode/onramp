@@ -1,6 +1,6 @@
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -112,14 +112,14 @@ test: test-0 test-1 test-2 FORCE
 CG2: FORCE
 	make -C ../../cg/1-full build
 
-$(OUT)/cci-ir: $(SRCS) CG2 Makefile
+$(OUT)/cci-ir: $(SRCS) Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) \
 		-Wno-unused-function -Wfatal-errors -DCCI2_IR \
 		$(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-build-ir: $(OUT)/cci-ir FORCE
+build-ir: $(OUT)/cci-ir CG2 FORCE
 
 test-0-ir: build-ir FORCE
 	( cd ../../.. && test/cci/run.sh \

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -47,6 +47,59 @@ function_t* current_function;
 block_t* current_block;
 int next_label;
 
+#ifdef CCI2_IR
+static vector_t* temporary_list;
+static table_t* temporary_table;
+
+typedef struct temporary_t {
+    table_entry_t entry;
+    int id;
+    string_t* name;
+} temporary_t;
+
+static void clear_temporaries(void) {
+    /*
+    for (table_entry_t** bucket = table_first_bucket(temporary_table); bucket;
+            bucket = table_next_bucket(temporary_table, bucket))
+    {
+        for (table_entry_t* entry = *bucket; entry;) {
+            table_entry_t* next = table_entry_next(entry);
+            temporary_t* temporary = (temporary_t*)entry;
+            string_deref(temporary->name);
+            free(temporary);
+            entry = next;
+        }
+    }
+    */
+    table_remove_all(temporary_table);
+    for (size_t i = vector_count(temporary_list); i-- != 0;) {
+        temporary_t* temporary = vector_at(temporary_list, i);
+        //fprintf(stderr,"DELETING TEMPORARY %p %i %s\n", (void*)temporary,temporary->id, temporary->name->bytes);
+        string_deref(temporary->name);
+        free(temporary);
+    }
+    vector_remove_all(temporary_list);
+}
+
+static temporary_t* find_temporary(const string_t* name) {
+    for (table_entry_t* entry = table_bucket(temporary_table, string_hash(name));
+            entry; entry = table_entry_next(entry))
+    {
+        temporary_t* temporary = (temporary_t*)entry;
+        if (string_equal(temporary->name, name)) {
+            return temporary;
+        }
+    }
+    return NULL;
+}
+
+string_t* temporary_name(int id) {
+    temporary_t* temporary = vector_at(temporary_list, id);
+    //fprintf(stderr,"TEMPORARY %i %s\n", temporary->id, temporary->name->bytes);
+    return temporary->name;
+}
+#endif
+
 #ifndef CCI2_IR
 int register_next;       // next register to allocate
 int register_loop_count; // number of times we've looped back to r0 while allocating registers
@@ -61,11 +114,67 @@ void generate_setup(void) {
     #ifndef CCI2_IR
     register_next = R0;
     #endif
+
+    #ifdef CCI2_IR
+    temporary_list = vector_new();
+    vector_reserve(temporary_list, 128);
+    temporary_table = table_new();
+    table_reserve_bits(temporary_table, 7); // start with 128 buckets
+    #endif
 }
 
 void generate_teardown(void) {
-    // nothing
+    #ifdef CCI2_IR
+    clear_temporaries();
+    table_delete(temporary_table);
+    vector_delete(temporary_list);
+    #endif
 }
+
+#ifdef CCI2_IR
+/**
+ * Creates a temporary.
+ *
+ * Takes ownership of name.
+ */
+temporary_t* temporary_new(string_t* name) {
+    temporary_t* temporary = malloc(sizeof(temporary_t));
+    temporary->name = name;
+    temporary->id = vector_count(temporary_list);
+    //fprintf(stderr,"CREATING TEMPORARY %p %i %s\n", (void*)temporary,temporary->id, name->bytes);
+    vector_append(temporary_list, temporary);
+    table_put(temporary_table, &temporary->entry, string_hash(name));
+    return temporary;
+}
+
+int generate_temporary(string_t* /*nullable*/ name, bool variable) {
+    // TODO asprintf calls are slow
+
+    if (name) {
+        // Try to insert with the preferred name
+        char* preferred_cstr;
+        asprintf(&preferred_cstr,
+                "%s%s",
+                variable ? "%%" : "%",
+                name->bytes);
+        string_t* preferred_str = string_intern_cstr(preferred_cstr);
+        free(preferred_cstr);
+        if (!find_temporary(preferred_str)) {
+            return temporary_new(preferred_str)->id;
+        }
+    }
+
+    char* cstr;
+    asprintf(&cstr, "%s%zu%s%s",
+            variable ? "%%" : "%",
+            vector_count(temporary_list),
+            name ? "_" : "",
+            name ? name->bytes : "");
+    string_t* str = string_intern_cstr(cstr);
+    free(cstr);
+    return temporary_new(str)->id;
+}
+#endif
 
 #ifndef CCI2_IR
 
@@ -102,6 +211,8 @@ void register_free(token_t* /*nullable*/ token, int reg) {
     if (register_loop_count)
         block_append(current_block, token, POP, reg);
 }
+
+#endif // CCI2_IR
 
 static void generate_sequence(node_t* node, bool location, int reg_out) {
     assert(node->kind == NODE_SEQUENCE);
@@ -147,7 +258,12 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
         }
         generate_defer(node->last_child);
     } else if (location) {
+        #ifndef CCI2_IR
         generate_location(node->last_child, reg_last);
+        #endif
+        #ifdef CCI2_IR
+        fatal("TODO generate location IR");
+        #endif
     } else {
         generate_node(node->last_child, reg_last);
     }
@@ -179,16 +295,45 @@ static void generate_number(node_t* node, int reg_out) {
 
     if (type_is_long_long(node->type)) {
         u64_t* llong = &node->u64;
-        int reg_temp = register_alloc(node->token);
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, u64_low(llong));
-        block_append(current_block, node->token, STW, reg_temp, reg_out, 0);
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_temp, u64_high(llong));
-        block_append(current_block, node->token, STW, reg_temp, reg_out, 4);
-        register_free(node->token, reg_temp);
+        #ifndef CCI2_IR
+        int temp = register_alloc(node->token);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, temp, u64_low(llong));
+        block_append(current_block, node->token, STW, temp, reg_out, 0);
+        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, temp, u64_high(llong));
+        block_append(current_block, node->token, STW, temp, reg_out, 4);
+        register_free(node->token, temp);
+        #endif
+        #ifdef CCI2_IR
+        // store low
+        instruction_t* instruction = block_append(current_block, node->token, STW, 2);
+        instruction_set_arg_number(instruction, 0, u64_low(llong));
+        instruction_set_arg_temporary(instruction, 1, reg_out);
+
+        // calc high address
+        int temp = generate_temporary(NULL, false);
+        instruction = block_append(current_block, node->token, ADD, 3);
+        instruction_set_arg_temporary(instruction, 0, temp);
+        instruction_set_arg_temporary(instruction, 1, reg_out);
+        instruction_set_arg_number(instruction, 2, 4);
+
+        // store high
+        instruction = block_append(current_block, node->token, STW, 2);
+        instruction_set_arg_number(instruction, 0, u64_low(llong));
+        instruction_set_arg_temporary(instruction, 1, temp);
+        #endif
     } else {
+        #ifndef CCI2_IR
         block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, node->u32);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_number(instruction, 1, node->u32);
+        #endif
     }
 }
+
+#ifndef CCI2_IR
 
 static void generate_character(node_t* node, int reg_out) {
     assert(node->kind == NODE_CHARACTER);
@@ -417,6 +562,9 @@ void generate_function(function_t* function) {
     #endif // CCI2_IR
 
     #ifdef CCI2_IR
+    // generate the function contents
+    generate_node(root->last_child, -1);
+
     // We always add a return at the end of the function in case control flow
     // falls off the end. If the function is main, we have to return 0.
     token_t* ret_token = root->first_child->end_token;
@@ -1164,6 +1312,8 @@ static void generate_address_of(node_t* node, int reg_out) {
 int debug_depth;
 #endif
 
+#endif // !CCI2_IR
+
 void generate_defer(node_t* node) {
     #ifdef GENERATE_DEBUG
     for (int i = 0; i < debug_depth; ++i)
@@ -1286,6 +1436,7 @@ void generate_node(node_t* node, int reg_out_opt) {
             // TODO we're only using -1 if it's indirect, because if it's
             // direct we want the register to be available as a temporary. This
             // won't be necessary when we're generating IR.
+            #ifndef CCI2_IR
             case NODE_ASSIGN:
                 if (type_is_passed_indirectly(node->type)) {
                     generate_assign(node, -1);
@@ -1295,6 +1446,7 @@ void generate_node(node_t* node, int reg_out_opt) {
                     return;
                 }
                 break;
+            #endif // CCI2_IR
             case NODE_SEQUENCE:
                 if (type_is_passed_indirectly(node->type)) {
                     generate_sequence(node, false, -1);
@@ -1351,6 +1503,7 @@ void generate_node(node_t* node, int reg_out_opt) {
                 break;
         }
 
+        #ifndef CCI2_IR
         if (reg_out == -1) {
             // Allocate space to store the result.
             reg_out = register_alloc(node->token);
@@ -1359,6 +1512,7 @@ void generate_node(node_t* node, int reg_out_opt) {
                 block_append(current_block, node->token, MOV, reg_out, RSP);
             }
         }
+        #endif // !CCI2_IR
     }
 
     switch (node->kind) {
@@ -1382,6 +1536,7 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_DEFER:
             fatal("Internal error: cannot generate arbitrary DEFER node.");
 
+        #ifndef CCI2_IR
         case NODE_VARIABLE:
             if (node->first_child) {
                 generate_initializer(node, reg_out);
@@ -1395,7 +1550,9 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_SWITCH: generate_switch(node, reg_out); break;
         case NODE_BREAK: generate_break(node, reg_out); break;
         case NODE_CONTINUE: generate_continue(node, reg_out); break;
+        #endif // !CCI2_IR
         case NODE_RETURN: generate_return(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_GOTO: generate_goto(node, reg_out); break;
 
         // labels
@@ -1456,29 +1613,44 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_ARRAY_SUBSCRIPT: generate_array_subscript(node, reg_out); break;
         case NODE_MEMBER_VAL: generate_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_member_ptr(node, reg_out); break;
+        #endif // !CCI2_IR
 
         // other expressions
         case NODE_IF: generate_if(node, reg_out); break;
         case NODE_SEQUENCE: generate_sequence(node, false, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_CHARACTER: generate_character(node, reg_out); break;
         case NODE_STRING: generate_string(node, reg_out); break;
+        #endif // !CCI2_IR
         case NODE_NUMBER: generate_number(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_ACCESS: generate_access(node, reg_out); break;
         case NODE_CALL: generate_call(node, reg_out); break;
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
+        #endif // !CCI2_IR
+
+        #ifdef CCI2_IR
+        default:
+            fprintf(stderr, "TODO IR unimplemented node %s\n", node_kind_to_string(node->kind));
+            fatal("TODO");
+        #endif // !CCI2_IR
     }
 
+    #ifndef CCI2_IR
     if (reg_out_opt == -1) {
         if (type_is_passed_indirectly(node->type)) {
             block_add_rsp(current_block, node->token, type_size(node->type));
         }
         register_free(node->token, reg_out);
     }
+    #endif // !CCI2_IR
 
     #ifdef GENERATE_DEBUG
     --debug_depth;
     #endif
 }
+
+#ifndef CCI2_IR
 
 void generate_location(node_t* node, int reg_out) {
     #ifdef GENERATE_DEBUG
@@ -1584,6 +1756,9 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     type_deref(void_t);
     string_deref(name_str);
     token_deref(name);
+    #ifdef CCI2_IR
+    clear_temporaries();
+    #endif
 }
 
 #endif // !CCI2_IR

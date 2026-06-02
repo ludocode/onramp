@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,9 +27,10 @@
 
 #include <stdbool.h>
 
-struct node_t;
-struct function_t;
 struct block_t;
+struct function_t;
+struct node_t;
+struct string_t;
 struct symbol_t;
 struct token_t;
 
@@ -38,11 +39,29 @@ extern struct function_t* current_function;
 extern struct block_t* current_block;
 extern int next_label;
 
+#ifndef CCI2_IR
 extern int register_next;
 extern int register_loop_count;
+#endif
 
 void generate_setup(void);
 void generate_teardown(void);
+
+#ifdef CCI2_IR
+/**
+ * Generates a temporary, returning its id.
+ *
+ * The given name may be null, in which case one is generated (e.g. %1, %2,
+ * etc.) If the name is already in use (for example due to shadowing), a number
+ * will be prepended (e.g. %2_x).
+ *
+ * The id corresponding to the temporary is returned.
+ *
+ * If variable is true, an extra '%' is prepended (e.g. %%1, %%2, etc.) This is
+ * typically used for variable storage.
+ */
+int generate_temporary(struct string_t* /*nullable*/ name, bool variable);
+#endif
 
 /**
  * Compiles the parse tree of given the function into a series of basic blocks
@@ -82,11 +101,11 @@ void register_free(struct token_t* /*nullable*/ token, int reg);
 /**
  * Compiles a node recursively.
  *
- * The return value is placed in the given register. If the return value is
- * larger than a register, the given register must contain a pointer to where
+ * The return value is placed in the given temporary. If the return value is
+ * larger than a temporary, the given temporary must contain a pointer to where
  * the return value is to be stored.
  *
- * If the output register is -1, the value is ignored. (For example it may be
+ * If the output temporary is -1, the value is ignored. (For example it may be
  * ultimately cast to void, either explicitly or as an unused expression, most
  * commonly an assignment.)
  */

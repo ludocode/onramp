@@ -62,7 +62,9 @@ static void emit_location_force(void) {
     emit_cstr("#line ");
     emit_uint(current_line);
     emit_char(' ');
-    emit_string(current_filename_string);
+    emit_char('"');
+    emit_string(current_filename_string); // TODO escape properly
+    emit_char('"');
     emit_char('\n');
 }
 

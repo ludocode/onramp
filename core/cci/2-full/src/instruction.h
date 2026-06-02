@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -91,8 +91,13 @@ typedef enum opcode_t {
     IMW,
     LTU,
     LTS,
+    #ifdef CCI2_IR
+    BR,
+    #endif
+    #ifndef CCI2_IR
     JZ,
     JNZ,
+    #endif
     JMP,
     CALL,
     RET,
@@ -101,6 +106,8 @@ typedef enum opcode_t {
     SYS,
 
 } opcode_t;
+
+const char* opcode_to_string(opcode_t opcode);
 
 #ifndef CCI2_IR
 #define R0 0x80
@@ -209,7 +216,7 @@ void instruction_set_arg_number(instruction_t* instruction, size_t arg, uint32_t
 
 void instruction_set_arg_sentinel(instruction_t* instruction, size_t arg);
 
-void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, string_t* temporary);
+void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, int temporary);
 
 void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label);
 

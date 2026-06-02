@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -38,7 +38,7 @@ struct token_t;
  * A basic block of assembly instructions.
  */
 typedef struct block_t {
-    int label; // the label to jump to this block, or -1 if there is no label
+    int label; // the label to jump to this block, or -1 if user-defined
     string_t* user_label; // non-null if this is a user-defined label
     // TODO should also store the token for the user label so we can emit file/line info for it
     instruction_t* instructions;

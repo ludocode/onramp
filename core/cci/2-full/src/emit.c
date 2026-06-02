@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -241,10 +241,15 @@ static void emit_blocks(function_t* function, block_t* block) {
         // make sure the block ends properly
         if (last->opcode != JMP && last->opcode != RET
                 #ifdef CCI2_IR
-                //&& last->opcode != BR
+                && last->opcode != BR
                 #endif
-                ) {
+        ) {
+            #ifndef CCI2_IR
             fatal("Internal error: a basic block must end in JMP or RET.");
+            #endif
+            #ifdef CCI2_IR
+            fatal("Internal error: a basic block must end in BR, JMP or RET.");
+            #endif
         }
 
         // check if we end in an unconditional jump

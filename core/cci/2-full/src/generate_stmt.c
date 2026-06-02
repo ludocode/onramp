@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,12 +33,13 @@
 #include "function.h"
 
 #ifndef CCI2_IR
-
 void generate_return(node_t* node, int reg_out) {
 
     // reg_out is ignored. We aren't returning a value to the parent
     // expression; we are exiting the function entirely.
     (void)reg_out;
+
+    int return_reg = R0;
 
     assert(node->kind == NODE_RETURN);
     if (node->first_child) {
@@ -48,7 +49,7 @@ void generate_return(node_t* node, int reg_out) {
             // return value directly into it.
             block_append(current_block, node->token, LDW, R0, RFP, 8);
         }
-        generate_node(node->first_child, R0);
+        generate_node(node->first_child, return_reg);
     } else {
         // No return value. If the function is main, we have to implicitly
         // return zero.
@@ -66,6 +67,62 @@ void generate_return(node_t* node, int reg_out) {
     block_append(current_block, node->token, LEAVE);
     block_append(current_block, node->token, RET);
 }
+#endif // !CCI2_IR
+
+#ifdef CCI2_IR
+void generate_return(node_t* node, int temp_out) {
+
+    // reg_out is ignored. We aren't returning a value to the parent
+    // expression; we are exiting the function entirely.
+    (void)temp_out;
+
+    instruction_t* instruction;
+    int retval = -1;
+
+    assert(node->kind == NODE_RETURN);
+    if (node->first_child) {
+        retval = generate_temporary(NULL, false);
+        if (type_is_passed_indirectly(current_function->root->type)) {
+            #ifndef CCI2_IR
+            // The pointer to storage for the return value was pushed just
+            // above the return address. We load it so we can generate the
+            // return value directly into it.
+            block_append(current_block, node->token, LDW, R0, RFP, 8);
+            #endif
+            fatal("TODO IR indirect return");
+        }
+        generate_node(node->first_child, retval);
+    }
+
+    // generate defer statements
+    generate_exit_defers(node, current_function->root);
+
+    // generate ret instruction
+    instruction = block_append(current_block, node->token, RET, 1);
+    if (node->first_child) {
+        instruction_set_arg_temporary(instruction, 0, retval);  // ret %retval
+    } else {
+        // No return value. If the function is main, we have to implicitly
+        // return zero.
+        // TODO this probably isn't true for return statements without
+        // arguments. We only need to return 0 implicitly if control falls off
+        // the end of main(), which we do in generate_function().
+        if (string_equal_cstr(current_function->asm_name, "main")) {
+            instruction_set_arg_number(instruction, 0, 0); // ret 0
+        } else {
+            instruction_set_arg_sentinel(instruction, 0); // ret %
+        }
+    }
+
+    // in case unreachable code follows the return, generate an orphan block
+    // for it
+    current_block = block_new(next_label++);
+    function_add_block(current_function, current_block);
+
+}
+#endif // CCI2_IR
+
+#ifndef CCI2_IR
 
 void generate_break(node_t* node, int reg_out) {
     generate_exit_defers(node, node->container);
@@ -76,6 +133,8 @@ void generate_continue(node_t* node, int reg_out) {
     generate_exit_defers(node, node->container);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->continue_label);
 }
+
+#endif // CCI2_IR
 
 void generate_if(node_t* node, int reg_out) {
     node_t* condition = node->first_child;
@@ -91,28 +150,57 @@ void generate_if(node_t* node, int reg_out) {
         function_add_block(current_function, false_block);
     function_add_block(current_function, end_block);
 
+    #ifndef CCI2_IR
     bool indirect = type_is_passed_indirectly(node->type);
     int pred_register = indirect ? register_alloc(node->token) : reg_out;
+    #endif
+    #ifdef CCI2_IR
+    int pred_register = generate_temporary(NULL, false);
+    #endif
     generate_node(condition, pred_register);
 
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JNZ, pred_register, '&', JUMP_LABEL_PREFIX, true_block->label);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, false_node ? false_block->label : end_block->label);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, BR, 3);
+    instruction_set_arg_temporary(instruction, 0, pred_register);
+    instruction_set_arg_relative(instruction, 1, true_block->label);
+    instruction_set_arg_relative(instruction, 2, false_block ? false_block->label : end_block->label);
+    #endif
 
+    #ifndef CCI2_IR
     if (indirect)
         register_free(node->token, pred_register);
+    #endif
 
     current_block = true_block;
     generate_node(true_node, reg_out);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
+    #endif
+    #ifdef CCI2_IR
+    instruction = block_append(current_block, node->token, JMP, 1);
+    instruction_set_arg_relative(instruction, 0, end_block->label);
+    #endif
 
     if (false_node) {
         current_block = false_block;
         generate_node(false_node, reg_out);
+        #ifndef CCI2_IR
         block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
+        #endif
+        #ifdef CCI2_IR
+        instruction = block_append(current_block, node->token, JMP, 1);
+        instruction_set_arg_relative(instruction, 0, end_block->label);
+        #endif
     }
 
     current_block = end_block;
 }
+
+#ifndef CCI2_IR
 
 void generate_while(node_t* node, int reg_out) {
     node_t* condition = node->first_child;

@@ -7,6 +7,7 @@
 /env.sh
 /build.ninja
 /.ninja_log
+/.ninja_lock
 
 # a typical user-created build directory for out-of-tree builds
 /build/

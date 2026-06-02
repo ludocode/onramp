@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -33,7 +33,7 @@
 #include "token.h"
 #include "options.h"
 
-static const char* opcode_to_string(opcode_t opcode) {
+const char* opcode_to_string(opcode_t opcode) {
     switch (opcode) {
         case NOP: return "nop";
         case VALUE: return "<value>"; // not a real opcode but we want a name for debugging
@@ -83,8 +83,13 @@ static const char* opcode_to_string(opcode_t opcode) {
         case IMW: return "imw";
         case LTU: return "ltu";
         case LTS: return "lts";
+        #ifdef CCI2_IR
+        case BR: return "br";
+        #endif
+        #ifndef CCI2_IR
         case JZ: return "jz";
         case JNZ: return "jnz";
+        #endif
         case JMP: return "jmp";
         case CALL: return "call";
         case RET: return "ret";
@@ -140,10 +145,10 @@ void instruction_set_arg_sentinel(instruction_t* instruction, size_t arg) {
     argument->type = argument_type_sentinel;
 }
 
-void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, string_t* temporary) {
+void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, int temporary) {
     argument_t* argument = instruction_argument(instruction, arg);
     argument->type = argument_type_temporary;
-    argument->string = temporary;
+    argument->number = temporary;
 }
 
 void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label) {
@@ -329,7 +334,7 @@ void instruction_emit(instruction_t* instruction) {
                 emit_char('$');
                 break;
             case argument_type_temporary:
-                emit_string(argument->string);
+                emit_string(temporary_name(argument->number));
                 break;
             case argument_type_number:
                 // Small numbers are printed in decimal for readability. Large
@@ -347,7 +352,8 @@ void instruction_emit(instruction_t* instruction) {
                 break;
             case argument_type_relative:
                 emit_char('&');
-                emit_string(argument->string);
+                emit_cstr(JUMP_LABEL_PREFIX);
+                emit_hex_number(argument->number);
                 break;
         }
     }

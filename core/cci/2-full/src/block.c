@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,6 +45,7 @@ static block_t* block_new_impl(void) {
 }
 
 block_t* block_new(int label) {
+    assert(label != -1);
     block_t* block = block_new_impl();
     block->label = label;
     return block;
@@ -74,6 +75,7 @@ instruction_t* block_append(block_t* block, token_t* token, opcode_t opcode,
         size_t arg_count
         #endif
 ) {
+    // TODO use vector_t, would simplify this a lot
     if (block->instructions_count == block->instructions_capacity) {
         // grow
         size_t new_capacity = block->instructions_capacity * 2;
