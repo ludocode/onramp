@@ -25,6 +25,8 @@
 #ifndef OPCODE_INCLUDED
 #define OPCODE_INCLUDED
 
+#include <stdbool.h>
+
 typedef enum opcode_t {
 
     // logic

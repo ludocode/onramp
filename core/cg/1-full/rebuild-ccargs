@@ -1,0 +1,5 @@
+-with-cpp=output/intermediate/cpp-2-full/cpp.oe
+-with-cci=output/intermediate/cci-2-full/cci.oe
+-Icore/libo/1-opc/include
+-O
+-g

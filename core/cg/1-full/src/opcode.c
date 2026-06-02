@@ -66,7 +66,7 @@ const char* opcode_to_string(opcode_t opcode) {
 // the FNV-1a hash, same as most other hashtables in Onramp.
 static const char** opcodes_identifier;
 static opcode_t* opcodes_value;
-enum {
+enum opcodes_constants {
     opcodes_capacity = 256,
 };
 

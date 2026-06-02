@@ -1,0 +1,13 @@
+-with-cpp=output/intermediate/cpp-1-omc/cpp.oe
+-with-cci=output/intermediate/cci-1-opc/cci.oe
+-with-cg=output/intermediate/cg-0-asm/cg.oe
+-with-as=output/intermediate/as-1-compound/as.oe
+-nostdinc
+-D__func__="(__func__not_implemented)"
+-D__FILE__="(__FILE__not_implemented)"
+-D__LINE__=0
+-D__onramp_cci_opc__=1
+-D__onramp_libc_opc__=1
+-Icore/libc/common/include
+-Icore/libo/1-opc/include
+-include __onramp/__predef.h
