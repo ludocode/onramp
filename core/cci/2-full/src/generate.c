@@ -592,7 +592,6 @@ void generate_function(function_t* function) {
 }
 
 #ifndef CCI2_IR
-
 /**
  * Generates a function call.
  *
@@ -728,6 +727,7 @@ static void generate_call(node_t* call, int reg_out) {
         }
     }
 }
+#endif // !CCI2_IR
 
 /**
  * Generates a cast between integers in a register.
@@ -745,24 +745,63 @@ void generate_int_cast(token_t* token, int reg, base_t source, base_t target) {
     if (source == target)
         return;
 
+    #ifdef CCI2_IR
+    instruction_t* instruction;
+    #endif // CCI2_IR
+
     switch (target) {
         case BASE_BOOL:
             if (source == BASE_SIGNED_CHAR || source == BASE_UNSIGNED_CHAR) {
+                #ifndef CCI2_IR
                 block_append(current_block, token, TRB, reg, reg);
+                #endif // !CCI2_IR
+                #ifdef CCI2_IR
+                instruction = block_append(current_block, token, TRB, 2);
+                instruction_set_arg_temporary(instruction, 0, reg);
+                instruction_set_arg_temporary(instruction, 1, reg);
+                #endif // CCI2_IR
             } else if (source == BASE_SIGNED_SHORT || source == BASE_UNSIGNED_SHORT) {
+                #ifndef CCI2_IR
                 block_append(current_block, token, TRS, reg, reg);
+                #endif // !CCI2_IR
+                #ifdef CCI2_IR
+                instruction = block_append(current_block, token, TRS, 2);
+                instruction_set_arg_temporary(instruction, 0, reg);
+                instruction_set_arg_temporary(instruction, 1, reg);
+                #endif // CCI2_IR
             }
+            #ifndef CCI2_IR
             block_append(current_block, token, BOOL, reg, reg);
+            #endif // !CCI2_IR
+            #ifdef CCI2_IR
+            instruction = block_append(current_block, token, BOOL, 2);
+            instruction_set_arg_temporary(instruction, 0, reg);
+            instruction_set_arg_temporary(instruction, 1, reg);
+            #endif // CCI2_IR
             break;
 
         case BASE_SIGNED_INT:
         case BASE_UNSIGNED_INT:
             if (source == BASE_SIGNED_SHORT) {
+                #ifndef CCI2_IR
                 block_append(current_block, token, SXS, reg, reg);
+                #endif // !CCI2_IR
+                #ifdef CCI2_IR
+                instruction = block_append(current_block, token, SXS, 2);
+                instruction_set_arg_temporary(instruction, 0, reg);
+                instruction_set_arg_temporary(instruction, 1, reg);
+                #endif // CCI2_IR
                 break;
             }
             if (source == BASE_UNSIGNED_SHORT) {
+                #ifndef CCI2_IR
                 block_append(current_block, token, TRS, reg, reg);
+                #endif // !CCI2_IR
+                #ifdef CCI2_IR
+                instruction = block_append(current_block, token, TRS, 2);
+                instruction_set_arg_temporary(instruction, 0, reg);
+                instruction_set_arg_temporary(instruction, 1, reg);
+                #endif // CCI2_IR
                 break;
             }
             // fallthrough
@@ -770,11 +809,26 @@ void generate_int_cast(token_t* token, int reg, base_t source, base_t target) {
         case BASE_SIGNED_SHORT:
         case BASE_UNSIGNED_SHORT:
             if (source == BASE_SIGNED_CHAR) {
+                #ifndef CCI2_IR
                 block_append(current_block, token, SXB, reg, reg);
+                #endif // !CCI2_IR
+                #ifdef CCI2_IR
+                instruction = block_append(current_block, token, SXB, 2);
+                instruction_set_arg_temporary(instruction, 0, reg);
+                instruction_set_arg_temporary(instruction, 1, reg);
+                #endif // CCI2_IR
                 break;
             }
             if (source == BASE_UNSIGNED_CHAR || source == BASE_BOOL) {
+                #ifndef CCI2_IR
                 block_append(current_block, token, TRB, reg, reg);
+                #endif // !CCI2_IR
+                #ifdef CCI2_IR
+                instruction = block_append(current_block, token, TRB, 2);
+                instruction_set_arg_temporary(instruction, 0, reg);
+                instruction_set_arg_temporary(instruction, 1, reg);
+                #endif // CCI2_IR
+                break;
             }
             break;
 
@@ -846,6 +900,12 @@ static void generate_cast_indirect_to_indirect(node_t* node,
     assert(type_is_passed_indirectly(source));
     assert(type_is_passed_indirectly(target));
 
+    #ifdef CCI2_IR
+    fatal("TODO generate_cast_indirect_to_indirect() IR not implemented");
+    #endif // CCI2_IR
+
+    #ifndef CCI2_IR
+
     // Both the source and target are indirect. Records cannot be cast
     // so the only possibility is a 64-bit value.
     assert(type_size(source) == 8);
@@ -873,6 +933,8 @@ static void generate_cast_indirect_to_indirect(node_t* node,
         assert(source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG);
         assert(target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG);
     }
+
+    #endif // !CCI2_IR
 }
 
 static void generate_cast_indirect_to_direct(node_t* node,
@@ -880,6 +942,12 @@ static void generate_cast_indirect_to_direct(node_t* node,
 {
     assert(type_is_passed_indirectly(source));
     assert(!type_is_passed_indirectly(target));
+
+    #ifdef CCI2_IR
+    fatal("TODO generate_cast_indirect_to_indirect() IR not implemented");
+    #endif // CCI2_IR
+
+    #ifndef CCI2_IR
 
     size_t source_size = type_size(source);
     size_t target_size = type_size(target);
@@ -947,6 +1015,8 @@ static void generate_cast_indirect_to_direct(node_t* node,
     }
 
     block_add_rsp(current_block, node->token, source_size);
+
+    #endif // !CCI2_IR
 }
 
 static void generate_cast_direct_to_indirect(node_t* node,
@@ -954,6 +1024,12 @@ static void generate_cast_direct_to_indirect(node_t* node,
 {
     assert(!type_is_passed_indirectly(source));
     assert(type_is_passed_indirectly(target));
+
+    #ifdef CCI2_IR
+    fatal("TODO generate_cast_indirect_to_indirect() IR not implemented");
+    #endif // CCI2_IR
+
+    #ifndef CCI2_IR
 
     // The source is direct but the target is indirect. Records cannot
     // be cast so the source fits in a register and the only
@@ -997,6 +1073,8 @@ static void generate_cast_direct_to_indirect(node_t* node,
     }
 
     register_free(node->token, reg_src);
+
+    #endif // !CCI2_IR
 }
 
 static void generate_cast_direct_to_direct(node_t* node,
@@ -1030,6 +1108,8 @@ static void generate_cast_direct_to_direct(node_t* node,
         generate_int_cast(node->token, reg_out, source_base, target_base);
     }
 }
+
+#ifndef CCI2_IR
 
 void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
 
@@ -1594,7 +1674,9 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_MOD: generate_mod(node, reg_out); break;
 
         // unary expressions
+        #endif // !CCI2_IR
         case NODE_CAST: generate_cast(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_SIZEOF: generate_sizeof(node, reg_out); break;
         case NODE_TYPEOF: fatal_token(node->token, "TODO generate TYPEOF");
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
