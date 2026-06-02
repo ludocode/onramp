@@ -430,9 +430,9 @@ static type_t* case_cmp_type;
  * qsort(). Unfortunately we don't have function pointers in opC so we write
  * our comparison function this way instead.
  */
-static int case_cmp(void* vleft, void* vright) {
-    node_t* left = vleft;
-    node_t* right = vright;
+static int case_cmp(const void* vleft, const void* vright) {
+    const node_t* left = vleft;
+    const node_t* right = vright;
 
     if (type_matches_base(case_cmp_type, BASE_SIGNED_LONG_LONG)) {
         if (llong_lts(&left->start64, &right->start64))
@@ -510,9 +510,6 @@ void cases_sort(node_t* switch_, node_t** cases, size_t count) {
     #ifdef DEBUG
         #define CASES_SORT_FALLBACK
     #endif
-
-    // TODO for now always insertion sort, we'll get qsort() working later
-    #define CASES_SORT_FALLBACK
 
     // Use libc qsort() if we can
     #ifndef CASES_SORT_FALLBACK
