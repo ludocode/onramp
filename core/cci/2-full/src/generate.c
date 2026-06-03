@@ -1659,8 +1659,10 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_BIT_OR: generate_bit_or(node, reg_out); break;
         case NODE_BIT_XOR: generate_bit_xor(node, reg_out); break;
         case NODE_BIT_AND: generate_bit_and(node, reg_out); break;
+        #endif // !CCI2_IR
         case NODE_EQUAL: generate_equal(node, reg_out); break;
         case NODE_NOT_EQUAL: generate_not_equal(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_LESS: generate_less(node, reg_out); break;
         case NODE_GREATER: generate_greater(node, reg_out); break;
         case NODE_LESS_OR_EQUAL: generate_less_or_equal(node, reg_out); break;

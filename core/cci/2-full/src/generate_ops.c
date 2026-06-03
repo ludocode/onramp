@@ -474,15 +474,25 @@ void generate_greater_or_equal(node_t* node, int reg_out) {
     block_append(current_block, node->token, SUB, reg_out, 1, reg_out);
 }
 
+#endif // !CCI2_IR
+
 /**
  * Generates code for == and != operators. The result is zero if the types
  * match and non-zero otherwise.
  */
-static void generate_equality(node_t* node, int reg_left) {
+static void generate_equality(node_t* node,
+        #ifndef CCI2_IR
+        int reg_left
+        #endif
+        #ifdef CCI2_IR
+        int out
+        #endif
+) {
     type_t* type = node->first_child->type;
 
     if (type_is_long_long(type)) {
 
+        #ifndef CCI2_IR
         // this is a lot of code to compare llongs but maybe less instructions
         // than generating a function call. (we'd still have to generate into
         // stack space and we'd have to push registers.)
@@ -513,29 +523,77 @@ static void generate_equality(node_t* node, int reg_left) {
         register_free(node->token, reg_temp);
         register_free(node->token, reg_right);
         block_append(current_block, node->token, ADD, RSP, RSP, 16);
+        #endif
+
+        #ifdef CCI2_IR
+        fatal("TODO IR generate_equality long long");
+        #endif
 
     } else if (type_matches_base(type, BASE_FLOAT)) {
+        #ifndef CCI2_IR
         generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__float_ne");
+        #endif
+        #ifdef CCI2_IR
+        fatal("TODO IR generate_equality float");
+        #endif
     } else if (type_matches_base(type, BASE_DOUBLE)) {
+        #ifndef CCI2_IR
         generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__double_ne");
+        #endif
+        #ifdef CCI2_IR
+        fatal("TODO IR generate_equality double");
+        #endif
     } else {
+        #ifndef CCI2_IR
         generate_node(node->first_child, reg_left);
         int reg_right = register_alloc(node->token);
         generate_node(node->last_child, reg_right);
         block_append(current_block, node->token, SUB, reg_left, reg_left, reg_right);
         register_free(node->token, reg_right);
+        #endif
+
+        #ifdef CCI2_IR
+        int left = generate_temporary(NULL, false);
+        int right = generate_temporary(NULL, false);
+        generate_node(node->first_child, left);
+        generate_node(node->first_child, right);
+        instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
+        instruction_set_arg_temporary(instruction, 0, out);
+        instruction_set_arg_temporary(instruction, 1, left);
+        instruction_set_arg_temporary(instruction, 2, right);
+        #endif
     }
 }
 
 void generate_equal(node_t* node, int reg_out) {
     generate_equality(node, reg_out);
+
+    #ifndef CCI2_IR
     block_append(current_block, node->token, ISZ, reg_out, reg_out);
+    #endif
+
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, ISZ, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_temporary(instruction, 1, reg_out);
+    #endif
 }
 
 void generate_not_equal(node_t* node, int reg_out) {
     generate_equality(node, reg_out);
+
+    #ifndef CCI2_IR
     block_append(current_block, node->token, BOOL, reg_out, reg_out);
+    #endif
+
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, BOOL, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_temporary(instruction, 1, reg_out);
+    #endif
 }
+
+#ifndef CCI2_IR
 
 /*
  * Generates code to zero out memory for the given type with the given number
@@ -977,4 +1035,4 @@ void generate_unary_minus(node_t* node, int reg_out) {
     }
 }
 
-#endif // CCI2_IR
+#endif // !CCI2_IR
