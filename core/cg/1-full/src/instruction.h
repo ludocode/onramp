@@ -70,6 +70,13 @@ instruction_t* instruction_new(location_t* location, opcode_t opcode);
 
 void instruction_delete(instruction_t* instruction);
 
-void instruction_append(instruction_t* instruction, struct argument_t* argument);
+static inline struct argument_t* instruction_append(instruction_t* instruction, struct argument_t* argument) {
+    vector_append(&instruction->arguments, argument);
+    return argument;
+}
+
+static inline struct argument_t* instruction_argument(instruction_t* instruction, size_t argument) {
+    return vector_at(&instruction->arguments, argument);
+}
 
 #endif

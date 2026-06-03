@@ -325,14 +325,14 @@ Logic:
 
 Memory Access:
 
-| Opcode | Arguments                       | Description                                                      |
-|--------|---------------------------------|------------------------------------------------------------------|
-| `ldw`  | `<t:dest> <m:base> <m:offset>`  | Loads a 4-byte word from memory (aligned)                        |
-| `lds`  | `<t:dest> <m:base> <m:offset>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
-| `ldb`  | `<t:dest> <m:base> <m:offset>`  | Loads a byte from memory, zeroes upper 24 bits                   |
-| `stw`  | `<m:value> <m:base> <m:offset>` | Stores a 4-byte word in memory (aligned)                         |
-| `sts`  | `<m:value> <m:base> <m:offset>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
-| `stb`  | `<m:value> <m:base> <m:offset>` | Stores a byte in memory, ignores upper 24 bits                   |
+| Opcode | Arguments            | Description                                                      |
+|--------|----------------------|------------------------------------------------------------------|
+| `ldw`  | `<t:dest> <t:addr>`  | Loads a 4-byte word from memory (aligned)                        |
+| `lds`  | `<t:dest> <t:addr>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
+| `ldb`  | `<t:dest> <t:addr>`  | Loads a byte from memory, zeroes upper 24 bits                   |
+| `stw`  | `<m:value> <t:addr>` | Stores a 4-byte word in memory (aligned)                         |
+| `sts`  | `<m:value> <t:addr>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
+| `stb`  | `<m:value> <t:addr>` | Stores a byte in memory, ignores upper 24 bits                   |
 
 Stack allocation:
 
@@ -344,10 +344,10 @@ Stack allocation:
 
 Misc:
 
-| Opcode     | Arguments                           | Description                                                       |
-|------------|-------------------------------------|-------------------------------------------------------------------|
-| `call`     | `<t?:dest> <s/t:func> <m:arg>... $` | Call a function                                                   |
-| `volatile` | `<t:temp>`                          | Forbid elision of memory access through temporary                 |
+| Opcode     | Arguments                               | Description                                                       |
+|------------|-----------------------------------------|-------------------------------------------------------------------|
+| `call`     | `<t?:dest> <s/t:func> [<m:arg>...] end` | Call a function                                                   |
+| `volatile` | `<t:temp>`                              | Forbid elision of memory access through temporary                 |
 
 Control flow (end of block):
 

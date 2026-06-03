@@ -143,6 +143,7 @@ static void emit_argument(argument_t* argument) {
             emit_register(argument->number);
             break;
         case argument_type_number:
+            printf("arg number %u\n", argument->number);
             emit_uint(argument->number);
             break;
         case argument_type_absolute:

@@ -64,6 +64,13 @@ argument_t* argument_new_number(argument_type_t type, uint32_t number);
  */
 argument_t* argument_new_string(argument_type_t type, string_t* string);
 
+/**
+ * Returns true iff this is a temporary or number type.
+ */
+static inline bool argument_type_is_mix(argument_type_t type) {
+    return type == argument_type_temporary || type == argument_type_number;
+}
+
 void argument_delete(argument_t* argument);
 
 #endif

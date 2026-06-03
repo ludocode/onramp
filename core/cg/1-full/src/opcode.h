@@ -29,14 +29,54 @@
 
 typedef enum opcode_t {
 
-    // logic
-    opcode_mov,
+    // arithmetic
+    opcode_add,
+    opcode_sub,
+    opcode_mul,
+    opcode_divu,
+    opcode_divs,
+    opcode_modu,
+    opcode_mods,
+    opcode_zero,
+    opcode_inc,
+    opcode_dec,
+    opcode_sxs,
+    opcode_sxb,
+    opcode_trs,
+    opcode_trb,
 
-    // function
+    // logic
+    opcode_and,
+    opcode_or,
+    opcode_xor,
+    opcode_not,
+    opcode_shl,
+    opcode_shru,
+    opcode_shrs,
+    opcode_rol,
+    opcode_ror,
+    opcode_mov,
+    opcode_bool,
+    opcode_isz,
+    opcode_ltu,
+    opcode_lts,
+
+    // memory
+    opcode_ldw,
+    opcode_lds,
+    opcode_ldb,
+    opcode_stw,
+    opcode_sts,
+    opcode_stb,
+
+    // control
     opcode_enter,
     opcode_leave,
-
-    // branches
+    opcode_var,
+    opcode_alloc,
+    opcode_free,
+    opcode_call,
+    opcode_volatile,
     opcode_ret,
     opcode_jmp,
     opcode_br,

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -556,7 +556,7 @@ static void generate_equality(node_t* node,
         int left = generate_temporary(NULL, false);
         int right = generate_temporary(NULL, false);
         generate_node(node->first_child, left);
-        generate_node(node->first_child, right);
+        generate_node(node->last_child, right);
         instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
         instruction_set_arg_temporary(instruction, 0, out);
         instruction_set_arg_temporary(instruction, 1, left);

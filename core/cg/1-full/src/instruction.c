@@ -52,7 +52,3 @@ fprintf(stderr,"instruction_delete %p\n",(void*)instruction);
     vector_destroy(&instruction->arguments);
     free(instruction);
 }
-
-void instruction_append(instruction_t* instruction, argument_t* argument) {
-    vector_append(&instruction->arguments, argument);
-}
