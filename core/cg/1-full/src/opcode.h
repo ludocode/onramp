@@ -80,6 +80,7 @@ typedef enum opcode_t {
     opcode_ret,
     opcode_jmp,
     opcode_br,
+    opcode_jz,
 
 } opcode_t;
 

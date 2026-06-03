@@ -497,6 +497,7 @@ printf("%s() %s:%i switch on opcode %i\n", __func__, __FILE__, __LINE__,opcode);
 
         case opcode_enter:
         case opcode_leave:
+        case opcode_jz:
             fatal("This assembly opcode cannot appear in IR.");
             break;
 

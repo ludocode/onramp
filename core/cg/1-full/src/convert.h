@@ -33,12 +33,20 @@ struct symbol_t;
 
 /**
  * Convert the entry point of the function to assembly.
+ *
+ * This adds `enter`, adds a `sub rsp` instruction to allocate stack space for
+ * all variables, and converts arguments to assembly.
  */
 void convert_entry(struct symbol_t* symbol);
 
 /**
- * Convert all ret instructions from IR to assembly.
+ * Convert all `ret` and `br` instructions from IR to assembly.
+ *
+ * `ret` instructions place their argument in r0 (if any) and have `leave`
+ * inserted. `br` instructions are converted to a `jz+jmp` pair.
+ *
+ * After this is run, all blocks end in `jmp` or `ret`.
  */
-void convert_ret(struct symbol_t* symbol);
+void convert_control_flow(struct symbol_t* symbol);
 
 #endif

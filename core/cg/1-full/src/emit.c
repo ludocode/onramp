@@ -163,8 +163,8 @@ static void emit_argument(argument_t* argument) {
 static void emit_instruction(instruction_t* instruction) {
     emit_location(instruction->location);
     emit_cstr(opcode_to_string(instruction->opcode));
-    for (size_t i = 0; i < vector_count(&instruction->arguments); ++i) {
-        emit_argument(vector_at(&instruction->arguments, i));
+    for (size_t i = 0; i < vector_count(instruction->arguments); ++i) {
+        emit_argument(vector_at(instruction->arguments, i));
     }
     emit_char('\n');
 }

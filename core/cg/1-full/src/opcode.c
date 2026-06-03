@@ -100,6 +100,7 @@ const char* opcode_to_string(opcode_t opcode) {
         case opcode_ret: return "ret";
         case opcode_jmp: return "jmp";
         case opcode_br: return "br";
+        case opcode_jz: return "jz";
 
     }
     fatal("Unrecognized opcode.");
@@ -194,6 +195,7 @@ void opcode_setup(void) {
     opcode_insert("ret", opcode_ret);
     opcode_insert("jmp", opcode_jmp);
     opcode_insert("br", opcode_br);
+    opcode_insert("jz", opcode_jz);
 }
 
 void opcode_teardown(void) {

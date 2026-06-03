@@ -38,7 +38,7 @@ instruction_t* instruction_new(location_t* location, opcode_t opcode) {
 fprintf(stderr,"instruction_new %p\n",(void*)instruction);
     instruction->location = location;
     instruction->opcode = opcode;
-    vector_init(&instruction->arguments);
+    instruction->arguments = vector_new();
 
     return instruction;
 }
@@ -46,9 +46,9 @@ fprintf(stderr,"instruction_new %p\n",(void*)instruction);
 void instruction_delete(instruction_t* instruction) {
 fprintf(stderr,"instruction_delete %p\n",(void*)instruction);
     location_delete(instruction->location);
-    for (size_t i = 0; i < vector_count(&instruction->arguments); ++i) {
-        argument_delete(vector_at(&instruction->arguments, i));
+    for (size_t i = 0; i < vector_count(instruction->arguments); ++i) {
+        argument_delete(vector_at(instruction->arguments, i));
     }
-    vector_destroy(&instruction->arguments);
+    vector_delete(instruction->arguments);
     free(instruction);
 }

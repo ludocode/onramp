@@ -146,7 +146,7 @@ int main(int argc, char** argv) {
 
         // convert to assembly
         convert_entry(symbol);
-        convert_ret(symbol);
+        convert_control_flow(symbol);
 
         emit_symbol(symbol);
         symbol_delete(symbol);

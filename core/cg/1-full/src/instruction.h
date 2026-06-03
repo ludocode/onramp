@@ -59,7 +59,7 @@ struct argument_t;
 typedef struct instruction_t {
     location_t* location;
     opcode_t opcode;
-    vector_t arguments;
+    vector_t* arguments;
 } instruction_t;
 
 /**
@@ -71,12 +71,12 @@ instruction_t* instruction_new(location_t* location, opcode_t opcode);
 void instruction_delete(instruction_t* instruction);
 
 static inline struct argument_t* instruction_append(instruction_t* instruction, struct argument_t* argument) {
-    vector_append(&instruction->arguments, argument);
+    vector_append(instruction->arguments, argument);
     return argument;
 }
 
 static inline struct argument_t* instruction_argument(instruction_t* instruction, size_t argument) {
-    return vector_at(&instruction->arguments, argument);
+    return vector_at(instruction->arguments, argument);
 }
 
 #endif
