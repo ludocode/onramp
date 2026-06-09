@@ -43,6 +43,7 @@
 #include "optimize.h"
 #include "parse.h"
 #include "symbol.h"
+#include "temporary.h"
 
 static void usage(const char* name) {
     fputs("\nUsage: ", stderr);
@@ -124,6 +125,7 @@ int main(int argc, char** argv) {
     current_filename_string_setup();
     location_setup();
     opcode_setup();
+    temporary_setup();
 
     // setup files
     open_output(output_filename);
@@ -157,6 +159,7 @@ int main(int argc, char** argv) {
     fclose(output_file);
 
     emit_teardown();
+    temporary_teardown();
     opcode_teardown();
     location_teardown();
     current_filename_string_teardown();

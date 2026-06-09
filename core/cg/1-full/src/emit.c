@@ -32,6 +32,7 @@
 #include "libo-string.h"
 #include "location.h"
 #include "symbol.h"
+#include "temporary.h"
 
 static void emit_location_force(void);
 
@@ -137,7 +138,7 @@ static void emit_argument(argument_t* argument) {
             break;
         case argument_type_temporary:
             // This only exists for debugging purposes.
-            emit_string(argument->string);
+            emit_string(argument->temporary->name);
             break;
         case argument_type_register:
             emit_register(argument->number);

@@ -27,7 +27,9 @@
 #include <assert.h>
 #include <stdlib.h>
 
+#include "libo-string.h"
 #include "libo-error.h"
+#include "temporary.h"
 
 void argument_delete(argument_t* argument) {
     switch (argument->type) {
@@ -67,10 +69,14 @@ argument_t* argument_new_number(argument_type_t type, uint32_t number) {
 }
 
 argument_t* argument_new_string(argument_type_t type, string_t* string) {
-    assert(type == argument_type_temporary
-            || type == argument_type_relative
-            || type == argument_type_absolute);
+    assert(type == argument_type_relative || type == argument_type_absolute);
     argument_t* argument = argument_new_type(type);
     argument->string = string;
+    return argument;
+}
+
+argument_t* argument_new_temporary(const char* name) {
+    argument_t* argument = argument_new_type(argument_type_temporary);
+    argument->temporary = temporary_find_or_insert(name);
     return argument;
 }

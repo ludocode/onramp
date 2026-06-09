@@ -268,7 +268,7 @@ static argument_t* /*nullable*/ try_parse_argument(void) {
         if (identifier[1] == 0) {
             return argument_new_sentinel();
         }
-        return argument_new_string(argument_type_temporary, string_intern_cstr(identifier));
+        return argument_new_temporary(identifier);
     }
 
     if (current_char == '^') {

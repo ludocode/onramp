@@ -58,19 +58,6 @@ typedef struct temporary_t {
 } temporary_t;
 
 static void clear_temporaries(void) {
-    /*
-    for (table_entry_t** bucket = table_first_bucket(temporary_table); bucket;
-            bucket = table_next_bucket(temporary_table, bucket))
-    {
-        for (table_entry_t* entry = *bucket; entry;) {
-            table_entry_t* next = table_entry_next(entry);
-            temporary_t* temporary = (temporary_t*)entry;
-            string_deref(temporary->name);
-            free(temporary);
-            entry = next;
-        }
-    }
-    */
     table_remove_all(temporary_table);
     for (size_t i = vector_count(temporary_list); i-- != 0;) {
         temporary_t* temporary = vector_at(temporary_list, i);

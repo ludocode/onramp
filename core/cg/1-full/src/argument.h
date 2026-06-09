@@ -25,7 +25,10 @@
 #ifndef ARGUMENT_H_INCLUDED
 #define ARGUMENT_H_INCLUDED
 
-#include "libo-string.h"
+#include <stdint.h>
+
+struct string_t;
+struct temporary_t;
 
 typedef enum argument_type_t {
     argument_type_sentinel = 0,
@@ -42,7 +45,8 @@ typedef enum argument_type_t {
 typedef struct argument_t {
     argument_type_t type;
     union {
-        string_t* string; // strong reference
+        struct string_t* string; // strong reference
+        struct temporary_t* temporary;
         uint32_t number;
     };
 } argument_t;
@@ -58,11 +62,16 @@ argument_t* argument_new_sentinel(void);
 argument_t* argument_new_number(argument_type_t type, uint32_t number);
 
 /**
- * Creates an invocation or temporary argument.
+ * Creates an invocation argument.
  *
  * Takes ownership of the given string.
  */
-argument_t* argument_new_string(argument_type_t type, string_t* string);
+argument_t* argument_new_string(argument_type_t type, struct string_t* string);
+
+/**
+ * Creates a temporary argument.
+ */
+argument_t* argument_new_temporary(const char* name);
 
 /**
  * Returns true iff this is a temporary or number type.
