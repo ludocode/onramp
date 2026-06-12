@@ -106,6 +106,12 @@ onrampvm output/final/bin/cc.oe \
     -c core/cg/1-full/src/temporary.c \
     -o output/intermediate/cg-1-full-re/temporary.oo
 
+echo Compiling cg/1-full variable.c
+onrampvm output/final/bin/cc.oe \
+    @core/cg/1-full/rebuild-ccargs \
+    -c core/cg/1-full/src/variable.c \
+    -o output/intermediate/cg-1-full-re/variable.oo
+
 echo Linking cg/1-full
 onrampvm output/final/bin/cc.oe \
     @core/cg/1-full/rebuild-ccargs \
@@ -123,4 +129,5 @@ onrampvm output/final/bin/cc.oe \
     output/intermediate/cg-1-full-re/parse.oo \
     output/intermediate/cg-1-full-re/symbol.oo \
     output/intermediate/cg-1-full-re/temporary.oo \
+    output/intermediate/cg-1-full-re/variable.oo \
     -o output/final/bin/cci.oe

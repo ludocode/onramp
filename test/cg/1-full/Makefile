@@ -60,6 +60,7 @@ SRCS=\
 	$(SRC)/src/parse.c \
 	$(SRC)/src/symbol.c \
 	$(SRC)/src/temporary.c \
+	$(SRC)/src/variable.c \
 
 HEADERS=\
 	$(SRC)/src/argument.h \
@@ -74,6 +75,7 @@ HEADERS=\
 	$(SRC)/src/parse.h \
 	$(SRC)/src/symbol.h \
 	$(SRC)/src/temporary.h \
+	$(SRC)/src/variable.h \
 
 all: build test FORCE
 FORCE:

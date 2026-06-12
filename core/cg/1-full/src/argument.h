@@ -25,6 +25,7 @@
 #ifndef ARGUMENT_H_INCLUDED
 #define ARGUMENT_H_INCLUDED
 
+#include <stdbool.h>
 #include <stdint.h>
 
 struct string_t;

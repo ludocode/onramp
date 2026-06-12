@@ -44,6 +44,7 @@
 #include "parse.h"
 #include "symbol.h"
 #include "temporary.h"
+#include "variable.h"
 
 static void usage(const char* name) {
     fputs("\nUsage: ", stderr);
@@ -125,6 +126,7 @@ int main(int argc, char** argv) {
     current_filename_string_setup();
     location_setup();
     opcode_setup();
+    variable_setup();
     temporary_setup();
 
     // setup files
@@ -160,6 +162,7 @@ int main(int argc, char** argv) {
 
     emit_teardown();
     temporary_teardown();
+    variable_teardown();
     opcode_teardown();
     location_teardown();
     current_filename_string_teardown();

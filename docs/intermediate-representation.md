@@ -218,7 +218,7 @@ The plain `%` sigil without an identifier (i.e. followed by whitespace) is used 
 call % puts %str end
 ```
 
-- To ignore a function argument. For example:
+- To ignore a function parameter. For example:
 
 ```asm
 ; void free_sized(void* ptr, size_t) {free(ptr);}

@@ -22,38 +22,34 @@
  * SOFTWARE.
  */
 
-/*
- * Functions to convert IR to assembly.
- */
+#ifndef VARIABLE_H_INCLUDED
+#define VARIABLE_H_INCLUDED
 
-#ifndef CONVERT_H_INCLUDED
-#define CONVERT_H_INCLUDED
+#include "libo-table.h"
 
-struct symbol_t;
+struct string_t;
+struct location_t;
 
-/**
- * Convert the entry point of the function to assembly.
- *
- * This adds `enter`, adds a `sub rsp` instruction to allocate stack space for
- * all variables, and converts arguments to assembly.
- */
-void convert_entry(struct symbol_t* symbol);
-
-/**
- * Convert all `ret` and `br` instructions from IR to assembly.
- *
- * `ret` instructions place their argument in r0 (if any) and have `leave`
- * inserted. `br` instructions are converted to a `jz+jmp` pair.
- *
- * After this is run, all blocks end in `jmp` or `ret`.
- */
-void convert_control_flow(struct symbol_t* symbol);
+typedef struct variable_t {
+    table_entry_t entry;
+    struct string_t* name;
+    int size;
+    int alignment;
+    int frame_offset; // assigned offset in the stack frame (usually negative, 0 if not yet assigned)
+} variable_t;
 
 /**
- * Convert all temporaries to registers, spilling where necessary.
- *
- * This performs register allocation.
+ * Finds the given variable, or inserts it into the variable table if it
+ * doesn't exist.
  */
-void convert_registers(struct symbol_t* symbol);
+variable_t* variable_find_or_insert(const char* name);
+
+void variable_setup(void);
+void variable_teardown(void);
+
+/**
+ * Clears the variable table.
+ */
+void variable_clear(void);
 
 #endif

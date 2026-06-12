@@ -116,10 +116,10 @@ void vector_delete(vector_t* vector);
 
 #ifndef __onramp_cpp_omc__
     #ifndef DEBUG
-        #define vector_at(vector, index) ((vector)->elements[(index)])
+        #define vector_first(vector) ((vector)->elements[0])
     #endif
 #endif
-#ifndef vector_at
+#ifndef vector_first
     /*
      * Returns the first element. The vector must not be empty.
      */

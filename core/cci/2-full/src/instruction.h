@@ -137,6 +137,12 @@ typedef enum argument_type_t {
     argument_type_relative, // relative numbered label invocation (uses number field)
 } argument_type_t;
 
+typedef enum argument_mode_t {
+    argument_mode_read,       // argument is input only
+    argument_mode_write,      // argument is output only (register or temporary)
+    argument_mode_read_write, // argument is both input and output (register or temporary)
+} argument_mode_t;
+
 typedef struct argument_t {
     argument_type_t type;
     union {
@@ -235,5 +241,10 @@ void instruction_vset(instruction_t* instruction, struct token_t* /*nullable*/ t
 #endif
 
 void instruction_emit(instruction_t* instruction);
+
+/**
+ * Returns the mode of the first argument,
+ */
+argument_mode_t instruction_mode(instruction_t* instruction);
 
 #endif

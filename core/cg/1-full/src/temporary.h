@@ -25,6 +25,8 @@
 #ifndef TEMPORARY_H_INCLUDED
 #define TEMPORARY_H_INCLUDED
 
+#include <stdbool.h>
+
 #include "libo-table.h"
 
 struct string_t;
@@ -33,6 +35,13 @@ struct location_t;
 typedef struct temporary_t {
     table_entry_t entry;
     struct string_t* name;
+
+    int frame_offset; // assigned offset in the stack frame (usually negative)
+
+    // Live interval
+    bool live; // used by the live range analysis algorithm
+    size_t interval_start;
+    size_t interval_end;
 } temporary_t;
 
 /**
