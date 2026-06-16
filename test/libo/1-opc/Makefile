@@ -44,6 +44,7 @@ TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL
 OBJS=\
 		$(OUT)/libo-data.oo \
 		$(OUT)/libo-error.oo \
+		$(OUT)/libo-otable.oo \
 		$(OUT)/libo-reader.oo \
 		$(OUT)/libo-string.oo \
 		$(OUT)/libo-table.oo \
@@ -51,8 +52,19 @@ OBJS=\
 		$(OUT)/libo-util.oo \
 		$(OUT)/libo-vector.oo \
 
+OBJS_NATIVE=\
+		$(OUT)/libo-error.o \
+		$(OUT)/libo-otable.o \
+		$(OUT)/libo-reader.o \
+		$(OUT)/libo-string.o \
+		$(OUT)/libo-table.o \
+		$(OUT)/libo-unicode.o \
+		$(OUT)/libo-util.o \
+		$(OUT)/libo-vector.o \
+
 SRCS=\
 		$(SRC)/libo-error.c \
+		$(SRC)/libo-otable.c \
 		$(SRC)/libo-reader.c \
 		$(SRC)/libo-string.c \
 		$(SRC)/libo-table.c \
@@ -112,15 +124,19 @@ $(OUT)/libo-data.oo: $(SRC)/libo-data.os Makefile
 
 
 # Each C file is compiled with the external C compiler first because it has
-# much better error checking than our Onramp compiler. We can't actually link
-# the resulting objects (at least, not unless we want to implement all of our
-# syscalls for Linux.)
+# much better error checking than our Onramp compiler.
 
 $(OUT)/libo-error.oo: $(SRC)/libo-error.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC)/libo-error.c -o $(OUT)/libo-error.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-error.c -o $@
+
+$(OUT)/libo-otable.oo: $(SRC)/libo-otable.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC)/libo-otable.c -o $(OUT)/libo-otable.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-otable.c -o $@
 
 $(OUT)/libo-reader.oo: $(SRC)/libo-reader.c Makefile
 	@rm -f $@
@@ -158,11 +174,17 @@ $(OUT)/libo-vector.oo: $(SRC)/libo-vector.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC)/libo-vector.c -o $(OUT)/libo-vector.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC)/libo-vector.c -o $@
 
-
 $(OUT)/libo.oa: Makefile $(TOOLS) $(OBJS)
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(TOOL_VM) $(TOOL_AR) rc $@ $(OBJS)
+
+$(OUT)/libo.a: Makefile $(TOOLS) $(OBJS)
+	@rm -f $@
+	@mkdir -p $(OUT)
+	ar rcs $@ $(OBJS_NATIVE)
+
+build-native: $(OUT)/libo.a FORCE
 
 test: build FORCE
 	../run.sh . $(OUT)/libo.oa

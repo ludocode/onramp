@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -98,3 +98,18 @@ void fputd(int number, FILE* file) {
 void putd(int number) {
     fputd(number, stdout);
 }
+
+#ifndef __onramp__
+// TODO for lack of a better place to put this. We need this to build libo
+// natively. On Onramp it's in the libc.
+#include <string.h>
+void* __memdup(const void* src, size_t count) {
+    void* dest = malloc(count);
+    if (!dest) {
+        // malloc() set errno
+        return NULL;
+    }
+    memcpy(dest, src, count);
+    return dest;
+}
+#endif

@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2024 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -39,6 +39,12 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/libo/1-opc/build-ccargs \
     -c core/libo/1-opc/src/libo-error.c \
     -o output/intermediate/libo-1-opc/libo-error.oo
+
+echo Compiling libo/1-opc libo-otable.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libo/1-opc/build-ccargs \
+    -c core/libo/1-opc/src/libo-otable.c \
+    -o output/intermediate/libo-1-opc/libo-otable.oo
 
 echo Compiling libo/1-opc libo-reader.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -81,6 +87,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     rc output/intermediate/libo-1-opc/libo.oa \
         output/intermediate/libo-1-opc/libo-data.oo \
         output/intermediate/libo-1-opc/libo-error.oo \
+        output/intermediate/libo-1-opc/libo-otable.oo \
         output/intermediate/libo-1-opc/libo-reader.oo \
         output/intermediate/libo-1-opc/libo-string.oo \
         output/intermediate/libo-1-opc/libo-table.oo \
