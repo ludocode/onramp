@@ -109,6 +109,24 @@ instruction_t* block_append(block_t* block, token_t* token, opcode_t opcode,
     return instruction;
 }
 
+#ifdef CCI2_IR
+instruction_t* block_append_jmp(block_t* block, token_t* token, uint32_t label) {
+    instruction_t* instruction = block_append(block, token, JMP, 1);
+    instruction_set_arg_relative(instruction, 0, label);
+    return instruction;
+}
+
+instruction_t* block_append_br(block_t* block, token_t* token,
+        uint32_t true_label, uint32_t false_label)
+{
+    instruction_t* instruction = block_append(block, token, BR, 3);
+    // arg 0 not set
+    instruction_set_arg_relative(instruction, 1, true_label);
+    instruction_set_arg_relative(instruction, 2, false_label);
+    return instruction;
+}
+#endif
+
 #ifndef CCI2_IR
 void block_sub_rsp(block_t* block, token_t* token, size_t offset) {
     offset = ((offset + 3u) & ~3u);

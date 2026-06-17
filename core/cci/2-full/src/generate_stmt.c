@@ -89,7 +89,9 @@ void generate_return(node_t* node, int temp_out) {
             // return value directly into it.
             block_append(current_block, node->token, LDW, R0, RFP, 8);
             #endif
+            #ifdef CCI2_IR
             fatal("TODO IR indirect return");
+            #endif
         }
         generate_node(node->first_child, retval);
     }
@@ -122,19 +124,25 @@ void generate_return(node_t* node, int temp_out) {
 }
 #endif // CCI2_IR
 
-#ifndef CCI2_IR
-
 void generate_break(node_t* node, int reg_out) {
     generate_exit_defers(node, node->container);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->break_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, node->container->break_label);
+    #endif
 }
 
 void generate_continue(node_t* node, int reg_out) {
     generate_exit_defers(node, node->container);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->container->continue_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, node->container->continue_label);
+    #endif
 }
-
-#endif // CCI2_IR
 
 void generate_if(node_t* node, int reg_out) {
     node_t* condition = node->first_child;
@@ -164,10 +172,10 @@ void generate_if(node_t* node, int reg_out) {
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, false_node ? false_block->label : end_block->label);
     #endif
     #ifdef CCI2_IR
-    instruction_t* instruction = block_append(current_block, node->token, BR, 3);
+    instruction_t* instruction = block_append_br(current_block, node->token,
+            true_block->label,
+            false_block ? false_block->label : end_block->label);
     instruction_set_arg_temporary(instruction, 0, pred_register);
-    instruction_set_arg_relative(instruction, 1, true_block->label);
-    instruction_set_arg_relative(instruction, 2, false_block ? false_block->label : end_block->label);
     #endif
 
     #ifndef CCI2_IR
@@ -181,8 +189,7 @@ void generate_if(node_t* node, int reg_out) {
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
     #endif
     #ifdef CCI2_IR
-    instruction = block_append(current_block, node->token, JMP, 1);
-    instruction_set_arg_relative(instruction, 0, end_block->label);
+    block_append_jmp(current_block, node->token, end_block->label);
     #endif
 
     if (false_node) {
@@ -192,35 +199,63 @@ void generate_if(node_t* node, int reg_out) {
         block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_block->label);
         #endif
         #ifdef CCI2_IR
-        instruction = block_append(current_block, node->token, JMP, 1);
-        instruction_set_arg_relative(instruction, 0, end_block->label);
+        block_append_jmp(current_block, node->token, end_block->label);
         #endif
     }
 
     current_block = end_block;
 }
 
-#ifndef CCI2_IR
-
 void generate_while(node_t* node, int reg_out) {
     node_t* condition = node->first_child;
     node_t* body = condition->right_sibling;
 
-    node->continue_label = next_label++;
-    node->break_label = next_label++;
+    node->continue_label = next_label++; // label of condition block
+    node->break_label = next_label++; // label of end block
+    int body_label = next_label++; // label of body block
 
-    block_t* body_block = block_new(node->continue_label);
+    block_t* condition_block = block_new(node->continue_label);
+    block_t* body_block = block_new(body_label);
     block_t* end_block = block_new(node->break_label);
+    function_add_block(current_function, condition_block);
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    // jump to condition
+    #ifndef CCI2_IR
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, condition_block->label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, condition_block->label);
+    #endif
 
-    current_block = body_block;
+    // generate condition
+    // TODO this doesn't look like it handles 64-bit predicate correctly...
+    current_block = condition_block;
     generate_node(condition, reg_out);
+
+    // branch to body or end
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
-    generate_node(body, reg_out);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append_br(current_block, node->token,
+            body_block->label, end_block->label);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    #endif
+
+    // generate body
+    current_block = body_block;
+    generate_node(body, reg_out);
+
+    // jump back to condition
+    #ifndef CCI2_IR
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, condition_block->label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, condition_block->label);
+    #endif
 
     current_block = end_block;
 }
@@ -237,13 +272,26 @@ void generate_do(node_t* node, int reg_out) {
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, body_block->label);
+    #endif
 
     current_block = body_block;
     generate_node(body, reg_out);
     generate_node(condition, reg_out);
+
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_block->label);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append_br(current_block, node->token,
+            body_block->label, end_block->label);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    #endif
 
     current_block = end_block;
 }
@@ -254,34 +302,75 @@ void generate_for(node_t* node, int reg_out) {
     node_t* increment = condition->right_sibling;
     node_t* body = increment->right_sibling;
 
+    int condition_label = next_label++;
+    node->continue_label = next_label++; // increment
+    node->break_label = next_label++; // end
     int body_label = next_label++;
-    node->continue_label = next_label++;
-    node->break_label = next_label++;
 
     block_t* increment_block = block_new(node->continue_label);
+    block_t* condition_block = block_new(condition_label);
     block_t* body_block = block_new(body_label);
     block_t* end_block = block_new(node->break_label);
     function_add_block(current_function, increment_block);
+    function_add_block(current_function, condition_block);
     function_add_block(current_function, body_block);
     function_add_block(current_function, end_block);
 
+    // generate initialization (into the current block)
     generate_node(initialization, -1);
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
+    #ifndef CCI2_IR
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, condition_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, condition_label);
+    #endif
 
+    // generate increment
     current_block = increment_block;
     generate_node(increment, -1);
-    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
+    #ifndef CCI2_IR
+    block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, condition_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, condition_label);
+    #endif
 
-    current_block = body_block;
-    if (condition->kind != NODE_NOOP) {
+    // generate condition
+    current_block = condition_block;
+    if (condition->kind == NODE_NOOP) {
+        #ifndef CCI2_IR
+        block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
+        #endif
+        #ifdef CCI2_IR
+        block_append_jmp(current_block, node->token, body_label);
+        #endif
+    } else {
         generate_node(condition, reg_out);
+        #ifndef CCI2_IR
         block_append(current_block, node->token, JZ, reg_out, '&', JUMP_LABEL_PREFIX, end_block->label);
+        block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, body_label);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append_br(current_block, node->token,
+                body_block->label, end_block->label);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        #endif
     }
+
+    // generate body
+    current_block = body_block;
     generate_node(body, -1);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, increment_block->label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, increment_block->label);
+    #endif
 
     current_block = end_block;
 }
+
+#ifndef CCI2_IR
 
 // TODO this is really horrible. We need to make it explicit in the object code
 // and assembly that labels are local to symbols, that way we don't need to

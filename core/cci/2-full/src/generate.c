@@ -1570,16 +1570,22 @@ void generate_node(node_t* node, int reg_out_opt) {
                 break;
         }
 
-        #ifndef CCI2_IR
         if (reg_out == -1) {
             // Allocate space to store the result.
+            #ifndef CCI2_IR
             reg_out = register_alloc(node->token);
             if (type_is_passed_indirectly(node->type)) {
                 block_sub_rsp(current_block, node->token, type_size(node->type));
                 block_append(current_block, node->token, MOV, reg_out, RSP);
             }
+            #endif // !CCI2_IR
+            #ifdef CCI2_IR
+            reg_out = generate_temporary(NULL, false);
+            if (type_is_passed_indirectly(node->type)) {
+                fatal("TODO IR generate var for indirect node");
+            }
+            #endif // CCI2_IR
         }
-        #endif // !CCI2_IR
     }
 
     switch (node->kind) {
@@ -1609,17 +1615,17 @@ void generate_node(node_t* node, int reg_out_opt) {
                 generate_initializer(node, reg_out);
             }
             break;
+        #endif // !CCI2_IR
 
         // statements
         case NODE_WHILE: generate_while(node, reg_out); break;
         case NODE_DO: generate_do(node, reg_out); break;
         case NODE_FOR: generate_for(node, reg_out); break;
-        case NODE_SWITCH: generate_switch(node, reg_out); break;
         case NODE_BREAK: generate_break(node, reg_out); break;
         case NODE_CONTINUE: generate_continue(node, reg_out); break;
-        #endif // !CCI2_IR
         case NODE_RETURN: generate_return(node, reg_out); break;
         #ifndef CCI2_IR
+        case NODE_SWITCH: generate_switch(node, reg_out); break;
         case NODE_GOTO: generate_goto(node, reg_out); break;
 
         // labels

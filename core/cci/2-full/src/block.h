@@ -70,6 +70,21 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
  * The arguments must be set separately.
  */
 instruction_t* block_append(block_t* block, struct token_t* token, opcode_t opcode, size_t arg_count);
+
+/**
+ * Appends a jump to the given label.
+ */
+instruction_t* block_append_jmp(block_t* block, struct token_t* token,
+        uint32_t label);
+
+/**
+ * Appends a branch to the given true and false labels.
+ *
+ * The predicate must be set separately (cci/0 functions are limited to four
+ * arguments.)
+ */
+instruction_t* block_append_br(block_t* block, struct token_t* token,
+        uint32_t true_label, uint32_t false_label);
 #endif
 
 #ifndef CCI2_IR
