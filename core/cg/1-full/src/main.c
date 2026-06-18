@@ -33,8 +33,9 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "analyze.h"
+#include "block.h"
 #include "common.h"
-#include "convert.h"
 #include "emit.h"
 #include "libo-error.h"
 #include "libo-vector.h"
@@ -44,6 +45,7 @@
 #include "parse.h"
 #include "symbol.h"
 #include "temporary.h"
+#include "transform.h"
 #include "variable.h"
 
 static void usage(const char* name) {
@@ -126,8 +128,9 @@ int main(int argc, char** argv) {
     current_filename_string_setup();
     location_setup();
     opcode_setup();
-    variable_setup();
-    temporary_setup();
+    variables_setup();
+    temporaries_setup();
+    blocks_setup();
 
     // setup files
     open_output(output_filename);
@@ -146,14 +149,23 @@ int main(int argc, char** argv) {
             fatal("TODO empty symbol");
         }
 
+        // insert the function preamble and epilogues
+        convert_entry(symbol);
+
         // TODO optimizations
 
         // convert to assembly
-        convert_entry(symbol);
+        analyze_liveness(symbol);
         convert_control_flow(symbol);
 
         emit_symbol(symbol);
         symbol_delete(symbol);
+
+        // reset state
+        pass_id = 0;
+        temporaries_clear();
+        variables_clear();
+        blocks_clear();
     }
 
     parse_teardown();
@@ -161,8 +173,9 @@ int main(int argc, char** argv) {
     fclose(output_file);
 
     emit_teardown();
-    temporary_teardown();
-    variable_teardown();
+    blocks_teardown();
+    temporaries_teardown();
+    variables_teardown();
     opcode_teardown();
     location_teardown();
     current_filename_string_teardown();

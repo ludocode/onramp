@@ -40,6 +40,7 @@ CPPFLAGS += \
 
 SRCS=\
 	$(LIBO)/src/libo-error.c \
+	$(LIBO)/src/libo-otable.c \
 	$(LIBO)/src/libo-reader.c \
 	$(LIBO)/src/libo-string.c \
 	$(LIBO)/src/libo-table.c \
@@ -47,10 +48,10 @@ SRCS=\
 	$(LIBO)/src/libo-util.c \
 	$(LIBO)/src/libo-vector.c \
 	\
+	$(SRC)/src/analyze.c \
 	$(SRC)/src/argument.c \
 	$(SRC)/src/block.c \
 	$(SRC)/src/common.c \
-	$(SRC)/src/convert.c \
 	$(SRC)/src/emit.c \
 	$(SRC)/src/instruction.c \
 	$(SRC)/src/location.c \
@@ -60,13 +61,14 @@ SRCS=\
 	$(SRC)/src/parse.c \
 	$(SRC)/src/symbol.c \
 	$(SRC)/src/temporary.c \
+	$(SRC)/src/transform.c \
 	$(SRC)/src/variable.c \
 
 HEADERS=\
+	$(SRC)/src/analyze.h \
 	$(SRC)/src/argument.h \
 	$(SRC)/src/block.h \
 	$(SRC)/src/common.h \
-	$(SRC)/src/convert.h \
 	$(SRC)/src/emit.h \
 	$(SRC)/src/instruction.h \
 	$(SRC)/src/location.h \
@@ -75,6 +77,7 @@ HEADERS=\
 	$(SRC)/src/parse.h \
 	$(SRC)/src/symbol.h \
 	$(SRC)/src/temporary.h \
+	$(SRC)/src/transform.h \
 	$(SRC)/src/variable.h \
 
 all: build test FORCE

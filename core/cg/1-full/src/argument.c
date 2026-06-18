@@ -33,7 +33,6 @@
 
 void argument_delete(argument_t* argument) {
     switch (argument->type) {
-        case argument_type_temporary:
         case argument_type_absolute:
         case argument_type_relative:
             string_deref(argument->string);

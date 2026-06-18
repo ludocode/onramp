@@ -42,9 +42,12 @@ symbol_t* symbol_new(const char* name, location_t* location) {
 }
 
 void symbol_delete(symbol_t* symbol) {
+    // blocks are deleted by the block table now
+    /*
     for (size_t i = vector_count(symbol->blocks); i-- > 0;) {
         block_delete(vector_at(symbol->blocks, i));
     }
+    */
     vector_delete(symbol->blocks);
     location_delete(symbol->location);
     free(symbol->name);

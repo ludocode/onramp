@@ -33,6 +33,10 @@ extern FILE* output_file;
 struct location_t;
 struct string_t;
 
+// A monotonically increasing ID using to mark visited blocks, instructions,
+// etc. Reset at the end of every function.
+extern int pass_id;
+
 _Noreturn
 void fatal_loc(struct location_t* location, const char* message);
 

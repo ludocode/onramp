@@ -60,16 +60,16 @@ variable_t* variable_find_or_insert(const char* cname) {
     return variable;
 }
 
-void variable_setup(void) {
+void variables_setup(void) {
     variable_table = table_new();
 }
 
-void variable_teardown(void) {
-    variable_clear();
+void variables_teardown(void) {
+    variables_clear();
     table_delete(variable_table);
 }
 
-void variable_clear(void) {
+void variables_clear(void) {
     for (table_entry_t** bucket = table_first_bucket(variable_table); bucket;
             bucket = table_next_bucket(variable_table, bucket))
     {

@@ -28,6 +28,12 @@ mkdir -p output/intermediate/cg-1-full-re
 echo
 echo === Rebuilding cg/1-full
 
+echo Compiling cg/1-full analyze.c
+onrampvm output/final/bin/cc.oe \
+    @core/cg/1-full/rebuild-ccargs \
+    -c core/cg/1-full/src/analyze.c \
+    -o output/intermediate/cg-1-full-re/analyze.oo
+
 echo Compiling cg/1-full argument.c
 onrampvm output/final/bin/cc.oe \
     @core/cg/1-full/rebuild-ccargs \
@@ -45,12 +51,6 @@ onrampvm output/final/bin/cc.oe \
     @core/cg/1-full/rebuild-ccargs \
     -c core/cg/1-full/src/common.c \
     -o output/intermediate/cg-1-full-re/common.oo
-
-echo Compiling cg/1-full convert.c
-onrampvm output/final/bin/cc.oe \
-    @core/cg/1-full/rebuild-ccargs \
-    -c core/cg/1-full/src/convert.c \
-    -o output/intermediate/cg-1-full-re/convert.oo
 
 echo Compiling cg/1-full emit.c
 onrampvm output/final/bin/cc.oe \
@@ -106,6 +106,12 @@ onrampvm output/final/bin/cc.oe \
     -c core/cg/1-full/src/temporary.c \
     -o output/intermediate/cg-1-full-re/temporary.oo
 
+echo Compiling cg/1-full transform.c
+onrampvm output/final/bin/cc.oe \
+    @core/cg/1-full/rebuild-ccargs \
+    -c core/cg/1-full/src/transform.c \
+    -o output/intermediate/cg-1-full-re/transform.oo
+
 echo Compiling cg/1-full variable.c
 onrampvm output/final/bin/cc.oe \
     @core/cg/1-full/rebuild-ccargs \
@@ -116,10 +122,10 @@ echo Linking cg/1-full
 onrampvm output/final/bin/cc.oe \
     @core/cg/1-full/rebuild-ccargs \
     output/intermediate/libo-1-opc-re/libo.oa \
+    output/intermediate/cg-1-full-re/analyze.oo \
     output/intermediate/cg-1-full-re/argument.oo \
     output/intermediate/cg-1-full-re/block.oo \
     output/intermediate/cg-1-full-re/common.oo \
-    output/intermediate/cg-1-full-re/convert.oo \
     output/intermediate/cg-1-full-re/emit.oo \
     output/intermediate/cg-1-full-re/instruction.oo \
     output/intermediate/cg-1-full-re/location.oo \
@@ -129,5 +135,6 @@ onrampvm output/final/bin/cc.oe \
     output/intermediate/cg-1-full-re/parse.oo \
     output/intermediate/cg-1-full-re/symbol.oo \
     output/intermediate/cg-1-full-re/temporary.oo \
+    output/intermediate/cg-1-full-re/transform.oo \
     output/intermediate/cg-1-full-re/variable.oo \
     -o output/final/bin/cci.oe

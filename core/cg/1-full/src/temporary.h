@@ -31,6 +31,9 @@
 
 struct string_t;
 struct location_t;
+struct vector_t;
+
+#define TEMPORARY_INTERVAL_INVALID ((size_t)-1)
 
 typedef struct temporary_t {
     table_entry_t entry;
@@ -39,7 +42,7 @@ typedef struct temporary_t {
     int frame_offset; // assigned offset in the stack frame (usually negative)
 
     // Live interval
-    bool live; // used by the live range analysis algorithm
+    int live; // Used by the live range analysis algorithm
     size_t interval_start;
     size_t interval_end;
 } temporary_t;
@@ -50,12 +53,17 @@ typedef struct temporary_t {
  */
 temporary_t* temporary_find_or_insert(const char* name);
 
-void temporary_setup(void);
-void temporary_teardown(void);
+void temporaries_setup(void);
+void temporaries_teardown(void);
 
 /**
  * Clears the temporary table.
  */
-void temporary_clear(void);
+void temporaries_clear(void);
+
+/**
+ * Add all temporaries to the given vector.
+ */
+void temporaries_list_all(struct vector_t* temporaries);
 
 #endif

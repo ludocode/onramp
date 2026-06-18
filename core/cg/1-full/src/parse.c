@@ -135,7 +135,7 @@ bool is_identifier_char(uint32_t c, bool first_char, bool percent) {
  * temporaries.
  */
 bool try_parse_identifier(bool percent) {
-    printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+    //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     if (!is_identifier_char(current_char, true, percent))
         return false;
 
@@ -165,12 +165,12 @@ bool try_parse_identifier(bool percent) {
         parse_next_char();
     }
 
-    printf("%s() %s:%i parsed identifier %s\n", __func__, __FILE__, __LINE__, identifier);
+    //printf("%s() %s:%i parsed identifier %s\n", __func__, __FILE__, __LINE__, identifier);
     return true;
 }
 
 static void parse_identifier(bool percent) {
-    printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+    //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     if (!try_parse_identifier(percent)) {
         fatal("Expected an identifier.");
     }
@@ -199,7 +199,7 @@ static void parse_parameters(void) {
 }
 
 static opcode_t parse_opcode(void) {
-    printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
+    //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
     if (!try_parse_identifier(false)) {
         fatal("Expected an instruction opcode.");
     }
@@ -239,7 +239,7 @@ static uint32_t parse_register() {
 }
 
 static uint32_t parse_number(void) {
-    printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
+    //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
     char buffer[32];
     if (!isdigit(current_char)) {
         fatal("Expected number.");
@@ -293,7 +293,7 @@ static argument_t* /*nullable*/ try_parse_argument(void) {
         return argument_new_number(argument_type_number, parse_number());
     }
 
-    printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
+    //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
     fatal("Expected argument.");
 }
 
@@ -404,10 +404,10 @@ static void parse_call_arguments(instruction_t* instruction) {
 static instruction_t* parse_instruction(void) {
     parse_whitespace_and_comments();
     opcode_t opcode = parse_opcode();
-printf("%s() %s:%i parsed opcode %i\n", __func__, __FILE__, __LINE__,opcode);
+    //printf("%s() %s:%i parsed opcode %i\n", __func__, __FILE__, __LINE__,opcode);
     instruction_t* instruction = instruction_new(location_new_current(), opcode);
 
-printf("%s() %s:%i switch on opcode %i\n", __func__, __FILE__, __LINE__,opcode);
+    //printf("%s() %s:%i switch on opcode %i\n", __func__, __FILE__, __LINE__,opcode);
     switch (opcode) {
 
         // temp-mix-mix instructions
@@ -511,7 +511,7 @@ printf("%s() %s:%i switch on opcode %i\n", __func__, __FILE__, __LINE__,opcode);
 static void parse_block(symbol_t* symbol) {
     assert(current_char == ':');
     parse_next_char();
-    printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+    //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     parse_identifier(false);
     block_t* block = block_new(identifier, location_new_current());
     vector_append(symbol->blocks, block);
@@ -520,7 +520,7 @@ static void parse_block(symbol_t* symbol) {
         parse_whitespace_and_comments();
         if (current_char == '=' || current_char == ':' || current_char == EOF)
             break;
-    printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
+        //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
         vector_append(block->instructions, parse_instruction());
     }
 
@@ -545,7 +545,7 @@ static void parse_block(symbol_t* symbol) {
 }
 
 symbol_t* /*nullable*/ try_parse_symbol(void) {
-    printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+    //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     if (current_char == EOF) {
         return NULL;
     }
@@ -563,9 +563,9 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
 
     // parse preamble (containing a temporary for each parameter, including
     // possibly a varargs parameter)
-    printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+    //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     parse_parameters();
-    printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+    //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
 
     // parse instructions and labels
     for (;;) {

@@ -47,18 +47,18 @@ void otable_delete(otable_t* otable) {
     free(otable);
 }
 
-otable_t* otable_new_copy(otable_t* table) {
+otable_t* otable_new_copy(otable_t* otable) {
     otable_t* copy = otable_new();
     if (!copy) {
         fatal("Out of memory.");
     }
-    if (table->buckets) {
-        copy->buckets = __memdup(table->buckets, (1u << table->bits) * sizeof(otable_bucket_t));
+    if (otable->buckets) {
+        copy->buckets = __memdup(otable->buckets, (1u << otable->bits) * sizeof(otable_bucket_t));
         if (!copy->buckets) {
             fatal("Out of memory.");
         }
-        copy->bits = table->bits;
-        copy->count = table->count;
+        copy->bits = otable->bits;
+        copy->count = otable->count;
     }
     return copy;
 }
@@ -232,7 +232,12 @@ void otable_reserve_bits(otable_t* otable, size_t new_bits) {
 }
 
 void otable_union(otable_t* restrict otable, const otable_t* restrict other) {
+    assert(otable);
+    assert(other);
     assert(otable != other);
+    if (other->count == 0) {
+        return;
+    }
     size_t other_capacity = 1u << other->bits;
     for (size_t i = 0; i < other_capacity; ++i) {
         otable_bucket_t* bucket = other->buckets + i;
@@ -269,7 +274,7 @@ void otable_remove_all(otable_t* otable) {
     otable->count = 0;
 }
 
-static void** otable_next_impl(otable_t* otable, size_t i, uint32_t hash) {
+static void** otable_find_impl(otable_t* otable, size_t i, uint32_t hash) {
     otable_bucket_t* buckets = otable->buckets;
     size_t mask = (1u << otable->bits) - 1;
     for (;;) {
@@ -289,12 +294,33 @@ static void** otable_next_impl(otable_t* otable, size_t i, uint32_t hash) {
 
 void** otable_find(otable_t* otable, uint32_t hash) {
     size_t i = knuth_hash_32(hash, otable->bits);
-    return otable_next_impl(otable, i, hash);
+    return otable_find_impl(otable, i, hash);
 }
 
-void** otable_next(otable_t* otable, void** entry, uint32_t hash) {
+void** otable_collision(otable_t* otable, void** entry, uint32_t hash) {
     size_t i = (otable_bucket_t*)entry - otable->buckets;
     size_t mask = (1u << otable->bits) - 1;
     i = (i + 1) & mask;
-    return otable_next_impl(otable, i, hash);
+    return otable_find_impl(otable, i, hash);
+}
+
+void** otable_next_impl(otable_t* otable, otable_bucket_t* p) {
+    otable_bucket_t* end = otable->buckets + (1u << otable->bits);
+    for (; p != end; ++p) {
+        if (p->element) {
+            return &p->element;
+        }
+    }
+    return NULL;
+}
+
+void** otable_begin(otable_t* otable) {
+    if (otable->count == 0) {
+        return NULL;
+    }
+    return otable_next_impl(otable, otable->buckets);
+}
+
+void** otable_next(otable_t* otable, void** entry) {
+    return otable_next_impl(otable, (otable_bucket_t*)entry + 1);
 }

@@ -76,4 +76,10 @@ void fputd(int number, FILE* file);
  */
 void putd(int number);
 
+#ifndef __onramp__
+// TODO for lack of a better place to put this. We need this to build libo
+// natively. On Onramp it's in the libc.
+void* __memdup(const void* src, size_t count);
+#endif
+
 #endif

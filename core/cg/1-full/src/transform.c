@@ -22,7 +22,7 @@
  * SOFTWARE.
  */
 
-#include "convert.h"
+#include "transform.h"
 
 #include "argument.h"
 #include "block.h"
@@ -80,9 +80,6 @@ void convert_control_flow(symbol_t* symbol) {
 
         // get the last instruction
         block_t* block = vector_at(symbol->blocks, i);
-        if (vector_count(block->instructions) == 0) {
-            continue;
-        }
         instruction_t* last = vector_last(block->instructions);
 
         // check if it's ret or br

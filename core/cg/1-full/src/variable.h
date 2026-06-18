@@ -44,12 +44,12 @@ typedef struct variable_t {
  */
 variable_t* variable_find_or_insert(const char* name);
 
-void variable_setup(void);
-void variable_teardown(void);
+void variables_setup(void);
+void variables_teardown(void);
 
 /**
  * Clears the variable table.
  */
-void variable_clear(void);
+void variables_clear(void);
 
 #endif

@@ -28,6 +28,7 @@
 #include "location.h"
 #include "opcode.h"
 #include "libo-vector.h"
+#include "argument.h"
 
 /*
  * Instructions and Arguments
@@ -48,8 +49,6 @@
  * will make sense later.)
  */
 
-struct argument_t;
-
 /**
  * An instruction.
  *
@@ -60,6 +59,7 @@ typedef struct instruction_t {
     location_t* location;
     opcode_t opcode;
     vector_t* arguments;
+    size_t index; // index in global order for live interval analysis
 } instruction_t;
 
 /**
@@ -70,13 +70,26 @@ instruction_t* instruction_new(location_t* location, opcode_t opcode);
 
 void instruction_delete(instruction_t* instruction);
 
-static inline struct argument_t* instruction_append(instruction_t* instruction, struct argument_t* argument) {
+static inline argument_t* instruction_append(instruction_t* instruction, argument_t* argument) {
     vector_append(instruction->arguments, argument);
     return argument;
 }
 
-static inline struct argument_t* instruction_argument(instruction_t* instruction, size_t argument) {
+static inline argument_t* instruction_argument(instruction_t* instruction, size_t argument) {
     return vector_at(instruction->arguments, argument);
 }
+
+/**
+ * True if the first argument of the given instruction is an output.
+ */
+bool instruction_has_output_arg(instruction_t* instruction);
+
+/**
+ * Returns the mode of the first argument, i.e. whether the instructions reads,
+ * writes, or both its first argument,
+ *
+ * If the instruction has no argument, this returns argument_mode_read.
+ */
+argument_mode_t instruction_mode(instruction_t* instruction);
 
 #endif

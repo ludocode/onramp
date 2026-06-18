@@ -71,7 +71,7 @@ static void emit_location_force(void) {
 
 static void emit_location(location_t* location) {
     assert(location);
-fprintf(stderr, "%s() %s:%i %p %p\n", __func__, __FILE__, __LINE__, (void*)location, (void*)current_filename_string);
+    //fprintf(stderr, "%s() %s:%i %p %p\n", __func__, __FILE__, __LINE__, (void*)location, (void*)current_filename_string);
 
     if (!string_equal(location->filename, current_filename_string)) {
         set_current_filename_string(location->filename);
@@ -144,7 +144,7 @@ static void emit_argument(argument_t* argument) {
             emit_register(argument->number);
             break;
         case argument_type_number:
-            printf("arg number %u\n", argument->number);
+            //printf("arg number %u\n", argument->number);
             emit_uint(argument->number);
             break;
         case argument_type_absolute:
@@ -185,7 +185,7 @@ void emit_symbol(symbol_t* symbol) {
         block_t* block = vector_at(symbol->blocks, i);
         emit_location(block->location);
         emit_char(':');
-        emit_cstr(block->name);
+        emit_string(block->name);
         emit_char('\n');
 
         for (size_t i = 0; i < vector_count(block->instructions); ++i) {

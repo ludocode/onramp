@@ -31,6 +31,12 @@
 struct string_t;
 struct temporary_t;
 
+typedef enum argument_mode_t {
+    argument_mode_read,       // argument is input only
+    argument_mode_write,      // argument is output only (register or temporary)
+    argument_mode_read_write, // argument is both input and output (register or temporary)
+} argument_mode_t;
+
 typedef enum argument_type_t {
     argument_type_sentinel = 0,
     argument_type_temporary,

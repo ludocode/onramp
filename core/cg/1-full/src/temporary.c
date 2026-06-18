@@ -27,13 +27,16 @@
 #include <stdlib.h>
 
 #include "libo-string.h"
+#include "libo-vector.h"
 
 static table_t* temporary_table;
 
 // Takes ownership of name
 static temporary_t* temporary_new(string_t* name) {
-    temporary_t* temporary = malloc(sizeof(temporary_t));
+    temporary_t* temporary = calloc(1, sizeof(temporary_t));
     temporary->name = name;
+    temporary->interval_start = TEMPORARY_INTERVAL_INVALID;
+    temporary->interval_end = TEMPORARY_INTERVAL_INVALID;
     return temporary;
 }
 
@@ -60,16 +63,16 @@ temporary_t* temporary_find_or_insert(const char* cname) {
     return temporary;
 }
 
-void temporary_setup(void) {
+void temporaries_setup(void) {
     temporary_table = table_new();
 }
 
-void temporary_teardown(void) {
-    temporary_clear();
+void temporaries_teardown(void) {
+    temporaries_clear();
     table_delete(temporary_table);
 }
 
-void temporary_clear(void) {
+void temporaries_clear(void) {
     for (table_entry_t** bucket = table_first_bucket(temporary_table); bucket;
             bucket = table_next_bucket(temporary_table, bucket))
     {
@@ -80,4 +83,14 @@ void temporary_clear(void) {
         }
     }
     table_remove_all(temporary_table);
+}
+
+void temporaries_list_all(vector_t* temporaries) {
+    for (table_entry_t** bucket = table_first_bucket(temporary_table); bucket;
+            bucket = table_next_bucket(temporary_table, bucket))
+    {
+        for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
+            vector_append(temporaries, entry);
+        }
+    }
 }

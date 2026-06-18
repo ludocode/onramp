@@ -23,11 +23,11 @@
  */
 
 /*
- * Functions to convert IR to assembly.
+ * Functions to transform IR into assembly.
  */
 
-#ifndef CONVERT_H_INCLUDED
-#define CONVERT_H_INCLUDED
+#ifndef TRANSFORM_H_INCLUDED
+#define TRANSFORM_H_INCLUDED
 
 struct symbol_t;
 

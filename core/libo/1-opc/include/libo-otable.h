@@ -34,32 +34,10 @@
  * stores both elements and hashes so it can resize the table dynamically as
  * needed.
  *
- * This can be used as a set or a map.
- *
- * When used as a set, you can simply use otable_put(), otable_contains() and
- * otable_remove() to manage the contents.
- *
- * When used as a map, to find an element with a given key you must walk
- * through the collision chain for the key's hash, checking each element's key
- * for equality. This is done with otable_find() and otable_next(). Here's one
- * example of how you might do this:
- *
- *     for (void** entry = otable_find(otable, hash);;
- *             entry = otable_next(otable, entry, hash))
- *     {
- *         if (!entry) {
- *             // element not found
- *             break;
- *         }
- *         foo_t* element = *entry;
- *         if (foo_key_matches(element, key)) {
- *             // element found
- *             break;
- *         }
- *     }
- *
- * This has to be done instead of using macros or function pointers for key
- * lookup because we don't have either of those in our bootstrapping compilers.
+ * This can be used as a set or a map. When used as a set, you can simply use
+ * otable_put(), otable_contains() and otable_remove() to manage the contents.
+ * When used as a map, to find an element by key you must loop over the
+ * collision chain for the key's hash; see otable_find() for an example.
  */
 
 #include <stdbool.h>
@@ -157,8 +135,25 @@ void otable_shrink(otable_t* otable);
  *
  * You must verify that the returned element is the one you want (for example,
  * if your otable is a map, you must check that the returned element has the
- * correct key.) If not, you must call otable_next() to get the next element in
- * the collision chain.
+ * correct key.) If not, you must call otable_collision() to get the next
+ * element in the collision chain.
+ *
+ * Here's one example of how you might do this:
+ *
+ *     for (void** entry = otable_find(otable, hash); entry;
+ *             entry = otable_collision(otable, entry, hash))
+ *     {
+ *         foo_t* element = *entry;
+ *         if (foo_key_matches(element, key)) {
+ *             // element found
+ *             return;
+ *         }
+ *     }
+ *     // element not found
+ *
+ * This has to be done instead of using object-like macros or function pointers
+ * for key lookup because we don't have either of those in our bootstrapping
+ * compilers.
  */
 void** otable_find(otable_t* otable, uint32_t hash);
 
@@ -167,11 +162,35 @@ void** otable_find(otable_t* otable, uint32_t hash);
  * hash, or NULL if there are no more elements with this hash.
  *
  * The entry parameter is that previously returned from otable_find() or
- * otable_next().
+ * otable_collision().
  *
  * See otable_find().
  */
-void** otable_next(otable_t* otable, void** entry, uint32_t hash);
+void** otable_collision(otable_t* otable, void** entry, uint32_t hash);
+
+/**
+ * Returns a pointer to the first element in the table, or NULL if the table is
+ * empty.
+ *
+ * Call otable_next() to find subsequent elements.
+ *
+ * This can be used to iterate over the contents of the table. For example:
+ *
+ *     for (void** p = otable_begin(otable); p; p = otable_next(otable, p)) {
+ *         foo_t* foo = *p;
+ *         // ...
+ *     }
+ */
+void** otable_begin(otable_t* otable);
+
+/**
+ * Returns a pointer to the next element in the table, or NULL if there are no
+ * more elements.
+ *
+ * The entry parameter is that previously returned from otable_begin() or
+ * otable_next().
+ */
+void** otable_next(otable_t* otable, void** entry);
 
 /**
  * Returns the number of entries in the hashtable.

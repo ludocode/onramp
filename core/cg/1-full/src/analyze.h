@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025-2026 Fraser Heavy Software
+ * Copyright (c) 2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,36 +22,29 @@
  * SOFTWARE.
  */
 
-#ifndef SYMBOL_H_INCLUDED
-#define SYMBOL_H_INCLUDED
+/*
+ * Functions to perform analysis on the IR.
+ */
 
-struct block_t;
-struct vector_t;
-struct location_t;
+#ifndef ANALYZE_H_INCLUDED
+#define ANALYZE_H_INCLUDED
+
+struct symbol_t;
+struct otable_t;
+struct instruction_t;
 
 /**
- * All data for the current symbol being compiled.
- *
- * This is mostly gathered together as a convenience so we don't have stuff
- * scattered everywhere.
- *
- * TODO actually currently we are using globals, this is pretty useless
+ * Updates the given live_temps table with liveness changes made by this
+ * instruction.
  */
-typedef struct symbol_t {
-    char* name;
-    struct location_t* location;
-    struct vector_t* blocks;
-} symbol_t;
-
-//extern symbol_t* current_symbol;
+void analyze_liveness_instruction(struct otable_t* live_temps, struct instruction_t* instruction);
 
 /**
- * Creates a symbol.
+ * Perform a liveness analysis of temporaries.
  *
- * Takes ownership of the given location.
+ * Once complete, each block's live_temps will contain a complete set of all
+ * temporaries that may be alive at the end of the block.
  */
-symbol_t* symbol_new(const char* name, struct location_t* location);
-
-void symbol_delete(symbol_t* symbol);
+void analyze_liveness(struct symbol_t* symbol);
 
 #endif

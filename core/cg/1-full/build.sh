@@ -28,6 +28,12 @@ mkdir -p output/intermediate/cg-1-full
 echo
 echo === Building cg/1-full
 
+echo Compiling cg/1-full analyze.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/cg/1-full/build-ccargs \
+    -c core/cg/1-full/src/analyze.c \
+    -o output/intermediate/cg-1-full/analyze.oo
+
 echo Compiling cg/1-full argument.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/cg/1-full/build-ccargs \
@@ -45,12 +51,6 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/cg/1-full/build-ccargs \
     -c core/cg/1-full/src/common.c \
     -o output/intermediate/cg-1-full/common.oo
-
-echo Compiling cg/1-full convert.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/cg/1-full/build-ccargs \
-    -c core/cg/1-full/src/convert.c \
-    -o output/intermediate/cg-1-full/convert.oo
 
 echo Compiling cg/1-full emit.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -106,6 +106,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/cg/1-full/src/temporary.c \
     -o output/intermediate/cg-1-full/temporary.oo
 
+echo Compiling cg/1-full transform.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/cg/1-full/build-ccargs \
+    -c core/cg/1-full/src/transform.c \
+    -o output/intermediate/cg-1-full/transform.oo
+
 echo Compiling cg/1-full variable.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/cg/1-full/build-ccargs \
@@ -117,10 +123,10 @@ onrampvm output/intermediate/ld-2-full/ld.oe \
     -g \
     output/intermediate/libc-2-opc/libc.oa \
     output/intermediate/libo-1-opc/libo.oa \
+    output/intermediate/cg-1-full/analyze.oo \
     output/intermediate/cg-1-full/argument.oo \
     output/intermediate/cg-1-full/block.oo \
     output/intermediate/cg-1-full/common.oo \
-    output/intermediate/cg-1-full/convert.oo \
     output/intermediate/cg-1-full/emit.oo \
     output/intermediate/cg-1-full/instruction.oo \
     output/intermediate/cg-1-full/location.oo \
@@ -130,5 +136,6 @@ onrampvm output/intermediate/ld-2-full/ld.oe \
     output/intermediate/cg-1-full/parse.oo \
     output/intermediate/cg-1-full/symbol.oo \
     output/intermediate/cg-1-full/temporary.oo \
+    output/intermediate/cg-1-full/transform.oo \
     output/intermediate/cg-1-full/variable.oo \
     -o output/intermediate/cg-1-full/cg.oe
