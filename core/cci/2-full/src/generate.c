@@ -1720,11 +1720,11 @@ void generate_node(node_t* node, int reg_out_opt) {
         #endif // !CCI2_IR
         case NODE_EQUAL: generate_equal(node, reg_out); break;
         case NODE_NOT_EQUAL: generate_not_equal(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_LESS: generate_less(node, reg_out); break;
         case NODE_GREATER: generate_greater(node, reg_out); break;
         case NODE_LESS_OR_EQUAL: generate_less_or_equal(node, reg_out); break;
         case NODE_GREATER_OR_EQUAL: generate_greater_or_equal(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_SHL: generate_shl(node, reg_out); break;
         case NODE_SHR: generate_shr(node, reg_out); break;
         case NODE_ADD: generate_add(node, reg_out); break;

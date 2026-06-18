@@ -32,8 +32,6 @@
 #include "type.h"
 #include "token.h"
 
-#ifndef CCI2_IR
-
 /**
  * Generates an arithmetic or other binary calculation that must be done with a
  * libc function. This is used for long long, float and double.
@@ -46,6 +44,7 @@ static void generate_arithmetic_function(node_t* parent,
         node_t* first, node_t* /*nullable*/ second,
         int reg_out, const char* function_name)
 {
+    #ifndef CCI2_IR
     bool ret_indirect = type_is_passed_indirectly(parent->type);
     bool left_indirect = type_is_passed_indirectly(first->type);
     bool right_indirect = second ? type_is_passed_indirectly(second->type) : false;
@@ -115,7 +114,13 @@ static void generate_arithmetic_function(node_t* parent,
             block_append(current_block, parent->token, POP, i);
         }
     }
+    #endif
+    #ifdef CCI2_IR
+    fatal("TODO IR generate_arithmetic_function()");
+    #endif
 }
+
+#ifndef CCI2_IR
 
 /**
  * Generates a simple arithmetic calculation.
@@ -387,16 +392,19 @@ void generate_logical_and(node_t* node, int reg_out) {
     generate_logical(node, reg_out, true);
 }
 
+#endif // !CCI2_IR
+
 
 
 /**
  * Generates (left < right).
  */
-static void generate_less_impl(node_t* node, node_t* left, node_t* right, int reg_left) {
+static void generate_less_impl(node_t* node, node_t* left, node_t* right, int temp_out) {
     assert(type_equal(left->type, right->type));
     type_t* type = left->type;
 
     if (type_is_long_long(type)) {
+        #ifndef CCI2_IR
 
         // This is similar to generate_equality() below. We do the comparison
         // inline without a function call. This might be a bad idea; maybe it
@@ -406,19 +414,19 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
         block_append(current_block, node->token, SUB, RSP, RSP, 16);
 
         // generate left
-        block_append(current_block, node->token, MOV, reg_left, RSP);
-        generate_node(left, reg_left);
+        block_append(current_block, node->token, MOV, temp_out, RSP);
+        generate_node(left, temp_out);
 
         // generate right
         int reg_right = register_alloc(node->token);
         block_append(current_block, node->token, ADD, reg_right, RSP, 8);
         generate_node(right, reg_right);
 
-        // compare the low bytes in reg_left (with LTU, not LTS!)
+        // compare the low bytes in temp_out (with LTU, not LTS!)
         int reg_temp1 = register_alloc(node->token);
-        block_append(current_block, node->token, LDW, reg_left, RSP, 0);
+        block_append(current_block, node->token, LDW, temp_out, RSP, 0);
         block_append(current_block, node->token, LDW, reg_temp1, RSP, 8);
-        block_append(current_block, node->token, LTU, reg_left, reg_left, reg_temp1);
+        block_append(current_block, node->token, LTU, temp_out, temp_out, reg_temp1);
 
         // keep it only if the top bytes match
         int reg_temp2 = register_alloc(node->token);
@@ -426,33 +434,53 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int re
         block_append(current_block, node->token, LDW, reg_temp2, RSP, 12);
         block_append(current_block, node->token, SUB, reg_temp1, reg_right, reg_temp2);
         block_append(current_block, node->token, ISZ, reg_temp1, reg_temp1);
-        block_append(current_block, node->token, AND, reg_left, reg_left, reg_temp1);
+        block_append(current_block, node->token, AND, temp_out, temp_out, reg_temp1);
 
         // compare the high bytes in reg_right
         block_append(current_block, node->token,
                 type_is_signed_integer(type) ? LTS : LTU,
                 reg_right, reg_right, reg_temp2);
 
-        // combine it with the result in reg_left
-        block_append(current_block, node->token, OR, reg_left, reg_left, reg_right);
+        // combine it with the result in temp_out
+        block_append(current_block, node->token, OR, temp_out, temp_out, reg_right);
 
         // clean up
         register_free(node->token, reg_temp2);
         register_free(node->token, reg_temp1);
         register_free(node->token, reg_right);
         block_append(current_block, node->token, ADD, RSP, RSP, 16);
+        #endif
+        #ifdef CCI2_IR
+        // TODO for now we just call the helper. We can translate the non-IR to
+        // IR later.
+        generate_arithmetic_function(node, left, right, temp_out,
+                type_is_signed_integer(type) ? "__llong_lts" : "__llong_ltu");
+        #endif
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        generate_arithmetic_function(node, left, right, reg_left, "__float_lt");
+        generate_arithmetic_function(node, left, right, temp_out, "__float_lt");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, left, right, reg_left, "__double_lt");
+        generate_arithmetic_function(node, left, right, temp_out, "__double_lt");
     } else {
-        generate_node(left, reg_left);
+        #ifndef CCI2_IR
+        generate_node(left, temp_out);
         int reg_right = register_alloc(node->token);
         generate_node(right, reg_right);
         block_append(current_block, node->token,
                 type_matches_base(type, BASE_SIGNED_INT) ? LTS : LTU,
-                reg_left, reg_left, reg_right);
+                temp_out, temp_out, reg_right);
         register_free(node->token, reg_right);
+        #endif
+        #ifdef CCI2_IR
+        int temp_left = generate_temporary(NULL, false);
+        int temp_right = generate_temporary(NULL, false);
+        generate_node(left, temp_left);
+        generate_node(right, temp_right);
+        instruction_t* instruction = block_append(current_block, node->token,
+                type_matches_base(type, BASE_SIGNED_INT) ? LTS : LTU, 3);
+        instruction_set_arg_temporary(instruction, 0, temp_out);
+        instruction_set_arg_temporary(instruction, 1, temp_left);
+        instruction_set_arg_temporary(instruction, 2, temp_right);
+        #endif
     }
 }
 
@@ -466,15 +494,29 @@ void generate_greater(node_t* node, int reg_out) {
 
 void generate_less_or_equal(node_t* node, int reg_out) {
     generate_less_impl(node, node->last_child, node->first_child, reg_out);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, SUB, reg_out, 1, reg_out);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_number(instruction, 1, 1);
+    instruction_set_arg_temporary(instruction, 2, reg_out);
+    #endif
 }
 
 void generate_greater_or_equal(node_t* node, int reg_out) {
     generate_less_impl(node, node->first_child, node->last_child, reg_out);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, SUB, reg_out, 1, reg_out);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_number(instruction, 1, 1);
+    instruction_set_arg_temporary(instruction, 2, reg_out);
+    #endif
 }
-
-#endif // !CCI2_IR
 
 /**
  * Generates code for == and != operators. The result is zero if the types
