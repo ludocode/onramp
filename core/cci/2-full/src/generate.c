@@ -96,6 +96,7 @@ static void generate_location_array_subscript(node_t* node, int reg_out);
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
 static void generate_builtin(node_t* node, int reg_out);
 static void generate_builtin_location(node_t* node, int reg_out);
+//static void generate_initializer(node_t* variable, int reg_loc);
 
 void generate_setup(void) {
     #ifndef CCI2_IR
@@ -335,20 +336,39 @@ static void generate_string(node_t* node, int reg_out) {
     block_append(current_block, node->token, ADD, reg_out, RPP, reg_out);
 }
 
+#endif
+
 // Generates access using the given opcode.
 // The opcode can be ADD to generate a location, or LDB/LDS/LDW to generate a load.
+// TODO once we're fully IR fix this, ADD is either SYM for a global or MOV for
+// a local, code is simple enough we won't need this function
 static void generate_access_impl(token_t* token, int opcode, symbol_t* symbol, int reg_out) {
     assert(opcode == ADD || !type_is_passed_indirectly(symbol->type));
     if (symbol_is_global(symbol)) {
+        #ifndef CCI2_IR
         block_append(current_block, token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
         block_append(current_block, token, opcode, reg_out, RPP, reg_out);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, token, (opcode == ADD) ? SYM : opcode, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_absolute(instruction, 1, symbol->asm_name);
+        #endif
     } else {
+        #ifndef CCI2_IR
         if (symbol->offset <= 127 && symbol->offset >= -112) {
             block_append(current_block, token, opcode, reg_out, RFP, symbol->offset);
         } else {
             block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
             block_append(current_block, token, opcode, reg_out, RFP, reg_out);
         }
+        #endif
+
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, token, (opcode == ADD) ? MOV : opcode, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_temporary(instruction, 1, symbol->temporary);
+        #endif
     }
 }
 
@@ -371,7 +391,14 @@ static void generate_access(node_t* node, int reg_out) {
         if (!type_matches_base(type, BASE_ENUM)) {
             fatal("TODO: Constants other than enum values are not yet supported.");
         }
+        #ifndef CCI2_IR
         block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->u32);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_number(instruction, 1, symbol->u32);
+        #endif
         return;
     }
 
@@ -382,11 +409,23 @@ static void generate_access(node_t* node, int reg_out) {
     }
 
     if (type_is_passed_indirectly(type)) {
+    #ifdef CCI2_IR
+    fatal("TODO IR generate_access() indirect");
+    #endif
+    #ifndef CCI2_IR
+        #ifndef CCI2_IR
         int reg_temp = register_alloc(node->token);
+        #endif
+        #ifdef CCI2_IR
+        int reg_temp = generate_temporary(NULL, false);
+        #endif
         generate_access_location(node->token, node->symbol, reg_temp);
         generate_copy(node->token, type, 1, reg_temp, reg_out);
+        #ifndef CCI2_IR
         register_free(node->token, reg_temp);
+        #endif
         return;
+    #endif
     }
 
     opcode_t opcode;
@@ -404,6 +443,27 @@ static void generate_access(node_t* node, int reg_out) {
     }
     generate_access_impl(node->token, opcode, node->symbol, reg_out);
 }
+
+#ifdef CCI2_IR
+static void generate_variable(node_t* node) {
+    assert(node->kind == NODE_VARIABLE);
+
+    node->symbol->temporary = generate_temporary(NULL, false);
+
+    int temp = node->symbol->temporary;
+    instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
+    instruction_set_arg_temporary(instruction, 0, temp);
+    instruction_set_arg_number(instruction, 1, type_size(node->symbol->type));
+    instruction_set_arg_sentinel(instruction, 2); // TODO alignment
+
+    if (node->first_child) {
+        fatal("TODO IR generate_initializer()");
+        //generate_initializer(node, temp);
+    }
+}
+#endif
+
+#ifndef CCI2_IR
 
 /**
  * Generates offsets for function parameters, returning the necessary amount of
@@ -493,7 +553,7 @@ static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
     return frame_size;
 }
 
-#endif // CCI2_IR
+#endif // !CCI2_IR
 
 void generate_function(function_t* function) {
     node_t* root = function->root;
@@ -1098,7 +1158,7 @@ static void generate_cast_direct_to_direct(node_t* node,
 
 #ifndef CCI2_IR
 
-void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
+static void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
 
     if (type_is_array(target)) {
         if (expr->kind != NODE_STRING) {
@@ -1152,7 +1212,7 @@ void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, siz
  *
  * The address of the variable being initialized is (reg_base + offset).
  */
-void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t base_offset) {
+static void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t base_offset) {
     size_t i;
     for (i = 0; i < vector_count(&list->children); ++i) {
 
@@ -1208,7 +1268,7 @@ void generate_initializer_list(node_t* list, type_t* type, int reg_base, size_t 
  * our use. We use it as a pointer to the current location in the variable
  * being initialized.
  */
-void generate_initializer(node_t* variable, int reg_loc) {
+static void generate_initializer(node_t* variable, int reg_loc) {
     generate_access_location(variable->token, variable->symbol, reg_loc);
 
     node_t* initializer = variable->first_child;
@@ -1609,13 +1669,16 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_DEFER:
             fatal("Internal error: cannot generate arbitrary DEFER node.");
 
-        #ifndef CCI2_IR
         case NODE_VARIABLE:
+            #ifdef CCI2_IR
+            generate_variable(node);
+            #endif
+            #ifndef CCI2_IR
             if (node->first_child) {
                 generate_initializer(node, reg_out);
             }
+            #endif
             break;
-        #endif // !CCI2_IR
 
         // statements
         case NODE_WHILE: generate_while(node, reg_out); break;
@@ -1634,7 +1697,9 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_DEFAULT: generate_case_or_default(node, reg_out); break;
 
         // assignment expressions
+        #endif // !CCI2_IR
         case NODE_ASSIGN: generate_assign(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_ADD_ASSIGN: generate_add_assign(node, reg_out); break;
         case NODE_SUB_ASSIGN: generate_sub_assign(node, reg_out); break;
         case NODE_MUL_ASSIGN: generate_mul_assign(node, reg_out); break;
@@ -1727,8 +1792,6 @@ void generate_node(node_t* node, int reg_out_opt) {
     #endif
 }
 
-#ifndef CCI2_IR
-
 void generate_location(node_t* node, int reg_out) {
     #ifdef GENERATE_DEBUG
     for (int i = 0; i < debug_depth; ++i)
@@ -1739,6 +1802,7 @@ void generate_location(node_t* node, int reg_out) {
 
     switch (node->kind) {
         case NODE_ACCESS: generate_access_location(node->token, node->symbol, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_DEREFERENCE: generate_node(node->first_child, reg_out); break;
         case NODE_MEMBER_VAL: generate_location_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_location_member_ptr(node, reg_out); break;
@@ -1755,7 +1819,11 @@ void generate_location(node_t* node, int reg_out) {
             }
             fatal("Internal error, cannot generate location of non-struct cast.");
             break;
+        #endif
         default:
+            #ifdef CCI2_IR
+            fatal("TODO unimplemented generate_location() %s", node_kind_to_string(node->kind));
+            #endif
             fatal("Internal error, cannot generate location of non-value node: %s.", node_kind_to_string(node->kind));
             break;
     }
@@ -1764,6 +1832,8 @@ void generate_location(node_t* node, int reg_out) {
     --debug_depth;
     #endif
 }
+
+#ifndef CCI2_IR
 
 /**
  * Generates an initializer for a variable with static storage duration (i.e. a
@@ -1841,7 +1911,6 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
 #endif // !CCI2_IR
 
 void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
-#ifndef CCI2_IR
 
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
 
@@ -1863,12 +1932,16 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
     emit_newline();
 
     if (initializer) {
+        #ifndef CCI2_IR
         emit_newline();
         generate_static_initializer(symbol, initializer);
+        #endif
+        #ifdef CCI2_IR
+        fatal("TODO IR generate_static_variable() initializer");
+        #endif
     }
 
     emit_global_divider();
-#endif // !CCI2_IR
 }
 
 #ifndef CCI2_IR

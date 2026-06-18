@@ -734,11 +734,15 @@ static void generate_store_direct(token_t* token, size_t size, int reg_val, int 
     block_append(current_block, token, opcode, reg_val, reg_base, offset);
 }
 
+#endif // !CCI2_IR
+
 void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_base, int offset) {
     assert(!type_is_array(type));
 
     size_t size = type_size(type);
     bool indirect = type_is_passed_indirectly(type);
+
+    #ifndef CCI2_IR
 
     // See if we can do the offset inline
     if (indirect) {
@@ -762,6 +766,39 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
     else
         generate_store_direct(token, size, reg_val, reg_loc, 0);
     register_free(token, reg_loc);
+
+    #endif
+
+    #ifdef CCI2_IR
+    // add the offset to the base if non-zero
+    int reg_loc = reg_base;
+    if (offset != 0) {
+        reg_loc = generate_temporary(NULL, false);
+        instruction_t* instruction = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_loc);
+        instruction_set_arg_temporary(instruction, 1, reg_base);
+        instruction_set_arg_number(instruction, 2, offset);
+    }
+
+    // generate the store
+    if (indirect) {
+        fatal("TODO IR generate_store_offset() indirect");
+        //generate_copy(token, type, 1, reg_val, reg_loc);
+    } else {
+        opcode_t opcode;
+        switch (size) {
+            case 1: opcode = STB; break;
+            case 2: opcode = STS; break;
+            case 4: opcode = STW; break;
+            default:
+                fatal_token(token, "Internal error: impossible size for direct store: %i", (int)size);
+                break;
+        }
+        instruction_t* instruction = block_append(current_block, token, opcode, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_val);
+        instruction_set_arg_temporary(instruction, 1, reg_loc);
+    }
+    #endif
 }
 
 void generate_store(token_t* token, type_t* type, int reg_val, int reg_loc) {
@@ -775,22 +812,39 @@ void generate_assign(node_t* node, int reg_out_opt) {
     // need any of these special cases.
 
     if (reg_out_opt == -1) {
-        // The result is not used as an expression. Generate directly into the
-        // destination.
+        // The result is indirect and is not used as an expression. Generate
+        // directly into the destination.
+        assert(type_is_passed_indirectly(node->type));
+        #ifndef CCI2_IR
         int reg = register_alloc(node->token);
+        #endif
+        #ifdef CCI2_IR
+        int reg = generate_temporary(NULL, false);
+        #endif
         generate_location(node->first_child, reg);
         generate_node(node->last_child, reg);
+        #ifndef CCI2_IR
         register_free(node->token, reg);
+        #endif
         return;
     }
 
     generate_node(node->last_child, reg_out_opt);
 
+    #ifndef CCI2_IR
     int reg_loc = register_alloc(node->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_loc = generate_temporary(NULL, false);
+    #endif
     generate_location(node->first_child, reg_loc);
     generate_store(node->token, node->type, reg_out_opt, reg_loc);
+    #ifndef CCI2_IR
     register_free(node->token, reg_loc);
+    #endif
 }
+
+#ifndef CCI2_IR
 
 void generate_add_sub_assign(node_t* node, int reg_val,
         opcode_t opcode, const char* llong_func,

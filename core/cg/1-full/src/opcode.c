@@ -82,6 +82,7 @@ const char* opcode_to_string(opcode_t opcode) {
         case opcode_lts: return "lts";
 
         // memory
+        case opcode_sym: return "sym";
         case opcode_ldw: return "ldw";
         case opcode_lds: return "lds";
         case opcode_ldb: return "ldb";
@@ -177,6 +178,7 @@ void opcode_setup(void) {
     opcode_insert("lts", opcode_lts);
 
     // memory
+    opcode_insert("sym", opcode_sym);
     opcode_insert("ldw", opcode_ldw);
     opcode_insert("lds", opcode_lds);
     opcode_insert("ldb", opcode_ldb);

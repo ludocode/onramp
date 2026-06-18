@@ -69,6 +69,12 @@ const char* opcode_to_string(opcode_t opcode) {
         case ISZ: return "isz";
 
         // memory
+        #ifdef CCI2_IR
+        case SYM: return "sym";
+        case VAR: return "var";
+        case ALLOC: return "alloc";
+        case FREE: return "free";
+        #endif
         case LDW: return "ldw";
         case LDS: return "lds";
         case LDB: return "ldb";
@@ -80,7 +86,9 @@ const char* opcode_to_string(opcode_t opcode) {
         case POPD: return "popd";
 
         // control
+        #ifndef CCI2_IR
         case IMW: return "imw";
+        #endif
         case LTU: return "ltu";
         case LTS: return "lts";
         #ifdef CCI2_IR
@@ -331,7 +339,7 @@ void instruction_emit(instruction_t* instruction) {
         argument_t* argument = instruction_argument(instruction, i);
         switch (argument->type) {
             case argument_type_sentinel:
-                emit_char('$');
+                emit_char('%');
                 break;
             case argument_type_temporary:
                 emit_string(temporary_name(argument->number));

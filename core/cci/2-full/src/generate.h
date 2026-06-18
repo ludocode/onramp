@@ -69,6 +69,7 @@ int generate_temporary(struct string_t* /*nullable*/ name, bool variable);
  */
 void generate_function(struct function_t* function);
 
+#ifndef CCI2_IR
 /**
  * Allocates a register, returning its number (i.e. the value 0x80-0x89
  * corresponding to the register r0-r9.)
@@ -97,6 +98,7 @@ int register_alloc(struct token_t* /*nullable*/ token);
  * needed.
  */
 void register_free(struct token_t* /*nullable*/ token, int reg);
+#endif
 
 /**
  * Compiles a node recursively.

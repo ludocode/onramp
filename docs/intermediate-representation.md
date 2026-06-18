@@ -285,6 +285,16 @@ Storage space is reclaimed automatically when the function exits (either by retu
 
 ## Instruction Table
 
+Arguments have the following types:
+
+- `t`: A temporary
+- `m`: A mix-type argument, either a temporary or an immediate 32-bit integer (no range limit)
+- `i`: An immediate 32-bit integer
+- `s`: An absolute linker invocation (i.e. `^` and a symbol name)
+- `l`: A relative linker invocation (i.e. `&` and a jump target)
+
+A `/` symbol means multiple types are allowed, and `?` means the argument may be a sentinel.
+
 Arithmetic:
 
 | Opcode | Arguments                    | Description                                                        |
@@ -325,14 +335,15 @@ Logic:
 
 Memory Access:
 
-| Opcode | Arguments            | Description                                                      |
-|--------|----------------------|------------------------------------------------------------------|
-| `ldw`  | `<t:dest> <t:addr>`  | Loads a 4-byte word from memory (aligned)                        |
-| `lds`  | `<t:dest> <t:addr>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
-| `ldb`  | `<t:dest> <t:addr>`  | Loads a byte from memory, zeroes upper 24 bits                   |
-| `stw`  | `<m:value> <t:addr>` | Stores a 4-byte word in memory (aligned)                         |
-| `sts`  | `<m:value> <t:addr>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
-| `stb`  | `<m:value> <t:addr>` | Stores a byte in memory, ignores upper 24 bits                   |
+| Opcode | Arguments              | Description                                                      |
+|--------|------------------------|------------------------------------------------------------------|
+| `sym`  | `<t:dest> <a:sym>`     | Gets the address of a symbol                                     |
+| `ldw`  | `<t:dest> <t/s:addr>`  | Loads a 4-byte word from memory (aligned)                        |
+| `lds`  | `<t:dest> <t/s:addr>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
+| `ldb`  | `<t:dest> <t/s:addr>`  | Loads a byte from memory, zeroes upper 24 bits                   |
+| `stw`  | `<m:value> <t/s:addr>` | Stores a 4-byte word in memory (aligned)                         |
+| `sts`  | `<m:value> <t/s:addr>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
+| `stb`  | `<m:value> <t/s:addr>` | Stores a byte in memory, ignores upper 24 bits                   |
 
 Stack allocation:
 
@@ -346,7 +357,7 @@ Misc:
 
 | Opcode     | Arguments                               | Description                                                       |
 |------------|-----------------------------------------|-------------------------------------------------------------------|
-| `call`     | `<t?:dest> <s/t:func> [<m:arg>...] end` | Call a function                                                   |
+| `call`     | `<t?:dest> <t/s:func> [<m:arg>...] end` | Call a function                                                   |
 | `volatile` | `<t:temp>`                              | Forbid elision of memory access through temporary                 |
 
 Control flow (end of block):
@@ -476,7 +487,7 @@ Note that there are no `imw` or `ims` instructions. `mov` can be used to load an
 ldw <temp:dest> <temp:addr>
 ```
 
-Note that `ldw` in IR takes only a single address argument. It does not take a base and offset as it does in assembly.
+Note that `ldw` in IR takes only a single address argument. It does not take a base and offset as it does in assembly. The argument may be an absolute symbol invocation, in which case the word is loaded from the symbol (`rpp` is added to it automatically.)
 
 
 

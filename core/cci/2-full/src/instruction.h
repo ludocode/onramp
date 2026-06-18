@@ -76,6 +76,12 @@ typedef enum opcode_t {
     ISZ,
 
     // memory
+    #ifdef CCI2_IR
+    SYM,
+    VAR,
+    ALLOC,
+    FREE,
+    #endif
     LDW,
     LDS,
     LDB,
@@ -87,8 +93,9 @@ typedef enum opcode_t {
     POPD,
 
     // control
-    //IMS, // TODO probably can remove this, we never generate it
+    #ifndef CCI2_IR
     IMW,
+    #endif
     LTU,
     LTS,
     #ifdef CCI2_IR

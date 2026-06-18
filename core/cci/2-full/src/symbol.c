@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +34,10 @@ symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* 
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->refcount = 1;
     symbol->kind = kind;
+
+    #ifdef CCI2_IR
+    symbol->temporary = -1;
+    #endif
 
     // only builtins have no type
     assert((type == NULL) == (kind == symbol_kind_builtin));

@@ -116,7 +116,7 @@ $(OUT)/cci-ir: $(SRCS) Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) \
-		-Wno-unused-function -Wfatal-errors -DCCI2_IR \
+		-Wno-unused-function -DCCI2_IR \
 		$(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
 build-ir: $(OUT)/cci-ir CG2 FORCE

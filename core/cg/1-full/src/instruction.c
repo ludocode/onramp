@@ -91,6 +91,7 @@ argument_mode_t instruction_mode(instruction_t* instruction) {
             return argument_mode_write;
 
         // memory
+        case opcode_sym:
         case opcode_ldw:
         case opcode_lds:
         case opcode_ldb:

@@ -62,6 +62,7 @@ typedef enum opcode_t {
     opcode_lts,
 
     // memory
+    opcode_sym,
     opcode_ldw,
     opcode_lds,
     opcode_ldb,
