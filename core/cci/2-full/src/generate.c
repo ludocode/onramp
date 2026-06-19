@@ -1290,6 +1290,8 @@ static void generate_initializer(node_t* variable, int reg_loc) {
     }
 }
 
+#endif // !CCI2_IR
+
 /**
  * Given a pointer and member offset, performs a dereference operation. This
  * includes unary `*`, binary `.`, binary `->`, and array indexing (after
@@ -1303,12 +1305,29 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     // TODO the shift and load could be done together if small enough. could optimize this later
 
     // shift the pointer by the member offset
-    block_append_op_imm(current_block, node->token, ADD, reg_ptr, reg_ptr, offset);
+    if (offset != 0) {
+        #ifndef CCI2_IR
+        block_append_op_imm(current_block, node->token, ADD, reg_ptr, reg_ptr, offset);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, ADD, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_ptr);
+        instruction_set_arg_temporary(instruction, 1, reg_ptr);
+        instruction_set_arg_number(instruction, 2, offset);
+        #endif
+    }
 
     // if this is an array, the pointer to it is already in the source
     // register, so we just need to move it to the destination.
     if (type_is_array(node->type)) {
+        #ifndef CCI2_IR
         block_append(current_block, node->token, MOV, reg_out, reg_ptr);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_temporary(instruction, 1, reg_ptr);
+        #endif
         return;
     }
 
@@ -1329,8 +1348,17 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     } else {
         fatal_token(node->token, "Internal error: unknown size cannot be dereferenced in a register");
     }
+    #ifndef CCI2_IR
     block_append(current_block, node->token, opcode, reg_out, 0, reg_ptr);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, opcode, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_temporary(instruction, 1, reg_ptr);
+    #endif
 }
+
+#ifndef CCI2_IR
 
 static void generate_dereference(node_t* node, int reg_out) {
 
@@ -1746,12 +1774,14 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_LOGICAL_NOT: generate_logical_not(node, reg_out); break;
         case NODE_DEREFERENCE: generate_dereference(node, reg_out); break;
         case NODE_ADDRESS_OF: generate_address_of(node, reg_out); break;
+        #endif // !CCI2_IR
         case NODE_PRE_INC: generate_pre_inc(node, reg_out); break;
         case NODE_PRE_DEC: generate_pre_dec(node, reg_out); break;
 
         // postfix operators
         case NODE_POST_INC: generate_post_inc(node, reg_out); break;
         case NODE_POST_DEC: generate_post_dec(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_ARRAY_SUBSCRIPT: generate_array_subscript(node, reg_out); break;
         case NODE_MEMBER_VAL: generate_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_member_ptr(node, reg_out); break;
@@ -1765,8 +1795,8 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_STRING: generate_string(node, reg_out); break;
         #endif // !CCI2_IR
         case NODE_NUMBER: generate_number(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_ACCESS: generate_access(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_CALL: generate_call(node, reg_out); break;
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
         #endif // !CCI2_IR

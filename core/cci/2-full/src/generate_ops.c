@@ -703,10 +703,23 @@ void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_ba
     }
 }
 
+#endif
+
 void generate_copy(token_t* token, type_t* type, uint32_t count,
         int reg_src, int reg_dest)
 {
+    assert(count != 0);
+    if (count == 0) {
+        // nothing to do
+        return;
+    }
+
+    #ifndef CCI2_IR
     int reg_temp = register_alloc(token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_temp = generate_temporary(NULL, false);
+    #endif
     uint32_t align = type_alignment(type);
     uint32_t total = count * type_size(type);
 
@@ -730,35 +743,126 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
 
     // If the number of steps is small, unroll it.
     if (steps <= 4) {
+        #ifdef CCI2_IR
+        int reg_addr = generate_temporary(NULL, false);
+        #endif
         for (uint32_t i = 0; i < total; i += step) {
+            #ifndef CCI2_IR
             block_append(current_block, token, load, reg_temp, reg_src, i);
             block_append(current_block, token, store, reg_temp, reg_dest, i);
+            #endif
+            #ifdef CCI2_IR
+            instruction_t* instruction = block_append(current_block, token, ADD, 3);
+            instruction_set_arg_temporary(instruction, 0, reg_addr);
+            instruction_set_arg_temporary(instruction, 0, reg_src);
+            instruction_set_arg_temporary(instruction, 0, i);
+
+            instruction = block_append(current_block, token, load, 2);
+            instruction_set_arg_temporary(instruction, 0, reg_temp);
+            instruction_set_arg_temporary(instruction, 0, reg_addr);
+
+            instruction = block_append(current_block, token, ADD, 3);
+            instruction_set_arg_temporary(instruction, 0, reg_addr);
+            instruction_set_arg_temporary(instruction, 0, reg_dest);
+            instruction_set_arg_temporary(instruction, 0, i);
+
+            instruction = block_append(current_block, token, store, 2);
+            instruction_set_arg_temporary(instruction, 0, reg_temp);
+            instruction_set_arg_temporary(instruction, 0, reg_addr);
+            #endif
         }
 
     // Otherwise insert a loop.
     } else {
+        #ifndef CCI2_IR
         int reg_i = register_alloc(token);
+        #endif
+        #ifdef CCI2_IR
+        int reg_src_p = generate_temporary(NULL, false);
+        int reg_dest_p = generate_temporary(NULL, false);
+        int reg_src_end = generate_temporary(NULL, false);
+        #endif
         block_t* loop_block = block_new(next_label++);
         block_t* end_block = block_new(next_label++);
         function_add_block(current_function, loop_block);
         function_add_block(current_function, end_block);
 
+        #ifndef CCI2_IR
         block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, total);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, token, MOV, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_src_p);
+        instruction_set_arg_temporary(instruction, 1, reg_src);
+
+        instruction = block_append(current_block, token, MOV, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_dest_p);
+        instruction_set_arg_temporary(instruction, 1, reg_dest);
+
+        instruction = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_src_end);
+        instruction_set_arg_temporary(instruction, 1, reg_src_p);
+        instruction_set_arg_number(instruction, 2, total);
+
+        instruction = block_append(current_block, token, JMP, 1);
+        instruction_set_arg_relative(instruction, 0, loop_block->label);
+        #endif
 
         current_block = loop_block;
+        #ifndef CCI2_IR
         block_append(current_block, token, JZ, reg_i, '&', JUMP_LABEL_PREFIX, end_block->label);
         block_append(current_block, token, SUB, reg_i, reg_i, step);
         block_append(current_block, token, load, reg_temp, reg_src, reg_i);
         block_append(current_block, token, store, reg_temp, reg_dest, reg_i);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+        #endif
+        #ifdef CCI2_IR
+        // TODO this is really inefficient when we could be using the same
+        // index for both. Probably we shouldn't do any of this here, just put
+        // a copy/blit instruction in IR
+
+        instruction = block_append(current_block, token, load, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_temp);
+        instruction_set_arg_temporary(instruction, 0, reg_src_p);
+
+        instruction = block_append(current_block, token, store, 2);
+        instruction_set_arg_temporary(instruction, 0, reg_temp);
+        instruction_set_arg_temporary(instruction, 0, reg_dest_p);
+
+        instruction = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_src_p);
+        instruction_set_arg_temporary(instruction, 1, reg_src_p);
+        instruction_set_arg_number(instruction, 2, step);
+
+        instruction = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_dest_p);
+        instruction_set_arg_temporary(instruction, 1, reg_dest_p);
+        instruction_set_arg_number(instruction, 2, step);
+
+        instruction = block_append(current_block, token, SUB, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_temp);
+        instruction_set_arg_temporary(instruction, 1, reg_src_p);
+        instruction_set_arg_number(instruction, 2, reg_src_end);
+
+        instruction = block_append(current_block, token, BR, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_temp);
+        instruction_set_arg_temporary(instruction, 1, loop_block->label);
+        instruction_set_arg_number(instruction, 2, end_block->label);
+        #endif
 
         current_block = end_block;
+        #ifndef CCI2_IR
         register_free(token, reg_i);
+        #endif
     }
 
+    #ifndef CCI2_IR
     register_free(token, reg_temp);
+    #endif
 }
+
+#ifndef CCI2_IR
 
 // Generates a store for a direct value in reg_val into the address in reg_loc
 // plus the given small offset.
@@ -983,8 +1087,11 @@ void generate_shr_assign(struct node_t* node, int reg_out) {
     }
 }
 
+#endif // !CCI2_IR
+
 static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
     if (type_is_long_long(node->type)) {
+        #ifndef CCI2_IR
         // long long increment/decrement is done branchless. we modify the low
         // byte, then create a mask on overflow and use it to conditionally
         // modify the high byte.
@@ -1018,17 +1125,37 @@ static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
         }
         register_free(node->token, reg_temp2);
         register_free(node->token, reg_temp1);
+        #endif
+        #ifdef CCI2_IR
+        fatal("TODO generate_inc_dec() IR");
+        #endif
 
     } else if (type_is_integer(node->type) || type_matches_base(node->type, BASE_ENUM)) {
         // Note: We don't need to do anything special to handle wrapping for
         // char or short. Only the byte or short will be stored, and the
         // register will be truncated or sign extended if and when it is cast
         // to int.
+        #ifndef CCI2_IR
         block_append_op_imm(current_block, node->token, inc ? ADD : SUB, reg_out, reg_in, 1);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, inc ? ADD : SUB, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_temporary(instruction, 1, reg_in);
+        instruction_set_arg_number(instruction, 2, 1);
+        #endif
 
     } else if (type_is_indirection(node->type)) {
+        #ifndef CCI2_IR
         block_append_op_imm(current_block, node->token, inc ? ADD : SUB,
                 reg_out, reg_in, type_size(node->type->ref));
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, inc ? ADD : SUB, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_temporary(instruction, 1, reg_in);
+        instruction_set_arg_number(instruction, 2, type_size(node->type->ref));
+        #endif
 
     } else {
         fatal("Internal error: cannot generate pre/post increment on non-integer non-pointer type.");
@@ -1038,7 +1165,12 @@ static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
 static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
 
     // generate the storage location
+    #ifndef CCI2_IR
     int reg_loc = register_alloc(node->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_loc = generate_temporary(NULL, false);
+    #endif
     generate_location(node->first_child, reg_loc);
 
     // load it into the output
@@ -1049,36 +1181,59 @@ static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
 
     // store it back again
     generate_store(node->token, node->type, reg_val, reg_loc);
+    #ifndef CCI2_IR
     register_free(node->token, reg_loc);
+    #endif
 }
 
 static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
 
     // generate the storage location
+    #ifndef CCI2_IR
     int reg_loc = register_alloc(node->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_loc = generate_temporary(NULL, false);
+    #endif
     generate_location(node->first_child, reg_loc);
 
     // load it into the output register
     generate_dereference_impl(node, reg_val, reg_loc, 0);
 
     // increment/decrement it into a temporary reister
+    #ifndef CCI2_IR
     int reg_temp = register_alloc(node->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_temp = generate_temporary(NULL, false);
+    #endif
     bool indirect = type_is_passed_indirectly(node->type);
     if (indirect) {
+        assert(type_size(node->type) == 8);
+        #ifndef CCI2_IR
         block_append(current_block, node->token, SUB, RSP, RSP, 8);
         block_append(current_block, node->token, MOV, reg_temp, RSP);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_temp);
+        instruction_set_arg_number(instruction, 1, 8);
+        instruction_set_arg_sentinel(instruction, 2);
+        #endif
     }
     generate_inc_dec(node, reg_val, reg_temp, inc);
 
     // store it back again
     generate_store(node->token, node->type, reg_temp, reg_loc);
 
+    #ifndef CCI2_IR
     // clean up
     if (indirect) {
         block_append(current_block, node->token, ADD, RSP, RSP, 8);
     }
     register_free(node->token, reg_temp);
     register_free(node->token, reg_loc);
+    #endif
 }
 
 void generate_pre_inc(node_t* node, int reg_out) {
@@ -1096,6 +1251,8 @@ void generate_post_inc(node_t* node, int reg_out) {
 void generate_post_dec(node_t* node, int reg_out) {
     generate_post_inc_dec(node, reg_out, false);
 }
+
+#ifndef CCI2_IR
 
 void generate_unary_plus(node_t* node, int reg_out) {
     // We don't need to do anything besides generate. Probably unary plus
