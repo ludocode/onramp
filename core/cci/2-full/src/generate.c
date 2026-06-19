@@ -1742,17 +1742,16 @@ void generate_node(node_t* node, int reg_out_opt) {
         // other binary expressions
         case NODE_LOGICAL_OR: generate_logical_or(node, reg_out); break;
         case NODE_LOGICAL_AND: generate_logical_and(node, reg_out); break;
+        #endif // !CCI2_IR
         case NODE_BIT_OR: generate_bit_or(node, reg_out); break;
         case NODE_BIT_XOR: generate_bit_xor(node, reg_out); break;
         case NODE_BIT_AND: generate_bit_and(node, reg_out); break;
-        #endif // !CCI2_IR
         case NODE_EQUAL: generate_equal(node, reg_out); break;
         case NODE_NOT_EQUAL: generate_not_equal(node, reg_out); break;
         case NODE_LESS: generate_less(node, reg_out); break;
         case NODE_GREATER: generate_greater(node, reg_out); break;
         case NODE_LESS_OR_EQUAL: generate_less_or_equal(node, reg_out); break;
         case NODE_GREATER_OR_EQUAL: generate_greater_or_equal(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_SHL: generate_shl(node, reg_out); break;
         case NODE_SHR: generate_shr(node, reg_out); break;
         case NODE_ADD: generate_add(node, reg_out); break;
@@ -1762,7 +1761,6 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_MOD: generate_mod(node, reg_out); break;
 
         // unary expressions
-        #endif // !CCI2_IR
         case NODE_CAST: generate_cast(node, reg_out); break;
         #ifndef CCI2_IR
         case NODE_SIZEOF: generate_sizeof(node, reg_out); break;
@@ -1770,7 +1768,9 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
         case NODE_UNARY_PLUS: generate_unary_plus(node, reg_out); break;
         case NODE_UNARY_MINUS: generate_unary_minus(node, reg_out); break;
+        #endif // !CCI2_IR
         case NODE_BIT_NOT: generate_bit_not(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_LOGICAL_NOT: generate_logical_not(node, reg_out); break;
         case NODE_DEREFERENCE: generate_dereference(node, reg_out); break;
         case NODE_ADDRESS_OF: generate_address_of(node, reg_out); break;
