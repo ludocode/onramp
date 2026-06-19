@@ -376,6 +376,20 @@ static void parse_argument_relative(instruction_t* instruction) {
     }
 }
 
+static void parse_argument_absolute(instruction_t* instruction) {
+    argument_t* argument = instruction_append(instruction, parse_argument());
+    if (argument->type != argument_type_absolute) {
+        fatal("Expected absolute invocation (symbol) argument.");
+    }
+}
+
+static void parse_argument_temporary_or_absolute(instruction_t* instruction) {
+    argument_t* argument = instruction_append(instruction, parse_argument());
+    if (argument->type != argument_type_absolute && argument->type != argument_type_temporary) {
+        fatal("Expected absolute invocation (symbol) or temporary.");
+    }
+}
+
 static void parse_call_arguments(instruction_t* instruction) {
 
     // Return value is a temporary or sentinel (if ignored)
@@ -383,10 +397,7 @@ static void parse_call_arguments(instruction_t* instruction) {
 
     // Next is the function. This can be either an absolute invocation (for a
     // typical function call) or a temporary (for a function pointer.)
-    argument_t* argument = instruction_append(instruction, parse_argument());
-    if (argument->type != argument_type_absolute && argument->type != argument_type_temporary) {
-        fatal("Expected absolute invocation or temporary.");
-    }
+    parse_argument_temporary_or_absolute(instruction);
 
     // Keep parsing arguments until we reach keyword "end".
     for (;;) {
@@ -452,7 +463,7 @@ static instruction_t* parse_instruction(void) {
         case opcode_lds:
         case opcode_ldb:
             parse_argument_temp(instruction);
-            parse_argument_temp(instruction);
+            parse_argument_temporary_or_absolute(instruction);
             break;
 
         // mix-temp instructions
@@ -460,7 +471,7 @@ static instruction_t* parse_instruction(void) {
         case opcode_sts:
         case opcode_stb:
             parse_argument_mix(instruction);
-            parse_argument_temp(instruction);
+            parse_argument_temporary_or_absolute(instruction);
             break;
 
         // temp instructions
@@ -494,6 +505,10 @@ static instruction_t* parse_instruction(void) {
         case opcode_call:
             parse_call_arguments(instruction);
             break;
+        case opcode_sym:
+            parse_argument_temp(instruction);
+            parse_argument_absolute(instruction);
+            break;
 
         case opcode_enter:
         case opcode_leave:
@@ -502,6 +517,7 @@ static instruction_t* parse_instruction(void) {
             break;
 
         default:
+            fprintf(stderr, "opcode: %s\n", opcode_to_string(opcode));
             fatal("Internal error: invalid/unimplemented opcode");
     }
 
