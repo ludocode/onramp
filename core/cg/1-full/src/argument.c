@@ -113,3 +113,9 @@ void argument_set_variable(argument_t* argument, struct variable_t* variable) {
     argument->type = argument_type_variable;
     argument->variable = variable;
 }
+
+void argument_set_integer(argument_t* argument, uint32_t value) {
+    argument_clear(argument);
+    argument->type = argument_type_number;
+    argument->number = value;
+}

@@ -151,8 +151,8 @@ int main(int argc, char** argv) {
 
         // perform initial analysis and conversions
         analyze_block_parents(symbol);
-        convert_parameters(symbol);
-        convert_vars(symbol);
+        transform_parameters(symbol);
+        transform_vars(symbol);
 
         // TODO optimizations
 
@@ -162,9 +162,9 @@ int main(int argc, char** argv) {
         analyze_stack_frame(symbol);
 
         // convert registers and variables to assembly
-        convert_entry(symbol);
-
-        convert_control_flow(symbol);
+        transform_entry(symbol);
+        transform_registers(symbol);
+        transform_control_flow(symbol);
 
         emit_symbol(symbol);
         symbol_delete(symbol);

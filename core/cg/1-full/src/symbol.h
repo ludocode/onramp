@@ -25,6 +25,8 @@
 #ifndef SYMBOL_H_INCLUDED
 #define SYMBOL_H_INCLUDED
 
+#include <stddef.h>
+
 struct block_t;
 struct vector_t;
 struct location_t;

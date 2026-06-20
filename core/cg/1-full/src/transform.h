@@ -34,12 +34,12 @@ struct symbol_t;
 /**
  * Inserts instructions to convert all parameters from IR to assembly.
  */
-void convert_parameters(struct symbol_t* symbol);
+void transform_parameters(struct symbol_t* symbol);
 
 /**
  * Convert all `var` instructions and function parameters to variables.
  */
-void convert_vars(struct symbol_t* symbol);
+void transform_vars(struct symbol_t* symbol);
 
 /**
  * Convert the entry point of the function to assembly.
@@ -47,7 +47,7 @@ void convert_vars(struct symbol_t* symbol);
  * This adds `enter` and a `sub rsp` instruction to allocate stack space for
  * all variables.
  */
-void convert_entry(struct symbol_t* symbol);
+void transform_entry(struct symbol_t* symbol);
 
 /**
  * Convert all `ret` and `br` instructions from IR to assembly.
@@ -57,13 +57,24 @@ void convert_entry(struct symbol_t* symbol);
  *
  * After this is run, all blocks end in `jmp` or `ret`.
  */
-void convert_control_flow(struct symbol_t* symbol);
+void transform_control_flow(struct symbol_t* symbol);
 
 /**
- * Convert all temporaries to registers, spilling where necessary.
+ * Convert all temporaries to registers and all variables to constants,
+ * inserting spill instructions where necessary.
  *
- * This performs register allocation.
+ * - Temporaries that have been assigned a register are replaced by their
+ *   register.
+ *
+ * - Temporaries that are spilled are replaced by `r0` or `r1`, inserting `ldw`
+ *   and `stw` instructions.
+ *
+ * - Variables whose offset fits in a mix-type byte are replaced by their
+ *   offset in-place.
+ *
+ * - Variables whose offset does not fit in a mix-type byte are replaced by
+ *   `r0` or `r1`, inserting an `imw` instruction.
  */
-void convert_registers(struct symbol_t* symbol);
+void transform_registers(struct symbol_t* symbol);
 
 #endif

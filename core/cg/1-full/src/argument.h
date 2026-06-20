@@ -98,6 +98,13 @@ void argument_set_register(argument_t* argument, uint32_t reg);
 
 void argument_set_variable(argument_t* argument, struct variable_t* variable);
 
+void argument_set_integer(argument_t* argument, uint32_t value);
+
+static inline struct temporary_t* argument_temporary(argument_t* argument) {
+    assert(argument->type == argument_type_temporary);
+    return argument->temporary;
+}
+
 static inline uint32_t argument_number(argument_t* argument) {
     assert(argument->type == argument_type_number);
     return argument->number;

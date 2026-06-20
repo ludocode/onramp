@@ -28,14 +28,16 @@
 #include "block.h"
 #include "common.h"
 #include "instruction.h"
+#include "libo-error.h"
 #include "libo-vector.h"
 #include "symbol.h"
+#include "temporary.h"
 #include "variable.h"
 
-void convert_parameters(symbol_t* symbol) {
+void transform_parameters(symbol_t* symbol) {
 }
 
-void convert_entry(struct symbol_t* symbol) {
+void transform_entry(struct symbol_t* symbol) {
     block_t* start_block = vector_at(symbol->blocks, 0);
 
     // If the function has no stack frame and -fomit-frame-pointer is given we
@@ -74,7 +76,7 @@ void convert_entry(struct symbol_t* symbol) {
     vector_insert(start_block->instructions, 0, enter);
 }
 
-static void convert_ret(block_t* block, instruction_t* last) {
+static void transform_ret(block_t* block, instruction_t* last) {
 
     // convert to mov if necessary
     argument_t* retval = vector_last(last->arguments);
@@ -84,7 +86,7 @@ static void convert_ret(block_t* block, instruction_t* last) {
     } else {
         // insert mov r0 <arg>, taking ret's argument
         instruction_t* mov = instruction_new(location_new_copy(last->location), opcode_mov);
-        instruction_append(mov, argument_new_number(argument_type_register, 0));
+        instruction_append(mov, argument_new_register(0));
         instruction_append(mov, retval);
         vector_insert(block->instructions, vector_count(block->instructions) - 1, mov);
     }
@@ -95,7 +97,7 @@ static void convert_ret(block_t* block, instruction_t* last) {
             instruction_new(location_new_copy(last->location), opcode_leave));
 }
 
-static void convert_br(block_t* block, instruction_t* last) {
+static void transform_br(block_t* block, instruction_t* last) {
 
     // append a `jmp` instruction, stealing the br's `true` label argument
     instruction_t* jmp = instruction_new(location_new_copy(last->location), opcode_jmp);
@@ -106,7 +108,7 @@ static void convert_br(block_t* block, instruction_t* last) {
     last->opcode = opcode_jz;
 }
 
-void convert_control_flow(symbol_t* symbol) {
+void transform_control_flow(symbol_t* symbol) {
     for (size_t i = vector_count(symbol->blocks); i-- != 0;) {
 
         // get the last instruction
@@ -115,14 +117,14 @@ void convert_control_flow(symbol_t* symbol) {
 
         // check if it's ret or br
         if (last->opcode == opcode_ret) {
-            convert_ret(block, last);
+            transform_ret(block, last);
         } else if (last->opcode == opcode_br) {
-            convert_br(block, last);
+            transform_br(block, last);
         }
     }
 }
 
-void convert_vars(struct symbol_t* symbol) {
+void transform_vars(struct symbol_t* symbol) {
     // TODO parameters. each parameter will have a variable generated for it.
     //
     // the first four parameters will have a `stw r.. rfp @var` instruction
@@ -160,6 +162,200 @@ void convert_vars(struct symbol_t* symbol) {
             instruction->opcode = opcode_add;
             argument_set_register(instruction_argument(instruction, 1), RFP);
             argument_set_variable(instruction_argument(instruction, 2), variable);
+        }
+    }
+}
+
+/**
+ * Transform registers and variables for a "normal" instruction.
+ *
+ * These instructions have at most one output and at most two inputs.
+ *
+ * Spilled outputs use r0. Spilled inputs, or variable inputs whose offsets
+ * don't fit in a mix-type byte, use registers r0 and r1.
+ */
+static size_t transform_registers_normal(block_t* block, instruction_t* instruction, size_t index) {
+    argument_mode_t mode = instruction_mode(instruction);
+
+    // Check for temporary or variable inputs
+    size_t reg = 0;
+    size_t j = (mode == argument_mode_write) ? 1 : 0;
+    size_t count = vector_count(instruction->arguments);
+    for (; j < count; ++j) {
+        argument_t* argument = instruction_argument(instruction, j);
+        if (argument->type == argument_type_temporary) {
+            temporary_t* temporary = argument_temporary(argument);
+            if (temporary->reg == -1) {
+                // temporary is spilled. load it into `reg` (r0 or r1.)
+                assert(reg != 2);
+                argument_set_register(argument, reg);
+                instruction_t* ldw = instruction_new(location_new_copy(instruction->location), opcode_ldw);
+                instruction_append(ldw, argument_new_register(reg));
+                instruction_append(ldw, argument_new_register(RFP));
+                vector_insert(block->instructions, index++, ldw);
+
+                // use the same register if the offset doesn't fit in a mix-type byte.
+                variable_t* variable = temporary->variable;
+                if (variable_offset_fits_in_mix_type(variable)) {
+                    instruction_append(ldw, argument_new_integer(variable->offset));
+                } else {
+                    instruction_append(ldw, argument_new_register(reg));
+                    instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                    instruction_append(imw, argument_new_register(reg));
+                    instruction_append(imw, argument_new_integer(variable->offset));
+                    vector_insert(block->instructions, index++, imw);
+                }
+                ++reg;
+            } else {
+                // temporary is in a register. replace with the register.
+                argument_set_register(argument, temporary->reg);
+            }
+
+        } else if (argument->type == argument_type_variable) {
+            variable_t* variable = argument_variable(argument);
+            if (variable_offset_fits_in_mix_type(variable)) {
+                // variable fits. replace it with its offset.
+                argument_set_integer(argument, variable->offset);
+            } else {
+                // variable doesn't fit. use `reg` (r0 or r1.)
+                argument_set_register(argument, reg);
+                instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                instruction_append(imw, argument_new_register(reg));
+                instruction_append(imw, argument_new_integer(variable->offset));
+                vector_insert(block->instructions, index++, imw);
+                ++reg;
+            }
+        }
+    }
+
+    // Check for a temporary output
+    if (mode != argument_mode_read) {
+        argument_t* argument = instruction_argument(instruction, 0);
+        if (argument->type == argument_type_temporary) {
+            temporary_t* temporary = argument_temporary(argument);
+            if (temporary->reg == -1) {
+                // temporary is spilled. replace with r0 and append a store
+                // instruction.
+                argument_set_register(argument, 0);
+                instruction_t* stw = instruction_new(location_new_copy(instruction->location), opcode_stw);
+                instruction_append(stw, argument_new_register(0));
+                instruction_append(stw, argument_new_register(RFP));
+
+                // use r1 if the offset doesn't fit in a mix-type byte.
+                variable_t* variable = temporary->variable;
+                if (variable_offset_fits_in_mix_type(variable)) {
+                    instruction_append(stw, argument_new_integer(variable->offset));
+                } else {
+                    instruction_append(stw, argument_new_register(1));
+                    instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                    instruction_append(imw, argument_new_register(1));
+                    instruction_append(imw, argument_new_integer(variable->offset));
+                    vector_insert(block->instructions, ++index, imw);
+                }
+                vector_insert(block->instructions, ++index, stw);
+            } else {
+                // temporary is in a register. replace with the register.
+                argument_set_register(argument, temporary->reg);
+            }
+
+        }
+    }
+
+    return index;
+}
+
+/**
+ * Transform registers and variables for a store instruction.
+ *
+ * These instructions need to be handled separately because they have three
+ * inputs, all of which may be spilled (or may not fit in a mix-type byte), but
+ * we only have two extra registers (r0 and r1.)
+ *
+ * In case we need more registers, we perform the addition separately.
+ */
+static size_t transform_registers_store(block_t* block, instruction_t* store, size_t index) {
+
+    // Check the three arguments. If any of them don't need a spill register,
+    // we'll have at most two spills so we can forward to
+    // transform_registers_normal().
+    for (size_t i = 0; i < 3; ++i) {
+        argument_t* argument = instruction_argument(store, i);
+        if (argument->type == argument_type_temporary) {
+            if (argument_temporary(argument)->reg != -1) {
+                // temporary is in a register
+                return transform_registers_normal(block, store, index);
+            }
+        } else if (argument->type == argument_type_variable) {
+            if (variable_offset_fits_in_mix_type(argument_variable(argument))) {
+                // variable offset fits; don't need a spill register
+                return transform_registers_normal(block, store, index);
+            }
+        } else {
+            // otherwise it's a register or constant
+            return transform_registers_normal(block, store, index);
+        }
+    }
+
+    // We have three spills. Separate the addition.
+    instruction_t* add = instruction_new(location_new_copy(store->location), opcode_add);
+    instruction_append(add, argument_new_register(1));
+    instruction_append(add, vector_at(store->arguments, 1));
+    instruction_append(add, vector_at(store->arguments, 2));
+    vector_insert(block->instructions, index, add);
+    vector_set(store->arguments, 1, argument_new_integer(0));
+    vector_set(store->arguments, 2, argument_new_register(1));
+
+    // Perform transform on each instruction separately.
+    index = transform_registers_normal(block, add, index);
+    index = transform_registers_normal(block, store, ++index);
+    return index;
+}
+
+/**
+ * Transform registers and variables for a call instruction.
+ */
+static size_t transform_registers_call(block_t* block, instruction_t* instruction, size_t index) {
+    fatal("TODO transform call instruction");
+    // need to assign variables for all live temporaries on a call instruction
+    // even if they will be stored in registers (making sure to not include
+    // temporaries that end as inputs to the call!) do this during register
+    // allocation analysis
+    //
+    // all temporaries in registers must be spilled to their variables then
+    // restored afterwards
+    //
+    // if function to call is itself a temporary, place it in r9. place third
+    // and fourth arguments in r2 and r3. will need to do this carefully,
+    // permute using r0/r1 where needed.
+    //
+    // finally place first two arguments in r0, r1
+}
+
+void transform_registers(symbol_t* symbol) {
+    size_t block_count = vector_count(symbol->blocks);
+    for (size_t i = 0; i != block_count; ++i) {
+        block_t* block = vector_at(symbol->blocks, i);
+
+        // The instruction count will change as we walk through the block.
+        for (size_t j = 0; j != vector_count(block->instructions); ++j) {
+            instruction_t* instruction = vector_at(block->instructions, j);
+
+            // Some instructions have to be handled specially.
+            switch (instruction->opcode) {
+                case opcode_call:
+                    j = transform_registers_call(block, instruction, j);
+                    break;
+
+                case opcode_stw:
+                case opcode_sts:
+                case opcode_stb:
+                    j = transform_registers_store(block, instruction, j);
+                    break;
+
+                default:
+                    j = transform_registers_normal(block, instruction, j);
+                    break;
+            }
         }
     }
 }
