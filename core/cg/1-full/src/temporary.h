@@ -32,6 +32,7 @@
 
 struct location_t;
 struct vector_t;
+struct variable_t;
 
 #define TEMPORARY_INTERVAL_INVALID ((size_t)-1)
 
@@ -40,6 +41,11 @@ typedef struct temporary_t {
     struct string_t* name;
 
     int frame_offset; // assigned offset in the stack frame (usually negative)
+
+    // After register allocation, each used temporary is assigned either a
+    // register or a variable.
+    int reg;
+    struct variable_t* variable;
 
     // Live interval
     size_t interval_start;
@@ -64,6 +70,17 @@ void temporaries_clear(void);
  * Add all temporaries to the given vector.
  */
 void temporaries_list_all(struct vector_t* temporaries);
+
+/**
+ * Compares the live intervals of the two temporaries.
+ *
+ * This is used for sorting temporaries in linear scan register allocation.
+ */
+int temporary_compare_live_interval(const void* vleft, const void* vright);
+
+static inline size_t temporary_interval_length(temporary_t* temporary) {
+    return temporary->interval_end - temporary->interval_start;
+}
 
 static inline uint32_t temporary_hash(temporary_t* temporary) {
     return string_hash(temporary->name);

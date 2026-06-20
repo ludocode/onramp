@@ -39,7 +39,7 @@ typedef struct variable_t {
  *
  * The variable is assigned an id automatically.
  */
-variable_t* variable_new(void);
+variable_t* variable_new(size_t size, size_t alignment);
 
 /**
  * Gets the variable with the given id.

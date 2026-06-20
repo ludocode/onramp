@@ -119,12 +119,13 @@ void convert_vars(struct symbol_t* symbol) {
             }
 
             // found a `var` instruction. allocate a variable
-            variable_t* variable = variable_new();
-            variable->size = argument_number(instruction_argument(instruction, 1));
-            argument_t* alignment = instruction_argument(instruction, 2);
-            if (alignment->type != argument_type_sentinel) {
-                variable->alignment = argument_number(alignment);
+            size_t size = argument_number(instruction_argument(instruction, 1));
+            size_t alignment = 0;
+            argument_t* alignment_arg = instruction_argument(instruction, 2);
+            if (alignment_arg->type != argument_type_sentinel) {
+                alignment = argument_number(alignment_arg);
             }
+            variable_t* variable = variable_new(size, alignment);
 
             // convert `var %x .. ..` to `add %x rfp @x`
             instruction->opcode = opcode_add;

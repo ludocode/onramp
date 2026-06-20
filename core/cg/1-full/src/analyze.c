@@ -24,6 +24,8 @@
 
 #include "analyze.h"
 
+#include <stdlib.h>
+
 #include "block.h"
 #include "common.h"
 #include "instruction.h"
@@ -32,6 +34,11 @@
 #include "libo-vector.h"
 #include "symbol.h"
 #include "temporary.h"
+#include "variable.h"
+
+// Registers r2-r9 are available for register allocation.
+#define FIRST_REGISTER 2
+#define AVAILABLE_REGISTERS 8
 
 static void print_live_temps(otable_t* temps) {
     if (temps->count == 0) {
@@ -295,7 +302,7 @@ static size_t analyze_number_instructions(block_t* block, size_t index, int visi
         return index;
     }
     block->visited = visited;
-    printf("analyze_number_instructions() visiting block %s\n", block->name->bytes);
+    //printf("analyze_number_instructions() visiting block %s\n", block->name->bytes);
 
     // number all instructions in the block
     size_t count = vector_count(block->instructions);
@@ -303,20 +310,20 @@ static size_t analyze_number_instructions(block_t* block, size_t index, int visi
     for (size_t i = 0; i < count; ++i) {
         instruction = vector_at(block->instructions, i);
         instruction->index = index++;
-        printf("analyze_number_instructions() numbering instruction %zu: %s\n",
-                instruction->index, opcode_to_string(instruction->opcode));
+        //printf("analyze_number_instructions() numbering instruction %zu: %s\n",
+        //        instruction->index, opcode_to_string(instruction->opcode));
     }
 
     switch (instruction->opcode) {
         block_t* child;
 
         case opcode_ret:
-            printf("ret no children\n");
+            //printf("ret no children\n");
             // no child blocks
             break;
 
         case opcode_br:
-            printf("br looking up false block %s\n", argument_label(instruction_argument(instruction, 2))->bytes);
+            //printf("br looking up false block %s\n", argument_label(instruction_argument(instruction, 2))->bytes);
             child = block_find(argument_label(instruction_argument(instruction, 2)));
             if (!child) {
                 fatal("Block not found");
@@ -324,7 +331,7 @@ static size_t analyze_number_instructions(block_t* block, size_t index, int visi
             vector_append(child->parent_blocks, block);
             index = analyze_number_instructions(child, index, visited);
 
-            printf("br looking up true block %s\n", argument_label(instruction_argument(instruction, 1))->bytes);
+            //printf("br looking up true block %s\n", argument_label(instruction_argument(instruction, 1))->bytes);
             child = block_find(argument_label(instruction_argument(instruction, 1)));
             if (!child) {
                 fatal("Block not found");
@@ -334,7 +341,7 @@ static size_t analyze_number_instructions(block_t* block, size_t index, int visi
             break;
 
         case opcode_jmp:
-            printf("jmp looking up dest block %s\n", argument_label(instruction_argument(instruction, 0))->bytes);
+            //printf("jmp looking up dest block %s\n", argument_label(instruction_argument(instruction, 0))->bytes);
             child = block_find(argument_label(instruction_argument(instruction, 0)));
             if (!child) {
                 fatal("Block not found");
@@ -356,17 +363,17 @@ static size_t analyze_number_instructions(block_t* block, size_t index, int visi
  */
 static void analyze_expand_interval(temporary_t* temporary, size_t index) {
     if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
-        printf("initial interval for %s: %zu\n", temporary->name->bytes, index);
+        //printf("initial interval for %s: %zu\n", temporary->name->bytes, index);
         temporary->interval_start = index;
         temporary->interval_end = index;
     } else {
-        printf("expanding interval for %s: %zu\n", temporary->name->bytes, index);
+        //printf("expanding interval for %s: %zu\n", temporary->name->bytes, index);
         if (temporary->interval_start > index) {
-            printf("lowering interval for %s: %zu\n", temporary->name->bytes, index);
+            //printf("lowering interval for %s: %zu\n", temporary->name->bytes, index);
             temporary->interval_start = index;
         }
         if (temporary->interval_end < index) {
-            printf("raising interval for %s: %zu\n", temporary->name->bytes, index);
+            //printf("raising interval for %s: %zu\n", temporary->name->bytes, index);
             temporary->interval_end = index;
         }
     }
@@ -396,7 +403,7 @@ static void analyze_live_intervals(block_t* block, int visited) {
     // Any live temporaries at the end of this block must have their live
     // interval expanded to include it.
     size_t end_index = ((instruction_t*)vector_last(block->instructions))->index;
-    printf("expanding live intervals at end: %zu\n", end_index);
+    //printf("expanding live intervals at end: %zu\n", end_index);
     analyze_expand_live_intervals(live_temps, end_index);
 
     // Walk backwards through the block. We're looking for instructions that
@@ -442,7 +449,7 @@ static void analyze_live_intervals(block_t* block, int visited) {
     // Any live temporaries at the start of this block must have their live
     // interval expanded to include it.
     size_t start_index = ((instruction_t*)vector_first(block->instructions))->index;
-    printf("expanding live intervals at start: %zu\n", start_index);
+    //printf("expanding live intervals at start: %zu\n", start_index);
     analyze_expand_live_intervals(live_temps, start_index);
 
     otable_delete(live_temps);
@@ -460,6 +467,111 @@ static void analyze_live_intervals(block_t* block, int visited) {
     }
 }
 
+/**
+ * Performs a linear scan.
+ */
+static void analyze_linear_scan(symbol_t* symbol) {
+
+    // Collect all temporaries
+    vector_t* temporaries = vector_new();
+    temporaries_list_all(temporaries);
+    size_t count = vector_count(temporaries);
+
+    #ifndef __onramp_cci_opc
+    #ifndef __onramp_cci_omc
+    // TODO re-enable
+    //#define HAVE_QSORT
+    #endif
+    #endif
+
+    // Sort the list of temporaries by increasing start index. (During
+    // bootstrapping we do a simple insertion sort.)
+    #ifndef HAVE_QSORT
+    for (size_t i = 0; i < count; ++i) {
+        for (size_t j = i + 1; j-- != 1;) {
+            temporary_t* t2 = vector_at(temporaries, j);
+            temporary_t* t1 = vector_at(temporaries, j - 1);
+            if (0 >= temporary_compare_live_interval(&t1, &t2)) {
+                break;
+            }
+            vector_set(temporaries, j, t1);
+            vector_set(temporaries, j - 1, t2);
+        }
+    }
+    #endif
+    #ifdef HAVE_QSORT
+    qsort(temporaries->elements, count, sizeof(void*), temporary_compare_live_interval);
+    #endif
+
+    temporary_t** registers = calloc(AVAILABLE_REGISTERS, sizeof(temporary_t*));
+    size_t registers_used = 0;
+
+    for (size_t i = 0; i < vector_count(temporaries); ++i) {
+        temporary_t* temporary = vector_at(temporaries, i);
+        size_t length = temporary_interval_length(temporary);
+
+        /*
+        if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
+            printf("temporary %s not used.\n", temporary->name->bytes);
+        } else {
+            printf("temporary %s interval %zu-%zu\n", temporary->name->bytes,
+                    temporary->interval_start, temporary->interval_end);
+        }
+        */
+
+        // If any of the live temporaries have an end interval earlier than the
+        // start of the current temporary, we can clear them. These register
+        // assignments become permanent.
+        size_t j;
+        for (j = 0; j < AVAILABLE_REGISTERS; ++j) {
+            if (registers[j] != NULL) {
+                temporary_t* reg = registers[j];
+                if (reg->interval_end < temporary->interval_start) {
+                    //printf("  expiring reg %zu %s\n", FIRST_REGISTER + j, reg->name->bytes);
+                    registers[j] = NULL;
+                    --registers_used;
+                }
+            }
+        }
+
+        // Find a register in the list that is either unused, or that has a
+        // longer interval that this temporary (for us to replace.)
+        for (j = 0; j < AVAILABLE_REGISTERS; ++j) {
+            if ((registers_used != AVAILABLE_REGISTERS) ? (registers[j] == NULL)
+                   : (temporary_interval_length(registers[j]) > length))
+            {
+                break;
+            }
+        }
+
+        if (j == AVAILABLE_REGISTERS) {
+            //printf("  spilling current %s\n", temporary->name->bytes);
+            // No register could be found. Spill this temporary.
+            temporary->variable = variable_new(4, 4);
+            temporary->reg = -1;
+            continue;
+        }
+
+        // A register was found. If it already contains a temporary, spill it.
+        if (registers[j]) {
+            temporary_t* spill = registers[j];
+            //printf("  spilling reg %zu %s\n", FIRST_REGISTER + j, spill->name->bytes);
+            spill->reg = -1;
+            spill->variable = variable_new(4, 4);
+            --registers_used;
+        }
+
+        // Assign this temporary to the register.
+        //printf("  assigning reg %zu to %s\n", FIRST_REGISTER + j, temporary->name->bytes);
+        registers[j] = temporary;
+        temporary->reg = FIRST_REGISTER + j;
+        ++registers_used;
+    }
+
+    free(registers);
+    vector_delete(temporaries);
+}
+
 void analyze_register_allocation(symbol_t* symbol) {
 
     // Assign a unique index to all instructions.
@@ -468,22 +580,7 @@ void analyze_register_allocation(symbol_t* symbol) {
     // Convert the liveness data to live intervals.
     analyze_live_intervals(vector_first(symbol->blocks), pass_id++);
 
-    // Collect all temporaries
-    vector_t* temporaries = vector_new();
-    temporaries_list_all(temporaries);
-
-    for (size_t i = 0; i < vector_count(temporaries); ++i) {
-        temporary_t* temporary = vector_at(temporaries, i);
-        if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
-            printf("temporary %s not used.\n", temporary->name->bytes);
-        } else {
-            printf("temporary %s interval %zu-%zu\n", temporary->name->bytes,
-                    temporary->interval_start, temporary->interval_end);
-        }
-    }
-
-    // TODO perform linear scan
-
-    vector_delete(temporaries);
+    // Perform linear scan
+    analyze_linear_scan(symbol);
 
 }

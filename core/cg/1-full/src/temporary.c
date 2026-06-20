@@ -94,3 +94,34 @@ void temporaries_list_all(vector_t* temporaries) {
         }
     }
 }
+
+int temporary_compare_live_interval(const void* vleft, const void* vright) {
+    const temporary_t* left = *(const temporary_t**)vleft;
+    const temporary_t* right = *(const temporary_t**)vright;
+    //printf("left %s %zu-%zu\n", left->name->bytes, left->interval_start, left->interval_end);
+    //printf("right %s %zu-%zu\n", right->name->bytes, right->interval_start, right->interval_end);
+
+    // Lowest start index comes first.
+    if (left->interval_start < right->interval_start) {
+        return -1;
+    }
+    if (left->interval_start > right->interval_start) {
+        return 1;
+    }
+
+    // For matching start index, sort by shortest first since we prefer to
+    // spill longer intervals. (This doesn't change the results of the
+    // algorithm but it might slightly reduce the work we need to do in linear
+    // scan.)
+    if (left->interval_start < right->interval_start) {
+        return -1;
+    }
+    if (left->interval_start > right->interval_start) {
+        return 1;
+    }
+
+    // It shouldn't be possible for two temporaries to have the same interval
+    // because only one temporary can be stored per instruction.
+    assert(false);
+    return 0;
+}

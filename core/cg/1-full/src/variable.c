@@ -31,9 +31,12 @@
 static vector_t* variables;
 
 // Takes ownership of name
-variable_t* variable_new(void) {
-    variable_t* variable = calloc(1, sizeof(variable_t));
+variable_t* variable_new(size_t size, size_t alignment) {
+    variable_t* variable = malloc(sizeof(variable_t));
     variable->id = vector_count(variables);
+    variable->size = size;
+    variable->alignment = alignment;
+    variable->frame_offset = 0;
     vector_append(variables, variable);
     return variable;
 }
