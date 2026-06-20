@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -61,7 +61,14 @@ function_t* function_new(type_t* type, token_t* name,
     function->root = root;
     vector_init(&function->blocks);
     table_init(&function->labels);
+
+    #ifndef CCI2_IR
     function->variadic_offset = -1;
+    #endif
+    #ifdef CCI2_IR
+    function->variadic_temporary = -1;
+    #endif
+
     function->name_label = -1;
     vector_init(&function->records);
     return function;

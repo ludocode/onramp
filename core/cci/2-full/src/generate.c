@@ -448,7 +448,7 @@ static void generate_access(node_t* node, int reg_out) {
 static void generate_variable(node_t* node) {
     assert(node->kind == NODE_VARIABLE);
 
-    node->symbol->temporary = generate_temporary(NULL, false);
+    node->symbol->temporary = generate_temporary(node->symbol->name, true);
 
     int temp = node->symbol->temporary;
     instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
@@ -564,6 +564,25 @@ void generate_function(function_t* function) {
     int frame_size = generate_parameter_offsets(function);
     frame_size = generate_variable_offsets(root, -frame_size, frame_size);
     frame_size = (frame_size + 3) & ~3;
+    #endif
+
+    #ifdef CCI2_IR
+    // generate a temporary for each parameter
+    for (node_t* param = root->first_child;
+            param != root->last_child;
+            param = param->right_sibling)
+    {
+        assert(param->kind == NODE_PARAMETER);
+        symbol_t* symbol = param->symbol;
+        if (symbol) {
+            symbol->temporary = generate_temporary(symbol->name, true);
+        }
+    }
+    if (function->type->is_variadic) {
+        string_t* names = string_intern_cstr("_Va");
+        function->variadic_temporary = generate_temporary(names, true);
+        string_deref(names);
+    }
     #endif
 
     // create the entry block

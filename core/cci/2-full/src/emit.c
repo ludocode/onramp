@@ -32,9 +32,10 @@
 #include "function.h"
 #include "libo-error.h"
 #include "libo-util.h"
+#include "node.h"
 #include "options.h"
-#include "token.h"
 #include "symbol.h"
+#include "token.h"
 
 static FILE* output_file;
 static token_t* current_location;
@@ -302,6 +303,29 @@ void emit_function(function_t* function) {
 
     emit_string(function->asm_name);
     emit_newline();
+
+    // emit parameters
+    #ifdef CCI2_IR
+    node_t* root = function->root;
+    for (node_t* param = root->first_child;
+            param != root->last_child;
+            param = param->right_sibling)
+    {
+        assert(param->kind == NODE_PARAMETER);
+        emit_char(' ');
+        symbol_t* symbol = param->symbol;
+        if (symbol) {
+            emit_string(temporary_name(symbol->temporary));
+        } else {
+            emit_char('%'); // sentinel, param ignored
+        }
+    }
+    if (function->variadic_temporary != -1) {
+        emit_cstr(" varargs ");
+        emit_string(temporary_name(function->variadic_temporary));
+    }
+    emit_char('\n');
+    #endif
 
     size_t count = vector_count(&function->blocks);
     for (size_t i = 0; i < count; ++i) {

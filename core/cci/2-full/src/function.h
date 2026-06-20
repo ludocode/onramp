@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -46,7 +46,12 @@ typedef struct function_t {
     struct node_t* root;
     vector_t blocks;
     table_t labels; // map of label strings to nodes
+    #ifndef CCI2_IR
     int variadic_offset; // offset above rfp where variadic args start
+    #endif
+    #ifdef CCI2_IR
+    int variadic_temporary; // temporary containing address of first variadic param
+    #endif
     int name_label; // label for __func__ string
     struct symbol_t* symbol;
     vector_t records;
