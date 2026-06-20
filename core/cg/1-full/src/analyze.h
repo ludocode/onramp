@@ -34,6 +34,15 @@ struct otable_t;
 struct instruction_t;
 
 /**
+ * Fills out the back pointers from each block to its parent blocks (i.e. the
+ * parent_blocks vector in each block.)
+ *
+ * This is called right after parsing. Back pointers are maintained throughout
+ * optimizations.
+ */
+void analyze_block_parents(struct symbol_t* symbol);
+
+/**
  * Updates the given live_temps table with liveness changes made by this
  * instruction.
  */

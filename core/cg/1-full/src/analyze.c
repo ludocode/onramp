@@ -50,12 +50,7 @@ static void print_live_temps(otable_t* temps) {
     }
 }
 
-/**
- * Fills out the back pointers from each block to its parent blocks (i.e. the
- * parent_blocks list of each block), and collects all blocks that end in
- * `ret`, marking them visited.
- */
-static void analyze_block_parents(symbol_t* symbol, vector_t* ret_blocks, int visited) {
+void analyze_block_parents(symbol_t* symbol) {
     size_t count = vector_count(symbol->blocks);
     for (size_t i = 0; i < count; ++i) {
         block_t* block = vector_at(symbol->blocks, i);
@@ -66,8 +61,6 @@ static void analyze_block_parents(symbol_t* symbol, vector_t* ret_blocks, int vi
 
             case opcode_ret:
                 //printf("found ret block %s\n", block->name->bytes);
-                vector_append(ret_blocks, block);
-                block->visited = visited;
                 break;
 
             case opcode_br:
@@ -89,6 +82,24 @@ static void analyze_block_parents(symbol_t* symbol, vector_t* ret_blocks, int vi
             default:
                 // this should have been checked during parsing
                 fatal("Internal error: invalid end of block");
+        }
+    }
+}
+
+/**
+ * Collects all blocks that end in a `ret` instruction into the given
+ * ret_blocks vector, marking them visited.
+ */
+static void analyze_collect_ret_blocks(symbol_t* symbol, vector_t* ret_blocks, int visited) {
+    size_t count = vector_count(symbol->blocks);
+    for (size_t i = 0; i < count; ++i) {
+        block_t* block = vector_at(symbol->blocks, i);
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_ret) {
+            //printf("found ret block %s\n", block->name->bytes);
+            vector_append(ret_blocks, block);
+            block->visited = visited;
+            break;
         }
     }
 }
@@ -149,9 +160,8 @@ static vector_t* analyze_liveness_block_order(symbol_t* symbol) {
     vector_t* blocks = vector_new();
     vector_reserve(blocks, vector_count(symbol->blocks));
 
-    // Generate back pointer links, and also put all `ret` blocks in blocks,
-    // marking them visited.
-    analyze_block_parents(symbol, blocks, visited);
+    // Start with all `ret` blocks.
+    analyze_collect_ret_blocks(symbol, blocks, visited);
 
     // Now we step through the blocks array, appending any parent nodes that
     // have not been visited yet. Note that the vector count here grows as we

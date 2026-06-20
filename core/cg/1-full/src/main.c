@@ -149,7 +149,8 @@ int main(int argc, char** argv) {
             fatal("TODO empty symbol");
         }
 
-        // perform initial conversions
+        // perform initial analysis and conversions
+        analyze_block_parents(symbol);
         convert_vars(symbol);
         convert_entry(symbol);
 
