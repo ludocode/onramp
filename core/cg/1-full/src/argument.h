@@ -25,11 +25,13 @@
 #ifndef ARGUMENT_H_INCLUDED
 #define ARGUMENT_H_INCLUDED
 
+#include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
 
 struct string_t;
 struct temporary_t;
+struct variable_t;
 
 typedef enum argument_mode_t {
     argument_mode_read,       // argument is input only
@@ -44,6 +46,7 @@ typedef enum argument_type_t {
     argument_type_number,
     argument_type_absolute, // absolute symbol invocation (uses string field)
     argument_type_relative, // relative numbered label invocation (uses number field)
+    argument_type_variable,
 } argument_type_t;
 
 /**
@@ -54,6 +57,7 @@ typedef struct argument_t {
     union {
         struct string_t* string; // strong reference
         struct temporary_t* temporary;
+        struct variable_t* variable;
         uint32_t number;
     };
 } argument_t;
@@ -79,6 +83,20 @@ argument_t* argument_new_string(argument_type_t type, struct string_t* string);
  * Creates a temporary argument.
  */
 argument_t* argument_new_temporary(const char* name);
+
+/**
+ * Create a variable argument.
+ */
+argument_t* argument_new_variable(struct variable_t* variable);
+
+void argument_set_register(argument_t* argument, uint32_t reg);
+
+void argument_set_variable(argument_t* argument, struct variable_t* variable);
+
+static inline uint32_t argument_number(argument_t* argument) {
+    assert(argument->type == argument_type_number);
+    return argument->number;
+}
 
 /**
  * Returns true iff this is a temporary or number type.

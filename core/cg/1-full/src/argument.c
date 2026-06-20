@@ -31,7 +31,7 @@
 #include "libo-error.h"
 #include "temporary.h"
 
-void argument_delete(argument_t* argument) {
+void argument_clear(argument_t* argument) {
     switch (argument->type) {
         case argument_type_absolute:
         case argument_type_relative:
@@ -40,6 +40,10 @@ void argument_delete(argument_t* argument) {
         default:
             break;
     }
+}
+
+void argument_delete(argument_t* argument) {
+    argument_clear(argument);
     free(argument);
 }
 
@@ -78,4 +82,22 @@ argument_t* argument_new_temporary(const char* name) {
     argument_t* argument = argument_new_type(argument_type_temporary);
     argument->temporary = temporary_find_or_insert(name);
     return argument;
+}
+
+argument_t* argument_new_variable(struct variable_t* variable) {
+    argument_t* argument = argument_new_type(argument_type_temporary);
+    argument->variable = variable;
+    return argument;
+}
+
+void argument_set_register(argument_t* argument, uint32_t reg) {
+    argument_clear(argument);
+    argument->type = argument_type_register;
+    argument->number = reg;
+}
+
+void argument_set_variable(argument_t* argument, struct variable_t* variable) {
+    argument_clear(argument);
+    argument->type = argument_type_variable;
+    argument->variable = variable;
 }

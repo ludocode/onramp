@@ -32,6 +32,11 @@
 struct symbol_t;
 
 /**
+ * Convert all `var` instructions and function parameters to variables.
+ */
+void convert_vars(struct symbol_t* symbol);
+
+/**
  * Convert the entry point of the function to assembly.
  *
  * This adds `enter`, adds a `sub rsp` instruction to allocate stack space for

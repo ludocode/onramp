@@ -33,6 +33,7 @@
 #include "location.h"
 #include "symbol.h"
 #include "temporary.h"
+#include "variable.h"
 
 static void emit_location_force(void);
 
@@ -154,6 +155,10 @@ static void emit_argument(argument_t* argument) {
         case argument_type_relative:
             emit_char('&');
             emit_string(argument->string);
+            break;
+        case argument_type_variable:
+            emit_char('@');
+            emit_uint(argument->variable->id);
             break;
         default:
             fatal("Internal error: invalid argument type");

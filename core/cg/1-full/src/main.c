@@ -149,7 +149,8 @@ int main(int argc, char** argv) {
             fatal("TODO empty symbol");
         }
 
-        // insert the function preamble and epilogues
+        // perform initial conversions
+        convert_vars(symbol);
         convert_entry(symbol);
 
         // TODO optimizations

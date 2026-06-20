@@ -27,6 +27,11 @@
 
 #include <stdio.h>
 
+#define RSP 0xC
+#define RFP 0xD
+#define RPP 0xE
+#define RIP 0xF
+
 extern FILE* input_file;
 extern FILE* output_file;
 

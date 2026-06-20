@@ -26,9 +26,11 @@
 
 #include "argument.h"
 #include "block.h"
+#include "common.h"
 #include "instruction.h"
 #include "libo-vector.h"
 #include "symbol.h"
+#include "variable.h"
 
 void convert_entry(symbol_t* symbol) {
 
@@ -87,6 +89,47 @@ void convert_control_flow(symbol_t* symbol) {
             convert_ret(block, last);
         } else if (last->opcode == opcode_br) {
             convert_br(block, last);
+        }
+    }
+}
+
+void convert_vars(struct symbol_t* symbol) {
+    // TODO parameters. each parameter will have a variable generated for it.
+    //
+    // the first four parameters will have a `stw r.. rfp @var` instruction
+    // added.
+    //
+    // parameters beyond the fourth and varargs params will be assigned a
+    // positive offset corresponding to their position above the stack frame.
+    //
+    // all parameters will then have an `add %.. rfp @var` instruction
+    // inserted.
+    //
+    // optimizations can then clean up any unused temps and vars.
+
+    size_t block_count = vector_count(symbol->blocks);
+    for (size_t i = 0; i != block_count; ++i) {
+        block_t* block = vector_at(symbol->blocks, i);
+
+        size_t instruction_count = vector_count(block->instructions);
+        for (size_t j = 0; j != instruction_count; ++j) {
+            instruction_t* instruction = vector_at(block->instructions, j);
+            if (instruction->opcode != opcode_var) {
+                continue;
+            }
+
+            // found a `var` instruction. allocate a variable
+            variable_t* variable = variable_new();
+            variable->size = argument_number(instruction_argument(instruction, 1));
+            argument_t* alignment = instruction_argument(instruction, 2);
+            if (alignment->type != argument_type_sentinel) {
+                variable->alignment = argument_number(alignment);
+            }
+
+            // convert `var %x .. ..` to `add %x rfp @x`
+            instruction->opcode = opcode_add;
+            argument_set_register(instruction_argument(instruction, 1), RFP);
+            argument_set_variable(instruction_argument(instruction, 2), variable);
         }
     }
 }

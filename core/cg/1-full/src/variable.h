@@ -25,24 +25,26 @@
 #ifndef VARIABLE_H_INCLUDED
 #define VARIABLE_H_INCLUDED
 
-#include "libo-table.h"
-
-struct string_t;
-struct location_t;
+#include <stddef.h>
 
 typedef struct variable_t {
-    table_entry_t entry;
-    struct string_t* name;
+    size_t id;
     int size;
     int alignment;
     int frame_offset; // assigned offset in the stack frame (usually negative, 0 if not yet assigned)
 } variable_t;
 
 /**
- * Finds the given variable, or inserts it into the variable table if it
- * doesn't exist.
+ * Creates a new variable and adds it to the variable table.
+ *
+ * The variable is assigned an id automatically.
  */
-variable_t* variable_find_or_insert(const char* name);
+variable_t* variable_new(void);
+
+/**
+ * Gets the variable with the given id.
+ */
+variable_t* variable_get(size_t id);
 
 void variables_setup(void);
 void variables_teardown(void);

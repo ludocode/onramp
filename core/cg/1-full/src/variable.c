@@ -26,58 +26,41 @@
 
 #include <stdlib.h>
 
-#include "libo-string.h"
+#include "libo-vector.h"
 
-static table_t* variable_table;
+static vector_t* variables;
 
 // Takes ownership of name
-static variable_t* variable_new(string_t* name) {
-    variable_t* variable = malloc(sizeof(variable_t));
-    variable->name = name;
+variable_t* variable_new(void) {
+    variable_t* variable = calloc(1, sizeof(variable_t));
+    variable->id = vector_count(variables);
+    vector_append(variables, variable);
     return variable;
 }
 
 static void variable_delete(variable_t* variable) {
-    string_deref(variable->name);
+    // This is only called when we cleanup variables; we don't remove from the
+    // variables vector because it's being cleared.
     free(variable);
 }
 
-variable_t* variable_find_or_insert(const char* cname) {
-    string_t* name = string_intern_cstr(cname);
-
-    for (table_entry_t* entry = table_bucket(variable_table, string_hash(name));
-            entry; entry = table_entry_next(entry))
-    {
-        variable_t* variable = (variable_t*)entry;
-        if (string_equal(variable->name, name)) {
-            string_deref(name);
-            return variable;
-        }
-    }
-
-    variable_t* variable = variable_new(name);
-    table_put(variable_table, &variable->entry, string_hash(name));
-    return variable;
+variable_t* variable_get(size_t id) {
+    return vector_at(variables, id);
 }
 
 void variables_setup(void) {
-    variable_table = table_new();
+    variables = vector_new();
 }
 
 void variables_teardown(void) {
     variables_clear();
-    table_delete(variable_table);
+    vector_delete(variables);
 }
 
 void variables_clear(void) {
-    for (table_entry_t** bucket = table_first_bucket(variable_table); bucket;
-            bucket = table_next_bucket(variable_table, bucket))
-    {
-        for (table_entry_t* entry = *bucket; entry;) {
-            table_entry_t* next = table_entry_next(entry);
-            variable_delete((variable_t*)entry);
-            entry = next;
-        }
+    size_t count = vector_count(variables);
+    for (size_t i = 0; i < count; ++i) {
+        variable_delete(vector_at(variables, i));
     }
-    table_remove_all(variable_table);
+    vector_remove_all(variables);
 }
