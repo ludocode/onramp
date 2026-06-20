@@ -27,9 +27,9 @@
 
 #include <stdbool.h>
 
+#include "libo-string.h"
 #include "libo-table.h"
 
-struct string_t;
 struct location_t;
 struct vector_t;
 
@@ -42,7 +42,6 @@ typedef struct temporary_t {
     int frame_offset; // assigned offset in the stack frame (usually negative)
 
     // Live interval
-    int live; // Used by the live range analysis algorithm
     size_t interval_start;
     size_t interval_end;
 } temporary_t;
@@ -65,5 +64,9 @@ void temporaries_clear(void);
  * Add all temporaries to the given vector.
  */
 void temporaries_list_all(struct vector_t* temporaries);
+
+static inline uint32_t temporary_hash(temporary_t* temporary) {
+    return string_hash(temporary->name);
+}
 
 #endif

@@ -61,21 +61,22 @@ void analyze_block_parents(symbol_t* symbol) {
 
             case opcode_ret:
                 //printf("found ret block %s\n", block->name->bytes);
+                // no child blocks
                 break;
 
             case opcode_br:
-                //printf("looking up arg1 block %s\n", instruction_argument(last, 1)->string->bytes);
-                child = block_find(instruction_argument(last, 1)->string);
+                //printf("br looking up true block %s\n", argument_label(instruction_argument(last, 1))->bytes);
+                child = block_find(argument_label(instruction_argument(last, 1)));
                 vector_append(child->parent_blocks, block);
 
-                //printf("looking up arg2 block %s\n", instruction_argument(last, 2)->string->bytes);
-                child = block_find(instruction_argument(last, 2)->string);
+                //printf("br looking up false block %s\n", argument_label(instruction_argument(last, 2))->bytes);
+                child = block_find(argument_label(instruction_argument(last, 2)));
                 vector_append(child->parent_blocks, block);
                 break;
 
             case opcode_jmp:
-                //printf("looking up arg0 block %s\n", instruction_argument(last, 0)->string->bytes);
-                child = block_find(instruction_argument(last, 0)->string);
+                //printf("jmp looking up block %s\n", argument_label(instruction_argument(last, 0))->bytes);
+                child = block_find(argument_label(instruction_argument(last, 0)));
                 vector_append(child->parent_blocks, block);
                 break;
 
@@ -199,7 +200,7 @@ void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instructi
         if (argument->type == argument_type_temporary) {
             //printf("  found write arg %s\n", argument->temporary->name->bytes);
             otable_remove(live_temps, argument->temporary,
-                    string_hash(argument->temporary->name));
+                    temporary_hash(argument->temporary));
         }
     }
 
@@ -212,7 +213,7 @@ void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instructi
             //printf("  found read arg at %zu: %s\n", j, argument->temporary->name->bytes);
             // The instruction is reading this temporary. It becomes live.
             otable_put(live_temps, argument->temporary,
-                    string_hash(argument->temporary->name));
+                    temporary_hash(argument->temporary));
         }
     }
 }
@@ -278,4 +279,211 @@ void analyze_liveness(symbol_t* symbol) {
     }
 
     vector_delete(blocks);
+}
+
+/**
+ * Number all instructions in the block for the purpose of live interval
+ * analysis.
+ *
+ * We walk in depth-first order, following false blocks before true blocks in
+ * branches.
+ */
+static size_t analyze_number_instructions(block_t* block, size_t index, int visited) {
+
+    // only scan blocks once
+    if (block->visited == visited) {
+        return index;
+    }
+    block->visited = visited;
+    printf("analyze_number_instructions() visiting block %s\n", block->name->bytes);
+
+    // number all instructions in the block
+    size_t count = vector_count(block->instructions);
+    instruction_t* instruction;
+    for (size_t i = 0; i < count; ++i) {
+        instruction = vector_at(block->instructions, i);
+        instruction->index = index++;
+        printf("analyze_number_instructions() numbering instruction %zu: %s\n",
+                instruction->index, opcode_to_string(instruction->opcode));
+    }
+
+    switch (instruction->opcode) {
+        block_t* child;
+
+        case opcode_ret:
+            printf("ret no children\n");
+            // no child blocks
+            break;
+
+        case opcode_br:
+            printf("br looking up false block %s\n", argument_label(instruction_argument(instruction, 2))->bytes);
+            child = block_find(argument_label(instruction_argument(instruction, 2)));
+            if (!child) {
+                fatal("Block not found");
+            }
+            vector_append(child->parent_blocks, block);
+            index = analyze_number_instructions(child, index, visited);
+
+            printf("br looking up true block %s\n", argument_label(instruction_argument(instruction, 1))->bytes);
+            child = block_find(argument_label(instruction_argument(instruction, 1)));
+            if (!child) {
+                fatal("Block not found");
+            }
+            vector_append(child->parent_blocks, block);
+            index = analyze_number_instructions(child, index, visited);
+            break;
+
+        case opcode_jmp:
+            printf("jmp looking up dest block %s\n", argument_label(instruction_argument(instruction, 0))->bytes);
+            child = block_find(argument_label(instruction_argument(instruction, 0)));
+            if (!child) {
+                fatal("Block not found");
+            }
+            vector_append(child->parent_blocks, block);
+            index = analyze_number_instructions(child, index, visited);
+            break;
+
+        default:
+            // this should have been checked during parsing
+            fatal("Internal error: invalid end of block");
+    }
+
+    return index;
+}
+
+/**
+ * Expand the interval of the given temporary.
+ */
+static void analyze_expand_interval(temporary_t* temporary, size_t index) {
+    if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
+        printf("initial interval for %s: %zu\n", temporary->name->bytes, index);
+        temporary->interval_start = index;
+        temporary->interval_end = index;
+    } else {
+        printf("expanding interval for %s: %zu\n", temporary->name->bytes, index);
+        if (temporary->interval_start > index) {
+            printf("lowering interval for %s: %zu\n", temporary->name->bytes, index);
+            temporary->interval_start = index;
+        }
+        if (temporary->interval_end < index) {
+            printf("raising interval for %s: %zu\n", temporary->name->bytes, index);
+            temporary->interval_end = index;
+        }
+    }
+}
+
+/**
+ * Expand the interval of all temporaries in the given set to include the given
+ * instruction index.
+ */
+static void analyze_expand_live_intervals(otable_t* live_temps, size_t index) {
+    for (void** temp = otable_begin(live_temps); temp; temp = otable_next(live_temps, temp)) {
+        analyze_expand_interval(*temp, index);
+    }
+}
+
+static void analyze_live_intervals(block_t* block, int visited) {
+
+    // Only visit each block once
+    if (block->visited == visited) {
+        return;
+    }
+    block->visited = visited;
+
+    // Start with the table of live temporaries at the end of this block
+    otable_t* live_temps = otable_new_copy(block->live_temps);
+
+    // Any live temporaries at the end of this block must have their live
+    // interval expanded to include it.
+    size_t end_index = ((instruction_t*)vector_last(block->instructions))->index;
+    printf("expanding live intervals at end: %zu\n", end_index);
+    analyze_expand_live_intervals(live_temps, end_index);
+
+    // Walk backwards through the block. We're looking for instructions that
+    // make temporaries live or dead.
+    for (size_t i = vector_count(block->instructions); i-- != 0;) {
+        instruction_t* instruction = vector_at(block->instructions, i);
+        argument_mode_t mode = instruction_mode(instruction);
+
+        // Look for temporary outputs
+        if (mode != argument_mode_read) {
+            // The instruction writes to its first argument (which must exist.)
+            // If the temporary was live, it becomes dead.
+            argument_t* argument = instruction_argument(instruction, 0);
+            if (argument->type == argument_type_temporary) {
+                temporary_t* temporary = argument->temporary;
+                otable_remove(live_temps, temporary, temporary_hash(temporary));
+                analyze_expand_interval(temporary, instruction->index);
+            }
+        }
+
+        // Look for temporary inputs
+        size_t j = (mode == argument_mode_write) ? 1 : 0;
+        size_t count = vector_count(instruction->arguments);
+        for (; j < count; ++j) {
+            argument_t* argument = instruction_argument(instruction, j);
+            if (argument->type == argument_type_temporary) {
+                // The instruction is reading this temporary. It is live from
+                // the *previous* instruction.
+                //
+                // (If it is never read again, it becomes dead here after we
+                // read from it. We don't include this instruction because the
+                // output of this instruction may become live; this way it can
+                // use the same register.)
+                temporary_t* temporary = argument->temporary;
+                otable_put(live_temps, temporary, temporary_hash(temporary));
+                assert(instruction->index != 0);
+                analyze_expand_interval(temporary, instruction->index - 1);
+            }
+        }
+
+    }
+
+    // Any live temporaries at the start of this block must have their live
+    // interval expanded to include it.
+    size_t start_index = ((instruction_t*)vector_first(block->instructions))->index;
+    printf("expanding live intervals at start: %zu\n", start_index);
+    analyze_expand_live_intervals(live_temps, start_index);
+
+    otable_delete(live_temps);
+
+    // Continue to any blocks reachable from this one
+    instruction_t* last = vector_last(block->instructions);
+    if (last->opcode == opcode_jmp) {
+        string_t* label = argument_label(instruction_argument(last, 0));
+        analyze_live_intervals(block_find(label), visited);
+    } else if (last->opcode == opcode_br) {
+        string_t* true_label = argument_label(instruction_argument(last, 1));
+        analyze_live_intervals(block_find(true_label), visited);
+        string_t* false_label = argument_label(instruction_argument(last, 2));
+        analyze_live_intervals(block_find(false_label), visited);
+    }
+}
+
+void analyze_register_allocation(symbol_t* symbol) {
+
+    // Assign a unique index to all instructions.
+    analyze_number_instructions(vector_first(symbol->blocks), 0, pass_id++);
+
+    // Convert the liveness data to live intervals.
+    analyze_live_intervals(vector_first(symbol->blocks), pass_id++);
+
+    // Collect all temporaries
+    vector_t* temporaries = vector_new();
+    temporaries_list_all(temporaries);
+
+    for (size_t i = 0; i < vector_count(temporaries); ++i) {
+        temporary_t* temporary = vector_at(temporaries, i);
+        if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
+            printf("temporary %s not used.\n", temporary->name->bytes);
+        } else {
+            printf("temporary %s interval %zu-%zu\n", temporary->name->bytes,
+                    temporary->interval_start, temporary->interval_end);
+        }
+    }
+
+    // TODO perform linear scan
+
+    vector_delete(temporaries);
+
 }

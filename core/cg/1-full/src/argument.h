@@ -98,6 +98,11 @@ static inline uint32_t argument_number(argument_t* argument) {
     return argument->number;
 }
 
+static inline struct string_t* argument_label(argument_t* argument) {
+    assert(argument->type == argument_type_relative);
+    return argument->string;
+}
+
 /**
  * Returns true iff this is a temporary or number type.
  */

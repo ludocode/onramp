@@ -56,4 +56,16 @@ void analyze_liveness_instruction(struct otable_t* live_temps, struct instructio
  */
 void analyze_liveness(struct symbol_t* symbol);
 
+/**
+ * Perform register allocation.
+ *
+ * A simple linear scan is performed. Each temporary is assigned either a
+ * register (if live) or a variable (if spilled.)
+ *
+ * This doesn't actually make changes to the code. A separate pass converts
+ * temporaries and variables to registers and constants, inserting spill
+ * instructions where needed.
+ */
+void analyze_register_allocation(struct symbol_t* symbol);
+
 #endif
