@@ -38,6 +38,7 @@
 #include "libo-vector.h"
 #include "location.h"
 #include "symbol.h"
+#include "temporary.h"
 
 // TODO parse utf8, this should be using libo-reader
 //static reader_t reader;
@@ -268,7 +269,7 @@ static argument_t* /*nullable*/ try_parse_argument(void) {
         if (identifier[1] == 0) {
             return argument_new_sentinel();
         }
-        return argument_new_temporary(identifier);
+        return argument_new_temporary(temporary_find_or_create(identifier));
     }
 
     if (current_char == '^') {

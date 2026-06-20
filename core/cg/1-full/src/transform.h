@@ -37,6 +37,28 @@ struct symbol_t;
 void transform_parameters(struct symbol_t* symbol);
 
 /**
+ * Transform all load, store and sym instructions from IR to assembly.
+ *
+ * Load and store instructions are expanded to take two arguments; wherever
+ * global invocations are used, they are moved out to `imw` and added to rpp.
+ *
+ * For example the following instructions:
+ *
+ *     sym %1 ^foo
+ *     ldw %2 ^bar
+ *     stw %3 %4
+ *
+ * are transformed into:
+ *
+ *     imw %5 ^foo
+ *     add %1 rpp %5
+ *     imw %6 ^bar
+ *     ldw %2 rpp %6
+ *     stw %3 %4 0
+ */
+void transform_load_store_sym(struct symbol_t* symbol);
+
+/**
  * Convert all `var` instructions and function parameters to variables.
  */
 void transform_vars(struct symbol_t* symbol);

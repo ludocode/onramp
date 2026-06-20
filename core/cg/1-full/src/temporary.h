@@ -53,10 +53,15 @@ typedef struct temporary_t {
 } temporary_t;
 
 /**
+ * Creates a new temporary.
+ */
+temporary_t* temporary_new_anonymous(void);
+
+/**
  * Finds the given temporary, or inserts it into the temporary table if it
  * doesn't exist.
  */
-temporary_t* temporary_find_or_insert(const char* name);
+temporary_t* temporary_find_or_create(const char* name);
 
 void temporaries_setup(void);
 void temporaries_teardown(void);

@@ -90,9 +90,9 @@ argument_t* argument_new_string(argument_type_t type, string_t* string) {
     return argument;
 }
 
-argument_t* argument_new_temporary(const char* name) {
+argument_t* argument_new_temporary(temporary_t* temporary) {
     argument_t* argument = argument_new_type(argument_type_temporary);
-    argument->temporary = temporary_find_or_insert(name);
+    argument->temporary = temporary;
     return argument;
 }
 

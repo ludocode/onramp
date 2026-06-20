@@ -57,12 +57,12 @@ void table_delete(table_t* table) {
     free(table);
 }
 
-static void table_resize(table_t* table, int new_bits) {
+static void table_resize(table_t* table, size_t new_bits) {
     assert(table->bits != new_bits);
     if (new_bits > 30) {
         fatal("Out of memory.");
     }
-    size_t old_capacity = 1 << table->bits;
+    size_t old_capacity = 1u << table->bits;
     //printf("resizing %zi to %i\n",old_capacity,1<<new_bits);
 
     // if we're resizing to zero, flatten all entries into a single linked
@@ -70,7 +70,7 @@ static void table_resize(table_t* table, int new_bits) {
     if (new_bits == 0) {
         table_entry_t** old_buckets = table->entries.buckets;
         table_entry_t** new_tail = &table->entries.single_bucket;
-        size_t old_capacity = 1 << table->bits;
+        size_t old_capacity = 1u << table->bits;
         for (size_t i = 0; i < old_capacity; ++i) {
             for (table_entry_t* entry = old_buckets[i]; entry; entry = entry->next) {
                 *new_tail = entry;
@@ -83,7 +83,7 @@ static void table_resize(table_t* table, int new_bits) {
     }
 
     // otherwise allocate new entries
-    size_t new_capacity = 1 << new_bits;
+    size_t new_capacity = 1u << new_bits;
     table_entry_t** new_buckets = calloc(new_capacity, sizeof(table_entry_t*));
     if (new_buckets == NULL) {
         fatal("Out of memory.");
@@ -120,7 +120,7 @@ static void table_resize(table_t* table, int new_bits) {
     table->bits = new_bits;
 }
 
-void table_reserve_bits(table_t* table, int new_bits) {
+void table_reserve_bits(table_t* table, size_t new_bits) {
     if (table->bits >= new_bits)
         return;
     table_resize(table, new_bits);
@@ -129,7 +129,7 @@ void table_reserve_bits(table_t* table, int new_bits) {
 void table_put(table_t* table, table_entry_t* entry, uint32_t hash) {
 
     // if our hashtable is at capacity, grow by 4x
-    if (table->count > 4 + (1 << table->bits)) {
+    if (table->count > 4u + (1u << table->bits)) {
         table_resize(table, table->bits + 2);
     }
     ++table->count;
@@ -165,7 +165,7 @@ table_entry_t** table_next_bucket(table_t* table, table_entry_t** bucket) {
     if (table->bits == 0) {
         return NULL;
     }
-    if (++bucket == table->entries.buckets + (1 << table->bits)) {
+    if (++bucket == table->entries.buckets + (1u << table->bits)) {
         return NULL;
     }
     return bucket;
@@ -195,8 +195,8 @@ void table_remove(table_t* table, table_entry_t* entry) {
 void table_shrink(table_t* table) {
     // if our hashtable capacity is more than 8x count, shrink to 1/4 capacity.
     // TODO actually this should calculate a new capacity, fix it later.
-    if (table->bits >= 4 && table->count < (1 << (table->bits - 3))) {
-        table_resize(table, table->bits - 2);
+    if (table->bits >= 4 && table->count < (1u << (table->bits - 3))) {
+        table_resize(table, table->bits - 2u);
     }
 }
 

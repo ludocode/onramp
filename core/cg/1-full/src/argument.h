@@ -87,7 +87,7 @@ argument_t* argument_new_string(argument_type_t type, struct string_t* string);
 /**
  * Creates a temporary argument.
  */
-argument_t* argument_new_temporary(const char* name);
+argument_t* argument_new_temporary(struct temporary_t* temporary);
 
 /**
  * Create a variable argument.

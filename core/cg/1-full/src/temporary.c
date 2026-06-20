@@ -30,6 +30,7 @@
 #include "libo-vector.h"
 
 static table_t* temporary_table;
+static size_t temporary_anonymous_id;
 
 // Takes ownership of name
 static temporary_t* temporary_new(string_t* name) {
@@ -45,7 +46,37 @@ static void temporary_delete(temporary_t* temporary) {
     free(temporary);
 }
 
-temporary_t* temporary_find_or_insert(const char* cname) {
+temporary_t* temporary_new_anonymous(void) {
+
+    // Generate a name for the temporary. We give it a number starting at the
+    // current temporary count in order to avoid collisions.
+    if (temporary_anonymous_id < table_count(temporary_table)) {
+        temporary_anonymous_id = table_count(temporary_table);
+    }
+    for (;;) {
+        char cname[16];
+        sprintf(cname, "%%%zu\n", temporary_anonymous_id++);
+        string_t* name = string_intern_cstr(cname);
+
+        // make sure it doesn't already exist
+        for (table_entry_t* entry = table_bucket(temporary_table, string_hash(name));
+                entry; entry = table_entry_next(entry))
+        {
+            temporary_t* temporary = (temporary_t*)entry;
+            if (string_equal(temporary->name, name)) {
+                string_deref(name);
+                continue;
+            }
+        }
+
+        // create the temporary
+        temporary_t* temporary = temporary_new(name);
+        table_put(temporary_table, &temporary->entry, string_hash(name));
+        return temporary;
+    }
+}
+
+temporary_t* temporary_find_or_create(const char* cname) {
     string_t* name = string_intern_cstr(cname);
 
     for (table_entry_t* entry = table_bucket(temporary_table, string_hash(name));

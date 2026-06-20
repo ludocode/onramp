@@ -74,8 +74,8 @@ typedef struct table_t {
         table_entry_t** buckets;
         table_entry_t* single_bucket;
     } entries;
-    int bits;
-    int count;
+    size_t bits;
+    size_t count;
 } table_t;
 
 /**
@@ -113,7 +113,7 @@ void table_delete(table_t* table);
  * Reserves a number of buckets equal to two to the power of the given number
  * of bits.
  */
-void table_reserve_bits(table_t* table, int new_bits);
+void table_reserve_bits(table_t* table, size_t new_bits);
 
 /**
  * Returns the number of entries in the hashtable.

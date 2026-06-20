@@ -153,6 +153,7 @@ int main(int argc, char** argv) {
         analyze_block_parents(symbol);
         transform_parameters(symbol);
         transform_vars(symbol);
+        transform_load_store_sym(symbol);
 
         // TODO optimizations
 

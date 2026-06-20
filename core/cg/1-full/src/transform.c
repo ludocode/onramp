@@ -124,7 +124,70 @@ void transform_control_flow(symbol_t* symbol) {
     }
 }
 
-void transform_vars(struct symbol_t* symbol) {
+void transform_load_store_sym(symbol_t* symbol) {
+    size_t block_count = vector_count(symbol->blocks);
+    for (size_t i = 0; i != block_count; ++i) {
+        block_t* block = vector_at(symbol->blocks, i);
+
+        size_t instruction_count = vector_count(block->instructions);
+        for (size_t j = 0; j != instruction_count; ++j) {
+            instruction_t* instruction = vector_at(block->instructions, j);
+
+            switch (instruction->opcode) {
+                case opcode_sym: {
+                    // `sym %1 ^foo` --> `imw %2 ^foo  add %1 rpp %2`
+
+                    temporary_t* temporary = temporary_new_anonymous();
+                    instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                    instruction_append(imw, argument_new_temporary(temporary));
+                    instruction_append(imw, instruction_argument(instruction, 1));
+
+                    vector_set(instruction->arguments, 1, argument_new_temporary(temporary));
+                    vector_insert(instruction->arguments, 1, argument_new_register(RPP));
+                    instruction->opcode = opcode_add;
+
+                    vector_insert(block->instructions, j, imw);
+                    ++j;
+                    ++instruction_count;
+                    break;
+                }
+
+                case opcode_ldw:
+                case opcode_lds:
+                case opcode_ldb:
+                case opcode_stw:
+                case opcode_sts:
+                case opcode_stb: {
+                    argument_t* argument = instruction_argument(instruction, 1);
+                    if (argument->type == argument_type_absolute) {
+                        // `op %1 ^foo` --> `imw %2 ^foo  op %1 rpp %2`
+
+                        temporary_t* temporary = temporary_new_anonymous();
+                        instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                        instruction_append(imw, argument_new_temporary(temporary));
+                        instruction_append(imw, argument);
+
+                        vector_set(instruction->arguments, 1, argument_new_temporary(temporary));
+                        vector_insert(instruction->arguments, 1, argument_new_register(RPP));
+
+                        vector_insert(block->instructions, j, imw);
+                        ++j;
+                        ++instruction_count;
+                    } else {
+                        // `op %1 x` --> `op %1 x 0`
+                        instruction_append(instruction, argument_new_integer(0));
+                    }
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        }
+    }
+}
+
+void transform_vars(symbol_t* symbol) {
     // TODO parameters. each parameter will have a variable generated for it.
     //
     // the first four parameters will have a `stw r.. rfp @var` instruction
