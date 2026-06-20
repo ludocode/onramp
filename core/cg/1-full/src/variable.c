@@ -35,8 +35,25 @@ variable_t* variable_new(size_t size, size_t alignment) {
     variable_t* variable = malloc(sizeof(variable_t));
     variable->id = vector_count(variables);
     variable->size = size;
-    variable->alignment = alignment;
-    variable->frame_offset = 0;
+
+    if (alignment == 0) {
+        switch (size & 3) {
+            case 0:
+                variable->alignment = 4;
+                break;
+            case 1:
+            case 3:
+                variable->alignment = 1;
+                break;
+            case 2:
+                variable->alignment = 2;
+                break;
+        }
+    } else {
+        variable->alignment = alignment;
+    }
+
+    variable->offset = 0;
     vector_append(variables, variable);
     return variable;
 }

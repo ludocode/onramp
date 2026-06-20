@@ -38,6 +38,7 @@ symbol_t* symbol_new(const char* name, location_t* location) {
     symbol->name = strdup(name);
     symbol->location = location;
     symbol->blocks = vector_new();
+    symbol->frame_size = 0;
     return symbol;
 }
 

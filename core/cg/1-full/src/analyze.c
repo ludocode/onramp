@@ -584,3 +584,55 @@ void analyze_register_allocation(symbol_t* symbol) {
     analyze_linear_scan(symbol);
 
 }
+
+static void analyze_variable_offsets_block(block_t* block, int visited, size_t* frame_size) {
+
+    // Only visit each block once
+    if (block->visited == visited) {
+        return;
+    }
+    block->visited = visited;
+
+    // For each instruction, look for variable inputs
+    for (size_t i = vector_count(block->instructions); i-- != 0;) {
+        instruction_t* instruction = vector_at(block->instructions, i);
+        argument_mode_t mode = instruction_mode(instruction);
+        size_t j = (mode == argument_mode_write) ? 1 : 0;
+        size_t count = vector_count(instruction->arguments);
+        for (; j < count; ++j) {
+            argument_t* argument = instruction_argument(instruction, j);
+            if (argument->type == argument_type_variable) {
+
+                // Found a variable argument. If it hasn't been assigned stack
+                // space yet, assign it now.
+                variable_t* variable = argument_variable(argument);
+                if (variable->offset == 0) {
+                    size_t alignment_mask = variable->alignment - 1;
+                    *frame_size = (*frame_size + alignment_mask) & ~alignment_mask;
+                    *frame_size += variable->size;
+                    variable->offset = -(int)*frame_size;
+                    //printf("assigned variable %zu stack address %i\n", variable->id, variable->offset);
+                }
+            }
+        }
+    }
+
+    // Continue to any blocks reachable from this one
+    instruction_t* last = vector_last(block->instructions);
+    if (last->opcode == opcode_jmp) {
+        string_t* label = argument_label(instruction_argument(last, 0));
+        analyze_live_intervals(block_find(label), visited);
+    } else if (last->opcode == opcode_br) {
+        string_t* true_label = argument_label(instruction_argument(last, 1));
+        analyze_live_intervals(block_find(true_label), visited);
+        string_t* false_label = argument_label(instruction_argument(last, 2));
+        analyze_live_intervals(block_find(false_label), visited);
+    }
+}
+
+void analyze_stack_frame(symbol_t* symbol) {
+    // Walk through each instruction to find used variables. We want to avoid
+    // assigning stack space to variables that have been eliminated.
+    analyze_variable_offsets_block(vector_first(symbol->blocks), pass_id++,
+            &symbol->frame_size);
+}

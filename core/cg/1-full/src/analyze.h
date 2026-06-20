@@ -68,4 +68,12 @@ void analyze_liveness(struct symbol_t* symbol);
  */
 void analyze_register_allocation(struct symbol_t* symbol);
 
+/**
+ * Perform stack frame layout.
+ *
+ * Each used variable is assigned an offset in the stack frame. The full frame
+ * size is computed.
+ */
+void analyze_stack_frame(struct symbol_t* symbol);
+
 #endif

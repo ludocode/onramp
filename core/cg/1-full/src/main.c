@@ -159,6 +159,7 @@ int main(int argc, char** argv) {
         // convert to assembly
         analyze_liveness(symbol);
         analyze_register_allocation(symbol);
+        analyze_stack_frame(symbol);
         convert_control_flow(symbol);
 
         emit_symbol(symbol);

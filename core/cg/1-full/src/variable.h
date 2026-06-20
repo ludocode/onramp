@@ -29,9 +29,14 @@
 
 typedef struct variable_t {
     size_t id;
-    int size;
-    int alignment;
-    int frame_offset; // assigned offset in the stack frame (usually negative, 0 if not yet assigned)
+    size_t size;
+    size_t alignment;
+
+    // offset in the stack frame.
+    // - usually negative (local variables and spilled temporaries)
+    // - rarely positive (stack-passed arguments)
+    // - 0 if not yet assigned
+    int offset;
 } variable_t;
 
 /**

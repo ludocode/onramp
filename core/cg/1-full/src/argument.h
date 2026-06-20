@@ -103,6 +103,11 @@ static inline struct string_t* argument_label(argument_t* argument) {
     return argument->string;
 }
 
+static inline struct variable_t* argument_variable(argument_t* argument) {
+    assert(argument->type == argument_type_variable);
+    return argument->variable;
+}
+
 /**
  * Returns true iff this is a temporary or number type.
  */

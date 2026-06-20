@@ -41,6 +41,7 @@ typedef struct symbol_t {
     char* name;
     struct location_t* location;
     struct vector_t* blocks;
+    size_t frame_size;
 } symbol_t;
 
 //extern symbol_t* current_symbol;
