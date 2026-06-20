@@ -71,6 +71,18 @@ argument_t* argument_new_number(argument_type_t type, uint32_t number) {
     return argument;
 }
 
+argument_t* argument_new_integer(uint32_t integer) {
+    argument_t* argument = argument_new_type(argument_type_number);
+    argument->number = integer;
+    return argument;
+}
+
+argument_t* argument_new_register(uint32_t reg) {
+    argument_t* argument = argument_new_type(argument_type_register);
+    argument->number = reg;
+    return argument;
+}
+
 argument_t* argument_new_string(argument_type_t type, string_t* string) {
     assert(type == argument_type_relative || type == argument_type_absolute);
     argument_t* argument = argument_new_type(type);

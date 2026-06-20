@@ -105,6 +105,7 @@ argument_mode_t instruction_mode(instruction_t* instruction) {
         case opcode_enter:
         case opcode_leave:
             return argument_mode_read;
+        case opcode_imw:
         case opcode_var:
         case opcode_alloc:
         case opcode_free:

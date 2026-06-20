@@ -151,15 +151,19 @@ int main(int argc, char** argv) {
 
         // perform initial analysis and conversions
         analyze_block_parents(symbol);
+        convert_parameters(symbol);
         convert_vars(symbol);
-        convert_entry(symbol);
 
         // TODO optimizations
 
-        // convert to assembly
+        // perform register allocation and stack frame layout
         analyze_liveness(symbol);
         analyze_register_allocation(symbol);
         analyze_stack_frame(symbol);
+
+        // convert registers and variables to assembly
+        convert_entry(symbol);
+
         convert_control_flow(symbol);
 
         emit_symbol(symbol);

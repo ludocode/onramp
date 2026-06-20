@@ -71,6 +71,7 @@ typedef enum opcode_t {
     opcode_stb,
 
     // control
+    opcode_imw,
     opcode_enter,
     opcode_leave,
     opcode_var,

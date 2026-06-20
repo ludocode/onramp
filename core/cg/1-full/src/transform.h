@@ -32,6 +32,11 @@
 struct symbol_t;
 
 /**
+ * Inserts instructions to convert all parameters from IR to assembly.
+ */
+void convert_parameters(struct symbol_t* symbol);
+
+/**
  * Convert all `var` instructions and function parameters to variables.
  */
 void convert_vars(struct symbol_t* symbol);
@@ -39,8 +44,8 @@ void convert_vars(struct symbol_t* symbol);
 /**
  * Convert the entry point of the function to assembly.
  *
- * This adds `enter`, adds a `sub rsp` instruction to allocate stack space for
- * all variables, and converts arguments to assembly.
+ * This adds `enter` and a `sub rsp` instruction to allocate stack space for
+ * all variables.
  */
 void convert_entry(struct symbol_t* symbol);
 

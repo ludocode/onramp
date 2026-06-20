@@ -69,8 +69,13 @@ argument_t* argument_new_sentinel(void);
 
 /**
  * Creates a register or number argument.
+ * TODO deprecated remove this
  */
 argument_t* argument_new_number(argument_type_t type, uint32_t number);
+
+argument_t* argument_new_integer(uint32_t integer);
+
+argument_t* argument_new_register(uint32_t reg);
 
 /**
  * Creates an invocation argument.

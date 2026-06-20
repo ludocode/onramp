@@ -91,6 +91,7 @@ const char* opcode_to_string(opcode_t opcode) {
         case opcode_stb: return "stb";
 
         // control
+        case opcode_imw: return "imw";
         case opcode_enter: return "enter";
         case opcode_leave: return "leave";
         case opcode_var: return "var";

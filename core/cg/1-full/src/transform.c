@@ -32,17 +32,46 @@
 #include "symbol.h"
 #include "variable.h"
 
-void convert_entry(symbol_t* symbol) {
+void convert_parameters(symbol_t* symbol) {
+}
+
+void convert_entry(struct symbol_t* symbol) {
+    block_t* start_block = vector_at(symbol->blocks, 0);
+
+    // If the function has no stack frame and -fomit-frame-pointer is given we
+    // can skip the enter and leave instructions.
+    // TODO for now we don't do this ever since it harms debuggability. A
+    // better optimization would be to add function inlining to cci/2 so that
+    // small leaf functions disappear entirely.
+    //if (symbol->frame_size == 0) {
+    //    return;
+    //}
+
+    if (symbol->frame_size != 0) {
+
+        // insert `sub rsp rsp N`
+        instruction_t* sub = instruction_new(location_new_copy(symbol->location), opcode_sub);
+        instruction_append(sub, argument_new_register(RSP));
+        instruction_append(sub, argument_new_register(RSP));
+        vector_insert(start_block->instructions, 0, sub);
+
+        if (symbol->frame_size < 128) {
+            instruction_append(sub, argument_new_integer(symbol->frame_size));
+        } else {
+            // frame size doesn't fix in mix-type byte. use r9
+            instruction_append(sub, argument_new_register(9));
+
+            // insert `imw r9 N`
+            instruction_t* imw = instruction_new(location_new_copy(symbol->location), opcode_imw);
+            instruction_append(imw, argument_new_register(9));
+            instruction_append(imw, argument_new_integer(symbol->frame_size));
+            vector_insert(start_block->instructions, 0, imw);
+        }
+    }
 
     // insert enter
-    block_t* block = vector_at(symbol->blocks, 0);
-    vector_insert(block->instructions, 0,
-            instruction_new(location_new_copy(symbol->location), opcode_enter));
-
-    // TODO insert sub rsp stack space
-
-    // TODO store arguments
-
+    instruction_t* enter = instruction_new(location_new_copy(symbol->location), opcode_enter);
+    vector_insert(start_block->instructions, 0, enter);
 }
 
 static void convert_ret(block_t* block, instruction_t* last) {
