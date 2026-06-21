@@ -81,7 +81,7 @@ void generate_return(node_t* node, int temp_out) {
 
     assert(node->kind == NODE_RETURN);
     if (node->first_child) {
-        retval = generate_temporary(NULL, false);
+        retval = generate_temporary(NULL);
         if (type_is_passed_indirectly(current_function->root->type)) {
             #ifndef CCI2_IR
             // The pointer to storage for the return value was pushed just
@@ -163,7 +163,7 @@ void generate_if(node_t* node, int reg_out) {
     int pred_register = indirect ? register_alloc(node->token) : reg_out;
     #endif
     #ifdef CCI2_IR
-    int pred_register = generate_temporary(NULL, false);
+    int pred_register = generate_temporary(NULL);
     #endif
     generate_node(condition, pred_register);
 

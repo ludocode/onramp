@@ -53,14 +53,11 @@ void generate_teardown(void);
  *
  * The given name may be null, in which case one is generated (e.g. %1, %2,
  * etc.) If the name is already in use (for example due to shadowing), a number
- * will be prepended (e.g. %2_x).
+ * will be appended (e.g. %x_2).
  *
  * The id corresponding to the temporary is returned.
- *
- * If variable is true, an extra '%' is prepended (e.g. %%1, %%2, etc.) This is
- * typically used for variable storage.
  */
-int generate_temporary(struct string_t* /*nullable*/ name, bool variable);
+int generate_temporary(struct string_t* /*nullable*/ name);
 #endif
 
 /**

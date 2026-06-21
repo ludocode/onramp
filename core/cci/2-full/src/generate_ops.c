@@ -148,8 +148,8 @@ static void generate_simple_arithmetic(node_t* node, int temp_out,
         register_free(node->token, reg_right);
         #endif
         #ifdef CCI2_IR
-        int temp_left = generate_temporary(NULL, false);
-        int temp_right = generate_temporary(NULL, false);
+        int temp_left = generate_temporary(NULL);
+        int temp_right = generate_temporary(NULL);
         generate_node(node->first_child, temp_left);
         generate_node(node->last_child, temp_right);
 
@@ -177,7 +177,7 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     int reg_right = register_alloc(node->token);
     #endif
     #ifdef CCI2_IR
-    int reg_right = generate_temporary(NULL, false);
+    int reg_right = generate_temporary(NULL);
     #endif
     assert(!type_is_passed_indirectly(node->last_child->type));
     generate_node(node->last_child, reg_right);
@@ -250,7 +250,7 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
     int reg_right = register_alloc(node->token);
     #endif
     #ifdef CCI2_IR
-    int reg_right = generate_temporary(NULL, false);
+    int reg_right = generate_temporary(NULL);
     #endif
     generate_node(node->first_child, reg_left);
     generate_node(node->last_child, reg_right);
@@ -378,7 +378,7 @@ void generate_bit_not(node_t* node, int reg_out) {
         register_free(node->token, reg_temp);
         #endif
         #ifdef CCI2_IR
-        int temp1 = generate_temporary(NULL, false);
+        int temp1 = generate_temporary(NULL);
 
         instruction_t* instruction = block_append(current_block, node->token, LDW, 2);
         instruction_set_arg_temporary(instruction, 0, temp1);
@@ -392,8 +392,8 @@ void generate_bit_not(node_t* node, int reg_out) {
         instruction_set_arg_temporary(instruction, 0, temp1);
         instruction_set_arg_temporary(instruction, 1, reg_out);
 
-        int addr = generate_temporary(NULL, false);
-        int temp2 = generate_temporary(NULL, false);
+        int addr = generate_temporary(NULL);
+        int temp2 = generate_temporary(NULL);
 
         instruction = block_append(current_block, node->token, ADD, 3);
         instruction_set_arg_temporary(instruction, 0, addr);
@@ -576,8 +576,8 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int te
         register_free(node->token, reg_right);
         #endif
         #ifdef CCI2_IR
-        int temp_left = generate_temporary(NULL, false);
-        int temp_right = generate_temporary(NULL, false);
+        int temp_left = generate_temporary(NULL);
+        int temp_right = generate_temporary(NULL);
         generate_node(left, temp_left);
         generate_node(right, temp_right);
         instruction_t* instruction = block_append(current_block, node->token,
@@ -700,8 +700,8 @@ static void generate_equality(node_t* node,
         #endif
 
         #ifdef CCI2_IR
-        int left = generate_temporary(NULL, false);
-        int right = generate_temporary(NULL, false);
+        int left = generate_temporary(NULL);
+        int right = generate_temporary(NULL);
         generate_node(node->first_child, left);
         generate_node(node->last_child, right);
         instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
@@ -823,7 +823,7 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
     int reg_temp = register_alloc(token);
     #endif
     #ifdef CCI2_IR
-    int reg_temp = generate_temporary(NULL, false);
+    int reg_temp = generate_temporary(NULL);
     #endif
     uint32_t align = type_alignment(type);
     uint32_t total = count * type_size(type);
@@ -849,7 +849,7 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
     // If the number of steps is small, unroll it.
     if (steps <= 4) {
         #ifdef CCI2_IR
-        int reg_addr = generate_temporary(NULL, false);
+        int reg_addr = generate_temporary(NULL);
         #endif
         for (uint32_t i = 0; i < total; i += step) {
             #ifndef CCI2_IR
@@ -883,9 +883,9 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         int reg_i = register_alloc(token);
         #endif
         #ifdef CCI2_IR
-        int reg_src_p = generate_temporary(NULL, false);
-        int reg_dest_p = generate_temporary(NULL, false);
-        int reg_src_end = generate_temporary(NULL, false);
+        int reg_src_p = generate_temporary(NULL);
+        int reg_dest_p = generate_temporary(NULL);
+        int reg_src_end = generate_temporary(NULL);
         #endif
         block_t* loop_block = block_new(next_label++);
         block_t* end_block = block_new(next_label++);
@@ -1024,7 +1024,7 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
     // add the offset to the base if non-zero
     int reg_loc = reg_base;
     if (offset != 0) {
-        reg_loc = generate_temporary(NULL, false);
+        reg_loc = generate_temporary(NULL);
         instruction_t* instruction = block_append(current_block, token, ADD, 3);
         instruction_set_arg_temporary(instruction, 0, reg_loc);
         instruction_set_arg_temporary(instruction, 1, reg_base);
@@ -1070,7 +1070,7 @@ void generate_assign(node_t* node, int reg_out_opt) {
         int reg = register_alloc(node->token);
         #endif
         #ifdef CCI2_IR
-        int reg = generate_temporary(NULL, false);
+        int reg = generate_temporary(NULL);
         #endif
         generate_location(node->first_child, reg);
         generate_node(node->last_child, reg);
@@ -1086,7 +1086,7 @@ void generate_assign(node_t* node, int reg_out_opt) {
     int reg_loc = register_alloc(node->token);
     #endif
     #ifdef CCI2_IR
-    int reg_loc = generate_temporary(NULL, false);
+    int reg_loc = generate_temporary(NULL);
     #endif
     generate_location(node->first_child, reg_loc);
     generate_store(node->token, node->type, reg_out_opt, reg_loc);
@@ -1274,7 +1274,7 @@ static void generate_pre_inc_dec(node_t* node, int reg_val, bool inc) {
     int reg_loc = register_alloc(node->token);
     #endif
     #ifdef CCI2_IR
-    int reg_loc = generate_temporary(NULL, false);
+    int reg_loc = generate_temporary(NULL);
     #endif
     generate_location(node->first_child, reg_loc);
 
@@ -1298,7 +1298,7 @@ static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
     int reg_loc = register_alloc(node->token);
     #endif
     #ifdef CCI2_IR
-    int reg_loc = generate_temporary(NULL, false);
+    int reg_loc = generate_temporary(NULL);
     #endif
     generate_location(node->first_child, reg_loc);
 
@@ -1310,7 +1310,7 @@ static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
     int reg_temp = register_alloc(node->token);
     #endif
     #ifdef CCI2_IR
-    int reg_temp = generate_temporary(NULL, false);
+    int reg_temp = generate_temporary(NULL);
     #endif
     bool indirect = type_is_passed_indirectly(node->type);
     if (indirect) {

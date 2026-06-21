@@ -63,6 +63,8 @@ uint32_t fnv1a_bytes(const char* p, size_t count);
 
 /**
  * Converts a number to decimal.
+ *
+ * Returns the buffer.
  */
 char* itoa_d(int value, char* buffer);
 

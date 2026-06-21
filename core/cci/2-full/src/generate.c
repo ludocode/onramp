@@ -26,20 +26,21 @@
 
 #include <stdlib.h>
 
+#include "block.h"
 #include "common.h"
-#include "record.h"
-#include "node.h"
-#include "type.h"
-#include "symbol.h"
+#include "common.h"
 #include "emit.h"
 #include "function.h"
-#include "block.h"
-#include "instruction.h"
-#include "common.h"
-#include "options.h"
 #include "generate_ops.h"
 #include "generate_stmt.h"
+#include "instruction.h"
+#include "libo-util.h"
+#include "node.h"
+#include "options.h"
+#include "record.h"
+#include "symbol.h"
 #include "token.h"
+#include "type.h"
 
 //#define GENERATE_DEBUG
 
@@ -135,29 +136,41 @@ temporary_t* temporary_new(string_t* name) {
     return temporary;
 }
 
-int generate_temporary(string_t* /*nullable*/ name, bool variable) {
-    // TODO asprintf calls are slow
+int generate_temporary(string_t* /*nullable*/ name) {
+    size_t name_length = name ? string_length(name) : 0;
 
     if (name) {
-        // Try to insert with the preferred name
-        char* preferred_cstr;
-        asprintf(&preferred_cstr,
-                "%s%s",
-                variable ? "%%" : "%",
-                name->bytes);
-        string_t* preferred_str = string_intern_cstr(preferred_cstr);
-        free(preferred_cstr);
-        if (!find_temporary(preferred_str)) {
-            return temporary_new(preferred_str)->id;
+        // Generate preferred name as a string_t
+        char* cstr = malloc(name_length + 2);
+        if (!cstr) {
+            fatal("Out of memory.");
         }
+        cstr[0] = '%';
+        memcpy(cstr + 1, name->bytes, name_length);
+        cstr[name_length + 1] = 0;
+        string_t* str = string_intern_cstr(cstr);
+        free(cstr);
+
+        // Try to insert with the preferred name
+        if (!find_temporary(str)) {
+            return temporary_new(str)->id;
+        }
+        string_deref(str);
     }
 
-    char* cstr;
-    asprintf(&cstr, "%s%zu%s%s",
-            variable ? "%%" : "%",
-            vector_count(temporary_list),
-            name ? "_" : "",
-            name ? name->bytes : "");
+    // Generate number (with name prefix if provided)
+    char* cstr = malloc(1 + name_length + 1 + 16 + 1);
+    if (!cstr) {
+        fatal("Out of memory.");
+    }
+    cstr[0] = '%';
+    char* p = cstr + 1;
+    if (name) {
+        memcpy(p, name->bytes, name_length);
+        p += name_length;
+        *p++ = '_';
+    }
+    itoa_d(vector_count(temporary_list), p);
     string_t* str = string_intern_cstr(cstr);
     free(cstr);
     return temporary_new(str)->id;
@@ -298,7 +311,7 @@ static void generate_number(node_t* node, int reg_out) {
         instruction_set_arg_temporary(instruction, 1, reg_out);
 
         // calc high address
-        int temp = generate_temporary(NULL, false);
+        int temp = generate_temporary(NULL);
         instruction = block_append(current_block, node->token, ADD, 3);
         instruction_set_arg_temporary(instruction, 0, temp);
         instruction_set_arg_temporary(instruction, 1, reg_out);
@@ -417,7 +430,7 @@ static void generate_access(node_t* node, int reg_out) {
         int reg_temp = register_alloc(node->token);
         #endif
         #ifdef CCI2_IR
-        int reg_temp = generate_temporary(NULL, false);
+        int reg_temp = generate_temporary(NULL);
         #endif
         generate_access_location(node->token, node->symbol, reg_temp);
         generate_copy(node->token, type, 1, reg_temp, reg_out);
@@ -448,7 +461,7 @@ static void generate_access(node_t* node, int reg_out) {
 static void generate_variable(node_t* node) {
     assert(node->kind == NODE_VARIABLE);
 
-    node->symbol->temporary = generate_temporary(node->symbol->name, true);
+    node->symbol->temporary = generate_temporary(node->symbol->name);
 
     int temp = node->symbol->temporary;
     instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
@@ -575,13 +588,13 @@ void generate_function(function_t* function) {
         assert(param->kind == NODE_PARAMETER);
         symbol_t* symbol = param->symbol;
         if (symbol) {
-            symbol->temporary = generate_temporary(symbol->name, true);
+            symbol->temporary = generate_temporary(symbol->name);
         }
     }
     if (function->type->is_variadic) {
-        string_t* names = string_intern_cstr("_Va");
-        function->variadic_temporary = generate_temporary(names, true);
-        string_deref(names);
+        string_t* name = string_intern_cstr("_Vargs");
+        function->variadic_temporary = generate_temporary(name);
+        string_deref(name);
     }
     #endif
 
@@ -1687,7 +1700,7 @@ void generate_node(node_t* node, int reg_out_opt) {
             }
             #endif // !CCI2_IR
             #ifdef CCI2_IR
-            reg_out = generate_temporary(NULL, false);
+            reg_out = generate_temporary(NULL);
             if (type_is_passed_indirectly(node->type)) {
                 fatal("TODO IR generate var for indirect node");
             }

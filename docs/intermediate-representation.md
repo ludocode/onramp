@@ -55,17 +55,15 @@ Onramp IR is essentially a three-address code. The only real difference compared
 | `x = !y`               | `isz %x %y`           |
 | `x = !!y`              | `bool %x %y`          |
 |------------------------|-----------------------|
-| `x = &y`               | `mov %x %%y` \*       |
-| `x = *y`               | `ldw %x %y`           |
-| `*x = y`               | `stw %y %x` \*        |
+| `x = &y`               | `mov %x %Y` \*        |
+| `x = *y`               | `ldw %x %Y`           |
+| `*x = y`               | `stw %y %X` \*        |
 |------------------------|-----------------------|
 | `goto L1`              | `jmp &L1`             |
 |------------------------|-----------------------|
 | `if x < y goto L1`     | `lts %_T1 %x %y`      |
 | `goto L2`              | `br %_T1 &L1 &L2`     |
 |------------------------|-----------------------|
-
-\* By convention, if a temporary `%y` is backed by a variable, the address of that variable is stored in another temporary called `%%y`. There is no way to get the address of a temporary.
 
 \* Note the different order of arguments in load and store instructions. For all load and store instructions, the first argument is the temporary value and the second argument is the address. This order is the same as Onramp assembly; the difference with assembly is that there is only a single address argument instead of a base and offset pair.
 
@@ -105,19 +103,16 @@ The above would be compiled (with optimizations disabled) to the following:
 
 ```asm
 mul %1 3 2
-add %foo 5 %1
-var %%foo 4 %
-stw %foo %%foo
+add %2 5 %1
+var %foo 4 %
+stw %2 %foo
 ```
 
 In the above code:
 
-- The computation is performed using a generated temporary `%1`.
-- The result is stored in temporary `%foo`.
-- A variable is allocated on the stack where `%%foo` is a pointer to it.
-- Finally, the value `%foo` is stored in the variable.
-
-The C expression `&foo` is simply the temporary `%%foo`. If the address of the variable is never taken, `%%foo` will never be read, so the variable can be optimized away.
+- The computation is performed using generated temporares `%1` and `%2`.
+- A variable is allocated on the stack where `%foo` is a pointer to it.
+- The result `%2` is stored in the variable `%foo`.
 
 As seen above, the compiler generates numbered temporaries for anonymous intermediate r-values. Variables for these are never created because it is not possible to take the address of r-values.
 
@@ -129,7 +124,7 @@ Function parameters are named after the symbol declaration and before the first 
 
 Parameters are given as *variables*: storage for them is already allocated as though by `var` instructions and the parameter value is stored at that location. (This is done automatically for all parameters because the compiler would do it anyway.)
 
-Therefore, named parameters are actually *pointers* to the arguments given to the function. They are named with a `%%` prefix by convention.
+Therefore, named parameters are actually *pointers* to the arguments given to the function.
 
 For example, in a function like this:
 
@@ -143,21 +138,21 @@ The compiler will emit code like this:
 
 ```asm
 =add
-    %%x %%y
+    %x %y
 :_L1
-    ldw %x %%x
-    ldw %y %%x
-    add %1 %x %y
-    ret %1
+    ldw %1 %x
+    ldw %2 %x
+    add %3 %1 %2
+    ret %3
 ```
 
-In the above, `%x` is the value of the first parameter, and `%%x` is a pointer to its storage on the stack. These are used by the compiler like ordinary variables: whenever the compiler changes the value of `%x`, it will also emit a store to `%%x`, and whenever it uses the value `%x`, it will first emit a load of `%%x`.
+In the above, `%x` is a pointer to the first parameter and `%y` is a pointer to the second. These are used by the compiler like ordinary variables: whenever the compiler changes the value of `x`, it will emit a store to `%x`, and whenever it uses the value of `x`, it will first emit a load of `%x`.
 
-If the address of `x` is taken in the C code, `&x` is simply the value `%%x`. If the address of `x` is never taken, the loads and stores to `%%x` may be optimized away.
+If the address of `x` is taken in the C code, `&x` is simply the value `%x`. If the address of `x` is never taken, the loads and stores to `%x` may be optimized away.
 
-Parameters can be ignored with the sentinel `%` for the value, the variable, or both. This is usually used for unnamed parameters.
+Parameters can be ignored with the sentinel `%`. This is usually used for unnamed parameters.
 
-In the standard Onramp call convention, the first four arguments are passed in registers and additional arguments are passed on the stack. The code generator will allocate variables for the first four arguments; if they are unused, they will be optimized away. The compiler will map any additional arguments to their position above the frame pointer.
+In the standard Onramp call convention, the first four arguments are passed in registers and additional arguments are passed on the stack. The code generator will allocate variables for the first four arguments; if they are unused, they can be optimized away. The compiler will map any additional arguments to their position above the frame pointer.
 
 Note that in the standard calling convention, non-primitive types and types larger than 32 bits are passed indirectly: the caller allocates storage and passes a pointer to it. Therefore, the parameter variable is a pointer to the pointer. For example:
 
@@ -168,25 +163,25 @@ int taxicab_length(struct point p) {
 }
 ```
 
-The compiler will emit:
+For the above, the compiler will emit something like this:
 
 ```asm
 =taxicab_length
-    %%%p
+    %p
 :_L1
-    ldw %%p %%%p
-    ldw %x %%p
-    add %1 %%p 4
-    ldw %y %1
-    add %2 %x %y
-    ret %2
+    ldw %1 %p      ; %1 = p, also &p.x
+    ldw %2 %1      ; %2 = p.x
+    add %3 %1 4    ; %3 = &p.y
+    ldw %4 %3      ; %4 = p.y
+    add %5 %2 %4   ; %5 = p.x + p.y
+    ret %5
 ```
 
 
 
 ## Variadic Arguments
 
-If a function takes variadic arguments, the keyword `varargs` should precede a final temporary that will contain the address of the first variadic argument. By convention this variable is named `%%_Vargs` by the compiler. For example:
+If a function takes variadic arguments, the keyword `varargs` should precede a final temporary that will contain the address of the first variadic argument. By convention this variable is named `%_Vargs` by the compiler. For example:
 
 ```c
 int fprintf(FILE* file, const char* format, ...) {
@@ -198,12 +193,12 @@ The above would be compiled as:
 
 ```asm
 =printf
-    %%file %%format varargs %%_Vargs
+    %file %format varargs %_Vargs
 :_L1
     ; function body
 ```
 
-The code can load from `%%_Vargs` and decrement it to extract the variadic parameters.
+The code can load from `%_Vargs` and increment it to extract the variadic parameters.
 
 
 
@@ -223,7 +218,7 @@ call % puts %str end
 ```asm
 ; void free_sized(void* ptr, size_t) {free(ptr);}
 =free_sized
-    %%ptr %
+    %ptr %
 :_Lstart
     call % ^free %ptr %
     ret %
@@ -240,7 +235,7 @@ ret %
 
 ```asm
 ; int x[4];
-var %%x 16 %
+var %x 16 %
 ```
 
 
@@ -421,10 +416,10 @@ The order and meaning of arguments matches the standard Onramp calling conventio
 For example, to compute `sqrt(2)`:
 
 ```asm
-var %%arg 8 %
-call % ^__int_to_double %%arg 2 end
-var %%result 8 %
-call % ^sqrt %%result %arg %
+var %arg 8 %
+call % ^__int_to_double %arg 2 end
+var %result 8 %
+call % ^sqrt %result %arg %
 ```
 
 example sequence of function calls:
@@ -438,14 +433,17 @@ free(ptr);
 The above C code is equivalent to the following IR:
 
 ```asm
-call %ptr malloc %size end
-var %%ptr 4 %
-stw %ptr %%ptr
-call % use_pointer %ptr end
-call % free %ptr end
+ldw %1 %size
+call %2 malloc %1 end
+var %ptr 4 %
+stw %2 %ptr
+ldw %3 %ptr
+call % use_pointer %3 end
+ldw %4 %ptr
+call % free %4 end
 ```
 
-If a `call` is followed directly by a `ret` with the returned temporary, the code generator may attempt a tail call optimization. This is not guaranteed; for example it can fail if the function needs to pass arguments on the stack.
+If a `call` is followed directly by a `ret` (with the returned temporary or none), the code generator may attempt a tail call optimization. This is not guaranteed; for example it can fail if the function needs to pass arguments on the stack.
 
 
 
@@ -510,19 +508,19 @@ If the alignment is the sentinel `%`, a default alignment is used. (The default 
 For example, to define a `short` stack variable:
 
 ```asm
-var %%x 2 %
+var %x 2 %
 ```
 
 To define a 16-byte word-aligned struct:
 
 ```asm
-var %%s 16 %
+var %s 16 %
 ```
 
 To define an array of 8 shorts:
 
 ```asm
-var %%a 16 2
+var %a 16 2
 ```
 
 
