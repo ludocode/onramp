@@ -27,6 +27,8 @@
 #include <stdlib.h>
 
 #include "libo-error.h"
+#include "libo-string.h"
+#include "libo-util.h"
 #include "token.h"
 #include "lexer.h"
 
@@ -52,4 +54,14 @@ void vfatal_token(struct token_t* token, const char* format, va_list args) {
 
 bool is_pow2(int n) {
     return n && !(n & (n - 1));
+}
+
+string_t* string_label_name(int id) {
+    size_t prefix_len = strlen(STRING_LABEL_PREFIX);
+    char* cstr = malloc(prefix_len + 16);
+    memcpy(cstr, STRING_LABEL_PREFIX, prefix_len);
+    itoa_d(id, cstr + prefix_len);
+    string_t* str = string_intern_cstr(cstr);
+    free(cstr);
+    return str;
 }

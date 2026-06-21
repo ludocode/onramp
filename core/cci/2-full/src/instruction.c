@@ -154,6 +154,7 @@ void instruction_set_arg_sentinel(instruction_t* instruction, size_t arg) {
 }
 
 void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, int temporary) {
+    assert(temporary != TEMPORARY_INVALID);
     argument_t* argument = instruction_argument(instruction, arg);
     argument->type = argument_type_temporary;
     argument->number = temporary;

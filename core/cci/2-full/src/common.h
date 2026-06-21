@@ -40,6 +40,7 @@
 
 //#define GENERATE_DEBUG
 
+struct string_t;
 struct token_t;
 
 /**
@@ -69,10 +70,16 @@ typedef enum builtin_t {
     BUILTIN_FUNC, // __func__, __FUNCTION__
 } builtin_t;
 
+#define TEMPORARY_INVALID (-1)
+
 // TODO for lack of a better place to put this, it's here for now
 /**
  * Returns the name of the given temporary.
  */
 struct string_t* temporary_name(int id);
+// TODO this also, need to move temporaries to separate file probably
+void clear_temporaries(void);
+
+struct string_t* string_label_name(int id);
 
 #endif

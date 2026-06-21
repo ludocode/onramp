@@ -58,7 +58,7 @@ typedef struct temporary_t {
     string_t* name;
 } temporary_t;
 
-static void clear_temporaries(void) {
+void clear_temporaries(void) {
     table_remove_all(temporary_table);
     for (size_t i = vector_count(temporary_list); i-- != 0;) {
         temporary_t* temporary = vector_at(temporary_list, i);
@@ -82,7 +82,7 @@ static temporary_t* find_temporary(const string_t* name) {
 }
 
 string_t* temporary_name(int id) {
-    assert(id > 0);
+    assert(id != -1);
     temporary_t* temporary = vector_at(temporary_list, id);
     //fprintf(stderr,"TEMPORARY %i %s\n", temporary->id, temporary->name->bytes);
     return temporary->name;
@@ -335,22 +335,34 @@ static void generate_number(node_t* node, int reg_out) {
     }
 }
 
-#ifndef CCI2_IR
-
 static void generate_character(node_t* node, int reg_out) {
     assert(node->kind == NODE_CHARACTER);
     assert(node->first_child == NULL);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, MOV, reg_out, node->u32);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_number(instruction, 1, node->u32);
+    #endif
 }
 
 static void generate_string(node_t* node, int reg_out) {
     assert(node->kind == NODE_STRING);
     assert(node->first_child == NULL);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, IMW, ARGTYPE_GENERATED, reg_out, '^', STRING_LABEL_PREFIX, node->string_label);
     block_append(current_block, node->token, ADD, reg_out, RPP, reg_out);
+    #endif
+    #ifdef CCI2_IR
+    string_t* name = string_label_name(node->string_label);
+    instruction_t* instruction = block_append(current_block, node->token, SYM, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_absolute(instruction, 1, name);
+    string_deref(name);
+    #endif
 }
-
-#endif
 
 // Generates access using the given opcode.
 // The opcode can be ADD to generate a location, or LDB/LDS/LDW to generate a load.
@@ -697,16 +709,16 @@ static void generate_call(node_t* call, int reg_out) {
     // additional argument to the function.
     int arg = 2;
     if (return_indirect) {
-        args[0] = -1;
+        args[0] = TEMPORARY_INVALID;
         args[2] = reg_out;
         ++arg;
     } else {
-        args[0] = reg_out; // might be -1, will be treated as sentinel
+        args[0] = reg_out; // might be TEMPORARY_INVALID, will be treated as sentinel
     }
 
     // The second argument is the function to call. Call it directly if we can
     if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
-        args[1] = -1; // will be replaced with asm name
+        args[1] = TEMPORARY_INVALID; // will be replaced with asm name
     } else {
         // We need to load it into a register.
         int temp = generate_temporary(NULL);
@@ -732,12 +744,12 @@ static void generate_call(node_t* call, int reg_out) {
 
     // Finally create the call instruction and copy the args in
     instruction_t* instruction = block_append(current_block, call->token, CALL, arg_count);
-    if (args[0] == -1) {
+    if (args[0] == TEMPORARY_INVALID) {
         instruction_set_arg_sentinel(instruction, 0);
     } else {
         instruction_set_arg_temporary(instruction, 0, args[0]);
     }
-    if (args[1] == -1) {
+    if (args[1] == TEMPORARY_INVALID) {
         instruction_set_arg_absolute(instruction, 1, function->symbol->asm_name);
     } else {
         instruction_set_arg_temporary(instruction, 1, args[1]);
@@ -767,7 +779,7 @@ static void generate_call(node_t* call, int reg_out) {
     // if the return value is passed indirectly, stash its pointer for now. (it
     // goes at the top of the stack after pushing args.)
     bool return_indirect = type_is_passed_indirectly(call->type);
-    int reg_return_indirect = -1;
+    int reg_return_indirect = TEMPORARY_INVALID;
     if (return_indirect) {
         reg_return_indirect = register_alloc(call->token);
         block_append(current_block, call->token, MOV, reg_return_indirect, reg_out);
@@ -2004,10 +2016,8 @@ void generate_node(node_t* node, int reg_out_opt) {
         // other expressions
         case NODE_IF: generate_if(node, reg_out); break;
         case NODE_SEQUENCE: generate_sequence(node, false, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_CHARACTER: generate_character(node, reg_out); break;
         case NODE_STRING: generate_string(node, reg_out); break;
-        #endif // !CCI2_IR
         case NODE_NUMBER: generate_number(node, reg_out); break;
         case NODE_ACCESS: generate_access(node, reg_out); break;
         case NODE_CALL: generate_call(node, reg_out); break;
