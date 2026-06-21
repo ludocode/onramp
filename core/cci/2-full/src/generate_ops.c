@@ -740,8 +740,6 @@ void generate_not_equal(node_t* node, int reg_out) {
     #endif
 }
 
-#ifndef CCI2_IR
-
 /*
  * Generates code to zero out memory for the given type with the given number
  * of elements at the address stored in the given register.
@@ -750,6 +748,9 @@ void generate_not_equal(node_t* node, int reg_out) {
  * used to zero out strings in initializers among other things.
  */
 void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc) {
+    if (count == 0) {
+        return;
+    }
     size_t size = type_size(type);
     size_t total = count * size;
     size_t align = type_alignment(type);
@@ -757,42 +758,96 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
     // choose a step size
     size_t step;
     size_t steps;
-    opcode_t store;
+    opcode_t opcode;
     if (0 == (total & 3) && 0 == (align & 3)) {
         step = 4;
         steps = total >> 2;
-        store = STW;
+        opcode = STW;
     } else {
         step = 1;
         steps = total;
-        store = STB;
+        opcode = STB;
     }
 
     // If the number of steps is small, unroll it.
     if (steps <= 8) {
         for (size_t i = 0; i < count; i += step) {
-            block_append(current_block, token, store, 0, reg_loc, i);
+            #ifndef CCI2_IR
+            block_append(current_block, token, opcode, 0, reg_loc, i);
+            #endif
+            #ifdef CCI2_IR
+            int temp = generate_temporary(NULL);
+            instruction_t* add = block_append(current_block, token, ADD, 3);
+            instruction_set_arg_temporary(add, 0, temp);
+            instruction_set_arg_temporary(add, 1, reg_loc);
+            instruction_set_arg_number(add, 2, i);
+
+            instruction_t* store = block_append(current_block, token, opcode, 2);
+            instruction_set_arg_number(store, 0, 0);
+            instruction_set_arg_temporary(store, 1, temp);
+            #endif
         }
 
     // Otherwise insert a loop.
     } else {
-        int reg_i = register_alloc(token);
         block_t* loop_block = block_new(next_label++);
         block_t* end_block = block_new(next_label++);
         function_add_block(current_function, loop_block);
         function_add_block(current_function, end_block);
 
+        #ifndef CCI2_IR
+        int reg_i = register_alloc(token);
         block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, total);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+        #endif
+        #ifdef CCI2_IR
+        int temp_p = generate_temporary(NULL);
+        int temp_end = generate_temporary(NULL);
+        int temp_cmp = generate_temporary(NULL);
+
+        instruction_t* mov = block_append(current_block, token, MOV, 2);
+        instruction_set_arg_temporary(mov, 0, temp_p);
+        instruction_set_arg_temporary(mov, 1, reg_loc);
+
+        instruction_t* add = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(add, 0, temp_end);
+        instruction_set_arg_temporary(add, 1, temp_p);
+        instruction_set_arg_number(add, 2, total);
+        #endif
 
         current_block = loop_block;
+
+        #ifndef CCI2_IR
         block_append(current_block, token, JZ, reg_i, '&', JUMP_LABEL_PREFIX, end_block->label);
         block_append(current_block, token, SUB, reg_i, reg_i, step);
-        block_append(current_block, token, store, 0, reg_loc, reg_i);
+        block_append(current_block, token, opcode, 0, reg_loc, reg_i);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* store = block_append(current_block, token, opcode, 2);
+        instruction_set_arg_number(store, 0, 0);
+        instruction_set_arg_temporary(store, 1, temp_p);
+
+        add = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(add, 0, temp_p);
+        instruction_set_arg_temporary(add, 1, temp_p);
+        instruction_set_arg_number(add, 2, step);
+
+        instruction_t* sub = block_append(current_block, token, SUB, 3);
+        instruction_set_arg_temporary(sub, 0, temp_cmp);
+        instruction_set_arg_temporary(sub, 1, temp_p);
+        instruction_set_arg_temporary(sub, 2, temp_end);
+
+        instruction_t* br = block_append(current_block, token, BR, 3);
+        instruction_set_arg_temporary(br, 0, temp_cmp);
+        instruction_set_arg_temporary(br, 1, loop_block->label);
+        instruction_set_arg_number(br, 2, end_block->label);
+        #endif
 
         current_block = end_block;
+        #ifndef CCI2_IR
         register_free(token, reg_i);
+        #endif
     }
 }
 
@@ -800,15 +855,23 @@ void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_ba
     if (offset == 0) {
         generate_zero_array(token, type, 1, reg_base);
     } else {
+        #ifndef CCI2_IR
         int reg_loc = register_alloc(token);
         block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
         block_append(current_block, token, ADD, reg_loc, reg_loc, reg_base);
         generate_zero_array(token, type, 1, reg_loc);
         register_free(token, reg_loc);
+        #endif
+        #ifdef CCI2_IR
+        int reg_loc = generate_temporary(NULL);
+        instruction_t* add = block_append(current_block, token, ADD, 3);
+        instruction_set_arg_temporary(add, 0, reg_loc);
+        instruction_set_arg_temporary(add, 1, reg_base);
+        instruction_set_arg_number(add, 2, offset);
+        generate_zero_array(token, type, 1, reg_loc);
+        #endif
     }
 }
-
-#endif
 
 void generate_copy(token_t* token, type_t* type, uint32_t count,
         int reg_src, int reg_dest)
@@ -887,6 +950,7 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         int reg_dest_p = generate_temporary(NULL);
         int reg_src_end = generate_temporary(NULL);
         #endif
+
         block_t* loop_block = block_new(next_label++);
         block_t* end_block = block_new(next_label++);
         function_add_block(current_function, loop_block);

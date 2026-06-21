@@ -97,7 +97,7 @@ static void generate_location_array_subscript(node_t* node, int reg_out);
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
 static void generate_builtin(node_t* node, int reg_out);
 static void generate_builtin_location(node_t* node, int reg_out);
-//static void generate_initializer(node_t* variable, int reg_loc);
+static void generate_initializer(node_t* variable, int reg_loc);
 
 void generate_setup(void) {
     #ifndef CCI2_IR
@@ -470,8 +470,7 @@ static void generate_variable(node_t* node) {
     instruction_set_arg_sentinel(instruction, 2); // TODO alignment
 
     if (node->first_child) {
-        fatal("TODO IR generate_initializer()");
-        //generate_initializer(node, temp);
+        generate_initializer(node, generate_temporary(NULL));
     }
 }
 #endif
@@ -1251,15 +1250,18 @@ static void generate_cast_direct_to_direct(node_t* node,
     }
 }
 
-#ifndef CCI2_IR
-
 static void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
 
     if (type_is_array(target)) {
         if (expr->kind != NODE_STRING) {
             fatal("Internal error: Cannot initialize an array with a non-string scalar");
         }
+        #ifndef CCI2_IR
         int reg_val = register_alloc(expr->token);
+        #endif
+        #ifdef CCI2_IR
+        int reg_val = generate_temporary(NULL);
+        #endif
         generate_node(expr, reg_val);
 
         // TODO need to handle wide string arrays, currently we assume char
@@ -1268,37 +1270,73 @@ static void generate_initializer_scalar(node_t* expr, type_t* target, int reg_ba
 
         // Copy bytes from the string to fill the array
         size_t copy_count = array_count < string_count ? array_count : string_count;
+        #ifndef CCI2_IR
         int reg_loc = register_alloc(expr->token);
         block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
         block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
+        #endif
+        #ifdef CCI2_IR
+        int reg_loc = generate_temporary(NULL);
+        instruction_t* add = block_append(current_block, expr->token, ADD, 3);
+        instruction_set_arg_temporary(add, 0, reg_loc);
+        instruction_set_arg_temporary(add, 1, reg_base);
+        instruction_set_arg_number(add, 2, offset);
+        #endif
         generate_copy(expr->token, target->ref, copy_count, reg_val, reg_loc);
 
         // If we're initializing a char array with too short a string, we need
         // to zero out the rest of the array.
         if (array_count > string_count) {
+            #ifndef CCI2_IR
             block_append_op_imm(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
+            #endif
+            #ifdef CCI2_IR
+            instruction_t* add = block_append(current_block, expr->token, ADD, 3);
+            instruction_set_arg_temporary(add, 0, reg_loc);
+            instruction_set_arg_temporary(add, 1, reg_loc);
+            instruction_set_arg_number(add, 2, string_count);
+            #endif
             generate_zero_array(expr->token, target->ref, array_count - string_count, reg_loc);
         }
 
+        #ifndef CCI2_IR
         register_free(expr->token, reg_loc);
         register_free(expr->token, reg_val);
+        #endif
 
     } else if (type_is_passed_indirectly(target)) {
         if (offset == 0) {
             generate_node(expr, reg_base);
         } else {
+            #ifndef CCI2_IR
             int reg_loc = register_alloc(expr->token);
             block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
             block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
             generate_node(expr, reg_loc);
             register_free(expr->token, reg_loc);
+            #endif
+            #ifdef CCI2_IR
+            int reg_loc = generate_temporary(NULL);
+            instruction_t* add = block_append(current_block, expr->token, ADD, 3);
+            instruction_set_arg_temporary(add, 0, reg_loc);
+            instruction_set_arg_temporary(add, 1, reg_base);
+            instruction_set_arg_number(add, 2, offset);
+            generate_node(expr, reg_loc);
+            #endif
         }
 
     } else {
+        #ifndef CCI2_IR
         int reg_val = register_alloc(expr->token);
+        #endif
+        #ifdef CCI2_IR
+        int reg_val = generate_temporary(NULL);
+        #endif
         generate_node(expr, reg_val);
         generate_store_offset(expr->token, target, reg_val, reg_base, offset);
+        #ifndef CCI2_IR
         register_free(expr->token, reg_val);
+        #endif
     }
 }
 
@@ -1338,12 +1376,25 @@ static void generate_initializer_list(node_t* list, type_t* type, int reg_base, 
 
     // Zero out the rest of the array
     if (type_is_array(type) && i < type->count) {
+        #ifndef CCI2_IR
         int reg_loc = register_alloc(list->token);
         block_append(current_block, list->token, IMW, ARGTYPE_NUMBER, reg_loc,
                 base_offset + i * type_size(type->ref));
         block_append(current_block, list->token, ADD, reg_loc, reg_loc, reg_base);
+        #endif
+        #ifdef CCI2_IR
+        int reg_loc = generate_temporary(NULL);
+        instruction_t* add = block_append(current_block, list->token, ADD, 3);
+        instruction_set_arg_temporary(add, 0, reg_loc);
+        instruction_set_arg_temporary(add, 1, reg_base);
+        instruction_set_arg_number(add, 2, base_offset + i * type_size(type->ref));
+        #endif
+
         generate_zero_array(list->token, type->ref, type->count - i, reg_loc);
+
+        #ifndef CCI2_IR
         register_free(list->token, reg_loc);
+        #endif
 
     // Zero out the rest of the struct
     } else if (type_matches_base(type, BASE_RECORD) && type->record->is_struct) {
@@ -1362,6 +1413,7 @@ static void generate_initializer_list(node_t* list, type_t* type, int reg_base, 
  * statement of a statement expression) so the given register is available for
  * our use. We use it as a pointer to the current location in the variable
  * being initialized.
+ * TODO above description is for non-IR. in IR, reg_loc is a new temporary we use to step through the initializer list.
  */
 static void generate_initializer(node_t* variable, int reg_loc) {
     generate_access_location(variable->token, variable->symbol, reg_loc);
@@ -1384,8 +1436,6 @@ static void generate_initializer(node_t* variable, int reg_loc) {
         generate_initializer_scalar(variable->first_child, var_type, reg_loc, 0);
     }
 }
-
-#endif // !CCI2_IR
 
 /**
  * Given a pointer and member offset, performs a dereference operation. This
