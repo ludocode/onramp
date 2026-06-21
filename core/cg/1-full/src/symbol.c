@@ -31,25 +31,19 @@
 #include "libo-vector.h"
 #include "location.h"
 
-//symbol_t* current_symbol;
-
 symbol_t* symbol_new(const char* name, location_t* location) {
-    symbol_t* symbol = malloc(sizeof(symbol_t));
+    symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->name = strdup(name);
     symbol->location = location;
+    symbol->parameters = vector_new();
     symbol->blocks = vector_new();
     symbol->frame_size = 0;
     return symbol;
 }
 
 void symbol_delete(symbol_t* symbol) {
-    // blocks are deleted by the block table now
-    /*
-    for (size_t i = vector_count(symbol->blocks); i-- > 0;) {
-        block_delete(vector_at(symbol->blocks, i));
-    }
-    */
     vector_delete(symbol->blocks);
+    vector_delete(symbol->parameters);
     location_delete(symbol->location);
     free(symbol->name);
     free(symbol);

@@ -35,6 +35,80 @@
 #include "variable.h"
 
 void transform_parameters(symbol_t* symbol) {
+    vector_t* parameters = symbol->parameters;
+    if (vector_is_empty(parameters)) {
+        return;
+    }
+
+    vector_t* preamble = vector_new();
+
+    // The first four parameters are passed in registers. Generate a variable
+    // for each one and append a store instruction.
+    size_t count = vector_count(parameters);
+    size_t register_count = (count > 4) ? 4 : count;
+    for (size_t i = 0; i < register_count; ++i) {
+        temporary_t* temporary = vector_at(parameters, i);
+
+        // insert `var %name 4 %`
+        instruction_t* var = instruction_new(location_new_copy(symbol->location), opcode_var);
+        instruction_append(var, argument_new_temporary(temporary));
+        instruction_append(var, argument_new_integer(4));
+        instruction_append(var, argument_new_sentinel());
+        vector_append(preamble, var);
+
+        // insert `stw rN %name`
+        instruction_t* stw = instruction_new(location_new_copy(symbol->location), opcode_stw);
+        instruction_append(stw, argument_new_register(i));
+        instruction_append(stw, argument_new_temporary(temporary));
+        vector_append(preamble, stw);
+    }
+
+    // Any additional parameters are passed on the stack. Each one is turned
+    // into a variable with positive frame offset.
+    int offset = 4;
+    for (size_t i = 4; i < count; ++i) {
+        // insert `add %name rfp <offset>`
+        instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
+        instruction_append(add, argument_new_temporary(vector_at(parameters, i)));
+        instruction_append(add, argument_new_register(RFP));
+        instruction_append(add, argument_new_integer(offset));
+        vector_append(preamble, add);
+        offset += 4;
+    }
+
+    // If there is a variadic parameter, assign it now.
+    if (symbol->varargs) {
+
+        // insert `add %_Vargs rfp <offset>`
+        instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
+        instruction_append(add, argument_new_temporary(symbol->varargs));
+        instruction_append(add, argument_new_register(RFP));
+        // We don't need to handle mix-type, it will be split out later
+        //if (offset < 128) {
+            instruction_append(add, argument_new_integer(offset));
+        /*
+        } else {
+            // offset doesn't fix in mix-type byte. use r9
+            instruction_append(sub, argument_new_register(9));
+
+            // insert `imw r9 N`
+            instruction_t* imw = instruction_new(location_new_copy(symbol->location), opcode_imw);
+            instruction_append(imw, argument_new_register(9));
+            instruction_append(imw, argument_new_integer(offset));
+            vector_append(preamble, imw);
+        }
+        */
+        vector_append(preamble, add);
+    }
+
+    // Insert all generated instructions at the front of the first block.
+    // TODO we need a vector bulk insert function to do this much more efficiently
+    block_t* start_block = vector_at(symbol->blocks, 0);
+    for (size_t i = vector_count(preamble); i-- != 0;) {
+        vector_insert(start_block->instructions, 0, vector_at(preamble, i));
+    }
+
+    vector_delete(preamble);
 }
 
 void transform_entry(struct symbol_t* symbol) {

@@ -63,6 +63,14 @@ temporary_t* temporary_new_anonymous(void);
  */
 temporary_t* temporary_find_or_create(const char* name);
 
+/**
+ * Creates a temporary with the given name, ensuring that it doesn't already
+ * exist.
+ *
+ * Returns NULL if it already exists.
+ */
+temporary_t* temporary_create(const char* cname);
+
 void temporaries_setup(void);
 void temporaries_teardown(void);
 

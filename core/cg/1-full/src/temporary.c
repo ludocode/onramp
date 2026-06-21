@@ -76,7 +76,7 @@ temporary_t* temporary_new_anonymous(void) {
     }
 }
 
-temporary_t* temporary_find_or_create(const char* cname) {
+temporary_t* temporary_find_or_create_impl(const char* cname, bool* found) {
     string_t* name = string_intern_cstr(cname);
 
     for (table_entry_t* entry = table_bucket(temporary_table, string_hash(name));
@@ -84,13 +84,29 @@ temporary_t* temporary_find_or_create(const char* cname) {
     {
         temporary_t* temporary = (temporary_t*)entry;
         if (string_equal(temporary->name, name)) {
+            *found = true;
             string_deref(name);
             return temporary;
         }
     }
 
+    *found = false;
     temporary_t* temporary = temporary_new(name);
     table_put(temporary_table, &temporary->entry, string_hash(name));
+    return temporary;
+}
+
+temporary_t* temporary_find_or_create(const char* cname) {
+    bool found;
+    return temporary_find_or_create_impl(cname, &found);
+}
+
+temporary_t* temporary_create(const char* cname) {
+    bool found;
+    temporary_t* temporary = temporary_find_or_create_impl(cname, &found);
+    if (found) {
+        return NULL;
+    }
     return temporary;
 }
 
@@ -140,19 +156,6 @@ int temporary_compare_live_interval(const void* vleft, const void* vright) {
         return 1;
     }
 
-    // For matching start index, sort by shortest first since we prefer to
-    // spill longer intervals. (This doesn't change the results of the
-    // algorithm but it might slightly reduce the work we need to do in linear
-    // scan.)
-    if (left->interval_start < right->interval_start) {
-        return -1;
-    }
-    if (left->interval_start > right->interval_start) {
-        return 1;
-    }
-
-    // It shouldn't be possible for two temporaries to have the same interval
-    // because only one temporary can be stored per instruction.
-    assert(false);
+    // Otherwise it doesn't matter.
     return 0;
 }

@@ -42,12 +42,12 @@
  */
 #ifndef __onramp_cpp_omc__
     #ifndef DEBUG
-        #define knuth_hash_32(value, bits) (((value) * 2654435761u) >> (32 - (bits)))
+        #define knuth_hash_32(value, bits) (((uint32_t)(value) * 2654435761u) >> (32u - (uint32_t)(bits)))
     #endif
 #endif
 #ifndef knuth_hash_32
-    static inline uint32_t knuth_hash_32(uint32_t value, int bits) {
-        return (value * 2654435761u) >> (32 - bits);
+    static inline uint32_t knuth_hash_32(uint32_t value, uint32_t bits) {
+        return (value * 2654435761u) >> (32u - bits);
     }
 #endif
 

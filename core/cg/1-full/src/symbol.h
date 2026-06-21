@@ -28,8 +28,9 @@
 #include <stddef.h>
 
 struct block_t;
-struct vector_t;
 struct location_t;
+struct temporary_t;
+struct vector_t;
 
 /**
  * All data for the current symbol being compiled.
@@ -42,11 +43,11 @@ struct location_t;
 typedef struct symbol_t {
     char* name;
     struct location_t* location;
+    struct vector_t* parameters; // list of temporaries
+    struct temporary_t* varargs; // varargs temporary or null
     struct vector_t* blocks;
     size_t frame_size;
 } symbol_t;
-
-//extern symbol_t* current_symbol;
 
 /**
  * Creates a symbol.

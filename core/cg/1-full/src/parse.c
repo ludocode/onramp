@@ -177,22 +177,52 @@ static void parse_identifier(bool percent) {
     }
 }
 
-static void parse_parameters(void) {
+static void parse_parameters(symbol_t* symbol) {
     for (;;) {
         parse_whitespace_and_comments();
         if (current_char == '%') {
-            // TODO
-            fatal("Parameter parsing is not implemented yet.");
+            parse_identifier(true);
+            temporary_t* temporary = temporary_create(identifier);
+            if (!temporary) {
+                fatal("Duplicate parameter.");
+            }
+            vector_append(symbol->parameters, temporary);
+            continue;
         }
+
         if (current_char == ':') {
             return;
         }
+
         if (current_char == 'v') {
+
+            // the only keyword allowed is varargs
             parse_identifier(false);
             if (0 != strcmp(identifier, "varargs")) {
                 break;
             }
+
+            // parse the variadic temporary
+            parse_whitespace_and_comments();
+            if (current_char != '%') {
+                fatal("Expected a temporary after `varargs`.");
+            }
+            parse_identifier(true);
+            temporary_t* temporary = temporary_create(identifier);
+            if (!temporary) {
+                fatal("Duplicate parameter.");
+            }
+            symbol->varargs = temporary;
+
+            // block must follow
+            parse_whitespace_and_comments();
+            if (current_char != ':') {
+                fatal("Expected a block after varargs temporary.");
+            }
+            return;
         }
+
+        // not recognized. error
         break;
     }
 
@@ -581,7 +611,7 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     // parse preamble (containing a temporary for each parameter, including
     // possibly a varargs parameter)
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
-    parse_parameters();
+    parse_parameters(symbol);
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
 
     // parse instructions and labels
