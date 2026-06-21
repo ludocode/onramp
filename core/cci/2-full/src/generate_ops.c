@@ -748,6 +748,7 @@ void generate_not_equal(node_t* node, int reg_out) {
  * used to zero out strings in initializers among other things.
  */
 void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc) {
+    assert(reg_loc != -1);
     if (count == 0) {
         return;
     }
@@ -852,6 +853,7 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
 }
 
 void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_base, int offset) {
+    assert(reg_base != -1);
     if (offset == 0) {
         generate_zero_array(token, type, 1, reg_base);
     } else {
