@@ -428,8 +428,6 @@ void generate_bit_not(node_t* node, int reg_out) {
     }
 }
 
-#ifndef CCI2_IR
-
 void generate_logical_not(node_t* node, int reg_out) {
     type_t* source_type = node->first_child->type;
 
@@ -449,6 +447,10 @@ void generate_logical_not(node_t* node, int reg_out) {
 
     if (type_is_long_long(source_type)) {
 
+        #ifdef CCI2_IR
+        fatal("TODO IR long long logical not");
+        #endif
+        #ifndef CCI2_IR
         // generate the value
         block_append(current_block, node->token, SUB, RSP, RSP, 8);
         block_append(current_block, node->token, MOV, reg_out, RSP);
@@ -461,22 +463,47 @@ void generate_logical_not(node_t* node, int reg_out) {
         block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
         register_free(node->token, reg_temp);
         block_append(current_block, node->token, ADD, RSP, RSP, 8);
+        #endif
 
     } else {
         generate_node(node->first_child, reg_out);
 
         // it's an integer. expand it to register size.
         // TODO is this necessary? don't we put in a promotion cast on the argument?
+        #ifndef CCI2_IR
         if (type_size(source_type) == 1) {
             block_append(current_block, node->token, TRB, reg_out, reg_out);
         } else if (type_size(source_type) == 2) {
             block_append(current_block, node->token, TRS, reg_out, reg_out);
         }
+        #endif
+        #ifdef CCI2_IR
+        opcode_t opcode = NOP;
+        if (type_size(source_type) == 1) {
+            opcode = TRB;
+        } else if (type_size(source_type) == 2) {
+            opcode = TRS;
+        }
+        if (opcode != NOP) {
+            instruction_t* instruction = block_append(current_block, node->token, opcode, 2);
+            instruction_set_arg_temporary(instruction, 0, reg_out);
+            instruction_set_arg_temporary(instruction, 1, reg_out);
+        }
+        #endif
     }
 
     // Apply isz (is zero) to the value. This is the logical not instruction.
+    #ifndef CCI2_IR
     block_append(current_block, node->token, ISZ, reg_out, reg_out);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, ISZ, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_temporary(instruction, 1, reg_out);
+    #endif
 }
+
+#ifndef CCI2_IR
 
 static void generate_logical(node_t* node, int reg_out, bool and) {
     int end_label = next_label++;
@@ -1423,8 +1450,6 @@ void generate_post_dec(node_t* node, int reg_out) {
     generate_post_inc_dec(node, reg_out, false);
 }
 
-#ifndef CCI2_IR
-
 void generate_unary_plus(node_t* node, int reg_out) {
     // We don't need to do anything besides generate. Probably unary plus
     // should be an implicit cast, but we should actually insert this cast into
@@ -1455,8 +1480,14 @@ void generate_unary_minus(node_t* node, int reg_out) {
         generate_arithmetic_function(node, node->first_child, NULL, reg_out, func);
     } else {
         generate_node(node->first_child, reg_out);
+        #ifndef CCI2_IR
         block_append(current_block, node->token, SUB, reg_out, 0, reg_out);
+        #endif
+        #ifdef CCI2_IR
+        instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+        instruction_set_arg_number(instruction, 1, 0);
+        instruction_set_arg_temporary(instruction, 2, reg_out);
+        #endif
     }
 }
-
-#endif // !CCI2_IR

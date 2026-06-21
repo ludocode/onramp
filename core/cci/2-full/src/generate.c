@@ -1675,11 +1675,11 @@ static void generate_sizeof(node_t* node, int reg_out) {
     block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, size);
 }
 
+#endif // !CCI2_IR
+
 static void generate_address_of(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
 }
-
-#endif // !CCI2_IR
 
 #ifdef GENERATE_DEBUG
 int debug_depth;
@@ -1990,17 +1990,13 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_SIZEOF: generate_sizeof(node, reg_out); break;
         case NODE_TYPEOF: fatal_token(node->token, "TODO generate TYPEOF");
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
+        #endif // !CCI2_IR
         case NODE_UNARY_PLUS: generate_unary_plus(node, reg_out); break;
         case NODE_UNARY_MINUS: generate_unary_minus(node, reg_out); break;
-        #endif // !CCI2_IR
         case NODE_BIT_NOT: generate_bit_not(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_LOGICAL_NOT: generate_logical_not(node, reg_out); break;
-        #endif // !CCI2_IR
         case NODE_DEREFERENCE: generate_dereference(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_ADDRESS_OF: generate_address_of(node, reg_out); break;
-        #endif // !CCI2_IR
         case NODE_PRE_INC: generate_pre_inc(node, reg_out); break;
         case NODE_PRE_DEC: generate_pre_dec(node, reg_out); break;
 
