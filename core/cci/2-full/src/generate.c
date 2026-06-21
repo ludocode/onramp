@@ -670,7 +670,6 @@ void generate_function(function_t* function) {
     #endif
 }
 
-#ifndef CCI2_IR
 /**
  * Generates a function call.
  *
@@ -685,6 +684,70 @@ static void generate_call(node_t* call, int reg_out) {
     if (!type_is_function(function_type))
         fatal_token(function->token, "Internal error: cannot generate call for non-function");
 
+    #ifdef CCI2_IR
+    // TODO the way we attach instructions to blocks is poor at the moment; we
+    // can't create an instruction until we append it. We'd like to create the
+    // instruction first and append it later. In the meantime we collect the
+    // args in this args array.
+    bool return_indirect = type_is_passed_indirectly(call->type);
+    size_t arg_count = 2 + (node_child_count(call) - 1) + (return_indirect ? 1 : 0);
+    int* args = malloc(arg_count * sizeof(int));
+
+    // If the return value is passed indirectly, storage is passed as an
+    // additional argument to the function.
+    int arg = 2;
+    if (return_indirect) {
+        args[0] = -1;
+        args[2] = reg_out;
+        ++arg;
+    } else {
+        args[0] = reg_out; // might be -1, will be treated as sentinel
+    }
+
+    // The second argument is the function to call. Call it directly if we can
+    if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
+        args[1] = -1; // will be replaced with asm name
+    } else {
+        // We need to load it into a register.
+        int temp = generate_temporary(NULL);
+        if (type_is_function(function->type)) {
+            generate_location(function, temp);
+        } else if (type_is_pointer(function->type) && type_is_function(function->type->ref)) {
+            generate_node(function, temp);
+        } else {
+            fatal("Internal error: call target is neither pointer nor function pointer");
+        }
+        args[1] = temp;
+    }
+
+    // Subsequent arguments must be generated into temporaries.
+    for (node_t* node = call->first_child->right_sibling; node; node = node->right_sibling) {
+        if (type_is_passed_indirectly(node->type)) {
+            fatal("TODO pass function argument indirectly IR");
+        }
+        args[arg] = generate_temporary(NULL);
+        generate_node(node, args[arg]);
+    }
+
+    // Finally create the call instruction and copy the args in
+    instruction_t* instruction = block_append(current_block, call->token, CALL, arg_count);
+    if (args[0] == -1) {
+        instruction_set_arg_sentinel(instruction, 0);
+    } else {
+        instruction_set_arg_temporary(instruction, 0, args[0]);
+    }
+    if (args[1] == -1) {
+        instruction_set_arg_absolute(instruction, 1, function->symbol->asm_name);
+    } else {
+        instruction_set_arg_temporary(instruction, 1, args[1]);
+    }
+    for (size_t i = 2; i < arg_count; ++i) {
+        instruction_set_arg_temporary(instruction, i, args[i]);
+    }
+    free(args);
+    #endif
+
+    #ifndef CCI2_IR
     // push all registers (except for the return register)
     int last_pushed_register = register_loop_count ? R9 : register_next - 1;
     for (int i = R0; i <= last_pushed_register; ++i) {
@@ -805,8 +868,8 @@ static void generate_call(node_t* call, int reg_out) {
             block_append(current_block, call->token, POP, i);
         }
     }
+    #endif // !CCI2_IR
 }
-#endif // !CCI2_IR
 
 /**
  * Generates a cast between integers in a register.
@@ -1684,6 +1747,14 @@ void generate_node(node_t* node, int reg_out_opt) {
                 #endif
                 return;
 
+            #ifdef CCI2_IR
+            case NODE_CALL:
+                if (!type_is_passed_indirectly(node->type)) {
+                    generate_call(node, -1);
+                    return;
+                }
+            #endif
+
             // For any case not handled above, we will have to create stack
             // space to store a temporary value.
             default:
@@ -1828,8 +1899,8 @@ void generate_node(node_t* node, int reg_out_opt) {
         #endif // !CCI2_IR
         case NODE_NUMBER: generate_number(node, reg_out); break;
         case NODE_ACCESS: generate_access(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_CALL: generate_call(node, reg_out); break;
+        #ifndef CCI2_IR
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
         #endif // !CCI2_IR
 
