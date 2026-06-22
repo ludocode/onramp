@@ -438,6 +438,7 @@ static void parse_call_arguments(instruction_t* instruction) {
             if (0 != strcmp(identifier, "end")) {
                 fatal("Expected `end` or a function argument.");
             }
+            break;
         }
         parse_argument_mix_opt(instruction);
     }
@@ -565,8 +566,11 @@ static void parse_block(symbol_t* symbol) {
 
     for (;;) {
         parse_whitespace_and_comments();
-        if (current_char == '=' || current_char == ':' || current_char == EOF)
+        if (current_char == '=' || current_char == '@' ||
+                current_char == ':' || current_char == EOF)
+        {
             break;
+        }
         //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
         vector_append(block->instructions, parse_instruction());
     }
@@ -599,13 +603,14 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     parse_whitespace_and_comments();
 
     // parse the symbol name
-    if (current_char != '=') {
+    if (current_char != '=' && current_char != '@') {
         fatal("Expected a symbol declaration.");
     }
+    bool is_static = current_char == '@';
     location_t* location = location_new_current();
     parse_next_char();
     parse_identifier(false);
-    symbol_t* symbol = symbol_new(identifier, location);
+    symbol_t* symbol = symbol_new(identifier, location, is_static);
     parse_whitespace_and_comments();
 
     // parse preamble (containing a temporary for each parameter, including
@@ -616,7 +621,7 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
 
     // parse instructions and labels
     for (;;) {
-        if (current_char == '=' || current_char == EOF)
+        if (current_char == '=' || current_char == '@' || current_char == EOF)
             break;
 
         // a label starts a new block

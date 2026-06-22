@@ -31,10 +31,11 @@
 #include "libo-vector.h"
 #include "location.h"
 
-symbol_t* symbol_new(const char* name, location_t* location) {
+symbol_t* symbol_new(const char* name, location_t* location, bool is_static) {
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->name = strdup(name);
     symbol->location = location;
+    symbol->is_static = is_static;
     symbol->parameters = vector_new();
     symbol->blocks = vector_new();
     symbol->frame_size = 0;

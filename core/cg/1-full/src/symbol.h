@@ -25,6 +25,7 @@
 #ifndef SYMBOL_H_INCLUDED
 #define SYMBOL_H_INCLUDED
 
+#include <stdbool.h>
 #include <stddef.h>
 
 struct block_t;
@@ -43,6 +44,8 @@ struct vector_t;
 typedef struct symbol_t {
     char* name;
     struct location_t* location;
+    bool is_static;
+
     struct vector_t* parameters; // list of temporaries
     struct temporary_t* varargs; // varargs temporary or null
     struct vector_t* blocks;
@@ -54,7 +57,7 @@ typedef struct symbol_t {
  *
  * Takes ownership of the given location.
  */
-symbol_t* symbol_new(const char* name, struct location_t* location);
+symbol_t* symbol_new(const char* name, struct location_t* location, bool is_static);
 
 void symbol_delete(symbol_t* symbol);
 

@@ -179,7 +179,7 @@ void emit_symbol(symbol_t* symbol) {
 
     // emit the symbol name
     emit_location(symbol->location);
-    emit_char('=');
+    emit_char(symbol->is_static ? '@' : '=');
     emit_cstr(symbol->name);
     emit_char('\n');
 
