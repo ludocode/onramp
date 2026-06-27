@@ -144,6 +144,11 @@ int main(int argc, char** argv) {
         if (!symbol) {
             break;
         }
+        if (symbol->is_data) {
+            // The symbol was emitted as it was parsed.
+            symbol_delete(symbol);
+            continue;
+        }
 
         if (vector_is_empty(symbol->blocks)) {
             fatal("TODO empty symbol");

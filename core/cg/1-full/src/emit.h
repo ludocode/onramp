@@ -27,6 +27,9 @@
 
 struct symbol_t;
 
+void emit_char(char c);
+
+void emit_symbol_name(struct symbol_t* symbol);
 void emit_symbol(struct symbol_t* symbol);
 
 void emit_setup(void);

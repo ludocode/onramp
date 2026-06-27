@@ -31,6 +31,7 @@
 #include "argument.h"
 #include "block.h"
 #include "common.h"
+#include "emit.h"
 #include "instruction.h"
 #include "libo-error.h"
 #include "libo-reader.h"
@@ -595,6 +596,76 @@ static void parse_block(symbol_t* symbol) {
     }
 }
 
+/**
+ * Parses a symbol that contains data.
+ *
+ * A data symbol cannot contain instructions or labels.
+ *
+ * The data is not stored; it is forwarded directly to the output.
+ */
+static void parse_data_symbol(symbol_t* symbol) {
+    symbol->is_data = true;
+    emit_symbol_name(symbol);
+
+    for (;;) {
+        parse_whitespace_and_comments();
+
+        if (isdigit(current_char)) {
+            emit_char(' ');
+            do {
+                emit_char(current_char);
+                parse_next_char();
+            } while (isdigit(current_char));
+            emit_char('\n');
+            continue;
+        }
+
+        if (current_char == '\'') {
+            emit_char(' ');
+            emit_char('\'');
+            parse_next_char();
+            char first_char = current_char;
+            parse_next_char();
+            if (!isxdigit(first_char) || !isxdigit(current_char)) {
+                fatal("Expected two hex characters in this quoted byte.");
+            }
+            emit_char(first_char);
+            emit_char(current_char);
+            parse_next_char();
+            emit_char('\n');
+            continue;
+        }
+
+        if (current_char == '"') {
+            emit_char(' ');
+            emit_char('"');
+            do {
+                parse_next_char();
+                if (current_char == EOF) {
+                    fatal("Unterminated string");
+                }
+                emit_char(current_char);
+            } while (current_char != '"');
+            parse_next_char();
+            emit_char('\n');
+            continue;
+        }
+
+        // TODO need to parse debug directives
+
+        if (current_char == '=' || current_char == '@' || current_char == EOF) {
+            break;
+        }
+
+        if (current_char == ':') {
+            fatal("Labels are not allowed in data symbols.");
+        }
+        fatal("Expected a number, a hex byte or a string in this data symbol.");
+    }
+
+    emit_char('\n');
+}
+
 symbol_t* /*nullable*/ try_parse_symbol(void) {
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     if (current_char == EOF) {
@@ -612,6 +683,11 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     parse_identifier(false);
     symbol_t* symbol = symbol_new(identifier, location, is_static);
     parse_whitespace_and_comments();
+
+    if (isdigit(current_char) || current_char == '"' || current_char == '\'') {
+        parse_data_symbol(symbol);
+        return symbol;
+    }
 
     // parse preamble (containing a temporary for each parameter, including
     // possibly a varargs parameter)

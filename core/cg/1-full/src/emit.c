@@ -44,7 +44,7 @@ void emit_setup(void) {
 void emit_teardown(void) {
 }
 
-static void emit_char(char c) {
+void emit_char(char c) {
     fputc(c, output_file);
 }
 
@@ -175,13 +175,15 @@ static void emit_instruction(instruction_t* instruction) {
     emit_char('\n');
 }
 
-void emit_symbol(symbol_t* symbol) {
-
-    // emit the symbol name
+void emit_symbol_name(symbol_t* symbol) {
     emit_location(symbol->location);
     emit_char(symbol->is_static ? '@' : '=');
     emit_cstr(symbol->name);
     emit_char('\n');
+}
+
+void emit_symbol(symbol_t* symbol) {
+    emit_symbol_name(symbol);
 
     // emit the blocks
     // TODO don't emit any unreachable blocks

@@ -45,6 +45,7 @@ typedef struct symbol_t {
     char* name;
     struct location_t* location;
     bool is_static;
+    bool is_data;
 
     struct vector_t* parameters; // list of temporaries
     struct temporary_t* varargs; // varargs temporary or null
