@@ -270,26 +270,100 @@ static uint32_t parse_register() {
     return reg_number;
 }
 
-static uint32_t parse_number(void) {
-    //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
-    char buffer[32];
-    if (!isdigit(current_char)) {
-        fatal("Expected number.");
+static uint32_t parse_decimal(void) {
+    uint32_t value = 0;
+
+    while (isdigit(current_char)) {
+        uint32_t new_value = value * 10 + current_char - '0';
+        if (new_value < value) {
+            fatal("Decimal number is out of range.");
+        }
+        value = new_value;
+        parse_next_char();
     }
 
-    // TODO hex
+    return value;
+}
 
-    size_t i = 0;
-    do {
-        buffer[i++] = current_char;
-        if (i == sizeof(buffer)) {
-            fatal("Number out of bounds.");
+static uint32_t parse_hexadecimal(void) {
+    uint32_t ret = 0;
+    int digits = 0;
+
+    while (isxdigit(current_char)) {
+        if (++digits > 8) {
+            fatal("Hexadecimal number must be at most 8 hexadecimal digits.");
         }
-        parse_next_char();
-    } while (isdigit(current_char));
-    buffer[i] = 0;
 
-    return strtol(buffer, NULL, 10);
+        ret <<= 4;
+        if (current_char <= '9') {
+            ret |= current_char - '0';
+        } else if (current_char <= 'F') {
+            ret |= current_char - 'A' + 10;
+        } else {
+            ret |= current_char - 'a' + 10;
+        }
+
+        parse_next_char();
+    }
+
+    if (digits == 0) {
+        fatal("Number starting with \"0x\" must be followed by at least one hexadecimal digit.");
+    }
+
+    return ret;
+}
+
+static uint32_t parse_integer(void) {
+    // TODO this function and the above two are almost exactly a copy of
+    // parse_number() from as/2. It would be nice if we could share this
+    // somehow.
+
+    bool negative = false;
+    uint32_t value;
+
+    // handle sign
+    if (!isdigit(current_char)) {
+        if (current_char == '-') {
+            negative = true;
+            parse_next_char();
+        } else {
+            fatal("Internal error: not a number");
+        }
+
+        // sign must be followed by a digit
+        if (!isdigit(current_char)) {
+            fatal("`-` sign must be followed by at least one digit.");
+        }
+    }
+
+    // if first digit is non-zero, it's a decimal number
+    if (current_char != '0') {
+        value = parse_decimal();
+
+    // otherwise it's either a plain zero or it's hexadecimal
+    } else {
+        parse_next_char();
+        if (current_char != 'x' && current_char != 'X') {
+            if (isxdigit(current_char)) {
+                fatal("Number starting with '0' must be followed by 'x' for hexadecimal. Decimal numbers cannot start with '0'. Octal and binary are not supported.");
+            }
+            // it's zero
+            return 0;
+        }
+        // it's hexadecimal
+        parse_next_char();
+        value = parse_hexadecimal();
+    }
+
+    // apply sign, make sure it's in range
+    if (negative) {
+        if (value > 0x80000000) {
+            fatal("Negative number is out of range.");
+        }
+        return (uint32_t)-(int32_t)value;
+    }
+
+    return value;
 }
 
 static argument_t* /*nullable*/ try_parse_argument(void) {
@@ -321,8 +395,8 @@ static argument_t* /*nullable*/ try_parse_argument(void) {
         return argument_new_number(argument_type_register, parse_register());
     }
 
-    if (isdigit(current_char)) {
-        return argument_new_number(argument_type_number, parse_number());
+    if (isdigit(current_char) || current_char == '-') {
+        return argument_new_number(argument_type_number, parse_integer());
     }
 
     //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
@@ -610,12 +684,12 @@ static void parse_data_symbol(symbol_t* symbol) {
     for (;;) {
         parse_whitespace_and_comments();
 
-        if (isdigit(current_char)) {
+        if (isdigit(current_char) || current_char == '-') {
             emit_char(' ');
             do {
                 emit_char(current_char);
                 parse_next_char();
-            } while (isdigit(current_char));
+            } while (isxdigit(current_char) || current_char == 'x' || current_char == 'X');
             emit_char('\n');
             continue;
         }
@@ -684,7 +758,9 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     symbol_t* symbol = symbol_new(identifier, location, is_static);
     parse_whitespace_and_comments();
 
-    if (isdigit(current_char) || current_char == '"' || current_char == '\'') {
+    if (isdigit(current_char) || current_char == '-'
+            || current_char == '"' || current_char == '\'')
+    {
         parse_data_symbol(symbol);
         return symbol;
     }
