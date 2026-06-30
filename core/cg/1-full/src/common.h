@@ -25,6 +25,7 @@
 #ifndef COMMON_H_INCLUDED
 #define COMMON_H_INCLUDED
 
+#include <stdint.h>
 #include <stdio.h>
 
 #define RSP 0xC
@@ -61,5 +62,9 @@ void set_current_filename_string(struct string_t* string);
 // TODO this stuff is temporary until we move location_t to libo
 void current_filename_string_setup(void);
 void current_filename_string_teardown(void);
+
+static inline uint32_t mix_type_fits(uint32_t value) {
+    return value < 0x80 || value >= 0xFFFFFF90;
+}
 
 #endif

@@ -55,10 +55,6 @@ variable_t* variable_get(size_t id);
 void variables_setup(void);
 void variables_teardown(void);
 
-static inline bool variable_offset_fits_in_mix_type(variable_t* variable) {
-    return variable->offset >= -112 && variable->offset <= 127;
-}
-
 /**
  * Clears the variable table.
  */

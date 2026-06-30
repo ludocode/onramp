@@ -41,6 +41,9 @@
  * Generate a mov from one register to another, appending it to the given vector.
  */
 static void transform_register_mov(vector_t* instructions, location_t* location, int dest, int src) {
+    if (dest == src) {
+        return;
+    }
     instruction_t* mov = instruction_new(location_new_copy(location), opcode_mov);
     instruction_append(mov, argument_new_register(dest));
     instruction_append(mov, argument_new_register(src));
@@ -66,7 +69,7 @@ static size_t transform_insert_instruction_mix(
     assert(argument->type == argument_type_number);
     uint32_t value = argument_number(argument);
 
-    if (value >= 0x80 && value < 0xFFFFFF90) {
+    if (!mix_type_fits(value)) {
         instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
         instruction_append(imw, argument_new_register(reg));
         instruction_append(imw, argument);
@@ -344,6 +347,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
     size_t count = vector_count(instruction->arguments);
     for (; j < count; ++j) {
         argument_t* argument = instruction_argument(instruction, j);
+
         if (argument->type == argument_type_temporary) {
             temporary_t* temporary = argument_temporary(argument);
             if (temporary->reg == -1) {
@@ -370,7 +374,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
             variable_t* variable = argument_variable(argument);
             assert(variable->offset != 0);
 
-            if (variable_offset_fits_in_mix_type(variable)) {
+            if (mix_type_fits((uint32_t)variable->offset)) {
                 // variable fits. replace it with its offset.
                 argument_set_integer(argument, variable->offset);
             } else {
@@ -379,6 +383,18 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
                 instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
                 instruction_append(imw, argument_new_register(reg));
                 instruction_append(imw, argument_new_integer(variable->offset));
+                vector_insert(block->instructions, index++, imw);
+                ++reg;
+            }
+
+        } else if (argument->type == argument_type_number) {
+            uint32_t integer = argument_number(argument);
+            if (!mix_type_fits(integer)) {
+                // integer doesn't fit. use `reg` (r0 or r1.)
+                argument_set_register(argument, reg);
+                instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                instruction_append(imw, argument_new_register(reg));
+                instruction_append(imw, argument_new_integer(integer));
                 vector_insert(block->instructions, index++, imw);
                 ++reg;
             }
@@ -436,8 +452,13 @@ static size_t transform_registers_store(block_t* block, instruction_t* store, si
                 return transform_registers_normal(block, store, index);
             }
         } else if (argument->type == argument_type_variable) {
-            if (variable_offset_fits_in_mix_type(argument_variable(argument))) {
+            if (mix_type_fits((uint32_t)argument_variable(argument)->offset)) {
                 // variable offset fits; don't need a spill register
+                return transform_registers_normal(block, store, index);
+            }
+        } else if (argument->type == argument_type_number) {
+            if (mix_type_fits(argument_number(argument))) {
+                // mix-type integer argument fits; don't need a register
                 return transform_registers_normal(block, store, index);
             }
         } else {
