@@ -703,4 +703,7 @@ void analyze_stack_frame(symbol_t* symbol) {
     // assigning stack space to variables that have been eliminated.
     analyze_variable_offsets_block(vector_first(symbol->blocks), pass_id++,
             &symbol->frame_size);
+
+    // Align the stack
+    symbol->frame_size = (symbol->frame_size + 3u) & ~(size_t)3u;
 }
