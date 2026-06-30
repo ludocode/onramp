@@ -95,23 +95,17 @@ $(OUT)/cg: $(SRCS) $(HEADERS) Makefile
 $(CCI2): FORCE
 	@(make -C ../../cci/2-full build-ir)
 
-test-cg1: build FORCE
-	( cd ../../.. && test/cg/run.sh \
-			--tests test/cg/1-full \
-			--output output/test/cg-1-full \
-			--cg output/test/cg-1-full/cg )
-
 test-cci0: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output output/test/cg-1-full \
+			--output output/test/cg-1-full/cci0 \
 			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
 test-cci1: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
-			--output output/test/cg-1-full \
+			--output output/test/cg-1-full/cci1 \
 			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
@@ -119,8 +113,8 @@ test-cci2: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/2-full \
 			--nonstd \
-			--output output/test/cg-1-full \
+			--output output/test/cg-1-full/cci2 \
 			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci-ir --cci-id full )
 
-test: test-cg1 test-cci0 test-cci1 test-cci2
+test: test-cci0 test-cci1 test-cci2

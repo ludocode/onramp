@@ -83,7 +83,7 @@ test-cci0-0: build $(CCI0) FORCE
 test-cci1-0: build $(CCI1) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
-			--output output/test/cg-0-asm/cci1 \
+			--output output/test/cg-0-asm/cci1-0 \
 			--cg output/test/cg-0-asm/cg \
 			--cci output/test/cci-1-opc/cci --cci-id opc )
 
@@ -91,7 +91,7 @@ test-cci1-1: build $(CCI1) FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
 			--nonstd \
-			--output output/test/cg-0-asm/cci1 \
+			--output output/test/cg-0-asm/cci1-1 \
 			--cg output/test/cg-0-asm/cg \
 			--cci output/test/cci-1-opc/cci --cci-id opc )
 
