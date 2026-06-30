@@ -1680,14 +1680,17 @@ static void generate_location_array_subscript(node_t* node, int reg_out) {
     generate_indirection_add_sub(node, reg_out);
 }
 
-#ifndef CCI2_IR
-
 static void generate_sizeof(node_t* node, int reg_out) {
     unsigned size = type_size(node->first_child->type);
+    #ifndef CCI2_IR
     block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, size);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_number(instruction, 1, size);
+    #endif
 }
-
-#endif // !CCI2_IR
 
 static void generate_address_of(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
@@ -1998,11 +2001,9 @@ void generate_node(node_t* node, int reg_out_opt) {
 
         // unary expressions
         case NODE_CAST: generate_cast(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_SIZEOF: generate_sizeof(node, reg_out); break;
         case NODE_TYPEOF: fatal_token(node->token, "TODO generate TYPEOF");
         case NODE_TYPEOF_UNQUAL: fatal_token(node->token, "TODO generate TYPEOF_UNQUAL");
-        #endif // !CCI2_IR
         case NODE_UNARY_PLUS: generate_unary_plus(node, reg_out); break;
         case NODE_UNARY_MINUS: generate_unary_minus(node, reg_out); break;
         case NODE_BIT_NOT: generate_bit_not(node, reg_out); break;
