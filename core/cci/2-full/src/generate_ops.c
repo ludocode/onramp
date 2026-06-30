@@ -263,7 +263,7 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
     instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
     instruction_set_arg_temporary(instruction, 0, reg_left);
     instruction_set_arg_temporary(instruction, 1, reg_left);
-    instruction_set_arg_number(instruction, 2, reg_right);
+    instruction_set_arg_temporary(instruction, 2, reg_right);
     #endif
 
     // Shift or divide the result
