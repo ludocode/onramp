@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include "block.h"
+#include "libo-string.h"
 #include "node.h"
 #include "record.h"
 #include "token.h"
@@ -71,13 +72,26 @@ function_t* function_new(type_t* type, token_t* name,
 
     function->name_label = -1;
     vector_init(&function->records);
+    #ifdef CCI2_IR
+    function->strings = vector_new();
+    #endif
     return function;
 }
 
 void function_delete(function_t* function) {
 
+    // free strings
+    #ifdef CCI2_IR
+    size_t string_count = vector_count(function->strings);
+    for (size_t i = 0; i < string_count; ++i) {
+        string_deref(vector_at(function->strings, i));
+    }
+    vector_delete(function->strings);
+    #endif
+
     // free records
-    for (size_t i = 0; i < vector_count(&function->records); ++i) {
+    size_t record_count = vector_count(&function->records);
+    for (size_t i = 0; i < record_count; ++i) {
         record_deref(vector_at(&function->records, i));
     }
     vector_destroy(&function->records);
@@ -141,3 +155,9 @@ node_t* function_find_label(function_t* function, string_t* name) {
 void function_add_record(function_t* function, record_t* record) {
     vector_append(&function->records, record_ref(record));
 }
+
+#ifdef CCI2_IR
+void function_take_string(function_t* function, string_t* string) {
+    vector_append(function->strings, string);
+}
+#endif

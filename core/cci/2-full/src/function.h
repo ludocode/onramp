@@ -35,6 +35,7 @@ struct token_t;
 struct symbol_t;
 struct node_t;
 struct record_t;
+struct string_t;
 
 /**
  * A function.
@@ -55,6 +56,9 @@ typedef struct function_t {
     int name_label; // label for __func__ string
     struct symbol_t* symbol;
     vector_t records;
+    #ifdef CCI2_IR
+    vector_t* strings;
+    #endif
 } function_t;
 
 function_t* function_new(struct type_t* type, struct token_t* name,
@@ -69,5 +73,15 @@ void function_add_label(function_t* function, struct node_t* label);
 struct node_t* function_find_label(function_t* function, struct string_t* name);
 
 void function_add_record(function_t* function, struct record_t* record);
+
+/**
+ * Takes ownership of the given string.
+ *
+ * This is used for strings we don't want to hold onto manually (e.g.
+ * symbol names in argument_t.)
+ */
+#ifdef CCI2_IR
+void function_take_string(function_t* function, struct string_t* string);
+#endif
 
 #endif

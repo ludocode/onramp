@@ -360,7 +360,7 @@ static void generate_string(node_t* node, int reg_out) {
     instruction_t* instruction = block_append(current_block, node->token, SYM, 2);
     instruction_set_arg_temporary(instruction, 0, reg_out);
     instruction_set_arg_absolute(instruction, 1, name);
-    string_deref(name);
+    function_take_string(current_function, name);
     #endif
 }
 
@@ -1650,19 +1650,31 @@ static void generate_member_ptr(node_t* node, int reg_out) {
     #endif
 }
 
-#ifndef CCI2_IR
-
 static void generate_location_member_val(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
+    #ifndef CCI2_IR
     block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* add = block_append(current_block, node->token, ADD, 3);
+    instruction_set_arg_temporary(add, 0, reg_out);
+    instruction_set_arg_temporary(add, 1, reg_out);
+    instruction_set_arg_number(add, 2, node->member_offset);
+    #endif
 }
 
 static void generate_location_member_ptr(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
+    #ifndef CCI2_IR
     block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
+    #endif
+    #ifdef CCI2_IR
+    instruction_t* add = block_append(current_block, node->token, ADD, 3);
+    instruction_set_arg_temporary(add, 0, reg_out);
+    instruction_set_arg_temporary(add, 1, reg_out);
+    instruction_set_arg_number(add, 2, node->member_offset);
+    #endif
 }
-
-#endif // !CCI2_IR
 
 static void generate_location_array_subscript(node_t* node, int reg_out) {
     generate_indirection_add_sub(node, reg_out);
@@ -2053,12 +2065,9 @@ void generate_location(node_t* node, int reg_out) {
     switch (node->kind) {
         case NODE_ACCESS: generate_access_location(node->token, node->symbol, reg_out); break;
         case NODE_DEREFERENCE: generate_node(node->first_child, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_MEMBER_VAL: generate_location_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_location_member_ptr(node, reg_out); break;
-        #endif
         case NODE_ARRAY_SUBSCRIPT: generate_location_array_subscript(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_BUILTIN: generate_builtin_location(node, reg_out); break;
         case NODE_STRING: generate_string(node, reg_out); break;
         case NODE_SEQUENCE: generate_sequence(node, true, reg_out); break;
@@ -2071,7 +2080,6 @@ void generate_location(node_t* node, int reg_out) {
             }
             fatal("Internal error, cannot generate location of non-struct cast.");
             break;
-        #endif
         default:
             #ifdef CCI2_IR
             fatal("TODO unimplemented generate_location() %s", node_kind_to_string(node->kind));
@@ -2239,9 +2247,13 @@ static void generate_builtin_va_copy(node_t* builtin, int reg_out) {
     register_free(builtin->token, reg_val);
 }
 
+#endif // !CCI2_IR
+
 static void generate_builtin_func(node_t* builtin, int reg_out) {
     generate_node(builtin->first_child, reg_out);
 }
+
+#ifndef CCI2_IR
 
 static void generate_builtin(node_t* node, int reg_out) {
     switch (node->builtin) {
@@ -2255,6 +2267,8 @@ static void generate_builtin(node_t* node, int reg_out) {
     fatal("Internal error: cannot generate unrecognized builtin.");
 }
 
+#endif // !CCI2_IR
+
 static void generate_builtin_location(node_t* node, int reg_out) {
     switch (node->builtin) {
         case BUILTIN_FUNC: generate_builtin_func(node, reg_out); return;
@@ -2262,5 +2276,3 @@ static void generate_builtin_location(node_t* node, int reg_out) {
     }
     fatal("Internal error: cannot generate location of this builtin.");
 }
-
-#endif // !CCI2_IR

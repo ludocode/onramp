@@ -148,8 +148,8 @@ typedef struct argument_t {
     argument_type_t type;
     union {
         // String references in arguments are unowned in order to minimize
-        // per-instruction memory management. The names of strings and
-        // temporaries are held in a pool in the function.
+        // per-instruction memory management. The names of strings are held in
+        // a pool in the function.
         string_t* string;
         uint32_t number;
     };
