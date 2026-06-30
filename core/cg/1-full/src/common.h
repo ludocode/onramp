@@ -32,6 +32,8 @@
 #define RPP 0xE
 #define RIP 0xF
 
+//#define LOG_REGISTER_ALLOCATOR
+
 extern FILE* input_file;
 extern FILE* output_file;
 

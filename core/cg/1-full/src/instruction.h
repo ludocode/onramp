@@ -30,6 +30,8 @@
 #include "libo-vector.h"
 #include "argument.h"
 
+struct otable_t;
+
 /*
  * Instructions and Arguments
  *
@@ -60,6 +62,10 @@ typedef struct instruction_t {
     opcode_t opcode;
     vector_t* arguments;
     size_t index; // index in global order for live interval analysis
+
+    // For call instructions we store the set of live temporaries so we can
+    // preserve them.
+    struct otable_t* live_temps;
 } instruction_t;
 
 /**

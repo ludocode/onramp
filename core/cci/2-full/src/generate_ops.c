@@ -229,7 +229,7 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     #ifdef CCI2_IR
     instruction_t* instruction = block_append(current_block, node->token, op, 3);
     instruction_set_arg_temporary(instruction, 0, reg_left);
-    instruction_set_arg_temporary(instruction, 1, reg_right);
+    instruction_set_arg_temporary(instruction, 1, reg_left);
     instruction_set_arg_temporary(instruction, 2, reg_right);
     #endif
 }

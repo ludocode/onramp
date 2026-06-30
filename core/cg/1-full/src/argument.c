@@ -26,9 +26,11 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "libo-string.h"
 #include "libo-error.h"
+#include "libo-util.h"
 #include "temporary.h"
 
 void argument_clear(argument_t* argument) {
@@ -53,6 +55,19 @@ static argument_t* argument_new_type(argument_type_t type) {
         fatal("Out of memory.");
     }
     argument->type = type;
+    return argument;
+}
+
+argument_t* argument_new_copy(argument_t* src) {
+    argument_t* argument = __memdup(src, sizeof(argument_t));
+    switch (argument->type) {
+        case argument_type_absolute:
+        case argument_type_relative:
+            string_ref(argument->string);
+            break;
+        default:
+            break;
+    }
     return argument;
 }
 

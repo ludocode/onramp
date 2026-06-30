@@ -83,4 +83,6 @@ void location_delete(location_t* location);
 
 void location_set_filename(location_t* location, string_t* /*nullable*/ filename);
 
+void location_print(location_t* location);
+
 #endif

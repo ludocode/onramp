@@ -26,11 +26,12 @@
 
 #include <stdlib.h>
 
+#include "libo-otable.h"
 #include "libo-string.h"
 #include "libo-vector.h"
 
 static table_t* temporary_table;
-static size_t temporary_anonymous_id;
+static size_t temporary_last_anonymous_id;
 
 // Takes ownership of name
 static temporary_t* temporary_new(string_t* name) {
@@ -50,23 +51,28 @@ temporary_t* temporary_new_anonymous(void) {
 
     // Generate a name for the temporary. We give it a number starting at the
     // current temporary count in order to avoid collisions.
-    if (temporary_anonymous_id < table_count(temporary_table)) {
-        temporary_anonymous_id = table_count(temporary_table);
+    if (temporary_last_anonymous_id < table_count(temporary_table)) {
+        temporary_last_anonymous_id = table_count(temporary_table);
     }
     for (;;) {
         char cname[16];
-        sprintf(cname, "%%%zu\n", temporary_anonymous_id++);
+        sprintf(cname, "%%%zu", ++temporary_last_anonymous_id);
         string_t* name = string_intern_cstr(cname);
 
         // make sure it doesn't already exist
+        bool exists = false;
         for (table_entry_t* entry = table_bucket(temporary_table, string_hash(name));
                 entry; entry = table_entry_next(entry))
         {
             temporary_t* temporary = (temporary_t*)entry;
             if (string_equal(temporary->name, name)) {
                 string_deref(name);
-                continue;
+                exists = true;
+                break;
             }
+        }
+        if (exists) {
+            continue;
         }
 
         // create the temporary
@@ -84,6 +90,7 @@ temporary_t* temporary_find_or_create_impl(const char* cname, bool* found) {
     {
         temporary_t* temporary = (temporary_t*)entry;
         if (string_equal(temporary->name, name)) {
+            //printf("Found temporary \"%s\" -> \"%s\"\n", cname, temporary->name->bytes);
             *found = true;
             string_deref(name);
             return temporary;
@@ -92,6 +99,7 @@ temporary_t* temporary_find_or_create_impl(const char* cname, bool* found) {
 
     *found = false;
     temporary_t* temporary = temporary_new(name);
+    //printf("Creating temporary \"%s\" -> \"%s\"\n", cname, temporary->name->bytes);
     table_put(temporary_table, &temporary->entry, string_hash(name));
     return temporary;
 }
@@ -130,6 +138,7 @@ void temporaries_clear(void) {
         }
     }
     table_remove_all(temporary_table);
+    temporary_last_anonymous_id = 0;
 }
 
 void temporaries_list_all(vector_t* temporaries) {
@@ -158,4 +167,19 @@ int temporary_compare_live_interval(const void* vleft, const void* vright) {
 
     // Otherwise it doesn't matter.
     return 0;
+}
+
+void temporaries_print_table(struct otable_t* table) {
+    if (otable_is_empty(table)) {
+        fputs(" (none)", stdout);
+        return;
+    }
+
+    for (void** entry = otable_begin(table); entry;
+            entry = otable_next(table, entry))
+    {
+        temporary_t* temporary = *entry;
+        putchar(' ');
+        fputs(temporary->name->bytes, stdout);
+    }
 }

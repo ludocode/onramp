@@ -27,10 +27,13 @@
 #include <stdlib.h>
 
 #include "libo-error.h"
+#include "libo-otable.h"
 #include "argument.h"
 
 instruction_t* instruction_new(location_t* location, opcode_t opcode) {
     instruction_t* instruction = malloc(sizeof(instruction_t));
+//printf("instruction_new %p %s\n", (void*)instruction, opcode_to_string(opcode));
+//if(((intptr_t)instruction&0xffff) == 0x610)abort();
     if (!instruction) {
         fatal("Out of memory.");
     }
@@ -38,11 +41,15 @@ instruction_t* instruction_new(location_t* location, opcode_t opcode) {
     instruction->location = location;
     instruction->opcode = opcode;
     instruction->arguments = vector_new();
+    instruction->live_temps = NULL;
 
     return instruction;
 }
 
 void instruction_delete(instruction_t* instruction) {
+    if (instruction->live_temps) {
+        otable_delete(instruction->live_temps);
+    }
     location_delete(instruction->location);
     for (size_t i = 0; i < vector_count(instruction->arguments); ++i) {
         argument_delete(vector_at(instruction->arguments, i));

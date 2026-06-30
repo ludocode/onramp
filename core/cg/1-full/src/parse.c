@@ -522,7 +522,7 @@ static void parse_call_arguments(instruction_t* instruction) {
 static instruction_t* parse_instruction(void) {
     parse_whitespace_and_comments();
     opcode_t opcode = parse_opcode();
-    //printf("%s() %s:%i parsed opcode %i\n", __func__, __FILE__, __LINE__,opcode);
+    //printf("%s() %s:%i parsed opcode %s\n", __func__, __FILE__, __LINE__,opcode_to_string(opcode));
     instruction_t* instruction = instruction_new(location_new_current(), opcode);
 
     //printf("%s() %s:%i switch on opcode %i\n", __func__, __FILE__, __LINE__,opcode);
@@ -591,8 +591,10 @@ static instruction_t* parse_instruction(void) {
 
         // mix instructions
         case opcode_free:
-        case opcode_ret:
             parse_argument_mix(instruction);
+            break;
+        case opcode_ret:
+            parse_argument_mix_opt(instruction);
             break;
 
         // misc
@@ -738,6 +740,8 @@ static void parse_data_symbol(symbol_t* symbol) {
     }
 
     emit_char('\n');
+    emit_char('\n');
+    emit_char('\n');
 }
 
 symbol_t* /*nullable*/ try_parse_symbol(void) {
@@ -757,6 +761,9 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     parse_identifier(false);
     symbol_t* symbol = symbol_new(identifier, location, is_static);
     parse_whitespace_and_comments();
+    #ifdef LOG_REGISTER_ALLOCATOR
+    printf("\n\nParsing symbol: %s\n", symbol->name);
+    #endif
 
     if (isdigit(current_char) || current_char == '-'
             || current_char == '"' || current_char == '\'')

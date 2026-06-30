@@ -42,7 +42,7 @@ struct vector_t;
  * TODO actually currently we are using globals, this is pretty useless
  */
 typedef struct symbol_t {
-    char* name;
+    char* name; // TODO string_t
     struct location_t* location;
     bool is_static;
     bool is_data;

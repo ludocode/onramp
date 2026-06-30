@@ -31,19 +31,20 @@
 #include "libo-table.h"
 
 struct location_t;
-struct vector_t;
+struct otable_t;
 struct variable_t;
+struct vector_t;
 
+#define TEMPORARY_REGISTER_INVALID (-1)
 #define TEMPORARY_INTERVAL_INVALID ((size_t)-1)
 
 typedef struct temporary_t {
     table_entry_t entry;
     struct string_t* name;
 
-    int frame_offset; // assigned offset in the stack frame (usually negative)
-
-    // After register allocation, each used temporary is assigned either a
-    // register or a variable.
+    // After register allocation, each used temporary is assigned a register
+    // and/or a variable. A temporary may be assigned both if it lives in a
+    // register but needs stack space to be preserved across a call.
     int reg;
     struct variable_t* variable;
 
@@ -98,5 +99,7 @@ static inline size_t temporary_interval_length(temporary_t* temporary) {
 static inline uint32_t temporary_hash(temporary_t* temporary) {
     return string_hash(temporary->name);
 }
+
+void temporaries_print_table(struct otable_t* table);
 
 #endif

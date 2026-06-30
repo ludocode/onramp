@@ -207,6 +207,20 @@ void** otable_next(otable_t* otable, void** entry);
 #endif
 
 /**
+ * Returns true if the table is empty, false otherwise.
+ */
+#ifndef __onramp_cpp_omc__
+    #ifndef DEBUG
+        #define otable_is_empty(otable) ((otable)->count == 0)
+    #endif
+#endif
+#ifndef otable_is_empty
+    static inline bool otable_is_empty(otable_t* otable) {
+        return otable->count == 0;
+    }
+#endif
+
+/**
  * Adds all elements of another table into this one.
  */
 void otable_union(otable_t* restrict otable, const otable_t* restrict other);

@@ -29,6 +29,7 @@
 
 #include "common.h"
 #include "libo-error.h"
+#include "libo-util.h"
 
 void location_setup() {
     /*
@@ -97,4 +98,19 @@ void location_set_filename(location_t* location, string_t* filename) {
         string_deref(location->filename);
     }
     location->filename = filename;
+}
+
+void location_print(location_t* location) {
+    // TODO should be merged with error_prefix
+    FILE* file = stdout;
+    fputs("ERROR", file);
+    fputs(" at ", file);
+    fputs(location->filename->bytes, file);
+    fputc(':', file);
+    fputd(location->line, file);
+    if (location->column != 0) {
+        fputc(':', file);
+        fputd(location->column, file);
+    }
+    //fputs(": ", file);
 }

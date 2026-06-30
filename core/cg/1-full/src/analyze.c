@@ -40,27 +40,11 @@
 #define FIRST_REGISTER 2
 #define AVAILABLE_REGISTERS 8
 
-static void print_live_temps(otable_t* temps) {
-    if (temps->count == 0) {
-        fputs("(none)", stdout);
-        return;
-    }
-    size_t j = 0;
-    for (void** p = otable_begin(temps); p; p = otable_next(temps, p)) {
-        temporary_t* temporary = *p;
-        if (temporary) {
-            if (j++ != 0) {
-                putchar(' ');
-            }
-            fputs(temporary->name->bytes, stdout);
-        }
-    }
-}
-
 void analyze_block_parents(symbol_t* symbol) {
     size_t count = vector_count(symbol->blocks);
     for (size_t i = 0; i < count; ++i) {
         block_t* block = vector_at(symbol->blocks, i);
+        //printf("%s() block %s\n", __func__, block->name->bytes);
         instruction_t* last = vector_last(block->instructions);
 
         switch (last->opcode) {
@@ -104,10 +88,11 @@ static void analyze_collect_ret_blocks(symbol_t* symbol, vector_t* ret_blocks, i
         block_t* block = vector_at(symbol->blocks, i);
         instruction_t* last = vector_last(block->instructions);
         if (last->opcode == opcode_ret) {
-            //printf("found ret block %s\n", block->name->bytes);
+            #ifdef LOG_REGISTER_ALLOCATOR
+            printf("Found ret block %s\n", block->name->bytes);
+            #endif
             vector_append(ret_blocks, block);
             block->visited = visited;
-            break;
         }
     }
 }
@@ -176,6 +161,9 @@ static vector_t* analyze_liveness_block_order(symbol_t* symbol) {
     // walk through it.
     for (size_t i = 0; i < vector_count(blocks); ++i) {
         block_t* block = vector_at(blocks, i);
+        #ifdef LOG_REGISTER_ALLOCATOR
+        printf("Block order visiting: %s\n", block->name->bytes);
+        #endif
         for (size_t j = vector_count(block->parent_blocks); j-- != 0;) {
             block_t* parent = vector_at(block->parent_blocks, j);
             if (parent->visited != visited) {
@@ -231,16 +219,20 @@ void analyze_liveness(symbol_t* symbol) {
     vector_t* blocks = analyze_liveness_block_order(symbol);
     size_t block_count = vector_count(blocks);
 
-    //for (size_t i = 0; i < block_count; ++i) {
-    //    printf("  block order: %s\n", ((block_t*)vector_at(blocks,i))->name->bytes);
-    //}
+    #ifdef LOG_REGISTER_ALLOCATOR
+    for (size_t i = 0; i < block_count; ++i) {
+        printf("Final block order: %s\n", ((block_t*)vector_at(blocks,i))->name->bytes);
+    }
+    #endif
 
     // We iterate until nothing changes. Each iteration can only grow the set
     // of live temporaries, and since there are a finite number of temporaries,
     // this is guaranteed to eventually terminate.
     for (;;) {
         bool changed = false;
-        //printf("\n=========================\nstarting liveness iteration\n");
+        #ifdef LOG_REGISTER_ALLOCATOR
+        printf("\n=========================\nStarting liveness iteration\n");
+        #endif
 
         // We're walking through the blocks in the order given by
         // analyze_liveness_block_order(), which is backwards breadth-first
@@ -249,9 +241,11 @@ void analyze_liveness(symbol_t* symbol) {
             block_t* block = vector_at(blocks, i);
             otable_t* live_temps = otable_new_copy(block->live_temps);
 
-            //printf("block %s starting live_temps: ", block->name->bytes);
-            //print_live_temps(live_temps);
-            //putchar('\n');
+            #ifdef LOG_REGISTER_ALLOCATOR
+            printf("Block %s end live_temps:", block->name->bytes);
+            temporaries_print_table(live_temps);
+            putchar('\n');
+            #endif
 
             // Walk backwards through the instructions, updating this block's
             // live_temps as we go.
@@ -260,14 +254,19 @@ void analyze_liveness(symbol_t* symbol) {
                 analyze_liveness_instruction(live_temps, instruction);
             }
 
-            //printf("block %s ending live_temps: ", block->name->bytes);
-            //print_live_temps(live_temps);
-            //putchar('\n');
+            #ifdef LOG_REGISTER_ALLOCATOR
+            printf("Block %s start live_temps:", block->name->bytes);
+            temporaries_print_table(live_temps);
+            putchar('\n');
+            #endif
 
             // The result is the set of live temps at the start of the block.
             // Merge it into the live temps at the end of every parent.
             for (size_t j = vector_count(block->parent_blocks); j-- != 0;) {
                 block_t* parent = vector_at(block->parent_blocks, j);
+                #ifdef LOG_REGISTER_ALLOCATOR
+                printf("  Propagating to end of parent: %s\n", parent->name->bytes);
+                #endif
                 size_t old_count = otable_count(parent->live_temps);
                 otable_union(parent->live_temps, live_temps);
                 if (old_count != otable_count(parent->live_temps)) {
@@ -279,10 +278,14 @@ void analyze_liveness(symbol_t* symbol) {
         }
 
         if (!changed) {
-            //printf("no changes. done\n\n");
+            #ifdef LOG_REGISTER_ALLOCATOR
+            printf("No changes. Done.\n\n");
+            #endif
             break;
         }
-        //printf("changes. looping\n");
+        #ifdef LOG_REGISTER_ALLOCATOR
+        printf("Changes. Looping.\n");
+        #endif
     }
 
     vector_delete(blocks);
@@ -403,7 +406,12 @@ static void analyze_live_intervals(block_t* block, int visited) {
     // Any live temporaries at the end of this block must have their live
     // interval expanded to include it.
     size_t end_index = ((instruction_t*)vector_last(block->instructions))->index;
-    //printf("expanding live intervals at end: %zu\n", end_index);
+    #ifdef LOG_REGISTER_ALLOCATOR
+    printf("Visiting block: %s\n", block->name->bytes);
+    printf("Expanding live intervals at end %zu for temporaries:", end_index);
+    temporaries_print_table(live_temps);
+    putchar('\n');
+    #endif
     analyze_expand_live_intervals(live_temps, end_index);
 
     // Walk backwards through the block. We're looking for instructions that
@@ -422,6 +430,24 @@ static void analyze_live_intervals(block_t* block, int visited) {
                 otable_remove(live_temps, temporary, temporary_hash(temporary));
                 analyze_expand_interval(temporary, instruction->index);
             }
+        }
+
+        // Look for call instructions. All live temporaries must be preserved
+        // across the call so we make sure each one has stack space reserved.
+        if (instruction->opcode == opcode_call) {
+            for (void** entry = otable_begin(live_temps); entry;
+                    entry = otable_next(live_temps, entry))
+            {
+                temporary_t* temporary = *entry;
+                if (temporary->variable == NULL) {
+                    temporary->variable = variable_new(4, 4);
+                }
+            }
+
+            // Store the set of live temps in the instruction so we can
+            // preserve them.
+            assert(!instruction->live_temps);
+            instruction->live_temps = otable_new_copy(live_temps);
         }
 
         // Look for temporary inputs
@@ -449,7 +475,11 @@ static void analyze_live_intervals(block_t* block, int visited) {
     // Any live temporaries at the start of this block must have their live
     // interval expanded to include it.
     size_t start_index = ((instruction_t*)vector_first(block->instructions))->index;
-    //printf("expanding live intervals at start: %zu\n", start_index);
+    #ifdef LOG_REGISTER_ALLOCATOR
+    printf("Expanding live intervals at start %zu for temporaries:", start_index);
+    temporaries_print_table(live_temps);
+    putchar('\n');
+    #endif
     analyze_expand_live_intervals(live_temps, start_index);
 
     otable_delete(live_temps);
@@ -480,7 +510,7 @@ static void analyze_linear_scan(symbol_t* symbol) {
     #ifndef __onramp_cci_opc
     #ifndef __onramp_cci_omc
     // TODO re-enable
-    //#define HAVE_QSORT
+    #define HAVE_QSORT
     #endif
     #endif
 
@@ -510,14 +540,14 @@ static void analyze_linear_scan(symbol_t* symbol) {
         temporary_t* temporary = vector_at(temporaries, i);
         size_t length = temporary_interval_length(temporary);
 
-        /*
+        #ifdef LOG_REGISTER_ALLOCATOR
         if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
-            printf("temporary %s not used.\n", temporary->name->bytes);
+            printf("Temporary %s not used.\n", temporary->name->bytes);
         } else {
-            printf("temporary %s interval %zu-%zu\n", temporary->name->bytes,
+            printf("Considering temporary %s with interval %zu-%zu\n", temporary->name->bytes,
                     temporary->interval_start, temporary->interval_end);
         }
-        */
+        #endif
 
         // If any of the live temporaries have an end interval earlier than the
         // start of the current temporary, we can clear them. These register
@@ -527,7 +557,10 @@ static void analyze_linear_scan(symbol_t* symbol) {
             if (registers[j] != NULL) {
                 temporary_t* reg = registers[j];
                 if (reg->interval_end < temporary->interval_start) {
-                    //printf("  expiring reg %zu %s\n", FIRST_REGISTER + j, reg->name->bytes);
+                    #ifdef LOG_REGISTER_ALLOCATOR
+                    printf("Assigned temporary %s register r%zu\n",
+                            reg->name->bytes, FIRST_REGISTER + j);
+                    #endif
                     registers[j] = NULL;
                     --registers_used;
                 }
@@ -547,8 +580,14 @@ static void analyze_linear_scan(symbol_t* symbol) {
         if (j == AVAILABLE_REGISTERS) {
             //printf("  spilling current %s\n", temporary->name->bytes);
             // No register could be found. Spill this temporary.
-            temporary->variable = variable_new(4, 4);
+            if (temporary->variable == NULL) {
+                temporary->variable = variable_new(4, 4);
+            }
             temporary->reg = -1;
+            #ifdef LOG_REGISTER_ALLOCATOR
+            printf("Spilled temporary %s to variable @%zu\n",
+                    temporary->name->bytes, temporary->variable->id);
+            #endif
             continue;
         }
 
@@ -557,8 +596,14 @@ static void analyze_linear_scan(symbol_t* symbol) {
             temporary_t* spill = registers[j];
             //printf("  spilling reg %zu %s\n", FIRST_REGISTER + j, spill->name->bytes);
             spill->reg = -1;
-            spill->variable = variable_new(4, 4);
+            if (spill->variable == NULL) {
+                spill->variable = variable_new(4, 4);
+            }
             --registers_used;
+            #ifdef LOG_REGISTER_ALLOCATOR
+            printf("Spilled temporary %s to variable @%zu\n",
+                    spill->name->bytes, spill->variable->id);
+            #endif
         }
 
         // Assign this temporary to the register.
@@ -567,6 +612,17 @@ static void analyze_linear_scan(symbol_t* symbol) {
         temporary->reg = FIRST_REGISTER + j;
         ++registers_used;
     }
+
+    #ifdef LOG_REGISTER_ALLOCATOR
+    // Print any open register assignments that become permanent
+    for (size_t j = 0; j < AVAILABLE_REGISTERS; ++j) {
+        if (registers[j] != NULL) {
+            temporary_t* reg = registers[j];
+            printf("Assigned temporary %s register r%zu (end)\n",
+                    reg->name->bytes, FIRST_REGISTER + j);
+        }
+    }
+    #endif
 
     free(registers);
     vector_delete(temporaries);
@@ -585,6 +641,21 @@ void analyze_register_allocation(symbol_t* symbol) {
 
 }
 
+static void analyze_variable_assign(variable_t* variable, size_t* frame_size) {
+
+    // Found a variable argument. If it hasn't been assigned stack
+    // space yet, assign it now.
+    if (variable->offset == 0) {
+        size_t alignment_mask = variable->alignment - 1;
+        *frame_size = (*frame_size + alignment_mask) & ~alignment_mask;
+        *frame_size += variable->size;
+        variable->offset = -(int)*frame_size;
+        #ifdef LOG_REGISTER_ALLOCATOR
+        printf("Assigned variable @%zu stack address %i\n", variable->id, variable->offset);
+        #endif
+    }
+}
+
 static void analyze_variable_offsets_block(block_t* block, int visited, size_t* frame_size) {
 
     // Only visit each block once
@@ -596,22 +667,19 @@ static void analyze_variable_offsets_block(block_t* block, int visited, size_t* 
     // For each instruction, look for variable inputs
     for (size_t i = vector_count(block->instructions); i-- != 0;) {
         instruction_t* instruction = vector_at(block->instructions, i);
+
         argument_mode_t mode = instruction_mode(instruction);
         size_t j = (mode == argument_mode_write) ? 1 : 0;
         size_t count = vector_count(instruction->arguments);
         for (; j < count; ++j) {
             argument_t* argument = instruction_argument(instruction, j);
-            if (argument->type == argument_type_variable) {
 
-                // Found a variable argument. If it hasn't been assigned stack
-                // space yet, assign it now.
-                variable_t* variable = argument_variable(argument);
-                if (variable->offset == 0) {
-                    size_t alignment_mask = variable->alignment - 1;
-                    *frame_size = (*frame_size + alignment_mask) & ~alignment_mask;
-                    *frame_size += variable->size;
-                    variable->offset = -(int)*frame_size;
-                    //printf("assigned variable %zu stack address %i\n", variable->id, variable->offset);
+            if (argument->type == argument_type_variable) {
+                analyze_variable_assign(argument_variable(argument), frame_size);
+            } else if (argument->type == argument_type_temporary) {
+                variable_t* variable = argument_temporary(argument)->variable;
+                if (variable) {
+                    analyze_variable_assign(variable, frame_size);
                 }
             }
         }
@@ -621,12 +689,12 @@ static void analyze_variable_offsets_block(block_t* block, int visited, size_t* 
     instruction_t* last = vector_last(block->instructions);
     if (last->opcode == opcode_jmp) {
         string_t* label = argument_label(instruction_argument(last, 0));
-        analyze_live_intervals(block_find(label), visited);
+        analyze_variable_offsets_block(block_find(label), visited, frame_size);
     } else if (last->opcode == opcode_br) {
         string_t* true_label = argument_label(instruction_argument(last, 1));
-        analyze_live_intervals(block_find(true_label), visited);
+        analyze_variable_offsets_block(block_find(true_label), visited, frame_size);
         string_t* false_label = argument_label(instruction_argument(last, 2));
-        analyze_live_intervals(block_find(false_label), visited);
+        analyze_variable_offsets_block(block_find(false_label), visited, frame_size);
     }
 }
 

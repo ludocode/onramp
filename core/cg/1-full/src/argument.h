@@ -58,9 +58,12 @@ typedef struct argument_t {
         struct string_t* string; // strong reference
         struct temporary_t* temporary;
         struct variable_t* variable;
+        // TODO rename number to integer, separate number into reg and integer fields
         uint32_t number;
     };
 } argument_t;
+
+argument_t* argument_new_copy(argument_t* argument);
 
 /**
  * Creates a sentinel argument.
@@ -120,11 +123,28 @@ static inline struct variable_t* argument_variable(argument_t* argument) {
     return argument->variable;
 }
 
+static inline int argument_register(argument_t* argument) {
+    assert(argument->type == argument_type_register);
+    return argument->number;
+}
+
 /**
  * Returns true iff this is a temporary or number type.
  */
 static inline bool argument_type_is_mix(argument_type_t type) {
     return type == argument_type_temporary || type == argument_type_number;
+}
+
+static inline bool argument_is_register(argument_t* argument) {
+    return argument->type == argument_type_register;
+}
+
+static inline bool argument_is_temporary(argument_t* argument) {
+    return argument->type == argument_type_temporary;
+}
+
+static inline bool argument_is_absolute(argument_t* argument) {
+    return argument->type == argument_type_absolute;
 }
 
 void argument_delete(argument_t* argument);

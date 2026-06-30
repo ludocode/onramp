@@ -60,6 +60,10 @@ static void emit_uint(uint32_t value) {
     fprintf(output_file, "%u", value);
 }
 
+static void emit_int(uint32_t value) {
+    fprintf(output_file, "%i", (int32_t)value);
+}
+
 static void emit_location_force(void) {
     emit_cstr("#line ");
     emit_uint(current_line);
@@ -146,7 +150,7 @@ static void emit_argument(argument_t* argument) {
             break;
         case argument_type_number:
             //printf("arg number %u\n", argument->number);
-            emit_uint(argument->number);
+            emit_int(argument->number);
             break;
         case argument_type_absolute:
             emit_char('^');
@@ -168,6 +172,7 @@ static void emit_argument(argument_t* argument) {
 
 static void emit_instruction(instruction_t* instruction) {
     emit_location(instruction->location);
+    emit_char(' ');
     emit_cstr(opcode_to_string(instruction->opcode));
     for (size_t i = 0; i < vector_count(instruction->arguments); ++i) {
         emit_argument(vector_at(instruction->arguments, i));
@@ -199,4 +204,7 @@ void emit_symbol(symbol_t* symbol) {
             emit_instruction(vector_at(block->instructions, i));
         }
     }
+    emit_char('\n');
+    emit_char('\n');
+    emit_char('\n');
 }

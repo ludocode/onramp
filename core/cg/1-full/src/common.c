@@ -35,7 +35,9 @@ int pass_id;
 
 _Noreturn
 void fatal_loc(location_t* location, const char* message) {
-    // TODO
+    // TODO need to merge this down with libo-error
+    current_filename = location->filename->bytes;
+    current_line = location->line;
     fatal(message);
 }
 

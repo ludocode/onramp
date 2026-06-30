@@ -133,6 +133,8 @@ opcode_t opcode_from_identifier(const char* identifier) {
     for (;;) {
         if (opcodes_identifier[i] == NULL) {
             // TODO location
+            printf("%s\n",identifier);
+            fflush(stdout);
             fatal("Unrecognized opcode.");
         }
         if (0 == strcmp(opcodes_identifier[i], identifier)) {
