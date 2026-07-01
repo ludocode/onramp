@@ -503,14 +503,30 @@ void generate_logical_not(node_t* node, int reg_out) {
     #endif
 }
 
-#ifndef CCI2_IR
-
 static void generate_logical(node_t* node, int reg_out, bool and) {
+    #ifndef CCI2_IR
     int end_label = next_label++;
     generate_node(node->first_child, reg_out);
     block_append(current_block, node->token, and ? JZ : JNZ, reg_out, '&', JUMP_LABEL_PREFIX, end_label);
     generate_node(node->last_child, reg_out);
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, end_label);
+    #endif
+    #ifdef CCI2_IR
+    generate_node(node->first_child, reg_out);
+
+    int right_label = next_label++;
+    int end_label = next_label++;
+
+    instruction_t* instruction = block_append_br(current_block, node->token,
+            and ? right_label : end_label,
+            and ? end_label : right_label);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+
+    current_block = block_new(right_label);
+    function_add_block(current_function, current_block);
+    generate_node(node->last_child, reg_out);
+    block_append_jmp(current_block, node->token, end_label);
+    #endif
 
     current_block = block_new(end_label);
     function_add_block(current_function, current_block);
@@ -523,8 +539,6 @@ void generate_logical_or(node_t* node, int reg_out) {
 void generate_logical_and(node_t* node, int reg_out) {
     generate_logical(node, reg_out, true);
 }
-
-#endif // !CCI2_IR
 
 
 
