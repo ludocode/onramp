@@ -46,7 +46,6 @@
 
 function_t* current_function;
 block_t* current_block;
-int next_label;
 
 #ifdef CCI2_IR
 static vector_t* temporary_list;
@@ -1954,7 +1953,6 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_BREAK: generate_break(node, reg_out); break;
         case NODE_CONTINUE: generate_continue(node, reg_out); break;
         case NODE_RETURN: generate_return(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_SWITCH: generate_switch(node, reg_out); break;
         case NODE_GOTO: generate_goto(node, reg_out); break;
 
@@ -1964,7 +1962,6 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_DEFAULT: generate_case_or_default(node, reg_out); break;
 
         // assignment expressions
-        #endif // !CCI2_IR
         case NODE_ASSIGN: generate_assign(node, reg_out); break;
         #ifndef CCI2_IR
         case NODE_ADD_ASSIGN: generate_add_assign(node, reg_out); break;
@@ -2016,11 +2013,9 @@ void generate_node(node_t* node, int reg_out_opt) {
         // postfix operators
         case NODE_POST_INC: generate_post_inc(node, reg_out); break;
         case NODE_POST_DEC: generate_post_dec(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_ARRAY_SUBSCRIPT: generate_array_subscript(node, reg_out); break;
         case NODE_MEMBER_VAL: generate_member_val(node, reg_out); break;
         case NODE_MEMBER_PTR: generate_member_ptr(node, reg_out); break;
-        #endif // !CCI2_IR
 
         // other expressions
         case NODE_IF: generate_if(node, reg_out); break;

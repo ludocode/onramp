@@ -49,7 +49,9 @@ typedef struct block_t {
 
 block_t* block_new(int label);
 
+#ifndef CCI2_IR
 block_t* block_new_user_label(string_t* label);
+#endif
 
 void block_delete(block_t* block);
 

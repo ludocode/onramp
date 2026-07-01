@@ -32,6 +32,8 @@
 #include "token.h"
 #include "lexer.h"
 
+int next_label;
+
 void fatal_token(struct token_t* token, const char* format, ...) {
     va_list args;
     va_start(args, format);

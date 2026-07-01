@@ -213,7 +213,7 @@ typedef struct node_t {
 
     struct node_t* container; // loop/switch reference for break/continue/case/default
 
-    // labels for break/continue, case/default, etc.
+    // labels for goto/break/continue, case/default, etc.
     int jump_label;
     int break_label;
     int continue_label;

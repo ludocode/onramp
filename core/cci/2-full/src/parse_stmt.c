@@ -321,6 +321,7 @@ static void parse_label(node_t* parent, token_t* name) {
 
     node_t* node = node_new_token(NODE_LABEL, name);
     node->type = type_new_base(BASE_VOID);
+    node->jump_label = next_label++;
     node_append(parent, node);
 
     function_add_label(current_function, node);

@@ -51,11 +51,13 @@ block_t* block_new(int label) {
     return block;
 }
 
+#ifndef CCI2_IR
 block_t* block_new_user_label(string_t* label) {
     block_t* block = block_new_impl();
     block->user_label = string_ref(label);
     return block;
 }
+#endif
 
 void block_delete(block_t* block) {
     for (size_t i = 0; i < block->instructions_count; ++i)

@@ -140,7 +140,7 @@ typedef enum argument_type_t {
     argument_type_sentinel,
     argument_type_temporary,
     argument_type_number,
-    argument_type_absolute, // absolute label invocation (uses label field)
+    argument_type_absolute, // absolute label invocation (uses string field)
     argument_type_relative, // relative numbered label invocation (uses number field)
 } argument_type_t;
 
@@ -225,6 +225,7 @@ void instruction_set_arg_sentinel(instruction_t* instruction, size_t arg);
 
 void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, int temporary);
 
+//! Does not keep a strong reference to the string
 void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label);
 
 void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label);

@@ -37,7 +37,6 @@ struct token_t;
 // TODO make better names
 extern struct function_t* current_function;
 extern struct block_t* current_block;
-extern int next_label;
 
 #ifndef CCI2_IR
 extern int register_next;

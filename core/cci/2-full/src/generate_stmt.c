@@ -131,6 +131,11 @@ void generate_break(node_t* node, int reg_out) {
     #endif
     #ifdef CCI2_IR
     block_append_jmp(current_block, node->token, node->container->break_label);
+
+    // generate a new block in case there are instructions after the break (we
+    // can't add instructions after a jmp in IR)
+    current_block = block_new(next_label++);
+    function_add_block(current_function, current_block);
     #endif
 }
 
@@ -141,6 +146,11 @@ void generate_continue(node_t* node, int reg_out) {
     #endif
     #ifdef CCI2_IR
     block_append_jmp(current_block, node->token, node->container->continue_label);
+
+    // generate a new block in case there are instructions after the continue
+    // (we can't add instructions after a jmp in IR)
+    current_block = block_new(next_label++);
+    function_add_block(current_function, current_block);
     #endif
 }
 
@@ -371,7 +381,6 @@ void generate_for(node_t* node, int reg_out) {
 }
 
 #ifndef CCI2_IR
-
 // TODO this is really horrible. We need to make it explicit in the object code
 // and assembly that labels are local to symbols, that way we don't need to
 // do anything (except check for duplicates) to ensure that the names are unique.
@@ -397,19 +406,33 @@ static string_t* generate_label_name(node_t* node) {
     free(cstr);
     return string;
 }
+#endif
 
 void generate_label(node_t* node, int reg_out) {
+    #ifndef CCI2_IR
     string_t* string = generate_label_name(node);
     block_append(current_block, node->token, JMP, '&', string->bytes, -1);
     current_block = block_new_user_label(string);
     function_add_block(current_function, current_block);
     string_deref(string);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, node->jump_label);
+    current_block = block_new(node->jump_label);
+    current_block->user_label = string_ref(node->token->value);
+    function_add_block(current_function, current_block);
+    #endif
 }
 
 void generate_case_or_default(node_t* node, int reg_out) {
     generate_diagnose_defers(node, node->container, node->token);
 
+    #ifndef CCI2_IR
     block_append(current_block, node->token, JMP, '&', JUMP_LABEL_PREFIX, node->jump_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, node->token, node->jump_label);
+    #endif
     current_block = block_new(node->jump_label);
     function_add_block(current_function, current_block);
 }
@@ -496,10 +519,20 @@ void generate_goto(node_t* goto_node, int reg_out) {
     }
 
     // generate the jump
+    #ifndef CCI2_IR
     if (goto_node->string == NULL) {
         goto_node->string = generate_label_name(goto_node);
     }
     block_append(current_block, goto_node->token, JMP, '&', goto_node->string->bytes, -1);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, goto_node->token, label_node->jump_label);
+
+    // generate a new block in case there are instructions after the goto (we
+    // can't add instructions after a jmp in IR)
+    current_block = block_new(next_label++);
+    function_add_block(current_function, current_block);
+    #endif
 
     vector_destroy(&label_parents);
     vector_destroy(&goto_parents);
@@ -626,11 +659,28 @@ void generate_case_match(node_t* switch_, int reg_out, node_t* case_) {
         fatal("TODO compare llong case");
     } else {
         if (case_->start32 == case_->end32) {
+            #ifndef CCI2_IR
             int reg_value = register_alloc(case_->token);
             block_append(current_block, case_->token, IMW, ARGTYPE_NUMBER, reg_value, case_->start32);
             block_append(current_block, case_->token, SUB, reg_value, reg_value, reg_out);
             block_append(current_block, case_->token, JZ, reg_value, '&', JUMP_LABEL_PREFIX, case_->jump_label);
             register_free(case_->token, reg_value);
+            #endif
+            #ifdef CCI2_IR
+            int result = generate_temporary(NULL);
+
+            instruction_t* instruction = block_append(current_block, case_->token, SUB, 3);
+            instruction_set_arg_temporary(instruction, 0, result);
+            instruction_set_arg_temporary(instruction, 1, reg_out);
+            instruction_set_arg_number(instruction, 2, case_->start32);
+
+            instruction = block_append_br(current_block, case_->token,
+                    case_->jump_label, next_label);
+            instruction_set_arg_temporary(instruction, 0, result);
+
+            current_block = block_new(next_label++);
+            function_add_block(current_function, current_block);
+            #endif
         } else {
             fatal("TODO compare case range");
         }
@@ -721,12 +771,19 @@ void generate_switch(node_t* switch_, int reg_out) {
     // if we still haven't found the case and we have a `default` label, jump
     // to it; otherwise jump to the end.
     switch_->break_label = next_label++;
+    #ifndef CCI2_IR
     block_append(current_block, NULL, JMP, '&', JUMP_LABEL_PREFIX,
             default_ ? default_->jump_label : switch_->break_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, switch_->token,
+            default_ ? default_->jump_label : switch_->break_label);
+    #endif
 
-    // Note that we don't create a new block here. If there is any code in the
-    // switch before the first label, it is unreachable. Since it's after the
-    // above JMP, it will be discarded by optimizations.
+    // Generate a new block in case there is any unreachable code in the switch
+    // before the first label. (We can't put anything after the jmp in IR.)
+    current_block = block_new(next_label++);
+    function_add_block(current_function, current_block);
 
     // Generate the contents of the switch. Note that this still happens even
     // if it has no case or default labels because it could contain a named
@@ -734,9 +791,12 @@ void generate_switch(node_t* switch_, int reg_out) {
     generate_node(switch_->last_child, reg_out);
 
     // Finally, jump to the exit block and open it. We're done.
+    #ifndef CCI2_IR
     block_append(current_block, NULL, JMP, '&', JUMP_LABEL_PREFIX, switch_->break_label);
+    #endif
+    #ifdef CCI2_IR
+    block_append_jmp(current_block, switch_->token, switch_->break_label);
+    #endif
     current_block = block_new(switch_->break_label);
     function_add_block(current_function, current_block);
 }
-
-#endif // CCI2_IR

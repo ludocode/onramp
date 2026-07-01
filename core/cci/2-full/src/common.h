@@ -43,6 +43,8 @@
 struct string_t;
 struct token_t;
 
+extern int next_label;
+
 /**
  * Prints a fatal error message at the location of the given token.
  */

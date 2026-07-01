@@ -136,6 +136,7 @@ void emit_arg_invocation(char sigil, const char* label) {
     emit_cstr(label);
 }
 
+#ifndef CCI2_IR
 static void emit_label_def(const char* prefix, int number) {
     emit_char(':');
     emit_cstr(prefix);
@@ -148,6 +149,20 @@ static void emit_label_def_str(const string_t* label) {
     emit_string(label);
     emit_newline();
 }
+#endif
+
+#ifdef CCI2_IR
+static void emit_label_def(const char* prefix, int number, string_t* /*nullable*/ user_label) {
+    emit_char(':');
+    emit_cstr(prefix);
+    emit_hex_number(number);
+    if (user_label) {
+        emit_cstr(" ; ");
+        emit_string(user_label);
+    }
+    emit_newline();
+}
+#endif
 
 static char int_to_hex(unsigned value) {
     if (value <= 9) {
@@ -225,12 +240,17 @@ static void emit_blocks(function_t* function, block_t* block) {
         assert(!block->emitted);
         block->emitted = true;
 
+        #ifndef CCI2_IR
         if (block->label != -1) {
             emit_label_def(JUMP_LABEL_PREFIX, block->label);
         }
         if (block->user_label != NULL) {
             emit_label_def_str(block->user_label);
         }
+        #endif
+        #ifdef CCI2_IR
+        emit_label_def(JUMP_LABEL_PREFIX, block->label, block->user_label);
+        #endif
 
         // get the last instruction
         size_t count = block->instructions_count;
