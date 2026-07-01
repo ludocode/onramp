@@ -479,7 +479,7 @@ static void generate_variable(node_t* node) {
     instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
     instruction_set_arg_temporary(instruction, 0, temp);
     instruction_set_arg_number(instruction, 1, type_size(node->symbol->type));
-    instruction_set_arg_sentinel(instruction, 2); // TODO alignment
+    instruction_set_arg_number(instruction, 2, type_alignment(node->symbol->type));
 
     if (node->first_child) {
         generate_initializer(node, generate_temporary(NULL));
@@ -1552,12 +1552,12 @@ static void generate_dereference(node_t* node, int reg_out) {
 
 static void generate_array_subscript(node_t* node, int reg_out) {
     assert(reg_out != -1);
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
 
     #ifndef CCI2_IR
     // When passing directly, we can use the same register for location and
     // value; otherwise we need to generate in a temporary register.
     int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
     if (indirect) {
         reg_loc = register_alloc(node->token);
     } else {
@@ -1566,11 +1566,6 @@ static void generate_array_subscript(node_t* node, int reg_out) {
     #endif
     #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    if (!indirect) {
-        instruction_t* mov = block_append(current_block, node->token, MOV, 2);
-        instruction_set_arg_temporary(mov, 0, reg_loc);
-        instruction_set_arg_temporary(mov, 1, reg_out);
-    }
     #endif
 
     generate_location_array_subscript(node, reg_loc);

@@ -651,7 +651,8 @@ static void analyze_variable_assign(variable_t* variable, size_t* frame_size) {
         *frame_size += variable->size;
         variable->offset = -(int)*frame_size;
         #ifdef LOG_REGISTER_ALLOCATOR
-        printf("Assigned variable @%zu stack address %i\n", variable->id, variable->offset);
+        printf("Assigned variable @%zu stack address %i, new frame size %zu\n",
+                variable->id, variable->offset, *frame_size);
         #endif
     }
 }

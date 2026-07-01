@@ -157,14 +157,12 @@ void transform_entry(struct symbol_t* symbol) {
     //}
 
     if (symbol->frame_size != 0) {
-
         // insert `sub rsp rsp N`
         instruction_t* sub = instruction_new(location_new_copy(symbol->location), opcode_sub);
         instruction_append(sub, argument_new_register(RSP));
         instruction_append(sub, argument_new_register(RSP));
         instruction_append(sub, argument_new_integer(symbol->frame_size));
-        // use r9 if it doesn't fit in a mix-type byte
-        transform_insert_instruction_mix(sub, start_block->instructions, 0, 9);
+        vector_insert(start_block->instructions, 0, sub);
     }
 
     // insert enter
@@ -388,15 +386,21 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
             }
 
         } else if (argument->type == argument_type_number) {
-            uint32_t integer = argument_number(argument);
-            if (!mix_type_fits(integer)) {
-                // integer doesn't fit. use `reg` (r0 or r1.)
-                argument_set_register(argument, reg);
-                instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
-                instruction_append(imw, argument_new_register(reg));
-                instruction_append(imw, argument_new_integer(integer));
-                vector_insert(block->instructions, index++, imw);
-                ++reg;
+            opcode_t opcode = instruction->opcode;
+            if (opcode == opcode_mov) {
+                // mov is being used for a large number. change mov to imw.
+                instruction->opcode = opcode_imw;
+            } else if (opcode != opcode_imw) {
+                uint32_t integer = argument_number(argument);
+                if (!mix_type_fits(integer)) {
+                    // integer doesn't fit. use `reg` (r0 or r1.)
+                    argument_set_register(argument, reg);
+                    instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                    instruction_append(imw, argument_new_register(reg));
+                    instruction_append(imw, argument_new_integer(integer));
+                    vector_insert(block->instructions, index++, imw);
+                    ++reg;
+                }
             }
         }
     }
