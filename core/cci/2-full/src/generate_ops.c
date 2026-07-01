@@ -1188,14 +1188,17 @@ void generate_assign(node_t* node, int reg_out_opt) {
     #endif
 }
 
-#ifndef CCI2_IR
-
 void generate_add_sub_assign(node_t* node, int reg_val,
         opcode_t opcode, const char* llong_func,
         const char* float_func, const char* double_func)
 {
     // generate the storage location
+    #ifndef CCI2_IR
     int reg_loc = register_alloc(node->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_loc = generate_temporary(NULL);
+    #endif
     generate_location(node->first_child, reg_loc);
 
     // load it into the output register
@@ -1210,7 +1213,9 @@ void generate_add_sub_assign(node_t* node, int reg_val,
 
     // store the result
     generate_store(node->token, node->type, reg_val, reg_loc);
+    #ifndef CCI2_IR
     register_free(node->token, reg_loc);
+    #endif
 }
 
 // Generates a compound assignment other than add or sub.
@@ -1219,7 +1224,12 @@ void generate_compound_assign(node_t* node, int reg_val,
         const char* float_func, const char* double_func)
 {
     // generate the storage location
+    #ifndef CCI2_IR
     int reg_loc = register_alloc(node->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_loc = generate_temporary(NULL);
+    #endif
     generate_location(node->first_child, reg_loc);
 
     // load it into the output register
@@ -1230,7 +1240,9 @@ void generate_compound_assign(node_t* node, int reg_val,
 
     // store the result
     generate_store(node->token, node->type, reg_val, reg_loc);
+    #ifndef CCI2_IR
     register_free(node->token, reg_loc);
+    #endif
 }
 
 void generate_add_assign(node_t* node, int reg_out) {
@@ -1284,8 +1296,6 @@ void generate_shr_assign(struct node_t* node, int reg_out) {
         generate_compound_assign(node, reg_out, SHRU, "__llong_shru", NULL, NULL);
     }
 }
-
-#endif // !CCI2_IR
 
 static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
     if (type_is_long_long(node->type)) {

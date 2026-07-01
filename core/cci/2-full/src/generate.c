@@ -1963,7 +1963,6 @@ void generate_node(node_t* node, int reg_out_opt) {
 
         // assignment expressions
         case NODE_ASSIGN: generate_assign(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_ADD_ASSIGN: generate_add_assign(node, reg_out); break;
         case NODE_SUB_ASSIGN: generate_sub_assign(node, reg_out); break;
         case NODE_MUL_ASSIGN: generate_mul_assign(node, reg_out); break;
@@ -1976,6 +1975,7 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_SHR_ASSIGN: generate_shr_assign(node, reg_out); break;
 
         // other binary expressions
+        #ifndef CCI2_IR
         case NODE_LOGICAL_OR: generate_logical_or(node, reg_out); break;
         case NODE_LOGICAL_AND: generate_logical_and(node, reg_out); break;
         #endif // !CCI2_IR
