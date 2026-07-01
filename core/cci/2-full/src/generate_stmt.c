@@ -675,7 +675,7 @@ void generate_case_match(node_t* switch_, int reg_out, node_t* case_) {
             instruction_set_arg_number(instruction, 2, case_->start32);
 
             instruction = block_append_br(current_block, case_->token,
-                    case_->jump_label, next_label);
+                    next_label, case_->jump_label);
             instruction_set_arg_temporary(instruction, 0, result);
 
             current_block = block_new(next_label++);

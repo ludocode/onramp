@@ -180,6 +180,51 @@ static void emit_instruction(instruction_t* instruction) {
     emit_char('\n');
 }
 
+static void emit_block_append(vector_t* blocks, block_t* child, int visited) {
+    if (child->visited != visited) {
+        child->visited = visited;
+        vector_append(blocks, child);
+    }
+}
+
+/**
+ * Emits the given block, appending any unvisited reachable blocks to the given
+ * array.
+ *
+ * (The register allocator runs only on reachable blocks. Unreachable blocks
+ * haven't been transformed to assembly so we can't emit them.)
+ */
+static void emit_block(symbol_t* symbol, block_t* block, vector_t* blocks, int visited) {
+
+    emit_char('\n');
+    emit_location(block->location);
+    emit_char(':');
+    emit_string(block->name);
+    emit_char('\n');
+
+    // emit all instructions
+    for (size_t i = 0; i < vector_count(block->instructions); ++i) {
+        instruction_t* instruction = vector_at(block->instructions, i);
+        emit_instruction(instruction);
+
+        // if this is a jump, add the destination block to the list
+        switch (instruction->opcode) {
+            case opcode_jmp:
+                emit_block_append(blocks,
+                        block_find(argument_label(instruction_argument(instruction, 0))),
+                        visited);
+                break;
+            case opcode_jz:
+                emit_block_append(blocks,
+                        block_find(argument_label(instruction_argument(instruction, 1))),
+                        visited);
+                break;
+            default:
+                break;
+        }
+    }
+}
+
 void emit_symbol_name(symbol_t* symbol) {
     emit_location(symbol->location);
     emit_char(symbol->is_static ? '@' : '=');
@@ -190,20 +235,17 @@ void emit_symbol_name(symbol_t* symbol) {
 void emit_symbol(symbol_t* symbol) {
     emit_symbol_name(symbol);
 
-    // emit the blocks
-    // TODO don't emit any unreachable blocks
-
-    for (size_t i = 0; i < vector_count(symbol->blocks); ++i) {
-        block_t* block = vector_at(symbol->blocks, i);
-        emit_location(block->location);
-        emit_char(':');
-        emit_string(block->name);
-        emit_char('\n');
-
-        for (size_t i = 0; i < vector_count(block->instructions); ++i) {
-            emit_instruction(vector_at(block->instructions, i));
-        }
+    // emit reachable blocks. the vector grows as we iterate.
+    vector_t* blocks = vector_new();
+    block_t* first = vector_first(symbol->blocks);
+    int visited = pass_id++;
+    first->visited = visited;
+    vector_append(blocks, first);
+    for (size_t i = 0; i < vector_count(blocks); ++i) {
+        emit_block(symbol, vector_at(blocks, i), blocks, visited);
     }
+    vector_delete(blocks);
+
     emit_char('\n');
     emit_char('\n');
     emit_char('\n');
