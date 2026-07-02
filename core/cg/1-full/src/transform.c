@@ -26,6 +26,7 @@
 
 #include <stdlib.h>
 
+#include "analyze.h"
 #include "argument.h"
 #include "block.h"
 #include "common.h"
@@ -40,7 +41,9 @@
 /**
  * Generate a mov from one register to another, appending it to the given vector.
  */
-static void transform_register_mov(vector_t* instructions, location_t* location, int dest, int src) {
+static void transform_register_mov(vector_t* instructions, location_t* location, size_t dest, size_t src) {
+    assert(dest < REGISTER_COUNT);
+    assert(src < REGISTER_COUNT);
     if (dest == src) {
         return;
     }
@@ -88,39 +91,50 @@ void transform_parameters(symbol_t* symbol) {
     }
 
     vector_t* preamble = vector_new();
+    vector_t* variables = vector_new();
 
     // The first four parameters are passed in registers. Generate a variable
-    // for each one and append a store instruction.
+    // for each one and store it.
     size_t count = vector_count(parameters);
     size_t register_count = (count > 4) ? 4 : count;
-    for (size_t i = 0; i < register_count; ++i) {
-        temporary_t* temporary = vector_at(parameters, i);
+    for (size_t i = 0; i != register_count; ++i) {
+        variable_t* variable = variable_new(4, 4);
+        vector_append(variables, variable);
 
-        // insert `var %name 4 %`
-        instruction_t* var = instruction_new(location_new_copy(symbol->location), opcode_var);
-        instruction_append(var, argument_new_temporary(temporary));
-        instruction_append(var, argument_new_integer(4));
-        instruction_append(var, argument_new_sentinel());
-        vector_append(preamble, var);
-
-        // insert `stw rN %name`
+        // insert `stw rN rpp @var`
         instruction_t* stw = instruction_new(location_new_copy(symbol->location), opcode_stw);
         instruction_append(stw, argument_new_register(i));
-        instruction_append(stw, argument_new_temporary(temporary));
+        instruction_append(stw, argument_new_register(RPP));
+        instruction_append(stw, argument_new_variable(variable));
         vector_append(preamble, stw);
+    }
+
+    // Now create a temporary for the location of each variable.
+    for (size_t i = 0; i != register_count; ++i) {
+        temporary_t* temporary = vector_at(parameters, i);
+        variable_t* variable = vector_at(variables, i);
+
+        // insert `add %name rpp @var`
+        instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
+        instruction_append(add, argument_new_temporary(temporary));
+        instruction_append(add, argument_new_register(RPP));
+        instruction_append(add, argument_new_variable(variable));
+        vector_append(preamble, add);
     }
 
     // Any additional parameters are passed on the stack. Each one is turned
     // into a variable with positive frame offset.
     int offset = 4;
-    for (size_t i = 4; i < count; ++i) {
-        // insert `add %name rfp <offset>`
-        instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
-        instruction_append(add, argument_new_temporary(vector_at(parameters, i)));
-        instruction_append(add, argument_new_register(RFP));
-        instruction_append(add, argument_new_integer(offset));
-        vector_append(preamble, add);
-        offset += 4;
+    if (count > 4) {
+        for (size_t i = 4; i != count; ++i) {
+            // insert `add %name rfp <offset>`
+            instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
+            instruction_append(add, argument_new_temporary(vector_at(parameters, i)));
+            instruction_append(add, argument_new_register(RFP));
+            instruction_append(add, argument_new_integer(offset));
+            vector_append(preamble, add);
+            offset += 4;
+        }
     }
 
     // If there is a variadic parameter, assign it now.
@@ -141,6 +155,7 @@ void transform_parameters(symbol_t* symbol) {
         vector_insert(start_block->instructions, 0, vector_at(preamble, i));
     }
 
+    vector_delete(variables);
     vector_delete(preamble);
 }
 
@@ -340,7 +355,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
     argument_mode_t mode = instruction_mode(instruction);
 
     // Check for temporary or variable inputs
-    size_t reg = 0;
+    size_t reg = FIRST_SPILL_REGISTER;
     size_t j = (mode == argument_mode_write) ? 1 : 0;
     size_t count = vector_count(instruction->arguments);
     for (; j < count; ++j) {
@@ -349,8 +364,8 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
         if (argument->type == argument_type_temporary) {
             temporary_t* temporary = argument_temporary(argument);
             if (temporary->reg == -1) {
-                // temporary is spilled. load it into `reg` (r0 or r1.)
-                assert(reg != 2);
+                // temporary is spilled. load it into spill register `reg` (r8 or r9.)
+                assert(reg != FIRST_SPILL_REGISTER + AVAILABLE_SPILL_REGISTERS);
                 assert(temporary->variable);
                 assert(temporary->variable->offset != 0);
 
@@ -376,7 +391,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
                 // variable fits. replace it with its offset.
                 argument_set_integer(argument, variable->offset);
             } else {
-                // variable doesn't fit. use `reg` (r0 or r1.)
+                // variable doesn't fit. use spill register `reg` (r8 or r9.)
                 argument_set_register(argument, reg);
                 instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
                 instruction_append(imw, argument_new_register(reg));
@@ -393,7 +408,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
             } else if (opcode != opcode_imw) {
                 uint32_t integer = argument_number(argument);
                 if (!mix_type_fits(integer)) {
-                    // integer doesn't fit. use `reg` (r0 or r1.)
+                    // integer argument doesn't fit in mix-type byte. use spill register `reg` (r8 or r9.)
                     argument_set_register(argument, reg);
                     instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
                     instruction_append(imw, argument_new_register(reg));
@@ -411,18 +426,19 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
         if (argument->type == argument_type_temporary) {
             temporary_t* temporary = argument_temporary(argument);
             if (temporary->reg == -1) {
-                // temporary is spilled. replace with r0 and append a store
+                // temporary is spilled. replace with r8 and append a store
                 // instruction.
                 assert(temporary->variable);
                 assert(temporary->variable->offset != 0);
 
-                argument_set_register(argument, 0);
+                argument_set_register(argument, FIRST_SPILL_REGISTER);
                 instruction_t* stw = instruction_new(location_new_copy(instruction->location), opcode_stw);
-                instruction_append(stw, argument_new_register(0));
+                instruction_append(stw, argument_new_register(FIRST_SPILL_REGISTER));
                 instruction_append(stw, argument_new_register(RFP));
                 instruction_append(stw, argument_new_integer(temporary->variable->offset));
-                // use r1 if the offset doesn't fit in a mix-type byte.
-                index += transform_insert_instruction_mix(stw, block->instructions, index + 1, 1);
+                // use r9 if the offset doesn't fit in a mix-type byte.
+                index += transform_insert_instruction_mix(stw, block->instructions,
+                        index + 1, FIRST_SPILL_REGISTER + 1);
             } else {
                 // temporary is in a register. replace with the register.
                 argument_set_register(argument, temporary->reg);
@@ -472,13 +488,15 @@ static size_t transform_registers_store(block_t* block, instruction_t* store, si
     }
 
     // We have three spills. Separate the addition.
+    // (Use the second spill register for the addition result because the first
+    // may be needed for the value.)
     instruction_t* add = instruction_new(location_new_copy(store->location), opcode_add);
-    instruction_append(add, argument_new_register(1));
+    instruction_append(add, argument_new_register(FIRST_SPILL_REGISTER + 1));
     instruction_append(add, vector_at(store->arguments, 1));
     instruction_append(add, vector_at(store->arguments, 2));
     vector_insert(block->instructions, index, add);
     vector_set(store->arguments, 1, argument_new_integer(0));
-    vector_set(store->arguments, 2, argument_new_register(1));
+    vector_set(store->arguments, 2, argument_new_register(FIRST_SPILL_REGISTER + 1));
 
     // Perform transform on each instruction separately.
     index = transform_registers_normal(block, add, index);
@@ -617,21 +635,25 @@ static void transform_call_live_args(vector_t* instructions, instruction_t* inst
     need[2] = transform_call_live_register(arguments, 4);
     need[3] = transform_call_live_register(arguments, 5);
     need[4] = transform_call_live_register(arguments, 1); // function pointer arg
+    //printf("\n====================== %s()\n", __func__);
 
     // Current location of live value that was originally in the indexed register
     // i.e. loc[4] == 1 means the live temporary assigned to r4 is currently in r1
     int* loc = malloc(sizeof(int) * 5);
-    loc[0] = TEMPORARY_REGISTER_INVALID;
-    loc[1] = TEMPORARY_REGISTER_INVALID;
-    loc[2] = 2;
-    loc[3] = 3;
-    loc[4] = 4;
 
-    // If any arguments are already where they belong, we don't need to move them
-    if (need[2] == 2) need[2] = TEMPORARY_REGISTER_INVALID;
-    if (need[3] == 3) need[3] = TEMPORARY_REGISTER_INVALID;
-    if (need[4] == 4) need[4] = TEMPORARY_REGISTER_INVALID;
+    for (int i = 0; i != 5; ++i) {
+        // Initialize locations
+        loc[i] = i;
+        //printf("need[%i] == %i\n", i, need[i]);
 
+        // If any arguments are already where they belong, we don't need to move them
+        if (need[i] == i) {
+            //printf("%i is already where it goes\n",i);
+            need[i] = TEMPORARY_REGISTER_INVALID;
+        }
+    }
+
+    int spill = FIRST_SPILL_REGISTER;
     for (;;) {
 
         // find the highest-numbered register that needs an argument to be
@@ -649,6 +671,7 @@ static void transform_call_live_args(vector_t* instructions, instruction_t* inst
             break;
         }
         int original_target = target;
+        //printf("\nstarting iteration at target %i, needs register %i\n", target, need[target]);
 
         // See if another argument needs the contents of this register. If so,
         // we'd clobber it if we moved this one first, so move that one first
@@ -658,6 +681,7 @@ static void transform_call_live_args(vector_t* instructions, instruction_t* inst
             if (loc[target] != target) {
                 // The target register's data has already been moved elsewhere
                 // so we wouldn't clobber anything by assigning it.
+                //printf("target %i already moved to %i\n", target, loc[target]);
                 break;
             }
 
@@ -666,21 +690,27 @@ static void transform_call_live_args(vector_t* instructions, instruction_t* inst
                 if (i != target && need[i] == target) {
                     // We've found another argument that needs this register
                     other = i;
+                    //printf("other %i needs register %i\n",other, target);
                     break;
                 }
             }
             if (other == TEMPORARY_REGISTER_INVALID) {
                 // Nothing needs to contents of this register. We can assign it.
+                //printf("no other register needs target %i\n",target);
                 break;
             }
 
             target = other;
             if (target == original_target) {
-                // We have a cycle. There can only be one cycle (since we only
-                // have three live registers) so just move the contents into
-                // r1 to break the cycle.
-                transform_register_mov(instructions, location, 1, target);
-                loc[target] = 1;
+                // We have a cycle. There can be at most two cycles (since we
+                // have up to five live registers) so just move the contents
+                // into the next spill register to break the cycle.
+                //printf("found cycle, moving loc[%i] to spill %i\n",target,spill);
+                assert(spill != FIRST_SPILL_REGISTER + AVAILABLE_SPILL_REGISTERS);
+                transform_register_mov(instructions, location, spill, target);
+                loc[target] = spill;
+                ++spill;
+                break;
             }
 
             // Loop around on the new register and check again.
@@ -688,12 +718,16 @@ static void transform_call_live_args(vector_t* instructions, instruction_t* inst
 
         // We've found a register to move.
         int src_reg = need[target];
+        //printf("moving src %i to target %i\n", src_reg, target);
         transform_register_mov(instructions, location, target,
                 (src_reg < 5) ? loc[src_reg] : src_reg);
         need[target] = TEMPORARY_REGISTER_INVALID;
-        loc[target] = TEMPORARY_REGISTER_INVALID;
+        if (loc[target] == target) {
+            loc[target] = TEMPORARY_REGISTER_INVALID;
+        }
     }
 
+    //printf("%s() done\n\n", __func__);
     free(loc);
     free(need);
 }

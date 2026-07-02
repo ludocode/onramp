@@ -33,6 +33,14 @@ struct symbol_t;
 struct otable_t;
 struct instruction_t;
 
+// Registers r0-r7 are available for register allocation.
+#define FIRST_LIVE_REGISTER 0
+#define AVAILABLE_LIVE_REGISTERS 8
+
+// Registers r8-r9 are used for spills.
+#define FIRST_SPILL_REGISTER 8
+#define AVAILABLE_SPILL_REGISTERS 2
+
 /**
  * Fills out the back pointers from each block to its parent blocks (i.e. the
  * parent_blocks vector in each block.)

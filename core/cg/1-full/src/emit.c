@@ -143,7 +143,7 @@ static void emit_argument(argument_t* argument) {
             break;
         case argument_type_temporary:
             // This only exists for debugging purposes.
-            emit_string(argument->temporary->name);
+            emit_string(argument_temporary(argument)->name);
             break;
         case argument_type_register:
             emit_register(argument->number);

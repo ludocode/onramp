@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "common.h"
 #include "libo-string.h"
 #include "libo-error.h"
 #include "libo-util.h"
@@ -93,6 +94,7 @@ argument_t* argument_new_integer(uint32_t integer) {
 }
 
 argument_t* argument_new_register(uint32_t reg) {
+    assert(reg < REGISTER_COUNT);
     argument_t* argument = argument_new_type(argument_type_register);
     argument->number = reg;
     return argument;
@@ -112,7 +114,7 @@ argument_t* argument_new_temporary(temporary_t* temporary) {
 }
 
 argument_t* argument_new_variable(struct variable_t* variable) {
-    argument_t* argument = argument_new_type(argument_type_temporary);
+    argument_t* argument = argument_new_type(argument_type_variable);
     argument->variable = variable;
     return argument;
 }

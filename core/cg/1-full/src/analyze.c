@@ -36,10 +36,6 @@
 #include "temporary.h"
 #include "variable.h"
 
-// Registers r2-r9 are available for register allocation.
-#define FIRST_REGISTER 2
-#define AVAILABLE_REGISTERS 8
-
 void analyze_block_parents(symbol_t* symbol) {
     size_t count = vector_count(symbol->blocks);
     for (size_t i = 0; i < count; ++i) {
@@ -193,9 +189,9 @@ void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instructi
         // If the temporary was live, it becomes dead.
         argument_t* argument = instruction_argument(instruction, 0);
         if (argument->type == argument_type_temporary) {
-            //printf("  found write arg %s\n", argument->temporary->name->bytes);
-            otable_remove(live_temps, argument->temporary,
-                    temporary_hash(argument->temporary));
+            temporary_t* temporary = argument_temporary(argument);
+            //printf("  found write arg %s\n", temporary->name->bytes);
+            otable_remove(live_temps, temporary, temporary_hash(temporary));
         }
     }
 
@@ -205,10 +201,10 @@ void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instructi
     for (size_t j = first_read_arg; j < count; ++j) {
         argument_t* argument = instruction_argument(instruction, j);
         if (argument->type == argument_type_temporary) {
-            //printf("  found read arg at %zu: %s\n", j, argument->temporary->name->bytes);
+            temporary_t* temporary = argument_temporary(argument);
+            //printf("  found read arg at %zu: %s\n", j, temporary->name->bytes);
             // The instruction is reading this temporary. It becomes live.
-            otable_put(live_temps, argument->temporary,
-                    temporary_hash(argument->temporary));
+            otable_put(live_temps, temporary, temporary_hash(temporary));
         }
     }
 }
@@ -426,7 +422,7 @@ static void analyze_live_intervals(block_t* block, int visited) {
             // If the temporary was live, it becomes dead.
             argument_t* argument = instruction_argument(instruction, 0);
             if (argument->type == argument_type_temporary) {
-                temporary_t* temporary = argument->temporary;
+                temporary_t* temporary = argument_temporary(argument);
                 otable_remove(live_temps, temporary, temporary_hash(temporary));
                 analyze_expand_interval(temporary, instruction->index);
             }
@@ -463,7 +459,7 @@ static void analyze_live_intervals(block_t* block, int visited) {
                 // read from it. We don't include this instruction because the
                 // output of this instruction may become live; this way it can
                 // use the same register.)
-                temporary_t* temporary = argument->temporary;
+                temporary_t* temporary = argument_temporary(argument);
                 otable_put(live_temps, temporary, temporary_hash(temporary));
                 assert(instruction->index != 0);
                 analyze_expand_interval(temporary, instruction->index - 1);
@@ -509,7 +505,6 @@ static void analyze_linear_scan(symbol_t* symbol) {
 
     #ifndef __onramp_cci_opc
     #ifndef __onramp_cci_omc
-    // TODO re-enable
     #define HAVE_QSORT
     #endif
     #endif
@@ -533,7 +528,7 @@ static void analyze_linear_scan(symbol_t* symbol) {
     qsort(temporaries->elements, count, sizeof(void*), temporary_compare_live_interval);
     #endif
 
-    temporary_t** registers = calloc(AVAILABLE_REGISTERS, sizeof(temporary_t*));
+    temporary_t** registers = calloc(AVAILABLE_LIVE_REGISTERS, sizeof(temporary_t*));
     size_t registers_used = 0;
 
     for (size_t i = 0; i < vector_count(temporaries); ++i) {
@@ -553,13 +548,13 @@ static void analyze_linear_scan(symbol_t* symbol) {
         // start of the current temporary, we can clear them. These register
         // assignments become permanent.
         size_t j;
-        for (j = 0; j < AVAILABLE_REGISTERS; ++j) {
+        for (j = 0; j < AVAILABLE_LIVE_REGISTERS; ++j) {
             if (registers[j] != NULL) {
                 temporary_t* reg = registers[j];
                 if (reg->interval_end < temporary->interval_start) {
                     #ifdef LOG_REGISTER_ALLOCATOR
                     printf("Assigned temporary %s register r%zu\n",
-                            reg->name->bytes, FIRST_REGISTER + j);
+                            reg->name->bytes, FIRST_LIVE_REGISTER + j);
                     #endif
                     registers[j] = NULL;
                     --registers_used;
@@ -569,15 +564,15 @@ static void analyze_linear_scan(symbol_t* symbol) {
 
         // Find a register in the list that is either unused, or that has a
         // longer interval that this temporary (for us to replace.)
-        for (j = 0; j < AVAILABLE_REGISTERS; ++j) {
-            if ((registers_used != AVAILABLE_REGISTERS) ? (registers[j] == NULL)
+        for (j = 0; j < AVAILABLE_LIVE_REGISTERS; ++j) {
+            if ((registers_used != AVAILABLE_LIVE_REGISTERS) ? (registers[j] == NULL)
                    : (temporary_interval_length(registers[j]) > length))
             {
                 break;
             }
         }
 
-        if (j == AVAILABLE_REGISTERS) {
+        if (j == AVAILABLE_LIVE_REGISTERS) {
             //printf("  spilling current %s\n", temporary->name->bytes);
             // No register could be found. Spill this temporary.
             if (temporary->variable == NULL) {
@@ -594,7 +589,7 @@ static void analyze_linear_scan(symbol_t* symbol) {
         // A register was found. If it already contains a temporary, spill it.
         if (registers[j]) {
             temporary_t* spill = registers[j];
-            //printf("  spilling reg %zu %s\n", FIRST_REGISTER + j, spill->name->bytes);
+            //printf("  spilling reg %zu %s\n", FIRST_LIVE_REGISTER + j, spill->name->bytes);
             spill->reg = -1;
             if (spill->variable == NULL) {
                 spill->variable = variable_new(4, 4);
@@ -607,19 +602,19 @@ static void analyze_linear_scan(symbol_t* symbol) {
         }
 
         // Assign this temporary to the register.
-        //printf("  assigning reg %zu to %s\n", FIRST_REGISTER + j, temporary->name->bytes);
+        //printf("  assigning reg %zu to %s\n", FIRST_LIVE_REGISTER + j, temporary->name->bytes);
         registers[j] = temporary;
-        temporary->reg = FIRST_REGISTER + j;
+        temporary->reg = FIRST_LIVE_REGISTER + j;
         ++registers_used;
     }
 
     #ifdef LOG_REGISTER_ALLOCATOR
     // Print any open register assignments that become permanent
-    for (size_t j = 0; j < AVAILABLE_REGISTERS; ++j) {
+    for (size_t j = 0; j < AVAILABLE_LIVE_REGISTERS; ++j) {
         if (registers[j] != NULL) {
             temporary_t* reg = registers[j];
             printf("Assigned temporary %s register r%zu (end)\n",
-                    reg->name->bytes, FIRST_REGISTER + j);
+                    reg->name->bytes, FIRST_LIVE_REGISTER + j);
         }
     }
     #endif
@@ -631,7 +626,7 @@ static void analyze_linear_scan(symbol_t* symbol) {
 void analyze_register_allocation(symbol_t* symbol) {
 
     // Assign a unique index to all instructions.
-    analyze_number_instructions(vector_first(symbol->blocks), 0, pass_id++);
+    analyze_number_instructions(vector_first(symbol->blocks), 1, pass_id++);
 
     // Convert the liveness data to live intervals.
     analyze_live_intervals(vector_first(symbol->blocks), pass_id++);

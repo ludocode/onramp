@@ -1,12 +1,12 @@
 // The MIT License (MIT)
-// Copyright (c) 2023-2024 Fraser Heavy Software
+// Copyright (c) 2023-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 #include <stdio.h>
 #include <stdlib.h>
 
 int mod(int left, int right) {
-	return (left - ((left/right) * right));
+    return (left - ((left/right) * right));
 }
 
 int main(void) {
@@ -14,10 +14,10 @@ int main(void) {
         return 1;
     }
     if (mod(15, 4) != 3) {
-        return 1;
+        return 2;
     }
-	if (mod(500, 10) != 0) {
-        return 1;
+    if (mod(500, 10) != 0) {
+        return 3;
     }
     return 0;
 }

@@ -156,9 +156,9 @@ int main(int argc, char** argv) {
 
         // perform initial analysis and conversions
         analyze_block_parents(symbol);
+        transform_load_store_sym(symbol);
         transform_parameters(symbol);
         transform_vars(symbol);
-        transform_load_store_sym(symbol);
 
         // TODO optimizations
 

@@ -33,6 +33,8 @@
 #define RPP 0xE
 #define RIP 0xF
 
+#define REGISTER_COUNT 16
+
 //#define LOG_REGISTER_ALLOCATOR
 
 extern FILE* input_file;
