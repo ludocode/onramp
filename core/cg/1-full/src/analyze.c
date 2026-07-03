@@ -437,6 +437,10 @@ static void analyze_live_intervals(block_t* block, int visited) {
                 temporary_t* temporary = *entry;
                 if (temporary->variable == NULL) {
                     temporary->variable = variable_new(4, 4);
+                    #ifdef LOG_REGISTER_ALLOCATOR
+                    printf("Creating variable @%zu to preserve live temporary %s across a function call\n",
+                            temporary->variable->id, temporary->name->bytes);
+                    #endif
                 }
             }
 

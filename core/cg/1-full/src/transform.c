@@ -101,10 +101,10 @@ void transform_parameters(symbol_t* symbol) {
         variable_t* variable = variable_new(4, 4);
         vector_append(variables, variable);
 
-        // insert `stw rN rpp @var`
+        // insert `stw rN rfp @var`
         instruction_t* stw = instruction_new(location_new_copy(symbol->location), opcode_stw);
         instruction_append(stw, argument_new_register(i));
-        instruction_append(stw, argument_new_register(RPP));
+        instruction_append(stw, argument_new_register(RFP));
         instruction_append(stw, argument_new_variable(variable));
         vector_append(preamble, stw);
     }
@@ -114,10 +114,10 @@ void transform_parameters(symbol_t* symbol) {
         temporary_t* temporary = vector_at(parameters, i);
         variable_t* variable = vector_at(variables, i);
 
-        // insert `add %name rpp @var`
+        // insert `add %name rfp @var`
         instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
         instruction_append(add, argument_new_temporary(temporary));
-        instruction_append(add, argument_new_register(RPP));
+        instruction_append(add, argument_new_register(RFP));
         instruction_append(add, argument_new_variable(variable));
         vector_append(preamble, add);
     }
@@ -523,8 +523,8 @@ static void transform_preserve_call(instruction_t* instruction, vector_t* instru
         instruction_append(mem, argument_new_register(temporary->reg));
         instruction_append(mem, argument_new_register(RFP));
         instruction_append(mem, argument_new_integer(temporary->variable->offset));
-        // use r0 if the offset doesn't fit in a mix-type byte
-        transform_insert_instruction_mix(mem, instructions, vector_count(instructions), 0);
+        // use r8 if the offset doesn't fit in a mix-type byte
+        transform_insert_instruction_mix(mem, instructions, vector_count(instructions), 8);
     }
 }
 
