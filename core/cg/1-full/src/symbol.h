@@ -47,7 +47,7 @@ typedef struct symbol_t {
     bool is_static;
     bool is_data;
 
-    struct vector_t* parameters; // list of temporaries
+    struct vector_t* parameters; // list of temporaries, contains NULLs for sentinels
     struct temporary_t* varargs; // varargs temporary or null
     struct vector_t* blocks;
     size_t frame_size;

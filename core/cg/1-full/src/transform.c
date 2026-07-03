@@ -98,6 +98,11 @@ void transform_parameters(symbol_t* symbol) {
     size_t count = vector_count(parameters);
     size_t register_count = (count > 4) ? 4 : count;
     for (size_t i = 0; i != register_count; ++i) {
+        if (vector_at(parameters, i) == NULL) {
+            // sentinel; ignored parameter
+            vector_append(variables, NULL);
+            continue;
+        }
         variable_t* variable = variable_new(4, 4);
         vector_append(variables, variable);
 
@@ -112,6 +117,10 @@ void transform_parameters(symbol_t* symbol) {
     // Now create a temporary for the location of each variable.
     for (size_t i = 0; i != register_count; ++i) {
         temporary_t* temporary = vector_at(parameters, i);
+        if (temporary == NULL) {
+            // sentinel; ignored parameter
+            continue;
+        }
         variable_t* variable = vector_at(variables, i);
 
         // insert `add %name rfp @var`
@@ -127,12 +136,15 @@ void transform_parameters(symbol_t* symbol) {
     int offset = 4;
     if (count > 4) {
         for (size_t i = 4; i != count; ++i) {
-            // insert `add %name rfp <offset>`
-            instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
-            instruction_append(add, argument_new_temporary(vector_at(parameters, i)));
-            instruction_append(add, argument_new_register(RFP));
-            instruction_append(add, argument_new_integer(offset));
-            vector_append(preamble, add);
+            temporary_t* temporary = vector_at(parameters, i);
+            if (temporary != NULL) {
+                // insert `add %name rfp <offset>`
+                instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
+                instruction_append(add, argument_new_temporary(vector_at(parameters, i)));
+                instruction_append(add, argument_new_register(RFP));
+                instruction_append(add, argument_new_integer(offset));
+                vector_append(preamble, add);
+            }
             offset += 4;
         }
     }
@@ -296,20 +308,7 @@ void transform_load_store_sym(symbol_t* symbol) {
     }
 }
 
-void transform_vars(symbol_t* symbol) {
-    // TODO parameters. each parameter will have a variable generated for it.
-    //
-    // the first four parameters will have a `stw r.. rfp @var` instruction
-    // added.
-    //
-    // parameters beyond the fourth and varargs params will be assigned a
-    // positive offset corresponding to their position above the stack frame.
-    //
-    // all parameters will then have an `add %.. rfp @var` instruction
-    // inserted.
-    //
-    // optimizations can then clean up any unused temps and vars.
-
+void transform_variables(symbol_t* symbol) {
     size_t block_count = vector_count(symbol->blocks);
     for (size_t i = 0; i != block_count; ++i) {
         block_t* block = vector_at(symbol->blocks, i);

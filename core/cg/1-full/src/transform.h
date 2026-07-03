@@ -61,7 +61,7 @@ void transform_load_store_sym(struct symbol_t* symbol);
 /**
  * Convert all `var` instructions and function parameters to variables.
  */
-void transform_vars(struct symbol_t* symbol);
+void transform_variables(struct symbol_t* symbol);
 
 /**
  * Convert the entry point of the function to assembly.

@@ -183,9 +183,15 @@ static void parse_parameters(symbol_t* symbol) {
         parse_whitespace_and_comments();
         if (current_char == '%') {
             parse_identifier(true);
-            temporary_t* temporary = temporary_create(identifier);
-            if (!temporary) {
-                fatal("Duplicate parameter.");
+            temporary_t* temporary;
+            if (identifier[1] == 0) {
+                // sentinel.
+                temporary = NULL;
+            } else {
+                temporary = temporary_create(identifier);
+                if (!temporary) {
+                    fatal("Duplicate parameter.");
+                }
             }
             vector_append(symbol->parameters, temporary);
             continue;
