@@ -1539,11 +1539,11 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
 
 static void generate_dereference(node_t* node, int reg_out) {
     assert(reg_out != -1);
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
 
     #ifndef CCI2_IR
     // When passing directly, we can use the same register for location and
     // value; otherwise we need to generate in a temporary register.
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
     int reg_loc;
     if (indirect) {
         reg_loc = register_alloc(node->token);
@@ -1553,11 +1553,6 @@ static void generate_dereference(node_t* node, int reg_out) {
     #endif
     #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    if (!indirect) {
-        instruction_t* mov = block_append(current_block, node->token, MOV, 2);
-        instruction_set_arg_temporary(mov, 0, reg_loc);
-        instruction_set_arg_temporary(mov, 1, reg_out);
-    }
     #endif
 
     generate_node(node->first_child, reg_loc);
@@ -1600,12 +1595,12 @@ static void generate_array_subscript(node_t* node, int reg_out) {
 
 static void generate_member_val(node_t* node, int reg_out) {
     assert(reg_out != -1);
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
 
     #ifndef CCI2_IR
     // When passing directly, we can use the same register for location and
     // value; otherwise we need to generate in a temporary register.
     int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
     if (indirect) {
         reg_loc = register_alloc(node->token);
     } else {
@@ -1614,11 +1609,6 @@ static void generate_member_val(node_t* node, int reg_out) {
     #endif
     #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    if (!indirect) {
-        instruction_t* mov = block_append(current_block, node->token, MOV, 2);
-        instruction_set_arg_temporary(mov, 0, reg_loc);
-        instruction_set_arg_temporary(mov, 1, reg_out);
-    }
     #endif
 
     generate_location(node->first_child, reg_loc);
@@ -1633,12 +1623,12 @@ static void generate_member_val(node_t* node, int reg_out) {
 
 static void generate_member_ptr(node_t* node, int reg_out) {
     assert(reg_out != -1);
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
 
     #ifndef CCI2_IR
     // When passing directly, we can use the same register for location and
     // value; otherwise we need to generate in a temporary register.
     int reg_loc;
+    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
     if (indirect) {
         reg_loc = register_alloc(node->token);
     } else {
@@ -1647,11 +1637,6 @@ static void generate_member_ptr(node_t* node, int reg_out) {
     #endif
     #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    if (!indirect) {
-        instruction_t* mov = block_append(current_block, node->token, MOV, 2);
-        instruction_set_arg_temporary(mov, 0, reg_loc);
-        instruction_set_arg_temporary(mov, 1, reg_out);
-    }
     #endif
 
     generate_node(node->first_child, reg_loc);

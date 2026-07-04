@@ -210,6 +210,7 @@ void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instructi
 }
 
 void analyze_liveness(symbol_t* symbol) {
+    block_t* first_block = vector_first(symbol->blocks);
 
     // Generate a good block order
     vector_t* blocks = analyze_liveness_block_order(symbol);
@@ -269,6 +270,13 @@ void analyze_liveness(symbol_t* symbol) {
                     // We've grown a set of temporaries. We'll need another pass.
                     changed = true;
                 }
+            }
+
+            if (block == first_block && !otable_is_empty(live_temps)) {
+                fputs("First block live temporaries:", stdout);
+                temporaries_print_table(live_temps);
+                putchar('\n');
+                fatal("Liveness analysis detected temporaries that were read before they were written.");
             }
             otable_delete(live_temps);
         }
