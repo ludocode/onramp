@@ -33,6 +33,8 @@ struct location_t;
 struct temporary_t;
 struct vector_t;
 
+#define PRIORITY_INVALID ((size_t)-1)
+
 /**
  * All data for the current symbol being compiled.
  *
@@ -51,6 +53,8 @@ typedef struct symbol_t {
     struct temporary_t* varargs; // varargs temporary or null
     struct vector_t* blocks;
     size_t frame_size;
+    size_t constructor_priority;
+    size_t destructor_priority;
 } symbol_t;
 
 /**
@@ -58,7 +62,7 @@ typedef struct symbol_t {
  *
  * Takes ownership of the given location.
  */
-symbol_t* symbol_new(const char* name, struct location_t* location, bool is_static);
+symbol_t* symbol_new(struct location_t* location, bool is_static);
 
 void symbol_delete(symbol_t* symbol);
 

@@ -766,6 +766,30 @@ static void parse_data_symbol(symbol_t* symbol) {
     emit_char('\n');
 }
 
+static void parse_symbol_flags(symbol_t* symbol) {
+    for (;;) {
+        if (current_char == '{') {
+            parse_next_char();
+            if (symbol->constructor_priority != PRIORITY_INVALID) {
+                fatal("Multiple constructor flags in symbol declaration.");
+            }
+            symbol->constructor_priority = parse_integer();
+            continue;
+        }
+
+        if (current_char == '}') {
+            parse_next_char();
+            if (symbol->destructor_priority != PRIORITY_INVALID) {
+                fatal("Multiple destructor flags in symbol declaration.");
+            }
+            symbol->destructor_priority = parse_integer();
+            continue;
+        }
+
+        break;
+    }
+}
+
 symbol_t* /*nullable*/ try_parse_symbol(void) {
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     if (current_char == EOF) {
@@ -773,15 +797,17 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     }
     parse_whitespace_and_comments();
 
-    // parse the symbol name
+    // parse the opening sigil
     if (current_char != '=' && current_char != '@') {
         fatal("Expected a symbol declaration.");
     }
     bool is_static = current_char == '@';
-    location_t* location = location_new_current();
+    symbol_t* symbol = symbol_new(location_new_current(), is_static);
     parse_next_char();
+    parse_symbol_flags(symbol);
+
     parse_identifier(false);
-    symbol_t* symbol = symbol_new(identifier, location, is_static);
+    symbol->name = strdup(identifier);
     parse_whitespace_and_comments();
     #ifdef LOG_REGISTER_ALLOCATOR
     printf("\n\nParsing symbol: %s\n", symbol->name);

@@ -228,6 +228,17 @@ static void emit_block(symbol_t* symbol, block_t* block, vector_t* blocks, int v
 void emit_symbol_name(symbol_t* symbol) {
     emit_location(symbol->location);
     emit_char(symbol->is_static ? '@' : '=');
+
+    if (symbol->constructor_priority != PRIORITY_INVALID) {
+        emit_char('{');
+        fprintf(output_file, "%zu", symbol->constructor_priority); // must be decimal
+    }
+
+    if (symbol->destructor_priority != PRIORITY_INVALID) {
+        emit_char('}');
+        fprintf(output_file, "%zu", symbol->constructor_priority); // must be decimal
+    }
+
     emit_cstr(symbol->name);
     emit_char('\n');
 }

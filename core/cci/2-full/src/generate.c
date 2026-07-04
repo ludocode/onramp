@@ -2079,8 +2079,6 @@ void generate_location(node_t* node, int reg_out) {
     #endif
 }
 
-#ifndef CCI2_IR
-
 /**
  * Generates an initializer for a variable with static storage duration (i.e. a
  * global or static local variable.)
@@ -2154,8 +2152,6 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     #endif
 }
 
-#endif // !CCI2_IR
-
 void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
 
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
@@ -2178,13 +2174,8 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
     emit_newline();
 
     if (initializer) {
-        #ifndef CCI2_IR
         emit_newline();
         generate_static_initializer(symbol, initializer);
-        #endif
-        #ifdef CCI2_IR
-        fatal("TODO IR generate_static_variable() initializer");
-        #endif
     }
 
     emit_global_divider();
