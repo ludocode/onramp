@@ -405,7 +405,7 @@ static argument_t* /*nullable*/ try_parse_argument(void) {
         return argument_new_number(argument_type_number, parse_integer());
     }
 
-    //printf("%s() %s:%i current_char %c\n", __func__, __FILE__, __LINE__, current_char);
+    //printf("%s() %s:%i current_char %c %u\n", __func__, __FILE__, __LINE__, current_char, current_char);
     fatal("Expected argument.");
 }
 

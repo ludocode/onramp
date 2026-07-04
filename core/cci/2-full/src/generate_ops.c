@@ -882,8 +882,8 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
 
         instruction_t* br = block_append(current_block, token, BR, 3);
         instruction_set_arg_temporary(br, 0, temp_cmp);
-        instruction_set_arg_temporary(br, 1, loop_block->label);
-        instruction_set_arg_number(br, 2, end_block->label);
+        instruction_set_arg_relative(br, 1, loop_block->label);
+        instruction_set_arg_relative(br, 2, end_block->label);
         #endif
 
         current_block = end_block;
@@ -965,21 +965,21 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
             #ifdef CCI2_IR
             instruction_t* instruction = block_append(current_block, token, ADD, 3);
             instruction_set_arg_temporary(instruction, 0, reg_addr);
-            instruction_set_arg_temporary(instruction, 0, reg_src);
-            instruction_set_arg_temporary(instruction, 0, i);
+            instruction_set_arg_temporary(instruction, 1, reg_src);
+            instruction_set_arg_number(instruction, 2, i);
 
             instruction = block_append(current_block, token, load, 2);
             instruction_set_arg_temporary(instruction, 0, reg_temp);
-            instruction_set_arg_temporary(instruction, 0, reg_addr);
+            instruction_set_arg_temporary(instruction, 1, reg_addr);
 
             instruction = block_append(current_block, token, ADD, 3);
             instruction_set_arg_temporary(instruction, 0, reg_addr);
-            instruction_set_arg_temporary(instruction, 0, reg_dest);
-            instruction_set_arg_temporary(instruction, 0, i);
+            instruction_set_arg_temporary(instruction, 1, reg_dest);
+            instruction_set_arg_number(instruction, 2, i);
 
             instruction = block_append(current_block, token, store, 2);
             instruction_set_arg_temporary(instruction, 0, reg_temp);
-            instruction_set_arg_temporary(instruction, 0, reg_addr);
+            instruction_set_arg_temporary(instruction, 1, reg_addr);
             #endif
         }
 
@@ -1031,16 +1031,16 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         #endif
         #ifdef CCI2_IR
         // TODO this is really inefficient when we could be using the same
-        // index for both. Probably we shouldn't do any of this here, just put
-        // a copy/blit instruction in IR
+        // index for both.
+        // TODO we should also run until the index is 0. see our assembly memcpy()
 
         instruction = block_append(current_block, token, load, 2);
         instruction_set_arg_temporary(instruction, 0, reg_temp);
-        instruction_set_arg_temporary(instruction, 0, reg_src_p);
+        instruction_set_arg_temporary(instruction, 1, reg_src_p);
 
         instruction = block_append(current_block, token, store, 2);
         instruction_set_arg_temporary(instruction, 0, reg_temp);
-        instruction_set_arg_temporary(instruction, 0, reg_dest_p);
+        instruction_set_arg_temporary(instruction, 1, reg_dest_p);
 
         instruction = block_append(current_block, token, ADD, 3);
         instruction_set_arg_temporary(instruction, 0, reg_src_p);
@@ -1055,12 +1055,12 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         instruction = block_append(current_block, token, SUB, 3);
         instruction_set_arg_temporary(instruction, 0, reg_temp);
         instruction_set_arg_temporary(instruction, 1, reg_src_p);
-        instruction_set_arg_number(instruction, 2, reg_src_end);
+        instruction_set_arg_temporary(instruction, 2, reg_src_end);
 
         instruction = block_append(current_block, token, BR, 3);
         instruction_set_arg_temporary(instruction, 0, reg_temp);
-        instruction_set_arg_temporary(instruction, 1, loop_block->label);
-        instruction_set_arg_number(instruction, 2, end_block->label);
+        instruction_set_arg_relative(instruction, 1, loop_block->label);
+        instruction_set_arg_relative(instruction, 2, end_block->label);
         #endif
 
         current_block = end_block;
@@ -1140,8 +1140,7 @@ void generate_store_offset(token_t* token, type_t* type, int reg_val, int reg_ba
 
     // generate the store
     if (indirect) {
-        fatal("TODO IR generate_store_offset() indirect");
-        //generate_copy(token, type, 1, reg_val, reg_loc);
+        generate_copy(token, type, 1, reg_val, reg_loc);
     } else {
         opcode_t opcode;
         switch (size) {

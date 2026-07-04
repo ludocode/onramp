@@ -84,6 +84,7 @@ void emit_global_divider(void) {
     emit_cstr("\n\n\n");
 }
 
+#ifndef CCI2_IR
 static const char* register_name(uint8_t byte) {
     switch (byte) {
         case 0x80: return "r0";
@@ -115,6 +116,7 @@ void emit_arg_mix(int8_t byte) {
         emit_arg_number(byte);
     }
 }
+#endif
 
 void emit_arg_number(int number) {
     emit_char(' ');

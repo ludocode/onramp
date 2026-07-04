@@ -137,7 +137,7 @@ const char* opcode_to_string(opcode_t opcode);
 
 #ifdef CCI2_IR
 typedef enum argument_type_t {
-    argument_type_sentinel,
+    argument_type_sentinel = 1,
     argument_type_temporary,
     argument_type_number,
     argument_type_absolute, // absolute label invocation (uses string field)

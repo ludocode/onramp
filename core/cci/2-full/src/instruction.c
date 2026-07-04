@@ -117,7 +117,7 @@ void instruction_init(instruction_t* instruction, token_t* token, opcode_t opcod
     if (arg_count == 0) {
         instruction->arguments = NULL;
     } else {
-        instruction->arguments = malloc(arg_count * sizeof(argument_t));
+        instruction->arguments = calloc(arg_count, sizeof(argument_t));
         if (!instruction->arguments) {
             fatal("Out of memory.");
         }
@@ -371,6 +371,9 @@ void instruction_emit(instruction_t* instruction) {
                 break;
             case argument_type_varargs:
                 emit_cstr("varargs");
+                break;
+            default:
+                fatal("Internal error: invalid argument type");
                 break;
         }
     }
