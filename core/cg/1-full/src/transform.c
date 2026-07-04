@@ -364,7 +364,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
 
         if (argument->type == argument_type_temporary) {
             temporary_t* temporary = argument_temporary(argument);
-            if (temporary->reg == -1) {
+            if (temporary->reg == TEMPORARY_REGISTER_INVALID) {
                 // temporary is spilled. load it into spill register `reg` (r8 or r9.)
                 assert(reg != FIRST_SPILL_REGISTER + AVAILABLE_SPILL_REGISTERS);
                 assert(temporary->variable);
@@ -426,9 +426,10 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
         argument_t* argument = instruction_argument(instruction, 0);
         if (argument->type == argument_type_temporary) {
             temporary_t* temporary = argument_temporary(argument);
-            if (temporary->reg == -1) {
+            if (temporary->reg == TEMPORARY_REGISTER_INVALID) {
                 // temporary is spilled. replace with r8 and append a store
                 // instruction.
+                printf("SPILLED TEMPORARY OUTPUT %s\n", temporary->name->bytes);
                 assert(temporary->variable);
                 assert(temporary->variable->offset != 0);
 
@@ -917,31 +918,49 @@ static size_t transform_call(block_t* block, instruction_t* instruction, size_t 
     return index + count - 1;
 }
 
-void transform_registers(symbol_t* symbol) {
-    size_t block_count = vector_count(symbol->blocks);
-    for (size_t i = 0; i != block_count; ++i) {
-        block_t* block = vector_at(symbol->blocks, i);
+static void transform_registers_block(symbol_t* symbol, block_t* block, int visited) {
+    if (block->visited == visited) {
+        return;
+    }
+    block->visited = visited;
 
-        // The instruction count will change as we walk through the block.
-        for (size_t j = 0; j != vector_count(block->instructions); ++j) {
-            instruction_t* instruction = vector_at(block->instructions, j);
+    // The instruction count will change as we walk through the block.
+    for (size_t j = 0; j != vector_count(block->instructions); ++j) {
+        instruction_t* instruction = vector_at(block->instructions, j);
 
-            // Some instructions have to be handled specially.
-            switch (instruction->opcode) {
-                case opcode_call:
-                    j = transform_call(block, instruction, j);
-                    break;
+        // Some instructions have to be handled specially.
+        switch (instruction->opcode) {
+            case opcode_call:
+                j = transform_call(block, instruction, j);
+                break;
 
-                case opcode_stw:
-                case opcode_sts:
-                case opcode_stb:
-                    j = transform_registers_store(block, instruction, j);
-                    break;
+            case opcode_stw:
+            case opcode_sts:
+            case opcode_stb:
+                j = transform_registers_store(block, instruction, j);
+                break;
 
-                default:
-                    j = transform_registers_normal(block, instruction, j);
-                    break;
-            }
+            default:
+                j = transform_registers_normal(block, instruction, j);
+                break;
         }
     }
+
+    // Continue to any blocks reachable from this one
+    instruction_t* last = vector_last(block->instructions);
+    if (last->opcode == opcode_jmp) {
+        string_t* label = argument_label(instruction_argument(last, 0));
+        transform_registers_block(symbol, block_find(label), visited);
+    } else if (last->opcode == opcode_br) {
+        string_t* true_label = argument_label(instruction_argument(last, 1));
+        transform_registers_block(symbol, block_find(true_label), visited);
+        string_t* false_label = argument_label(instruction_argument(last, 2));
+        transform_registers_block(symbol, block_find(false_label), visited);
+    }
+}
+
+void transform_registers(symbol_t* symbol) {
+    // Transform only reachable blocks. (Unreachable temporaries are not
+    // considered by the register allocator.)
+    transform_registers_block(symbol, vector_first(symbol->blocks), pass_id++);
 }

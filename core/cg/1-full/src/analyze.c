@@ -540,21 +540,26 @@ static void analyze_linear_scan(symbol_t* symbol) {
     qsort(temporaries->elements, count, sizeof(void*), temporary_compare_live_interval);
     #endif
 
+    #ifdef LOG_REGISTER_ALLOCATOR
+    printf("\nTemporaries sorted by live range:\n");
+    for (size_t i = 0; i < vector_count(temporaries); ++i) {
+        temporary_t* temporary = vector_at(temporaries, i);
+        if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
+            printf("    Temporary %s not used.\n", temporary->name->bytes);
+        } else {
+            printf("    Temporary %s has interval %zu-%zu\n", temporary->name->bytes,
+                    temporary->interval_start, temporary->interval_end);
+        }
+    }
+    printf("\n");
+    #endif
+
     temporary_t** registers = calloc(AVAILABLE_LIVE_REGISTERS, sizeof(temporary_t*));
     size_t registers_used = 0;
 
     for (size_t i = 0; i < vector_count(temporaries); ++i) {
         temporary_t* temporary = vector_at(temporaries, i);
         size_t length = temporary_interval_length(temporary);
-
-        #ifdef LOG_REGISTER_ALLOCATOR
-        if (temporary->interval_start == TEMPORARY_INTERVAL_INVALID) {
-            printf("Temporary %s not used.\n", temporary->name->bytes);
-        } else {
-            printf("Considering temporary %s with interval %zu-%zu\n", temporary->name->bytes,
-                    temporary->interval_start, temporary->interval_end);
-        }
-        #endif
 
         // If any of the live temporaries have an end interval earlier than the
         // start of the current temporary, we can clear them. These register
