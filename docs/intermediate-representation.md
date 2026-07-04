@@ -8,8 +8,6 @@ The [final stage compiler (cci/2)](../core/cci/2-full/) consumes preprocessed C 
 
 The primary task of the final stage code generator is to perform register allocation and stack manipulation. A secondary task is optimization. The intermediate representation is designed to facilitate these tasks.
 
-This document is a draft. Most of this is not implemented yet; in the meantime cci/2 is generating assembly directly.
-
 
 
 ## Overview / Comparison to Onramp Assembly
@@ -181,24 +179,36 @@ For the above, the compiler will emit something like this:
 
 ## Variadic Arguments
 
-If a function takes variadic arguments, the keyword `varargs` should precede a final temporary that will contain the address of the first variadic argument. By convention this variable is named `%_Vargs` by the compiler. For example:
+The keyword `varargs` is used in the parameter list for variadic functions and in the argument list for variadic function calls.
+
+If a function takes variadic arguments, the keyword `varargs` precedes a final temporary that contains the address of the first variadic argument. By convention this variable is named `%_Vargs` by the compiler. Calls to such functions must insert the keyword `varargs` before any variadic arguments.
+
+For example:
 
 ```c
-int fprintf(FILE* file, const char* format, ...) {
+int foo(int a, ...) {
     // code
+}
+
+int main(void) {
+    foo(1, 2, 3);
 }
 ```
 
-The above would be compiled as:
+The above could be compiled as:
 
 ```asm
-=printf
-    %file %format varargs %_Vargs
+=foo
+    %a varargs %_Vargs
 :_L1
-    ; function body
+    ; code
+
+=main
+:_L2
+    call ^foo 1 varargs 2 3 end
 ```
 
-The code can load from `%_Vargs` and increment it to extract the variadic parameters.
+The called function can load from `%_Vargs` and increment it to extract the variadic parameters.
 
 
 
@@ -210,7 +220,7 @@ The plain `%` sigil without an identifier (i.e. followed by whitespace) is used 
 
 ```asm
 ; puts(str);
-call % puts %str end
+call % ^puts %str end
 ```
 
 - To ignore a function parameter. For example:
@@ -220,7 +230,7 @@ call % puts %str end
 =free_sized
     %ptr %
 :_Lstart
-    call % ^free %ptr %
+    call % ^free %ptr end
     ret %
 ```
 
@@ -231,11 +241,20 @@ call % puts %str end
 ret %
 ```
 
-- As a default value, for example to use default alignment in a stack allocation:
+- As a default value, for example to use default alignment in a variable declaration:
 
 ```asm
 ; int x[4];
 var %x 16 %
+```
+
+- To pass an uninitialized value to a function. For example:
+
+```asm
+; Suppose foo() takes two arguments and ignores its first argument if its
+; second is zero. In this case we can pass it a sentinel, which means the first
+; argument will be uninitialized. There is no way to do this in standard C.
+call %ret ^foo % 0 end
 ```
 
 

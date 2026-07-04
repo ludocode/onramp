@@ -142,6 +142,7 @@ typedef enum argument_type_t {
     argument_type_number,
     argument_type_absolute, // absolute label invocation (uses string field)
     argument_type_relative, // relative numbered label invocation (uses number field)
+    argument_type_varargs, // the varargs keyword for variadic calls
 } argument_type_t;
 
 typedef struct argument_t {
@@ -229,6 +230,8 @@ void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, int t
 void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label);
 
 void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label);
+
+void instruction_set_arg_varargs(instruction_t* instruction, size_t arg);
 #endif
 
 #ifndef CCI2_IR

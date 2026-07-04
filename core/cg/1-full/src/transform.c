@@ -349,8 +349,8 @@ void transform_variables(symbol_t* symbol) {
  *
  * These instructions have at most one output and at most two inputs.
  *
- * Spilled outputs use r0. Spilled inputs, or variable inputs whose offsets
- * don't fit in a mix-type byte, use registers r0 and r1.
+ * Spilled outputs use r8. Spilled inputs, or variable inputs whose offsets
+ * don't fit in a mix-type byte, use registers r8 and r9.
  */
 static size_t transform_registers_normal(block_t* block, instruction_t* instruction, size_t index) {
     argument_mode_t mode = instruction_mode(instruction);
@@ -456,7 +456,7 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
  *
  * These instructions need to be handled separately because they have three
  * inputs, all of which may be spilled (or may not fit in a mix-type byte), but
- * we only have two extra registers (r0 and r1.)
+ * we only have two extra registers (r8 and r9.)
  *
  * In case we need more registers, we perform the addition separately.
  */
@@ -530,35 +530,45 @@ static void transform_preserve_call(instruction_t* instruction, vector_t* instru
 }
 
 /**
- * For the given call instruction, generates instructions to push arguments
- * beyond the first four to the stack.
+ * For the given call instruction, generates instructions to push or pop
+ * stack-passed arguments.
  *
  * See transform_call().
  */
-static void transform_call_push_stack_args(vector_t* instructions, instruction_t* instruction) {
+static void transform_call_stack_args(vector_t* instructions, instruction_t* instruction, bool push) {
     vector_t* arguments = instruction->arguments;
     size_t arg_count = vector_count(arguments) - 2; // first two instruction args are retval and function
 
-    // The first four arguments are passed in registers.
-    if (arg_count < 4) {
+    // Up to four arguments can be passed in registers. Variadic arguments are
+    // never passed in registers.
+    size_t reg_count = 4;
+    if (instruction->varargs_index != VARARGS_INDEX_INVALID) {
+        reg_count = instruction->varargs_index;
+    }
+    if (arg_count < reg_count) {
+        // No arguments are passed on the stack.
         return;
     }
 
     // Arguments beyond the fourth are pushed in reverse order (i.e. the fifth
     // argument is lowest on the stack.)
 
-    // Create stack space
-    size_t stack_space = 4 * (arg_count - 4);
-    instruction_t* sub = instruction_new(location_new_copy(instruction->location), opcode_sub);
-    instruction_append(sub, argument_new_register(RSP));
-    instruction_append(sub, argument_new_register(RSP));
-    instruction_append(sub, argument_new_integer(stack_space));
+    // Create (or free) stack space
+    size_t stack_space = 4 * (arg_count - reg_count);
+    instruction_t* addsub = instruction_new(location_new_copy(instruction->location),
+            push ? opcode_sub : opcode_add);
+    instruction_append(addsub, argument_new_register(RSP));
+    instruction_append(addsub, argument_new_register(RSP));
+    instruction_append(addsub, argument_new_integer(stack_space));
     // use r8 if it doesn't fit in a mix-type byte
-    // (TODO need to test >36 arguments)
-    transform_insert_instruction_mix(sub, instructions, vector_count(instructions), 8);
+    transform_insert_instruction_mix(addsub, instructions, vector_count(instructions), 8);
+
+    if (!push) {
+        return;
+    }
 
     // Push arguments
-    for (size_t i = 4; i < arg_count; ++i) {
+    for (size_t i = reg_count; i < arg_count; ++i) {
         argument_t* argument = vector_at(instruction->arguments, i + 2);
         instruction_t* stw = instruction_new(location_new_copy(instruction->location), opcode_stw);
 
@@ -603,7 +613,7 @@ static void transform_call_push_stack_args(vector_t* instructions, instruction_t
 
         // store the argument to the stack
         instruction_append(stw, argument_new_register(RSP));
-        instruction_append(stw, argument_new_integer((i - 4) * 4));
+        instruction_append(stw, argument_new_integer((i - reg_count) * 4));
         // use r9 if the offset doesn't fit in a mix-type byte
         transform_insert_instruction_mix(stw, instructions, vector_count(instructions), 9);
     }
@@ -615,8 +625,12 @@ static void transform_call_push_stack_args(vector_t* instructions, instruction_t
  * If the given argument is a live temporary, this returns the register that
  * contains it. Otherwise it returns TEMPORARY_REGISTER_INVALID.
  */
-static int transform_call_live_register(vector_t* arguments, size_t index) {
+static int transform_call_live_register(instruction_t* instruction, vector_t* arguments, size_t index) {
     if (index >= vector_count(arguments)) {
+        return TEMPORARY_REGISTER_INVALID;
+    }
+    if (instruction->varargs_index != VARARGS_INDEX_INVALID && index >= 2 + instruction->varargs_index) {
+        // this variadic argument is not passed in a register
         return TEMPORARY_REGISTER_INVALID;
     }
     argument_t* argument = vector_at(arguments, index);
@@ -652,11 +666,11 @@ static void transform_call_live_args(vector_t* instructions, instruction_t* inst
     // i.e. need[3] == 4 means the live temporary assigned to r4 needs to be
     // moved into the argument slot r3
     int* need = malloc(sizeof(int) * 5);
-    need[0] = transform_call_live_register(arguments, 2);
-    need[1] = transform_call_live_register(arguments, 3);
-    need[2] = transform_call_live_register(arguments, 4);
-    need[3] = transform_call_live_register(arguments, 5);
-    need[4] = transform_call_live_register(arguments, 1); // function pointer arg
+    need[0] = transform_call_live_register(instruction, arguments, 2);
+    need[1] = transform_call_live_register(instruction, arguments, 3);
+    need[2] = transform_call_live_register(instruction, arguments, 4);
+    need[3] = transform_call_live_register(instruction, arguments, 5);
+    need[4] = transform_call_live_register(instruction, arguments, 1); // function pointer arg
     //printf("\n====================== %s()\n", __func__);
 
     // Current location of live value that was originally in the indexed register
@@ -769,6 +783,9 @@ static void transform_call_spilled_args(vector_t* instructions, instruction_t* i
     if (count > 6) {
         count = 6;
     }
+    if (instruction->varargs_index != VARARGS_INDEX_INVALID && count >= 2 + instruction->varargs_index) {
+        count = 2 + instruction->varargs_index;
+    }
 
     for (size_t i = 1; i < count; ++i) {
         argument_t* argument = vector_at(arguments, i);
@@ -849,23 +866,8 @@ static void transform_call_return(vector_t* instructions, instruction_t* instruc
         instruction_append(stw, argument_new_register(0));
         instruction_append(stw, argument_new_register(RFP));
         instruction_append(stw, argument_new_integer(temporary->variable->offset));
-        // use r1 if the offset doesn't fit in a mix-type byte.
-        transform_insert_instruction_mix(stw, instructions, vector_count(instructions), 1);
-    }
-}
-
-static void transform_call_pop_stack_args(vector_t* instructions, instruction_t* instruction) {
-    vector_t* arguments = instruction->arguments;
-    size_t arg_count = vector_count(arguments) - 2; // first two args are retval and function
-    if (arg_count > 4) {
-        // Free stack space
-        size_t stack_space = 4 * (arg_count - 4);
-        instruction_t* add = instruction_new(location_new_copy(instruction->location), opcode_add);
-        instruction_append(add, argument_new_register(RSP));
-        instruction_append(add, argument_new_register(RSP));
-        instruction_append(add, argument_new_integer(stack_space));
-        // use r8 if it doesn't fit in a mix-type byte
-        transform_insert_instruction_mix(add, instructions, vector_count(instructions), 8);
+        // use r8 if the offset doesn't fit in a mix-type byte.
+        transform_insert_instruction_mix(stw, instructions, vector_count(instructions), FIRST_SPILL_REGISTER);
     }
 }
 
@@ -879,7 +881,7 @@ static size_t transform_call(block_t* block, instruction_t* instruction, size_t 
     transform_preserve_call(instruction, instructions, false);
 
     // Arguments beyond the fourth get pushed to the stack.
-    transform_call_push_stack_args(instructions, instruction);
+    transform_call_stack_args(instructions, instruction, true);
 
     // The first four arguments go in r0-r3, and the function pointer goes in r9.
     transform_call_live_args(instructions, instruction);
@@ -894,7 +896,7 @@ static size_t transform_call(block_t* block, instruction_t* instruction, size_t 
     vector_append(instructions, new_call);
 
     // Pop args
-    transform_call_pop_stack_args(instructions, instruction);
+    transform_call_stack_args(instructions, instruction, false);
 
     // Put the return value where it goes
     transform_call_return(instructions, instruction);

@@ -701,7 +701,10 @@ static void generate_call(node_t* call, int reg_out) {
     // instruction first and append it later. In the meantime we collect the
     // args in this args array.
     bool return_indirect = type_is_passed_indirectly(call->type);
-    size_t arg_count = 2 + (node_child_count(call) - 1) + (return_indirect ? 1 : 0);
+    size_t arg_count = 2 // return value and function name
+            + (node_child_count(call) - 1)
+            + (return_indirect ? 1 : 0)
+            + (function_type->is_variadic ? 1 : 0);
     int* args = malloc(arg_count * sizeof(int));
 
     // If the return value is passed indirectly, storage is passed as an
@@ -732,6 +735,8 @@ static void generate_call(node_t* call, int reg_out) {
     }
 
     // Subsequent arguments must be generated into temporaries.
+    bool passed_vararg = false;
+    size_t real_arg_count = 0;
     for (node_t* node = call->first_child->right_sibling; node; node = node->right_sibling) {
         if (type_is_passed_indirectly(node->type)) {
             fatal("TODO pass function argument indirectly IR");
@@ -739,6 +744,18 @@ static void generate_call(node_t* call, int reg_out) {
         args[arg] = generate_temporary(NULL);
         generate_node(node, args[arg]);
         ++arg;
+        ++real_arg_count;
+
+        // For variadic functions we need to insert the "varargs" keyword.
+        if (function_type->is_variadic && real_arg_count == function_type->count) {
+            args[arg++] = TEMPORARY_INVALID;
+            passed_vararg = true;
+        }
+    }
+
+    // If we haven't inserted "varargs" yet make sure it's there.
+    if (function_type->is_variadic && !passed_vararg) {
+        args[arg] = TEMPORARY_INVALID;
     }
 
     // Finally create the call instruction and copy the args in
@@ -754,8 +771,11 @@ static void generate_call(node_t* call, int reg_out) {
         instruction_set_arg_temporary(instruction, 1, args[1]);
     }
     for (size_t i = 2; i < arg_count; ++i) {
-        assert(args[i] > 0);
-        instruction_set_arg_temporary(instruction, i, args[i]);
+        if (args[i] == TEMPORARY_INVALID) {
+            instruction_set_arg_varargs(instruction, i);
+        } else {
+            instruction_set_arg_temporary(instruction, i, args[i]);
+        }
     }
     free(args);
     #endif
@@ -2018,15 +2038,7 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_NUMBER: generate_number(node, reg_out); break;
         case NODE_ACCESS: generate_access(node, reg_out); break;
         case NODE_CALL: generate_call(node, reg_out); break;
-        #ifndef CCI2_IR
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
-        #endif // !CCI2_IR
-
-        #ifdef CCI2_IR
-        default:
-            fprintf(stderr, "TODO IR unimplemented node %s\n", node_kind_to_string(node->kind));
-            fatal("TODO");
-        #endif // !CCI2_IR
     }
 
     #ifndef CCI2_IR
@@ -2193,10 +2205,9 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
     emit_global_divider();
 }
 
-#ifndef CCI2_IR
-
 static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
 
+    #ifndef CCI2_IR
     // load the return value
     int reg_loc = register_alloc(builtin->token);
     generate_location(builtin->first_child, reg_loc);
@@ -2213,15 +2224,42 @@ static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
     register_free(builtin->token, reg_size);
     register_free(builtin->token, reg_val);
     register_free(builtin->token, reg_loc);
+    #endif
+
+    #ifdef CCI2_IR
+    // load the return value
+    int temp_loc = generate_temporary(NULL);
+    generate_location(builtin->first_child, temp_loc);
+    int temp_val = generate_temporary(NULL);
+    generate_dereference_impl(builtin->first_child, temp_val, temp_loc, 0);
+    generate_dereference_impl(builtin, reg_out, temp_val, 0);
+
+    // increment the va_list
+    instruction_t* add = block_append(current_block, builtin->token, ADD, 3);
+    instruction_set_arg_temporary(add, 0, temp_val);
+    instruction_set_arg_temporary(add, 1, temp_val);
+    instruction_set_arg_number(add, 2, type_size(builtin->type));
+    generate_store(builtin->token, builtin->first_child->type, temp_val, temp_loc);
+    #endif
+
 }
 
 static void generate_builtin_va_start(node_t* builtin, int reg_out) {
+
+    #ifndef CCI2_IR
     generate_location(builtin->first_child, reg_out);
     int reg_val = register_alloc(builtin->token);
     block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_val, current_function->variadic_offset);
     block_append(current_block, builtin->token, ADD, reg_val, RFP, reg_val);
     generate_store(builtin->token, builtin->first_child->type, reg_val, reg_out);
     register_free(builtin->token, reg_val);
+    #endif
+
+    #ifdef CCI2_IR
+    generate_location(builtin->first_child, reg_out);
+    generate_store(builtin->token, builtin->first_child->type, current_function->variadic_temporary, reg_out);
+    #endif
+
 }
 
 static void generate_builtin_va_end(node_t* builtin, int reg_out) {
@@ -2230,19 +2268,22 @@ static void generate_builtin_va_end(node_t* builtin, int reg_out) {
 
 static void generate_builtin_va_copy(node_t* builtin, int reg_out) {
     generate_location(builtin->first_child, reg_out);
+    #ifndef CCI2_IR
     int reg_val = register_alloc(builtin->token);
+    #endif
+    #ifdef CCI2_IR
+    int reg_val = generate_temporary(NULL);
+    #endif
     generate_node(builtin->last_child, reg_val);
     generate_store(builtin->token, builtin->first_child->type, reg_val, reg_out);
+    #ifndef CCI2_IR
     register_free(builtin->token, reg_val);
+    #endif
 }
-
-#endif // !CCI2_IR
 
 static void generate_builtin_func(node_t* builtin, int reg_out) {
     generate_node(builtin->first_child, reg_out);
 }
-
-#ifndef CCI2_IR
 
 static void generate_builtin(node_t* node, int reg_out) {
     switch (node->builtin) {
@@ -2255,8 +2296,6 @@ static void generate_builtin(node_t* node, int reg_out) {
 
     fatal("Internal error: cannot generate unrecognized builtin.");
 }
-
-#endif // !CCI2_IR
 
 static void generate_builtin_location(node_t* node, int reg_out) {
     switch (node->builtin) {

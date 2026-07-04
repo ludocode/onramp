@@ -32,6 +32,8 @@
 
 struct otable_t;
 
+#define VARARGS_INDEX_INVALID ((size_t)(-1))
+
 /*
  * Instructions and Arguments
  *
@@ -62,6 +64,7 @@ typedef struct instruction_t {
     opcode_t opcode;
     vector_t* arguments;
     size_t index; // index in global order for live interval analysis
+    size_t varargs_index; // index of first variadic argument (not counting return value and function)
 
     // For call instructions we store the set of live temporaries so we can
     // preserve them.

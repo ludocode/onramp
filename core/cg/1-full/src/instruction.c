@@ -42,6 +42,7 @@ instruction_t* instruction_new(location_t* location, opcode_t opcode) {
     instruction->opcode = opcode;
     instruction->arguments = vector_new();
     instruction->live_temps = NULL;
+    instruction->varargs_index = VARARGS_INDEX_INVALID;
 
     return instruction;
 }

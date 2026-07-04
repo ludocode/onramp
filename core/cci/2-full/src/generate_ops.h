@@ -61,10 +61,10 @@ void generate_less_or_equal(struct node_t* node, int reg_out);
 void generate_greater_or_equal(struct node_t* node, int reg_out);
 
 void generate_store(struct token_t* /*nullable*/ token, struct type_t* type,
-        int register_location, int register_value);
+        int register_value, int register_location);
 
 void generate_store_offset(struct token_t* /*nullable*/ token, struct type_t* type,
-        int register_location, int register_value, int offset);
+        int register_value, int register_base, int offset);
 
 /**
  * Generates code to copy count values of the given type from reg_src to

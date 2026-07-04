@@ -511,16 +511,32 @@ static void parse_call_arguments(instruction_t* instruction) {
     // typical function call) or a temporary (for a function pointer.)
     parse_argument_temporary_or_absolute(instruction);
 
-    // Keep parsing arguments until we reach keyword "end".
     for (;;) {
         parse_whitespace_and_comments();
+
+        // Check for keyword `end`
         if (current_char == 'e') {
             parse_identifier(false);
             if (0 != strcmp(identifier, "end")) {
-                fatal("Expected `end` or a function argument.");
+                fatal("Expected `end` or `varargs` or a function argument.");
             }
             break;
         }
+
+        // Check for keyword `varargs`
+        if (current_char == 'v') {
+            parse_identifier(false);
+            if (0 != strcmp(identifier, "varargs")) {
+                fatal("Expected `end` or `varargs` or a function argument.");
+            }
+            if (instruction->varargs_index != VARARGS_INDEX_INVALID) {
+                fatal("`varargs` can only appear once in a call instruction.");
+            }
+            instruction->varargs_index = vector_count(instruction->arguments) - 2;
+            continue;
+        }
+
+        // Parse an argument
         parse_argument_mix_opt(instruction);
     }
 }

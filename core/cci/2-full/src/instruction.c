@@ -171,6 +171,11 @@ void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32
     argument->type = argument_type_relative;
     argument->number = label;
 }
+
+void instruction_set_arg_varargs(instruction_t* instruction, size_t arg) {
+    argument_t* argument = instruction_argument(instruction, arg);
+    argument->type = argument_type_varargs;
+}
 #endif // CCI2_IR
 
 #ifndef CCI2_IR
@@ -363,6 +368,9 @@ void instruction_emit(instruction_t* instruction) {
                 emit_char('&');
                 emit_cstr(JUMP_LABEL_PREFIX);
                 emit_hex_number(argument->number);
+                break;
+            case argument_type_varargs:
+                emit_cstr("varargs");
                 break;
         }
     }
