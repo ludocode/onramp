@@ -133,7 +133,9 @@ void transform_parameters(symbol_t* symbol) {
 
     // Any additional parameters are passed on the stack. Each one is turned
     // into a variable with positive frame offset.
-    int offset = 4;
+    // (The frame pointer points to the previous frame pointer. The word above
+    // it is the return address. Stack-passed arguments start above that.)
+    int offset = 8;
     if (count > 4) {
         for (size_t i = 4; i != count; ++i) {
             temporary_t* temporary = vector_at(parameters, i);
@@ -534,55 +536,76 @@ static void transform_preserve_call(instruction_t* instruction, vector_t* instru
  * See transform_call().
  */
 static void transform_call_push_stack_args(vector_t* instructions, instruction_t* instruction) {
-
     vector_t* arguments = instruction->arguments;
-    size_t arg_count = vector_count(arguments) - 2; // first two args are retval and function
+    size_t arg_count = vector_count(arguments) - 2; // first two instruction args are retval and function
+
+    // The first four arguments are passed in registers.
+    if (arg_count < 4) {
+        return;
+    }
 
     // Arguments beyond the fourth are pushed in reverse order (i.e. the fifth
     // argument is lowest on the stack.)
-    if (arg_count > 4) {
-        #ifdef DISABLED
 
-        // Create stack space
-        size_t stack_space = 4 * (arg_count - 4);
-        instruction_t* sub = instruction_new(location_new_copy(instruction->location), opcode_sub);
-        instruction_append(sub, argument_new_register(RSP));
-        instruction_append(sub, argument_new_register(RSP));
-        instruction_append(sub, argument_new_integer(stack_space));
-        // use r0 if it doesn't fit in a mix-type byte
-        transform_insert_instruction_mix(sub, block->instructions, vector_count(instructions), 0);
+    // Create stack space
+    size_t stack_space = 4 * (arg_count - 4);
+    instruction_t* sub = instruction_new(location_new_copy(instruction->location), opcode_sub);
+    instruction_append(sub, argument_new_register(RSP));
+    instruction_append(sub, argument_new_register(RSP));
+    instruction_append(sub, argument_new_integer(stack_space));
+    // use r8 if it doesn't fit in a mix-type byte
+    // (TODO need to test >36 arguments)
+    transform_insert_instruction_mix(sub, instructions, vector_count(instructions), 8);
 
-        /*
-        if (stack_space < 128) {
-            instruction_append(sub, argument_new_integer(stack_space));
-        } else {
-            // Required stack space doesn't fit in a mix-type byte. Use r0.
-            // (This only happens for functions that have more than 35
-            // arguments. TODO test this)
-            instruction_append(sub, argument_new_register(0));
-            instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
-            instruction_append(imw, argument_new_register(0));
-            instruction_append(imw, argument_new_integer(stack_space));
-            vector_append(instructions, imw);
-        }
-        vector_append(instructions, sub);
-        */
-        #endif
+    // Push arguments
+    for (size_t i = 4; i < arg_count; ++i) {
+        argument_t* argument = vector_at(instruction->arguments, i + 2);
+        instruction_t* stw = instruction_new(location_new_copy(instruction->location), opcode_stw);
 
-        // Push arguments
-        fatal("TODO call more than 4 arguments");
-        /*
-        for (size_t i = 4; i < arg_count; ++i) {
-            argument_t* argument = vector_at(instruction->arguments, i + 2);
-            if (argument->type == argument_type_number) {
-                // numbers that don't fit in a mix-type byte should have been pulled out in a separate pass.
-                assert(argument_number(argument) < 0x80 || argument_number(argument) >= 0xFFFFFF90);
-            //} else if (argument->type
+        if (argument->type == argument_type_number || argument->type == argument_type_variable) {
+            uint32_t value = (argument->type == argument_type_number) ?
+                argument_number(argument) : (uint32_t)argument_variable(argument)->offset;
+            if (mix_type_fits(value)) {
+                // value fits in a mix-type byte. we can store it directly.
+                instruction_append(stw, argument_new_integer(value));
+            } else {
+                // value doesn't fit. load it into r8.
+                instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                instruction_append(imw, argument_new_register(8));
+                instruction_append(imw, argument_new_integer(value));
+                vector_append(instructions, imw);
+                instruction_append(stw, argument_new_register(8));
             }
-        }
-        */
 
-        //for (size_t i = 4; i < arg_count; ++i) {
+        } else if (argument->type == argument_type_temporary) {
+            temporary_t* temporary = argument_temporary(argument);
+            if (temporary->reg != -1) {
+                // argument is live. we can store straight from its register.
+                instruction_append(stw, argument_new_register(temporary->reg));
+            } else {
+                // argument is spilled. load it into r8.
+                instruction_t* ldw = instruction_new(location_new_copy(instruction->location), opcode_ldw);
+                instruction_append(ldw, argument_new_register(8));
+                instruction_append(ldw, argument_new_register(RFP));
+                instruction_append(ldw, argument_new_integer(temporary->variable->offset));
+                transform_insert_instruction_mix(ldw, instructions, vector_count(instructions), 8);
+                instruction_append(stw, argument_new_register(8));
+            }
+
+        } else if (argument->type == argument_type_sentinel) {
+            // nothing to do; argument is left uninitialized
+            instruction_delete(stw);
+            continue;
+
+        } else {
+            fatal("Internal error: invalid argument type to call instruction");
+        }
+
+        // store the argument to the stack
+        instruction_append(stw, argument_new_register(RSP));
+        instruction_append(stw, argument_new_integer((i - 4) * 4));
+        // use r9 if the offset doesn't fit in a mix-type byte
+        transform_insert_instruction_mix(stw, instructions, vector_count(instructions), 9);
     }
 }
 
@@ -835,8 +858,14 @@ static void transform_call_pop_stack_args(vector_t* instructions, instruction_t*
     vector_t* arguments = instruction->arguments;
     size_t arg_count = vector_count(arguments) - 2; // first two args are retval and function
     if (arg_count > 4) {
-    // TODO
-        fatal("TODO call more than 4 arguments");
+        // Free stack space
+        size_t stack_space = 4 * (arg_count - 4);
+        instruction_t* add = instruction_new(location_new_copy(instruction->location), opcode_add);
+        instruction_append(add, argument_new_register(RSP));
+        instruction_append(add, argument_new_register(RSP));
+        instruction_append(add, argument_new_integer(stack_space));
+        // use r8 if it doesn't fit in a mix-type byte
+        transform_insert_instruction_mix(add, instructions, vector_count(instructions), 8);
     }
 }
 
