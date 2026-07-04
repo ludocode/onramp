@@ -679,11 +679,11 @@ static void generate_equality(node_t* node,
     type_t* type = node->first_child->type;
 
     if (type_is_long_long(type)) {
-
-        #ifndef CCI2_IR
         // this is a lot of code to compare llongs but maybe less instructions
         // than generating a function call. (we'd still have to generate into
-        // stack space and we'd have to push registers.)
+        // stack space and the call would push registers.)
+
+        #ifndef CCI2_IR
 
         // make stack space for both llongs
         block_append(current_block, node->token, SUB, RSP, RSP, 16);
@@ -714,7 +714,66 @@ static void generate_equality(node_t* node,
         #endif
 
         #ifdef CCI2_IR
-        fatal("TODO IR generate_equality long long");
+
+        // make variable for left
+        int temp_left = generate_temporary(NULL);
+        instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
+        instruction_set_arg_temporary(instruction, 0, temp_left);
+        instruction_set_arg_number(instruction, 1, 8);
+        instruction_set_arg_sentinel(instruction, 2);
+
+        // generate left
+        generate_node(node->first_child, temp_left);
+
+        // make variable for right
+        int temp_right = generate_temporary(NULL);
+        instruction = block_append(current_block, node->token, VAR, 3);
+        instruction_set_arg_temporary(instruction, 0, temp_right);
+        instruction_set_arg_number(instruction, 1, 8);
+        instruction_set_arg_sentinel(instruction, 2);
+
+        // generate right
+        generate_node(node->last_child, temp_right);
+
+        // get left low word
+        int temp_left_low = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_left_low, temp_left);
+
+        // get right low word
+        int temp_right_low = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_right_low, temp_right);
+
+        // subtract low words
+        int temp_diff_low = generate_temporary(NULL);
+        instruction_set_args_ttt(block_append(current_block, node->token,
+                SUB, 3), temp_diff_low, temp_left_low, temp_right_low);
+
+        // get left high word
+        int temp_left_high_addr = generate_temporary(NULL);
+        instruction_set_args_ttn(block_append(current_block, node->token,
+                ADD, 3), temp_left_high_addr, temp_left, 4);
+        int temp_left_high = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_left_high, temp_left_high_addr);
+
+        // get right high word
+        int temp_right_high_addr = generate_temporary(NULL);
+        instruction_set_args_ttn(block_append(current_block, node->token,
+                ADD, 3), temp_right_high_addr, temp_right, 4);
+        int temp_right_high = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_right_high, temp_right_high_addr);
+
+        // subtract high words
+        int temp_diff_high = generate_temporary(NULL);
+        instruction_set_args_ttt(block_append(current_block, node->token,
+                SUB, 3), temp_diff_high, temp_left_high, temp_right_high);
+
+        // bitwise 'or' differences together
+        instruction_set_args_ttt(block_append(current_block, node->token,
+                SUB, 3), out, temp_diff_low, temp_diff_high);
         #endif
 
     } else if (type_matches_base(type, BASE_FLOAT)) {

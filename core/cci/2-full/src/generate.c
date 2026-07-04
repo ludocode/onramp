@@ -319,7 +319,7 @@ static void generate_number(node_t* node, int reg_out) {
 
         // store high
         instruction = block_append(current_block, node->token, STW, 2);
-        instruction_set_arg_number(instruction, 0, u64_low(llong));
+        instruction_set_arg_number(instruction, 0, u64_high(llong));
         instruction_set_arg_temporary(instruction, 1, temp);
         #endif
     } else {
@@ -1075,12 +1075,6 @@ static void generate_cast_indirect_to_indirect(node_t* node,
     assert(type_is_passed_indirectly(source));
     assert(type_is_passed_indirectly(target));
 
-    #ifdef CCI2_IR
-    fatal("TODO generate_cast_indirect_to_indirect() IR not implemented");
-    #endif // CCI2_IR
-
-    #ifndef CCI2_IR
-
     // Both the source and target are indirect. Records cannot be cast
     // so the only possibility is a 64-bit value.
     assert(type_size(source) == 8);
@@ -1108,8 +1102,6 @@ static void generate_cast_indirect_to_indirect(node_t* node,
         assert(source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG);
         assert(target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG);
     }
-
-    #endif // !CCI2_IR
 }
 
 static void generate_cast_indirect_to_direct(node_t* node,

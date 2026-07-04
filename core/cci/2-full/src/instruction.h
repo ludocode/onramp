@@ -232,6 +232,23 @@ void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string
 void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label);
 
 void instruction_set_arg_varargs(instruction_t* instruction, size_t arg);
+
+/**
+ * Set the arguments for the given instruction to the given two temporaries.
+ */
+void instruction_set_args_tt(instruction_t* instruction, int a, int b);
+
+/**
+ * Set the arguments for the given instruction to the given three temporaries.
+ */
+void instruction_set_args_ttt(instruction_t* instruction, int a, int b, int c);
+
+/**
+ * Set the arguments for the given instruction to the given two temporaries
+ * followed by the given immediate value.
+ */
+void instruction_set_args_ttn(instruction_t* instruction,
+        int temp_a, int temp_b, uint32_t number);
 #endif
 
 #ifndef CCI2_IR

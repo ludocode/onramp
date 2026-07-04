@@ -176,6 +176,23 @@ void instruction_set_arg_varargs(instruction_t* instruction, size_t arg) {
     argument_t* argument = instruction_argument(instruction, arg);
     argument->type = argument_type_varargs;
 }
+
+void instruction_set_args_tt(instruction_t* instruction, int a, int b) {
+    instruction_set_arg_temporary(instruction, 0, a);
+    instruction_set_arg_temporary(instruction, 1, b);
+}
+
+void instruction_set_args_ttt(instruction_t* instruction, int a, int b, int c) {
+    instruction_set_arg_temporary(instruction, 0, a);
+    instruction_set_arg_temporary(instruction, 1, b);
+    instruction_set_arg_temporary(instruction, 2, c);
+}
+
+void instruction_set_args_ttn(instruction_t* instruction, int temp_a, int temp_b, uint32_t number) {
+    instruction_set_arg_temporary(instruction, 0, temp_a);
+    instruction_set_arg_temporary(instruction, 1, temp_b);
+    instruction_set_arg_number(instruction, 2, number);
+}
 #endif // CCI2_IR
 
 #ifndef CCI2_IR
