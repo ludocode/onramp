@@ -1234,22 +1234,23 @@ static void generate_cast_direct_to_indirect(node_t* node,
     assert(!type_is_passed_indirectly(source));
     assert(type_is_passed_indirectly(target));
 
-    #ifdef CCI2_IR
-    fatal("TODO generate_cast_indirect_to_indirect() IR not implemented");
-    #endif // CCI2_IR
-
-    #ifndef CCI2_IR
-
     // The source is direct but the target is indirect. Records cannot
     // be cast so the source fits in a register and the only
     // possibility for target is a 64-bit value.
     assert(type_size(source) <= 4);
     assert(type_size(target) == 8);
 
+    #ifndef CCI2_IR
     // The register contains a pointer to 64-bit space. We need an
     // auxiliary register to generate the word-size source.
     int reg_src = register_alloc(node->token);
     generate_node(node->first_child, reg_src);
+    #endif
+    #ifdef CCI2_IR
+    // The source fits in a temporary.
+    int reg_src = generate_temporary(NULL);
+    generate_node(node->first_child, reg_src);
+    #endif
 
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
@@ -1269,6 +1270,8 @@ static void generate_cast_direct_to_indirect(node_t* node,
             // Cast from register integer to long long.
             assert(type_is_integer(source));
             generate_int_cast(node->token, reg_src, source_base, BASE_UNSIGNED_INT); // set the upper bits (if necessary)
+
+            #ifndef CCI2_IR
             block_append(current_block, node->token, STW, reg_src, reg_out, 0); // store the low word
             if (type_is_signed_integer(source)) {
                 // sign extend
@@ -1278,12 +1281,47 @@ static void generate_cast_direct_to_indirect(node_t* node,
             } else {
                 block_append(current_block, node->token, STW, 0, reg_out, 4); // clear the high word
             }
+            #endif
+
+            #ifdef CCI2_IR
+            // store the low word
+            instruction_set_args_tt(block_append(current_block, node->token,
+                    STW, 2), reg_src, reg_out);
+
+            // get the high address
+            int temp_high_addr = generate_temporary(NULL);
+            instruction_set_args_ttn(block_append(current_block, node->token,
+                    ADD, 3), temp_high_addr, reg_out, 4);
+
+            if (type_is_signed_integer(source)) {
+                // sign extension. get the sign bit
+                int temp_sign = generate_temporary(NULL);
+                instruction_set_args_ttn(block_append(current_block, node->token,
+                        SHRU, 3), temp_sign, reg_src, 31);
+
+                // fill the register with the sign bit
+                int temp_high = generate_temporary(NULL);
+                instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
+                instruction_set_arg_temporary(instruction, 0, temp_high);
+                instruction_set_arg_number(instruction, 1, 0);
+                instruction_set_arg_temporary(instruction, 2, temp_sign);
+
+                // store the high word
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        STW, 2), temp_high, temp_high_addr);
+            } else {
+                // clear the high word
+                instruction_t* instruction = block_append(current_block, node->token, STW, 2);
+                instruction_set_arg_number(instruction, 0, 0);
+                instruction_set_arg_temporary(instruction, 1, temp_high_addr);
+            }
+            #endif
         }
     }
 
+    #ifndef CCI2_IR
     register_free(node->token, reg_src);
-
-    #endif // !CCI2_IR
+    #endif
 }
 
 static void generate_cast_direct_to_direct(node_t* node,
