@@ -195,6 +195,12 @@ bool otable_remove(otable_t* otable, void* element, uint32_t hash) {
     size_t j = i;
     for (;;) {
         j = (j + 1) & mask;
+
+        // i == j could only happen if the table was full, which is not
+        // possible because we resize dynamically.
+        assert(i != j);
+
+        // Check for an empty bucket
         otable_bucket_t* other = buckets + j;
         if (other->element == NULL) {
             //printf("end of run at %zi. removing element at %zi\n",j, i);
@@ -207,14 +213,54 @@ bool otable_remove(otable_t* otable, void* element, uint32_t hash) {
         // Figure out where this element is supposed to be.
         size_t k = knuth_hash_32(other->hash, bits);
         //printf("element %c i %zi j %zi k %zi\n",*(char*)other->element,i, j, k);
-        if ((i < j) ? (k > i) : (k > i || k <= j)) { // TODO this is probably more complicated than necessary
+
+        // This is the condition that tells us whether we can move an element
+        // back. It is described in pseudocode here:
+        //
+        //     https://en.wikipedia.org/wiki/Open_addressing
+        //
+        //if ((i < j) ? (k > i && k <= j) : (k > i || k <= j)) {
+        //
+        // The element is currently at j; its ideal hash position would be k;
+        // and we are trying to determine whether to move it back to the hole
+        // being created at i.
+        //
+        // In the first case (i < j), if the hash k is between i and j, the
+        // element at j is where it belongs (as j can be found from a collision
+        // sequence starting at k.) If not it must be moved back to i.
+        //
+        //          ......i...k...j.....   j is where it belongs (after k)
+        //          ...k..i.......j.....   j must be moved back to i (so it follows k)
+        //          ......i.......j..k..   j must be moved back to i (so it follows k)
+        //
+        // The second case (i > j) is when we've wrapped around. In this case
+        // if the hash k is after i or before j, the element is where it
+        // belongs (again j following k); if not it must be moved back to i.
+        //
+        //          ...j......k.....i...   j must be moved back to i (so it follows k)
+        //          .k.j............i...   j is where it belongs (after k)
+        //          ...j............i.k.   j is where it belongs (after k)
+        //
+        // In both cases the check is exclusive of i and inclusive of j,
+        // because if k==i, the element belongs exactly at i and must be moved
+        // back, and if k==j, the element is already exactly where it goes and
+        // must not be moved.
+        //
+        // This can be optimized into a sequence of xors; see:
+        //
+        //     https://stackoverflow.com/a/60709252
+        //
+        // This is not necessarily faster on Onramp since xor is three
+        // primitive instructions but it is much less branching so the
+        // bytecode is simpler.
+        if ((i < j) ^ (k <= i) ^ (k > j)) {
             //printf("element %c at %zi is where it's supposed to be.\n",*(char*)other->element,j);
             // This element is where it's supposed to be. Continue to the
             // next one.
             continue;
         }
 
-        // This element can be moved back.
+        // This element must be moved back.
         //printf("moving %c at %zi back to %zi.\n",*(char*)other->element,j,i);
         bucket->element = other->element;
         bucket->hash = other->hash;
