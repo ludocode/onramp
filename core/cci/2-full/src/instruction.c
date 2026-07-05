@@ -27,11 +27,13 @@
 #include <assert.h>
 #include <stdlib.h>
 
-#include "libo-error.h"
-#include "emit.h"
 #include "common.h"
-#include "token.h"
+#include "emit.h"
+#include "function.h"
+#include "generate.h"
+#include "libo-error.h"
 #include "options.h"
+#include "token.h"
 
 const char* opcode_to_string(opcode_t opcode) {
     switch (opcode) {
@@ -164,6 +166,12 @@ void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string
     argument_t* argument = instruction_argument(instruction, arg);
     argument->type = argument_type_absolute;
     argument->string = label;
+}
+
+void instruction_set_arg_absolute_cstr(instruction_t* instruction, size_t arg, const char* label) {
+    string_t* string = string_intern_cstr(label);
+    instruction_set_arg_absolute(instruction, arg, string);
+    function_take_string(current_function, string);
 }
 
 void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label) {

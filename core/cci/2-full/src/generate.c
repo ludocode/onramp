@@ -1110,19 +1110,20 @@ static void generate_cast_indirect_to_direct(node_t* node,
     assert(type_is_passed_indirectly(source));
     assert(!type_is_passed_indirectly(target));
 
-    #ifdef CCI2_IR
-    fatal("TODO generate_cast_indirect_to_indirect() IR not implemented");
-    #endif // CCI2_IR
-
     #ifndef CCI2_IR
-
     size_t source_size = type_size(source);
     size_t target_size = type_size(target);
+    #endif
 
     // The source is indirect but the target is direct. The source is
     // either a 64-bit value or a record (being cast to void), and the
     // target fits in a register.
+    #ifndef CCI2_IR
     assert(target_size <= 4);
+    #endif
+    #ifdef CCI2_IR
+    assert(type_size(target) <= 4);
+    #endif
 
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
@@ -1134,16 +1135,23 @@ static void generate_cast_indirect_to_direct(node_t* node,
         return;
     }
 
+    #ifndef CCI2_IR
     // We need to generate the source into stack space. We can re-use
     // the same register.
     block_sub_rsp(current_block, node->token, source_size);
     block_append(current_block, node->token, MOV, reg_out, RSP);
     generate_node(node->first_child, reg_out);
+    #endif
+
+    #ifdef CCI2_IR
+    // We need to generate the source into stack space.
+    int temp_value = generate_temporary(NULL);
+    block_append_var(current_block, node->token, temp_value, source);
+    generate_node(node->first_child, reg_out);
+    #endif
 
     // convert source to target
-    if (target_base == BASE_VOID) {
-        // nothing to do.
-    } else if (source_base == BASE_DOUBLE) {
+    if (source_base == BASE_DOUBLE) {
         // It's a double. We're either casting to float or to an
         // integer type.
         if (target_base == BASE_FLOAT) {
@@ -1165,25 +1173,59 @@ static void generate_cast_indirect_to_direct(node_t* node,
             // Cast from llong to a register-size or smaller integer
 
             if (target_base == BASE_BOOL) {
-                // For bool we need to load both words and 'or' them together.
+                // For bool we need to load both words and 'or' them together,
+                // then run a 'bool' instruction on the result.
+
+                #ifndef CCI2_IR
                 int reg_temp = register_alloc(node->token);
                 block_append(current_block, node->token, LDW, reg_temp, reg_out, 4);
                 block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
                 block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
                 block_append(current_block, node->token, BOOL, reg_out, reg_out);
                 register_free(node->token, reg_temp);
+                #endif
+
+                #ifdef CCI2_IR
+                // get low word
+                int temp_low = generate_temporary(NULL);
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        LDW, 2), temp_low, temp_value);
+
+                // get high word
+                int temp_high_addr = generate_temporary(NULL);
+                instruction_set_args_ttn(block_append(current_block, node->token,
+                        ADD, 3), temp_high_addr, temp_value, 4);
+                int temp_high = generate_temporary(NULL);
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        LDW, 2), temp_high, temp_high_addr);
+
+                // 'or' the words together
+                int temp_or = generate_temporary(NULL);
+                instruction_set_args_ttt(block_append(current_block, node->token,
+                        OR, 3), temp_or, temp_low, temp_high);
+
+                // 'bool' the result
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        BOOL, 2), reg_out, temp_or);
+                #endif
             } else {
                 // Otherwise we can just load the low word.
+                #ifndef CCI2_IR
                 block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
+                #endif
+                #ifdef CCI2_IR
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        LDW, 2), reg_out, temp_value);
+                #endif
             }
         }
     } else {
         fatal("Internal error: unrecognized indirect to direct cast.");
     }
 
+    #ifndef CCI2_IR
     block_add_rsp(current_block, node->token, source_size);
-
-    #endif // !CCI2_IR
+    #endif
 }
 
 static void generate_cast_direct_to_indirect(node_t* node,

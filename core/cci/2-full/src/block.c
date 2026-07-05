@@ -26,10 +26,11 @@
 
 #include <stdlib.h>
 
-#include "emit.h"
 #include "common.h"
-#include "token.h"
+#include "emit.h"
 #include "generate.h"
+#include "token.h"
+#include "type.h"
 
 #define BLOCK_INSTRUCTIONS_MIN 8
 
@@ -125,6 +126,16 @@ instruction_t* block_append_br(block_t* block, token_t* token,
     // arg 0 not set
     instruction_set_arg_relative(instruction, 1, true_label);
     instruction_set_arg_relative(instruction, 2, false_label);
+    return instruction;
+}
+
+instruction_t* block_append_var(block_t* block, token_t* token,
+        int temp_addr, struct type_t* type)
+{
+    instruction_t* instruction = block_append(current_block, token, VAR, 3);
+    instruction_set_arg_temporary(instruction, 0, temp_addr);
+    instruction_set_arg_number(instruction, 1, type_size(type));
+    instruction_set_arg_number(instruction, 2, type_alignment(type));
     return instruction;
 }
 #endif

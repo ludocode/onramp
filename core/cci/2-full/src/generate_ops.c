@@ -44,11 +44,11 @@ static void generate_arithmetic_function(node_t* parent,
         node_t* first, node_t* /*nullable*/ second,
         int reg_out, const char* function_name)
 {
-    #ifndef CCI2_IR
     bool ret_indirect = type_is_passed_indirectly(parent->type);
-    bool left_indirect = type_is_passed_indirectly(first->type);
-    bool right_indirect = second ? type_is_passed_indirectly(second->type) : false;
+    bool first_indirect = type_is_passed_indirectly(first->type);
+    bool second_indirect = second ? type_is_passed_indirectly(second->type) : false;
 
+    #ifndef CCI2_IR
     // push all registers (except for the return register)
     int last_pushed_register = register_loop_count ? R9 : register_next - 1;
     for (int i = R0; i <= last_pushed_register; ++i) {
@@ -75,7 +75,7 @@ static void generate_arithmetic_function(node_t* parent,
 
     // generate the left arguments
     int reg_left = register_alloc(parent->token);
-    if (left_indirect) {
+    if (first_indirect) {
         block_append(current_block, parent->token, SUB, RSP, RSP, 8);
         block_append(current_block, parent->token, MOV, reg_left, RSP);
     }
@@ -85,7 +85,7 @@ static void generate_arithmetic_function(node_t* parent,
     int reg_right;
     if (second) {
         reg_right = register_alloc(parent->token);
-        if (right_indirect) {
+        if (second_indirect) {
             block_append(current_block, parent->token, SUB, RSP, RSP, 8);
             block_append(current_block, parent->token, MOV, reg_right, RSP);
         }
@@ -99,9 +99,9 @@ static void generate_arithmetic_function(node_t* parent,
     block_append(current_block, parent->token, MOV, reg_out, R0);
 
     // pop stack space used for temporaries
-    if (left_indirect || right_indirect) {
+    if (first_indirect || second_indirect) {
         block_append(current_block, parent->token, ADD, RSP, RSP,
-                (left_indirect ? 8 : 0) + (right_indirect ? 8 : 0));
+                (first_indirect ? 8 : 0) + (second_indirect ? 8 : 0));
     }
 
     // restore the register allocator (we don't bother to free the argument registers first)
@@ -115,8 +115,58 @@ static void generate_arithmetic_function(node_t* parent,
         }
     }
     #endif
+
     #ifdef CCI2_IR
-    fatal("TODO IR generate_arithmetic_function()");
+    // generate first
+    int temp_first = generate_temporary(NULL);
+    if (first_indirect) {
+        instruction_t* instruction = block_append(current_block, first->token, VAR, 3);
+        instruction_set_arg_temporary(instruction, 0, temp_first);
+        instruction_set_arg_number(instruction, 1, 8);
+        instruction_set_arg_sentinel(instruction, 2);
+    }
+    generate_node(first, temp_first);
+
+    // generate second
+    int temp_second;
+    if (second) {
+        temp_second = generate_temporary(NULL);
+        if (second_indirect) {
+            instruction_t* instruction = block_append(current_block, second->token, VAR, 3);
+            instruction_set_arg_temporary(instruction, 0, temp_second);
+            instruction_set_arg_number(instruction, 1, 8);
+            instruction_set_arg_sentinel(instruction, 2);
+        }
+        generate_node(second, temp_second);
+    }
+
+    // create the call instruction
+    size_t arg_count = 1 + (second ? 1 : 0) + (ret_indirect ? 1 : 0);
+    instruction_t* instruction = block_append(current_block, parent->token, CALL, arg_count + 2);
+
+    // add the (direct) return value
+    if (ret_indirect) {
+        instruction_set_arg_sentinel(instruction, 0);
+    } else {
+        instruction_set_arg_temporary(instruction, 0, reg_out);
+    }
+
+    // add the function name
+    instruction_set_arg_absolute_cstr(instruction, 1, function_name);
+
+    // if the return value is indirect, add it now
+    size_t arg = 2;
+    if (ret_indirect) {
+        instruction_set_arg_temporary(instruction, arg++, reg_out);
+    }
+
+    // add first
+    instruction_set_arg_temporary(instruction, arg++, temp_first);
+
+    // add second
+    if (second) {
+        instruction_set_arg_temporary(instruction, arg++, temp_second);
+    }
     #endif
 }
 
@@ -445,11 +495,12 @@ void generate_logical_not(node_t* node, int reg_out) {
         fatal_token(node->token, "Internal error: unrecognized type for logical not");
     }
 
+    #ifdef CCI2_IR
+    int temp_value = generate_temporary(NULL);
+    #endif
+
     if (type_is_long_long(source_type)) {
 
-        #ifdef CCI2_IR
-        fatal("TODO IR long long logical not");
-        #endif
         #ifndef CCI2_IR
         // generate the value
         block_append(current_block, node->token, SUB, RSP, RSP, 8);
@@ -465,12 +516,39 @@ void generate_logical_not(node_t* node, int reg_out) {
         block_append(current_block, node->token, ADD, RSP, RSP, 8);
         #endif
 
+        #ifdef CCI2_IR
+        // generate the value
+        int temp_long = generate_temporary(NULL);
+        instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
+        instruction_set_arg_temporary(instruction, 0, temp_long);
+        instruction_set_arg_number(instruction, 1, 8);
+        instruction_set_arg_sentinel(instruction, 2);
+        generate_node(node->first_child, temp_long);
+
+        // get low word
+        int temp_low = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_low, temp_long);
+
+        // get high word
+        int temp_high_addr = generate_temporary(NULL);
+        instruction_set_args_ttn(block_append(current_block, node->token,
+                ADD, 3), temp_high_addr, temp_long, 4);
+        int temp_high = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_high, temp_high_addr);
+
+        // 'or' the words together
+        instruction_set_args_ttt(block_append(current_block, node->token,
+                OR, 3), temp_value, temp_low, temp_high);
+        #endif
+
     } else {
-        generate_node(node->first_child, reg_out);
 
         // it's an integer. expand it to register size.
         // TODO is this necessary? don't we put in a promotion cast on the argument?
         #ifndef CCI2_IR
+        generate_node(node->first_child, reg_out);
         if (type_size(source_type) == 1) {
             block_append(current_block, node->token, TRB, reg_out, reg_out);
         } else if (type_size(source_type) == 2) {
@@ -478,6 +556,7 @@ void generate_logical_not(node_t* node, int reg_out) {
         }
         #endif
         #ifdef CCI2_IR
+        generate_node(node->first_child, temp_value);
         opcode_t opcode = NOP;
         if (type_size(source_type) == 1) {
             opcode = TRB;
@@ -486,8 +565,8 @@ void generate_logical_not(node_t* node, int reg_out) {
         }
         if (opcode != NOP) {
             instruction_t* instruction = block_append(current_block, node->token, opcode, 2);
-            instruction_set_arg_temporary(instruction, 0, reg_out);
-            instruction_set_arg_temporary(instruction, 1, reg_out);
+            instruction_set_arg_temporary(instruction, 0, temp_value);
+            instruction_set_arg_temporary(instruction, 1, temp_value);
         }
         #endif
     }
@@ -499,7 +578,7 @@ void generate_logical_not(node_t* node, int reg_out) {
     #ifdef CCI2_IR
     instruction_t* instruction = block_append(current_block, node->token, ISZ, 2);
     instruction_set_arg_temporary(instruction, 0, reg_out);
-    instruction_set_arg_temporary(instruction, 1, reg_out);
+    instruction_set_arg_temporary(instruction, 1, temp_value);
     #endif
 }
 

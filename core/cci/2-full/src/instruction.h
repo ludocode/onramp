@@ -229,6 +229,8 @@ void instruction_set_arg_temporary(instruction_t* instruction, size_t arg, int t
 //! Does not keep a strong reference to the string
 void instruction_set_arg_absolute(instruction_t* instruction, size_t arg, string_t* label);
 
+void instruction_set_arg_absolute_cstr(instruction_t* instruction, size_t arg, const char* label);
+
 void instruction_set_arg_relative(instruction_t* instruction, size_t arg, uint32_t label);
 
 void instruction_set_arg_varargs(instruction_t* instruction, size_t arg);
