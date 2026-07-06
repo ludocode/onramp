@@ -326,8 +326,14 @@ void emit_function(function_t* function) {
     emit_string(function->asm_name);
     emit_newline();
 
-    // emit parameters
     #ifdef CCI2_IR
+    // emit return value parameter (if indirect)
+    if (function->return_temporary != TEMPORARY_INVALID) {
+        emit_char(' ');
+        emit_string(temporary_name(function->return_temporary));
+    }
+
+    // emit parameters
     node_t* root = function->root;
     for (node_t* param = root->first_child;
             param != root->last_child;

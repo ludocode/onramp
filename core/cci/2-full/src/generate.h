@@ -57,6 +57,8 @@ void generate_teardown(void);
  * The id corresponding to the temporary is returned.
  */
 int generate_temporary(struct string_t* /*nullable*/ name);
+
+int generate_temporary_cstr(const char* cname);
 #endif
 
 /**

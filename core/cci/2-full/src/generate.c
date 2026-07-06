@@ -175,6 +175,13 @@ int generate_temporary(string_t* /*nullable*/ name) {
     free(cstr);
     return temporary_new(str)->id;
 }
+
+int generate_temporary_cstr(const char* cname) {
+    string_t* name = string_intern_cstr(cname);
+    int temporary = generate_temporary(name);
+    string_deref(name);
+    return temporary;
+}
 #endif
 
 #ifndef CCI2_IR
@@ -586,6 +593,11 @@ void generate_function(function_t* function) {
     #endif
 
     #ifdef CCI2_IR
+    // generate a temporary for the return value parameter (if indirect)
+    if (type_is_passed_indirectly(function->root->type)) {
+        function->return_temporary = generate_temporary_cstr("_Ret");
+    }
+
     // generate a temporary for each parameter
     for (node_t* param = root->first_child;
             param != root->last_child;
@@ -598,9 +610,7 @@ void generate_function(function_t* function) {
         }
     }
     if (function->type->is_variadic) {
-        string_t* name = string_intern_cstr("_Vargs");
-        function->variadic_temporary = generate_temporary(name);
-        string_deref(name);
+        function->variadic_temporary = generate_temporary_cstr("_Vargs");
     }
     #endif
 

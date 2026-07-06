@@ -78,20 +78,17 @@ void generate_return(node_t* node, int temp_out) {
 
     instruction_t* instruction;
     int retval = -1;
+    bool return_indirect = type_is_passed_indirectly(current_function->root->type);
 
     assert(node->kind == NODE_RETURN);
     if (node->first_child) {
         retval = generate_temporary(NULL);
-        if (type_is_passed_indirectly(current_function->root->type)) {
-            #ifndef CCI2_IR
-            // The pointer to storage for the return value was pushed just
-            // above the return address. We load it so we can generate the
-            // return value directly into it.
-            block_append(current_block, node->token, LDW, R0, RFP, 8);
-            #endif
-            #ifdef CCI2_IR
-            fatal("TODO IR indirect return");
-            #endif
+        if (return_indirect) {
+            // The pointer to storage for the return value was passed as the
+            // first argument.
+            assert(current_function->return_temporary != TEMPORARY_INVALID);
+            instruction_set_args_tt(block_append(current_block, node->token,
+                    LDW, 2), retval, current_function->return_temporary);
         }
         generate_node(node->first_child, retval);
     }
@@ -101,7 +98,9 @@ void generate_return(node_t* node, int temp_out) {
 
     // generate ret instruction
     instruction = block_append(current_block, node->token, RET, 1);
-    if (node->first_child) {
+    if (return_indirect) {
+        instruction_set_arg_sentinel(instruction, 0); // ret %
+    } else if (node->first_child) {
         instruction_set_arg_temporary(instruction, 0, retval);  // ret %retval
     } else {
         // No return value. If the function is main, we have to implicitly
@@ -120,7 +119,6 @@ void generate_return(node_t* node, int temp_out) {
     // for it
     current_block = block_new(next_label++);
     function_add_block(current_function, current_block);
-
 }
 #endif // CCI2_IR
 

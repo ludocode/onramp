@@ -67,7 +67,8 @@ function_t* function_new(type_t* type, token_t* name,
     function->variadic_offset = -1;
     #endif
     #ifdef CCI2_IR
-    function->variadic_temporary = -1;
+    function->variadic_temporary = TEMPORARY_INVALID;
+    function->return_temporary = TEMPORARY_INVALID;
     #endif
 
     function->name_label = -1;

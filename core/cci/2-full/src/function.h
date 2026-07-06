@@ -52,6 +52,7 @@ typedef struct function_t {
     #endif
     #ifdef CCI2_IR
     int variadic_temporary; // temporary containing address of first variadic param
+    int return_temporary; // temporary containing address of indirect return parameter
     #endif
     int name_label; // label for __func__ string
     struct symbol_t* symbol;
