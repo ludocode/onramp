@@ -429,7 +429,6 @@ static size_t transform_registers_normal(block_t* block, instruction_t* instruct
             if (temporary->reg == TEMPORARY_REGISTER_INVALID) {
                 // temporary is spilled. replace with r8 and append a store
                 // instruction.
-                printf("SPILLED TEMPORARY OUTPUT %s\n", temporary->name->bytes);
                 assert(temporary->variable);
                 assert(temporary->variable->offset != 0);
 

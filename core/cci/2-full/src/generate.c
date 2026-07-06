@@ -434,10 +434,6 @@ static void generate_access(node_t* node, int reg_out) {
     }
 
     if (type_is_passed_indirectly(type)) {
-    #ifdef CCI2_IR
-    fatal("TODO IR generate_access() indirect");
-    #endif
-    #ifndef CCI2_IR
         #ifndef CCI2_IR
         int reg_temp = register_alloc(node->token);
         #endif
@@ -450,7 +446,6 @@ static void generate_access(node_t* node, int reg_out) {
         register_free(node->token, reg_temp);
         #endif
         return;
-    #endif
     }
 
     opcode_t opcode;
@@ -1147,7 +1142,7 @@ static void generate_cast_indirect_to_direct(node_t* node,
     // We need to generate the source into stack space.
     int temp_value = generate_temporary(NULL);
     block_append_var(current_block, node->token, temp_value, source);
-    generate_node(node->first_child, reg_out);
+    generate_node(node->first_child, temp_value);
     #endif
 
     // convert source to target
@@ -1962,8 +1957,9 @@ void generate_node(node_t* node, int reg_out_opt) {
                 }
             #endif
 
-            // For any case not handled above, we will have to create stack
-            // space to store a temporary value.
+            // For any case not handled above, we will need a temporary for the
+            // return value, and if it is indirect, we will have to create
+            // stack space to store it.
             default:
                 break;
         }
@@ -1980,7 +1976,10 @@ void generate_node(node_t* node, int reg_out_opt) {
             #ifdef CCI2_IR
             reg_out = generate_temporary(NULL);
             if (type_is_passed_indirectly(node->type)) {
-                fatal("TODO IR generate var for indirect node");
+                instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
+                instruction_set_arg_temporary(instruction, 0, reg_out);
+                instruction_set_arg_number(instruction, 1, type_size(node->type));
+                instruction_set_arg_number(instruction, 2, type_alignment(node->type));
             }
             #endif // CCI2_IR
         }
