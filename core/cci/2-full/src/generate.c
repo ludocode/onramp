@@ -1873,11 +1873,11 @@ void generate_node(node_t* node, int reg_out_opt) {
 
     // If the return value is ignored, we can avoid storing it in a temporary.
     // This is particularly important for passing large structures by value so
-    // we don't overflow the stack; see test `decl/struct-assign-large.c`. For
+    // we don't overflow the stack; see test `expr/struct-assign-large.c`. For
     // most nodes we really only need to evaluate the children for side
     // effects.
     int reg_out = reg_out_opt;
-    if (reg_out == -1 || type_matches_base(node->type, BASE_VOID)) {
+    if (reg_out == TEMPORARY_INVALID || type_matches_base(node->type, BASE_VOID)) {
 
         switch (node->kind) {
             case NODE_INVALID:
@@ -1895,10 +1895,10 @@ void generate_node(node_t* node, int reg_out_opt) {
                 return;
 
             // These node types accept an optional register.
+            #ifndef CCI2_IR
             // TODO we're only using -1 if it's indirect, because if it's
             // direct we want the register to be available as a temporary. This
             // won't be necessary when we're generating IR.
-            #ifndef CCI2_IR
             case NODE_ASSIGN:
                 if (type_is_passed_indirectly(node->type)) {
                     generate_assign(node, -1);
@@ -1908,7 +1908,6 @@ void generate_node(node_t* node, int reg_out_opt) {
                     return;
                 }
                 break;
-            #endif // CCI2_IR
             case NODE_SEQUENCE:
                 if (type_is_passed_indirectly(node->type)) {
                     generate_sequence(node, false, -1);
@@ -1918,6 +1917,21 @@ void generate_node(node_t* node, int reg_out_opt) {
                     return;
                 }
                 break;
+            #endif
+            #ifdef CCI2_IR
+            case NODE_ASSIGN:
+                generate_assign(node, TEMPORARY_INVALID);
+                #ifdef GENERATE_DEBUG
+                --debug_depth;
+                #endif
+                return;
+            case NODE_SEQUENCE:
+                generate_sequence(node, false, TEMPORARY_INVALID);
+                #ifdef GENERATE_DEBUG
+                --debug_depth;
+                #endif
+                return;
+            #endif
 
             // For these node types, we only need to generate the children for
             // side effects. We don't actually need to perform the operation

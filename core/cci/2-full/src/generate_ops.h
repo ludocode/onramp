@@ -88,7 +88,18 @@ void generate_zero_array(struct token_t* token, struct type_t* type, size_t coun
  */
 void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_base, int offset);
 
-void generate_assign(struct node_t* node, int reg_out_opt);
+/**
+ * Generates an assignment (an ASSIGN node.)
+ *
+ * The first child of the node is the l-value to which the value is assigned.
+ * The last child of the node is the value being assigned.
+ *
+ * temp_out_opt is an optional temporary to contain the resulting value (so
+ * that it may be used in an expression.) If passed directly, the temporary
+ * will be assigned the value. If passed indirectly, the temporary must contain
+ * the address of storage for the value.
+ */
+void generate_assign(struct node_t* node, int temp_out_opt);
 void generate_add_assign(struct node_t* node, int reg_out);
 void generate_sub_assign(struct node_t* node, int reg_out);
 void generate_mul_assign(struct node_t* node, int reg_out);

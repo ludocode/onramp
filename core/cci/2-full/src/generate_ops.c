@@ -1300,44 +1300,51 @@ void generate_store(token_t* token, type_t* type, int reg_val, int reg_loc) {
     generate_store_offset(token, type, reg_val, reg_loc, 0);
 }
 
+#ifndef CCI2_IR
 void generate_assign(node_t* node, int reg_out_opt) {
-
-    // TODO this should be changed for IR, we should return a temporary that
-    // always contains the location of the left-hand side, this way we wouldn't
-    // need any of these special cases.
-
     if (reg_out_opt == -1) {
         // The result is indirect and is not used as an expression. Generate
         // directly into the destination.
         assert(type_is_passed_indirectly(node->type));
-        #ifndef CCI2_IR
         int reg = register_alloc(node->token);
-        #endif
-        #ifdef CCI2_IR
-        int reg = generate_temporary(NULL);
-        #endif
         generate_location(node->first_child, reg);
         generate_node(node->last_child, reg);
-        #ifndef CCI2_IR
         register_free(node->token, reg);
-        #endif
         return;
     }
 
     generate_node(node->last_child, reg_out_opt);
 
-    #ifndef CCI2_IR
     int reg_loc = register_alloc(node->token);
-    #endif
-    #ifdef CCI2_IR
-    int reg_loc = generate_temporary(NULL);
-    #endif
     generate_location(node->first_child, reg_loc);
     generate_store(node->token, node->type, reg_out_opt, reg_loc);
-    #ifndef CCI2_IR
     register_free(node->token, reg_loc);
-    #endif
 }
+#endif
+
+#ifdef CCI2_IR
+void generate_assign(node_t* node, int temp_out_opt) {
+
+    // Generate the storage location
+    int reg_loc = generate_temporary(NULL);
+    generate_location(node->first_child, reg_loc);
+
+    if (temp_out_opt == -1) {
+        if (type_is_passed_indirectly(node->type)) {
+            // The result is indirect and is not used as an expression.
+            // Generate directly into the destination.
+            generate_node(node->last_child, reg_loc);
+            return;
+        }
+        // Otherwise we need a temporary to store the value.
+        temp_out_opt = generate_temporary(NULL);
+    }
+
+    // Generate the value and store it
+    generate_node(node->last_child, temp_out_opt);
+    generate_store(node->token, node->type, temp_out_opt, reg_loc);
+}
+#endif
 
 void generate_add_sub_assign(node_t* node, int reg_val,
         opcode_t opcode, const char* llong_func,
