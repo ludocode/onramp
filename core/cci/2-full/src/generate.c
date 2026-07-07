@@ -587,16 +587,16 @@ void generate_function(function_t* function) {
     frame_size = (frame_size + 3) & ~3;
     #endif
 
+    // create the entry block
+    current_function = function;
+    current_block = block_new(next_label++);
+    function_add_block(function, current_block);
+
     #ifdef CCI2_IR
     // generate a temporary for the return value parameter (if indirect)
     if (type_is_passed_indirectly(function->root->type)) {
         function->return_temporary = generate_temporary_cstr("_Ret");
     }
-
-    // create the entry block
-    current_function = function;
-    current_block = block_new(next_label++);
-    function_add_block(function, current_block);
 
     // generate a temporary for each parameter
     for (node_t* param = root->first_child;
