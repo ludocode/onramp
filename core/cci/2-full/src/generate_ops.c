@@ -993,6 +993,8 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
         instruction_set_arg_temporary(add, 0, temp_end);
         instruction_set_arg_temporary(add, 1, temp_p);
         instruction_set_arg_number(add, 2, total);
+
+        block_append_jmp(current_block, token, loop_block->label);
         #endif
 
         current_block = loop_block;

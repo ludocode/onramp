@@ -266,12 +266,7 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
         }
         generate_defer(node->last_child);
     } else if (location) {
-        #ifndef CCI2_IR
         generate_location(node->last_child, reg_last);
-        #endif
-        #ifdef CCI2_IR
-        fatal("TODO generate location IR");
-        #endif
     } else {
         generate_node(node->last_child, reg_last);
     }
