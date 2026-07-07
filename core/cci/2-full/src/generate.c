@@ -1622,9 +1622,8 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     block_append(current_block, node->token, opcode, reg_out, 0, reg_ptr);
     #endif
     #ifdef CCI2_IR
-    instruction_t* instruction = block_append(current_block, node->token, opcode, 2);
-    instruction_set_arg_temporary(instruction, 0, reg_out);
-    instruction_set_arg_temporary(instruction, 1, reg_ptr);
+    instruction_set_args_tt(block_append(current_block, node->token,
+                opcode, 2), reg_out, reg_ptr);
     #endif
 }
 
@@ -2312,19 +2311,36 @@ static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
     #endif
 
     #ifdef CCI2_IR
-    // load the return value
-    int temp_loc = generate_temporary(NULL);
-    generate_location(builtin->first_child, temp_loc);
-    int temp_val = generate_temporary(NULL);
-    generate_dereference_impl(builtin->first_child, temp_val, temp_loc, 0);
-    generate_dereference_impl(builtin, reg_out, temp_val, 0);
+    // get the address of the variable containing the va_list
+    int temp_var = generate_temporary(NULL);
+    generate_location(builtin->first_child, temp_var);
+
+    // get the value of the va_list
+    int temp_ptr = generate_temporary(NULL);
+    instruction_set_args_tt(block_append(current_block, builtin->token,
+                LDW, 2), temp_ptr, temp_var);
 
     // increment the va_list
-    instruction_t* add = block_append(current_block, builtin->token, ADD, 3);
-    instruction_set_arg_temporary(add, 0, temp_val);
-    instruction_set_arg_temporary(add, 1, temp_val);
-    instruction_set_arg_number(add, 2, type_size(builtin->type));
-    generate_store(builtin->token, builtin->first_child->type, temp_val, temp_loc);
+    int temp_ptr_updated = generate_temporary(NULL);
+    instruction_set_args_ttn(block_append(current_block, builtin->token,
+                ADD, 3), temp_ptr_updated, temp_ptr, 4);
+    instruction_set_args_tt(block_append(current_block, builtin->token,
+                STW, 2), temp_ptr_updated, temp_var);
+
+    // get the real pointer to the value
+    int temp_value_ptr;
+    if (type_is_passed_indirectly(builtin->type)) {
+        // types passed indirectly need an additional load (the argument is a
+        // pointer to the value.)
+        temp_value_ptr = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, builtin->token,
+                    LDW, 2), temp_value_ptr, temp_ptr);
+    } else {
+        temp_value_ptr = temp_ptr;
+    }
+
+    // load the value into the output
+    generate_dereference_impl(builtin, reg_out, temp_value_ptr, 0);
     #endif
 
 }
