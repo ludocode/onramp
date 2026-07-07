@@ -1457,12 +1457,12 @@ void generate_shr_assign(struct node_t* node, int reg_out) {
 
 static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
     if (type_is_long_long(node->type)) {
-        #ifndef CCI2_IR
         // long long increment/decrement is done branchless. we modify the low
         // byte, then create a mask on overflow and use it to conditionally
         // modify the high byte.
         // we would probably produce faster code if we made this branch on
         // overflow. could be worth revisiting at some point.
+        #ifndef CCI2_IR
         int reg_temp1 = register_alloc(node->token);
         int reg_temp2 = register_alloc(node->token);
         if (inc) {
@@ -1492,8 +1492,44 @@ static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
         register_free(node->token, reg_temp2);
         register_free(node->token, reg_temp1);
         #endif
+
         #ifdef CCI2_IR
-        fatal("TODO generate_inc_dec() IR");
+        // increment the low word
+        int temp_low_before = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_low_before, reg_in);
+        int temp_low_after = generate_temporary(NULL);
+        instruction_set_args_ttn(block_append(current_block, node->token,
+                inc ? ADD : SUB, 3), temp_low_after, temp_low_before, 1);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                STW, 2), temp_low_after, reg_out);
+
+        // check for overflow
+        int temp_overflow = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                ISZ, 2), temp_overflow, inc ? temp_low_after : temp_low_before);
+
+        // get high word addresses
+        int temp_in_high = generate_temporary(NULL);
+        instruction_set_args_ttn(block_append(current_block, node->token,
+                ADD, 3), temp_in_high, reg_in, 4);
+        int temp_out_high = generate_temporary(NULL);
+        instruction_set_args_ttn(block_append(current_block, node->token,
+                ADD, 3), temp_out_high, reg_out, 4);
+
+        // increment high word if overflow
+        // (This could be optimized with a jz which would be taken in the
+        // common case, so it would run one instruction instead of three.
+        // Downsides are larger code and potentially worse optimizations due to
+        // more branches. It's simpler to just always load and store.)
+        int temp_high_before = generate_temporary(NULL);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                LDW, 2), temp_high_before, temp_in_high);
+        int temp_high_after = generate_temporary(NULL);
+        instruction_set_args_ttt(block_append(current_block, node->token,
+                inc ? ADD : SUB, 3), temp_high_after, temp_high_before, temp_overflow);
+        instruction_set_args_tt(block_append(current_block, node->token,
+                STW, 2), temp_high_after, temp_out_high);
         #endif
 
     } else if (type_is_integer(node->type) || type_matches_base(node->type, BASE_ENUM)) {
