@@ -70,6 +70,9 @@ typedef struct symbol_t {
     // Temporary containing the address of storage for this local variable
     // (i.e. the result of the var instruction.)
     int temporary;
+
+    // Parameters passed indirectly have an additional indirection.
+    int indirect_parameter_temporary;
     #endif
 
     symbol_linkage_t linkage;

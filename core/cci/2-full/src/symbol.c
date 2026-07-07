@@ -36,7 +36,8 @@ symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* 
     symbol->kind = kind;
 
     #ifdef CCI2_IR
-    symbol->temporary = -1;
+    symbol->temporary = TEMPORARY_INVALID;
+    symbol->indirect_parameter_temporary = TEMPORARY_INVALID;
     #endif
 
     // only builtins have no type

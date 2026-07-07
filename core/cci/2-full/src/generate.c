@@ -598,6 +598,11 @@ void generate_function(function_t* function) {
         function->return_temporary = generate_temporary_cstr("_Ret");
     }
 
+    // create the entry block
+    current_function = function;
+    current_block = block_new(next_label++);
+    function_add_block(function, current_block);
+
     // generate a temporary for each parameter
     for (node_t* param = root->first_child;
             param != root->last_child;
@@ -607,17 +612,19 @@ void generate_function(function_t* function) {
         symbol_t* symbol = param->symbol;
         if (symbol) {
             symbol->temporary = generate_temporary(symbol->name);
+
+            // Indirect parameters have an additional indirection.
+            if (type_is_passed_indirectly(symbol->type)) {
+                symbol->indirect_parameter_temporary = generate_temporary(symbol->name);
+                instruction_set_args_tt(block_append(current_block, root->token,
+                        LDW, 2), symbol->temporary, symbol->indirect_parameter_temporary);
+            }
         }
     }
     if (function->type->is_variadic) {
         function->variadic_temporary = generate_temporary_cstr("_Vargs");
     }
     #endif
-
-    // create the entry block
-    current_function = function;
-    current_block = block_new(next_label++);
-    function_add_block(function, current_block);
 
     #ifndef CCI2_IR
     // create the stack frame
@@ -743,11 +750,18 @@ static void generate_call(node_t* call, int reg_out) {
     bool passed_vararg = false;
     size_t real_arg_count = 0;
     for (node_t* node = call->first_child->right_sibling; node; node = node->right_sibling) {
+        int temp_arg = generate_temporary(NULL);
+
         if (type_is_passed_indirectly(node->type)) {
-            fatal("TODO pass function argument indirectly IR");
+            // We have to allocate storage to pass indirectly.
+            instruction_t* var = block_append(current_block, node->token, VAR, 3);
+            instruction_set_arg_temporary(var, 0, temp_arg);
+            instruction_set_arg_number(var, 1, type_size(node->type));
+            instruction_set_arg_number(var, 2, type_alignment(node->type));
         }
-        args[arg] = generate_temporary(NULL);
-        generate_node(node, args[arg]);
+
+        generate_node(node, temp_arg);
+        args[arg] = temp_arg;
         ++arg;
         ++real_arg_count;
 

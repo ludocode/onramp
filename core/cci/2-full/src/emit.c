@@ -343,7 +343,13 @@ void emit_function(function_t* function) {
         emit_char(' ');
         symbol_t* symbol = param->symbol;
         if (symbol) {
-            emit_string(temporary_name(symbol->temporary));
+            int temporary;
+            if (symbol->indirect_parameter_temporary != TEMPORARY_INVALID) {
+                temporary = symbol->indirect_parameter_temporary;
+            } else {
+                temporary = symbol->temporary;
+            }
+            emit_string(temporary_name(temporary));
         } else {
             emit_char('%'); // sentinel, param ignored
         }

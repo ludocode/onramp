@@ -122,8 +122,8 @@ static void generate_arithmetic_function(node_t* parent,
     if (first_indirect) {
         instruction_t* instruction = block_append(current_block, first->token, VAR, 3);
         instruction_set_arg_temporary(instruction, 0, temp_first);
-        instruction_set_arg_number(instruction, 1, 8);
-        instruction_set_arg_sentinel(instruction, 2);
+        instruction_set_arg_number(instruction, 1, type_size(first->type));
+        instruction_set_arg_number(instruction, 2, type_alignment(first->type));
     }
     generate_node(first, temp_first);
 
@@ -798,8 +798,8 @@ static void generate_equality(node_t* node,
         int temp_left = generate_temporary(NULL);
         instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
         instruction_set_arg_temporary(instruction, 0, temp_left);
-        instruction_set_arg_number(instruction, 1, 8);
-        instruction_set_arg_sentinel(instruction, 2);
+        instruction_set_arg_number(instruction, 1, type_size(node->first_child->type));
+        instruction_set_arg_number(instruction, 2, type_alignment(node->first_child->type));
 
         // generate left
         generate_node(node->first_child, temp_left);
@@ -808,8 +808,8 @@ static void generate_equality(node_t* node,
         int temp_right = generate_temporary(NULL);
         instruction = block_append(current_block, node->token, VAR, 3);
         instruction_set_arg_temporary(instruction, 0, temp_right);
-        instruction_set_arg_number(instruction, 1, 8);
-        instruction_set_arg_sentinel(instruction, 2);
+        instruction_set_arg_number(instruction, 1, type_size(node->last_child->type));
+        instruction_set_arg_number(instruction, 2, type_alignment(node->last_child->type));
 
         // generate right
         generate_node(node->last_child, temp_right);
