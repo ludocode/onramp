@@ -69,6 +69,13 @@ uint32_t fnv1a_bytes(const char* p, size_t count);
 char* itoa_d(int value, char* buffer);
 
 /**
+ * Converts a number to uppercase hexadecimal.
+ *
+ * Returns the buffer.
+ */
+char* itoa_hexu(uint32_t value, char* buffer);
+
+/**
  * Writes a number in decimal to the given file.
  */
 void fputd(int number, FILE* file);

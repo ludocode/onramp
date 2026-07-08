@@ -27,6 +27,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "libo-error.h"
+
 uint32_t fnv1a_cstr(const char* s) {
     uint32_t hash = 2166136261u;
     while (*s != 0) {
@@ -44,8 +46,32 @@ uint32_t fnv1a_bytes(const char* p, size_t count) {
     return hash;
 }
 
-// TODO our opc libc will have sprintf(), move this there to become part of
+// TODO share this, make not static
+static char int_to_hexu(unsigned value) {
+    if (value <= 9)
+        return '0' + value;
+    if (value <= 15)
+        return 'A' + value - 10;
+    fatal("Internal error: invalid hex value");
+}
+
+
+
+// TODO our opc libc will have sprintf(), move these there to become part of
 // string formatting and just call sprintf() here
+//
+// TODO these should be in libc/1 so we can use them earlier than sprintf(), we
+// need them in cci/2 which will eventually be compiled with cci/0
+
+static inline char* reverse(char* buffer, size_t length) {
+    size_t half = length >> 1;
+    for (size_t i = 0; i < half; ++i) {
+        char temp = buffer[i];
+        buffer[i] = buffer[length - i - 1];
+        buffer[length - i - 1] = temp;
+    }
+    return buffer;
+}
 
 char* itoa_d(int value, char* buffer) {
 
@@ -80,14 +106,24 @@ char* itoa_d(int value, char* buffer) {
     buffer[i] = 0;
 
     // reverse characters
-    unsigned int half = i >> 1;
-    for (unsigned int j = 0; j < half; ++j) {
-        char temp = buffer[j];
-        buffer[j] = buffer[i - j - 1];
-        buffer[i - j - 1] = temp;
-    }
-    return buffer;
+    return reverse(buffer, i);
 }
+
+char* itoa_hexu(uint32_t value, char* buffer) {
+
+    // format (backwards)
+    size_t i = 0;
+    do {
+        buffer[i++] = int_to_hexu(value & 0xF);
+        value >>= 4;
+    } while (value != 0);
+    buffer[i] = 0;
+
+    // reverse characters
+    return reverse(buffer, i);
+}
+
+
 
 void fputd(int number, FILE* file) {
     char buffer[12];
