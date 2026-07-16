@@ -792,10 +792,11 @@ static void parse_symbol_flags(symbol_t* symbol) {
 
 symbol_t* /*nullable*/ try_parse_symbol(void) {
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
+
+    parse_whitespace_and_comments();
     if (current_char == EOF) {
         return NULL;
     }
-    parse_whitespace_and_comments();
 
     // parse the opening sigil
     if (current_char != '=' && current_char != '@') {
