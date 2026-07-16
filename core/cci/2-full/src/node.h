@@ -44,7 +44,7 @@ typedef enum node_kind_t {
     // definitions
     NODE_FUNCTION,          // The root of all functions, no parent. Children are parameters and sequence
     NODE_PARAMETER,         // Function parameter. No children.
-    NODE_VARIABLE,          // Variable definition. Optional child is initializer
+    NODE_VARIABLE,          // Variable definition. Has symbol, optional child is initializer
     NODE_INITIALIZER_LIST,  // A compound (braced) initializer. Sparse vector of children
     NODE_TYPE,              // A type, for example as the argument to sizeof
 
@@ -184,7 +184,7 @@ typedef struct node_t {
         string_t* string; // An arbitrary string value, e.g. a label name, record member name
 
         struct token_t* member; // The member for NODE_MEMBER_*
-        struct symbol_t* symbol; // The symbol for NODE_ACCESS or NODE_PARAMETER (null if unnamed parameter)
+        struct symbol_t* symbol; // The symbol for NODE_VARIABLE, NODE_ACCESS, NODE_PARAMETER (null if unnamed parameter)
         uint32_t u32; // 32-bit float, int or character
         u64_t u64;    // 64-bit double or long long
         int string_label; // generated name of symbol for NODE_STRING

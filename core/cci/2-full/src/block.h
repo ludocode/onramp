@@ -88,13 +88,6 @@ instruction_t* block_append_jmp(block_t* block, struct token_t* token,
  */
 instruction_t* block_append_br(block_t* block, struct token_t* token,
         uint32_t true_label, uint32_t false_label);
-
-/**
- * Appends a var instruction that allocates the given type and places its
- * address in the given temporary.
- */
-instruction_t* block_append_var(block_t* block, struct token_t* token,
-        int temp_addr, struct type_t* type);
 #endif
 
 #ifndef CCI2_IR

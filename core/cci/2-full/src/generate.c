@@ -158,21 +158,23 @@ int generate_temporary(string_t* /*nullable*/ name) {
         string_deref(str);
     }
 
-    // Generate number (with name prefix if provided)
-    char* cstr = malloc(1 + name_length + 1 + 16 + 1);
+    // Generate numbered temporary (with name suffix if provided)
+    // (There is no chance of collision with user-defined names because user
+    // identifiers cannot start with decimal.)
+    char* cstr = malloc(1 + 16 + 1 + name_length);
     if (!cstr) {
         fatal("Out of memory.");
     }
     cstr[0] = '%';
-    char* p = cstr + 1;
+    char* p = itoa_d(vector_count(temporary_list), cstr + 1);
+    p = cstr + strlen(cstr); // TODO itoa_d() needs to return end of buffer. once it does this line can be removed
     if (name) {
-        memcpy(p, name->bytes, name_length);
-        p += name_length;
         *p++ = '_';
+        memcpy(p, name->bytes, name_length);
     }
-    itoa_d(vector_count(temporary_list), p);
-    string_t* str = string_intern_cstr(cstr);
+    string_t* str = string_intern_bytes(cstr, p - cstr + name_length);
     free(cstr);
+    assert(!find_temporary(str));
     return temporary_new(str)->id;
 }
 
@@ -473,10 +475,7 @@ static void generate_variable(node_t* node) {
     node->symbol->temporary = generate_temporary(node->symbol->name);
 
     int temp = node->symbol->temporary;
-    instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
-    instruction_set_arg_temporary(instruction, 0, temp);
-    instruction_set_arg_number(instruction, 1, type_size(node->symbol->type));
-    instruction_set_arg_number(instruction, 2, type_alignment(node->symbol->type));
+    function_add_variable(current_function, temp, node->symbol->type, node->token);
 
     if (node->first_child) {
         generate_initializer(node, generate_temporary(NULL));
@@ -749,10 +748,7 @@ static void generate_call(node_t* call, int reg_out) {
 
         if (type_is_passed_indirectly(node->type)) {
             // We have to allocate storage to pass indirectly.
-            instruction_t* var = block_append(current_block, node->token, VAR, 3);
-            instruction_set_arg_temporary(var, 0, temp_arg);
-            instruction_set_arg_number(var, 1, type_size(node->type));
-            instruction_set_arg_number(var, 2, type_alignment(node->type));
+            function_add_variable(current_function, temp_arg, node->type, node->token);
         }
 
         generate_node(node, temp_arg);
@@ -1160,7 +1156,7 @@ static void generate_cast_indirect_to_direct(node_t* node,
     #ifdef CCI2_IR
     // We need to generate the source into stack space.
     int temp_value = generate_temporary(NULL);
-    block_append_var(current_block, node->token, temp_value, source);
+    function_add_variable(current_function, temp_value, source, node->token);
     generate_node(node->first_child, temp_value);
     #endif
 
@@ -2008,10 +2004,7 @@ void generate_node(node_t* node, int reg_out_opt) {
             #ifdef CCI2_IR
             reg_out = generate_temporary(NULL);
             if (type_is_passed_indirectly(node->type)) {
-                instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
-                instruction_set_arg_temporary(instruction, 0, reg_out);
-                instruction_set_arg_number(instruction, 1, type_size(node->type));
-                instruction_set_arg_number(instruction, 2, type_alignment(node->type));
+                function_add_variable(current_function, reg_out, node->type, node->token);
             }
             #endif // CCI2_IR
         }

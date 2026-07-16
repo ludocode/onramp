@@ -27,11 +27,42 @@
 #include <stdlib.h>
 
 #include "block.h"
+#include "emit.h"
 #include "libo-string.h"
 #include "node.h"
 #include "record.h"
 #include "token.h"
 #include "type.h"
+
+#ifdef CCI2_IR
+typedef struct variable_t {
+    int temporary;
+    uint32_t size;
+    uint32_t alignment;
+    token_t* token;
+} variable_t;
+
+static variable_t* variable_new(int temporary, struct type_t* type,
+        struct token_t* /*nullable*/ token)
+{
+    variable_t* variable = malloc(sizeof(variable_t));
+    if (!variable) {
+        fatal("Out of memory.");
+    }
+    variable->temporary = temporary;
+    variable->size = type_size(type);
+    variable->alignment = type_alignment(type);
+    variable->token = token ? token_ref(token) : NULL;
+    return variable;
+}
+
+static void variable_delete(variable_t* variable) {
+    if (variable->token) {
+        token_deref(variable->token);
+    }
+    free(variable);
+}
+#endif
 
 typedef struct label_node_t {
     table_entry_t entry;
@@ -75,14 +106,22 @@ function_t* function_new(type_t* type, token_t* name,
     vector_init(&function->records);
     #ifdef CCI2_IR
     function->strings = vector_new();
+    function->variables = vector_new();
     #endif
     return function;
 }
 
 void function_delete(function_t* function) {
 
-    // free strings
     #ifdef CCI2_IR
+    // free variables
+    size_t variable_count = vector_count(function->variables);
+    for (size_t i = 0; i != variable_count; ++i) {
+        variable_delete(vector_at(function->variables, i));
+    }
+    vector_delete(function->variables);
+
+    // free strings
     size_t string_count = vector_count(function->strings);
     for (size_t i = 0; i < string_count; ++i) {
         string_deref(vector_at(function->strings, i));
@@ -160,5 +199,29 @@ void function_add_record(function_t* function, record_t* record) {
 #ifdef CCI2_IR
 void function_take_string(function_t* function, string_t* string) {
     vector_append(function->strings, string);
+}
+
+void function_add_variable(function_t* function, int temporary,
+        struct type_t* type, struct token_t* /*nullable*/ token)
+{
+    variable_t* variable = variable_new(temporary, type, token);
+    vector_append(function->variables, variable);
+}
+
+void function_emit_variables(function_t* function) {
+    size_t var_count = vector_count(function->variables);
+    for (size_t i = 0; i < var_count; ++i) {
+        variable_t* variable = vector_at(function->variables, i);
+        if (variable->token) {
+            emit_source_location(variable->token);
+        }
+        emit_cstr("  var ");
+        emit_string(temporary_name(variable->temporary));
+        emit_char(' ');
+        emit_number(variable->size);
+        emit_char(' ');
+        emit_number(variable->alignment);
+        emit_char('\n');
+    }
 }
 #endif

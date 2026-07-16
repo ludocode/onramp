@@ -65,13 +65,15 @@ uint32_t fnv1a_bytes(const char* p, size_t count);
  * Converts a number to decimal.
  *
  * Returns the buffer.
+ *
+ * TODO this should return the *end* of the buffer so we can append other stuff
  */
 char* itoa_d(int value, char* buffer);
 
 /**
  * Converts a number to uppercase hexadecimal.
  *
- * Returns the buffer.
+ * Returns the end of the string (i.e. a pointer to the null-terminator.)
  */
 char* itoa_hexu(uint32_t value, char* buffer);
 

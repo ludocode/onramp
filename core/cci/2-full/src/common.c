@@ -62,8 +62,8 @@ string_t* string_label_name(int id) {
     size_t prefix_len = strlen(STRING_LABEL_PREFIX);
     char* cstr = malloc(prefix_len + 16);
     memcpy(cstr, STRING_LABEL_PREFIX, prefix_len);
-    itoa_hexu(id, cstr + prefix_len);
-    string_t* str = string_intern_cstr(cstr);
+    char* end = itoa_hexu(id, cstr + prefix_len);
+    string_t* str = string_intern_bytes(cstr, end - cstr);
     free(cstr);
     return str;
 }

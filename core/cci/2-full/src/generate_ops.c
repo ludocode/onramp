@@ -120,10 +120,7 @@ static void generate_arithmetic_function(node_t* parent,
     // generate first
     int temp_first = generate_temporary(NULL);
     if (first_indirect) {
-        instruction_t* instruction = block_append(current_block, first->token, VAR, 3);
-        instruction_set_arg_temporary(instruction, 0, temp_first);
-        instruction_set_arg_number(instruction, 1, type_size(first->type));
-        instruction_set_arg_number(instruction, 2, type_alignment(first->type));
+        function_add_variable(current_function, temp_first, first->type, first->token);
     }
     generate_node(first, temp_first);
 
@@ -132,10 +129,7 @@ static void generate_arithmetic_function(node_t* parent,
     if (second) {
         temp_second = generate_temporary(NULL);
         if (second_indirect) {
-            instruction_t* instruction = block_append(current_block, second->token, VAR, 3);
-            instruction_set_arg_temporary(instruction, 0, temp_second);
-            instruction_set_arg_number(instruction, 1, 8);
-            instruction_set_arg_sentinel(instruction, 2);
+            function_add_variable(current_function, temp_second, second->type, second->token);
         }
         generate_node(second, temp_second);
     }
@@ -519,10 +513,7 @@ void generate_logical_not(node_t* node, int reg_out) {
         #ifdef CCI2_IR
         // generate the value
         int temp_long = generate_temporary(NULL);
-        instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
-        instruction_set_arg_temporary(instruction, 0, temp_long);
-        instruction_set_arg_number(instruction, 1, 8);
-        instruction_set_arg_sentinel(instruction, 2);
+        function_add_variable(current_function, temp_long, node->first_child->type, node->token);
         generate_node(node->first_child, temp_long);
 
         // get low word
@@ -796,20 +787,14 @@ static void generate_equality(node_t* node,
 
         // make variable for left
         int temp_left = generate_temporary(NULL);
-        instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
-        instruction_set_arg_temporary(instruction, 0, temp_left);
-        instruction_set_arg_number(instruction, 1, type_size(node->first_child->type));
-        instruction_set_arg_number(instruction, 2, type_alignment(node->first_child->type));
+        function_add_variable(current_function, temp_left, node->first_child->type, node->token);
 
         // generate left
         generate_node(node->first_child, temp_left);
 
         // make variable for right
         int temp_right = generate_temporary(NULL);
-        instruction = block_append(current_block, node->token, VAR, 3);
-        instruction_set_arg_temporary(instruction, 0, temp_right);
-        instruction_set_arg_number(instruction, 1, type_size(node->last_child->type));
-        instruction_set_arg_number(instruction, 2, type_alignment(node->last_child->type));
+        function_add_variable(current_function, temp_right, node->last_child->type, node->token);
 
         // generate right
         generate_node(node->last_child, temp_right);
@@ -1619,10 +1604,7 @@ static void generate_post_inc_dec(node_t* node, int reg_val, bool inc) {
         block_append(current_block, node->token, MOV, reg_temp, RSP);
         #endif
         #ifdef CCI2_IR
-        instruction_t* instruction = block_append(current_block, node->token, VAR, 3);
-        instruction_set_arg_temporary(instruction, 0, reg_temp);
-        instruction_set_arg_number(instruction, 1, 8);
-        instruction_set_arg_sentinel(instruction, 2);
+        function_add_variable(current_function, reg_temp, node->type, node->token);
         #endif
     }
     generate_inc_dec(node, reg_val, reg_temp, inc);

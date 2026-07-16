@@ -120,7 +120,8 @@ char* itoa_hexu(uint32_t value, char* buffer) {
     buffer[i] = 0;
 
     // reverse characters
-    return reverse(buffer, i);
+    reverse(buffer, i);
+    return buffer + i;
 }
 
 

@@ -359,6 +359,16 @@ void emit_function(function_t* function) {
         emit_string(temporary_name(function->variadic_temporary));
     }
     emit_char('\n');
+
+    // emit variable declarations
+    // TODO for now we emit them in their own block. Soon this label and jump
+    // will be removed and they will go in the preamble before the first block.
+    emit_label_def(JUMP_LABEL_PREFIX, next_label++, NULL);
+    function_emit_variables(function);
+    emit_cstr("  jmp &");
+    emit_cstr(JUMP_LABEL_PREFIX);
+    emit_hex_number(((block_t*)vector_first(&function->blocks))->label);
+    emit_char('\n');
     #endif
 
     size_t count = vector_count(&function->blocks);

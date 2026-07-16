@@ -38,6 +38,7 @@ CPPFLAGS += \
 
 SRCS=\
 	$(LIBO)/src/libo-error.c \
+	$(LIBO)/src/libo-otable.c \
 	$(LIBO)/src/libo-string.c \
 	$(LIBO)/src/libo-table.c \
 	$(LIBO)/src/libo-util.c \

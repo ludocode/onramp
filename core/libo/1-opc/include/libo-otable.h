@@ -140,6 +140,7 @@ void otable_shrink(otable_t* otable);
  *
  * Here's one example of how you might do this:
  *
+ *     uint32_t hash = key_hash(key);
  *     for (void** entry = otable_find(otable, hash); entry;
  *             entry = otable_collision(otable, entry, hash))
  *     {
@@ -176,8 +177,10 @@ void** otable_collision(otable_t* otable, void** entry, uint32_t hash);
  *
  * This can be used to iterate over the contents of the table. For example:
  *
- *     for (void** p = otable_begin(otable); p; p = otable_next(otable, p)) {
- *         foo_t* foo = *p;
+ *     for (void** entry = otable_begin(otable); entry;
+ *             entry = otable_next(otable, entry))
+ *     {
+ *         foo_t* foo = *entry;
  *         // ...
  *     }
  */

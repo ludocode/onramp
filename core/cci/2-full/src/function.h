@@ -58,7 +58,8 @@ typedef struct function_t {
     struct symbol_t* symbol;
     vector_t records;
     #ifdef CCI2_IR
-    vector_t* strings;
+    vector_t* strings; // contains string_t*
+    vector_t* variables; // contains variable_t*
     #endif
 } function_t;
 
@@ -70,6 +71,20 @@ void function_delete(function_t* function);
 void function_add_block(function_t* function, struct block_t* block);
 
 void function_add_label(function_t* function, struct node_t* label);
+
+#ifdef CCI2_IR
+/**
+ * Defines a new variable of the given type, placing its address in the given
+ * temporary.
+ *
+ * The variable will be defined with a `var %x N N` instruction in the preamble
+ * of the function.
+ */
+void function_add_variable(function_t* function, int temporary,
+        struct type_t* type, struct token_t* /*nullable*/ token);
+
+void function_emit_variables(function_t* function);
+#endif
 
 struct node_t* function_find_label(function_t* function, struct string_t* name);
 
