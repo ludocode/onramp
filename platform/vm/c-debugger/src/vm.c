@@ -1014,7 +1014,11 @@ static uint32_t vm_read(vm_t* vm) {
             if (fds.revents == POLLHUP) {
                 // TODO we need to return a different error code for closed input
             }
-            return 0;
+            if (vm->version < 4) {
+                // Old VM versions returned zero for non-blocking stdin.
+                return 0;
+            }
+            return VM_ERROR_TRY_LATER;
         }
     }
 

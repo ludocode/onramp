@@ -2147,11 +2147,11 @@
     ; program. poll() may return 1 to say data is available or a negative
     ; number on error; either way we try the read.
     48 83 F8 00      ; cmp rax, 0
-    75 0E            ; jne syscall_read_poll_nonzero (+14)
+    75 10            ; jne syscall_read_poll_nonzero (+16)
 
     ; store ERROR_TRY_LATER in r0
-    BF 00 00 60 00   ; mov edi, r0 (0x600000)
-    67 C6 07 FB      ; mov byte [edi], 0xFB   ; ERROR_TRY_LATER
+    BF 00 00 60 00     ; mov edi, r0 (0x600000)
+    C7 07 FB FF FF FF  ; mov [rdi], 0xFFFFFFFB   ; ERROR_TRY_LATER
 
     ; return
     48 89 EC     ; mov rsp, rbp
@@ -2203,8 +2203,7 @@
     C3           ; ret
 
     ; padding (nop)
-    90 90 90 90 90 90 90 90
-    90
+    90 90 90 90 90 90 90
 @0xF50
 
 

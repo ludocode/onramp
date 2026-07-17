@@ -676,7 +676,7 @@ ssize_t read(int fd, void* buffer, size_t count) {
         // we received ERROR_TRY_LATER (or 0 for backwards compatibility), we
         // block internally until we get data.
         // TODO check if program has called fcntl(O_NONBLOCK)
-        if (((result == 0 && fdn->std_stream && input_block) || (result == __ERROR_TRY_LATER)) &&
+        if (((result == 0 || result == __ERROR_TRY_LATER) && fdn->std_stream && input_block) &&
                 !(__process_info_table[__ONRAMP_PIT_CAPABILITIES] & __ONRAMP_CAPABILITIES_INPUT_BLOCKING))
         {
             continue;

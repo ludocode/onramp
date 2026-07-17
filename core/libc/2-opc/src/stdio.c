@@ -745,10 +745,10 @@ size_t fread(void* restrict vout, size_t element_size, size_t element_count,
         ssize_t step = read(file->fd, out, remaining);
         if (step <= 0) {
             if (step < 0) {
-                if (errno == EWOULDBLOCK) {
-                    sched_yield();
-                    continue;
-                }
+                // Even if the error is EWOULDBLOCK, we still set the error
+                // flag and return. This can happen if for example the caller
+                // has set O_NONBLOCK on the underlying file descriptor. This
+                // matches the behaviour of glibc.
                 file->error = true;
             } else {
                 file->eof = true;
@@ -762,17 +762,14 @@ size_t fread(void* restrict vout, size_t element_size, size_t element_count,
     // The remaining amount is less than the buffer size. We try to fill the
     // buffer and pull data from it until we're done. This needs to be a loop
     // because the read call could return much less than the capacity of the
-    // buffer, even less than we requested.
+    // buffer, even less than is still needed.
     while (remaining != 0) {
 
         // Fill the buffer as much as we can.
         ssize_t result = read(file->fd, file->buffer, file->buffer_size);
         if (result <= 0) {
             if (result < 0) {
-                if (errno == EWOULDBLOCK) {
-                    sched_yield();
-                    continue;
-                }
+                // As above, error even if this is EWOULDBLOCK.
                 file->error = true;
             } else {
                 file->eof = true;
