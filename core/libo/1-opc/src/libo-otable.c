@@ -321,6 +321,7 @@ void otable_remove_all(otable_t* otable) {
 }
 
 static void** otable_find_impl(otable_t* otable, size_t i, uint32_t hash) {
+    assert(otable->count != 0);
     otable_bucket_t* buckets = otable->buckets;
     size_t mask = (1u << otable->bits) - 1;
     for (;;) {
@@ -339,11 +340,15 @@ static void** otable_find_impl(otable_t* otable, size_t i, uint32_t hash) {
 }
 
 void** otable_find(otable_t* otable, uint32_t hash) {
+    if (otable->count == 0) {
+        return NULL;
+    }
     size_t i = knuth_hash_32(hash, otable->bits);
     return otable_find_impl(otable, i, hash);
 }
 
 void** otable_collision(otable_t* otable, void** entry, uint32_t hash) {
+    assert(otable->count != 0);
     size_t i = (otable_bucket_t*)entry - otable->buckets;
     size_t mask = (1u << otable->bits) - 1;
     i = (i + 1) & mask;

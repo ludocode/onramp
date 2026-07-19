@@ -136,3 +136,9 @@ void argument_set_integer(argument_t* argument, uint32_t value) {
     argument->type = argument_type_number;
     argument->number = value;
 }
+
+void argument_set_temporary(argument_t* argument, temporary_t* temporary) {
+    argument_clear(argument);
+    argument->type = argument_type_temporary;
+    argument->temporary = temporary;
+}

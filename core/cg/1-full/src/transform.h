@@ -37,31 +37,45 @@ struct symbol_t;
 void transform_parameters(struct symbol_t* symbol);
 
 /**
- * Transform all load, store and sym instructions from IR to assembly.
+ * Performs the initial pass of conversions to assembly style using rfp and rpp
+ * registers, eliminating almost all IR-specific instructions and instruction
+ * forms. The following conversions are made:
  *
- * Load and store instructions are expanded to take two arguments; wherever
- * global invocations are used, they are moved out to `imw` and added to rpp.
+ * - `sym` instructions are converted to `imw` and `add rpp`;
+ * - loads and stores to symbols are expanded with `imw` inserted, added to `rpp`;
+ * - `var`, `param` and `varargs` instructions are removed, and their temporaries are
+ *   substituted with offsets to `rfp` wherever they are used;
+ * - any other load and store instructions are converted to two address
+ *   arguments (base + offset).
  *
- * For example the following instructions:
+ * For example, given a function like:
  *
- *     sym %1 ^foo
- *     ldw %2 ^bar
- *     stw %3 %4
+ *     =foo
+ *       var %y 4 4
+ *     :_L1
+ *       sym %1 ^foo
+ *       mov %2 %y
+ *       ldw %3 ^bar
+ *       ; ...
  *
- * are transformed into:
+ * The above is converted to:
  *
- *     imw %5 ^foo
- *     add %1 rpp %5
- *     imw %6 ^bar
- *     ldw %2 rpp %6
- *     stw %3 %4 0
+ *     =foo
+ *     :_L1
+ *       imw %4 ^foo
+ *       add %1 rpp %4
+ *       add %2 rfp $y
+ *       imw %5 ^bar
+ *       ldw %3 rpp %5
+ *       ; ...
+ *
+ * After conversion, the code is mostly in assembly style and is ready for
+ * register allocation. (Optional optimizations run after this pass.)
+ *
+ * (The only instruction this does not transform out of IR form is `call`; it
+ * must be transformed after register allocation.)
  */
-void transform_load_store_sym(struct symbol_t* symbol);
-
-/**
- * Convert all `var` instructions and function parameters to variables.
- */
-void transform_variables(struct symbol_t* symbol);
+void transform_ir_instructions(struct symbol_t* symbol);
 
 /**
  * Convert the entry point of the function to assembly.

@@ -93,73 +93,30 @@ void transform_parameters(symbol_t* symbol) {
     vector_t* preamble = vector_new();
     vector_t* variables = vector_new();
 
-    // The first four parameters are passed in registers. Generate a variable
-    // for each one and store it.
+    // The first four parameters are passed in registers. Store them to their
+    // variables.
     size_t count = vector_count(parameters);
     size_t register_count = (count > 4) ? 4 : count;
     for (size_t i = 0; i != register_count; ++i) {
-        if (vector_at(parameters, i) == NULL) {
+        temporary_t* temporary = vector_at(parameters, i);
+        if (temporary == NULL) {
             // sentinel; ignored parameter
             vector_append(variables, NULL);
             continue;
         }
-        variable_t* variable = variable_new(4, 4);
-        vector_append(variables, variable);
 
-        // insert `stw rN rfp @var`
+        // find the variable for this parameter
+        variable_t* variable = symbol_find_substitution(symbol, temporary);
+        if (!variable) {
+            fatal("Internal error: no variable for parameter");
+        }
+
+        // insert `stw rN rfp $var`
         instruction_t* stw = instruction_new(location_new_copy(symbol->location), opcode_stw);
         instruction_append(stw, argument_new_register(i));
         instruction_append(stw, argument_new_register(RFP));
         instruction_append(stw, argument_new_variable(variable));
         vector_append(preamble, stw);
-    }
-
-    // Now create a temporary for the location of each variable.
-    for (size_t i = 0; i != register_count; ++i) {
-        temporary_t* temporary = vector_at(parameters, i);
-        if (temporary == NULL) {
-            // sentinel; ignored parameter
-            continue;
-        }
-        variable_t* variable = vector_at(variables, i);
-
-        // insert `add %name rfp @var`
-        instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
-        instruction_append(add, argument_new_temporary(temporary));
-        instruction_append(add, argument_new_register(RFP));
-        instruction_append(add, argument_new_variable(variable));
-        vector_append(preamble, add);
-    }
-
-    // Any additional parameters are passed on the stack. Each one is turned
-    // into a variable with positive frame offset.
-    // (The frame pointer points to the previous frame pointer. The word above
-    // it is the return address. Stack-passed arguments start above that.)
-    int offset = 8;
-    if (count > 4) {
-        for (size_t i = 4; i != count; ++i) {
-            temporary_t* temporary = vector_at(parameters, i);
-            if (temporary != NULL) {
-                // insert `add %name rfp <offset>`
-                instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
-                instruction_append(add, argument_new_temporary(vector_at(parameters, i)));
-                instruction_append(add, argument_new_register(RFP));
-                instruction_append(add, argument_new_integer(offset));
-                vector_append(preamble, add);
-            }
-            offset += 4;
-        }
-    }
-
-    // If there is a variadic parameter, assign it now.
-    if (symbol->varargs) {
-
-        // insert `add %_Vargs rfp <offset>`
-        instruction_t* add = instruction_new(location_new_copy(symbol->location), opcode_add);
-        instruction_append(add, argument_new_temporary(symbol->varargs));
-        instruction_append(add, argument_new_register(RFP));
-        instruction_append(add, argument_new_integer(offset));
-        vector_append(preamble, add);
     }
 
     // Insert all generated instructions at the front of the first block.
@@ -247,99 +204,124 @@ void transform_control_flow(symbol_t* symbol) {
     }
 }
 
-void transform_load_store_sym(symbol_t* symbol) {
-    size_t block_count = vector_count(symbol->blocks);
-    for (size_t i = 0; i != block_count; ++i) {
-        block_t* block = vector_at(symbol->blocks, i);
+// Transforms one instruction.
+static size_t transform_ir_instructions_impl(symbol_t* symbol, block_t* block,
+        instruction_t* instruction, size_t index)
+{
+    argument_mode_t mode = instruction_mode(instruction);
 
-        size_t instruction_count = vector_count(block->instructions);
-        for (size_t j = 0; j != instruction_count; ++j) {
-            instruction_t* instruction = vector_at(block->instructions, j);
-
-            switch (instruction->opcode) {
-                case opcode_sym: {
-                    // `sym %1 ^foo` --> `imw %2 ^foo  add %1 rpp %2`
-
-                    temporary_t* temporary = temporary_new_anonymous();
-                    instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
-                    instruction_append(imw, argument_new_temporary(temporary));
-                    instruction_append(imw, instruction_argument(instruction, 1));
-
-                    vector_set(instruction->arguments, 1, argument_new_temporary(temporary));
-                    vector_insert(instruction->arguments, 1, argument_new_register(RPP));
-                    instruction->opcode = opcode_add;
-
-                    vector_insert(block->instructions, j, imw);
-                    ++j;
-                    ++instruction_count;
-                    break;
-                }
-
-                case opcode_ldw:
-                case opcode_lds:
-                case opcode_ldb:
-                case opcode_stw:
-                case opcode_sts:
-                case opcode_stb: {
-                    argument_t* argument = instruction_argument(instruction, 1);
-                    if (argument->type == argument_type_absolute) {
-                        // `op %1 ^foo` --> `imw %2 ^foo  op %1 rpp %2`
-
-                        temporary_t* temporary = temporary_new_anonymous();
-                        instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
-                        instruction_append(imw, argument_new_temporary(temporary));
-                        instruction_append(imw, argument);
-
-                        vector_set(instruction->arguments, 1, argument_new_temporary(temporary));
-                        vector_insert(instruction->arguments, 1, argument_new_register(RPP));
-
-                        vector_insert(block->instructions, j, imw);
-                        ++j;
-                        ++instruction_count;
-                    } else {
-                        // `op %1 x` --> `op %1 x 0`
-                        instruction_append(instruction, argument_new_integer(0));
-                    }
-                    break;
-                }
-
-                default:
-                    break;
+    // Check if this instruction has an output parameter. If so, make sure it's
+    // not one of our variable/parameter registers.
+    if (mode != argument_mode_read) {
+        argument_t* argument = instruction_argument(instruction, 0);
+        if (argument->type == argument_type_temporary) {
+            temporary_t* temporary = argument_temporary(argument);
+            variable_t* variable = symbol_find_substitution(symbol, temporary);
+            if (variable) {
+                fatal_loc(instruction->location,
+                        "Cannot use a preamble temporary as an instruction output.");
             }
         }
     }
+
+    // Check each input argument for preamble temporaries
+    size_t i = (mode == argument_mode_write) ? 1 : 0;
+    size_t count = vector_count(instruction->arguments);
+    for (; i < count; ++i) {
+        argument_t* argument = instruction_argument(instruction, i);
+        if (argument->type == argument_type_temporary) {
+            temporary_t* temporary = argument_temporary(argument);
+            variable_t* variable = symbol_find_substitution(symbol, temporary);
+            if (variable) {
+                // We've found a variable to substitute. If we can expand this
+                // opcode, add it in place.
+                switch (instruction->opcode) {
+                    case opcode_mov:
+                    case opcode_ldw:
+                    case opcode_lds:
+                    case opcode_ldb:
+                    case opcode_stw:
+                    case opcode_sts:
+                    case opcode_stb:
+                        if (i == 1 && count == 2) {
+                            // We can expand this instruction.
+                            if (instruction->opcode == opcode_mov) {
+                                instruction->opcode = opcode_add;
+                            }
+                            argument_set_register(argument, RFP);
+                            instruction_append(instruction, argument_new_variable(variable));
+                            return index;
+                        }
+                        // fallthrough
+                    default: {
+                        // Otherwise we need to insert an instruction.
+
+                        temporary_t* temporary = temporary_new_anonymous();
+                        instruction_t* add = instruction_new(location_new_copy(instruction->location), opcode_add);
+                        instruction_append(add, argument_new_temporary(temporary));
+                        instruction_append(add, argument_new_register(RFP));
+                        instruction_append(add, argument_new_variable(variable));
+                        vector_insert(block->instructions, index++, add);
+
+                        argument_set_temporary(argument, temporary);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    // Convert memory and sym instructions
+    switch (instruction->opcode) {
+        case opcode_sym:
+        case opcode_ldw:
+        case opcode_lds:
+        case opcode_ldb:
+        case opcode_stw:
+        case opcode_sts:
+        case opcode_stb: {
+            argument_t* argument = instruction_argument(instruction, 1);
+            if (argument_is_absolute(argument)) {
+                // Expand the argument with imw.
+                // e.g. `sym %1 ^foo` --> `imw %2 ^foo  add %1 rpp %2`
+
+                temporary_t* temporary = temporary_new_anonymous();
+                instruction_t* imw = instruction_new(location_new_copy(instruction->location), opcode_imw);
+                instruction_append(imw, argument_new_temporary(temporary));
+                instruction_append(imw, argument);
+
+                vector_set(instruction->arguments, 1, argument_new_temporary(temporary));
+                vector_insert(instruction->arguments, 1, argument_new_register(RPP));
+                if (instruction->opcode == opcode_sym) {
+                    instruction->opcode = opcode_add;
+                }
+
+                vector_insert(block->instructions, index, imw);
+                return index + 1;
+            }
+
+            // otherwise if it has only one input, expand it to base+offset.
+            if (vector_count(instruction->arguments) == 2) {
+                instruction_append(instruction, argument_new_integer(0));
+            }
+            break;
+        }
+        default:
+            break;
+    }
+
+    return index;
 }
 
-void transform_variables(symbol_t* symbol) {
+void transform_ir_instructions(symbol_t* symbol) {
     size_t block_count = vector_count(symbol->blocks);
     for (size_t i = 0; i != block_count; ++i) {
         block_t* block = vector_at(symbol->blocks, i);
 
-        size_t instruction_count = vector_count(block->instructions);
-        for (size_t j = 0; j != instruction_count; ++j) {
+        // instruction count can change as new instructions are inserted.
+        for (size_t j = 0; j != vector_count(block->instructions); ++j) {
             instruction_t* instruction = vector_at(block->instructions, j);
-            if (instruction->opcode != opcode_var) {
-                continue;
-            }
-
-            // found a `var` instruction. allocate a variable
-            size_t size = argument_number(instruction_argument(instruction, 1));
-            size_t alignment = 0;
-            argument_t* alignment_arg = instruction_argument(instruction, 2);
-            if (alignment_arg->type != argument_type_sentinel) {
-                alignment = argument_number(alignment_arg);
-            }
-            variable_t* variable = variable_new(size, alignment);
-            #ifdef LOG_REGISTER_ALLOCATOR
-            printf("Generated var for temporary %s variable @%zu\n",
-                    argument_temporary(instruction_argument(instruction, 0))->name->bytes,
-                    variable->id);
-            #endif
-
-            // convert `var %x .. ..` to `add %x rfp @x`
-            instruction->opcode = opcode_add;
-            argument_set_register(instruction_argument(instruction, 1), RFP);
-            argument_set_variable(instruction_argument(instruction, 2), variable);
+            j = transform_ir_instructions_impl(symbol, block, instruction, j);
         }
     }
 }

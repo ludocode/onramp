@@ -40,6 +40,7 @@
 #include "location.h"
 #include "symbol.h"
 #include "temporary.h"
+#include "variable.h"
 
 // TODO parse utf8, this should be using libo-reader
 //static reader_t reader;
@@ -48,6 +49,8 @@ static int current_char;
 
 char* identifier;
 static size_t identifier_capacity;
+
+static argument_t* parse_argument(void);
 
 void parse_next_char(void) {
     if (current_char == EOF) {
@@ -178,62 +181,130 @@ static void parse_identifier(bool percent) {
     }
 }
 
-static void parse_parameters(symbol_t* symbol) {
+static temporary_t* /*nullable*/ parse_preamble_temporary(void) {
+    parse_whitespace_and_comments();
+    if (current_char != '%') {
+        fatal("Expected a temporary.");
+    }
+    parse_identifier(true);
+
+    if (identifier[1] == 0) {
+        // sentinel.
+        return NULL;
+    }
+
+    temporary_t* temporary = temporary_create(identifier);
+    if (!temporary) {
+        fatal("Duplicate temporary in preamble.");
+    }
+    return temporary;
+}
+
+static void parse_param(symbol_t* symbol) {
+    assert(0 == strcmp(identifier, "param"));
+    if (symbol->varargs) {
+        fatal("All `param` must be listed before `varargs`.");
+    }
+
+    // parse the temporary
+    temporary_t* temporary = parse_preamble_temporary();
+    size_t param_index = vector_count(symbol->parameters);
+    vector_append(symbol->parameters, temporary);
+    if (temporary == NULL) {
+        return;
+    }
+
+    // create a variable
+    variable_t* variable = variable_create(temporary->name, 4, 4);
+    symbol_add_substitution(symbol, temporary, variable);
+
+    // If we have more than four params, this parameter will be passed on the
+    // stack. We assign its offset now.
+    if (param_index >= 4) {
+        // (The frame pointer points to the previous frame pointer. The word
+        // above it is the return address. Stack-passed arguments start above
+        // that.)
+        variable->offset = 8 + (param_index - 4) * 4;
+    }
+}
+
+static void parse_varargs(symbol_t* symbol) {
+    assert(0 == strcmp(identifier, "varargs"));
+
+    // Parse the temporary
+    temporary_t* temporary = parse_preamble_temporary();
+    symbol->varargs = temporary;
+
+    // Create a synthetic variable that refers to the first variadic parameter.
+    // Nothing can load or store this directly; it's just used for
+    // substitution.
+    variable_t* variable = variable_create(temporary->name, 0, 0);
+    symbol_add_substitution(symbol, temporary, variable);
+
+    // Assign its offset.
+    // (The frame pointer points to the previous frame pointer. The word above
+    // it is the return address. Stack-passed arguments start above that. All
+    // variadic parameters are passed on the stack.)
+    size_t param_count = vector_count(symbol->parameters);
+    if (param_count < 4) {
+        param_count = 4;
+    }
+    variable->offset = 8 + (param_count - 4) * 4;
+}
+
+static void parse_var(symbol_t* symbol) {
+    assert(0 == strcmp(identifier, "var"));
+    temporary_t* temporary = parse_preamble_temporary();
+
+    argument_t* size = parse_argument();
+    if (size->type != argument_type_number) {
+        fatal("Expected a number after `var` temporary.");
+    }
+
+    argument_t* alignment = parse_argument();
+    if (alignment->type != argument_type_number && alignment->type != argument_type_sentinel) {
+        fatal("Expected a number or sentinel at end of `var`.");
+    }
+
+    // TODO pass in the name of the variable
+    variable_t* variable = variable_create(temporary->name, argument_number(size),
+            (alignment->type == argument_type_sentinel) ? 0 : argument_number(alignment));
+    #ifdef LOG_REGISTER_ALLOCATOR
+    printf("Generated var for temporary %s variable $%s\n",
+            temporary->name->bytes, variable->name->bytes);
+    #endif
+
+    argument_delete(alignment);
+    argument_delete(size);
+    symbol_add_substitution(symbol, temporary, variable);
+}
+
+static void parse_preamble(symbol_t* symbol) {
     for (;;) {
         parse_whitespace_and_comments();
-        if (current_char == '%') {
-            parse_identifier(true);
-            temporary_t* temporary;
-            if (identifier[1] == 0) {
-                // sentinel.
-                temporary = NULL;
-            } else {
-                temporary = temporary_create(identifier);
-                if (!temporary) {
-                    fatal("Duplicate parameter.");
-                }
-            }
-            vector_append(symbol->parameters, temporary);
+        if (current_char == ':') {
+            break;
+        }
+
+        parse_identifier(true);
+
+        if (0 == strcmp(identifier, "param")) {
+            parse_param(symbol);
             continue;
         }
 
-        if (current_char == ':') {
-            return;
+        if (0 == strcmp(identifier, "varargs")) {
+            parse_varargs(symbol);
+            continue;
         }
 
-        if (current_char == 'v') {
-
-            // the only keyword allowed is varargs
-            parse_identifier(false);
-            if (0 != strcmp(identifier, "varargs")) {
-                break;
-            }
-
-            // parse the variadic temporary
-            parse_whitespace_and_comments();
-            if (current_char != '%') {
-                fatal("Expected a temporary after `varargs`.");
-            }
-            parse_identifier(true);
-            temporary_t* temporary = temporary_create(identifier);
-            if (!temporary) {
-                fatal("Duplicate parameter.");
-            }
-            symbol->varargs = temporary;
-
-            // block must follow
-            parse_whitespace_and_comments();
-            if (current_char != ':') {
-                fatal("Expected a block after varargs temporary.");
-            }
-            return;
+        if (0 == strcmp(identifier, "var")) {
+            parse_var(symbol);
+            continue;
         }
 
-        // not recognized. error
-        break;
+        fatal("Expected `param`, `var` or `varargs` in the preamble of this function.");
     }
-
-    fatal("Expected a parameter, a label or `varargs` in the preamble of this function.");
 }
 
 static opcode_t parse_opcode(void) {
@@ -824,7 +895,7 @@ symbol_t* /*nullable*/ try_parse_symbol(void) {
     // parse preamble (containing a temporary for each parameter, including
     // possibly a varargs parameter)
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
-    parse_parameters(symbol);
+    parse_preamble(symbol);
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
 
     // parse instructions and labels

@@ -18,7 +18,7 @@ Onramp IR is very similar to Onramp Assembly, both in syntax and semantics. It i
 
 - Labels begin basic blocks. Control flow instructions can only occur at the end of basic blocks, and all basic blocks end in a control flow instruction.
 
-- Stack manipulation is performed by the code generator. There are no `push`/`pop` or `enter`/`leave` instructions, no access to the `rsp` or `rfp` registers, etc. Instead `var` and `alloc` instructions reserve space in the stack frame.
+- Stack manipulation is performed by the code generator. There are no `push`/`pop` or `enter`/`leave` instructions, no access to the `rsp` or `rfp` registers, etc. Instead `param`, `var` and `alloc` instructions reserve space in the stack frame.
 
 - Instructions that take mix-type arguments can take any 32-bit integer. They are not limited to the range of a mix-type byte.
 
@@ -87,40 +87,43 @@ Temporaries are local to their containing symbol. All occurences of a temporary 
 
 ## Local variables
 
-Local variables in C are typically placed on the stack.
+Local variables in C are placed on the stack. They are declared by `var` instructions in the preamble of a function (before the first block label.)
 
 The compiler tries to use the names of variables for the temporaries that contain their values. (This is not always possible due to shadowing, among other things.) By convention, it uses an additional `%` to indicate a pointer to the storage of a variable.
 
 For example:
 
 ```c
-int foo = 5 + 3 * 2;
+void func(void) {
+    int x = 5 + 3;
+}
 ```
 
-The above would be compiled (with optimizations disabled) to the following:
+The above would be compiled to the following:
 
 ```asm
-mul %1 3 2
-add %2 5 %1
-var %foo 4 %
-stw %2 %foo
+=func
+  var %x 4 4
+:_L1
+  add %1 5 3
+  stw %1 %x
 ```
 
 In the above code:
 
-- The computation is performed using generated temporares `%1` and `%2`.
-- A variable is allocated on the stack where `%foo` is a pointer to it.
-- The result `%2` is stored in the variable `%foo`.
+- A variable is allocated on the stack and `%x` is a pointer to it.
+- The computation is performed using generated temporary `%1`.
+- The result `%1` is stored in the variable `%x`.
 
-As seen above, the compiler generates numbered temporaries for anonymous intermediate r-values. Variables for these are never created because it is not possible to take the address of r-values.
+As seen above, the compiler generates numbered temporaries for anonymous intermediate r-values.
 
 
 
 ## Arguments
 
-Function parameters are named after the symbol declaration and before the first label.
+Function parameters are declared by `param` instructions in the preamble of a function (before the first block label.)
 
-Parameters are given as *variables*: storage for them is already allocated as though by `var` instructions and the parameter value is stored at that location. (This is done automatically for all parameters because the compiler would do it anyway.)
+Parameters are given as *variables*: storage for them is allocated as though by `var` instructions and the parameter value is stored at that location. (This is done automatically for all parameters.)
 
 Therefore, named parameters are actually *pointers* to the arguments given to the function.
 
@@ -136,17 +139,18 @@ The compiler will emit code like this:
 
 ```asm
 =add
-    %x %y
+  param %x
+  param %y
 :_L1
-    ldw %1 %x
-    ldw %2 %x
-    add %3 %1 %2
-    ret %3
+  ldw %1 %x
+  ldw %2 %x
+  add %3 %1 %2
+  ret %3
 ```
 
 In the above, `%x` is a pointer to the first parameter and `%y` is a pointer to the second. These are used by the compiler like ordinary variables: whenever the compiler changes the value of `x`, it will emit a store to `%x`, and whenever it uses the value of `x`, it will first emit a load of `%x`.
 
-If the address of `x` is taken in the C code, `&x` is simply the value `%x`. If the address of `x` is never taken, the loads and stores to `%x` may be optimized away.
+If the address of `x` is taken in the C code, `&x` is simply the value `%x`.
 
 Parameters can be ignored with the sentinel `%`. This is usually used for unnamed parameters.
 
@@ -165,29 +169,31 @@ For the above, the compiler will emit something like this:
 
 ```asm
 =taxicab_length
-    %p
+  param %p
 :_L1
-    ldw %1 %p      ; %1 = p, also &p.x
-    ldw %2 %1      ; %2 = p.x
-    add %3 %1 4    ; %3 = &p.y
-    ldw %4 %3      ; %4 = p.y
-    add %5 %2 %4   ; %5 = p.x + p.y
-    ret %5
+  ldw %1 %p      ; %1 = p, also &p.x
+  ldw %2 %1      ; %2 = p.x
+  add %3 %1 4    ; %3 = &p.y
+  ldw %4 %3      ; %4 = p.y
+  add %5 %2 %4   ; %5 = p.x + p.y
+  ret %5
 ```
 
 
 
 ## Variadic Arguments
 
-The keyword `varargs` is used in the parameter list for variadic functions and in the argument list for variadic function calls.
+Variadic arguments are declared with a `varargs` instruction in the function preamble of variadic functions, and passed with the `varargs` keyword in the argument list for variadic function calls.
 
-If a function takes variadic arguments, the keyword `varargs` precedes a final temporary that contains the address of the first variadic argument. By convention this variable is named `%_Vargs` by the compiler. Calls to such functions must insert the keyword `varargs` before any variadic arguments.
+If a function takes variadic arguments, the `varargs` instruction takes a temporary that contains the address of the first variadic argument. (The instruction must appear after any `param` instructions.) By convention this variable is named `%_Vargs` by the compiler. Calls to such functions must insert the keyword `varargs` before any variadic arguments.
 
 For example:
 
 ```c
-int foo(int a, ...) {
-    // code
+int foo(int x, ...) {
+    va_list args;
+    va_start(args, x);
+    // ...
 }
 
 int main(void) {
@@ -199,16 +205,19 @@ The above could be compiled as:
 
 ```asm
 =foo
-    %a varargs %_Vargs
+  param %x
+  varargs %_Vargs
+  var %args 4 4
 :_L1
-    ; code
+  stw %_Vargs %args
+  ; ...
 
 =main
 :_L2
-    call ^foo 1 varargs 2 3 end
+  call ^foo 1 varargs 2 3 end
 ```
 
-The called function can load from `%_Vargs` and increment it to extract the variadic parameters.
+In the called function, `%_Vargs` is the address of the first variadic parameter. The function typically stores in a variable and increments it to extract the variadic parameters.
 
 
 
@@ -510,7 +519,7 @@ Note that `ldw` in IR takes only a single address argument. It does not take a b
 
 ## Stack Allocation
 
-### `var` - Get the Address of Reserved Stack Space
+### `var` - Create a variable
 
 The `var` instruction defines a variable in the current stack frame and places the address of it in the given temporary.
 
@@ -518,7 +527,7 @@ The `var` instruction defines a variable in the current stack frame and places t
 var <temp:dest> <imm:size> <imm?:align>
 ```
 
-The occurrence of the instruction reserves space in the stack frame at code generation time. If the instruction is run multiple times (in a loop for example), the same address is placed in the temporary each time.
+The instruction must appear in the function preamble before the first block label.
 
 This is used for virtually all declared variables, other l-values and many temporaries generated by the C compiler. The optimizer will try to eliminate as many of these as possible.
 
@@ -541,7 +550,6 @@ To define an array of 8 shorts:
 ```asm
 var %a 16 2
 ```
-
 
 
 

@@ -28,9 +28,11 @@
 #include <stddef.h>
 #include <stdbool.h>
 
+struct string_t;
+
 typedef struct variable_t {
     size_t id;
-    size_t size;
+    size_t size; // 0 for a synthetic variable, e.g. $_Vargs
     size_t alignment;
 
     // offset in the stack frame.
@@ -38,6 +40,9 @@ typedef struct variable_t {
     // - rarely positive (stack-passed arguments)
     // - 0 if not yet assigned
     int offset;
+
+    // A unique name for debug purposes. This doesn't affect codegen.
+    struct string_t* name;
 } variable_t;
 
 /**
@@ -45,7 +50,7 @@ typedef struct variable_t {
  *
  * The variable is assigned an id automatically.
  */
-variable_t* variable_new(size_t size, size_t alignment);
+variable_t* variable_create(struct string_t* name, size_t size, size_t alignment);
 
 /**
  * Gets the variable with the given id.

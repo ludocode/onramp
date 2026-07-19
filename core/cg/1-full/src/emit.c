@@ -161,8 +161,8 @@ static void emit_argument(argument_t* argument) {
             emit_string(argument->string);
             break;
         case argument_type_variable:
-            emit_char('@');
-            emit_uint(argument->variable->id);
+            emit_char('$');
+            emit_string(argument->variable->name);
             break;
         default:
             fatal("Internal error: invalid argument type");

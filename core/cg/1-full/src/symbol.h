@@ -30,7 +30,9 @@
 
 struct block_t;
 struct location_t;
+struct otable_t;
 struct temporary_t;
+struct variable_t;
 struct vector_t;
 
 #define PRIORITY_INVALID ((size_t)-1)
@@ -55,6 +57,8 @@ typedef struct symbol_t {
     size_t frame_size;
     size_t constructor_priority;
     size_t destructor_priority;
+
+    struct otable_t* substitutions; // keyed by temporary
 } symbol_t;
 
 /**
@@ -65,5 +69,23 @@ typedef struct symbol_t {
 symbol_t* symbol_new(struct location_t* location, bool is_static);
 
 void symbol_delete(symbol_t* symbol);
+
+/**
+ * Adds a variable as a substitution for the given temporary.
+ *
+ * This is used for defined parameters and variables (`param`, `varargs` and
+ * `var` in the preamble.)
+ *
+ * The temporary will be substituted with the variable wherever it appears.
+ */
+void symbol_add_substitution(symbol_t* symbol, struct temporary_t* temporary,
+        struct variable_t* variable);
+
+/**
+ * Finds the variable to substitute for the given temporary, or NULL if this
+ * temporary does not represent a preamble variable.
+ */
+struct variable_t* /*nullable*/ symbol_find_substitution(
+        symbol_t* symbol, struct temporary_t* temporary);
 
 #endif

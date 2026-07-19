@@ -103,6 +103,8 @@ void argument_set_variable(argument_t* argument, struct variable_t* variable);
 
 void argument_set_integer(argument_t* argument, uint32_t value);
 
+void argument_set_temporary(argument_t* argument, struct temporary_t* temporary);
+
 static inline struct temporary_t* argument_temporary(argument_t* argument) {
     assert(argument->type == argument_type_temporary);
     return argument->temporary;

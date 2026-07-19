@@ -26,12 +26,12 @@
 
 #include <stdlib.h>
 
+#include "libo-string.h"
 #include "libo-vector.h"
 
 static vector_t* variables;
 
-// Takes ownership of name
-variable_t* variable_new(size_t size, size_t alignment) {
+variable_t* variable_create(string_t* name, size_t size, size_t alignment) {
     variable_t* variable = malloc(sizeof(variable_t));
     variable->id = vector_count(variables);
     variable->size = size;
@@ -53,6 +53,16 @@ variable_t* variable_new(size_t size, size_t alignment) {
         variable->alignment = alignment;
     }
 
+    // Skip any leading '%'. We assume the name is unique (and doesn't collide
+    // with any generated names) but we don't bother to check because it's only
+    // used for debug output.
+    // TODO probably should check that it is unique
+    const char* cname = name->bytes;
+    while (*cname == '%') {
+        ++cname;
+    }
+    variable->name = string_intern_cstr(cname);
+
     variable->offset = 0;
     vector_append(variables, variable);
     return variable;
@@ -61,6 +71,7 @@ variable_t* variable_new(size_t size, size_t alignment) {
 static void variable_delete(variable_t* variable) {
     // This is only called when we cleanup variables; we don't remove from the
     // variables vector because it's being cleared.
+    string_deref(variable->name);
     free(variable);
 }
 

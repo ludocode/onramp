@@ -329,8 +329,9 @@ void emit_function(function_t* function) {
     #ifdef CCI2_IR
     // emit return value parameter (if indirect)
     if (function->return_temporary != TEMPORARY_INVALID) {
-        emit_char(' ');
+        emit_cstr("  param ");
         emit_string(temporary_name(function->return_temporary));
+        emit_char('\n');
     }
 
     // emit parameters
@@ -340,7 +341,7 @@ void emit_function(function_t* function) {
             param = param->right_sibling)
     {
         assert(param->kind == NODE_PARAMETER);
-        emit_char(' ');
+        emit_cstr("  param ");
         symbol_t* symbol = param->symbol;
         if (symbol) {
             int temporary;
@@ -353,22 +354,16 @@ void emit_function(function_t* function) {
         } else {
             emit_char('%'); // sentinel, param ignored
         }
+        emit_char('\n');
     }
     if (function->variadic_temporary != -1) {
-        emit_cstr(" varargs ");
+        emit_cstr("  varargs ");
         emit_string(temporary_name(function->variadic_temporary));
+        emit_char('\n');
     }
-    emit_char('\n');
 
     // emit variable declarations
-    // TODO for now we emit them in their own block. Soon this label and jump
-    // will be removed and they will go in the preamble before the first block.
-    emit_label_def(JUMP_LABEL_PREFIX, next_label++, NULL);
     function_emit_variables(function);
-    emit_cstr("  jmp &");
-    emit_cstr(JUMP_LABEL_PREFIX);
-    emit_hex_number(((block_t*)vector_first(&function->blocks))->label);
-    emit_char('\n');
     #endif
 
     size_t count = vector_count(&function->blocks);

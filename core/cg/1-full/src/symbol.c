@@ -28,8 +28,16 @@
 #include <string.h>
 
 #include "block.h"
+#include "libo-otable.h"
 #include "libo-vector.h"
 #include "location.h"
+#include "variable.h"
+#include "temporary.h"
+
+typedef struct substitution_t {
+    variable_t* variable;
+    temporary_t* temporary;
+} substitution_t;
 
 symbol_t* symbol_new(location_t* location, bool is_static) {
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
@@ -40,13 +48,43 @@ symbol_t* symbol_new(location_t* location, bool is_static) {
     symbol->frame_size = 0;
     symbol->constructor_priority = PRIORITY_INVALID;
     symbol->destructor_priority = PRIORITY_INVALID;
+    symbol->substitutions = otable_new();
     return symbol;
 }
 
 void symbol_delete(symbol_t* symbol) {
+    for (void** entry = otable_begin(symbol->substitutions); entry;
+            entry = otable_next(symbol->substitutions, entry))
+    {
+        free(*entry);
+    }
+    otable_delete(symbol->substitutions);
+
     vector_delete(symbol->blocks);
     vector_delete(symbol->parameters);
     location_delete(symbol->location);
     free(symbol->name);
     free(symbol);
+}
+
+void symbol_add_substitution(symbol_t* symbol, struct temporary_t* temporary,
+        struct variable_t* variable)
+{
+    substitution_t* substitution = malloc(sizeof(substitution_t));
+    substitution->temporary = temporary;
+    substitution->variable = variable;
+    otable_put(symbol->substitutions, substitution, temporary_hash(temporary));
+}
+
+variable_t* /*nullable*/ symbol_find_substitution(symbol_t* symbol, struct temporary_t* temporary) {
+    uint32_t hash = temporary_hash(temporary);
+    for (void** entry = otable_find(symbol->substitutions, hash); entry;
+            entry = otable_collision(symbol->substitutions, entry, hash))
+    {
+        substitution_t* substitution = *entry;
+        if (substitution->temporary == temporary) {
+            return substitution->variable;
+        }
+    }
+    return NULL;
 }

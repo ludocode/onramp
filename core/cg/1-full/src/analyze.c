@@ -444,9 +444,9 @@ static void analyze_live_intervals(block_t* block, int visited) {
             {
                 temporary_t* temporary = *entry;
                 if (temporary->variable == NULL) {
-                    temporary->variable = variable_new(4, 4);
+                    temporary->variable = variable_create(temporary->name, 4, 4);
                     #ifdef LOG_REGISTER_ALLOCATOR
-                    printf("Creating variable @%zu to preserve live temporary %s across a function call\n",
+                    printf("Creating variable $%zu to preserve live temporary %s across a function call\n",
                             temporary->variable->id, temporary->name->bytes);
                     #endif
                 }
@@ -593,12 +593,12 @@ static void analyze_linear_scan(symbol_t* symbol) {
             //printf("  spilling current %s\n", temporary->name->bytes);
             // No register could be found. Spill this temporary.
             if (temporary->variable == NULL) {
-                temporary->variable = variable_new(4, 4);
+                temporary->variable = variable_create(temporary->name, 4, 4);
             }
             temporary->reg = -1;
             #ifdef LOG_REGISTER_ALLOCATOR
-            printf("Spilled temporary %s to variable @%zu\n",
-                    temporary->name->bytes, temporary->variable->id);
+            printf("Spilled temporary %s to variable $%s\n",
+                    temporary->name->bytes, temporary->variable->name->bytes);
             #endif
             continue;
         }
@@ -609,7 +609,7 @@ static void analyze_linear_scan(symbol_t* symbol) {
             //printf("  spilling reg %zu %s\n", FIRST_LIVE_REGISTER + j, spill->name->bytes);
             spill->reg = -1;
             if (spill->variable == NULL) {
-                spill->variable = variable_new(4, 4);
+                spill->variable = variable_create(spill->name, 4, 4);
             }
             --registers_used;
             #ifdef LOG_REGISTER_ALLOCATOR
