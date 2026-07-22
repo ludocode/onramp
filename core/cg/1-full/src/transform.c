@@ -787,12 +787,13 @@ static void transform_call_spilled_args(vector_t* instructions, instruction_t* i
                 fatal("Invalid relative argument to call instruction.");
                 break;
 
-            case argument_type_number:
+            case argument_type_number: {
                 instruction_t* imw = instruction_new(location_new_copy(location), opcode_imw);
                 instruction_append(imw, argument_new_register(dest_reg));
                 instruction_append(imw, argument_new_integer(argument->number));
                 vector_append(instructions, imw);
                 break;
+            }
 
             case argument_type_temporary: {
                 temporary_t* temporary = argument_temporary(argument);

@@ -35,13 +35,29 @@
 #include "temporary.h"
 #include "variable.h"
 
-static void emit_location_force(void);
+static string_t* last_filename;
+static unsigned last_line;
+
+static void emit_location_force(location_t* location);
+
+static void emit_set_last_filename(string_t* /*nullable*/ filename) {
+    if (filename) {
+        string_ref(filename);
+    }
+    if (last_filename) {
+        string_deref(last_filename);
+    }
+    last_filename = filename;
+}
 
 void emit_setup(void) {
-    emit_location_force();
+    location_t* location = location_new_current();
+    emit_location_force(location);
+    location_delete(location);
 }
 
 void emit_teardown(void) {
+    emit_set_last_filename(NULL);
 }
 
 void emit_char(char c) {
@@ -64,48 +80,45 @@ static void emit_int(uint32_t value) {
     fprintf(output_file, "%i", (int32_t)value);
 }
 
-static void emit_location_force(void) {
+static void emit_location_force(location_t* location) {
     emit_cstr("#line ");
-    emit_uint(current_line);
+    emit_uint(location->line);
     emit_char(' ');
     emit_char('"');
-    emit_string(current_filename_string); // TODO escape properly
+    emit_string(location->filename); // TODO escape properly
     emit_char('"');
     emit_char('\n');
+    emit_set_last_filename(location->filename);
+    last_line = location->line;
 }
 
 static void emit_location(location_t* location) {
     assert(location);
-    //fprintf(stderr, "%s() %s:%i %p %p\n", __func__, __FILE__, __LINE__, (void*)location, (void*)current_filename_string);
 
-    if (!string_equal(location->filename, current_filename_string)) {
-        set_current_filename_string(location->filename);
-        current_line = location->line;
+    if (!last_filename || !string_equal(location->filename, last_filename)) {
         // filename has changed. emit full debug info.
-        emit_location_force();
+        emit_location_force(location);
         return;
     }
 
-    // TODO remove all these unsigned casts once we make current_line unsigned
-
-    if (location->line == (unsigned)current_line) {
+    if (location->line == last_line) {
         return;
     }
 
-    if (current_line != 0 && location->line != 0
-            && location->line > (unsigned)current_line
-            && location->line < (unsigned)current_line + 5)
+    if (last_line != 0 && location->line != 0
+            && location->line > last_line
+            && location->line < last_line + 5)
     {
-        for (; location->line < (unsigned)current_line; ++current_line) {
+        for (; location->line > last_line; ++last_line) {
             emit_char('#');
             emit_char('\n');
         }
         return;
     }
 
-    current_line = location->line;
+    last_line = location->line;
     emit_cstr("#line ");
-    emit_uint(current_line);
+    emit_uint(last_line);
     emit_char('\n');
     return;
 }

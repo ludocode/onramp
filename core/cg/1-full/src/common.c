@@ -52,6 +52,12 @@ void set_current_filename_string(string_t* string) {
     current_filename = string->bytes;
 }
 
+void set_current_filename_string_cstr(const char* cstr) {
+    string_t* string = string_intern_cstr(cstr);
+    set_current_filename_string(string);
+    string_deref(string);
+}
+
 void current_filename_string_setup(void) {
     current_filename_string = string_intern_cstr("<builtin>");
     current_filename = current_filename_string->bytes;

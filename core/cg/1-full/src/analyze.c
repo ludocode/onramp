@@ -515,8 +515,8 @@ static void analyze_linear_scan(symbol_t* symbol) {
     temporaries_list_all(temporaries);
     size_t count = vector_count(temporaries);
 
-    #ifndef __onramp_cci_opc
-    #ifndef __onramp_cci_omc
+    #ifndef __onramp_cci_opc__
+    #ifndef __onramp_cci_omc__
     #define HAVE_QSORT
     #endif
     #endif

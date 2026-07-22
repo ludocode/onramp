@@ -31,7 +31,7 @@
 #include "libo-error.h"
 #include "libo-util.h"
 
-void location_setup() {
+void location_setup(void) {
     /*
     string_t* builtin = string_intern_cstr("<builtin>");
     current_location = location_new(builtin, 0, NULL);
@@ -39,7 +39,7 @@ void location_setup() {
     */
 }
 
-void location_teardown() {
+void location_teardown(void) {
     //location_delete(current_location);
 }
 

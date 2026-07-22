@@ -47,8 +47,8 @@ typedef struct location_t {
     struct location_t* /*nullable*/ source;
 } location_t;
 
-void location_setup();
-void location_teardown();
+void location_setup(void);
+void location_teardown(void);
 
 /**
  * Initializes a source location.

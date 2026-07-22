@@ -48,9 +48,14 @@
 static int current_char;
 
 char* identifier;
+static size_t identifier_length;
 static size_t identifier_capacity;
 
+static bool line_manual;
+
 static argument_t* parse_argument(void);
+static void parse_identifier(bool percent);
+static void parse_append_identifier_char(char c);
 
 void parse_next_char(void) {
     if (current_char == EOF) {
@@ -64,14 +69,35 @@ void parse_next_char(void) {
     }
 }
 
-// TODO the whitespace and comment parsing is adapted from as/2
+// TODO libo
+static inline bool is_end_of_line(int c) {
+    return (c == '\n') || (c == '\r') || (c == EOF);
+}
+
+// TODO the whitespace and comment parsing is adapted from as/2 and ld/2
+
+static bool try_parse_horizontal_whitespace(void) {
+    bool found = false;
+    for (;;) {
+        switch (current_char) {
+            case ' ':
+            case '\t':
+            case '\v':
+                found = true;
+                parse_next_char();
+                break;
+            default:
+                return found;
+        }
+    }
+}
 
 static bool try_parse_whitespace(void) {
     if (!isspace(current_char))
         return false;
 
     bool was_carriage_return = current_char == '\r';
-    if (was_carriage_return || current_char == '\n') {
+    if (!line_manual && (was_carriage_return || current_char == '\n')) {
         ++current_line;
     }
     parse_next_char();
@@ -91,7 +117,7 @@ static bool try_parse_comment(void) {
     // comment found. consume it
     do {
         parse_next_char();
-    } while (current_char != '\r' && current_char != '\n');
+    } while (!is_end_of_line(current_char));
 
     // note that we don't consume the carriage return or line feed. we let
     // try_parse_whitespace() do it so it handles line endings correctly.
@@ -103,15 +129,100 @@ static bool try_parse_debug(void) {
     if (current_char != '#')
         return false;
 
-    // debug line found.
-    // TODO need to parse #line directives and update location
-    // in the meantime we ignore it
+    // The below is adapted from ld/2. TODO maybe we should put debug directive
+    // parsing in libo somehow.
+
+    // debug line found. consume the '#'
+    parse_next_char();
+    try_parse_horizontal_whitespace();
+
+    // If it's a bare '#', it's a line increment. We only increment in manual
+    // mode because we're not consuming the trailing '#'.
+    if (is_end_of_line(current_char)) {
+        if (line_manual) {
+            ++current_line;
+        }
+        return true;
+    }
+
+    // Read the directive type
+    parse_identifier(false);
+    try_parse_horizontal_whitespace();
+
+    // We currently only support #line.
+    if (0 != strcmp(identifier, "line")) {
+        fatal("Unrecognized debug directive");
+    }
+
+    // #line can be followed by the word "manual" to enable manual line increments
+    if (isalpha(current_char)) {
+        parse_identifier(false);
+        if (0 != strcmp(identifier, "manual")) {
+            fatal("Unsupported command in #line directive.");
+        }
+        line_manual = true;
+        try_parse_horizontal_whitespace();
+        if (!is_end_of_line(current_char)) {
+            fatal("Extra characters after `#line manual`.");
+        }
+        return true;
+    }
+
+    // Otherwise #line is followed by a line number
+    current_line = 0;
+    if (!isdigit(current_char)) {
+        fatal("#line must be followed by a line number.");
+    }
     do {
+        int new_line = current_line * 10 + (current_char - '0');
+        if (new_line <= current_line) {
+            fatal("#line number is out of bounds.");
+        }
+        current_line = new_line;
         parse_next_char();
-    } while (current_char != '\r' && current_char != '\n');
+    } while (isdigit(current_char));
+    try_parse_horizontal_whitespace();
 
-    // as above, we don't consume the line ending.
+    // We reduce the given line number by 1 because we aren't going to consume
+    // the line ending here, so consuming will bump the line number back up
+    // (unless we're in manual mode, wherein consuming a line ending won't
+    // change the line number.)
+    if (!line_manual) {
+        --current_line;
+    }
 
+    // The filename is optional. If omitted, we emit without it
+    if (is_end_of_line(current_char)) {
+        return true;
+    }
+
+    // Otherwise we have to have a quoted filename
+    if (current_char != '"') {
+        fatal("Expected double-quote for optional filename in #line");
+    }
+    parse_next_char();
+
+    // Read the filename into the identifier buffer
+    // (probably we should rename it to just buffer)
+    identifier_length = 0;
+    while (current_char != '"') {
+        if (is_end_of_line(current_char)) {
+            fatal("#line filename must begin and end with a double-quote");
+        }
+        parse_append_identifier_char(current_char);
+        parse_next_char();
+    }
+    parse_append_identifier_char(0); // null-terminate
+    parse_next_char(); // consume closing quote
+
+    // Save the new filename
+    set_current_filename_string_cstr(identifier);
+
+    // The line must now end. We don't consume the line ending.
+    try_parse_horizontal_whitespace();
+    if (!is_end_of_line(current_char)) {
+        fatal("Unexpected trailing characters in #line directive");
+    }
     return true;
 }
 
@@ -127,10 +238,31 @@ static void parse_whitespace_and_comments(void) {
     }
 }
 
-bool is_identifier_char(uint32_t c, bool first_char, bool percent) {
+static bool is_identifier_char(uint32_t c, bool first_char, bool percent) {
     if (percent && c == '%')
         return true;
     return uchar_is_identifier(current_char, first_char);
+}
+
+/**
+ * Appends the given byte to the identifier buffer.
+ */
+static void parse_append_identifier_char(char c) {
+
+    // grow identifier buffer if necessary
+    if (identifier_length == identifier_capacity) {
+        size_t new_capacity = (identifier_capacity == 0) ?
+                32 : identifier_capacity * 2;
+        char* new_identifier = realloc(identifier, new_capacity);
+        if (new_identifier == NULL) {
+            fatal("Memory allocation failed.");
+        }
+        identifier = new_identifier;
+        identifier_capacity = new_capacity;
+    }
+
+    // append the char
+    identifier[identifier_length++] = c;
 }
 
 /**
@@ -139,37 +271,19 @@ bool is_identifier_char(uint32_t c, bool first_char, bool percent) {
  * If `percent` is true, the percent symbol ('%') is allowed. This is used for
  * temporaries.
  */
-bool try_parse_identifier(bool percent) {
+static bool try_parse_identifier(bool percent) {
     //printf("%s() %s:%i\n", __func__, __FILE__, __LINE__);
     if (!is_identifier_char(current_char, true, percent))
         return false;
 
-    size_t identifier_length = 0;
-    for (;;) {
-
-        // grow identifier buffer if necessary
-        if (identifier_length == identifier_capacity) {
-            size_t new_capacity = (identifier_capacity == 0) ?
-                    32 : identifier_capacity * 2;
-            char* new_identifier = realloc(identifier, new_capacity);
-            if (new_identifier == NULL) {
-                fatal("Memory allocation failed.");
-            }
-            identifier = new_identifier;
-            identifier_capacity = new_capacity;
-        }
-
-        // if we've reached the end of the identifier, we're done
-        if (!is_identifier_char(current_char, false, percent)) {
-            identifier[identifier_length] = 0;
-            break;
-        }
-
-        // otherwise append the char
-        identifier[identifier_length++] = current_char;
+    identifier_length = 0;
+    do {
+        parse_append_identifier_char(current_char);
         parse_next_char();
-    }
+    } while (is_identifier_char(current_char, false, percent));
 
+    // add the null-terminator
+    parse_append_identifier_char(0);
     //printf("%s() %s:%i parsed identifier %s\n", __func__, __FILE__, __LINE__, identifier);
     return true;
 }

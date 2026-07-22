@@ -60,6 +60,7 @@ extern struct string_t* current_filename_string;
  * of the string instead of dereferencing it.
  */
 void set_current_filename_string(struct string_t* string);
+void set_current_filename_string_cstr(const char* cstr);
 
 // TODO this stuff is temporary until we move location_t to libo
 void current_filename_string_setup(void);
