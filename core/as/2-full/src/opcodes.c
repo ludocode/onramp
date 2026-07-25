@@ -62,6 +62,17 @@
  * Helpers
  */
 
+/**
+ * Returns true if this is a numbered register.
+ *
+ * Numbered registers are safe for intermediate values which allows us to
+ * shorten some instructions. (Technically rfp would also be safe and could be
+ * used as a general purpose register but we don't bother to support this.)
+ */
+static bool is_numbered(uint32_t dest) {
+    return dest < 10;
+}
+
 // Parses the offset (destination) of a jmp, jz or jnz instruction and adds it
 // to the symbol.
 static void opcode_jump_offset(void) {
@@ -133,7 +144,7 @@ static void opcode_divs(void) {
     // an extra scratch register. Otherwise, we need to push some data to the
     // stack.
 
-    // TODO it's probably possible to do this optimization in all cases, we
+    // TODO it's probably possible to do this optimization in more cases, we
     // just need to decide which argument to read first.
 
     if (dest != src1 && dest != src2) {
@@ -240,7 +251,8 @@ static void opcode_mods(void) {
     // remainder to the sign of the dividend.
 
     // We don't have enough scratch registers so we store the sign on the
-    // stack.
+    // stack. We use the destination to store temporary values but only after
+    // reading both source values.
 
     uint8_t bytes[] = {
 
@@ -304,9 +316,9 @@ static void opcode_dec(void) {
     symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
-// TODO document that this can't be used on ra, rb, rsp, rip
+// TODO document that this can't be used on ra, rb, rsp, rip, rpp
 static void opcode_sxs(void) {
-    uint8_t dest = parse_register_numbered(); // TODO should allow rfp and rpp
+    uint8_t dest = parse_register_numbered();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
         SHRU, RB, 0xFF, 16,   // rb = 0xFFFF
@@ -318,9 +330,9 @@ static void opcode_sxs(void) {
     symbol_add_hex_bytes(bytes, sizeof(bytes));
 }
 
-// TODO document that this can't be used on ra, rb, rsp, rip
+// TODO document that this can't be used on ra, rb, rsp, rip, rpp
 static void opcode_sxb(void) {
-    uint8_t dest = parse_register_numbered(); // TODO should allow rfp and rpp
+    uint8_t dest = parse_register_numbered();
     uint8_t src = parse_mix();
     uint8_t bytes[] = {
         SHRU, RB, 0xFF, 24,   // rb = 0xFF
@@ -541,6 +553,121 @@ static void opcode_sts(void) {
             STB, value, RB, 0,
             SHRU, RA, value, 8,
             STB, RA, RB, 1,
+        };
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
+    }
+}
+
+static void opcode_ldwu(void) {
+    uint8_t dest = parse_register_non_scratch();
+    uint8_t base = parse_mix_non_scratch();
+    uint8_t offset = parse_mix_non_scratch();
+
+    if (base == 0 || offset == 0) {
+        uint8_t addr = (base != 0) ? base : offset;
+
+        // We can save some instructions if one of the source arguments is
+        // zero.
+        uint8_t bytes[] = {
+            LDB, RA, addr, 0,
+
+            LDB, RB, addr, 1,
+            SHL, RB, RB, 8,
+            OR, RA, RA, RB,
+
+            LDB, RB, addr, 2,
+            SHL, RB, RB, 16,
+            OR, RA, RA, RB,
+
+            LDB, RB, addr, 3,
+            SHL, RB, RB, 24,
+            OR, dest, RA, RB,
+        };
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
+        return;
+    }
+
+    // In the remaining cases we need to add base and offset manually to index
+    // the individual bytes.
+
+    // If we can use dest as an accumulator we can use rb as a running pointer
+    // and save a few instructions.
+    if (dest != base && dest != offset && is_numbered(dest)) {
+        uint8_t bytes[] = {
+            ADD, RB, base, offset,
+
+            LDB, dest, RB, 0,
+
+            LDB, RA, RB, 1,
+            SHL, RA, RA, 8,
+            OR, dest, dest, RA,
+
+            LDB, RA, RB, 2,
+            SHL, RA, RA, 16,
+            OR, dest, dest, RA,
+
+            LDB, RA, RB, 3,
+            SHL, RA, RA, 24,
+            OR, dest, dest, RA,
+        };
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
+        return;
+    }
+
+    // In the worst case we don't have enough scratch registers so we have to
+    // keep recomputing base plus offset.
+    uint8_t bytes[] = {
+        ADD, RB, base, offset,
+
+        LDB, RA, RB, 0,
+
+        LDB, RB, RB, 1,
+        SHL, RB, RB, 8,
+        OR, RA, RA, RB,
+
+        ADD, RB, base, offset,
+        LDB, RB, RB, 2,
+        SHL, RB, RB, 16,
+        OR, RA, RA, RB,
+
+        ADD, RB, base, offset,
+        LDB, RB, RB, 3,
+        SHL, RB, RB, 24,
+        OR, dest, RA, RB,
+    };
+    symbol_add_hex_bytes(bytes, sizeof(bytes));
+}
+
+static void opcode_stwu(void) {
+    uint8_t value = parse_mix_non_scratch();
+    uint8_t base = parse_mix_non_scratch();
+    uint8_t offset = parse_mix_non_scratch();
+
+    // We can save an instruction if one of the source arguments is zero. If
+    // not, we need to sum them separately.
+
+    if (base == 0 || offset == 0) {
+        uint8_t addr = (base != 0) ? base : offset;
+        uint8_t bytes[] = {
+            STB, value, addr, 0,
+            SHRU, RA, value, 8,
+            STB, RA, addr, 1,
+            SHRU, RA, RA, 8,
+            STB, RA, addr, 2,
+            SHRU, RA, RA, 8,
+            STB, RA, addr, 3,
+        };
+        symbol_add_hex_bytes(bytes, sizeof(bytes));
+    } else {
+        uint8_t bytes[] = {
+            ADD, RB, base, offset,
+            STB, value, RB, 0,
+            SHRU, RA, value, 8,
+            STB, RA, RB, 1,
+            SHRU, RA, RA, 8,
+            STB, RA, RB, 2,
+            SHRU, RA, RA, 8,
+            STB, RA, RB, 3,
         };
         symbol_add_hex_bytes(bytes, sizeof(bytes));
     }
@@ -864,9 +991,11 @@ static opcode_fn_t opcodes_list[] = {
     {"ldw", opcode_ldw},
     {"lds", opcode_lds},
     {"ldb", opcode_ldb},
+    {"ldwu", opcode_ldwu},
     {"stw", opcode_stw},
     {"sts", opcode_sts},
     {"stb", opcode_stb},
+    {"stwu", opcode_stwu},
     {"push", opcode_push},
     {"pop", opcode_pop},
     {"popd", opcode_popd},

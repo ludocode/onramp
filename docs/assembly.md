@@ -18,20 +18,22 @@ You can think of compound instructions as macros, except they are not defined in
 
 
 
-### Low-level Assembler
+### Assembler Stages
 
 The first stage Onramp assembler recognizes only the following primitive instructions:
 
 - Arithmetic: `add`, `sub`, `mul`, `div`
 - Logic: `and`, `or`, `shl`, `shru`
 - Memory: `ldw`, `stw`, `ldb`, `stb`
-- Control: `ims`, `cmpu`, `jz`, `sys`
+- Control: `ims`, `ltu`, `jz`
 
 Each of these instructions takes three bytes of arguments and maps directly to an instruction in Onramp bytecode. The behaviour and required arguments of each is documented below.
 
-In the first stage assembler, arguments can be passed as register or syscall names, as characters (provided they are in range), or as raw bytes.
+Most of the remaining instructions, but not all, are supported by the second stage assembler. The final stage supports all instructions. The tables below list which stages support which instructions.
 
-In the full assembler, arguments can additionally be passed as numbers (decimal or hexadecimal) and a number argument may represent multiple bytes (for example as the 16-bit argument to `ims` or `jz`.)
+In the first stage assembler, arguments can be passed as register names, as characters (provided they are in range), or as raw bytes.
+
+In the second and final stage assembler, arguments can additionally be passed as numbers (decimal or hexadecimal) and a number argument may represent multiple bytes (for example as the 16-bit argument to `ims` or `jz`.)
 
 
 
@@ -54,7 +56,7 @@ Raw hex bytes can be output by prefixing each one with `'`.
 
 - `'<hex>`: A raw hex byte.
 
-The `'` must be followed by two hexadecimal characters with no whitespace in between. The hexadecimal byte is output as-is (in plain text) without the leading `'`.
+The `'` must be followed by two hexadecimal characters with no whitespace in between. The hexadecimal byte is output as-is (in plain text) without the leading `'`. For example, `'00` outputs a null byte. This is typically used in combination with strings; see [String Literals](#string-literals) below.
 
 When outputting multiple bytes, each one must be prefixed with `'`.
 
@@ -146,6 +148,8 @@ For most instructions (but not all), the destination register comes first, follo
 
 Compound instructions can assemble to different numbers of primitive instructions depending on the arguments and on the stage of the assembler. You should not assume the number of primitive instructions into which a compound instruction will expand.
 
+Only primitive instructions can use the scratch registers (`ra` and `rb`) as they are clobbered by most compound instructions. The final stage assembler diagnoses misuse of scratch registers.
+
 
 
 #### Instruction Reference
@@ -155,79 +159,82 @@ Arguments have the following types:
 - `r`: A register
 - `m`: A mix-type byte, either a register or an immediate value in the range [-112,127]
 - `b`: An immediate 8-bit byte
-- `i`: An immediate 32-bit integer or equivalent (e.g. an absolute linker invocation, a number, four literal bytes)
+- `i`: An immediate 32-bit integer or equivalent (e.g. an absolute linker invocation, a number, four literal bytes in little-endian)
 - `c`: An absolute linker invocation (i.e. `^` and a symbol name)
 - `j`: A relative linker invocation (i.e. `&` and a jump target)
 
-The "Pr." column indicates which instructions are primitive. Only primitive instructions can use the scratch registers (`ra` and `rb`) as they are clobbered by most compound instructions.
+The "Stage" column indicates the first assembler stage that supports the instruction.
 
 Arithmetic:
 
-| Pr. | Opcode | Arguments                    | Description                                                        |
-|-----|--------|------------------------------|--------------------------------------------------------------------|
-|  x  |`add`   | `<r:dest> <m:src1> <m:src2>` | Adds src1 and src2, unsigned overflow                              |
-|  x  |`sub`   | `<r:dest> <m:src1> <m:src2>` | Subtracts src2 from src1, unsigned underflow                       |
-|  x  |`mul`   | `<r:dest> <m:src1> <m:src2>` | Multiplication                                                     |
-|  x  |`divu`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 unsigned                                      |
-|     |`divs`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 signed                                        |
-|     |`modu`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 unsigned                           |
-|     |`mods`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 signed                             |
-|     |`zero`  | `<r:dest>`                   | Sets the register to zero                                          |
-|     |`inc`   | `<r:reg>`                    | Increments the register, unsigned overflow                         |
-|     |`dec`   | `<r:reg>`                    | Decrements the register, unsigned underflow                        |
-|     |`sxs`   | `<r:dest>` `<m:src>`         | Sign-extends a short value (copies bit 15 to upper 16 bits)        |
-|     |`sxb`   | `<r:dest>` `<m:src>`         | Sign-extends a byte value (copies bit 7 to upper 24 bits)          |
-|     |`trs`   | `<r:dest>` `<m:src>`         | Truncates the value to a short (zeroes upper 16 bits)              |
-|     |`trb`   | `<r:dest>` `<m:src>`         | Truncates the value to a byte (zeroes upper 24 bits)               |
+| Stage | Opcode | Arguments                    | Description                                                        |
+|-------|--------|------------------------------|--------------------------------------------------------------------|
+|   0   |`add`   | `<r:dest> <m:src1> <m:src2>` | Adds src1 and src2, unsigned overflow                              |
+|   0   |`sub`   | `<r:dest> <m:src1> <m:src2>` | Subtracts src2 from src1, unsigned underflow                       |
+|   0   |`mul`   | `<r:dest> <m:src1> <m:src2>` | Multiplication                                                     |
+|   0   |`divu`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 unsigned                                      |
+|   1   |`divs`  | `<r:dest> <m:src1> <m:src2>` | Divides src1 by src2 signed                                        |
+|   1   |`modu`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 unsigned                           |
+|   1   |`mods`  | `<r:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 signed                             |
+|   1   |`zero`  | `<r:dest>`                   | Sets the register to zero                                          |
+|   1   |`inc`   | `<r:reg>`                    | Increments the register, unsigned overflow                         |
+|   1   |`dec`   | `<r:reg>`                    | Decrements the register, unsigned underflow                        |
+|   1   |`sxs`   | `<r:dest>` `<m:src>`         | Sign-extends a short value (copies bit 15 to upper 16 bits)        |
+|   1   |`sxb`   | `<r:dest>` `<m:src>`         | Sign-extends a byte value (copies bit 7 to upper 24 bits)          |
+|   1   |`trs`   | `<r:dest>` `<m:src>`         | Truncates the value to a short (zeroes upper 16 bits)              |
+|   1   |`trb`   | `<r:dest>` `<m:src>`         | Truncates the value to a byte (zeroes upper 24 bits)               |
 
 Logic:
 
-| Pr. | Opcode | Arguments                    | Description                                          |
-|-----|--------|------------------------------|------------------------------------------------------|
-|  x  |`and`   | `<r:dest> <m:src1> <m:src2>` | Bitwise and                                          |
-|  x  |`or`    | `<r:dest> <m:src1> <m:src2>` | Bitwise or                                           |
-|     |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
-|     |`not`   | `<r:dest> <m:src>`           | Bitwise not (inverts all bits)                       |
-|  x  |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
-|  x  |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right (unsigned, high to low)  |
-|     |`shrs`  | `<r:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right (signed, high to low) |
-|     |`rol`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate left (low to high)                    |
-|     |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
-|     |`mov`   | `<r:dest> <m:src>`           | Copies src to dest                                   |
-|     |`bool`  | `<r:dest> <m:src>`           | Sets dest to 1 if src is non-zero, 0 otherwise       |
-|     |`isz`   | `<r:dest> <m:src>`           | Sets dest to 0 if src is non-zero, 1 otherwise       |
+| Stage | Opcode | Arguments                    | Description                                          |
+|-------|--------|------------------------------|------------------------------------------------------|
+|   0   |`and`   | `<r:dest> <m:src1> <m:src2>` | Bitwise and                                          |
+|   0   |`or`    | `<r:dest> <m:src1> <m:src2>` | Bitwise or                                           |
+|   1   |`xor`   | `<r:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
+|   1   |`not`   | `<r:dest> <m:src>`           | Bitwise not (inverts all bits)                       |
+|   0   |`shl`   | `<r:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
+|   0   |`shru`  | `<r:dest> <m:src1> <m:src2>` | Bitwise logical shift right (unsigned, high to low)  |
+|   1   |`shrs`  | `<r:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right (signed, high to low) |
+|   1   |`rol`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate left (low to high)                    |
+|   1   |`ror`   | `<r:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
+|   1   |`mov`   | `<r:dest> <m:src>`           | Copies src to dest                                   |
+|   1   |`bool`  | `<r:dest> <m:src>`           | Sets dest to 1 if src is non-zero, 0 otherwise       |
+|   1   |`isz`   | `<r:dest> <m:src>`           | Sets dest to 0 if src is non-zero, 1 otherwise       |
 
 Memory:
 
-| Pr. | Opcode | Arguments                       | Description                                                      |
-|-----|--------|---------------------------------|------------------------------------------------------------------|
-|  x  |`ldw`   | `<r:dest> <m:base> <m:offset>`  | Loads a 4-byte word from memory (aligned)                        |
-|     |`lds`   | `<r:dest> <m:base> <m:offset>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
-|  x  |`ldb`   | `<r:dest> <m:base> <m:offset>`  | Loads a byte from memory, zeroes upper 24 bits                   |
-|  x  |`stw`   | `<m:value> <m:base> <m:offset>` | Stores a 4-byte word in memory (aligned)                         |
-|     |`sts`   | `<m:value> <m:base> <m:offset>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
-|  x  |`stb`   | `<m:value> <m:base> <m:offset>` | Stores a byte in memory, ignores upper 24 bits                   |
-|     |`push`  | `<m:value>`                     | Pushes a value to the stack                                      |
-|     |`pop`   | `<r:reg>`                       | Pops the top stack value into the register                       |
-|     |`popd`  | none                            | Pops the top stack value and discards it                         |
+| Stage | Opcode | Arguments                       | Description                                                                 |
+|-------|--------|---------------------------------|-----------------------------------------------------------------------------|
+|   0   |`ldw`   | `<r:dest> <m:base> <m:offset>`  | Loads an aligned 4-byte word from memory                                    |
+|   0   |`ldb`   | `<r:dest> <m:base> <m:offset>`  | Loads a byte from memory, zeroes upper 24 bits                              |
+|   1   |`lds` \*| `<r:dest> <m:base> <m:offset>`  | Loads a 2-byte short from possibly unaligned memory, zeroes upper 16 bits   |
+|   2   |`ldwu`  | `<r:dest> <m:base> <m:offset>`  | Loads a 4-byte word from a possibly unaligned address in memory             |
+|   0   |`stw`   | `<m:value> <m:base> <m:offset>` | Stores a 4-byte word in memory (aligned)                                    |
+|   0   |`stb`   | `<m:value> <m:base> <m:offset>` | Stores a byte in memory, ignores upper 24 bits                              |
+|   1   |`sts` \*| `<m:value> <m:base> <m:offset>` | Stores a 2-byte short from possibly unaligned memory, ignores upper 16 bits |
+|   2   |`stwu`  | `<m:value> <m:base> <m:offset>` | Stores a 4-byte word at a possibly unaligned address in memory              |
+|   1   |`push`  | `<m:value>`                     | Pushes a value to the stack                                                 |
+|   1   |`pop`   | `<r:reg>`                       | Pops the top stack value into the register                                  |
+|   1   |`popd`  | none                            | Pops the top stack value and discards it                                    |
+
+\* The `lds` and `sts` instructions may be renamed to `ldsu` and `stsu` for consistency because they operate on unaligned memory addresses.
 
 Control:
 
-| Pr. | Opcode | Arguments                     | Description                                                       |
-|-----|--------|-------------------------------|-------------------------------------------------------------------|
-|  x  |`ims`   | `<r:reg> <b:high> <b:low>`    | Shifts register up 16 bits, then loads a 16-bit immediate         |
-|     |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate                                          |
-|x \* |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest        |
-|  \* |`cmps`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 signed, placing -1, 0 or 1 in dest          |
-| \*  |`ltu`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 unsigned, 0 otherwise  |
-|     |`lts`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 signed, 0 otherwise    |
-|  x  |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                                    |
-|     |`jnz`   | `<m:pred> <j:label>`          | Jumps if the predicate is not zero                                |
-|     |`jmp`   | `<j:label>` or `<c:function>` | Jumps unconditionally                                             |
-|     |`call`  | `<c:function>`                | Calls a function (pushing the return address to the stack)        |
-|     |`ret`   | none                          | Returns from a function call                                      |
-|     |`enter` | none                          | Creates a stack frame                                             |
-|     |`leave` | none                          | Destroys the current stack frame                                  |
-|  x  |`sys`   | `<b:number> '00 '00`          | Performs a system call                                            |
+| Stage | Opcode | Arguments                     | Description                                                       |
+|-------|--------|-------------------------------|-------------------------------------------------------------------|
+|   0   |`ims`   | `<r:reg> <b:low> <b:high>`    | Shifts register up 16 bits, then loads a 16-bit immediate         |
+|   1   |`imw`   | `<r:reg> <i:value>`           | Loads a 32-bit immediate                                          |
+| 1 \*  |`cmpu`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 unsigned, placing -1, 0 or 1 in dest        |
+| 1 \*  |`cmps`  | `<r:dest> <m:src1> <m:src2>`  | Compares src1 to src2 signed, placing -1, 0 or 1 in dest          |
+|   0   |`ltu`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 unsigned, 0 otherwise  |
+|   1   |`lts`   | `<r:dest> <m:src1> <m:src2>`  | Places 1 in dest if src1 is less than src2 signed, 0 otherwise    |
+|   0   |`jz`    | `<m:pred> <j:label>`          | Jumps if the predicate is zero                                    |
+|   1   |`jnz`   | `<m:pred> <j:label>`          | Jumps if the predicate is not zero                                |
+|   1   |`jmp`   | `<j:label>` or `<c:function>` | Jumps unconditionally                                             |
+|   1   |`call`  | `<c:function>`                | Calls a function (pushing the return address to the stack)        |
+|   1   |`ret`   | none                          | Returns from a function call                                      |
+|   1   |`enter` | none                          | Creates a stack frame                                             |
+|   1   |`leave` | none                          | Destroys the current stack frame                                  |
 
-\* WARNING: `sys` will be removed soon.
+\* The `cmpu` and `cmps` instructions are deprecated. They will most likely be removed soon.
