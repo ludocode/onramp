@@ -30,6 +30,9 @@
 #include "libo-string.h"
 #include "libo-table.h"
 
+struct block_t;
+struct instruction_t;
+struct location_t;
 struct location_t;
 struct otable_t;
 struct variable_t;
@@ -51,6 +54,15 @@ typedef struct temporary_t {
     // Live interval
     size_t interval_start;
     size_t interval_end;
+
+    // Instruction in which the temporary was assigned (or last assigned during forward pass.)
+    struct instruction_t* instruction;
+
+    // Block containing the above instruction (only during forward pass.)
+    struct block_t* block;
+
+    // True if the temporary is only assigned once.
+    bool is_ssa;
 } temporary_t;
 
 /**

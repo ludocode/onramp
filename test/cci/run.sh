@@ -36,6 +36,7 @@
 #     --noskip           Don't skip tests marked skip
 #     --nonstd           Run tests marked non-standard
 #     --output <path>    Output intermediate files to the given path
+#     -O                 Optimize
 
 set -e
 
@@ -52,6 +53,7 @@ NOSKIP_ARG=
 CCI=
 CCI_ID=
 CG_ARG=
+OPTIMIZE_ARG=
 
 # parse command-line options
 set +e
@@ -68,6 +70,7 @@ while true; do
         --cci-id) CCI_ID="$1"; shift ;;
         --cci) CCI="$1"; shift ;;
         --cg) CG_ARG="--cg $1"; shift ;;
+        -O) OPTIMIZE_ARG="-O" ;;
         *)
             echo "$0: ERROR: Invalid command-line argument: $ARG" >&2
             exit 1
@@ -119,6 +122,7 @@ for TESTFILE in $FILES; do
     TEST_OUTPUT="$OUTPUT_PATH/$(dirname $TESTFILE)"
     mkdir -p "$TEST_OUTPUT"
     COMMAND="$(dirname "$0")/test-case.sh \
+        $OPTIMIZE_ARG \
         --test "$TESTFILE" \
         --output "$TEST_OUTPUT" \
         --cci "$CCI" \

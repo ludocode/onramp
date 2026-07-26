@@ -145,6 +145,7 @@ OUTPUT_PATH=
 TESTFILE=
 CLEAN=1
 VERBOSE=0
+OPTIMIZE_ARG=
 
 # Parse command-line options
 set +e
@@ -168,6 +169,7 @@ while true; do
         --noclean) CLEAN=0 ;;
         -v) VERBOSE=1 ;;
         --verbose) VERBOSE=1 ;;
+        -O) OPTIMIZE_ARG="-O" ;;
         *)
             echo "$0: ERROR: Invalid command-line argument: $ARG" >&2
             exit 1
@@ -372,7 +374,7 @@ else
 fi
 OUTPUT=$CCI_OUTPUT
 set +e
-COMMAND="$CCI_PREFIX $CCI $(eval echo $ARGS)"
+COMMAND="$CCI_PREFIX $CCI $OPTIMIZE_ARG $(eval echo $ARGS)"
 if [ $VERBOSE -eq 1 ]; then
     echo Running compiler: $COMMAND
     $COMMAND
@@ -411,7 +413,7 @@ if [ "$CG" != "" ]; then
     CG_OUTPUT=$OUTPUT_PATH/$BASENAME.os
     INPUT=$OUTPUT
     OUTPUT=$CG_OUTPUT
-    COMMAND="$CG_PREFIX $CG $INPUT -o $OUTPUT"
+    COMMAND="$CG_PREFIX $CG $OPTIMIZE_ARG $INPUT -o $OUTPUT"
     if [ $VERBOSE -eq 1 ]; then
         echo Running code generator: $COMMAND
         $COMMAND

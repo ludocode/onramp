@@ -311,92 +311,94 @@ Storage space is reclaimed automatically when the function exits (either by retu
 Arguments have the following types:
 
 - `t`: A temporary
-- `m`: A mix-type argument, either a temporary or an immediate 32-bit integer (no range limit)
 - `i`: An immediate 32-bit integer
 - `s`: An absolute linker invocation (i.e. `^` and a symbol name)
-- `l`: A relative linker invocation (i.e. `&` and a jump target)
+- `l`: A relative linker invocation (i.e. `&` and a block label)
+- `?`: A sentinel
 
-A `/` symbol means multiple types are allowed, and `?` means the argument may be a sentinel.
+If multiple types are listed, the argument may be any of the listed types.
 
 Arithmetic:
 
-| Opcode | Arguments                    | Description                                                        |
-|--------|------------------------------|--------------------------------------------------------------------|
-| `add`  | `<t:dest> <m:src1> <m:src2>` | Adds src1 and src2, unsigned overflow                              |
-| `sub`  | `<t:dest> <m:src1> <m:src2>` | Subtracts src2 from src1, unsigned underflow                       |
-| `mul`  | `<t:dest> <m:src1> <m:src2>` | Multiplication                                                     |
-| `divu` | `<t:dest> <m:src1> <m:src2>` | Divides src1 by src2 unsigned                                      |
-| `divs` | `<t:dest> <m:src1> <m:src2>` | Divides src1 by src2 signed                                        |
-| `modu` | `<t:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 unsigned                           |
-| `mods` | `<t:dest> <m:src1> <m:src2>` | Modulus of src1 divided by src2 signed                             |
-| `zero` | `<t:dest>`                   | Sets the temporary to zero                                         |
-| `inc`  | `<t:temp>`                   | Increments the temporary, unsigned overflow                        |
-| `dec`  | `<t:temp>`                   | Decrements the temporary, unsigned underflow                       |
-| `sxs`  | `<t:dest> <m:src>`           | Sign-extends a short value (copies bit 15 to upper 16 bits)        |
-| `sxb`  | `<t:dest> <m:src>`           | Sign-extends a byte value (copies bit 7 to upper 24 bits)          |
-| `trs`  | `<t:dest> <m:src>`           | Truncates the value to a short (zeroes upper 16 bits)              |
-| `trb`  | `<t:dest> <m:src>`           | Truncates the value to a byte (zeroes upper 24 bits)               |
+| Opcode | Arguments                      | Description                                                        |
+|--------|--------------------------------|--------------------------------------------------------------------|
+| `add`  | `<t:dest> <ti:src1> <ti:src2>` | Adds src1 and src2, unsigned overflow                              |
+| `sub`  | `<t:dest> <ti:src1> <ti:src2>` | Subtracts src2 from src1, unsigned underflow                       |
+| `mul`  | `<t:dest> <ti:src1> <ti:src2>` | Multiplication                                                     |
+| `divu` | `<t:dest> <ti:src1> <ti:src2>` | Divides src1 by src2 unsigned                                      |
+| `divs` | `<t:dest> <ti:src1> <ti:src2>` | Divides src1 by src2 signed                                        |
+| `modu` | `<t:dest> <ti:src1> <ti:src2>` | Modulus of src1 divided by src2 unsigned                           |
+| `mods` | `<t:dest> <ti:src1> <ti:src2>` | Modulus of src1 divided by src2 signed                             |
+| `zero` | `<t:dest>`                     | Sets the temporary to zero                                         |
+| `inc`  | `<t:temp>`                     | Increments the temporary, unsigned overflow                        |
+| `dec`  | `<t:temp>`                     | Decrements the temporary, unsigned underflow                       |
+| `sxs`  | `<t:dest> <ti:src>`            | Sign-extends a short value (copies bit 15 to upper 16 bits)        |
+| `sxb`  | `<t:dest> <ti:src>`            | Sign-extends a byte value (copies bit 7 to upper 24 bits)          |
+| `trs`  | `<t:dest> <ti:src>`            | Truncates the value to a short (zeroes upper 16 bits)              |
+| `trb`  | `<t:dest> <ti:src>`            | Truncates the value to a byte (zeroes upper 24 bits)               |
 
 Logic:
 
-| Opcode | Arguments                    | Description                                          |
-|--------|------------------------------|------------------------------------------------------|
-| `and`  | `<t:dest> <m:src1> <m:src2>` | Bitwise and                                          |
-| `or`   | `<t:dest> <m:src1> <m:src2>` | Bitwise or                                           |
-| `xor`  | `<t:dest> <m:src1> <m:src2>` | Bitwise xor                                          |
-| `not`  | `<t:dest> <m:src>`           | Bitwise not (inverts all bits)                       |
-| `shl`  | `<t:dest> <m:src1> <m:src2>` | Bitwise shift left (low to high)                     |
-| `shru` | `<t:dest> <m:src1> <m:src2>` | Bitwise logical shift right (unsigned, high to low)  |
-| `shrs` | `<t:dest> <m:src1> <m:src2>` | Bitwise arithmetic shift right (signed, high to low) |
-| `rol`  | `<t:dest> <m:src1> <m:src2>` | Bitwise rotate left (low to high)                    |
-| `ror`  | `<t:dest> <m:src1> <m:src2>` | Bitwise rotate right (high to low)                   |
-| `mov`  | `<t:dest> <m:src>`           | Copies src to dest                                   |
-| `bool` | `<t:dest> <m:src>`           | Sets dest to 1 if src is non-zero, 0 otherwise       |
-| `isz`  | `<t:dest> <m:src>`           | Sets dest to 0 if src is non-zero, 1 otherwise       |
-| `ltu`  | `<t:dest> <m:src1> <m:src2>` | Sets dest to 1 if src1 is less than src2 unsigned, 0 otherwise  |
-| `lts`  | `<t:dest> <m:src1> <m:src2>` | Sets dest to 1 if src1 is less than src2 signed, 0 otherwise    |
+| Opcode | Arguments                      | Description                                                       |
+|--------|--------------------------------|-------------------------------------------------------------------|
+| `and`  | `<t:dest> <ti:src1> <ti:src2>` | Bitwise and                                                       |
+| `or`   | `<t:dest> <ti:src1> <ti:src2>` | Bitwise or                                                        |
+| `xor`  | `<t:dest> <ti:src1> <ti:src2>` | Bitwise xor                                                       |
+| `not`  | `<t:dest> <ti:src>`            | Bitwise not (inverts all bits)                                    |
+| `shl`  | `<t:dest> <ti:src1> <ti:src2>` | Bitwise shift left (low to high)                                  |
+| `shru` | `<t:dest> <ti:src1> <ti:src2>` | Bitwise logical shift right (unsigned, high to low)               |
+| `shrs` | `<t:dest> <ti:src1> <ti:src2>` | Bitwise arithmetic shift right (signed, high to low)              |
+| `rol`  | `<t:dest> <ti:src1> <ti:src2>` | Bitwise rotate left (low to high)                                 |
+| `ror`  | `<t:dest> <ti:src1> <ti:src2>` | Bitwise rotate right (high to low)                                |
+| `mov`  | `<t:dest> <ti:src>`            | Copies src to dest                                                |
+| `bool` | `<t:dest> <ti:src>`            | Sets dest to 1 if src is non-zero, 0 otherwise                    |
+| `isz`  | `<t:dest> <ti:src>`            | Sets dest to 0 if src is non-zero, 1 otherwise                    |
+| `ltu`  | `<t:dest> <ti:src1> <ti:src2>` | Sets dest to 1 if src1 is less than src2 unsigned, 0 otherwise    |
+| `lts`  | `<t:dest> <ti:src1> <ti:src2>` | Sets dest to 1 if src1 is less than src2 signed, 0 otherwise      |
 
 Memory Access:
 
-| Opcode | Arguments              | Description                                                      |
-|--------|------------------------|------------------------------------------------------------------|
-| `sym`  | `<t:dest> <a:sym>`     | Gets the address of a symbol                                     |
-| `ldw`  | `<t:dest> <t/s:addr>`  | Loads a 4-byte word from memory (aligned)                        |
-| `lds`  | `<t:dest> <t/s:addr>`  | Loads a 2-byte short from memory (aligned), zeroes upper 16 bits |
-| `ldb`  | `<t:dest> <t/s:addr>`  | Loads a byte from memory, zeroes upper 24 bits                   |
-| `stw`  | `<m:value> <t/s:addr>` | Stores a 4-byte word in memory (aligned)                         |
-| `sts`  | `<m:value> <t/s:addr>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits |
-| `stb`  | `<m:value> <t/s:addr>` | Stores a byte in memory, ignores upper 24 bits                   |
+| Opcode | Arguments              | Description                                                            |
+|--------|------------------------|------------------------------------------------------------------------|
+| `sym`  | `<t:dest> <a:sym>`     | Gets the address of a symbol                                           |
+| `ldw`  | `<t:dest> <ts:addr>`   | Loads a 4-byte word from memory (aligned)                              |
+| `ldwu` | `<t:dest> <ts:addr>`   | Loads a 4-byte word from memory (unaligned)                            |
+| `lds`  | `<t:dest> <ts:addr>`   | Loads a 2-byte short from memory (unaligned), zeroes upper 16 bits     |
+| `ldb`  | `<t:dest> <ts:addr>`   | Loads a byte from memory, zeroes upper 24 bits                         |
+| `stw`  | `<ti:value> <ts:addr>` | Stores a 4-byte word in memory (aligned)                               |
+| `stwu` | `<ti:value> <ts:addr>` | Stores a 4-byte word in memory (unaligned)                             |
+| `sts`  | `<ti:value> <ts:addr>` | Stores a 2-byte short in memory (aligned), ignores upper 16 bits       |
+| `stb`  | `<ti:value> <ts:addr>` | Stores a byte in memory, ignores upper 24 bits                         |
 
 Stack allocation:
 
-| Opcode     | Arguments                      | Description                                                       |
-|------------|--------------------------------|-------------------------------------------------------------------|
-| `var`      | `<t:temp> <i:size> <i?:align>` | Reserves stack space for a local variable                         |
-| `alloc`    | `<t:temp> <m:size>`            | Dynamically allocates stack space                                 |
-| `free`     | `<m:size>`                     | Frees dynamically allocated stack space                           |
+| Opcode     | Arguments                       | Description                                                       |
+|------------|---------------------------------|-------------------------------------------------------------------|
+| `var`      | `<t:temp> <i:size> <i?:align>`  | Reserves stack space for a local variable                         |
+| `alloc`    | `<t:temp> <ti:size>`            | Dynamically allocates stack space                                 |
+| `free`     | `<ti:size>`                     | Frees dynamically allocated stack space                           |
 
 Misc:
 
-| Opcode     | Arguments                               | Description                                                       |
-|------------|-----------------------------------------|-------------------------------------------------------------------|
-| `call`     | `<t?:dest> <t/s:func> [<m:arg>...] end` | Call a function                                                   |
-| `volatile` | `<t:temp>`                              | Forbid elision of memory access through temporary                 |
+| Opcode     | Arguments                        | Description                                                       |
+|------------|----------------------------------|-------------------------------------------------------------------|
+| `call`     | `<t?:dest> <ts:func> [...] end`  | Call a function                                                   |
+| `volatile` | `<t:temp>`                       | Forbid elision of memory access through temporary                 |
 
 Control flow (end of block):
 
 | Opcode  | Arguments                           | Description                                         |
 |---------|-------------------------------------|-----------------------------------------------------|
-| `ret`   | `<m?:value>`                        | Return from this function                           |
+| `ret`   | `<ti?:value>`                       | Return from this function                           |
 | `jmp`   | `<l:label>`                         | Jumps to the given label                            |
-| `br`    | `<m:pred> <l:true> <l:false>`       | Branch to one of two labels based on the predicate  |
+| `br`    | `<ti:pred> <l:true> <l:false>`      | Branch to one of two labels based on the predicate  |
 
 
 
 ### Branch
 
 ```asm
-br <mix:pred> <block:nonzero> <block:zero>
+br <ti:pred> <l:nonzero> <l:zero>
 ```
 
 Jumps to basic block "nonzero" if the predicate is non-zero and "zero" otherwise. In other words, the first argument is the predicate, the second argument is the "true" branch and the third argument is the "false" branch.
@@ -410,18 +412,16 @@ This is the only branch or conditional execution instruction in Onramp IR. Condi
 ### Call
 
 ```asm
-call <temp?:retval> <sym/temp:func> [<mix:arg>...] [varargs <mix:arg>...] end
+call <t?:retval> <ts:func> [<ti:arg>...] [varargs <ti:arg>...] end
 ```
 
 Calls the given function.
 
 The first argument is a temporary in which to store the return value, or `%` to ignore it.
 
-The second argument is the function to call: either a function name prefixed with `^` (i.e. an absolute 32-bit invocation) for a direct call, or a temporary containing the function's absolute address for an indirect call (i.e. a function pointer.)
+The second argument is the function to call: either a function name prefixed with `^` (i.e. an absolute 32-bit invocation) for a direct call, or a temporary containing the function's absolute address for an indirect call (i.e. a function pointer call.)
 
-The remaining arguments are the arguments to pass to the function. An optional temporary pointing to a variadic argument list is preceded by the keyword `varargs`. The instruction is terminated by `end`.
-
-The symbol to call can be an absolute label (e.g. `^strcmp`) or a temporary containing an absolute function address (to call a function pointer for example.)
+The remaining arguments are the arguments to pass to the function. If any arguments are variadic, the keyword `varargs` must precede them. The instruction is terminated by `end`.
 
 Following the function name is an arbitrary-length sequence of mix-type arguments. The `end` keyword ends the argument list.
 
@@ -445,8 +445,8 @@ For example, to compute `sqrt(2)`:
 
 ```asm
 var %arg 8 %
-call % ^__int_to_double %arg 2 end
 var %result 8 %
+call % ^__int_to_double %arg 2 end
 call % ^sqrt %result %arg %
 ```
 
@@ -461,9 +461,9 @@ free(ptr);
 The above C code is equivalent to the following IR:
 
 ```asm
+var %ptr 4 %
 ldw %1 %size
 call %2 malloc %1 end
-var %ptr 4 %
 stw %2 %ptr
 ldw %3 %ptr
 call % use_pointer %3 end

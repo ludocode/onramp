@@ -74,6 +74,7 @@ argument_mode_t instruction_mode(instruction_t* instruction) {
             return argument_mode_write;
         case opcode_inc:
         case opcode_dec:
+            // TODO remove these instructions, remove this mode
             return argument_mode_read_write;
         case opcode_sxs:
         case opcode_sxb:

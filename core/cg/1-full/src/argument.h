@@ -149,6 +149,10 @@ static inline bool argument_is_absolute(argument_t* argument) {
     return argument->type == argument_type_absolute;
 }
 
+static inline bool argument_is_integer(argument_t* argument) {
+    return argument->type == argument_type_number;
+}
+
 void argument_delete(argument_t* argument);
 
 #endif

@@ -25,6 +25,10 @@
 #ifndef OPTIMIZE_H_INCLUDED
 #define OPTIMIZE_H_INCLUDED
 
+struct symbol_t;
+
 extern int optimize;
+
+void optimize_forward(struct symbol_t* symbol);
 
 #endif

@@ -159,7 +159,9 @@ int main(int argc, char** argv) {
         transform_parameters(symbol);
         transform_ir_instructions(symbol);
 
-        // TODO optimizations
+        if (optimize) {
+            optimize_forward(symbol);
+        }
 
         // perform register allocation and stack frame layout
         analyze_liveness(symbol);
