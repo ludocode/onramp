@@ -101,4 +101,6 @@ bool instruction_has_output_arg(instruction_t* instruction);
  */
 argument_mode_t instruction_mode(instruction_t* instruction);
 
+void instruction_set_nop(instruction_t* instruction);
+
 #endif

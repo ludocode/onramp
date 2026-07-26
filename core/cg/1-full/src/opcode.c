@@ -48,6 +48,7 @@ const char* opcode_to_string(opcode_t opcode) {
     // appear in assembly, but we can print it in debug output.
 
     switch (opcode) {
+        case opcode_nop: return "nop";
 
         // arithmetic
         case opcode_add: return "add";
@@ -147,6 +148,8 @@ opcode_t opcode_from_identifier(const char* identifier) {
 void opcode_setup(void) {
     opcodes_identifier = calloc(opcodes_capacity, sizeof(char*));
     opcodes_value = calloc(opcodes_capacity, sizeof(opcode_t));
+
+    opcode_insert("nop", opcode_nop);
 
     // arithmetic
     opcode_insert("add", opcode_add);

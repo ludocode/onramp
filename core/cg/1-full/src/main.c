@@ -161,6 +161,7 @@ int main(int argc, char** argv) {
 
         if (optimize) {
             optimize_forward(symbol);
+            optimize_dead_store(symbol);
         }
 
         // perform register allocation and stack frame layout

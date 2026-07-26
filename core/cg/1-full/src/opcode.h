@@ -28,6 +28,7 @@
 #include <stdbool.h>
 
 typedef enum opcode_t {
+    opcode_nop,
 
     // arithmetic
     opcode_add,

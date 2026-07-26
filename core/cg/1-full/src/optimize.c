@@ -332,6 +332,98 @@ void optimize_forward(symbol_t* symbol) {
     optimize_forward_block(symbol, vector_first(symbol->blocks), pass_id++);
 }
 
-void optimize_backward(symbol_t* symbol) {
-    // TODO scan for liveness, eliminate dead stores
+/*
+ * Scan all instructions in the given block, marking any input temporaries as used.
+ */
+static void optimize_dead_store_scan(symbol_t* symbol, block_t* block, int visited) {
+    assert(block);
+    if (block->visited == visited) {
+        return;
+    }
+    block->visited = visited;
+
+    // Check each instruction for temporary inputs
+    size_t count = vector_count(block->instructions);
+    for (size_t i = 0; i != count; ++i) {
+        instruction_t* instruction = vector_at(block->instructions, i);
+        size_t j = (instruction_mode(instruction) == argument_mode_write) ? 1 : 0;
+        size_t count = vector_count(instruction->arguments);
+        for (; j < count; ++j) {
+            argument_t* argument = instruction_argument(instruction, j);
+            if (argument_is_temporary(argument)) {
+                argument_temporary(argument)->is_used = true;
+            }
+        }
+    }
+
+    // Continue to any blocks reachable from this one
+    instruction_t* last = vector_last(block->instructions);
+    if (last->opcode == opcode_jmp) {
+        string_t* label = argument_label(instruction_argument(last, 0));
+        optimize_dead_store_scan(symbol, block_find(label), visited);
+    } else if (last->opcode == opcode_br) {
+        string_t* true_label = argument_label(instruction_argument(last, 1));
+        optimize_dead_store_scan(symbol, block_find(true_label), visited);
+        string_t* false_label = argument_label(instruction_argument(last, 2));
+        optimize_dead_store_scan(symbol, block_find(false_label), visited);
+    }
+}
+
+/*
+ * Remove all dead store instructions in the given block.
+ *
+ * For instructions with side-effects (e.g. `call`), the output temporary is
+ * replaced with a sentinel. Otherwise the instruction opcode is changed to
+ * nop.
+ *
+ * TODO this should be done in reverse order with liveness analysis, and/or we
+ * should iterate until nothing more is deleted. This is just a quick first
+ * pass implementation.
+ */
+static void optimize_dead_store_remove(symbol_t* symbol, block_t* block, int visited) {
+    assert(block);
+    if (block->visited == visited) {
+        return;
+    }
+    block->visited = visited;
+
+    // Check each instruction for a temporary output
+    size_t count = vector_count(block->instructions);
+    for (size_t i = 0; i != count; ++i) {
+        instruction_t* instruction = vector_at(block->instructions, i);
+        if (instruction_mode(instruction) == argument_mode_read) {
+            continue;
+        }
+        argument_t* argument = instruction_argument(instruction, 0);
+        if (!argument_is_temporary(argument)) {
+            continue;
+        }
+        if (!argument_temporary(argument)->is_used) {
+            // This is a dead store.
+            if (instruction->opcode == opcode_call) {
+                // TODO if this is a pure function we can delete the call. We'd
+                // have to pass the pure attribute into the IR.
+                argument_set_sentinel(argument);
+            } else {
+                instruction_set_nop(instruction);
+            }
+        }
+    }
+
+    // Continue to any blocks reachable from this one
+    instruction_t* last = vector_last(block->instructions);
+    if (last->opcode == opcode_jmp) {
+        string_t* label = argument_label(instruction_argument(last, 0));
+        optimize_dead_store_remove(symbol, block_find(label), visited);
+    } else if (last->opcode == opcode_br) {
+        string_t* true_label = argument_label(instruction_argument(last, 1));
+        optimize_dead_store_remove(symbol, block_find(true_label), visited);
+        string_t* false_label = argument_label(instruction_argument(last, 2));
+        optimize_dead_store_remove(symbol, block_find(false_label), visited);
+    }
+}
+
+void optimize_dead_store(symbol_t* symbol) {
+    optimize_dead_store_scan(symbol, vector_first(symbol->blocks), pass_id++);
+    optimize_dead_store_remove(symbol, vector_first(symbol->blocks), pass_id++);
 }

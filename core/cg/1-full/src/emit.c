@@ -184,6 +184,13 @@ static void emit_argument(argument_t* argument) {
 }
 
 static void emit_instruction(instruction_t* instruction) {
+    if (instruction->opcode == opcode_nop) {
+        #ifdef DEBUG
+        emit_cstr(" ; nop\n");
+        #endif
+        return;
+    }
+
     emit_location(instruction->location);
     emit_char(' ');
     emit_cstr(opcode_to_string(instruction->opcode));

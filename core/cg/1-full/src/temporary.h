@@ -63,6 +63,10 @@ typedef struct temporary_t {
 
     // True if the temporary is only assigned once.
     bool is_ssa;
+
+    // True if the temporary is used as an input. This is used to optimize dead
+    // stores.
+    bool is_used;
 } temporary_t;
 
 /**

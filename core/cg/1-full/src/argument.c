@@ -142,3 +142,8 @@ void argument_set_temporary(argument_t* argument, temporary_t* temporary) {
     argument->type = argument_type_temporary;
     argument->temporary = temporary;
 }
+
+void argument_set_sentinel(argument_t* argument) {
+    argument_clear(argument);
+    argument->type = argument_type_sentinel;
+}

@@ -61,6 +61,9 @@ void instruction_delete(instruction_t* instruction) {
 
 argument_mode_t instruction_mode(instruction_t* instruction) {
     switch (instruction->opcode) {
+        case opcode_nop:
+            // neither mode makes sense here. the mode doesn't matter.
+            return argument_mode_read;
 
         // arithmetic
         case opcode_add:
@@ -129,4 +132,14 @@ argument_mode_t instruction_mode(instruction_t* instruction) {
 
     }
     fatal("Internal error: unrecognized opcode in instruction_mode()");
+}
+
+void instruction_set_nop(instruction_t* instruction) {
+    instruction->opcode = opcode_nop;
+
+    // delete all arguments
+    for (size_t i = 0; i < vector_count(instruction->arguments); ++i) {
+        argument_delete(vector_at(instruction->arguments, i));
+    }
+    vector_remove_all(instruction->arguments);
 }

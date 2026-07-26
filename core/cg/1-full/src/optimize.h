@@ -31,4 +31,6 @@ extern int optimize;
 
 void optimize_forward(struct symbol_t* symbol);
 
+void optimize_dead_store(struct symbol_t* symbol);
+
 #endif
