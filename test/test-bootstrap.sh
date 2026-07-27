@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -108,10 +108,14 @@ test/sh/run.sh onrampvm output/configure/sh/sh.oe
 # Build the full C compiler
 ( core/libo/1-opc/build.sh && true ) #TODO libo tests don't exist yet
 ( core/ld/2-full/build.sh && cd test/ld/2-full && ../run.sh . onrampvm ../../../output/intermediate/ld-2-full/ld.oe )
+( core/cg/1-full/build.sh && true ) #TODO no standalone cg/1 tests yet
 ( core/cci/2-full/build.sh && \
-    test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full --cci output/intermediate/cci-2-full/cci.oe --cci-id full )
+    test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full \
+        --cg output/intermediate/cg-1-full/cg.oe --cci output/intermediate/cci-2-full/cci.oe --cci-id full && \
+    test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full \
+        --cg output/intermediate/cg-1-full/cg.oe --cci output/intermediate/cci-2-full/cci.oe --cci-id full && \
+    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full \
+        --cg output/intermediate/cg-1-full/cg.oe --cci output/intermediate/cci-2-full/cci.oe --cci-id full )
 
 # Build the rest of the C toolchain
 ( core/cpp/2-full/build.sh && \
@@ -143,10 +147,14 @@ core/libc/common/build.sh
     ../run.sh --other-stage ../0-basic onrampvm ../../../output/final/bin/as.oe && \
     ../run.sh --other-stage ../1-compound onrampvm ../../../output/final/bin/as.oe && \
     ../run.sh . onrampvm ../../../output/final/bin/as.oe )
+( core/cg/1-full/rebuild.sh && true ) #TODO no standalone cg/1 tests yet
 ( core/cci/2-full/rebuild.sh && \
-    test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full && \
-    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full )
+    test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re \
+        --cg output/final/bin/cg.oe --cci output/final/bin/cci.oe --cci-id full && \
+    test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re \
+        --cg output/final/bin/cg.oe --cci output/final/bin/cci.oe --cci-id full && \
+    test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re \
+        --cg output/final/bin/cg.oe --cci output/final/bin/cci.oe --cci-id full )
 ( core/cpp/2-full/rebuild.sh && \
     ( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe ) && \
     ( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe ) && \

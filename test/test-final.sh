@@ -57,11 +57,18 @@ true #TODO libo tests don't exist yet
     ../run.sh --other-stage ../1-compound onrampvm ../../../output/final/bin/as.oe && \
     ../run.sh . onrampvm ../../../output/final/bin/as.oe )
 
+# Test cg
+# TODO no standalone cg/1 tests yet
+
 # Test cci
-test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
-test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
-test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re --cci output/final/bin/cci.oe --cci-id full
+test/cci/run.sh --tests test/cci/0-omc           --output output/intermediate/cci-2-full-re \
+    --cg output/final/bin/cg.oe --cci output/final/bin/cci.oe --cci-id full
+test/cci/run.sh --tests test/cci/1-opc           --output output/intermediate/cci-2-full-re \
+    --cg output/final/bin/cg.oe --cci output/final/bin/cci.oe --cci-id full
+test/cci/run.sh --tests test/cci/2-full --nonstd --output output/intermediate/cci-2-full-re \
+    --cg output/final/bin/cg.oe --cci output/final/bin/cci.oe --cci-id full
 
 # test cpp
-# TODO cpp/2 not done yet, only running cpp/1 tests
-( cd test/cpp/1-omc && ../run.sh . onrampvm ../../../output/final/bin/cpp.oe )
+( cd test/cpp/0-strip && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe )
+( cd test/cpp/1-omc   && ../run.sh          . onrampvm ../../../output/final/bin/cpp.oe )
+( cd test/cpp/2-full  && ../run.sh --nonstd . onrampvm ../../../output/final/bin/cpp.oe )

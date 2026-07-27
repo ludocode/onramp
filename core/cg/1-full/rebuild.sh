@@ -137,4 +137,4 @@ onrampvm output/final/bin/cc.oe \
     output/intermediate/cg-1-full-re/temporary.oo \
     output/intermediate/cg-1-full-re/transform.oo \
     output/intermediate/cg-1-full-re/variable.oo \
-    -o output/final/bin/cci.oe
+    -o output/final/bin/cg.oe

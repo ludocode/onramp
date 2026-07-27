@@ -37,9 +37,10 @@ TOOL_AR=$(BUILD)/ar-0-cat/ar.oe    # TODO ar/1
 TOOL_CC=$(BUILD)/cc/cc
 TOOL_CPP=$(BUILD)/cpp-2-full/cpp
 TOOL_CCI=$(BUILD)/cci-2-full/cci
+TOOL_CG=$(BUILD)/cg-1-full/cg
 TOOL_AS=$(BUILD)/as-2-full/as
 TOOL_LD=$(BUILD)/ld-2-full/ld
-TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
+TOOLS=$(TOOL_VM) $(TOOL_AR) $(TOOL_CC) $(TOOL_CCI) $(TOOL_CG) $(TOOL_CPP) $(TOOL_AS) $(TOOL_LD)
 
 OBJS=\
 		$(OUT)/libo-data.oo \
@@ -76,6 +77,7 @@ SRCS=\
 CCARGS=\
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
+	    -with-cg=$(TOOL_CG) \
 	    -with-as=$(TOOL_AS) \
 	    -with-ld=$(TOOL_LD) \
 		-nostdinc \
@@ -109,6 +111,8 @@ $(TOOL_CC): FORCE
 	@(make -C ../../cc build)
 $(TOOL_CCI): FORCE
 	@(make -C ../../cci/2-full build)
+$(TOOL_CG): FORCE
+	@(make -C ../../cg/1-full build)
 $(TOOL_CPP): FORCE
 	@(make -C ../../cpp/2-full build)
 $(TOOL_AS): FORCE

@@ -28,6 +28,7 @@ set -e
 ROOT=$(dirname $0)/../..
 make -C $ROOT/test/cpp/2-full/ build
 make -C $ROOT/test/cci/2-full/ build
+make -C $ROOT/test/cg/1-full/ build
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
 if ! command -v onrampvm > /dev/null; then
@@ -58,6 +59,7 @@ shift
 shift
 PREPROCESSOR_OPTIONS="$@"
 TEMP_I=$ONRAMP_TMPDIR/onramp-test.i
+TEMP_OIR=$ONRAMP_TMPDIR/onramp-test.oir
 TEMP_OS=$ONRAMP_TMPDIR/onramp-test.os
 TEMP_OO=$ONRAMP_TMPDIR/onramp-test.oo
 TEMP_OE=$ONRAMP_TMPDIR/onramp-test.oe
@@ -108,7 +110,16 @@ for TESTFILE in $FILES; do
 
     # compile
     if [ $THIS_ERROR -ne 1 ]; then
-        $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS #&> /dev/null
+        $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OIR #&> /dev/null
+        if [ $? -ne 0 ]; then
+            echo "ERROR: $BASENAME failed to compile."
+            THIS_ERROR=1
+        fi
+    fi
+
+    # codegen
+    if [ $THIS_ERROR -ne 1 ]; then
+        $ROOT/output/test/cg-1-full/cg $TEMP_OIR -o $TEMP_OS #&> /dev/null
         if [ $? -ne 0 ]; then
             echo "ERROR: $BASENAME failed to compile."
             THIS_ERROR=1
@@ -174,7 +185,8 @@ for TESTFILE in $FILES; do
         echo "Commands:"
         echo "    make build && \\"
         echo "    $ROOT/output/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
-        echo "    $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OS && \\"
+        echo "    $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OIR && \\"
+        echo "    $ROOT/output/test/cg-1-full/cg $TEMP_OIR -o $TEMP_OS && \\"
         echo "    $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/output/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"
         echo "    ( cd $ROOT ; onrampvm $TEMP_OE ) >$TEMP_STDOUT"
@@ -186,6 +198,7 @@ for TESTFILE in $FILES; do
 
     # clean up
     rm -f $TEMP_I
+    rm -f $TEMP_OIR
     rm -f $TEMP_OS
     rm -f $TEMP_OO
     rm -f $TEMP_OE

@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2024-2025 Fraser Heavy Software
+# Copyright (c) 2024-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -33,6 +33,7 @@ echo Compiling cc
 onrampvm output/intermediate/cc/cc.oe \
     -with-cpp=output/intermediate/cpp-2-full/cpp.oe \
     -with-cci=output/intermediate/cci-2-full/cci.oe \
+    -with-cg=output/intermediate/cg-1-full/cg.oe \
     -with-as=output/intermediate/as-2-full/as.oe \
     -nostdinc \
     -Icore/libc/common/include \
@@ -45,7 +46,8 @@ onrampvm output/intermediate/cc/cc.oe \
 
 echo Linking cc
 onrampvm output/intermediate/ld-2-full/ld.oe \
-    -O -g \
+    -O \
+    -g \
     output/final/lib/libc.oa \
     output/intermediate/libo-1-opc-re/libo.oa \
     output/intermediate/cc-re/cc.oo \

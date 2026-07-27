@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -95,6 +95,17 @@ int main(int argc, char** argv) {
                 usage(*argv);
             }
             output_filename = *(argv + i);
+            i = (i + 1);
+            continue;
+        }
+
+        // optimize
+        if (0 == strcmp("-O", *(argv + i))) {
+            // Ignored. We always optimize.
+            // (We could support this trivially but without it the output would
+            // be identical to the input so there would be no point in running
+            // the code generator at all. cg/0 signiificantly speeds up the
+            // bootstrap so there's no reason to turn it off.
             i = (i + 1);
             continue;
         }

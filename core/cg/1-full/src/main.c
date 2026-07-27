@@ -93,6 +93,13 @@ int main(int argc, char** argv) {
             continue;
         }
 
+        // debug info
+        if (0 == strcmp("-g", argv[i])) {
+            // Ignored. We always forward along debug info.
+            ++i;
+            continue;
+        }
+
         // optimize
         if (0 == strcmp("-O", argv[i])) {
             optimize = true;

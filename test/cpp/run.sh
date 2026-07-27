@@ -97,6 +97,7 @@ COMMAND="$@"
 TEMP_I=$ONRAMP_TMPDIR/onramp-test.i
 TEMP_I_EXPECTED=$ONRAMP_TMPDIR/onramp-test-expected.i
 TEMP_I_ACTUAL=$ONRAMP_TMPDIR/onramp-test-actual.i
+TEMP_OIR=$ONRAMP_TMPDIR/onramp-test.oir
 TEMP_OS=$ONRAMP_TMPDIR/onramp-test.os
 TEMP_OO=$ONRAMP_TMPDIR/onramp-test.oo
 TEMP_OE=$ONRAMP_TMPDIR/onramp-test.oe
@@ -107,6 +108,7 @@ TOTAL_ERRORS=0
 
 # build dependencies
 make -C $ROOT/test/cci/2-full/ build
+make -C $ROOT/test/cg/1-full/ build
 make -C $ROOT/test/as/2-full/ build
 make -C $ROOT/test/ld/2-full/ build
 make -C $ROOT/test/libc/3-full/ build
@@ -193,8 +195,12 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'|sort); do
 
         else
             # compile, assemble, link and run
-            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/cci-2-full/cci $OUTPUT -o $TEMP_OS &> /dev/null; then
+            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/cci-2-full/cci $OUTPUT -o $TEMP_OIR &> /dev/null; then
                 echo "ERROR: $BASENAME failed to compile."
+                THIS_ERROR=1
+            fi
+            if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/cg-1-full/cg $TEMP_OIR -o $TEMP_OS &> /dev/null; then
+                echo "ERROR: $BASENAME failed to codegen."
                 THIS_ERROR=1
             fi
             if [ $THIS_ERROR -ne 1 ] && ! $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO &> /dev/null; then
@@ -247,7 +253,8 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'|sort); do
         elif [ -e $BASENAME.i ]; then
             echo "    diff -u $BASENAME.i $TEMP_I"
         else
-            echo "    $ROOT/output/test/cci-2-full/cci $OUTPUT -o $TEMP_OS && \\"
+            echo "    $ROOT/output/test/cci-2-full/cci $OUTPUT -o $TEMP_OIR && \\"
+            echo "    $ROOT/output/test/cg-1-full/cg $TEMP_OIR -o $TEMP_OS && \\"
             echo "    $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
             echo "    $ROOT/output/test/ld-2-full/ld -g $ROOT/output/test/libc-3-full/libc.oa $TEMP_OO -o $TEMP_OE && \\"
             echo "    onrampvm $TEMP_OE"
@@ -259,6 +266,7 @@ for TESTFILE in $(find $SOURCE_FOLDER/* -name '*.c'|sort); do
     rm -f $TEMP_I
     rm -f $TEMP_I_ACTUAL
     rm -f $TEMP_I_EXPECTED
+    rm -f $TEMP_OIR
     rm -f $TEMP_OS
     rm -f $TEMP_OO
     rm -f $TEMP_OE

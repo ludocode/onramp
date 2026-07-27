@@ -137,7 +137,7 @@ mov r1 8
 
 Note that the original `add r0 5 3` is not touched by this optimization in case `r0` is used somewhere else where it can't be substituted (for example, if a later instruction is `ret`.) If r0 is actually unused, the instruction will be removed later by dead store elimination.
 
-We also do a few other minor optimizations related to constant arithmetic and logic operations. If an instruction contains an operation that doesn't change the result, for example `shrs r1 r0 0` or `divs r1 r0 1`, we replace it with `mov r1 r0`. This can eliminate some expensive instructions (especially signed instructions). We can also simplify a few other bitwise operations with constants, for example `xor -1` is replaced with `not`.)
+We also do a few other minor optimizations related to constant arithmetic and logic operations. If an instruction contains an operation that doesn't change the result, for example `shrs r1 r0 0` or `divs r1 r0 1`, we replace it with `mov r1 r0`. This can eliminate some expensive instructions (especially signed instructions). We can also simplify a few other bitwise operations with constants, for example `xor -1` is replaced with `not`.
 
 Lastly, we optimize `jnz` and `jz`, either changing them to `jmp` or deleting them entirely if the predicate is a constant. This can enable later optimizations (dead code and trivial jump elimination.)
 
@@ -176,7 +176,7 @@ The deletion happens in the dead block elimination pass. We simply iterate over 
 
 ### Dead Store Elimination
 
-Dead store elimination is performed in the backward propagation pass. We start atthe bottom of the function and scan all the way to the top, keeping track of what (numbered) registers are used.
+Dead store elimination is performed in the backward propagation pass. We start at the bottom of the function and scan all the way to the top, keeping track of what (numbered) registers are used.
 
 If a register is possibly used, a preceding store to it must be preserved. If a register is not used, stores to the register are useless, and so can be deleted by dead store elimination.
 
@@ -200,7 +200,7 @@ When a jmp to a label is immediately followed by that label, the jmp can be elim
 
 Occasionally, and especially in unit tests, constant folding on a false `if` statement turns a jz/jnz into a jmp to the next label. The rest of the block after the `jmp` is then eliminated by the dead code optimization. Since the jmp is now immediately followed by the label, the jmp is eliminated by this optimization as well.
 
-For example, consider the cci/0 test case `expr/expr-shift.c`:
+For example, consider the cci/0 test case [`expr/expr-shift.c`](../../../test/cci/0/expr/expr-shift.c):
 
 ```c
 int main(void) {

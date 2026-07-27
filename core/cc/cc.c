@@ -470,19 +470,14 @@ static bool try_parse_misc(char*** argv) {
     }
 
     if (try_parse_misc_option(argv, "-O", &optimize)) {return true;}
-    if (try_parse_misc_option(argv, "-Og", &optimize)) {return true;}
     if (try_parse_misc_option(argv, "-O1", &optimize)) {return true;}
     if (try_parse_misc_option(argv, "-O2", &optimize)) {return true;}
     if (try_parse_misc_option(argv, "-O3", &optimize)) {return true;}
     if (try_parse_misc_option(argv, "-Ofast", &optimize)) {return true;}
     if (try_parse_misc_option(argv, "-Os", &optimize)) {return true;}
     if (try_parse_misc_option(argv, "-Oz", &optimize)) {return true;}
-
-    if (try_parse_misc_option(argv, "-O0", NULL)) {
-        optimize = false;
-        *argv = (*argv + 1);
-        return true;
-    }
+    if (try_parse_misc_option(argv, "-O0", NULL)) { optimize = false; return true; }
+    if (try_parse_misc_option(argv, "-Og", NULL)) { optimize = false; return true; }
 
     if (try_parse_option_string(argv, "-wrap-header", &wrap_header)) {return true;}
 
@@ -524,16 +519,14 @@ static void set_default_options(const char* cc_filename) {
     #ifdef __onramp__
     tool_cpp = create_tool_path(cc_filename, path_len, "cpp.oe");
     tool_cci = create_tool_path(cc_filename, path_len, "cci.oe");
-    // TODO for backwards compatibility we don't run a cg tool by default. cg/1
-    // doesn't exist yet and we need to update all the build scripts first.
-    //tool_cg = create_tool_path(cc_filename, path_len, "cg.oe");
+    tool_cg = create_tool_path(cc_filename, path_len, "cg.oe");
     tool_as = create_tool_path(cc_filename, path_len, "as.oe");
     tool_ld = create_tool_path(cc_filename, path_len, "ld.oe");
     #endif
     #ifndef __onramp__
     tool_cpp = create_tool_path(cc_filename, path_len, "cpp");
     tool_cci = create_tool_path(cc_filename, path_len, "cci");
-    //tool_cg = create_tool_path(cc_filename, path_len, "cg");
+    tool_cg = create_tool_path(cc_filename, path_len, "cg");
     tool_as = create_tool_path(cc_filename, path_len, "as");
     tool_ld = create_tool_path(cc_filename, path_len, "ld");
     #endif
@@ -1041,7 +1034,12 @@ static void codegen_file(const char* input, const char* output) {
 
     string_array_append(&args, &args_count, &args_capacity, tool_cg);
 
-    // TODO debug info, optimize
+    if (debug_info) {
+        string_array_append(&args, &args_count, &args_capacity, "-g");
+    }
+    if (optimize) {
+        string_array_append(&args, &args_count, &args_capacity, "-O");
+    }
 
     string_array_append(&args, &args_count, &args_capacity, (char*)input);
     string_array_append(&args, &args_count, &args_capacity, "-o");

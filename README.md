@@ -77,7 +77,7 @@ See the [Implementation Status](docs/status.md) document for a breakdown of impl
 | [Linker][ld]           | [Assembler][as]          | [Code Generator][cg]  | [Compiler][cci]        | [Preprocessor][cpp]     |
 |:-----------------------|:-------------------------|:----------------------|:-----------------------|:------------------------|
 | 🟩 [ld/0-global][ld0]  | 🟩 [as/0-basic][as0]     | 🟩 [cg/0-asm][cg0]    | 🟩 [cci/0-omc][cci0]   | 🟩 [cpp/0-strip][cpp0]  |
-| 🟩 [ld/1-omc][ld1]     | 🟦 [as/1-compound][as1]  | 🟨 [cg/1-full][cg1]   | 🟩 [cci/1-opc][cci1]   | 🟩 [cpp/1-omc][cpp1]    |
+| 🟩 [ld/1-omc][ld1]     | 🟦 [as/1-compound][as1]  | 🟦 [cg/1-full][cg1]   | 🟩 [cci/1-opc][cci1]   | 🟩 [cpp/1-omc][cpp1]    |
 | 🟦 [ld/2-full][ld2]    | 🟦 [as/2-full][as2]      |                       | 🟦 [cci/2-full][cci2]  | 🟦 [cpp/2-full][cpp2]   |
 
 | [Standard Library][libc] | [Archiver][ar]       | [Operating System][os]  | [Driver][cc]     | [Shell][sh]  |

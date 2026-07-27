@@ -3,3 +3,4 @@
 -Icore/libo/1-opc/include
 -O
 -g
+-DCCI2_IR

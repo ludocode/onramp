@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -73,6 +73,7 @@ sh core/libc/2-opc/build.sh
 # Build the full C compiler
 sh core/libo/1-opc/build.sh
 sh core/ld/2-full/build.sh
+sh core/cg/1-full/build.sh
 sh core/cci/2-full/build.sh
 
 # Build the rest of the C toolchain
@@ -89,6 +90,7 @@ sh core/libo/1-opc/rebuild.sh
 sh core/cc/rebuild.sh
 sh core/ld/2-full/rebuild.sh
 sh core/as/2-full/rebuild.sh
+sh core/cg/1-full/rebuild.sh
 sh core/cci/2-full/rebuild.sh
 sh core/cpp/2-full/rebuild.sh
 

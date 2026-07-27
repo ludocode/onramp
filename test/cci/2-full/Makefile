@@ -33,6 +33,7 @@ OUT=$(BUILD)/cci-2-full
 SRC=$(ROOT)/core/cci/2-full/src
 LIBO=$(ROOT)/core/libo/1-opc
 CPPFLAGS += \
+	-DCCI2_IR \
 	-include $(ROOT)/test/portability.h \
 	-I$(LIBO)/include
 
@@ -75,6 +76,9 @@ all: build test FORCE
 FORCE:
 build: $(OUT)/cci FORCE
 
+CG: FORCE
+	make -C ../../cg/1-full build
+
 clean: FORCE
 	rm -rf $(OUT)
 
@@ -83,65 +87,26 @@ $(OUT)/cci: $(SRCS) Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
 
-test-0: build FORCE
+test-0: build CG FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/0-omc \
 			--output output/test/cci-2-full \
+			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci --cci-id full )
 
-test-1: build FORCE
+test-1: build CG FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/1-opc \
 			--output output/test/cci-2-full \
+			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci --cci-id full )
 
-test-2: build FORCE
+test-2: build CG FORCE
 	( cd ../../.. && test/cci/run.sh \
 			--tests test/cci/2-full \
 			--nonstd \
 			--output output/test/cci-2-full \
+			--cg output/test/cg-1-full/cg \
 			--cci output/test/cci-2-full/cci --cci-id full )
 
 test: test-0 test-1 test-2 FORCE
-
-
-
-
-# These are added temporarily to build a version of the compiler that emits IR
-# instead of assembly.
-
-CG2: FORCE
-	make -C ../../cg/1-full build
-
-$(OUT)/cci-ir: $(SRCS) Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) \
-		-Wno-unused-function -DCCI2_IR \
-		$(CPPFLAGS) $(CFLAGS) $(SRCS) -o $@
-
-build-ir: $(OUT)/cci-ir CG2 FORCE
-
-test-0-ir: build-ir FORCE
-	( cd ../../.. && test/cci/run.sh \
-			--tests test/cci/0-omc \
-			--output output/test/cci-2-full \
-			--cg output/test/cg-1-full/cg \
-			--cci output/test/cci-2-full/cci-ir --cci-id full )
-
-test-1-ir: build-ir FORCE
-	( cd ../../.. && test/cci/run.sh \
-			--tests test/cci/1-opc \
-			--output output/test/cci-2-full \
-			--cg output/test/cg-1-full/cg \
-			--cci output/test/cci-2-full/cci-ir --cci-id full )
-
-test-2-ir: build-ir FORCE
-	( cd ../../.. && test/cci/run.sh \
-			--tests test/cci/2-full \
-			--nonstd \
-			--output output/test/cci-2-full \
-			--cg output/test/cg-1-full/cg \
-			--cci output/test/cci-2-full/cci-ir --cci-id full )
-
-test-ir: test-0-ir test-1-ir test-2-ir FORCE

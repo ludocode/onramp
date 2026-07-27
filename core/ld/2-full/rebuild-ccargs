@@ -1,5 +1,6 @@
 -with-cpp=output/intermediate/cpp-2-full/cpp.oe
 -with-cci=output/intermediate/cci-2-full/cci.oe
+-with-cg=output/intermediate/cg-1-full/cg.oe
 -with-as=output/intermediate/as-2-full/as.oe
 -with-ld=output/intermediate/ld-2-full/ld.oe
 -Icore/libo/1-opc/include
