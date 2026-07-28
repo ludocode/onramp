@@ -49,8 +49,8 @@ const char* opcode_to_string(opcode_t opcode) {
         case MODU: return "modu";
         case MODS: return "mods";
         case ZERO: return "zero";
-        case INC: return "inc";
-        case DEC: return "dec";
+        case INC: return "inc"; // TODO remove
+        case DEC: return "dec"; // TODO remove
         case SXS: return "sxs";
         case SXB: return "sxb";
         case TRS: return "trs";
@@ -71,12 +71,10 @@ const char* opcode_to_string(opcode_t opcode) {
         case ISZ: return "isz";
 
         // memory
-        #ifdef CCI2_IR
         case SYM: return "sym";
         case VAR: return "var";
         case ALLOC: return "alloc";
         case FREE: return "free";
-        #endif
         case LDW: return "ldw";
         case LDS: return "lds";
         case LDB: return "ldb";
@@ -88,30 +86,20 @@ const char* opcode_to_string(opcode_t opcode) {
         case POPD: return "popd";
 
         // control
-        #ifndef CCI2_IR
-        case IMW: return "imw";
-        #endif
         case LTU: return "ltu";
         case LTS: return "lts";
-        #ifdef CCI2_IR
         case BR: return "br";
-        #endif
-        #ifndef CCI2_IR
-        case JZ: return "jz";
-        case JNZ: return "jnz";
-        #endif
         case JMP: return "jmp";
         case CALL: return "call";
         case RET: return "ret";
-        case ENTER: return "enter";
-        case LEAVE: return "leave";
+        case ENTER: return "enter"; // TODO remove
+        case LEAVE: return "leave"; // TODO remove
         case SYS: return "sys";
     }
 
     fatal("Internal error: no such opcode: %i", (int)opcode);
 }
 
-#ifdef CCI2_IR
 void instruction_init(instruction_t* instruction, token_t* token, opcode_t opcode, size_t arg_count) {
     instruction->token = token ? token_ref(token) : NULL;
     instruction->opcode = opcode;
@@ -125,25 +113,15 @@ void instruction_init(instruction_t* instruction, token_t* token, opcode_t opcod
         }
     }
 }
-#endif // CCI2_IR
-
-#ifndef CCI2_IR
-void instruction_init(instruction_t* instruction) {
-    memset(instruction, 0, sizeof(*instruction));
-}
-#endif // !CCI2_IR
 
 void instruction_destroy(instruction_t* instruction) {
     if (instruction->token) {
         token_deref(instruction->token);
     }
 
-    #ifdef CCI2_IR
     free(instruction->arguments);
-    #endif
 }
 
-#ifdef CCI2_IR
 void instruction_set_arg_number(instruction_t* instruction, size_t arg, uint32_t number) {
     argument_t* argument = instruction_argument(instruction, arg);
     argument->type = argument_type_number;
@@ -201,151 +179,6 @@ void instruction_set_args_ttn(instruction_t* instruction, int temp_a, int temp_b
     instruction_set_arg_temporary(instruction, 1, temp_b);
     instruction_set_arg_number(instruction, 2, number);
 }
-#endif // CCI2_IR
-
-#ifndef CCI2_IR
-void instruction_vset(instruction_t* instruction, token_t* token,
-        opcode_t opcode, va_list args)
-{
-    #ifdef GENERATE_DEBUG
-    extern int debug_depth;
-    for (int i = 0; i < debug_depth; ++i)
-        fputs("  ", stdout);
-    printf("%s\n", opcode_to_string(opcode));
-    #endif
-
-    if (token)
-        token_ref(token);
-    if (instruction->token)
-        token_deref(instruction->token);
-    instruction->token = token;
-
-    instruction->opcode = opcode;
-    switch (opcode) {
-        case NOP:
-            break;
-        case VALUE:
-            fatal("TODO vset VALUE opcode");
-            break;
-
-        // three register or mix arguments
-        case ADD:
-        case SUB:
-        case MUL:
-        case DIVU:
-        case DIVS:
-        case MODU:
-        case MODS:
-        case AND:
-        case OR:
-        case XOR:
-        case NOT:
-        case SHL:
-        case SHRU:
-        case SHRS:
-        case ROL:
-        case ROR:
-        case LDW:
-        case LDS:
-        case LDB:
-        case STW:
-        case STS:
-        case STB:
-        case LTU:
-        case LTS:
-        case SYS:
-            // TODO might be a bug in cci1 here, check it
-            instruction->arg1 = (int8_t)va_arg(args, int);
-            instruction->arg2 = (int8_t)va_arg(args, int);
-            instruction->arg3 = (int8_t)va_arg(args, int);
-            break;
-
-        // two register or mix arguments
-        case SXS:
-        case SXB:
-        case TRS:
-        case TRB:
-        case MOV:
-        case BOOL:
-        case ISZ:
-            instruction->arg1 = (int8_t)va_arg(args, int);
-            instruction->arg2 = (int8_t)va_arg(args, int);
-            break;
-
-        // one register or mix argument
-        case ZERO:
-        case INC:
-        case DEC:
-        case PUSH:
-        case POP:
-            instruction->arg1 = (int8_t)va_arg(args, int);
-            break;
-
-        // no args
-        case POPD:
-        case RET:
-        case ENTER:
-        case LEAVE:
-            break;
-
-        // register and either number or invocation
-        case IMW: {
-            instruction->argtypes = va_arg(args, instruction_argtypes_t);
-            instruction->arg1 = (int8_t)va_arg(args, int);
-            if (instruction->argtypes == ARGTYPE_NUMBER) {
-                instruction->number = va_arg(args, int);
-            } else if (instruction->argtypes == ARGTYPE_NAME) {
-                instruction->invocation_type = (char)va_arg(args, int);
-                instruction->invocation_label = va_arg(args, const char*);
-            } else if (instruction->argtypes == ARGTYPE_GENERATED) {
-                instruction->invocation_type = (char)va_arg(args, int);
-                instruction->invocation_prefix = va_arg(args, const char*);
-                instruction->invocation_number = va_arg(args, int);
-            } else {
-                fatal("Internal error: Invalid ARGTYPE for IMW instruction");
-            }
-            break;
-        }
-
-        // register/mix and invocation
-        case JZ:
-        case JNZ:
-            instruction->arg1 = (int8_t)va_arg(args, int);
-            instruction->invocation_type = (char)va_arg(args, int);
-            instruction->invocation_prefix = va_arg(args, const char*);
-            instruction->invocation_number = va_arg(args, int);
-            break;
-
-        // invocation only
-        case JMP:
-            instruction->invocation_type = (char)va_arg(args, int);
-            instruction->invocation_prefix = va_arg(args, const char*);
-            instruction->invocation_number = va_arg(args, int);
-            break;
-        case CALL:
-            instruction->argtypes = va_arg(args, instruction_argtypes_t);
-            if (instruction->argtypes == ARGTYPE_REGISTER) {
-                instruction->arg1 = (int8_t)va_arg(args, int);
-            } else if (instruction->argtypes == ARGTYPE_NAME) {
-                instruction->invocation_type = (char)va_arg(args, int);
-                instruction->invocation_label = va_arg(args, const char*);
-            } else {
-                fatal("Internal error: Invalid ARGTYPE for CALL instruction");
-            }
-            break;
-
-        default:
-            fatal("Internal error: no such opcode: %i", (int)opcode);
-    }
-}
-
-void instruction_set(instruction_t* instruction, token_t* token, opcode_t opcode, ...) {
-    va_list args;
-    va_start(args, opcode);
-    instruction_vset(instruction, token, opcode, args);
-    va_end(args);
-}
-#endif // !CCI2_IR
 
 void instruction_emit(instruction_t* instruction) {
     if (instruction->opcode == NOP)
@@ -364,7 +197,6 @@ void instruction_emit(instruction_t* instruction) {
 
     emit_cstr(opcode_to_string(instruction->opcode));
 
-    #ifdef CCI2_IR
     for (size_t i = 0; i < instruction->argument_count; ++i) {
         emit_char(' ');
         argument_t* argument = instruction_argument(instruction, i);
@@ -406,126 +238,6 @@ void instruction_emit(instruction_t* instruction) {
     if (instruction->opcode == CALL) {
         emit_cstr(" end");
     }
-    #endif
-
-    #ifndef CCI2_IR
-    switch (instruction->opcode) {
-        case NOP:
-        case VALUE:
-            fatal("Internal error, emit opcode unreachable");
-            break;
-
-        // three register or mix arguments
-        case ADD:
-        case SUB:
-        case MUL:
-        case DIVU:
-        case DIVS:
-        case MODU:
-        case MODS:
-        case AND:
-        case OR:
-        case XOR:
-        case SHL:
-        case SHRU:
-        case SHRS:
-        case ROL:
-        case ROR:
-        case LDW:
-        case LDS:
-        case LDB:
-        case STW:
-        case STS:
-        case STB:
-        case LTU:
-        case LTS:
-        case SYS:
-            emit_arg_mix(instruction->arg1);
-            emit_arg_mix(instruction->arg2);
-            emit_arg_mix(instruction->arg3);
-            break;
-
-        // two register or mix arguments
-        case SXS:
-        case SXB:
-        case TRS:
-        case TRB:
-        case NOT:
-        case MOV:
-        case BOOL:
-        case ISZ:
-            emit_arg_mix(instruction->arg1);
-            emit_arg_mix(instruction->arg2);
-            break;
-
-        // one register or mix argument
-        case ZERO:
-        case INC:
-        case DEC:
-        case PUSH:
-        case POP:
-            emit_arg_mix(instruction->arg1);
-            break;
-
-        // no args
-        case POPD:
-        case RET:
-        case ENTER:
-        case LEAVE:
-            break;
-
-        // register and number
-        case IMW:
-            emit_arg_mix(instruction->arg1);
-            if (instruction->argtypes == ARGTYPE_NUMBER) {
-                emit_arg_number(instruction->number);
-            } else if (instruction->argtypes == ARGTYPE_NAME) {
-                emit_arg_invocation(
-                        instruction->invocation_type,
-                        instruction->invocation_label);
-            } else if (instruction->argtypes == ARGTYPE_GENERATED) {
-                emit_arg_invocation_prefix(
-                        instruction->invocation_type,
-                        instruction->invocation_prefix,
-                        instruction->invocation_number);
-            } else {
-                fatal("Internal error: Invalid ARGTYPE for IMW instruction");
-            }
-            break;
-
-        // register/mix and invocation
-        case JZ:
-        case JNZ:
-            emit_arg_mix(instruction->arg1);
-            emit_arg_invocation_prefix(
-                    instruction->invocation_type,
-                    instruction->invocation_prefix,
-                    instruction->invocation_number);
-            break;
-
-        // invocation only
-        case JMP:
-            emit_arg_invocation_prefix(
-                    instruction->invocation_type,
-                    instruction->invocation_prefix,
-                    instruction->invocation_number);
-            break;
-        case CALL:
-            if (instruction->argtypes == ARGTYPE_REGISTER) {
-                emit_arg_mix(instruction->arg1);
-            } else if (instruction->argtypes == ARGTYPE_NAME) {
-                emit_arg_invocation(
-                        instruction->invocation_type,
-                        instruction->invocation_label);
-            } else {
-                fatal("Internal error: Invalid ARGTYPE for CALL instruction");
-            }
-            break;
-
-        default:
-            fatal("Internal error: no such opcode: %i", (int)instruction->opcode);
-    }
-    #endif
 
     emit_newline();
 }

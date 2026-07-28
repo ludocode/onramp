@@ -50,10 +50,6 @@ typedef struct block_t {
 
 block_t* block_new(int label);
 
-#ifndef CCI2_IR
-block_t* block_new_user_label(string_t* label);
-#endif
-
 void block_delete(block_t* block);
 
 static inline size_t block_count(block_t* block) {
@@ -65,7 +61,6 @@ static inline instruction_t* block_at(block_t* block, size_t index) {
     return block->instructions + index;
 }
 
-#ifdef CCI2_IR
 /*
  * Appends a new instruction to a block with the given number of arguments,
  * returning it.
@@ -88,33 +83,5 @@ instruction_t* block_append_jmp(block_t* block, struct token_t* token,
  */
 instruction_t* block_append_br(block_t* block, struct token_t* token,
         uint32_t true_label, uint32_t false_label);
-#endif
-
-#ifndef CCI2_IR
-/**
- * Appends a new instruction to the end of the block.
- */
-instruction_t* block_append(block_t* block, struct token_t* token, opcode_t opcode, ...);
-
-/**
- * Appends instructions to subtract a value from the stack pointer, keeping the
- * stack aligned.
- */
-void block_sub_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
-
-/**
- * Appends instructions to add a value to the stack pointer, keeping the stack
- * aligned.
- */
-void block_add_rsp(block_t* block, struct token_t* /*nullable*/ token, size_t offset);
-
-/**
- * Emits instructions to perform a basic opcode with an immediate value to the
- * given register. This will use a temporary register if necessary (if the
- * value doesn't fit in a mix-type byte.)
- */
-void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
-        int reg_out, int reg_in, int value);
-#endif
 
 #endif

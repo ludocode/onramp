@@ -52,14 +52,6 @@ block_t* block_new(int label) {
     return block;
 }
 
-#ifndef CCI2_IR
-block_t* block_new_user_label(string_t* label) {
-    block_t* block = block_new_impl();
-    block->user_label = string_ref(label);
-    return block;
-}
-#endif
-
 void block_delete(block_t* block) {
     for (size_t i = 0; i < block->instructions_count; ++i)
         instruction_destroy(&block->instructions[i]);
@@ -70,13 +62,7 @@ void block_delete(block_t* block) {
 }
 
 instruction_t* block_append(block_t* block, token_t* token, opcode_t opcode,
-        #ifndef CCI2_IR
-        // block_append() was variadic when generating assembly.
-        ...
-        #endif
-        #ifdef CCI2_IR
         size_t arg_count
-        #endif
 ) {
     // TODO use vector_t, would simplify this a lot
     if (block->instructions_count == block->instructions_capacity) {
@@ -96,23 +82,10 @@ instruction_t* block_append(block_t* block, token_t* token, opcode_t opcode,
     }
 
     instruction_t* instruction = block->instructions + block->instructions_count++;
-
-    #ifndef CCI2_IR
-    va_list args;
-    va_start(args, opcode);
-    instruction_init(instruction);
-    instruction_vset(instruction, token, opcode, args);
-    va_end(args);
-    #endif
-
-    #ifdef CCI2_IR
     instruction_init(instruction, token, opcode, arg_count);
-    #endif
-
     return instruction;
 }
 
-#ifdef CCI2_IR
 instruction_t* block_append_jmp(block_t* block, token_t* token, uint32_t label) {
     instruction_t* instruction = block_append(block, token, JMP, 1);
     instruction_set_arg_relative(instruction, 0, label);
@@ -128,33 +101,3 @@ instruction_t* block_append_br(block_t* block, token_t* token,
     instruction_set_arg_relative(instruction, 2, false_label);
     return instruction;
 }
-#endif
-
-#ifndef CCI2_IR
-void block_sub_rsp(block_t* block, token_t* token, size_t offset) {
-    offset = ((offset + 3u) & ~3u);
-    block_append_op_imm(block, token, SUB, RSP, RSP, (int)offset);
-}
-
-void block_add_rsp(block_t* block, token_t* token, size_t offset) {
-    offset = ((offset + 3u) & ~3u);
-    block_append_op_imm(block, token, ADD, RSP, RSP, (int)offset);
-}
-
-void block_append_op_imm(block_t* block, struct token_t* token, opcode_t opcode,
-        int reg_out, int reg_in, int value)
-{
-    if (value == 0)
-        return;
-
-    if (value <= 127 && value >= -112) {
-        block_append(block, token, opcode, reg_out, reg_in, value);
-        return;
-    }
-
-    int reg_value = register_alloc(token);
-    block_append(block, token, IMW, ARGTYPE_NUMBER, reg_value, value);
-    block_append(block, token, opcode, reg_out, reg_in, reg_value);
-    register_free(token, reg_value);
-}
-#endif

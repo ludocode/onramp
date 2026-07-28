@@ -34,7 +34,6 @@
 #include "token.h"
 #include "type.h"
 
-#ifdef CCI2_IR
 typedef struct variable_t {
     int temporary;
     uint32_t size;
@@ -62,7 +61,6 @@ static void variable_delete(variable_t* variable) {
     }
     free(variable);
 }
-#endif
 
 typedef struct label_node_t {
     table_entry_t entry;
@@ -94,26 +92,18 @@ function_t* function_new(type_t* type, token_t* name,
     vector_init(&function->blocks);
     table_init(&function->labels);
 
-    #ifndef CCI2_IR
-    function->variadic_offset = -1;
-    #endif
-    #ifdef CCI2_IR
     function->variadic_temporary = TEMPORARY_INVALID;
     function->return_temporary = TEMPORARY_INVALID;
-    #endif
 
     function->name_label = -1;
     vector_init(&function->records);
-    #ifdef CCI2_IR
     function->strings = vector_new();
     function->variables = vector_new();
-    #endif
     return function;
 }
 
 void function_delete(function_t* function) {
 
-    #ifdef CCI2_IR
     // free variables
     size_t variable_count = vector_count(function->variables);
     for (size_t i = 0; i != variable_count; ++i) {
@@ -127,7 +117,6 @@ void function_delete(function_t* function) {
         string_deref(vector_at(function->strings, i));
     }
     vector_delete(function->strings);
-    #endif
 
     // free records
     size_t record_count = vector_count(&function->records);
@@ -196,7 +185,6 @@ void function_add_record(function_t* function, record_t* record) {
     vector_append(&function->records, record_ref(record));
 }
 
-#ifdef CCI2_IR
 void function_take_string(function_t* function, string_t* string) {
     vector_append(function->strings, string);
 }
@@ -224,4 +212,3 @@ void function_emit_variables(function_t* function) {
         emit_char('\n');
     }
 }
-#endif

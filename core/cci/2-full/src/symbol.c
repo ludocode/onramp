@@ -34,11 +34,8 @@ symbol_t* symbol_new(symbol_kind_t kind, type_t* type, token_t* name, string_t* 
     symbol_t* symbol = calloc(1, sizeof(symbol_t));
     symbol->refcount = 1;
     symbol->kind = kind;
-
-    #ifdef CCI2_IR
     symbol->temporary = TEMPORARY_INVALID;
     symbol->indirect_parameter_temporary = TEMPORARY_INVALID;
-    #endif
 
     // only builtins have no type
     assert((type == NULL) == (kind == symbol_kind_builtin));

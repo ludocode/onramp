@@ -59,21 +59,12 @@ typedef struct symbol_t {
     string_t* name;     // name in C; always non-null, empty string if anonymous
     string_t* asm_name; // name in assembly; null if this is not a global
 
-    #ifndef CCI2_IR
-    // Offset in the stack frame if this is a local variable. This can be
-    // positive (e.g. function argument) or negative (e.g. normal variable.)
-    // This is ignored for variables with linkage.
-    int offset;
-    #endif
-
-    #ifdef CCI2_IR
     // Temporary containing the address of storage for this local variable
     // (i.e. the result of the var instruction.)
     int temporary;
 
     // Parameters passed indirectly have an additional indirection.
     int indirect_parameter_temporary;
-    #endif
 
     symbol_linkage_t linkage;
 

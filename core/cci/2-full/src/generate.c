@@ -47,7 +47,6 @@
 function_t* current_function;
 block_t* current_block;
 
-#ifdef CCI2_IR
 static vector_t* temporary_list;
 static table_t* temporary_table;
 
@@ -86,12 +85,6 @@ string_t* temporary_name(int id) {
     //fprintf(stderr,"TEMPORARY %i %s\n", temporary->id, temporary->name->bytes);
     return temporary->name;
 }
-#endif
-
-#ifndef CCI2_IR
-int register_next;       // next register to allocate
-int register_loop_count; // number of times we've looped back to r0 while allocating registers
-#endif
 
 static void generate_location_array_subscript(node_t* node, int reg_out);
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
@@ -100,27 +93,18 @@ static void generate_builtin_location(node_t* node, int reg_out);
 static void generate_initializer(node_t* variable, int reg_loc);
 
 void generate_setup(void) {
-    #ifndef CCI2_IR
-    register_next = R0;
-    #endif
-
-    #ifdef CCI2_IR
     temporary_list = vector_new();
     vector_reserve(temporary_list, 128);
     temporary_table = table_new();
     table_reserve_bits(temporary_table, 7); // start with 128 buckets
-    #endif
 }
 
 void generate_teardown(void) {
-    #ifdef CCI2_IR
     clear_temporaries();
     table_delete(temporary_table);
     vector_delete(temporary_list);
-    #endif
 }
 
-#ifdef CCI2_IR
 /**
  * Creates a temporary.
  *
@@ -184,45 +168,6 @@ int generate_temporary_cstr(const char* cname) {
     string_deref(name);
     return temporary;
 }
-#endif
-
-#ifndef CCI2_IR
-
-int register_alloc(token_t* /*nullable*/ token) {
-    //printf("register alloc %i\n", register_next);
-    int reg = register_next;
-    if (register_loop_count) {
-        block_append(current_block, token, PUSH, reg);
-    }
-
-    if (register_next < R9) {
-        ++register_next;
-    } else {
-        register_next = R0;
-        ++register_loop_count;
-    }
-
-    return reg;
-}
-
-void register_free(token_t* /*nullable*/ token, int reg) {
-    //printf("register free %i\n", reg);
-    if (register_next == R0) {
-        register_next = R9;
-        --register_loop_count;
-    } else {
-        --register_next;
-    }
-
-    if (reg != register_next) {
-        fatal_token(token, "Internal error: incorrect register free");
-    }
-
-    if (register_loop_count)
-        block_append(current_block, token, POP, reg);
-}
-
-#endif // CCI2_IR
 
 static void generate_sequence(node_t* node, bool location, int reg_out) {
     assert(node->kind == NODE_SEQUENCE);
@@ -300,15 +245,7 @@ static void generate_number(node_t* node, int reg_out) {
 
     if (type_is_long_long(node->type)) {
         u64_t* llong = &node->u64;
-        #ifndef CCI2_IR
-        int temp = register_alloc(node->token);
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, temp, u64_low(llong));
-        block_append(current_block, node->token, STW, temp, reg_out, 0);
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, temp, u64_high(llong));
-        block_append(current_block, node->token, STW, temp, reg_out, 4);
-        register_free(node->token, temp);
-        #endif
-        #ifdef CCI2_IR
+
         // store low
         instruction_t* instruction = block_append(current_block, node->token, STW, 2);
         instruction_set_arg_number(instruction, 0, u64_low(llong));
@@ -325,46 +262,30 @@ static void generate_number(node_t* node, int reg_out) {
         instruction = block_append(current_block, node->token, STW, 2);
         instruction_set_arg_number(instruction, 0, u64_high(llong));
         instruction_set_arg_temporary(instruction, 1, temp);
-        #endif
     } else {
-        #ifndef CCI2_IR
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, node->u32);
-        #endif
-        #ifdef CCI2_IR
         instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
         instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_number(instruction, 1, node->u32);
-        #endif
     }
 }
 
 static void generate_character(node_t* node, int reg_out) {
     assert(node->kind == NODE_CHARACTER);
     assert(node->first_child == NULL);
-    #ifndef CCI2_IR
-    block_append(current_block, node->token, MOV, reg_out, node->u32);
-    #endif
-    #ifdef CCI2_IR
     instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
     instruction_set_arg_temporary(instruction, 0, reg_out);
     instruction_set_arg_number(instruction, 1, node->u32);
-    #endif
 }
 
 static void generate_string(node_t* node, int reg_out) {
     assert(node->kind == NODE_STRING);
     assert(node->first_child == NULL);
-    #ifndef CCI2_IR
-    block_append(current_block, node->token, IMW, ARGTYPE_GENERATED, reg_out, '^', STRING_LABEL_PREFIX, node->string_label);
-    block_append(current_block, node->token, ADD, reg_out, RPP, reg_out);
-    #endif
-    #ifdef CCI2_IR
+
     string_t* name = string_label_name(node->string_label);
     instruction_t* instruction = block_append(current_block, node->token, SYM, 2);
     instruction_set_arg_temporary(instruction, 0, reg_out);
     instruction_set_arg_absolute(instruction, 1, name);
     function_take_string(current_function, name);
-    #endif
 }
 
 // Generates access using the given opcode.
@@ -374,30 +295,13 @@ static void generate_string(node_t* node, int reg_out) {
 static void generate_access_impl(token_t* token, int opcode, symbol_t* symbol, int reg_out) {
     assert(opcode == ADD || !type_is_passed_indirectly(symbol->type));
     if (symbol_is_global(symbol)) {
-        #ifndef CCI2_IR
-        block_append(current_block, token, IMW, ARGTYPE_NAME, reg_out, '^', string_cstr(symbol->asm_name));
-        block_append(current_block, token, opcode, reg_out, RPP, reg_out);
-        #endif
-        #ifdef CCI2_IR
         instruction_t* instruction = block_append(current_block, token, (opcode == ADD) ? SYM : opcode, 2);
         instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_absolute(instruction, 1, symbol->asm_name);
-        #endif
     } else {
-        #ifndef CCI2_IR
-        if (symbol->offset <= 127 && symbol->offset >= -112) {
-            block_append(current_block, token, opcode, reg_out, RFP, symbol->offset);
-        } else {
-            block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_out, symbol->offset);
-            block_append(current_block, token, opcode, reg_out, RFP, reg_out);
-        }
-        #endif
-
-        #ifdef CCI2_IR
         instruction_t* instruction = block_append(current_block, token, (opcode == ADD) ? MOV : opcode, 2);
         instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_temporary(instruction, 1, symbol->temporary);
-        #endif
     }
 }
 
@@ -420,14 +324,9 @@ static void generate_access(node_t* node, int reg_out) {
         if (!type_matches_base(type, BASE_ENUM)) {
             fatal("TODO: Constants other than enum values are not yet supported.");
         }
-        #ifndef CCI2_IR
-        block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, symbol->u32);
-        #endif
-        #ifdef CCI2_IR
         instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
         instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_number(instruction, 1, symbol->u32);
-        #endif
         return;
     }
 
@@ -438,17 +337,9 @@ static void generate_access(node_t* node, int reg_out) {
     }
 
     if (type_is_passed_indirectly(type)) {
-        #ifndef CCI2_IR
-        int reg_temp = register_alloc(node->token);
-        #endif
-        #ifdef CCI2_IR
         int reg_temp = generate_temporary(NULL);
-        #endif
         generate_access_location(node->token, node->symbol, reg_temp);
         generate_copy(node->token, type, 1, reg_temp, reg_out);
-        #ifndef CCI2_IR
-        register_free(node->token, reg_temp);
-        #endif
         return;
     }
 
@@ -468,7 +359,6 @@ static void generate_access(node_t* node, int reg_out) {
     generate_access_impl(node->token, opcode, node->symbol, reg_out);
 }
 
-#ifdef CCI2_IR
 static void generate_variable(node_t* node) {
     assert(node->kind == NODE_VARIABLE);
 
@@ -481,117 +371,16 @@ static void generate_variable(node_t* node) {
         generate_initializer(node, generate_temporary(NULL));
     }
 }
-#endif
-
-#ifndef CCI2_IR
-
-/**
- * Generates offsets for function parameters, returning the necessary amount of
- * space in the stack frame.
- */
-static int generate_parameter_offsets(function_t* function) {
-
-    // The frame pointer points to the previous frame pointer. The arguments
-    // are above it.
-    int indirect_offset = 8;
-    int frame_size = 0;
-
-    // If the return value is indirect, the return value pointer is above it.
-    if (type_is_passed_indirectly(function->root->type)) {
-        indirect_offset += 4;
-    }
-
-    // All nodes except the last child of the function are parameters. The
-    // first four register-size arguments are passed in registers; other
-    // arguments are passed on the stack.
-    size_t reg_count = 0;
-    for (node_t* param = function->root->first_child;
-            param != function->root->last_child;
-            param = param->right_sibling)
-    {
-        assert(param->kind == NODE_PARAMETER);
-
-        type_t* type = param->type;
-        int size = (int)type_size(type);
-
-        if (reg_count == 4 || type_is_passed_indirectly(type)) {
-            // The argument is already on the stack. All arguments are
-            // word-aligned. (The symbol won't exist if the parameter is
-            // unnamed.)
-            if (param->symbol) {
-                param->symbol->offset = indirect_offset;
-            }
-            indirect_offset += (size + 3) & ~3;
-        } else {
-            // This argument is in a register. Generate a local variable on the
-            // stack for it. (It will be moved in later after the function
-            // preamble is generated once we know the full frame size.)
-            // TODO for now we just word-align every parameter, we don't bother
-            // to pack them.
-            frame_size += 4;
-            if (param->symbol) {
-                param->symbol->offset = -frame_size;
-            }
-            ++reg_count;
-        }
-        //printf("assigned offset %i to param %s of size %i\n", param->symbol->offset, param->symbol->name->bytes, (int)type_size(param->symbol->type));
-    }
-
-    function->variadic_offset = indirect_offset;
-    return frame_size;
-}
-
-/**
- * Generates offsets for all local variables, calculating the total size of the
- * stack frame.
- */
-static int generate_variable_offsets(node_t* node, int offset, int frame_size) {
-    for (node_t* child = node->first_child; child; child = child->right_sibling) {
-        if (child->kind == NODE_VARIABLE && child->symbol->linkage == symbol_linkage_none) {
-            int size = (int)type_size(child->symbol->type);
-
-            // align the value
-            if (size == 2)
-                offset &= ~1;
-            else if (size > 2)
-                offset &= ~3;
-
-            offset -= size;
-            child->symbol->offset = offset;
-            //printf("assigned offset %i to var %s of size %i\n", offset, child->symbol->name->bytes, (int)type_size(child->symbol->type));
-            if (frame_size < -offset) {
-                frame_size = -offset;
-            }
-        }
-
-        int child_frame_size = generate_variable_offsets(child, offset, frame_size);
-        if (child_frame_size > frame_size) {
-            frame_size = child_frame_size;
-        }
-    }
-
-    return frame_size;
-}
-
-#endif // !CCI2_IR
 
 void generate_function(function_t* function) {
     node_t* root = function->root;
     emit_source_location(root->token);
-
-    #ifndef CCI2_IR
-    // walk the tree, genererating frame offsets for each variable
-    int frame_size = generate_parameter_offsets(function);
-    frame_size = generate_variable_offsets(root, -frame_size, frame_size);
-    frame_size = (frame_size + 3) & ~3;
-    #endif
 
     // create the entry block
     current_function = function;
     current_block = block_new(next_label++);
     function_add_block(function, current_block);
 
-    #ifdef CCI2_IR
     // generate a temporary for the return value parameter (if indirect)
     if (type_is_passed_indirectly(function->root->type)) {
         function->return_temporary = generate_temporary_cstr("_Ret");
@@ -618,46 +407,7 @@ void generate_function(function_t* function) {
     if (function->type->is_variadic) {
         function->variadic_temporary = generate_temporary_cstr("_Vargs");
     }
-    #endif
 
-    #ifndef CCI2_IR
-    // create the stack frame
-    block_append(current_block, root->token, ENTER);
-    // note: we don't use block_append_op_imm() because we haven't allocated
-    // any registers or saved our arguments yet, so if the stack size is too
-    // big, it will clobber r0.
-    if (frame_size <= 127) {
-        if (frame_size != 0) {
-            block_append(current_block, root->token, SUB, RSP, RSP, frame_size);
-        }
-    } else {
-        block_append(current_block, root->token, IMW, ARGTYPE_NUMBER, R9, frame_size);
-        block_append(current_block, root->token, SUB, RSP, RSP, R9);
-    }
-
-    // move register arguments into local variables
-    int param_reg = R0;
-    for (node_t* param = root->first_child;
-            param != root->last_child && param_reg != R4;
-            param = param->right_sibling)
-    {
-        assert(param->kind == NODE_PARAMETER);
-        if (!type_is_passed_indirectly(param->type)) {
-            if (param->symbol) {
-                int offset = -(param_reg - R0 + 1) * 4;
-                block_append(current_block, param->token, STW, param_reg, RFP, offset);
-            }
-            ++param_reg;
-        }
-    }
-
-    // generate the function contents
-    int reg = register_alloc(root->token);
-    generate_node(root->last_child, reg);
-    register_free(root->token, reg);
-    #endif // CCI2_IR
-
-    #ifdef CCI2_IR
     // generate the function contents
     generate_node(root->last_child, -1);
 
@@ -670,21 +420,6 @@ void generate_function(function_t* function) {
     } else {
         instruction_set_arg_sentinel(ret, 0);
     }
-    #endif
-
-    #ifndef CCI2_IR
-    // If the last block doesn't end in 'ret', we add a return. If the function
-    // is main, we have to return 0.
-    size_t count = block_count(current_block);
-    if (count == 0 || block_at(current_block, count - 1)->opcode != RET) {
-        token_t* end_token = root->first_child->end_token;
-        if (string_equal_cstr(function->asm_name, "main")) {
-            block_append(current_block, end_token, ZERO, R0);
-        }
-        block_append(current_block, end_token, LEAVE);
-        block_append(current_block, end_token, RET);
-    }
-    #endif
 }
 
 /**
@@ -701,7 +436,6 @@ static void generate_call(node_t* call, int reg_out) {
     if (!type_is_function(function_type))
         fatal_token(function->token, "Internal error: cannot generate call for non-function");
 
-    #ifdef CCI2_IR
     // TODO the way we attach instructions to blocks is poor at the moment; we
     // can't create an instruction until we append it. We'd like to create the
     // instruction first and append it later. In the meantime we collect the
@@ -788,130 +522,6 @@ static void generate_call(node_t* call, int reg_out) {
         }
     }
     free(args);
-    #endif
-
-    #ifndef CCI2_IR
-    // push all registers (except for the return register)
-    int last_pushed_register = register_loop_count ? R9 : register_next - 1;
-    for (int i = R0; i <= last_pushed_register; ++i) {
-        if (i != reg_out) {
-            block_append(current_block, call->token, PUSH, i);
-        }
-    }
-
-    // clear register allocator
-    int old_register_next = register_next;
-    int old_register_loop_count = register_loop_count;
-    register_next = R0;
-    register_loop_count = 0;
-
-    // if the return value is passed indirectly, stash its pointer for now. (it
-    // goes at the top of the stack after pushing args.)
-    bool return_indirect = type_is_passed_indirectly(call->type);
-    int reg_return_indirect = TEMPORARY_INVALID;
-    if (return_indirect) {
-        reg_return_indirect = register_alloc(call->token);
-        block_append(current_block, call->token, MOV, reg_return_indirect, reg_out);
-    }
-
-    // find the last argument passed in a register
-    node_t* last_register_arg = NULL;
-    int register_args = 0;
-    uint32_t arg_count = 0;
-    for (node_t* arg = call->first_child->right_sibling; arg; arg = arg->right_sibling) {
-        // to be passed by register, the argument must be a named parameter
-        // (not variadic) and must fit in a register
-        if (arg_count < function_type->count && !type_is_passed_indirectly(arg->type)) {
-            last_register_arg = arg;
-            if (++register_args == 4)
-                break;
-        }
-        ++arg_count;
-    }
-
-    // push all indirect args right-to-left
-    // (All arguments after last_register_arg are passed on the stack. All
-    // arguments before and including last_register_arg are passed on the stack
-    // if and only if they do not fit in a register.)
-    int stack_space = 0;
-    bool last_register_arg_found = false;
-    int reg_arg = register_alloc(call->token);
-    for (node_t* arg = call->last_child; arg != call->first_child; arg = arg->left_sibling) {
-        if (arg == last_register_arg)
-            last_register_arg_found = true;
-
-        if (type_is_passed_indirectly(arg->type)) {
-            // argument does not fit in a register. make stack space for it and
-            // generate it.
-            size_t size = type_size(arg->type);
-            block_sub_rsp(current_block, arg->token, size);
-            block_append(current_block, arg->token, MOV, reg_arg, RSP);
-            generate_node(arg, reg_arg);
-            stack_space += size;
-
-        } else if (!last_register_arg_found) {
-            // argument fits in a register but we have too many register-size
-            // arguments. generate and push it.
-            generate_node(arg, reg_arg);
-            block_append(current_block, arg->token, PUSH, reg_arg);
-            stack_space += 4;
-        }
-    }
-    register_free(call->token, reg_arg);
-
-    // push the return pointer (if indirect)
-    if (return_indirect) {
-        block_append(current_block, call->token, PUSH, reg_return_indirect);
-        register_free(call->token, reg_return_indirect);
-        stack_space += 4;
-    }
-
-    // compute register args into registers r0-r3
-    for (node_t* arg = call->first_child->right_sibling; arg; arg = arg->right_sibling) {
-        if (type_is_passed_indirectly(arg->type))
-            continue;
-        generate_node(arg, register_alloc(arg->token));
-        if (arg == last_register_arg)
-            break;
-    }
-
-    // call the function directly if we can
-    if (function->kind == NODE_ACCESS && type_is_function(function->type)) {
-        block_append(current_block, call->token, CALL, ARGTYPE_NAME, '^', string_cstr(function->symbol->asm_name));
-
-    // otherwise call it indirectly
-    } else {
-        int reg_func = register_alloc(function->token);
-        if (type_is_function(function->type)) {
-            generate_location(function, reg_func);
-        } else if (type_is_pointer(function->type) && type_is_function(function->type->ref)) {
-            generate_node(function, reg_func);
-        } else {
-            fatal("Internal error: call target is neither pointer nor function pointer");
-        }
-        block_append(current_block, call->token, CALL, ARGTYPE_REGISTER, reg_func);
-        register_free(function->token, reg_func);
-    }
-
-    // Move the return value where it goes. (This is necessary for both direct
-    // and indirect.) Often this is r0 so the value is already there; we let
-    // the optimizer delete the instruction if it's useless.
-    block_append(current_block, call->token, MOV, reg_out, R0);
-
-    // pop all argument stack usage
-    block_add_rsp(current_block, call->token, stack_space);
-
-    // restore the register allocator (we don't bother to free the argument registers first)
-    register_next = old_register_next;
-    register_loop_count = old_register_loop_count;
-
-    // pop all registers
-    for (int i = last_pushed_register; i >= R0; --i) {
-        if (i != reg_out) {
-            block_append(current_block, call->token, POP, i);
-        }
-    }
-    #endif // !CCI2_IR
 }
 
 /**
@@ -930,63 +540,36 @@ void generate_int_cast(token_t* token, int reg, base_t source, base_t target) {
     if (source == target)
         return;
 
-    #ifdef CCI2_IR
     instruction_t* instruction;
-    #endif // CCI2_IR
 
     switch (target) {
         case BASE_BOOL:
             if (source == BASE_SIGNED_CHAR || source == BASE_UNSIGNED_CHAR) {
-                #ifndef CCI2_IR
-                block_append(current_block, token, TRB, reg, reg);
-                #endif // !CCI2_IR
-                #ifdef CCI2_IR
                 instruction = block_append(current_block, token, TRB, 2);
                 instruction_set_arg_temporary(instruction, 0, reg);
                 instruction_set_arg_temporary(instruction, 1, reg);
-                #endif // CCI2_IR
             } else if (source == BASE_SIGNED_SHORT || source == BASE_UNSIGNED_SHORT) {
-                #ifndef CCI2_IR
-                block_append(current_block, token, TRS, reg, reg);
-                #endif // !CCI2_IR
-                #ifdef CCI2_IR
                 instruction = block_append(current_block, token, TRS, 2);
                 instruction_set_arg_temporary(instruction, 0, reg);
                 instruction_set_arg_temporary(instruction, 1, reg);
-                #endif // CCI2_IR
             }
-            #ifndef CCI2_IR
-            block_append(current_block, token, BOOL, reg, reg);
-            #endif // !CCI2_IR
-            #ifdef CCI2_IR
             instruction = block_append(current_block, token, BOOL, 2);
             instruction_set_arg_temporary(instruction, 0, reg);
             instruction_set_arg_temporary(instruction, 1, reg);
-            #endif // CCI2_IR
             break;
 
         case BASE_SIGNED_INT:
         case BASE_UNSIGNED_INT:
             if (source == BASE_SIGNED_SHORT) {
-                #ifndef CCI2_IR
-                block_append(current_block, token, SXS, reg, reg);
-                #endif // !CCI2_IR
-                #ifdef CCI2_IR
                 instruction = block_append(current_block, token, SXS, 2);
                 instruction_set_arg_temporary(instruction, 0, reg);
                 instruction_set_arg_temporary(instruction, 1, reg);
-                #endif // CCI2_IR
                 break;
             }
             if (source == BASE_UNSIGNED_SHORT) {
-                #ifndef CCI2_IR
-                block_append(current_block, token, TRS, reg, reg);
-                #endif // !CCI2_IR
-                #ifdef CCI2_IR
                 instruction = block_append(current_block, token, TRS, 2);
                 instruction_set_arg_temporary(instruction, 0, reg);
                 instruction_set_arg_temporary(instruction, 1, reg);
-                #endif // CCI2_IR
                 break;
             }
             // fallthrough
@@ -994,25 +577,15 @@ void generate_int_cast(token_t* token, int reg, base_t source, base_t target) {
         case BASE_SIGNED_SHORT:
         case BASE_UNSIGNED_SHORT:
             if (source == BASE_SIGNED_CHAR) {
-                #ifndef CCI2_IR
-                block_append(current_block, token, SXB, reg, reg);
-                #endif // !CCI2_IR
-                #ifdef CCI2_IR
                 instruction = block_append(current_block, token, SXB, 2);
                 instruction_set_arg_temporary(instruction, 0, reg);
                 instruction_set_arg_temporary(instruction, 1, reg);
-                #endif // CCI2_IR
                 break;
             }
             if (source == BASE_UNSIGNED_CHAR || source == BASE_BOOL) {
-                #ifndef CCI2_IR
-                block_append(current_block, token, TRB, reg, reg);
-                #endif // !CCI2_IR
-                #ifdef CCI2_IR
                 instruction = block_append(current_block, token, TRB, 2);
                 instruction_set_arg_temporary(instruction, 0, reg);
                 instruction_set_arg_temporary(instruction, 1, reg);
-                #endif // CCI2_IR
                 break;
             }
             break;
@@ -1120,20 +693,10 @@ static void generate_cast_indirect_to_direct(node_t* node,
     assert(type_is_passed_indirectly(source));
     assert(!type_is_passed_indirectly(target));
 
-    #ifndef CCI2_IR
-    size_t source_size = type_size(source);
-    size_t target_size = type_size(target);
-    #endif
-
     // The source is indirect but the target is direct. The source is
     // either a 64-bit value or a record (being cast to void), and the
     // target fits in a register.
-    #ifndef CCI2_IR
-    assert(target_size <= 4);
-    #endif
-    #ifdef CCI2_IR
     assert(type_size(target) <= 4);
-    #endif
 
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
@@ -1145,20 +708,10 @@ static void generate_cast_indirect_to_direct(node_t* node,
         return;
     }
 
-    #ifndef CCI2_IR
-    // We need to generate the source into stack space. We can re-use
-    // the same register.
-    block_sub_rsp(current_block, node->token, source_size);
-    block_append(current_block, node->token, MOV, reg_out, RSP);
-    generate_node(node->first_child, reg_out);
-    #endif
-
-    #ifdef CCI2_IR
     // We need to generate the source into stack space.
     int temp_value = generate_temporary(NULL);
     function_add_variable(current_function, temp_value, source, node->token);
     generate_node(node->first_child, temp_value);
-    #endif
 
     // convert source to target
     if (source_base == BASE_DOUBLE) {
@@ -1186,16 +739,6 @@ static void generate_cast_indirect_to_direct(node_t* node,
                 // For bool we need to load both words and 'or' them together,
                 // then run a 'bool' instruction on the result.
 
-                #ifndef CCI2_IR
-                int reg_temp = register_alloc(node->token);
-                block_append(current_block, node->token, LDW, reg_temp, reg_out, 4);
-                block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
-                block_append(current_block, node->token, OR, reg_out, reg_out, reg_temp);
-                block_append(current_block, node->token, BOOL, reg_out, reg_out);
-                register_free(node->token, reg_temp);
-                #endif
-
-                #ifdef CCI2_IR
                 // get low word
                 int temp_low = generate_temporary(NULL);
                 instruction_set_args_tt(block_append(current_block, node->token,
@@ -1217,25 +760,15 @@ static void generate_cast_indirect_to_direct(node_t* node,
                 // 'bool' the result
                 instruction_set_args_tt(block_append(current_block, node->token,
                         BOOL, 2), reg_out, temp_or);
-                #endif
             } else {
                 // Otherwise we can just load the low word.
-                #ifndef CCI2_IR
-                block_append(current_block, node->token, LDW, reg_out, reg_out, 0);
-                #endif
-                #ifdef CCI2_IR
                 instruction_set_args_tt(block_append(current_block, node->token,
                         LDW, 2), reg_out, temp_value);
-                #endif
             }
         }
     } else {
         fatal("Internal error: unrecognized indirect to direct cast.");
     }
-
-    #ifndef CCI2_IR
-    block_add_rsp(current_block, node->token, source_size);
-    #endif
 }
 
 static void generate_cast_direct_to_indirect(node_t* node,
@@ -1250,17 +783,9 @@ static void generate_cast_direct_to_indirect(node_t* node,
     assert(type_size(source) <= 4);
     assert(type_size(target) == 8);
 
-    #ifndef CCI2_IR
-    // The register contains a pointer to 64-bit space. We need an
-    // auxiliary register to generate the word-size source.
-    int reg_src = register_alloc(node->token);
-    generate_node(node->first_child, reg_src);
-    #endif
-    #ifdef CCI2_IR
     // The source fits in a temporary.
     int reg_src = generate_temporary(NULL);
     generate_node(node->first_child, reg_src);
-    #endif
 
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
@@ -1281,19 +806,6 @@ static void generate_cast_direct_to_indirect(node_t* node,
             assert(type_is_integer(source));
             generate_int_cast(node->token, reg_src, source_base, BASE_UNSIGNED_INT); // set the upper bits (if necessary)
 
-            #ifndef CCI2_IR
-            block_append(current_block, node->token, STW, reg_src, reg_out, 0); // store the low word
-            if (type_is_signed_integer(source)) {
-                // sign extend
-                block_append(current_block, node->token, SHRU, reg_src, reg_src, 31); // get the sign bit
-                block_append(current_block, node->token, SUB, reg_src, 0, reg_src); // fill the register with the sign bit
-                block_append(current_block, node->token, STW, reg_src, reg_out, 4); // store the high word
-            } else {
-                block_append(current_block, node->token, STW, 0, reg_out, 4); // clear the high word
-            }
-            #endif
-
-            #ifdef CCI2_IR
             // store the low word
             instruction_set_args_tt(block_append(current_block, node->token,
                     STW, 2), reg_src, reg_out);
@@ -1325,13 +837,8 @@ static void generate_cast_direct_to_indirect(node_t* node,
                 instruction_set_arg_number(instruction, 0, 0);
                 instruction_set_arg_temporary(instruction, 1, temp_high_addr);
             }
-            #endif
         }
     }
-
-    #ifndef CCI2_IR
-    register_free(node->token, reg_src);
-    #endif
 }
 
 static void generate_cast_direct_to_direct(node_t* node,
@@ -1372,12 +879,7 @@ static void generate_initializer_scalar(node_t* expr, type_t* target, int reg_ba
         if (expr->kind != NODE_STRING) {
             fatal("Internal error: Cannot initialize an array with a non-string scalar");
         }
-        #ifndef CCI2_IR
-        int reg_val = register_alloc(expr->token);
-        #endif
-        #ifdef CCI2_IR
         int reg_val = generate_temporary(NULL);
-        #endif
         generate_node(expr, reg_val);
 
         // TODO need to handle wide string arrays, currently we assume char
@@ -1386,73 +888,39 @@ static void generate_initializer_scalar(node_t* expr, type_t* target, int reg_ba
 
         // Copy bytes from the string to fill the array
         size_t copy_count = array_count < string_count ? array_count : string_count;
-        #ifndef CCI2_IR
-        int reg_loc = register_alloc(expr->token);
-        block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
-        block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
-        #endif
-        #ifdef CCI2_IR
         int reg_loc = generate_temporary(NULL);
         instruction_t* add = block_append(current_block, expr->token, ADD, 3);
         instruction_set_arg_temporary(add, 0, reg_loc);
         instruction_set_arg_temporary(add, 1, reg_base);
         instruction_set_arg_number(add, 2, offset);
-        #endif
         generate_copy(expr->token, target->ref, copy_count, reg_val, reg_loc);
 
         // If we're initializing a char array with too short a string, we need
         // to zero out the rest of the array.
         if (array_count > string_count) {
-            #ifndef CCI2_IR
-            block_append_op_imm(current_block, expr->token, ADD, reg_loc, reg_loc, string_count);
-            #endif
-            #ifdef CCI2_IR
             instruction_t* add = block_append(current_block, expr->token, ADD, 3);
             instruction_set_arg_temporary(add, 0, reg_loc);
             instruction_set_arg_temporary(add, 1, reg_loc);
             instruction_set_arg_number(add, 2, string_count);
-            #endif
             generate_zero_array(expr->token, target->ref, array_count - string_count, reg_loc);
         }
-
-        #ifndef CCI2_IR
-        register_free(expr->token, reg_loc);
-        register_free(expr->token, reg_val);
-        #endif
 
     } else if (type_is_passed_indirectly(target)) {
         if (offset == 0) {
             generate_node(expr, reg_base);
         } else {
-            #ifndef CCI2_IR
-            int reg_loc = register_alloc(expr->token);
-            block_append(current_block, expr->token, IMW, ARGTYPE_NUMBER, reg_loc, offset);
-            block_append(current_block, expr->token, ADD, reg_loc, reg_loc, reg_base);
-            generate_node(expr, reg_loc);
-            register_free(expr->token, reg_loc);
-            #endif
-            #ifdef CCI2_IR
             int reg_loc = generate_temporary(NULL);
             instruction_t* add = block_append(current_block, expr->token, ADD, 3);
             instruction_set_arg_temporary(add, 0, reg_loc);
             instruction_set_arg_temporary(add, 1, reg_base);
             instruction_set_arg_number(add, 2, offset);
             generate_node(expr, reg_loc);
-            #endif
         }
 
     } else {
-        #ifndef CCI2_IR
-        int reg_val = register_alloc(expr->token);
-        #endif
-        #ifdef CCI2_IR
         int reg_val = generate_temporary(NULL);
-        #endif
         generate_node(expr, reg_val);
         generate_store_offset(expr->token, target, reg_val, reg_base, offset);
-        #ifndef CCI2_IR
-        register_free(expr->token, reg_val);
-        #endif
     }
 }
 
@@ -1492,25 +960,13 @@ static void generate_initializer_list(node_t* list, type_t* type, int reg_base, 
 
     // Zero out the rest of the array
     if (type_is_array(type) && i < type->count) {
-        #ifndef CCI2_IR
-        int reg_loc = register_alloc(list->token);
-        block_append(current_block, list->token, IMW, ARGTYPE_NUMBER, reg_loc,
-                base_offset + i * type_size(type->ref));
-        block_append(current_block, list->token, ADD, reg_loc, reg_loc, reg_base);
-        #endif
-        #ifdef CCI2_IR
         int reg_loc = generate_temporary(NULL);
         instruction_t* add = block_append(current_block, list->token, ADD, 3);
         instruction_set_arg_temporary(add, 0, reg_loc);
         instruction_set_arg_temporary(add, 1, reg_base);
         instruction_set_arg_number(add, 2, base_offset + i * type_size(type->ref));
-        #endif
 
         generate_zero_array(list->token, type->ref, type->count - i, reg_loc);
-
-        #ifndef CCI2_IR
-        register_free(list->token, reg_loc);
-        #endif
 
     // Zero out the rest of the struct
     } else if (type_matches_base(type, BASE_RECORD) && type->record->is_struct) {
@@ -1567,28 +1023,18 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
 
     // shift the pointer by the member offset
     if (offset != 0) {
-        #ifndef CCI2_IR
-        block_append_op_imm(current_block, node->token, ADD, reg_ptr, reg_ptr, offset);
-        #endif
-        #ifdef CCI2_IR
         instruction_t* instruction = block_append(current_block, node->token, ADD, 3);
         instruction_set_arg_temporary(instruction, 0, reg_ptr);
         instruction_set_arg_temporary(instruction, 1, reg_ptr);
         instruction_set_arg_number(instruction, 2, offset);
-        #endif
     }
 
     // if this is an array, the pointer to it is already in the source
     // register, so we just need to move it to the destination.
     if (type_is_array(node->type)) {
-        #ifndef CCI2_IR
-        block_append(current_block, node->token, MOV, reg_out, reg_ptr);
-        #endif
-        #ifdef CCI2_IR
         instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
         instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_temporary(instruction, 1, reg_ptr);
-        #endif
         return;
     }
 
@@ -1609,151 +1055,52 @@ void generate_dereference_impl(node_t* node, int reg_out, int reg_ptr, int offse
     } else {
         fatal_token(node->token, "Internal error: unknown size cannot be dereferenced in a register");
     }
-    #ifndef CCI2_IR
-    block_append(current_block, node->token, opcode, reg_out, 0, reg_ptr);
-    #endif
-    #ifdef CCI2_IR
     instruction_set_args_tt(block_append(current_block, node->token,
                 opcode, 2), reg_out, reg_ptr);
-    #endif
 }
 
 static void generate_dereference(node_t* node, int reg_out) {
     assert(reg_out != -1);
-
-    #ifndef CCI2_IR
-    // When passing directly, we can use the same register for location and
-    // value; otherwise we need to generate in a temporary register.
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
-    int reg_loc;
-    if (indirect) {
-        reg_loc = register_alloc(node->token);
-    } else {
-        reg_loc = reg_out;
-    }
-    #endif
-    #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    #endif
-
     generate_node(node->first_child, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, 0);
-
-    #ifndef CCI2_IR
-    if (indirect) {
-        register_free(node->token, reg_loc);
-    }
-    #endif
 }
 
 static void generate_array_subscript(node_t* node, int reg_out) {
     assert(reg_out != -1);
-
-    #ifndef CCI2_IR
-    // When passing directly, we can use the same register for location and
-    // value; otherwise we need to generate in a temporary register.
-    int reg_loc;
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
-    if (indirect) {
-        reg_loc = register_alloc(node->token);
-    } else {
-        reg_loc = reg_out;
-    }
-    #endif
-    #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    #endif
-
     generate_location_array_subscript(node, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, 0);
-
-    #ifndef CCI2_IR
-    if (indirect) {
-        register_free(node->token, reg_loc);
-    }
-    #endif
 }
 
 static void generate_member_val(node_t* node, int reg_out) {
     assert(reg_out != -1);
-
-    #ifndef CCI2_IR
-    // When passing directly, we can use the same register for location and
-    // value; otherwise we need to generate in a temporary register.
-    int reg_loc;
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
-    if (indirect) {
-        reg_loc = register_alloc(node->token);
-    } else {
-        reg_loc = reg_out;
-    }
-    #endif
-    #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    #endif
-
     generate_location(node->first_child, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, node->member_offset);
-
-    #ifndef CCI2_IR
-    if (indirect) {
-        register_free(node->token, reg_loc);
-    }
-    #endif
 }
 
 static void generate_member_ptr(node_t* node, int reg_out) {
     assert(reg_out != -1);
-
-    #ifndef CCI2_IR
-    // When passing directly, we can use the same register for location and
-    // value; otherwise we need to generate in a temporary register.
-    int reg_loc;
-    bool indirect = !type_is_array(node->type) && type_is_passed_indirectly(node->type);
-    if (indirect) {
-        reg_loc = register_alloc(node->token);
-    } else {
-        reg_loc = reg_out;
-    }
-    #endif
-    #ifdef CCI2_IR
     int reg_loc = generate_temporary(NULL);
-    #endif
-
     generate_node(node->first_child, reg_loc);
     generate_dereference_impl(node, reg_out, reg_loc, node->member_offset);
-
-    #ifndef CCI2_IR
-    if (indirect) {
-        register_free(node->token, reg_loc);
-    }
-    #endif
 }
 
 static void generate_location_member_val(node_t* node, int reg_out) {
     generate_location(node->first_child, reg_out);
-    #ifndef CCI2_IR
-    block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
-    #endif
-    #ifdef CCI2_IR
     instruction_t* add = block_append(current_block, node->token, ADD, 3);
     instruction_set_arg_temporary(add, 0, reg_out);
     instruction_set_arg_temporary(add, 1, reg_out);
     instruction_set_arg_number(add, 2, node->member_offset);
-    #endif
 }
 
 static void generate_location_member_ptr(node_t* node, int reg_out) {
     generate_node(node->first_child, reg_out);
-    #ifndef CCI2_IR
-    block_append_op_imm(current_block, node->token, ADD, reg_out, reg_out, node->member_offset);
-    #endif
-    #ifdef CCI2_IR
     instruction_t* add = block_append(current_block, node->token, ADD, 3);
     instruction_set_arg_temporary(add, 0, reg_out);
     instruction_set_arg_temporary(add, 1, reg_out);
     instruction_set_arg_number(add, 2, node->member_offset);
-    #endif
 }
 
 static void generate_location_array_subscript(node_t* node, int reg_out) {
@@ -1762,14 +1109,9 @@ static void generate_location_array_subscript(node_t* node, int reg_out) {
 
 static void generate_sizeof(node_t* node, int reg_out) {
     unsigned size = type_size(node->first_child->type);
-    #ifndef CCI2_IR
-    block_append(current_block, node->token, IMW, ARGTYPE_NUMBER, reg_out, size);
-    #endif
-    #ifdef CCI2_IR
     instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
     instruction_set_arg_temporary(instruction, 0, reg_out);
     instruction_set_arg_number(instruction, 1, size);
-    #endif
 }
 
 static void generate_address_of(node_t* node, int reg_out) {
@@ -1899,30 +1241,6 @@ void generate_node(node_t* node, int reg_out_opt) {
                 return;
 
             // These node types accept an optional register.
-            #ifndef CCI2_IR
-            // TODO we're only using -1 if it's indirect, because if it's
-            // direct we want the register to be available as a temporary. This
-            // won't be necessary when we're generating IR.
-            case NODE_ASSIGN:
-                if (type_is_passed_indirectly(node->type)) {
-                    generate_assign(node, -1);
-                    #ifdef GENERATE_DEBUG
-                    --debug_depth;
-                    #endif
-                    return;
-                }
-                break;
-            case NODE_SEQUENCE:
-                if (type_is_passed_indirectly(node->type)) {
-                    generate_sequence(node, false, -1);
-                    #ifdef GENERATE_DEBUG
-                    --debug_depth;
-                    #endif
-                    return;
-                }
-                break;
-            #endif
-            #ifdef CCI2_IR
             case NODE_ASSIGN:
                 generate_assign(node, TEMPORARY_INVALID);
                 #ifdef GENERATE_DEBUG
@@ -1935,7 +1253,6 @@ void generate_node(node_t* node, int reg_out_opt) {
                 --debug_depth;
                 #endif
                 return;
-            #endif
 
             // For these node types, we only need to generate the children for
             // side effects. We don't actually need to perform the operation
@@ -1977,13 +1294,11 @@ void generate_node(node_t* node, int reg_out_opt) {
                 #endif
                 return;
 
-            #ifdef CCI2_IR
             case NODE_CALL:
                 if (!type_is_passed_indirectly(node->type)) {
                     generate_call(node, -1);
                     return;
                 }
-            #endif
 
             // For any case not handled above, we will need a temporary for the
             // return value, and if it is indirect, we will have to create
@@ -1994,19 +1309,10 @@ void generate_node(node_t* node, int reg_out_opt) {
 
         if (reg_out == -1) {
             // Allocate space to store the result.
-            #ifndef CCI2_IR
-            reg_out = register_alloc(node->token);
-            if (type_is_passed_indirectly(node->type)) {
-                block_sub_rsp(current_block, node->token, type_size(node->type));
-                block_append(current_block, node->token, MOV, reg_out, RSP);
-            }
-            #endif // !CCI2_IR
-            #ifdef CCI2_IR
             reg_out = generate_temporary(NULL);
             if (type_is_passed_indirectly(node->type)) {
                 function_add_variable(current_function, reg_out, node->type, node->token);
             }
-            #endif // CCI2_IR
         }
     }
 
@@ -2032,14 +1338,7 @@ void generate_node(node_t* node, int reg_out_opt) {
             fatal("Internal error: cannot generate arbitrary DEFER node.");
 
         case NODE_VARIABLE:
-            #ifdef CCI2_IR
             generate_variable(node);
-            #endif
-            #ifndef CCI2_IR
-            if (node->first_child) {
-                generate_initializer(node, reg_out);
-            }
-            #endif
             break;
 
         // statements
@@ -2122,15 +1421,6 @@ void generate_node(node_t* node, int reg_out_opt) {
         case NODE_BUILTIN: generate_builtin(node, reg_out); break;
     }
 
-    #ifndef CCI2_IR
-    if (reg_out_opt == -1) {
-        if (type_is_passed_indirectly(node->type)) {
-            block_add_rsp(current_block, node->token, type_size(node->type));
-        }
-        register_free(node->token, reg_out);
-    }
-    #endif // !CCI2_IR
-
     #ifdef GENERATE_DEBUG
     --debug_depth;
     #endif
@@ -2163,9 +1453,6 @@ void generate_location(node_t* node, int reg_out) {
             fatal("Internal error, cannot generate location of non-struct cast.");
             break;
         default:
-            #ifdef CCI2_IR
-            fatal("TODO unimplemented generate_location() %s", node_kind_to_string(node->kind));
-            #endif
             fatal("Internal error, cannot generate location of non-value node: %s.", node_kind_to_string(node->kind));
             break;
     }
@@ -2243,9 +1530,7 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     type_deref(void_t);
     string_deref(name_str);
     token_deref(name);
-    #ifdef CCI2_IR
     clear_temporaries();
-    #endif
 }
 
 void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
@@ -2279,26 +1564,6 @@ void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable
 
 static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
 
-    #ifndef CCI2_IR
-    // load the return value
-    int reg_loc = register_alloc(builtin->token);
-    generate_location(builtin->first_child, reg_loc);
-    int reg_val = register_alloc(builtin->token);
-    generate_dereference_impl(builtin->first_child, reg_val, reg_loc, 0);
-    generate_dereference_impl(builtin, reg_out, reg_val, 0);
-
-    // increment the va_list
-    int reg_size = register_alloc(builtin->token);
-    block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_size, type_size(builtin->type));
-    block_append(current_block, builtin->token, ADD, reg_val, reg_val, reg_size);
-    generate_store(builtin->token, builtin->first_child->type, reg_val, reg_loc);
-
-    register_free(builtin->token, reg_size);
-    register_free(builtin->token, reg_val);
-    register_free(builtin->token, reg_loc);
-    #endif
-
-    #ifdef CCI2_IR
     // get the address of the variable containing the va_list
     int temp_var = generate_temporary(NULL);
     generate_location(builtin->first_child, temp_var);
@@ -2329,26 +1594,13 @@ static void generate_builtin_va_arg(node_t* builtin, int reg_out) {
 
     // load the value into the output
     generate_dereference_impl(builtin, reg_out, temp_value_ptr, 0);
-    #endif
 
 }
 
 static void generate_builtin_va_start(node_t* builtin, int reg_out) {
-
-    #ifndef CCI2_IR
-    generate_location(builtin->first_child, reg_out);
-    int reg_val = register_alloc(builtin->token);
-    block_append(current_block, builtin->token, IMW, ARGTYPE_NUMBER, reg_val, current_function->variadic_offset);
-    block_append(current_block, builtin->token, ADD, reg_val, RFP, reg_val);
-    generate_store(builtin->token, builtin->first_child->type, reg_val, reg_out);
-    register_free(builtin->token, reg_val);
-    #endif
-
-    #ifdef CCI2_IR
+    assert(reg_out != -1);
     generate_location(builtin->first_child, reg_out);
     generate_store(builtin->token, builtin->first_child->type, current_function->variadic_temporary, reg_out);
-    #endif
-
 }
 
 static void generate_builtin_va_end(node_t* builtin, int reg_out) {
@@ -2356,18 +1608,11 @@ static void generate_builtin_va_end(node_t* builtin, int reg_out) {
 }
 
 static void generate_builtin_va_copy(node_t* builtin, int reg_out) {
+    assert(reg_out != -1);
     generate_location(builtin->first_child, reg_out);
-    #ifndef CCI2_IR
-    int reg_val = register_alloc(builtin->token);
-    #endif
-    #ifdef CCI2_IR
     int reg_val = generate_temporary(NULL);
-    #endif
     generate_node(builtin->last_child, reg_val);
     generate_store(builtin->token, builtin->first_child->type, reg_val, reg_out);
-    #ifndef CCI2_IR
-    register_free(builtin->token, reg_val);
-    #endif
 }
 
 static void generate_builtin_func(node_t* builtin, int reg_out) {

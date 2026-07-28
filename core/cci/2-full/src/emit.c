@@ -84,40 +84,6 @@ void emit_global_divider(void) {
     emit_cstr("\n\n\n");
 }
 
-#ifndef CCI2_IR
-static const char* register_name(uint8_t byte) {
-    switch (byte) {
-        case 0x80: return "r0";
-        case 0x81: return "r1";
-        case 0x82: return "r2";
-        case 0x83: return "r3";
-        case 0x84: return "r4";
-        case 0x85: return "r5";
-        case 0x86: return "r6";
-        case 0x87: return "r7";
-        case 0x88: return "r8";
-        case 0x89: return "r9";
-        case 0x8A: return "ra";
-        case 0x8B: return "rb";
-        case 0x8C: return "rsp";
-        case 0x8D: return "rfp";
-        case 0x8E: return "rpp";
-        case 0x8F: return "rip";
-        default: break;
-    }
-    fatal("Internal error: invalid register.");
-}
-
-void emit_arg_mix(int8_t byte) {
-    if (byte <= -0x71) {
-        emit_char(' ');
-        emit_cstr(register_name(byte & 0xFF));
-    } else {
-        emit_arg_number(byte);
-    }
-}
-#endif
-
 void emit_arg_number(int number) {
     emit_char(' ');
     emit_number(number);
@@ -138,22 +104,6 @@ void emit_arg_invocation(char sigil, const char* label) {
     emit_cstr(label);
 }
 
-#ifndef CCI2_IR
-static void emit_label_def(const char* prefix, int number) {
-    emit_char(':');
-    emit_cstr(prefix);
-    emit_hex_number(number);
-    emit_newline();
-}
-
-static void emit_label_def_str(const string_t* label) {
-    emit_char(':');
-    emit_string(label);
-    emit_newline();
-}
-#endif
-
-#ifdef CCI2_IR
 static void emit_label_def(const char* prefix, int number, string_t* /*nullable*/ user_label) {
     emit_char(':');
     emit_cstr(prefix);
@@ -164,7 +114,6 @@ static void emit_label_def(const char* prefix, int number, string_t* /*nullable*
     }
     emit_newline();
 }
-#endif
 
 static char int_to_hex(unsigned value) {
     if (value <= 9) {
@@ -226,81 +175,31 @@ void emit_string_literal(const string_t* str) {
 }
 
 /**
- * Emits this block and, potentially, blocks that it jumps to recursively.
- *
- * When optimization is enabled, blocks are emitted depth-first following
- * unconditional jumps. This allows us to eliminate the final jump instruction
- * in many blocks. It also means we are assuming all branches are false for the
- * purpose of code layout.
- *
- * This reduces code size but could reduce performance in some circumstances.
- * For example it may move the contents of frequently taken branches far
- * outside the main code path.
+ * Emits the given block.
  */
-static void emit_blocks(function_t* function, block_t* block) {
-    for (;;) {
-        assert(!block->emitted);
-        block->emitted = true;
+static void emit_block(function_t* function, block_t* block) {
+    assert(!block->emitted);
+    block->emitted = true;
 
-        #ifndef CCI2_IR
-        if (block->label != -1) {
-            emit_label_def(JUMP_LABEL_PREFIX, block->label);
-        }
-        if (block->user_label != NULL) {
-            emit_label_def_str(block->user_label);
-        }
-        #endif
-        #ifdef CCI2_IR
-        emit_label_def(JUMP_LABEL_PREFIX, block->label, block->user_label);
-        #endif
+    emit_label_def(JUMP_LABEL_PREFIX, block->label, block->user_label);
 
-        // get the last instruction
-        size_t count = block->instructions_count;
-        if (count == 0) {
-            fatal("Internal error: a basic block cannot be empty.");
-        }
-        instruction_t* last = block_at(block, count - 1);
+    size_t count = block->instructions_count;
 
-        // make sure the block ends properly
-        if (last->opcode != JMP && last->opcode != RET
-                #ifdef CCI2_IR
-                && last->opcode != BR
-                #endif
-        ) {
-            #ifndef CCI2_IR
-            fatal("Internal error: a basic block must end in JMP or RET.");
-            #endif
-            #ifdef CCI2_IR
-            fatal("Internal error: a basic block must end in BR, JMP or RET.");
-            #endif
-        }
+    #ifdef DEBUG
+    // get the last instruction
+    if (count == 0) {
+        fatal("Internal error: a basic block cannot be empty.");
+    }
+    instruction_t* last = block_at(block, count - 1);
 
-        // check if we end in an unconditional jump
-        block_t* next = NULL;
-        #ifndef CCI2_IR
-        if (optimization && last->opcode == JMP && last->invocation_type == '&') {
-            // see if we can emit the target of the jump
-            size_t block_count = vector_count(&function->blocks);
-            for (size_t i = 0; i < block_count; ++i) {
-                block_t* candidate = vector_at(&function->blocks, i);
-                if (candidate->emitted == false && candidate->label == last->invocation_number) {
-                    next = candidate; // found. emit the target block after this one
-                    --count; // skip the last instruction
-                    break;
-                }
-            }
-        }
-        #endif
+    // make sure the block ends properly
+    if (last->opcode != JMP && last->opcode != RET && last->opcode != BR) {
+        fatal("Internal error: a basic block must end in BR, JMP or RET.");
+    }
+    #endif
 
-        for (size_t i = 0; i < count; ++i) {
-            instruction_emit(block_at(block, i));
-        }
-
-        if (next) {
-            block = next;
-            continue;
-        }
-        break;
+    for (size_t i = 0; i < count; ++i) {
+        instruction_emit(block_at(block, i));
     }
 }
 
@@ -326,7 +225,6 @@ void emit_function(function_t* function) {
     emit_string(function->asm_name);
     emit_newline();
 
-    #ifdef CCI2_IR
     // emit return value parameter (if indirect)
     if (function->return_temporary != TEMPORARY_INVALID) {
         emit_cstr("  param ");
@@ -364,13 +262,12 @@ void emit_function(function_t* function) {
 
     // emit variable declarations
     function_emit_variables(function);
-    #endif
 
     size_t count = vector_count(&function->blocks);
     for (size_t i = 0; i < count; ++i) {
         block_t* block = vector_at(&function->blocks, i);
         if (!block->emitted) {
-            emit_blocks(function, block);
+            emit_block(function, block);
         }
     }
 }

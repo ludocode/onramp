@@ -38,15 +38,9 @@ struct token_t;
 extern struct function_t* current_function;
 extern struct block_t* current_block;
 
-#ifndef CCI2_IR
-extern int register_next;
-extern int register_loop_count;
-#endif
-
 void generate_setup(void);
 void generate_teardown(void);
 
-#ifdef CCI2_IR
 /**
  * Generates a temporary, returning its id.
  *
@@ -59,44 +53,12 @@ void generate_teardown(void);
 int generate_temporary(struct string_t* /*nullable*/ name);
 
 int generate_temporary_cstr(const char* cname);
-#endif
 
 /**
  * Compiles the parse tree of given the function into a series of basic blocks
  * of bytecode.
  */
 void generate_function(struct function_t* function);
-
-#ifndef CCI2_IR
-/**
- * Allocates a register, returning its number (i.e. the value 0x80-0x89
- * corresponding to the register r0-r9.)
- *
- * The register must be passed to a subsequent call to
- * register_free(). Registers must be freed in reverse order of
- * allocation.
- *
- * Registers are allocated sequentially from r0-r9. If additional registers are
- * needed, we loop back around to r0 and push the existing value to make room.
- * (This means only the last 10 allocated registers can be used. This is not a
- * problem because most operations use at most four allocated registers.)
- *
- * The given token is used to emit source location information if a push is
- * needed.
- */
-int register_alloc(struct token_t* /*nullable*/ token);
-
-/**
- * Frees a register.
- *
- * The register given must be the last allocated register that has not yet been
- * freed.
- *
- * The given token is used to emit source location information if a pop is
- * needed.
- */
-void register_free(struct token_t* /*nullable*/ token, int reg);
-#endif
 
 /**
  * Compiles a node recursively.
