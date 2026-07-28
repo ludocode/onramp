@@ -33,7 +33,6 @@ OUT=$(BUILD)/cci-2-full
 SRC=$(ROOT)/core/cci/2-full/src
 LIBO=$(ROOT)/core/libo/1-opc
 CPPFLAGS += \
-	-DCCI2_IR \
 	-include $(ROOT)/test/portability.h \
 	-I$(LIBO)/include
 

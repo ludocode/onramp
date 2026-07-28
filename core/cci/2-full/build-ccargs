@@ -5,7 +5,6 @@
 -nostdinc
 -D__onramp_cci_opc__=1
 -D__onramp_libc_opc__=1
--DCCI2_IR
 -Icore/libc/common/include
 -Icore/libo/1-opc/include
 -include __onramp/__predef.h

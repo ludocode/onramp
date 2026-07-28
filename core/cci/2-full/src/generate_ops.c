@@ -426,7 +426,7 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int te
     type_t* type = left->type;
 
     if (type_is_long_long(type)) {
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
 
         // This is similar to generate_equality() below. We do the comparison
         // inline without a function call. This might be a bad idea; maybe it
@@ -472,7 +472,7 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int te
         register_free(node->token, reg_right);
         block_append(current_block, node->token, ADD, RSP, RSP, 16);
         #endif
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         // TODO for now we just call the helper. We can translate the non-IR to
         // IR later.
         generate_arithmetic_function(node, left, right, temp_out,
@@ -586,17 +586,17 @@ static void generate_equality(node_t* node, int out) {
                 SUB, 3), out, temp_diff_low, temp_diff_high);
 
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
         generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__float_ne");
         #endif
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         fatal("TODO IR generate_equality float");
         #endif
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
         generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__double_ne");
         #endif
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         fatal("TODO IR generate_equality double");
         #endif
     } else {
@@ -741,10 +741,10 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         return;
     }
 
-    #ifndef CCI2_IR
+    #ifdef OLD_ASSEMBLY_BACKEND
     int reg_temp = register_alloc(token);
     #endif
-    #ifdef CCI2_IR
+    #ifndef OLD_ASSEMBLY_BACKEND
     int reg_temp = generate_temporary(NULL);
     #endif
     uint32_t align = type_alignment(type);
@@ -770,15 +770,15 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
 
     // If the number of steps is small, unroll it.
     if (steps <= 4) {
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         int reg_addr = generate_temporary(NULL);
         #endif
         for (uint32_t i = 0; i < total; i += step) {
-            #ifndef CCI2_IR
+            #ifdef OLD_ASSEMBLY_BACKEND
             block_append(current_block, token, load, reg_temp, reg_src, i);
             block_append(current_block, token, store, reg_temp, reg_dest, i);
             #endif
-            #ifdef CCI2_IR
+            #ifndef OLD_ASSEMBLY_BACKEND
             instruction_t* instruction = block_append(current_block, token, ADD, 3);
             instruction_set_arg_temporary(instruction, 0, reg_addr);
             instruction_set_arg_temporary(instruction, 1, reg_src);
@@ -801,10 +801,10 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
 
     // Otherwise insert a loop.
     } else {
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
         int reg_i = register_alloc(token);
         #endif
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         int reg_src_p = generate_temporary(NULL);
         int reg_dest_p = generate_temporary(NULL);
         int reg_src_end = generate_temporary(NULL);
@@ -815,11 +815,11 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         function_add_block(current_function, loop_block);
         function_add_block(current_function, end_block);
 
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
         block_append(current_block, token, IMW, ARGTYPE_NUMBER, reg_i, total);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
         #endif
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         instruction_t* instruction = block_append(current_block, token, MOV, 2);
         instruction_set_arg_temporary(instruction, 0, reg_src_p);
         instruction_set_arg_temporary(instruction, 1, reg_src);
@@ -838,14 +838,14 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         #endif
 
         current_block = loop_block;
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
         block_append(current_block, token, JZ, reg_i, '&', JUMP_LABEL_PREFIX, end_block->label);
         block_append(current_block, token, SUB, reg_i, reg_i, step);
         block_append(current_block, token, load, reg_temp, reg_src, reg_i);
         block_append(current_block, token, store, reg_temp, reg_dest, reg_i);
         block_append(current_block, token, JMP, '&', JUMP_LABEL_PREFIX, loop_block->label);
         #endif
-        #ifdef CCI2_IR
+        #ifndef OLD_ASSEMBLY_BACKEND
         // TODO this is really inefficient when we could be using the same
         // index for both.
         // TODO we should also run until the index is 0. see our assembly memcpy()
@@ -880,12 +880,12 @@ void generate_copy(token_t* token, type_t* type, uint32_t count,
         #endif
 
         current_block = end_block;
-        #ifndef CCI2_IR
+        #ifdef OLD_ASSEMBLY_BACKEND
         register_free(token, reg_i);
         #endif
     }
 
-    #ifndef CCI2_IR
+    #ifdef OLD_ASSEMBLY_BACKEND
     register_free(token, reg_temp);
     #endif
 }
