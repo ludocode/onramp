@@ -38,8 +38,8 @@ void transform_parameters(struct symbol_t* symbol);
 
 /**
  * Performs the initial pass of conversions to assembly style using rfp and rpp
- * registers, eliminating almost all IR-specific instructions and instruction
- * forms. The following conversions are made:
+ * registers, eliminating most IR-specific instructions and instruction forms.
+ * The following conversions are made:
  *
  * - `sym` instructions are converted to `imw` and `add rpp`;
  * - loads and stores to symbols are expanded with `imw` inserted, added to `rpp`;

@@ -60,7 +60,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 | Feature                                                       | Status |
 |:--------------------------------------------------------------|:------:|
 | External zero/uninitialized storage (i.e. "bss")              |        |
-| RTL-style IR for optimization                                 |        |
+| RTL-style IR for optimization                                 |    ✓   |
 | Language standard selection (e.g. `-std=c11`)                 |        |
 | Warning flags                                                 |   ½\*  |
 | Rich error messages, notes                                    |   \*   |
@@ -296,7 +296,7 @@ C17 added no new features and only fixed C11 defects. In Onramp, C17 is an alias
 | Feature                                       | Status |
 |:----------------------------------------------|:------:|
 | `[[attributes]]`                              |        |
-| Label without statement                       |    ?   |
+| Label without statement                       |    ✓   |
 | Digit separator                               |    ✓   |
 | `typeof`, `typeof_unqual`                     |        |
 | `nullptr`                                     |        |
@@ -396,7 +396,7 @@ When GNU extensions are enabled, some later version C features are available in 
 | `__attribute__`                                               |        |
 | Statement expressions                                         |    ✓   |
 | `__asm__` name                                                |    ✓   |
-| `case` ranges                                                 |    ✓   |
+| `case` ranges                                                 |        |
 | gnu89-style `inline`                                          |        |
 | Member designators using `:`                                  |        |
 | Computed gotos (`&&label`)                                    |        |

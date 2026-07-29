@@ -14,7 +14,7 @@ In its simplest form, the hex tool converts hex bytes and ignores everything els
 sed 's/[@;#].*//' | xxd -r -p
 ```
 
-This is inspired by the "HEX1" tool from [bcompiler](https://web.archive.org/web/20160502230021fw_/http://homepage.ntlworld.com/edmund.grimley-evans/bcompiler.html) and the "hex0" tool from [stage0](https://bootstrapping.miraheze.org/wiki/Stage0). (See [Inspiration and Resources](inspirattion.md) for more.) Unlike those, additional hex features are not considered later stages of this tool but of [`ld`](../core/ld/), the Onramp linker. This hex tool instead adds optional address assertions to help write larger architecture-specific programs without labels.
+This is inspired by the "HEX1" tool from [bcompiler](https://web.archive.org/web/20160502230021fw_/http://homepage.ntlworld.com/edmund.grimley-evans/bcompiler.html) and the "hex0" tool from [stage0](https://bootstrapping.miraheze.org/wiki/Stage0). (See [Inspiration and Resources](../../docs/inspiration.md) for more.) Unlike those, additional hex features are not considered later stages of this tool but of [`ld`](../../core/ld/), the Onramp linker. This hex tool instead adds optional address assertions to help write larger architecture-specific programs without labels.
 
 
 

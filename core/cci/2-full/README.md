@@ -1,23 +1,23 @@
 # Onramp Compiler -- Final Stage
 
-The final stage Onramp compiler is simple and fairly traditional. It uses a handwritten recursive-descent parser, it generates a simple parse tree, and it compiles it (poorly) to basic blocks in memory. Minor optimizations are performed on the parse tree.
+The final stage Onramp compiler is simple and fairly traditional. It uses a handwritten recursive-descent parser, it generates a simple parse tree, and it compiles to basic blocks in memory. Minor optimizations are performed on the parse tree.
+
+The compiler produces [Onramp Intermediate Representation](../../../docs/intermediate-representation.md), a simple assembly-like language. This is optimized and converted to assembly by the [code generator cg/1](../../cg/1-full/).
 
 Despite its simplicity, we aim to implement most of C11 with many C23 features and many GNU and other extensions.
 
-The compiler itself also has some optimizations in its implementation. For example it uses [string interning](https://en.wikipedia.org/wiki/String_interning) to make token comparisons fast. We also intern some base types. In combination with a faster libc, the final compiler is much faster than previous stages, especially after recompiling itself with optimizations.
-
 The compiler implements a command-line interface similar to GCC and friends, but extension usage causes errors by default. Pass `-fgnu-extensions` or a `-std=gnu*` mode to make it behave more like GCC. (When passed to the driver, these also define `__GNUC__`.) See the [Usage Guide](../../../docs/usage-guide.md) for details.
 
-NOTE: The compiler is currently being converted to generate [intermediate representation](../../../docs/intermediate-representation.md) instead of assembly. In the meantime you'll see lots of `#ifdef CCI2_IR` in the code. The assembly generation will be removed once the IR is complete.
+NOTE: The compiler has recently been converted in-place to generate [intermediate representation](../../../docs/intermediate-representation.md) instead of assembly. You may see lots of `#ifdef CCI2_IR` remaining in the code. The assembly generation will be removed once the IR is complete.
 
 
 
 ## Components
 
 - `arithmetic` - Wrappers for `long long`, `float` and `double` math.
-- `block` - A basic block of instructions, starting with a label and ending in a `jmp` or `ret`.
+- `block` - A basic block of instructions, starting with a label and ending in a `br`, `jmp` or `ret`.
 - `common` - Common utility code such as error handling functions.
-- `emit` - Low-level functions for writing the output file: bytes and numbers, opcode and register names, etc.
+- `emit` - Low-level functions for writing the output file: bytes and numbers, opcodes and temporaries, etc.
 - `enum` - The container for an enum and its values.
 - `function` - The container for a function. Contains its parse tree and its list of basic blocks.
 - `generate` - Code generation. Converts the parse tree into basic blocks of instructions.
@@ -44,6 +44,8 @@ opC only supports 32-bit integer values. It does not have `long long`, `float` o
 We define functions `llong_*()`, `double_*()` and `float_*()` for performing arithmetic. When bootstrapping, these are wrappers for the corresponding arithmetic functions in the Onramp libc. When the compiler rebuilds itself, or when compiling with a native compiler (e.g. when unit testing), these instead wrap the normal C operators.
 
 opC does not have function pointers, and the omC preprocessor does not have function-like macros. In cases where these would have been useful, we have to do other workarounds instead. The code can end up being quite a bit more verbose than you might expect.
+
+NOTE: The compiler (and its dependencies) are currently being transitioned to be built with cci/0 rather than cci/1 so that cci/1 can be deleted. This is introducing even more limitations; in particular, functions are limited to four parameters, and variadic arguments are not supported.
 
 
 
@@ -144,26 +146,11 @@ SWITCH `switch` void
 
 ## Code Generation
 
-The tree is compiled directly to basic blocks of assembly. We do not (yet) have any kind of low-level intermediate representation.
+The tree is compiled to basic blocks of IR in memory.
 
-The most important function is `generate_node()`. This takes a node and a numbered register (`r0`-`r9`) into which the expression should compute its value. If the expression computes a value that is passed indirectly (such as a struct or a 64-bit value), the register contains the address of where the value should be stored.
+The most important function is `generate_node()`. This takes a node and a temporary into which the expression should compute its value. If the expression computes a value that is passed indirectly (such as a struct or a 64-bit value), the temporary contains the address of where the value should be stored; otherwise, the expression must assign a value to the temporary.
 
-Whenever a value is passed indirectly, the parent of the node is responsible for providing storage for it. This usually happens in `generate_cast()`, which is the main reason the parser casts all expression statements to void. For example, a statement that simply assigns one struct to another, like `b = a;`, looks like this:
-
-```
-CAST void
-└─ASSIGN `=` struct P
-  ├─ACCESS `b` struct P
-  └─ACCESS `a` struct P
-```
-
-The generation of the CAST node allocates the stack space for a `struct P` and passes it the ASSIGN node. The ASSIGN node loads `a` into this stack space, then stores it into `b`, leaving a copy in the stack space. This makes it possible to chain assignments, for example `c = (b = a)`. (The code generator does not copy `a` to `b` directly because it is not smart enough to realize that the result of the `b = a` expression is unused.)
-
-The register allocator is as simple as possible. Registers are allocated sequentially from r0 to r9 and freed in reverse order of allocation. If additional registers are needed, we loop back around to r0 and push the existing value to make room. (This means only the last 10 allocated registers can be used at any time. This is not a problem because operations only use a few registers which are always on top of the register stack.)
-
-All local variables are spilled at all times. We don't (yet) do any kind of register allocation for variables. This has poor performance but the code generation is extremely simple.
-
-The code generator is by far the weakest part of the compiler, and probably the weakest part of all of the final stage Onramp tools. There isn't much focus on good code generation at this point since it's purely for performance; a more important goal is to get everything working first. I hope to one day read a book about compilers to learn how to do this properly.
+Whenever a value is passed indirectly, the parent of the node is responsible for providing storage for it. This often happens in `generate_cast()`, which is the main reason the parser casts all expression statements to void. Storage is typically generated by a `var` instruction; the code generator turns this into space in the stack frame.
 
 
 

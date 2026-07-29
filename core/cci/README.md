@@ -2,17 +2,18 @@
 
 `cci` is the Onramp preprocessed C compiler. It takes preprocessed C as input and outputs Onramp assembly.
 
-This is a description of the implementation stages of the compiler. The input to the compiler is (a subset of) the C programming language after preprocessing, the subset of which depends on the stage. For a specification of the output of the compiler, see [Onramp assembly](../../docs/assembly.md).
+This is a description of the implementation stages of the compiler. The input to the compiler is (a subset of) the C programming language after preprocessing, the subset of which depends on the stage. The output also depends on the stage; see below.
 
 (It's called "`cci`" because it compiles `.i` files. The analogous program in other compilers might be called `cc1`, except a `cc1` binary typically also handles preprocessing, which in Onramp is the separate program `cpp`.)
 
 The compiler is implemented in three stages:
 
-- [`0-omc`](0-omc/) is written in compound assembly and compiles [Onramp Minimal C (omC)](../../docs/minimal-c.md). It is a single-pass compiler designed to be as simple as possible with no optimizations whatsoever.
+- [`0-omc`](0-omc/) is written in compound assembly and compiles [Onramp Minimal C (omC)](../../docs/minimal-c.md). It is a single-pass compiler designed to be as simple as possible. It emits a subset of [Onramp assembly](../../docs/assembly.md) which can be optimized by the [first stage code generator](../cg/0-asm/).
 
-- [`1-opc`](1-opc/) is written in omC and compiles [Onramp Practical C (opC)](../../docs/practical-c.md). This aims to support a large subset of modern C sufficient to comfortably implement the final stage. It is also a single-pass compiler with only trivial micro-optimizations where it is convenient.
+- [`1-opc`](1-opc/) is written in omC and compiles [Onramp Practical C (opC)](../../docs/practical-c.md). This aims to support a large subset of modern C sufficient to comfortably implement the final stage. It is also a single-pass compiler emitting assembly like the previous stage.
 
-- [`2-full`](2-full/) is written in opC and aims to implement most of the C2x language plus several GNU extensions. This adds function pointers, `long long`, floating point and more. It should be sufficient to compile any modern C software.
+- [`2-full`](2-full/) is written in opC and aims to implement most of C23 plus several extensions. This adds function pointers, `long long`, floating point and more. It should be sufficient to compile most modern C software. It emits an [intermediate representation (IR)](../../docs/intermediate-representation.md) for the [final stage code generator](../cg/1-full/).
+
 
 
 

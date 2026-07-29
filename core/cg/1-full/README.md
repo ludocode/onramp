@@ -11,11 +11,10 @@ Unlike the [previous stage code generator](../0-asm) which took assembly as inpu
 The code generator transforms one function at a time. For each function, it performs the following steps:
 
 - The IR of the function is parsed into memory.
-- Variables are created, along with the function preamble and epilogue (parameter passing, `enter`/`leave`, `ret` transformation.)
+- Variables, parameters, and symbols are converted to be relative to `rfp` and `rpp`.
 - The IR is (optionally) optimized.
 - Register allocation and stack frame layout are performed. Additional variables are created for spilled temporaries.
 - The IR is transformed into assembly, spilling temporaries, frame offsets and mix-type bytes.
-- The assembly is (optionally) optimized.
 - The assembly is emitted to the output file.
 - All data is freed and we move on to the next function.
 
@@ -27,11 +26,12 @@ The IR is represented in memory as a set of basic blocks, each containing a sequ
 
 Each `var` instruction, each parameter, and each spilled temporary creates a variable. A variable is a fixed offset from the frame pointer representing space for data in the stack frame.
 
-Parameters and `var` instructions are replaced with `add` instructions that add the variable offset to `rfp`. For example, given the following function:
+All uses of variables and parameters are converted to be relative to `rfp`. For example, given the following function:
 
 ```c
-void foo(x) {
+void foo(int x) {
     int y = 1;
+    foo(&x);
     // ...
 }
 ```
@@ -40,29 +40,42 @@ The (simplified) IR is something like:
 
 ```asm
 =foo
-    %x
-:_L1
+    param %x
     var %y 4 %
+:_L1
     stw 1 %y
+    call % ^foo %x end
     ; ...
 ```
 
-Immediately after parsing, variables are assigned to each parameter and `var`, and they are converted to instructions like this:
+Wherever %x and %y are encounted, they are made relative to rfp. In some cases this can be done inline; in other cases it requires an extra instruction. The result is:
 
 ```asm
 =foo
-    enter
-    stw r0 rfp @x
-    add %x rfp @x
 :_L1
-    add %y rfp @y
-    stw 1 %y
+    stw 1 rfp @y
+    add %1 rfp @x
+    call % ^foo %1 end
     ; ...
 ```
 
-Here `@x` and `@y` are variables: they represent a constant number, a fixed offset in the stack frame where data can be stored. These numbers are mostly not assigned yet so we represent them in debug output with `@`. Most offsets are negative, but parameters beyond the first four are assigned positive offsets because they are passed on the stack.
+Here `@x` and `@y` are variable offsets. They represent a constant number, a fixed offset in the stack frame where data can be stored. These numbers are mostly not assigned yet so we represent them in debug output with `@`. Most offsets are negative, but parameters beyond the first four are assigned positive offsets because they are passed on the stack.
 
-Optimizations can then eliminate many of these temporaries, and in some cases also the variables. The register allocator then runs. If temporaries need to be spilled, the register allocator creates additional variables for them.
+(Note that the parameter `x` is not stored to `rfp @x` yet; a store from `r0` is inserted later after stack frame layout.)
+
+Optimizations can then eliminate some of the variables. The register allocator then runs. If temporaries need to be spilled, the register allocator creates additional variables for them.
+
+The values for variable offsets are assigned later during stack frame layout.
+
+
+
+## Optimization
+
+At this stage, optimization passes are run on the IR if a `-O` argument was given.
+
+A forward pass is run to propagate temporaries. Currently only constants are propagated.
+
+Then a dead store elimination pass is run. Any instructions that output a temporary that is not used are converted to "nop" (no operation.)
 
 
 
@@ -175,6 +188,19 @@ ldw r8 rfp -4
 stw r8 0 r9
 ```
 
+As before, the same register is used if the variable offset is too large. Suppose `%x`, `%y` and `%z` are at -200, -300 and -400 respectively. The result is:
+
+```asm
+imw r8 -300
+ldw r8 rfp r8
+imw r9 -400
+ldw r9 rfp r9
+add r9 r8 r9
+imw r8 -200
+ldw r8 rfp r8
+stw r8 0 r9
+```
+
 ### Call Instruction
 
 A call instruction is replaced with the following steps:
@@ -188,6 +214,6 @@ A call instruction is replaced with the following steps:
 
 There's a bit of tricky register permutation necessary. For example if the first argument is in r1, the second argument is in r2, and the third argument is in r0, these registers need to be rotated. r8 and r9 are used to break cycles.
 
-The quality of the resulting assembly isn't great but it works. We rely on optimization of the final assembly (similar to cg/0) to clean up the results. For example, register renaming is used to move the computation of function arguments directly into registers r0-r3.
+The quality of the resulting assembly isn't great but it works. We may need to rely on optimization of the final assembly (similar to cg/0) to clean up the results. For example, register renaming could move the computation of function arguments directly into registers r0-r3. This is not yet implemented.
 
-(An eventual optimization pass will tentatively assign temporaries to the registers they need to occupy in call instructions to reduce register moves. This is not yet implemented.)
+(An eventual optimization pass will tentatively assign temporaries to the registers they need to occupy in call instructions to reduce register moves. This is not yet implemented either.)
