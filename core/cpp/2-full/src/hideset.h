@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -83,6 +83,18 @@ hideset_t* hideset_new(hideset_t* /*nullable*/ old, string_t* string);
 hideset_t* hideset_new_intersection(hideset_t* /*nullable*/ old, hideset_t*
         /*nullable*/ closing_paren, string_t* string);
 
+/**
+ * Create a new hideset that is the union of the two given.
+ */
+hideset_t* hideset_new_union(hideset_t* left, hideset_t* right);
+
+/**
+ * Add all elements of the other hideset to this one.
+ */
+void hideset_add_all(hideset_t* hideset, const hideset_t* other);
+
 bool hideset_contains(hideset_t* hideset, string_t* name);
+
+void hideset_print(hideset_t* hideset);
 
 #endif

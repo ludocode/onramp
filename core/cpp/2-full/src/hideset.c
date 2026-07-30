@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -61,23 +61,32 @@ static void hideset_add(hideset_t* hideset, string_t* string) {
     table_put(&hideset->table, (table_entry_t*)entry, string_hash(string));
 }
 
-hideset_t* hideset_new(hideset_t* /*nullable*/ old, string_t* string) {
+void hideset_add_all(hideset_t* hideset, const hideset_t* other) {
+    for (table_entry_t** bucket = table_first_bucket(&((hideset_t*)other)->table); bucket;
+            bucket = table_next_bucket(&((hideset_t*)other)->table, bucket))
+    {
+        for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
+            hideset_add(hideset, ((hideset_entry_t*)entry)->string);
+        }
+    }
+}
+
+static hideset_t* hideset_new_impl(void) {
     hideset_t* hideset = malloc(sizeof(hideset_t));
     hideset->refcount = 1;
     table_init(&hideset->table);
+    return hideset;
+}
+
+hideset_t* hideset_new(hideset_t* /*nullable*/ old, string_t* string) {
+    hideset_t* hideset = hideset_new_impl();
 
     // add the current macro to the hideset
     hideset_add(hideset, string);
 
     // copy entries from old hideset
     if (old) {
-        for (table_entry_t** bucket = table_first_bucket(&old->table); bucket;
-                bucket = table_next_bucket(&old->table, bucket))
-        {
-            for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
-                hideset_add(hideset, ((hideset_entry_t*)entry)->string);
-            }
-        }
+        hideset_add_all(hideset, old);
     }
 
     return hideset;
@@ -86,9 +95,7 @@ hideset_t* hideset_new(hideset_t* /*nullable*/ old, string_t* string) {
 hideset_t* hideset_new_intersection(hideset_t* /*nullable*/ old, hideset_t*
         /*nullable*/ closing_paren, string_t* current)
 {
-    hideset_t* hideset = malloc(sizeof(hideset_t));
-    hideset->refcount = 1;
-    table_init(&hideset->table);
+    hideset_t* hideset = hideset_new_impl();
 
     // add the current macro to the hideset
     hideset_add(hideset, current);
@@ -124,6 +131,13 @@ hideset_t* hideset_new_intersection(hideset_t* /*nullable*/ old, hideset_t*
     return hideset;
 }
 
+hideset_t* hideset_new_union(hideset_t* left, hideset_t* right) {
+    hideset_t* hideset = hideset_new_impl();
+    hideset_add_all(hideset, left);
+    hideset_add_all(hideset, right);
+    return hideset;
+}
+
 bool hideset_contains(hideset_t* hideset, string_t* string) {
     for (table_entry_t* entry = table_bucket(&hideset->table, string_hash(string));
             entry; entry = table_entry_next(entry))
@@ -133,4 +147,24 @@ bool hideset_contains(hideset_t* hideset, string_t* string) {
         }
     }
     return false;
+}
+
+void hideset_print(hideset_t* hideset) {
+    putchar('{');
+    bool first = true;
+    for (table_entry_t** bucket = table_first_bucket(&hideset->table); bucket;
+            bucket = table_next_bucket(&hideset->table, bucket))
+    {
+        for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
+            string_t* string = ((hideset_entry_t*)entry)->string;
+
+            if (first) {
+                first = false;
+            } else {
+                putchar(',');
+            }
+            fputs(string->bytes, stdout);
+        }
+    }
+    putchar('}');
 }

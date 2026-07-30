@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -100,7 +100,7 @@ token_t* stream_take(stream_t* stream) {
 void stream_print_stack(stream_t* stream) {
     if (vector_is_empty(&stream->stack)) {
         printf("    stack is empty.\n");
-    } else for (size_t i = 0; i < vector_count(&stream->stack); ++i) {
+    } else for (size_t i = vector_count(&stream->stack); i-- != 0;) {
         printf("    ");
         token_print(vector_at(&stream->stack, i));
     }

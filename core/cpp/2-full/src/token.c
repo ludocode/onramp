@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -143,19 +143,7 @@ void token_print(token_t* token) {
 
     if (token->hideset) {
         fputs(" hideset:", stdout);
-        for (table_entry_t** bucket = table_first_bucket(&token->hideset->table); bucket;
-                bucket = table_next_bucket(&token->hideset->table, bucket))
-        {
-            bool first = true;
-            for (table_entry_t* entry = *bucket; entry; entry = table_entry_next(entry)) {
-                if (first) {
-                    first = false;
-                } else {
-                    putchar(',');
-                }
-                fputs(((hideset_entry_t*)entry)->string->bytes, stdout);
-            }
-        }
+        hideset_print(token->hideset);
     }
 
     fputs(">\n", stdout);

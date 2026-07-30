@@ -268,7 +268,7 @@ static token_t* macro_collect_args(token_t* invocation, macro_t* macro,
             // Handle end of argument list
             if (is_paren_close) {
                 //trace("Collected args:\n"); for (size_t i = 0; i < vector_count(args); ++i) {
-                    //trace("  Arg:\n"); for (size_t j = 0; j < vector_count(vector_at(args, i)); ++j) {//trace("    "); token_print(vector_at(vector_at(args, i), j));}}
+                    //trace("  Arg:\n"); for (size_t j = 0; j < vector_count(vector_at(args, i)); ++j) {trace("    "); token_print(vector_at(vector_at(args, i), j));}}
                 break;
             }
 
@@ -365,7 +365,7 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
         stream_t* stream, hideset_t* hideset, location_t* location,
         bool handle_defined)
 {
-    //trace("Expanding macro %s\n", macro->name->value->bytes);
+    //trace("Expanding macro %s with hideset: ", macro->name->value->bytes); hideset_print(hideset); trace("\n");
 
     // If this is a builtin macro (e.g. __FILE__, __LINE__), delegate to the
     // function that implements it.
@@ -385,7 +385,7 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
         --p;
         token_t* current = *p;
         int param = macro_param(macro, current);
-        //trace("Expanding macro token %s\n", current->value->bytes);
+        //trace("Expanding macro token: "); token_print(current);
 
         // Find the previous and next non-whitespace tokens. We need to
         // know if they're # or ##.
@@ -512,8 +512,9 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
             // Not a parameter; just push it
             // TODO do we recursively expand object-like macros here? I'm
             // pretty sure we don't but this might be wrong.
-            //trace("Pushing %s to stack with new hideset.\n", current->value->bytes);
-            stream_push(stream, token_new_expansion(current, location, hideset));
+            token_t* token = token_new_expansion(current, location, hideset);
+            //trace("Not a parameter. Pushing to stack: "); token_print(token);
+            stream_push(stream, token);
             continue;
         }
 
@@ -560,6 +561,7 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
 
         if (string_equal(current->value, STR_VA_ARGS) && args_count < params_count) {
             // __VA_ARGS__ but the variadic argument was omitted. Nothing to do.
+            //trace("__VA_ARGS__ with no variadic args.");
             continue;
         }
 
@@ -576,11 +578,14 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
 
             macro_expand_stream(&arg_stream, &arg_buffer, handle_defined, false);
 
-            // Push the resulting token list in reverse order.
+            // Push the resulting token list in reverse order. Each token needs
+            // to have its hideset merged with the one from our macro.
             //trace("Pushing argument replacement list\n");
             for (size_t j = vector_count(&arg_buffer); j-- > 0;) {
                 token_t* t = vector_at(&arg_buffer, j);
-                stream_push(stream, token_new_expansion(t, location, hideset));
+                hideset_t* union_set = t->hideset ? hideset_new_union(t->hideset, hideset) : hideset_ref(hideset);
+                stream_push(stream, token_new_expansion(t, location, union_set));
+                hideset_deref(union_set);
                 token_deref(t);
             }
             vector_destroy(&arg_buffer);
@@ -588,13 +593,14 @@ static void macro_expand(token_t* token, macro_t* macro, vector_t* /*nullable*/ 
             continue;
         }
     }
-    //trace("Done expanding macro %s\n", macro->name->value->bytes);
+    //trace("Done expanding macro %s. Stack is:\n", macro->name->value->bytes); stream_print_stack(stream);
 }
 
 void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool handle_defined, bool stop_on_newline) {
     //trace("Starting stream expansion at token: "); token_print(stream_peek(stream));
 
     for (;;) {
+        //trace("macro_expand_stream() loop iteration\n");
         token_t* token = stream_peek(stream);
         // TODO for now we back out on directives, need to replace preprocess_run() with this
         if (token->type == token_type_directive || token->type == token_type_end) {
@@ -654,6 +660,7 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
         hideset_t* hideset;
 
         if (macro->params == NULL) {
+            //trace("Macro does not take args.\n");
 
             // Generate a hideset for expanded tokens
             hideset = hideset_new(token->hideset, macro->name->value);
@@ -688,6 +695,8 @@ void macro_expand_stream(stream_t* stream, vector_t* /*nullable*/ output, bool h
                     macro->name->value);
             token_deref(paren_close);
         }
+
+        //trace("Resulting hideset: "); hideset_print(hideset); trace("\n");
 
         // Perform the expansion
         macro_expand(token, macro, args, stream, hideset, &token->location, handle_defined);
