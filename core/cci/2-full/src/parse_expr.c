@@ -647,23 +647,26 @@ static node_t* parse_postfix_expression(void) {
 
 static node_t* parse_sizeof(void) {
     node_t* node = node_new_lexer(NODE_SIZEOF);
-    node_t* child;
+    node_t* child = NULL;
 
-    if (lexer_accept(STR_PAREN_OPEN)) {
-
-        // Check for sizeof(type). The type declaration must be abstract.
+    // Check for sizeof(type). The type declaration must be abstract.
+    if (lexer_is(STR_PAREN_OPEN)) {
+        token_t* paren = lexer_take();
         type_t* type = try_parse_type();
         if (type) {
             // It's a type.
             child = node_new(NODE_TYPE);
             child->type = type;
+            token_deref(paren);
+            lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression in `sizeof(`");
         } else {
-            // Otherwise it's a parenthesized expression.
-            child = parse_expression();
+            // Otherwise we need to put the paren back as it starts a unary
+            // expression. See test expr-sizeof-unary-paren.c
+            lexer_push(paren);
         }
+    }
 
-        lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression in `sizeof(`");
-    } else {
+    if (!child) {
         // sizeof without parens has high precedence. We only consume a unary
         // expression.
         child = parse_unary_expression();
