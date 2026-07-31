@@ -2,6 +2,9 @@
 -with-cci=output/intermediate/cci-1-opc/cci.oe
 -with-cg=output/intermediate/cg-0-asm/cg.oe
 -with-as=output/intermediate/as-1-compound/as.oe
+-mabi=bootstrap
+-O
+-g
 -nostdinc
 -D__onramp_cci_opc__=1
 -D__onramp_libc_opc__=1

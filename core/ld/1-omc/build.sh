@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -44,7 +44,7 @@ onrampvm output/intermediate/cci-0-omc/cci.oe \
     output/intermediate/ld-1-omc/ld.i \
     -o output/intermediate/ld-1-omc/ld-unopt.os
 
-echo Optimizing cpp/1-omc
+echo Optimizing ld/1-omc
 onrampvm output/intermediate/cg-0-asm/cg.oe \
     output/intermediate/ld-1-omc/ld-unopt.os \
     -o output/intermediate/ld-1-omc/ld.os

@@ -61,8 +61,15 @@
     #endif
 #endif
 
-// TODO this needs to be defined by -mabi=bootstrap, see #40. For now it's on
-// all the time.
-#define __onramp_abi_bootstrap__ 1
+// This is a bit inelegant: We can't pass -mabi=bootstrap to cc when compiling
+// with cci/0 because it won't understand the option, but cc doesn't define
+// __onramp_abi_bootstrap__ without it. Instead we define it for cci/0 here.
+#ifdef __onramp_cci_omc__
+    #define __onramp_abi_bootstrap__ 1
+#endif
+// We also need to define it for cci/1 for unit tests.
+#ifdef __onramp_cci_opc__
+    #define __onramp_abi_bootstrap__ 1
+#endif
 
 #endif

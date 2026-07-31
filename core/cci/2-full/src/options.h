@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -31,6 +31,7 @@ struct token_t;
 
 extern bool option_debug_info;
 extern bool optimization;
+extern bool abi_bootstrap;
 
 extern int dump_ast;
 #define DUMP_AST_OFF 0

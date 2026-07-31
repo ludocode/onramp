@@ -124,6 +124,7 @@ static bool nostdlib;
 static bool nostddef;
 static bool debug_info;
 static bool optimize;
+static bool abi_bootstrap;
 static bool emit_ir;
 static bool dump_macros;
 static char* wrap_header;
@@ -462,6 +463,7 @@ static bool try_parse_misc(char*** argv) {
     if (try_parse_misc_option(argv, "-nostddef", &nostddef)) {return true;}
     if (try_parse_misc_option(argv, "-dM", &dump_macros)) {return true;}
     if (try_parse_misc_option(argv, "-emit-ir", &emit_ir)) {return true;}
+    if (try_parse_misc_option(argv, "-mabi=bootstrap", &abi_bootstrap)) {return true;}
 
     if (try_parse_misc_option(argv, "-###", &disable_run)) {
         // -### implies -v
@@ -984,6 +986,9 @@ static void preprocess_file(const char* input, const char* output) {
     if (dump_macros) {
         string_array_append(&args, &args_count, &args_capacity, "-dM");
     }
+    if (abi_bootstrap) {
+        string_array_append(&args, &args_count, &args_capacity, "-D__onramp_abi_bootstrap__=1");
+    }
 
     size_t i = 0;
     while (i < cpp_opts_count) {
@@ -1013,6 +1018,9 @@ static void compile_file(const char* input, const char* output) {
     }
     if (optimize) {
         string_array_append(&args, &args_count, &args_capacity, "-O");
+    }
+    if (abi_bootstrap) {
+        string_array_append(&args, &args_count, &args_capacity, "-mabi=bootstrap");
     }
 
     string_array_append(&args, &args_count, &args_capacity, (char*)input);

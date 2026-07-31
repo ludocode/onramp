@@ -2,6 +2,7 @@
 -with-cci=output/intermediate/cci-2-full/cci.oe
 -with-cg=output/intermediate/cg-1-full/cg.oe
 -with-as=output/intermediate/as-1-compound/as.oe
+-mabi=bootstrap
 -O
 -g
 -nostdinc

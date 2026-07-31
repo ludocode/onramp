@@ -3,6 +3,7 @@
 -with-cg=output/intermediate/cg-0-asm/cg.oe
 -with-as=output/intermediate/as-1-compound/as.oe
 -nostdinc
+-mabi=bootstrap
 -D__onramp_cci_opc__=1
 -D__onramp_libc_opc__=1
 -Icore/libc/common/include

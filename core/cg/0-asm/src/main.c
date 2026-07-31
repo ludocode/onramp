@@ -99,7 +99,7 @@ int main(int argc, char** argv) {
             continue;
         }
 
-        // optimize
+        // misc options
         if (0 == strcmp("-O", *(argv + i))) {
             // Ignored. We always optimize.
             // (We could support this trivially but without it the output would
@@ -109,11 +109,17 @@ int main(int argc, char** argv) {
             i = (i + 1);
             continue;
         }
+        if (0 == strcmp("-g", *(argv + i))) {
+            // Ignored, we always emit debug info
+            i = (i + 1);
+            continue;
+        }
 
         // unrecognized option
         if (**(argv + i) == '-') {
-            fputs("ERROR: Unsupported option: ", stderr);
+            fputs("ERROR: Unsupported option: `", stderr);
             fputs(*(argv + i), stderr);
+            fputc('`', stderr);
             usage(*argv);
         }
 

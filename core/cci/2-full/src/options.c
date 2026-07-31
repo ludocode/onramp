@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -204,6 +204,7 @@ static const char** warning_args;
 
 bool option_debug_info;
 bool optimization;
+bool abi_bootstrap;
 int dump_ast;
 static bool werror;
 
@@ -493,6 +494,10 @@ static bool options_parse_misc(const char* arg) {
     }
     if (0 == strcmp(arg, "-O")) {
         optimization = true;
+        return true;
+    }
+    if (0 == strcmp(arg, "-mabi=bootstrap")) {
+        abi_bootstrap = true;
         return true;
     }
 

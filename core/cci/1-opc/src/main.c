@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -71,10 +71,28 @@ int main(int argc, const char** argv) {
             continue;
         }
 
+        // misc options
+        if (0 == strcmp("-mabi=bootstrap", *(argv + i))) {
+            // ignored, this stage only supports the bootstrap abi
+            i = (i + 1);
+            continue;
+        }
+        if (0 == strcmp("-O", *(argv + i))) {
+            // ignored, optimization is done by cg/0
+            i = (i + 1);
+            continue;
+        }
+        if (0 == strcmp("-g", *(argv + i))) {
+            // ignored, we always emit debug info
+            i = (i + 1);
+            continue;
+        }
+
         // unrecognized option
         if (**(argv + i) == '-') {
-            fputs("ERROR: Unsupported option: ", stderr);
+            fputs("ERROR: Unsupported option: `", stderr);
             fputs(*(argv + i), stderr);
+            fputc('`', stderr);
             usage(*argv);
         }
 
