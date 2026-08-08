@@ -449,15 +449,23 @@ int type_integer_rank(type_t* type) {
 
 size_t base_size(base_t base) {
     switch (base) {
+
+        // char
         case BASE_VOID: // fallthrough, GNU extension; -Wpointer-arith checked during parse
-        case BASE_BOOL:
         case BASE_CHAR:
         case BASE_SIGNED_CHAR:
         case BASE_UNSIGNED_CHAR:
+        #ifndef __onramp_abi_bootstrap__
+        case BASE_BOOL:
+        #endif
             return 1;
+
+        // short
         case BASE_SIGNED_SHORT:
         case BASE_UNSIGNED_SHORT:
             return 2;
+
+        // int
         case BASE_SIGNED_INT:
         case BASE_UNSIGNED_INT:
         case BASE_SIGNED_LONG:
@@ -465,12 +473,18 @@ size_t base_size(base_t base) {
         case BASE_FLOAT:
         case BASE_ENUM:
         case BASE_VA_LIST:
+        #ifdef __onramp_abi_bootstrap__
+        case BASE_BOOL:
+        #endif
             return 4;
+
+        // long
         case BASE_SIGNED_LONG_LONG:
         case BASE_UNSIGNED_LONG_LONG:
         case BASE_DOUBLE:
         case BASE_LONG_DOUBLE:
             return 8;
+
         case BASE_RECORD:
             // should be handled in type_size()
             fatal("Internal error: cannot take the base size of a record.");

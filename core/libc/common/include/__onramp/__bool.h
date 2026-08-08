@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2024 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -29,18 +29,18 @@
 // _Bool is int (with a size of 4 bytes.) It's not the same semantics as _Bool
 // but it's good enough.
 //
-// (We use int instead of char to prevent truncating conversions from losing
-// upper bits. If we store a high bit in a bool and then test that bool in an
-// if statement, it should evaluate as true.)
+// We use int instead of char to prevent truncating conversions from losing
+// upper bits. (If we store a high bit in a bool and then test that bool in an
+// if statement, we want it to evaluate as true. _Bool used to be char in the
+// bootstrap stages but it caused exactly this kind of bug.)
 //
-// In the final stage, _Bool is a fundamental type with a size of 1 byte. It's
-// effectively a 1-bit integer, except that assigning any non-zero value to it
-// makes it 1.
+// Under the final stage compiler, when compiling with -mabi=bootstrap, _Bool
+// is still 4 bytes so that objects built with different stages can still be
+// linked together.
 //
-// TODO make sure that these definitions of _Bool are ABI-compatible, otherwise
-// we wouldn't be able to link cci/1 objects with cci/2 objects. This *should*
-// be safe already; we just need to make sure we never have high bits set when
-// we pass or return a _Bool.
+// In the final ABI, _Bool has a size of 1 byte. This matches the size of _Bool
+// on all modern platforms. It's effectively a 1-bit integer stored in 8 bits,
+// except that assigning any non-zero value to it makes it 1.
 
 #ifdef __onramp_cci_omc__
     typedef int _Bool;
