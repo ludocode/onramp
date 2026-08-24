@@ -95,7 +95,7 @@ int main(int argc, char** argv) {
 
         // debug info
         if (0 == strcmp("-g", argv[i])) {
-            // Ignored. We always forward along debug info.
+            // Ignored. We always parse and generate debug info.
             ++i;
             continue;
         }

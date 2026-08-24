@@ -39,6 +39,7 @@ static string_t* last_filename;
 static unsigned last_line;
 
 static void emit_location_force(location_t* location);
+static void emit_cstr(const char* cstr);
 
 static void emit_set_last_filename(string_t* /*nullable*/ filename) {
     if (filename) {
@@ -54,6 +55,9 @@ void emit_setup(void) {
     location_t* location = location_new_current();
     emit_location_force(location);
     location_delete(location);
+
+    // We always emit debug info in manual mode.
+    emit_cstr("#line manual\n");
 }
 
 void emit_teardown(void) {
