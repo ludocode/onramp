@@ -27,10 +27,11 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "token.h"
-#include "record.h"
 #include "enum.h"
+#include "options.h"
+#include "record.h"
 #include "scope.h"
+#include "token.h"
 
 static type_t* type_clone(type_t* type) {
     type_t* clone = malloc(sizeof(type_t));
@@ -799,4 +800,15 @@ static void type_add_builtin(const char* cname, base_t base) {
 
 void type_create_builtins(void) {
     type_add_builtin("__builtin_va_list", BASE_VA_LIST);
+}
+
+bool type_is_redirected(type_t* type) {
+    if (abi_bootstrap) {
+        return false;
+    }
+    if (type_is_declarator(type)) {
+        return type->declarator == DECLARATOR_ARRAY
+                || type->declarator == DECLARATOR_INDETERMINATE;
+    }
+    return type->base == BASE_RECORD;
 }

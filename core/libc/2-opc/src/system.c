@@ -53,8 +53,14 @@ extern int main(int argc, char** argv, char** envp);
 
 unsigned* __process_info_table;
 
-extern void* __constructors[];
-extern void* __destructors[];
+// TODO these are inline arrays emitted by the linker without redirection. In
+// cci/2 we should be able to declare these properly with attributes. Instead
+// for now we take the address.
+//[[onramp::no_redirection]] extern void* __constructors[];
+//[[onramp::no_redirection]] extern void* __destructors[];
+extern void* __constructors;
+extern void* __destructors;
+
 extern void __call_constructor(int argc, char** argv, char** envp, void* func);
 extern void __call_destructor(void* func);
 static void call_constructors(void);
@@ -85,11 +91,11 @@ void __start_c(unsigned* process_info, unsigned stack_base) {
 
     // initialize the libc
     __process_info_table = process_info;
+    __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __argv_setup();
     __environ_setup();
-    __time_setup();
-    __malloc_init(/*process_info[__ONRAMP_PIT_BREAK], stack_base*/);
     __posixio_setup();
+    __time_setup();
     __stdio_setup();
 
     // run user code. exit() does not return.
@@ -193,14 +199,14 @@ int system(const char* string) {
 }
 
 static void call_constructors(void) {
-    void** constructors = __constructors;
+    void** constructors = &__constructors;
     while (*constructors) {
         __call_constructor(__argc, __argv, environ, *constructors++);
     }
 }
 
 static void call_destructors(void) {
-    void** destructors = __destructors;
+    void** destructors = &__destructors;
     while (*destructors) {
         __call_destructor(*destructors++);
     }
@@ -229,4 +235,12 @@ void __debugwrite(const char* bytes, size_t count) {
 
 void __debugprint(const char* cstr) {
     __debugwrite(cstr, strlen(cstr));
+}
+
+void __debugprint_su(const char* cstr, unsigned u) {
+    char buf[32];
+    __debugprint(cstr);
+    __debugprint(" ");
+    __debugwrite(buf, __utod(u, buf));
+    __debugprint("\n");
 }

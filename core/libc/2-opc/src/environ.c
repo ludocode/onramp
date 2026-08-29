@@ -165,7 +165,8 @@ static bool ptrs_remove(void* p) {
  * Environment implementation follows.
  */
 
-static char* empty_environment[1];
+// TODO: should be: [[onramp::no_redirection]] static char* empty_environment[1];
+static char* empty_environment;
 
 /*
  * The environment pointer.
@@ -181,7 +182,7 @@ void __environ_setup(void) {
     // The VM is allowed to leave the environment NULL. We make sure it is at
     // least an empty array.
     if (environ == 0) {
-        environ = empty_environment;
+        environ = &empty_environment;
     }
 }
 
@@ -393,7 +394,7 @@ int unsetenv(const char* name) {
 int clearenv(void) {
 
     // clear the environment
-    environ = empty_environment;
+    environ = &empty_environment;
 
     // free all allocated pointers
     size_t buckets = 1 << ptrs_bits;

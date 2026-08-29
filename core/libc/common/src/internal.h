@@ -28,6 +28,7 @@
 #include <__onramp/__fatal.h>
 #include <__onramp/__size_t.h>
 #include <assert.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #ifdef __onramp_cpp_omc__
@@ -46,6 +47,7 @@ void __call_at_quick_exit(void);
 void __time_setup(void);
 void __stdio_setup(void);
 void __stdio_teardown(void);
+void* __malloc_bss(size_t size);
 
 #ifndef __onramp_cci_omc__
 // u32 to decimal text. returns length, does not null-terminate
@@ -87,5 +89,15 @@ void __debugwrite(const char* bytes, size_t count);
  * See __debugwrite().
  */
 void __debugprint(const char* cstr);
+
+        #ifndef __onramp_cci_omc__ //TODO add unsigned to cci/0
+/**
+ * Writes the given null-terminated string, a space, the given unsigned number,
+ * and a newline directly to the standard error handle.
+ *
+ * See __debugprint.
+ */
+void __debugprint_su(const char* cstr, unsigned u);
+        #endif
 
 #endif

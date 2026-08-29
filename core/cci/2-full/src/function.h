@@ -66,8 +66,8 @@ void function_add_block(function_t* function, struct block_t* block);
 void function_add_label(function_t* function, struct node_t* label);
 
 /**
- * Defines a new variable of the given type, placing its address in the given
- * temporary.
+ * Defines a new local variable of the given type, placing its address in the
+ * given temporary.
  *
  * The variable will be defined with a `var %x N N` instruction in the preamble
  * of the function.

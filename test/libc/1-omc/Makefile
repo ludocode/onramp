@@ -51,7 +51,6 @@ OBJS=\
 		$(OUT)/strrchr.oo \
 		$(OUT)/strtol.oo \
 
-# TODO remove -D__onramp_cci_opc__ etc. once we have full cci, full cpp
 CCARGS=\
 	    -with-cpp=$(TOOL_CPP) \
 	    -with-cci=$(TOOL_CCI) \
@@ -60,6 +59,7 @@ CCARGS=\
 	    -with-ld=$(TOOL_LD) \
 		-nostdinc \
 		-nostdlib \
+		-mabi=bootstrap \
 		-D__onramp_libc_omc__=1 \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libc/common/src \

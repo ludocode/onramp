@@ -86,6 +86,7 @@ CCARGS=\
 	    -with-ld=$(TOOL_LD) \
 		-nostdinc \
 		-nostdlib \
+		-mabi=bootstrap \
 		-D__onramp_libc_opc__=1 \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libc/common/src \

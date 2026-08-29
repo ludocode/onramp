@@ -259,6 +259,15 @@ bool type_is_pointer(type_t* type);
 bool type_is_complete(type_t* type);
 
 /**
+ * Returns true if a variable of this type with static storage duration would
+ * need a redirection.
+ *
+ * Arrays and records need redirections because their storage may be allocated
+ * with malloc() on startup. This is how Onramp simulates bss.
+ */
+bool type_is_redirected(type_t* type);
+
+/**
  * Returns true if values of this type are passed indirectly (on the stack);
  * false if they are passed in registers.
  *

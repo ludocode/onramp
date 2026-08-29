@@ -85,6 +85,11 @@ MACROS="-D__onramp__=1 -D__onramp_cpp__=1 -D__onramp_cci__=1 $MACROS"
 MACROS="$MACROS -I $ROOT/core/libc/common/include"
 MACROS="$MACROS -include __onramp/__predef.h"
 
+CCI_ARGS=
+if [ "$LIBC_ID" != "full" ]; then
+    CCI_ARGS="-mabi=bootstrap"
+fi
+
 TESTS_PATH="$(basename $(realpath $SOURCE_FOLDER/..))/$(basename $(realpath $SOURCE_FOLDER))"
 echo "Running $TESTS_PATH tests on: $LIBC"
 
@@ -110,7 +115,7 @@ for TESTFILE in $FILES; do
 
     # compile
     if [ $THIS_ERROR -ne 1 ]; then
-        $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OIR #&> /dev/null
+        $ROOT/output/test/cci-2-full/cci $CCI_ARGS -g $TEMP_I -o $TEMP_OIR #&> /dev/null
         if [ $? -ne 0 ]; then
             echo "ERROR: $BASENAME failed to compile."
             THIS_ERROR=1
@@ -185,7 +190,7 @@ for TESTFILE in $FILES; do
         echo "Commands:"
         echo "    make build && \\"
         echo "    $ROOT/output/test/cpp-2-full/cpp $PREPROCESSOR_ARGS $BASENAME.c -o $TEMP_I && \\"
-        echo "    $ROOT/output/test/cci-2-full/cci -g $TEMP_I -o $TEMP_OIR && \\"
+        echo "    $ROOT/output/test/cci-2-full/cci $CCI_ARGS -g $TEMP_I -o $TEMP_OIR && \\"
         echo "    $ROOT/output/test/cg-1-full/cg $TEMP_OIR -o $TEMP_OS && \\"
         echo "    $ROOT/output/test/as-2-full/as $TEMP_OS -o $TEMP_OO && \\"
         echo "    $ROOT/output/test/ld-2-full/ld -g $LIBC $TEMP_OO -o $TEMP_OE && \\"

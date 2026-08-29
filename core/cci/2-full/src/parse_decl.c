@@ -1248,7 +1248,7 @@ static void parse_variable_declaration(node_t* /*nullable*/ parent,
 
     // And finally, if this is a definition with linkage, emit it.
     if (symbol->is_defined && symbol->linkage != symbol_linkage_none) {
-        generate_static_variable(symbol, initializer);
+        generate_variable_static_storage(symbol, initializer);
     }
 
     symbol_deref(symbol);

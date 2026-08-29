@@ -100,7 +100,7 @@ void generate_dereference_impl(struct node_t* node, int reg_out, int reg_ptr, in
  * Generates a variable with static storage duration, i.e. a global variable
  * not marked `extern` or a local variable marked `static`.
  */
-void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
+void generate_variable_static_storage(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer);
 
 /*
  * This generates the contents of a defer.

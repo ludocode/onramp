@@ -27,11 +27,16 @@
 #include <__onramp/__syscalls.h>
 #include <errno.h>
 
-// We store these timestamps in order to implement clock() and CLOCK_MONOTONIC.
+#include "internal.h"
+
 static bool time_initialized;
-static struct timespec __start_time; // real time at start of process
-static struct timespec __last_time;  // real time at last query of monotonic clock
-static struct timespec __mono_time;  // mono time at last query of monotonic clock
+
+// We store these timestamps in order to implement clock() and CLOCK_MONOTONIC.
+// (We need to allocate them manually because static initializers haven't run yet.)
+// TODO it would be much simpler if we could declare these with [[onramp::no_redirection]]
+static struct timespec* __start_time; // real time at start of process
+static struct timespec* __last_time;  // real time at last query of monotonic clock
+static struct timespec* __mono_time;  // mono time at last query of monotonic clock
 
 // Called on process start before main() and before user constructors.
 void __time_setup(void) {
@@ -39,12 +44,17 @@ void __time_setup(void) {
         return;
     }
 
-    int e = __sys_time((unsigned*)&__start_time);
+    __start_time = __malloc_bss(sizeof(struct timespec));
+    int e = __sys_time((unsigned*)__start_time);
     if (e != 0) {
         return;
     }
 
-    __last_time = __start_time;
+    __last_time = __malloc_bss(sizeof(struct timespec));
+    *__last_time = *__start_time;
+
+    __mono_time = __malloc_bss(sizeof(struct timespec));
+
     time_initialized = true;
 }
 
@@ -96,15 +106,15 @@ static int clock_monotonic(struct timespec* out) {
 
     // Get the delta time since the last call
     struct timespec delta;
-    timespec_subtract(&delta, &now, &__last_time);
+    timespec_subtract(&delta, &now, __last_time);
 
     // Increment the monotonic time only if it hasn't gone backwards
     if (delta.tv_sec >= 0) {
-        timespec_add(&__mono_time, &__mono_time, &delta);
+        timespec_add(__mono_time, __mono_time, &delta);
     }
 
-    __last_time = now;
-    *out = __mono_time;
+    *__last_time = now;
+    *out = *__mono_time;
     return 0;
 }
 

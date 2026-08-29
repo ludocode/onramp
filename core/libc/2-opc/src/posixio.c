@@ -84,12 +84,13 @@ typedef struct fdr_t {
     bool cloexec; // The close-on-exec flag
 } fdr_t;
 
+// This is allocated as an array of length FDRS_CAPACITY.
+static fdr_t** fdrs;
+
 // TODO we'd like to increase OPEN_MAX to 4096 or 65536 but we need to split
 // the table into a flat array for low numbers and a sparse array for larger
 // numbers.
-static fdr_t* fdrs[OPEN_MAX];
-
-#define FDRS_CAPACITY (int)(sizeof(fdrs) / sizeof(*fdrs))
+#define FDRS_CAPACITY OPEN_MAX
 
 /**
  * Gets the given file descriptor, or NULL if it doesn't exist.
@@ -104,7 +105,7 @@ static fdr_t* fdr_get(int fd) {
 static fdn_t* fdn_new(int handle, int flags, const char* path) {
     fdn_t* fdn = calloc(1, sizeof(fdn_t));
     if (fdn == NULL) {
-        return NULL;
+        __fatal("Out of memory.");
     }
 
     if (path == 0) {
@@ -135,6 +136,9 @@ static void fdn_deref(fdn_t* fdn);
 
 static fdr_t* fdr_new(int fd, fdn_t* fdn, bool cloexec) {
     fdr_t* fdr = malloc(sizeof(fdr_t));
+    if (fdr == NULL) {
+        __fatal("Out of memory.");
+    }
     fdr->fdn = fdn; // must be just created or ref'd already!
     fdr->fd = fd;
     fdr->cloexec = cloexec;
@@ -146,6 +150,10 @@ static void fdr_delete(fdr_t* fdr) {
 }
 
 void __posixio_setup(void) {
+    fdrs = calloc(FDRS_CAPACITY, sizeof(fdr_t*));
+    if (fdrs == NULL) {
+        __fatal("Out of memory.");
+    }
 
     // By default we match POSIX
     input_echo = true;
@@ -178,6 +186,7 @@ void __posixio_teardown(void) {
             close(fd);
         }
     }
+    free(fdrs);
 }
 
 int open(const char* path, int flags, ...) {

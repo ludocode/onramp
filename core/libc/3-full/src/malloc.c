@@ -27,6 +27,7 @@
 #include "internal.h"
 
 #include <__onramp/__pit.h>
+#include <__onramp/__syscalls.h>
 #include <malloc.h>
 #include <stdint.h>
 #include <string.h>
@@ -128,6 +129,8 @@ typedef struct free_alloc_t {
  */
 #define MINIMUM_ALIGNMENT (sizeof(size_t))
 
+#define FREE_LIST_COUNT 32
+
 /**
  * We have a separate free list for each power of two. Unused allocations are
  * stored in the free list indexed by their highest set bit. (This means all
@@ -143,8 +146,11 @@ typedef struct free_alloc_t {
  *
  * Note that the lowest lists are unusable since we have a minimum allocation
  * size of two pointers. We don't bother offsetting size classes to fix this.
+ *
+ * This is an array of free lists. We allocate it manually because otherwise
+ * it would end up as bss which requires malloc().
  */
-static free_alloc_t* free_list[32];
+static free_alloc_t** free_list;
 
 /**
  * Simple function to get the position of the highest set bit in a number. This
@@ -269,11 +275,18 @@ void __malloc_init(void) {
     __heap_start = (char*)((int)(__heap_start + 3) & (~3));
     __heap_end = (char*)((int)__heap_end & (~3));
 
-    if (__heap_end < __heap_start || (uintptr_t)(__heap_end - __heap_start) < (uintptr_t)(4 * sizeof(size_t))) {
+    if (__heap_end < __heap_start || (uintptr_t)(__heap_end - __heap_start) < (uintptr_t)(64 * sizeof(size_t))) {
         // Not enough heap to do anything useful. We will need an allocator to
         // setup stdio so we can't do anything.
         // TODO we need to use the alloc syscall if available to grow the heap.
         abort();
+    }
+
+    // allocate the free lists
+    free_list = (free_alloc_t**)__heap_start;
+    __heap_start += FREE_LIST_COUNT * sizeof(size_t);
+    for (size_t i = 0; i < FREE_LIST_COUNT; ++i) {
+        free_list[i] = NULL;
     }
 
     #ifdef __onramp__
@@ -381,10 +394,11 @@ static size_t round_size(size_t requested_size) {
 void* malloc(size_t requested_size) {
     detect_stack_overflow();
 
-    //printf("malloc requested %zi\n",requested_size);
+    //__debugprint_su("malloc requested", requested_size);
     requested_size = round_size(requested_size);
     int size_class = highest_bit(requested_size);
-    //printf("  rounded to %zi, size_class %zi\n",requested_size, size_class);
+    //__debugprint_su("  rounded to", requested_size);
+    //__debugprint_su("size class", size_class);
 
     // First search the free list of the requested size class to see if any
     // existing free allocations will fit.
@@ -395,6 +409,7 @@ void* malloc(size_t requested_size) {
         libc_assert(alloc_size == FOOTER_TAG(alloc, alloc_size)); // tags must match
         if (requested_size > alloc_size)
             continue;
+        //__debugprint_su("size class", size_class);
         //printf("  found in matching size class %i\n",size_class);
         remove_from_free_list(alloc, alloc_size);
         found = alloc;
@@ -405,7 +420,7 @@ void* malloc(size_t requested_size) {
     // that fits; it is guaranteed to fit so we just find the first one that
     // isn't null.
     if (found == NULL) {
-        while (++size_class < (int)(sizeof(free_list) / sizeof(free_list[0]))) {
+        while (++size_class < FREE_LIST_COUNT) {
             if (free_list[size_class] == NULL)
                 continue;
             //printf("  found in higher size class %i\n",size_class);
@@ -695,7 +710,7 @@ void* __malloc_unused_region(size_t* out_size) {
     size_t size = 0;
 
     // Find the highest size class with an allocation in it
-    for (size_t size_class = (sizeof(free_list) / sizeof(free_list[0])); size_class-- != 0; ) {
+    for (size_t size_class = FREE_LIST_COUNT; size_class-- != 0; ) {
         if (free_list[size_class] == NULL)
             continue;
 
@@ -769,6 +784,15 @@ char* strndup(const char* src, size_t max_len) {
     memcpy(dest, src, len);
     dest[len] = 0;
     return dest;
+}
+
+void* __malloc_bss(size_t size) {
+    void* p = malloc(size);
+    if (!p) {
+        abort();
+        __fatal("Out of memory allocating a variable with static storage duration (bss).\n");
+    }
+    return memset(p, 0, size);
 }
 
 #endif

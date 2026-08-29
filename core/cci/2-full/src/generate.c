@@ -90,7 +90,7 @@ static void generate_location_array_subscript(node_t* node, int reg_out);
 static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out);
 static void generate_builtin(node_t* node, int reg_out);
 static void generate_builtin_location(node_t* node, int reg_out);
-static void generate_initializer(node_t* variable, int reg_loc);
+static void generate_initializer(node_t* variable);
 
 void generate_setup(void) {
     temporary_list = vector_new();
@@ -288,25 +288,25 @@ static void generate_string(node_t* node, int reg_out) {
     function_take_string(current_function, name);
 }
 
-// Generates access using the given opcode.
-// The opcode can be ADD to generate a location, or LDB/LDS/LDW to generate a load.
-// TODO once we're fully IR fix this, ADD is either SYM for a global or MOV for
-// a local, code is simple enough we won't need this function
-static void generate_access_impl(token_t* token, int opcode, symbol_t* symbol, int reg_out) {
-    assert(opcode == ADD || !type_is_passed_indirectly(symbol->type));
+static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out) {
+    bool redirection = symbol_is_global(symbol) && type_is_redirected(symbol->type);
+    int reg_loc = redirection ? generate_temporary(NULL) : reg_out;
+
+    // get the symbol address
+    opcode_t opcode = symbol_is_global(symbol) ? SYM : MOV;
+    instruction_t* instruction = block_append(current_block, token, opcode, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_loc);
     if (symbol_is_global(symbol)) {
-        instruction_t* instruction = block_append(current_block, token, (opcode == ADD) ? SYM : opcode, 2);
-        instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_absolute(instruction, 1, symbol->asm_name);
     } else {
-        instruction_t* instruction = block_append(current_block, token, (opcode == ADD) ? MOV : opcode, 2);
-        instruction_set_arg_temporary(instruction, 0, reg_out);
         instruction_set_arg_temporary(instruction, 1, symbol->temporary);
     }
-}
 
-static void generate_access_location(token_t* token, symbol_t* symbol, int reg_out) {
-    generate_access_impl(token, ADD, symbol, reg_out);
+    // if this is a redirected global, load it
+    if (redirection) {
+        instruction_set_args_tt(block_append(current_block, token, LDW, 2),
+                reg_out, reg_loc);
+    }
 }
 
 static void generate_access(node_t* node, int reg_out) {
@@ -336,10 +336,11 @@ static void generate_access(node_t* node, int reg_out) {
         return;
     }
 
+    int reg_loc = generate_temporary(NULL);
+    generate_access_location(node->token, node->symbol, reg_loc);
+
     if (type_is_passed_indirectly(type)) {
-        int reg_temp = generate_temporary(NULL);
-        generate_access_location(node->token, node->symbol, reg_temp);
-        generate_copy(node->token, type, 1, reg_temp, reg_out);
+        generate_copy(node->token, type, 1, reg_loc, reg_out);
         return;
     }
 
@@ -356,19 +357,44 @@ static void generate_access(node_t* node, int reg_out) {
         // above.
         fatal("Internal error: generate_access() direct has impossible size");
     }
-    generate_access_impl(node->token, opcode, node->symbol, reg_out);
+
+    instruction_t* instruction = block_append(current_block, node->token, opcode, 2);
+    instruction_set_arg_temporary(instruction, 0, reg_out);
+    instruction_set_arg_temporary(instruction, 1, reg_loc);
 }
 
 static void generate_variable(node_t* node) {
     assert(node->kind == NODE_VARIABLE);
+    symbol_t* symbol = node->symbol;
+    assert(symbol);
 
-    node->symbol->temporary = generate_temporary(node->symbol->name);
+    symbol->temporary = generate_temporary(symbol->name);
 
-    int temp = node->symbol->temporary;
-    function_add_variable(current_function, temp, node->symbol->type, node->token);
+    if (symbol_is_global(symbol)) {
+        if (type_is_redirected(symbol->type)) {
+            int addr = generate_temporary(NULL);
+            instruction_t* call = block_append(current_block, node->token, CALL, 3);
+            instruction_set_arg_temporary(call, 0, addr);
+            instruction_set_arg_absolute_cstr(call, 1, "__malloc_bss");
+            instruction_set_arg_number(call, 2, type_size(symbol->type));
+
+            int loc = generate_temporary(NULL);
+            instruction_t* instruction = block_append(current_block, node->token, SYM, 2);
+            instruction_set_arg_temporary(instruction, 0, loc);
+            instruction_set_arg_absolute(instruction, 1, symbol->asm_name);
+
+            instruction_set_args_tt(
+                    block_append(current_block, node->token, STW, 2),
+                    addr,
+                    loc);
+        }
+    } else {
+        function_add_variable(current_function, symbol->temporary,
+                symbol->type, node->token);
+    }
 
     if (node->first_child) {
-        generate_initializer(node, generate_temporary(NULL));
+        generate_initializer(node);
     }
 }
 
@@ -982,12 +1008,11 @@ static void generate_initializer_list(node_t* list, type_t* type, int reg_base, 
  * Generates an initializer for the given VARIABLE node.
  *
  * Variable declarations are never expressions (not even if they are the last
- * statement of a statement expression) so the given register is available for
- * our use. We use it as a pointer to the current location in the variable
- * being initialized.
- * TODO above description is for non-IR. in IR, reg_loc is a new temporary we use to step through the initializer list.
+ * statement of a statement expression) so we don't need a temporary in which
+ * to return a value.
  */
-static void generate_initializer(node_t* variable, int reg_loc) {
+static void generate_initializer(node_t* variable) {
+    int reg_loc = generate_temporary(NULL);
     generate_access_location(variable->token, variable->symbol, reg_loc);
 
     node_t* initializer = variable->first_child;
@@ -1471,9 +1496,13 @@ void generate_location(node_t* node, int reg_out) {
  * __attribute__((constructor(<priority>))) is 101 so this also runs before any
  * user constructor functions in GNU C. The variable is therefore initialized
  * before any user C code.
+ *
+ * The initializer is null if there is no user-specified initializer;
+ * redirected variables still need to be allocated.
  */
-static void generate_static_initializer(struct symbol_t* varsym, struct node_t* initializer) {
-
+static void generate_initializer_static_storage(
+        struct symbol_t* varsym, struct node_t* /*nullable*/ initializer)
+{
     // Generate a name for the function. It's static and we use a unique label
     // for it so the rest of the name doesn't matter; we just append some
     // characters from the name for debugging.
@@ -1485,7 +1514,8 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
         buf[sizeof(buf) - 1] = 0;
         name_str = string_intern_cstr(buf);
     }
-    token_t* name = token_new_at(name_str, initializer->token);
+    token_t* name = token_new_at(name_str,
+            initializer ? initializer->token : varsym->token);
 
     // Create the root node
     type_t* void_t = type_new_base(BASE_VOID);
@@ -1500,12 +1530,17 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     function->symbol->is_constructor = true;
     function->symbol->constructor_priority = 50;
 
-    // Add a variable node for the initializer
+    // Add a node for the variable
+    // (This will cause it to be allocated if it is redirected)
     node_t* variable = node_new(NODE_VARIABLE);
     variable->symbol = symbol_ref(varsym);
     variable->type = type_ref(void_t);
     node_append(root, variable);
-    node_append(variable, initializer);
+
+    // Attach the initializer if it exists
+    if (initializer) {
+        node_append(variable, initializer);
+    }
 
     // Push the current function (in case we're compiling a local static
     // variable)
@@ -1533,32 +1568,38 @@ static void generate_static_initializer(struct symbol_t* varsym, struct node_t* 
     clear_temporaries();
 }
 
-void generate_static_variable(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
+void generate_variable_static_storage(struct symbol_t* symbol, struct node_t* /*nullable*/ initializer) {
 
     // TODO if this is a tentative definition and -fcommon is specified, we should emit weak.
 
     emit_source_location(symbol->token);
     emit_char(symbol->linkage == symbol_linkage_internal ? '@' : '=');
     emit_string(symbol->asm_name);
+    emit_newline();
 
-    // TODO emit a zero symbol. Linker and libc don't support them yet. For
-    // now we just emit a bunch of zeroes.
-    for (size_t count = (type_size(symbol->type) + 3) >> 2; count-- > 0;) {
-        if (!(count & 15)) {
-            emit_newline();
-            emit_cstr(ASM_INDENT);
-        } else {
-            emit_char(' ');
-        }
+    bool redirected = type_is_redirected(symbol->type);
+    if (redirected) {
+        // We only emit storage for a pointer. The variable is allocated
+        // separately.
+        emit_cstr(ASM_INDENT);
         emit_char('0');
+    } else {
+        for (size_t count = (type_size(symbol->type) + 3) >> 2; count-- > 0;) {
+            if ((count & 15) == 15) {
+                emit_newline();
+                emit_cstr(ASM_INDENT);
+            } else {
+                emit_char(' ');
+            }
+            emit_char('0');
+        }
     }
     emit_newline();
 
-    if (initializer) {
+    if (initializer || redirected) {
         emit_newline();
-        generate_static_initializer(symbol, initializer);
+        generate_initializer_static_storage(symbol, initializer);
     }
-
     emit_global_divider();
 }
 
