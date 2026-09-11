@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -132,6 +132,8 @@ void record_add(record_t* record, struct token_t* /*nullable*/ token, struct typ
  *
  * This can only be called on defined records. If the record is incomplete,
  * the program aborts.
+ *
+ * TODO simpler to just return member_t*, and will be needed for e.g. member designators
  */
 struct type_t* record_find(record_t* record, const string_t* name, unsigned* out_offset);
 

@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -78,10 +78,15 @@ static bool valid_string_array_initializer(type_t* array, node_t* scalar) {
  * arrays.
  */
 static type_t* initializer_child_type(type_t* type, size_t index) {
-    if (type_is_array(type))
+    if (type_is_array(type)) {
         return type->ref;
-    if (type_matches_base(type, BASE_RECORD))
+    }
+    if (type_matches_base(type, BASE_RECORD)) {
+        if (index >= record_member_count(type->record)) {
+            fatal_token(lexer_token, "Too many initializers in the initializer list for this record.");
+        }
         return record_member_type_at(type->record, index);
+    }
     return type;
 }
 
@@ -126,29 +131,90 @@ node_t* parse_initializer_list(type_t* root_type) {
 
     for (;;) {
 
+        // Check for designators.
+        if (lexer_is(STR_SQUARE_OPEN) || lexer_is(STR_DOT)) {
 
-        // check for designators
-        /*
-        for (;;) {
+            // Designators are always relative to the "current object" (i.e. the
+            // root, the one initialized by the most recent opening brace.) They
+            // always reset the current initialization position.
+            node = root;
+            bool first = true;
 
-            if (lexer_is(STR_SQUARE_OPEN)) {
-                if (!is_object && !first)
-                    break;
-                if (!type_is_array(type)) {
-                    fatal_token(lexer_token, "Cannot use an array designator on something that isn't an array.");
+            while (lexer_is(STR_SQUARE_OPEN) || lexer_is(STR_DOT)) {
+
+                // The first designator just sets the index in the root node.
+                // Subsequent designators step into the indexed object.
+                if (!first) {
+                    // step into the object
+                    fatal("TODO nested designators");
                 }
-                fatal_token(lexer_token, "TODO array designator not yet implemented.");
+                first = false;
 
-            } else if (lexer_is(STR_DOT)) {
-                if (!is_object && !first)
-                    break;
-                if (!type_matches_base(type, BASE_RECORD))
-                    fatal_token(lexer_token, "Cannot use a member designator on something that isn't a struct or union.");
-                fatal_token(lexer_token, "TODO member designator not yet implemented.");
+                if (lexer_is(STR_SQUARE_OPEN)) {
+
+                    // make sure this array designator is valid
+                    if (!type_is_array(node->type)) {
+                        fatal_token(lexer_token, "Cannot use an array designator on something that isn't an array.");
+                    }
+                    lexer_consume();
+
+                    // parse array designator value
+                    node_t* expression = parse_constant_expression();
+                    index = node_eval_32(expression);
+                    lexer_expect(STR_SQUARE_CLOSE, "Expected `]` to close this array designator.");
+
+                    // check bounds
+                    if ((int32_t)index < 0) {
+                        fatal_token(expression->token, "Array designator is negative.");
+                    }
+                    if (type_matches_declarator(node->type, DECLARATOR_ARRAY) && index >= node->type->count) {
+                        fatal_token(expression->token, "Array designator is out of bounds.");
+                    }
+                    node_delete(expression);
+
+                } else if (lexer_is(STR_DOT)) {
+
+                    // make sure this member designator is valid
+                    if (!type_matches_base(node->type, BASE_RECORD)) {
+                        fatal_token(lexer_token, "Cannot use a member designator on something that isn't a struct or union.");
+                    }
+                    record_t* record = node->type->record;
+                    if (!record) {
+                        fatal_token(lexer_token, "Cannot designate member of an incomplete struct or union.");
+                    }
+                    lexer_consume();
+                    if (lexer_token->type != token_type_alphanumeric) {
+                        fatal_token(lexer_token, "Expected an identifier for this member designator.");
+                    }
+
+                    // lookup the member
+                        // TODO this currently doesn't support members of nested
+                        // anonymous records. we should be using record_find(), and
+                        // if it's nested we need to adjust our node and index
+                        // creating intermediate initialization lists as necessary.
+                        // for now we just linearly search the member list to
+                        // get the index.
+                    size_t count = record_member_count(record);
+                    for (index = 0; index < count; ++index) {
+                        member_t* member = vector_at(&record->member_list, index);
+                        if (string_equal(member->name->value, lexer_token->value)) {
+                            break;
+                        }
+                    }
+                    if (index == count) {
+                        fatal_token(lexer_token, "This struct or union has no member with this designated name.");
+                    }
+                    lexer_consume();
+
+                } else {
+                    // unreachable
+                    fatal("Internal error: not a designator");
+                }
             }
-        }
-        */
 
+            // TODO gcc has extension to omit this
+            lexer_expect(STR_ASSIGN, "Expected `=` after initialization designator.");
+        }
 
         type_t* child_type = initializer_child_type(node->type, index);
         bool is_string_init = false;
@@ -157,7 +223,7 @@ node_t* parse_initializer_list(type_t* root_type) {
             // In the case of a nested brace, we replace the child object
             // entirely, overriding any previous initializers for it even if
             // they will be empty-initialized by this.
-            //     See test: init/init-overrides-zeroing.c
+            //     See test: init/init-designator-member-override.c
             // This handles nested compound objects and nested braced scalars.
 
             // Note: If we're already in a scalar initializer, this is
@@ -211,7 +277,7 @@ node_t* parse_initializer_list(type_t* root_type) {
                 // if necessary, and if it already exists, we keep it, because
                 // we are *not* necessarily overriding parts of it that have
                 // already been initialized by other designators.
-                //     See test: init/init-partial-out-of-order.c
+                //     See test: init/init-designator-member-partial.c
                 node_t* child_node = vector_at(&node->children, index);
                 if (child_node == NULL) {
                     child_node = node_new(NODE_INITIALIZER_LIST);
@@ -274,7 +340,7 @@ node_t* parse_initializer_list(type_t* root_type) {
 
             // No more elements in this subobject. Walk up
             if (node == root) {
-                fatal_token(lexer_token, "Too many initializers in this initializer list.");
+                break;
             }
             index = node->index;
             node = node->parent;

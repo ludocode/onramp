@@ -59,7 +59,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 
 | Feature                                                       | Status |
 |:--------------------------------------------------------------|:------:|
-| External zero/uninitialized storage (i.e. "bss")              |        |
+| External zero/uninitialized storage (i.e. "bss")              |    ✓   |
 | RTL-style IR for optimization                                 |    ✓   |
 | Language standard selection (e.g. `-std=c11`)                 |        |
 | Warning flags                                                 |   ½\*  |
@@ -128,7 +128,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 | Tentative definitions                                         |    ✓   |
 | `const` checks                                                |    ✓   |
 | Wide characters and strings (`L` prefix)                      |        |
-| Initializers                                                  |   ½\*  |
+| Initializers                                                  |   ✓\*  |
 | String escape sequences                                       |    ✓   |
 | `setjmp()`/`longjmp()`                                        |    ✓   |
 
@@ -136,7 +136,7 @@ A feature is checked here if it is well-specified and it is implemented in the d
 
 \* Bitfields are parsed but ignored. This is a valid implementation of the spec, except for missing required diagnostics (e.g. preventing taking the address of a bitfield member.)
 
-\* Initializers are fully implemented and do work but they are grossly inefficient. A simple static array of `char` will emit initializaton bytecode an order of magnitude larger than the actual data. There is also no support yet for zero or uninitialized storage (i.e. there is no "bss" section.)
+\* Initializers are fully implemented and do work but they are grossly inefficient. A simple static array of `char` will emit initializaton bytecode an order of magnitude larger than the actual data. Initializers at file scope also allow arbitrary expressions which should be forbidden.
 
 ### Preprocessor
 

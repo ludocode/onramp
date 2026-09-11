@@ -519,7 +519,6 @@ static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind)
     // get the member name
     if (lexer_token->type != token_type_alphanumeric) {
         fatal_token(lexer_token, "Expected an identifier for this struct or union member access.");
-        // TODO also make sure it's not a keyword
     }
     access->member = lexer_take();
 
@@ -537,6 +536,9 @@ static node_t* parse_record_member_access(node_t* record_expr, node_kind_t kind)
 
     // make sure it's not incomplete
     record_t* record = record_type->record;
+    if (!record) {
+        fatal_token(access->token, "Cannot access member of an incomplete struct or union.");
+    }
 
     // lookup the member
     unsigned offset;
