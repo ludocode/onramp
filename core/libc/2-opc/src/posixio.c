@@ -61,6 +61,8 @@ static bool input_canonical;
 
 /*
  * A POSIX file description.
+ *
+ * A file description exclusively owns an Onramp file handle.
  */
 typedef struct fdn_t {
     unsigned refcount; // The number of file descriptors that reference this file description
@@ -77,6 +79,8 @@ typedef struct fdn_t {
 
 /**
  * A POSIX file descriptor.
+ *
+ * Multiple file descriptors can refer to the same file description.
  */
 typedef struct fdr_t {
     fdn_t* fdn; // The file description this references
@@ -902,23 +906,49 @@ int fchmod(int fd, mode_t mode) {
 }
 
 int fcntl(int fd, int command, ...) {
-    if (fd != STDIN_FILENO) {
-        errno = EBADF; // can only modify terminal state of stdin
+    fdr_t* fdr = fdr_get(fd);
+    if (fdr == NULL) {
+        errno = EBADF;
         return -1;
     }
 
+    if (command == F_GETFD) {
+        // The only flag supported so far is O_CLOEXEC.
+        return fdr->cloexec ? O_CLOEXEC : 0;
+    }
+
+    if (command == F_SETFD) {
+        va_list args;
+        va_start(args, command);
+        int flags = va_arg(args, int);
+        va_end(args);
+
+        // The only flag supported so far is O_CLOEXEC.
+        fdr->cloexec = !!(flags & O_CLOEXEC);
+        return 0;
+    }
+
     if (command == F_GETFL) {
-        // TODO we need to also return the O_ACCMODE flags. for now we don't.
-        // only non-blocking is implemented so far.
-        return (input_block ? 0 : O_NONBLOCK);
+        int flags = fdr->fdn->flags;
+        if (fd == STDIN_FILENO && !input_block) {
+            // TODO the input_block flag should be moved to fdn flags
+            flags |= O_NONBLOCK;
+        }
+        return flags;
     }
 
     if (command == F_SETFL) {
         va_list args;
         va_start(args, command);
-        int flags = va_arg(args, mode_t);
+        int flags = va_arg(args, int);
         va_end(args);
-        input_block = !(flags & O_NONBLOCK);
+
+        // We only support setting O_NONBLOCK and only on stdin.
+        // TODO the input_block flag should be moved to fdn flags
+        if (fd == STDIN_FILENO) {
+            input_block = !(flags & O_NONBLOCK);
+        }
+
         return 0;
     }
 

@@ -52,12 +52,16 @@
 #define O_DIRECT     0
 #define O_NOATIME    0
 
+// masks
+#define O_ACCMODE (O_RDONLY | O_WRONLY | O_RDWR)
+
 int open(const char* __path, int __flags, ...);
 int creat(const char* __path, mode_t __mode);
 
-// TODO only these fcntl() commands are supported so far.
 #define F_GETFL 1
 #define F_SETFL 2
+#define F_GETFD 3
+#define F_SETFD 4
 
 int fcntl(int __fd, int __command, ...);
 
