@@ -75,6 +75,7 @@ Options:
     --hex <name>    Use the hex tool with the given name, or "manual"
     --vm <name>     Use the VM with the given name, or "manual"
     --dev           Use preferred tools for developing Onramp
+    --fast          Use fastest tools available
     --test          Run all tests during bootstrap process
     --native        Don't bootstrap; build only final stage tools with native cc
     --clean         Don't configure; delete all configure and build files
@@ -152,6 +153,7 @@ parse_options() {
     fi
 
     DEV=0
+    FAST=0
     STRICT=0
     NATIVE=0
     VERBOSE=0
@@ -164,6 +166,7 @@ parse_options() {
     while [ $# -ne 0 ]; do
         case "$1" in
             --dev) DEV=1; shift ;;
+            --fast) FAST=1; shift ;;
             --strict) STRICT=1; shift ;;
             --native) NATIVE=1; shift ;;
             --verbose) VERBOSE=1; shift ;;
@@ -216,9 +219,8 @@ parse_options() {
         logi "ERROR: --strict and --dev are incompatible."
         exit 1
     fi
-    if [ $NATIVE -eq 1 ] && [ $TEST -eq 1 ]; then
-        # would really like to lift this restriction but there's a lot of work involved
-        logi "ERROR: --native and --test are currently incompatible."
+    if [ $STRICT -eq 1 ] && [ $FAST -eq 1 ]; then
+        logi "ERROR: --strict and --fast are incompatible."
         exit 1
     fi
     if [ $STRICT -eq 1 ] && [ $NATIVE -eq 1 ]; then
@@ -228,6 +230,17 @@ parse_options() {
         logi "WARNING: --strict applies only to VM and hex tool, not --test tooling."
     fi
 
+    # other compatibility
+    if [ $NATIVE -eq 1 ] && [ $TEST -eq 1 ]; then
+        # would really like to lift this restriction but there's a lot of work involved
+        logi "ERROR: --native and --test are currently incompatible."
+        exit 1
+    fi
+    if [ $DEV -eq 1 ] && [ $FAST -eq 1 ]; then
+        logi "ERROR: --dev and --fast are incompatible."
+        exit 1
+    fi
+
     # TODO: --test doesn't work out-of-tree yet
     if [ $TEST -eq 1 ] && [ "$ROOT" != "." ]; then
         logi "ERROR: --test doesn't work out-of-tree yet. It must be run as \`./configure.sh\`."
@@ -235,13 +248,29 @@ parse_options() {
     fi
 
     # set preferred tools for --dev
-    if [ $DEV -eq 1 ] && [ "$HEX_CHOICE" = "" ]; then
-        HEX_CHOICE=c89
-        logi "Choosing hex tool $HEX_CHOICE for development due to --dev"
+    if [ $DEV -eq 1 ]; then
+        if [ "$HEX_CHOICE" = "" ]; then
+            HEX_CHOICE=c89
+            logi "Choosing hex tool $HEX_CHOICE for development due to --dev"
+        fi
+        if [ "$VM_CHOICE" = "" ]; then
+            VM_CHOICE=c-debugger
+            logi "Choosing vm $VM_CHOICE for development due to --dev"
+        fi
     fi
-    if [ $DEV -eq 1 ] && [ "$VM_CHOICE" = "" ]; then
-        VM_CHOICE=c-debugger
-        logi "Choosing vm $VM_CHOICE for development due to --dev"
+
+    # set preferred tools for --fast
+    if [ $FAST -eq 1 ]; then
+        if [ "$HEX_CHOICE" = "" ]; then
+            # The Python shell tool doesn't have the highest throughput but it
+            # starts by far the fastest because we don't need to compile it.
+            HEX_CHOICE=python
+            logi "Choosing hex tool $HEX_CHOICE for --fast"
+        fi
+        if [ "$VM_CHOICE" = "" ]; then
+            VM_CHOICE=c89
+            logi "Choosing vm $VM_CHOICE for --fast"
+        fi
     fi
 }
 
