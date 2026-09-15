@@ -145,8 +145,20 @@ node_t* parse_initializer_list(type_t* root_type) {
                 // The first designator just sets the index in the root node.
                 // Subsequent designators step into the indexed object.
                 if (!first) {
-                    // step into the object
-                    fatal("TODO nested designators");
+                    // step into the object, creating child nodes where necessary
+                    type_t* child_type = initializer_child_type(node->type, index);
+                    while (vector_count(&node->children) <= index) {
+                        vector_append(&node->children, NULL);
+                    }
+                    node_t* child_node = vector_at(&node->children, index);
+                    if (child_node == NULL) {
+                        child_node = node_new(NODE_INITIALIZER_LIST);
+                        child_node->type = type_ref(child_type);
+                        child_node->index = index;
+                        child_node->parent = node;
+                        vector_set(&node->children, index, child_node);
+                    }
+                    node = child_node;
                 }
                 first = false;
 
@@ -212,7 +224,7 @@ node_t* parse_initializer_list(type_t* root_type) {
                 }
             }
 
-            // TODO gcc has extension to omit this
+            // TODO gcc and plan9 have extensions to omit this, see status.md
             lexer_expect(STR_ASSIGN, "Expected `=` after initialization designator.");
         }
 

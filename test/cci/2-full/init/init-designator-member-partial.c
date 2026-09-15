@@ -2,8 +2,6 @@
 // Copyright (c) 2024-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-//% SKIP
-
 struct b {
     int x;
     int y;
@@ -16,9 +14,9 @@ struct z {
 };
 
 int main(void) {
-    // This basically the opposite of init-overrides-zeroing.c . The
-    // initialization of b.x should not override the previous initialization
-    // of b.y.
+    // This is basically the opposite of `init-designator-member-override.c`.
+    // The initialization of b.x should not override the previous
+    // initialization of b.y.
     struct z z = {.b.y = 5, .a = 1, 3};
     if (z.a != 1) return 1;
     if (z.b.x != 3) return 2;

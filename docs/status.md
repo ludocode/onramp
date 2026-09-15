@@ -214,7 +214,8 @@ No additional compiler features are necessary for C95. The C95 preprocessor and 
 | `__func__`                                    |    ✓   |
 | `inline`                                      |    \*  |
 | `restrict`                                    |   ✓\*  |
-| Compound literals                             |    ✓   |
+| Compound literals                             |        |
+| Initializer designators                       |    ✓   |
 | Variable-length arrays                        |        |
 | Complex and imaginary numbers                 |        |
 | Floating-point environment controls           |        |

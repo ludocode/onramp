@@ -2,8 +2,6 @@
 // Copyright (c) 2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-//% SKIP
-
 typedef struct S {
     struct {
         int i;

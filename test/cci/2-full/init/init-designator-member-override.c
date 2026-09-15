@@ -2,8 +2,6 @@
 // Copyright (c) 2024-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-//% SKIP
-
 struct b {
     int x;
     int y;
