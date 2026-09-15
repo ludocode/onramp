@@ -43,6 +43,7 @@
  * Headers
  */
 
+#include <assert.h>
 #include <ctype.h>
 #include <spawn.h>
 #include <stdbool.h>
@@ -115,7 +116,7 @@ static size_t fileargs_count;
 static size_t fileargs_capacity;
 
 // options
-static const char* output_filename;
+static char* output_filename;
 static int mode;
 static bool verbose;
 static bool disable_run;
@@ -276,14 +277,14 @@ static bool try_parse_output(char*** argv) {
     // to -o.
     bool appended = (*(**argv + 2) != 0);
     if (appended) {
-        output_filename = (**argv + 2);
+        output_filename = strdup(**argv + 2);
     }
     if (!appended) {
         *argv = (*argv + 1);
         if (**argv == 0) {
             fatal_cleanup("-o must be followed by a filename.");
         }
-        output_filename = **argv;
+        output_filename = strdup(**argv);
     }
     *argv = (*argv + 1);
     return true;
@@ -646,6 +647,65 @@ static void parse_options(char** argv) {
     }
 }
 
+// When -o is omitted we use similar rules to GCC (mostly) to choose the
+// output filename. See `-o`:
+//     https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html
+static void set_default_output(void) {
+    if (mode == MODE_LINK) {
+        output_filename = strdup("a.out");
+        return;
+    }
+
+    // strip path from input file
+    //assert(inputs_count > 0); // TODO assert in missing in libc/0
+    char* input = *inputs;
+    while (1) {
+        char* p = strchr(input, '/');
+        if (!p) {
+            break;
+        }
+        input = (p + 1);
+    }
+
+    // strip extension
+    const char* end = strrchr(input, '.');
+    if (!end) {
+        end = (input + strlen(input));
+    }
+
+    size_t name_len = (end - input);
+    if (name_len == 0) {
+        fatal_cleanup("Failed to generate output filename. Specify `-o`.");
+    }
+
+    // allocate output filename
+    output_filename = malloc(name_len + 3);
+    memcpy(output_filename, input, name_len);
+
+    // append new extension
+    const char* extension = NULL;
+    if (mode == MODE_ASSEMBLE) {
+        extension = ".oo";
+    }
+    if (mode == MODE_CODEGEN) {
+        extension = ".os";
+    }
+    if (mode == MODE_COMPILE) {
+        extension = ".oir";
+    }
+    if (mode == MODE_PREPROCESS) {
+        // TODO GCC outputs -E to stdout by default. Tons of stuff in our
+        // driver depends on the output filename so this is not straightforward
+        // to implement. Instead we output to a .i file.
+        extension = ".i";
+    }
+    if (extension == NULL) {
+        fatal_cleanup("Internal error: unknown mode generating output filename.");
+    }
+
+    strcpy(output_filename + name_len, extension);
+}
+
 static void check_options(void) {
     if (inputs_count == 0) {
         fatal_cleanup("No input files.");
@@ -668,16 +728,7 @@ static void check_options(void) {
     }
 
     if (output_filename == NULL) {
-        // TODO we should default to a.out if we're wrapped for posix.
-        // otherwise we should default to the input filename basename plus .exe
-        // or .oe.
-        /*
-        if (mode == MODE_LINK) {
-            output_filename = "a.out";
-        }
-        if (mode != MODE_LINK)*/ {
-            fatal_cleanup("No output file.");
-        }
+        set_default_output();
     }
 
     // Default include paths.
@@ -709,6 +760,7 @@ static void check_options(void) {
 }
 
 static void free_options(void) {
+    free(output_filename);
     free(inputs);
     free(cpp_opts);
     free(cci_opts);
