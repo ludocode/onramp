@@ -79,6 +79,8 @@ void* __memdup(const void* src, size_t size);
 void bcopy(const void* src, void* dest, size_t count);
 void bzero(void* p, size_t count);
 
+char* strerror(int error);
+
 /*
  * These functions are just aliases of others. Some of them need forwarding
  * definitions during bootstrapping.

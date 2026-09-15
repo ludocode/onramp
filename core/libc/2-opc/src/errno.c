@@ -30,32 +30,39 @@
 int errno;
 
 #ifndef __onramp_cci_opc__
-// The order here must match the numbering in <errno.h>
-// (TODO: once we implement them in cci/2 we could use array designators.)
 const char* const sys_errlist[] = {
-    "(no error)",
-    "An argument is outside the domain of the function. (EDOM)",
-    "Invalid character encoding sequence. (EILSEQ)",
-    "An argument is out of range. (ERANGE)",
-    "An argument is invalid. (EINVAL)",
-    "Out of memory. (ENOMEM)",
-    "The function was interrupted. (EINTR)",
-    "This is a directory. (EISDIR)",
-    "This is not a directory. (ENOTDIR)",
-    "Too many open files. (ENFILE)",
-    "Access denied. (EACCES)",
-    "The given file descriptor is invalid. (EBADF)",
-    "An I/O error occurred. (EIO)",
-    "Seeking is not supported on this file. (ESPIPE)",
-    "The value is too large. (EOVERFLOW)",
-    "This operation is not supported. (ENOTSUP)",
-    "Data is not available yet; try later. (EAGAIN/EWOULDBLOCK)",
-    "The other end of the stream is closed. (EPIPE)",
-    "No such file. (ENOENT)",
-    "The filename is too long. (ENAMETOOLONG)",
+    [0] = "(no error)",
+    [EDOM] = "An argument is outside the domain of the function. (EDOM)",
+    [EILSEQ] = "Invalid character encoding sequence. (EILSEQ)",
+    [ERANGE] = "An argument is out of range. (ERANGE)",
+    [EINVAL] = "An argument is invalid. (EINVAL)",
+    [ENOMEM] = "Out of memory. (ENOMEM)",
+    [EINTR] = "The function was interrupted. (EINTR)",
+    [EISDIR] = "This is a directory. (EISDIR)",
+    [ENOTDIR] = "This is not a directory. (ENOTDIR)",
+    [ENFILE] = "Too many open files. (ENFILE)",
+    [EACCES] = "Access denied. (EACCES)",
+    [EBADF] = "The given file descriptor is invalid. (EBADF)",
+    [EIO] = "An I/O error occurred. (EIO)",
+    [ESPIPE] = "Seeking is not supported on this file. (ESPIPE)",
+    [EOVERFLOW] = "The value is too large. (EOVERFLOW)",
+    [ENOTSUP] = "This operation is not supported. (ENOTSUP)",
+    [EWOULDBLOCK] = "Data is not available yet; try later. (EAGAIN/EWOULDBLOCK)",
+    [EPIPE] = "The other end of the stream is closed. (EPIPE)",
+    [ENOENT] = "No such file. (ENOENT)",
+    [ENAMETOOLONG] = "The filename is too long. (ENAMETOOLONG)",
 };
 
 int sys_nerr = sizeof(sys_errlist) / sizeof(sys_errlist[0]);
+
+char* strerror(int error) {
+    if (error >= sys_nerr) {
+        return "Unknown error.";
+    }
+    // This function returns non-const for backwards compatibility. The caller
+    // is not allowed to modify the returned string.
+    return (char*)sys_errlist[error];
+}
 #endif
 
 void perror(const char* s) {
