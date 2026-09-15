@@ -1138,7 +1138,7 @@ static type_t* parse_conditional_expression_types(node_t** left, node_t** right)
     }
     if (type_is_arithmetic(left_type)) {
         parse_usual_arithmetic_conversions(left, right);
-        return type_ref(left_type);
+        return type_ref((*left)->type); // types may have changed
     }
 
     // Both sides are structs
