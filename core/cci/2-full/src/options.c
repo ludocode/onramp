@@ -295,6 +295,10 @@ static void warnings_setup(void) {
     warning_add("asm", warning_extra_keywords, warning_level_error); // TODO also need to support -fasm
     warning_add("anonymous-tags", warning_anonymous_tags, warning_level_error);
     warning_add("pointer-arith", warning_pointer_arith, warning_level_error);
+    warning_add("gnu-designator", warning_gnu_designator,
+            // TODO we don't parse -fgnu-extensions or -fplan9-extensions yet so for now this is on by default
+            //warning_level_error
+            warning_level_off);
 }
 
 static void warnings_teardown(void) {

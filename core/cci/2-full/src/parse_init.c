@@ -131,6 +131,25 @@ node_t* parse_initializer_list(type_t* root_type) {
 
     for (;;) {
 
+        // Handle deprecated GNU field initialization syntax
+        if (lexer_token->type == token_type_alphanumeric) {
+            token_t* member_name = lexer_take();
+            if (!lexer_is(STR_COLON)) {
+                lexer_push(member_name);
+            } else {
+                warn(warning_gnu_designator, lexer_token, "Old-style field designators are a GNU extension.");
+                lexer_consume();
+
+                // Insert synthetic `.` and `=` to fix up the syntax
+                // (i.e. convert `x:` to `.x=`)
+                lexer_push(token_new(token_type_punctuation, string_ref(STR_ASSIGN), token_prefix_none,
+                            member_name->filename, member_name->line, member_name->source));
+                lexer_push(member_name);
+                lexer_push(token_new(token_type_punctuation, string_ref(STR_DOT), token_prefix_none,
+                            member_name->filename, member_name->line, member_name->source));
+            }
+        }
+
         // Check for designators.
         if (lexer_is(STR_SQUARE_OPEN) || lexer_is(STR_DOT)) {
 
@@ -139,6 +158,7 @@ node_t* parse_initializer_list(type_t* root_type) {
             // always reset the current initialization position.
             node = root;
             bool first = true;
+            bool was_array = false; // keep track of whether the last designator was an array
 
             while (lexer_is(STR_SQUARE_OPEN) || lexer_is(STR_DOT)) {
 
@@ -163,6 +183,7 @@ node_t* parse_initializer_list(type_t* root_type) {
                 first = false;
 
                 if (lexer_is(STR_SQUARE_OPEN)) {
+                    was_array = true;
 
                     // make sure this array designator is valid
                     if (!type_is_array(node->type)) {
@@ -173,6 +194,11 @@ node_t* parse_initializer_list(type_t* root_type) {
                     // parse array designator value
                     node_t* expression = parse_constant_expression();
                     index = node_eval_32(expression);
+
+                    // check for range
+                    if (lexer_is(STR_ELLIPSIS)) {
+                        fatal("The GNU designator range extension is not yet implemented.");
+                    }
                     lexer_expect(STR_SQUARE_CLOSE, "Expected `]` to close this array designator.");
 
                     // check bounds
@@ -185,6 +211,7 @@ node_t* parse_initializer_list(type_t* root_type) {
                     node_delete(expression);
 
                 } else if (lexer_is(STR_DOT)) {
+                    was_array = false;
 
                     // make sure this member designator is valid
                     if (!type_matches_base(node->type, BASE_RECORD)) {
@@ -224,8 +251,18 @@ node_t* parse_initializer_list(type_t* root_type) {
                 }
             }
 
-            // TODO gcc and plan9 have extensions to omit this, see status.md
-            lexer_expect(STR_ASSIGN, "Expected `=` after initialization designator.");
+            // Handle trailing `=` (and extensions that modify or omit it)
+            if (!lexer_accept(STR_ASSIGN)) {
+                if (was_array) {
+                    // Even though this is a Plan 9 extension, GCC supports it
+                    // and Clang includes it under -Wgnu-designator, so we do
+                    // the same.
+                    warn(warning_gnu_designator, lexer_token,
+                            "Omission of `=` following designator is a Plan 9 extension.");
+                } else {
+                    fatal_token(lexer_token, "Expected `=` after member designator.");
+                }
+            }
         }
 
         type_t* child_type = initializer_child_type(node->type, index);

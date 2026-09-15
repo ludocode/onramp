@@ -399,7 +399,7 @@ When GNU extensions are enabled, some later version C features are available in 
 | `__asm__` name                                                |    ✓   |
 | `case` ranges                                                 |        |
 | gnu89-style `inline`                                          |        |
-| Member designators using `:`                                  |        |
+| Old-style member designators                                  |    ✓   |
 | Computed gotos (`&&label`)                                    |        |
 | local (block scope) labels                                    |        |
 | `__builtin_types_compatible_p()`                              |        |
@@ -466,7 +466,7 @@ Plan 9 extensions are activated with the command-line argument `-fplan9-extensio
 |:--------------------------------------------------------------|:------:|
 | Anonymous non-inline struct                                   |        |
 | Implicit conversion of struct ptr to anonymous member ptr     |        |
-| Array designators without `=`                                 |        |
+| Array designators without `=`                                 |    ✓   |
 
 
 

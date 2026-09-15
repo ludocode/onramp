@@ -28,14 +28,15 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#include "libo-error.h"
-#include "token.h"
 #include "common.h"
+#include "libo-error.h"
+#include "libo-vector.h"
+#include "token.h"
 
 token_t* lexer_token;
 
-// A queued token (from lexer_push().)
-static token_t* queued_token;
+// A queue of tokens (from lexer_push().)
+static vector_t queued_tokens;
 
 // The `pragma` token from the file that included this one.
 static token_t* include_token;
@@ -133,6 +134,8 @@ void lexer_setup(const char* filename) {
     current_filename = (char*)string_cstr(lexer_filename);
     current_line = 1;
 
+    vector_init(&queued_tokens);
+
     // Prime the current char with a newline so the first line can be a #line
     // directive or #pragma.
     lexer_char = '\n';
@@ -143,10 +146,12 @@ void lexer_setup(const char* filename) {
  * Destroys the lexer.
  */
 void lexer_teardown(void) {
-    fclose(lexer_file);
-    if (queued_token) {
-        token_deref(queued_token);
+    while (!vector_is_empty(&queued_tokens)) {
+        token_deref(vector_remove_last(&queued_tokens));
     }
+    vector_destroy(&queued_tokens);
+
+    fclose(lexer_file);
     if (lexer_token) {
         token_deref(lexer_token);
     }
@@ -440,9 +445,8 @@ void lexer_consume(void) {
     }
 
     // If we already have a queued token, use it.
-    if (queued_token) {
-        lexer_token = queued_token;
-        queued_token = NULL;
+    if (!vector_is_empty(&queued_tokens)) {
+        lexer_token = vector_remove_last(&queued_tokens);
         return;
     }
 
@@ -559,10 +563,7 @@ struct token_t* lexer_take(void) {
 }
 
 void lexer_push(token_t* token) {
-    if (queued_token) {
-        fatal_token(token, "Internal error: At most one token can be queued.");
-    }
-    queued_token = lexer_token;
+    vector_append(&queued_tokens, lexer_token);
     lexer_token = token;
 }
 

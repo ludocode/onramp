@@ -64,6 +64,7 @@ typedef enum warning_t {
     warning_anonymous_tags,           // -Wanonymous-tags, called -fms-extensions in GCC
     warning_pointer_arith,            // -Wpointer-arith: sizeof(void), void* arithmetic
     warning_gnu_case_range,           // -Wgnu-case-range
+    warning_gnu_designator,           // -Wgnu-designator (GNU and Plan 9 designator styles)
 
     warning_count,
     warning_invalid = -1,
