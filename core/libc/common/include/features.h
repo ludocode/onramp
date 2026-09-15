@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -301,24 +301,26 @@
  * command-line option.
  */
 
-#ifdef __STDC_VERSION__
-    #if __STDC_VERSION__ >= 199409L
-        #define __onramp_ftm_c95
-    #endif
-    #if __STDC_VERSION__ >= 199901L
-        #define __onramp_ftm_c99
-    #endif
-    #if __STDC_VERSION__ >= 201112L
-        #define __onramp_ftm_c11
-    #endif
-    #if __STDC_VERSION__ >= 201710L
-        #define __onramp_ftm_c17 // TODO probably useless
-    #endif
-    #if __STDC_VERSION__ >= 202311L
-        #define __onramp_ftm_c23
-    #endif
-    #if __STDC_VERSION__ > 202311L
-        #define __onramp_ftm_c2y
+#ifndef __onramp_cpp_omc__
+    #ifdef __STDC_VERSION__
+        #if __STDC_VERSION__ >= 199409L
+            #define __onramp_ftm_c95
+        #endif
+        #if __STDC_VERSION__ >= 199901L
+            #define __onramp_ftm_c99
+        #endif
+        #if __STDC_VERSION__ >= 201112L
+            #define __onramp_ftm_c11
+        #endif
+        #if __STDC_VERSION__ >= 201710L
+            #define __onramp_ftm_c17 // TODO probably useless
+        #endif
+        #if __STDC_VERSION__ >= 202311L
+            #define __onramp_ftm_c23
+        #endif
+        #if __STDC_VERSION__ > 202311L
+            #define __onramp_ftm_c2y
+        #endif
     #endif
 #endif
 

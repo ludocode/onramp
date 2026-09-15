@@ -752,6 +752,13 @@ static void check_options(void) {
     if (!nostddef) {
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp__=1");
         string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__onramp_cci__=1");
+
+        // TODO for now we declare support for C99. We need to parse the -std=
+        // option and translate it to the correct date (or forward it and let
+        // the preprocessor handle it; the option parsing code may eventually
+        // be shared in libo.)
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__STDC__=1");
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D__STDC_VERSION__=199901L");
     }
 
     if (dump_macros & (mode != MODE_PREPROCESS)) {
