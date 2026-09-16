@@ -583,7 +583,7 @@ static void generate_equality(node_t* node, int out) {
 
         // bitwise 'or' differences together
         instruction_set_args_ttt(block_append(current_block, node->token,
-                SUB, 3), out, temp_diff_low, temp_diff_high);
+                OR, 3), out, temp_diff_low, temp_diff_high);
 
     } else if (type_matches_base(type, BASE_FLOAT)) {
         #ifdef OLD_ASSEMBLY_BACKEND
