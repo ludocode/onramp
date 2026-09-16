@@ -414,9 +414,9 @@ static bool try_parse_ld_opts(char*** argv) {
 
     // -L can have the option appended directly or provided separately. If
     // provided separately, we have to append that option as well.
+    //     TODO try to merge this with similar code in try_parse_cpp_opts()
     if (*(**argv + 2) == 0) {
         // option is separate
-        const char* opt = **argv;
         *argv = (*argv + 1);
         if (**argv == NULL) {
             // error, option missing
