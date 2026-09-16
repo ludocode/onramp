@@ -173,16 +173,18 @@ static void parse_do(void) {
     // push labels of containing loop
     int old_start_label = continue_label;
     int old_end_label = break_label;
+    int start_label = parse_generate_label();
     continue_label = parse_generate_label();
     break_label = parse_generate_label();
 
     // parse and compile the loop
-    compile_label(continue_label);
+    compile_label(start_label);
     parse_statement(false);
+    compile_label(continue_label);
     lexer_expect("while", "Expected `while` after `do` statement.");
     parse_condition(break_label);
     lexer_expect(";", "Expected `;` after `do`-`while` condition.");
-    compile_jump(continue_label);
+    compile_jump(start_label);
     compile_label(break_label);
 
     // pop labels

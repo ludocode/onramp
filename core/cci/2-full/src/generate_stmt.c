@@ -183,17 +183,21 @@ void generate_do(node_t* node, int reg_out) {
     node->continue_label = next_label++;
     node->break_label = next_label++;
 
-    block_t* body_block = block_new(node->continue_label);
+    block_t* body_block = block_new(next_label++);
+    block_t* condition_block = block_new(node->continue_label);
     block_t* end_block = block_new(node->break_label);
     function_add_block(current_function, body_block);
+    function_add_block(current_function, condition_block);
     function_add_block(current_function, end_block);
 
     block_append_jmp(current_block, node->token, body_block->label);
 
     current_block = body_block;
     generate_node(body, reg_out);
-    generate_node(condition, reg_out);
+    block_append_jmp(current_block, node->token, condition_block->label);
 
+    current_block = condition_block;
+    generate_node(condition, reg_out);
     instruction_t* instruction = block_append_br(current_block, node->token,
             body_block->label, end_block->label);
     instruction_set_arg_temporary(instruction, 0, reg_out);
