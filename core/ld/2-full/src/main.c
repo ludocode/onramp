@@ -98,6 +98,22 @@ static void parse_args(const char** argv) {
             continue;
         }
 
+        // library paths
+        if (0 == strncmp(*argv, "-L", 2)) {
+            const char* libpath = *argv + 2;
+            if (*libpath == 0) {
+                libpath = *++argv;
+            }
+            if (libpath == NULL) {
+                fatal("-L must be followed by a path.");
+            }
+
+            // TODO: currently -L is ignored because -l is not supported.
+            // Eventually we will have to implement both properly.
+            ++argv;
+            continue;
+        }
+
         // otherwise it's an input file
         if (input_filenames_count == input_filenames_capacity) {
             size_t new_capacity = input_filenames_capacity * 2;

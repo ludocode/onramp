@@ -154,6 +154,11 @@ static char** cci_opts;
 static size_t cci_opts_count;
 static size_t cci_opts_capacity;
 
+// array of ld options (e.g. -L, -l)
+static char** ld_opts;
+static size_t ld_opts_count;
+static size_t ld_opts_capacity;
+
 // array of temporary files (owning allocated strings)
 static char** temp_files;
 static size_t temp_files_count;
@@ -400,6 +405,30 @@ static bool try_parse_cci_opts(char*** argv) {
     return true;
 }
 
+static bool try_parse_ld_opts(char*** argv) {
+    if (!starts_with(**argv, "-L")) {
+        return false;
+    }
+
+    string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, **argv);
+
+    // -L can have the option appended directly or provided separately. If
+    // provided separately, we have to append that option as well.
+    if (*(**argv + 2) == 0) {
+        // option is separate
+        const char* opt = **argv;
+        *argv = (*argv + 1);
+        if (**argv == NULL) {
+            // error, option missing
+            fatal_cleanup("-L must be followed by a library path.");
+        }
+        string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, **argv);
+    }
+
+    *argv = (*argv + 1);
+    return true;
+}
+
 // Parses an option that takes an extra string
 static bool try_parse_option_string(char*** argv, char* prefix, char** str) {
     if (!starts_with(**argv, prefix)) {
@@ -615,13 +644,16 @@ static void parse_options(char** argv) {
             if (try_parse_warnings(&argv)) {
                 continue;
             }
-            if (try_parse_cpp_opts(&argv)) {
-                continue;
-            }
             if (try_parse_include(&argv)) {
                 continue;
             }
+            if (try_parse_cpp_opts(&argv)) {
+                continue;
+            }
             if (try_parse_cci_opts(&argv)) {
+                continue;
+            }
+            if (try_parse_ld_opts(&argv)) {
                 continue;
             }
             if (try_parse_with(&argv)) {
@@ -771,6 +803,7 @@ static void free_options(void) {
     free(inputs);
     free(cpp_opts);
     free(cci_opts);
+    free(ld_opts);
     free(tool_cpp);
     free(tool_cci);
     free(tool_as);
@@ -1246,8 +1279,15 @@ static void do_link(void) {
         string_array_append(&args, &args_count, &args_capacity, libc_archive);
     }
 
-    // input files
+    // linker options
     size_t i = 0;
+    while (i < ld_opts_count) {
+        string_array_append(&args, &args_count, &args_capacity, *(ld_opts + i));
+        i = (i + 1);
+    }
+
+    // input files
+    i = 0;
     while (i < objects_count) {
         string_array_append(&args, &args_count, &args_capacity, *(objects + i));
         i = (i + 1);
