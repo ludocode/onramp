@@ -308,10 +308,12 @@ srcs_onramp libc-3-full \
     core/libc/2-opc/src/assert.c \
     core/libc/2-opc/src/ctype.c \
     core/libc/2-opc/src/environ.c \
+    core/libc/2-opc/src/errno.c \
     core/libc/2-opc/src/float.c \
     core/libc/2-opc/src/format.c \
     core/libc/2-opc/src/llong.c \
     core/libc/2-opc/src/multibyte.c \
+    core/libc/2-opc/src/path.c \
     core/libc/2-opc/src/posixio.c \
     core/libc/2-opc/src/setjmp.os \
     core/libc/2-opc/src/stdbit.c \
@@ -324,6 +326,7 @@ srcs_onramp libc-3-full \
     \
     core/libc/3-full/src/atexit.c \
     core/libc/3-full/src/bsearch.c \
+    core/libc/3-full/src/dirent.c \
     core/libc/3-full/src/malloc.c \
     core/libc/3-full/src/qsort.c \
     core/libc/3-full/src/rand.c \
@@ -337,7 +340,6 @@ srcs_onramp libc-3-full \
 build archive_onramp output/final/lib/libc.oa \
     "native output/final/bin/ar.oe" \
     $OBJS \
-    core/libc/0-oo/src/errno.oo \
     core/libc/0-oo/src/spawn.oo
 
 comment "sh"
