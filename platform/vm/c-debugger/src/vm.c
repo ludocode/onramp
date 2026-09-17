@@ -1011,19 +1011,23 @@ static uint32_t vm_read(vm_t* vm) {
         if (ret < 0) {
             return VM_ERROR_GENERIC;
         }
-
-        // these events can be returned even if we didn't ask for them
         if (fds.revents & POLLNVAL) {
             panic("Internal error: got POLLNVAL polling stdin");
         }
-        if (fds.revents & POLLERR) {
-            return VM_ERROR_IO;
-        }
-        if (fds.revents & POLLHUP) {
-            return VM_ERROR_END_OF_FILE;
-        }
 
+        // We might get POLLIN along with POLLHUP or POLLERR; in this case we
+        // still want to read the rest of the data first. We only report error
+        // or EOF when there is no data left.
         if (!(fds.revents & POLLIN)) {
+            if (fds.revents & POLLHUP) {
+                return VM_ERROR_END_OF_FILE;
+            }
+            if (fds.revents & POLLERR) {
+                return VM_ERROR_IO;
+            }
+
+            // There is no data left but the input is not closed. Tell the
+            // program to wait for more data.
             if (vm->version < 4) {
                 // Old VM versions returned zero for non-blocking stdin.
                 return 0;
