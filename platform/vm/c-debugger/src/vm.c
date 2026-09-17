@@ -995,6 +995,10 @@ static uint32_t vm_read(vm_t* vm) {
     }
 
     if (file == stdin) {
+        if (feof(file)) {
+            return VM_ERROR_END_OF_FILE;
+        }
+
         // We want our input to be non-blocking. We use poll() with zero
         // timeout to check if input is available.
         // TODO we should do this with all files so e.g. the program can open
@@ -1007,13 +1011,19 @@ static uint32_t vm_read(vm_t* vm) {
         if (ret < 0) {
             return VM_ERROR_GENERIC;
         }
-        if (fds.revents == POLLERR) {
+
+        // these events can be returned even if we didn't ask for them
+        if (fds.revents & POLLNVAL) {
+            panic("Internal error: got POLLNVAL polling stdin");
+        }
+        if (fds.revents & POLLERR) {
             return VM_ERROR_IO;
         }
-        if (fds.revents != POLLIN) {
-            if (fds.revents == POLLHUP) {
-                // TODO we need to return a different error code for closed input
-            }
+        if (fds.revents & POLLHUP) {
+            return VM_ERROR_END_OF_FILE;
+        }
+
+        if (!(fds.revents & POLLIN)) {
             if (vm->version < 4) {
                 // Old VM versions returned zero for non-blocking stdin.
                 return 0;
