@@ -27,6 +27,8 @@
 
 #include <stddef.h>
 
-void perform_pass(const char** input_filenames, size_t input_filenames_count);
+struct vector_t;
+
+void perform_pass(struct vector_t* input_filenames);
 
 #endif

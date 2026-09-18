@@ -27,6 +27,7 @@
 #include "common.h"
 #include "emit.h"
 #include "label.h"
+#include "libo-vector.h"
 #include "symbol.h"
 
 /** Starts a new file, either a real file or a file in a static archive. */
@@ -568,11 +569,12 @@ static void perform_pass_input(const char* input_filename) {
     fclose(input_file);
 }
 
-void perform_pass(const char** input_filenames, size_t input_filenames_count) {
+void perform_pass(vector_t* input_filenames) {
     current_address = 0;
     file_index = -1;
 
-    for (size_t i = 0; i < input_filenames_count; ++i) {
-        perform_pass_input(input_filenames[i]);
+    size_t count = vector_count(input_filenames);
+    for (size_t i = 0; i < count; ++i) {
+        perform_pass_input(vector_at(input_filenames, i));
     }
 }

@@ -35,24 +35,19 @@
 #include <sys/stat.h>
 
 #include "common.h"
-#include "symbol.h"
-#include "parse.h"
 #include "emit.h"
+#include "libo-vector.h"
+#include "parse.h"
+#include "symbol.h"
 
-static const char** input_filenames;
-static size_t input_filenames_count;
-static size_t input_filenames_capacity;
+static vector_t input_filenames; // owned
+static vector_t library_names; // unowned
+static vector_t library_paths; // unowned
 
 static const char* output_filename;
 static const char* wrap_header;
 
 static void parse_args(const char** argv) {
-    input_filenames_count = 0;
-    input_filenames_capacity = 8;
-    input_filenames = malloc(sizeof(char*) * input_filenames_capacity);
-    if (input_filenames == NULL) {
-        fatal("Out of memory.");
-    }
 
     // skip program name
     ++argv;
@@ -98,6 +93,19 @@ static void parse_args(const char** argv) {
             continue;
         }
 
+        // library names
+        if (0 == strncmp(*argv, "-l", 2)) {
+            const char* libname = *argv + 2;
+            if (*libname == 0) {
+                libname = *++argv;
+            }
+            if (libname == NULL) {
+                fatal("-l must be followed by a library name.");
+            }
+            vector_append(&library_names, (char*)*argv++);
+            continue;
+        }
+
         // library paths
         if (0 == strncmp(*argv, "-L", 2)) {
             const char* libpath = *argv + 2;
@@ -105,29 +113,14 @@ static void parse_args(const char** argv) {
                 libpath = *++argv;
             }
             if (libpath == NULL) {
-                fatal("-L must be followed by a path.");
+                fatal("-L must be followed by a library path.");
             }
-
-            // TODO: currently -L is ignored because -l is not supported.
-            // Eventually we will have to implement both properly.
-            ++argv;
+            vector_append(&library_paths, (char*)*argv++);
             continue;
         }
 
         // otherwise it's an input file
-        if (input_filenames_count == input_filenames_capacity) {
-            size_t new_capacity = input_filenames_capacity * 2;
-            if (new_capacity <= input_filenames_capacity) {
-                fatal("Out of memory.");
-            }
-            input_filenames = realloc(input_filenames, sizeof(char*) * new_capacity);
-            if (input_filenames == NULL) {
-                fatal("Out of memory.");
-            }
-            input_filenames_capacity = new_capacity;
-        }
-        input_filenames[input_filenames_count++] = *argv;
-        ++argv;
+        vector_append(&input_filenames, strdup(*argv++));
     }
 
     // we should have found an output file.
@@ -182,7 +175,79 @@ static void open_output_files(void) {
     }
 }
 
+static bool file_exists(const char* filename) {
+    FILE* file = fopen(filename, "r");
+    if (file) {
+        fclose(file);
+        return true;
+    }
+    return false;
+}
+
+static void find_libs(void) {
+    size_t lib_count = vector_count(&library_names);
+    for (size_t i = 0; i < lib_count; ++i) {
+        const char* name = vector_at(&library_names, i);
+        size_t namelen = strlen(name);
+
+        // The following names are ignored; they are built into the libc.
+        // (Currently we ignore them even if -nostdlib is specified. A custom
+        // libc must be specified directly by file, not with -l.)
+        if (0 == strcmp(name, "c") || 0 == strcmp(name, "m")) {
+            // TODO also -lpthread
+            continue;
+        }
+
+        // Search each library path for a library with the given name.
+        // We prefix the name with "lib" and try the extensions ".oa" and ".a".
+        size_t path_count = vector_count(&library_paths);
+        size_t j;
+        for (j = 0; j < path_count; ++j) {
+            const char* path = vector_at(&library_paths, i);
+            size_t pathlen = strlen(path);
+
+            // assemble the path
+            char* fullpath = malloc(pathlen + 1 + 3 + namelen + 4);
+            memcpy(fullpath, path, pathlen);
+            char* p = fullpath + pathlen;
+            if (pathlen > 0 && fullpath[pathlen - 1] != '/') {
+                *p++ = '/';
+            }
+            memcpy(p, "lib", 3);
+            p += 3;
+            memcpy(p, name, namelen);
+            p += namelen;
+
+            // check for .oa
+            strcpy(p, ".oa");
+            if (file_exists(fullpath)) {
+                vector_append(&input_filenames, fullpath);
+                break;
+            }
+
+            // check for .a
+            strcpy(p, ".a");
+            if (file_exists(fullpath)) {
+                vector_append(&input_filenames, fullpath);
+                break;
+            }
+
+            // not found. keep searching
+            free(fullpath);
+        }
+
+        if (j == path_count) {
+            fprintf(stderr, "Error searching for library %s\n", name);
+            fatal("Library specified with `-l` not found.");
+        }
+    }
+}
+
 int main(int argc, const char** argv) {
+    vector_init(&input_filenames);
+    vector_init(&library_names);
+    vector_init(&library_paths);
+
     string_setup();
     emit_init();
     symbols_init();
@@ -190,9 +255,10 @@ int main(int argc, const char** argv) {
     buffer = malloc(BUFFER_SIZE);
 
     parse_args(argv);
+    find_libs();
 
     // first pass: collect all symbol names and measure sizes.
-    perform_pass(input_filenames, input_filenames_count);
+    perform_pass(&input_filenames);
     symbols_create_generated();
 
     if (optimize) {
@@ -205,7 +271,7 @@ int main(int argc, const char** argv) {
 
     // second pass: output symbols.
     output_pass = true;
-    perform_pass(input_filenames, input_filenames_count);
+    perform_pass(&input_filenames);
     symbols_emit_generated();
 
     set_current_filename(NULL);
@@ -220,6 +286,14 @@ int main(int argc, const char** argv) {
     }
     fclose(output_file);
 
+    vector_destroy(&library_paths);
+    vector_destroy(&library_names);
+
+    size_t input_count = vector_count(&input_filenames);
+    for (size_t i = 0; i < input_count; ++i) {
+        free(vector_at(&input_filenames, i));
+    }
+    vector_destroy(&input_filenames);
     return EXIT_SUCCESS;
 }
 

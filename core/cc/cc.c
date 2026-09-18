@@ -270,29 +270,55 @@ static bool starts_with(const char* string, const char* prefix) {
  * Command-line argument parsing
  */
 
-static bool try_parse_output(char*** argv) {
-    if (!starts_with(**argv, "-o")) {
-        return false;
+/**
+ * Parses and returns the value for the given option if it matches the current
+ * argument, incrementing argv past the consumed arguments.
+ *
+ * This is used for arguments that take a value. The value can be given in the
+ * same argument or separately, e.g. `-Dmacro` is the same as `-D macro`.
+ *
+ * Returns the option's value if it matches, or NULL if it doesn't. Aborts with
+ * the given error if the value is missing.
+ */
+static char* option_arg(char*** argv, const char* option, const char* error) {
+    int option_len = strlen(option);
+    char* current = **argv;
+
+    // TODO strnlen() in libc/0 or libc/1?
+    if (strlen(current) < option_len) {
+        return NULL;
     }
-    if (output_filename != 0) {
-        fatal_cleanup("-o can only be specified once.");
+    if (0 != memcmp(current, option, option_len)) {
+        return NULL;
     }
 
-    // The output file can be provided as the next option or appended directly
-    // to -o.
-    bool appended = (*(**argv + 2) != 0);
-    if (appended) {
-        output_filename = strdup(**argv + 2);
+    // The option matches.
+    *argv = (*argv + 1);
+
+    if (*(current + option_len) != 0) {
+        // The option is concatenated.
+        return current + option_len;
     }
-    if (!appended) {
-        *argv = (*argv + 1);
-        if (**argv == 0) {
-            fatal_cleanup("-o must be followed by a filename.");
-        }
-        output_filename = strdup(**argv);
+
+    // The option is separate.
+    char* ret = **argv;
+    if (ret == NULL) {
+        fatal_cleanup(error);
     }
     *argv = (*argv + 1);
-    return true;
+    return ret;
+}
+
+static bool try_parse_output(char*** argv) {
+    char* value = option_arg(argv, "-o", "-o must be followed by a filename.");
+    if (value) {
+        if (output_filename != 0) {
+            fatal_cleanup("-o can only be specified once.");
+        }
+        output_filename = strdup(value);
+        return true;
+    }
+    return false;
 }
 
 static bool try_parse_mode(char*** argv) {
@@ -332,35 +358,30 @@ static bool try_parse_warnings(char*** argv) {
 }
 
 static bool try_parse_cpp_opts(char*** argv) {
-    if (!starts_with(**argv, "-I")) {
-        if (!starts_with(**argv, "-D")) {
-            if (!starts_with(**argv, "-U")) {
-                return false;
-            }
-        }
+    char* value;
+
+    value = option_arg(argv, "-I", "-I must be followed by an include path.");
+    if (value) {
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-I");
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, value);
+        return true;
     }
 
-    string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, **argv);
-
-    // -I, -D and -U can have the option appended directly or provided
-    // separately. If provided separately, we have to append that option as
-    // well.
-    if (*(**argv + 2) == 0) {
-        // option is separate
-        const char* opt = **argv;
-        *argv = (*argv + 1);
-        if (**argv == NULL) {
-            // error, option missing
-            if (0 == strcmp(opt, "-I")) {
-                fatal_cleanup("-I must be followed by a path.");
-            }
-            fatal_cleanup("-D or -U must be followed by a macro name.");
-        }
-        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, **argv);
+    value = option_arg(argv, "-D", "-D must be followed by a macro name.");
+    if (value) {
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-D");
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, value);
+        return true;
     }
 
-    *argv = (*argv + 1);
-    return true;
+    value = option_arg(argv, "-U", "-U must be followed by a macro name.");
+    if (value) {
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, "-U");
+        string_array_append(&cpp_opts, &cpp_opts_count, &cpp_opts_capacity, value);
+        return true;
+    }
+
+    return false;
 }
 
 static bool try_parse_include(char*** argv) {
@@ -406,27 +427,23 @@ static bool try_parse_cci_opts(char*** argv) {
 }
 
 static bool try_parse_ld_opts(char*** argv) {
-    if (!starts_with(**argv, "-L")) {
-        return false;
+    char* value;
+
+    value = option_arg(argv, "-L", "-L must be followed by a library path.");
+    if (value) {
+        string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, "-L");
+        string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, value);
+        return true;
     }
 
-    string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, **argv);
-
-    // -L can have the option appended directly or provided separately. If
-    // provided separately, we have to append that option as well.
-    //     TODO try to merge this with similar code in try_parse_cpp_opts()
-    if (*(**argv + 2) == 0) {
-        // option is separate
-        *argv = (*argv + 1);
-        if (**argv == NULL) {
-            // error, option missing
-            fatal_cleanup("-L must be followed by a library path.");
-        }
-        string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, **argv);
+    value = option_arg(argv, "-l", "-l must be followed by a library name.");
+    if (value) {
+        string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, "-l");
+        string_array_append(&ld_opts, &ld_opts_count, &ld_opts_capacity, value);
+        return true;
     }
 
-    *argv = (*argv + 1);
-    return true;
+    return false;
 }
 
 // Parses an option that takes an extra string
