@@ -704,6 +704,10 @@ static void set_default_output(void) {
         output_filename = strdup("a.out");
         return;
     }
+    if (mode == MODE_PREPROCESS) {
+        // Leave it NULL; we'll output directly to stdout.
+        return;
+    }
 
     // strip path from input file
     //assert(inputs_count > 0); // TODO assert in missing in libc/0
@@ -741,12 +745,6 @@ static void set_default_output(void) {
     }
     if (mode == MODE_COMPILE) {
         extension = ".oir";
-    }
-    if (mode == MODE_PREPROCESS) {
-        // TODO GCC outputs -E to stdout by default. Tons of stuff in our
-        // driver depends on the output filename so this is not straightforward
-        // to implement. Instead we output to a .i file.
-        extension = ".i";
     }
     if (extension == NULL) {
         fatal_cleanup("Internal error: unknown mode generating output filename.");
@@ -889,6 +887,13 @@ static char* make_temp_filename(const char* extension) {
     temp_id = (temp_id + 1);
     itoa_d(temp_id, id);
     size_t id_len = strlen(id);
+
+    if (output_filename == NULL) {
+        // The only time output_filename can be NULL is when we're
+        // preprocessing directly to standard output. In this case we shouldn't
+        // need any temporary files.
+        fatal_cleanup("Internal error: NULL output_filename");
+    }
 
     size_t total = ((strlen(output_filename) + prefix_len) + ((id_len + 1) + (extension_len + 1)));
     char* ret = malloc(total);
@@ -1085,7 +1090,7 @@ static void run(size_t argc, char** argv) {
     #endif
 }
 
-static void preprocess_file(const char* input, const char* output) {
+static void preprocess_file(const char* input, const char* /*nullable*/ output) {
     char** args = 0;
     size_t args_count = 0;
     size_t args_capacity = 0;
@@ -1106,8 +1111,12 @@ static void preprocess_file(const char* input, const char* output) {
     }
 
     string_array_append(&args, &args_count, &args_capacity, (char*)input);
-    string_array_append(&args, &args_count, &args_capacity, "-o");
-    string_array_append(&args, &args_count, &args_capacity, (char*)output);
+
+    // The final stage preprocessor can output directly to standard output.
+    if (output != NULL) {
+        string_array_append(&args, &args_count, &args_capacity, "-o");
+        string_array_append(&args, &args_count, &args_capacity, (char*)output);
+    }
 
     string_array_append(&args, &args_count, &args_capacity, NULL);
     run(args_count - 1, args);

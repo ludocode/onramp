@@ -70,10 +70,14 @@ void emit_setup(void) {
 
 void emit_open(void) {
     assert(output_file == NULL);
-    assert(options_output_filename != NULL);
-    output_file = fopen(options_output_filename, "wb");
-    if (output_file == NULL) {
-        fatal("Failed to open output file: %s", output_file);
+    if (options_output_filename == NULL) {
+        // If -o was not specified we write directly to standard output.
+        output_file = stdout;
+    } else {
+        output_file = fopen(options_output_filename, "wb");
+        if (output_file == NULL) {
+            fatal("Failed to open output file: %s", output_file);
+        }
     }
 
     // The first line of the output is always a linemarker for the source file.

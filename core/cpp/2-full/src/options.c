@@ -231,8 +231,4 @@ void options_parse(char** argv) {
         fputs("ERROR: Input filename not specified.", stderr);
         usage();
     }
-    if (options_output_filename == NULL) {
-        fputs("ERROR: Output filename not specified.", stderr);
-        usage();
-    }
 }
