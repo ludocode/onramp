@@ -757,9 +757,13 @@ bool type_is_passed_indirectly(type_t* type) {
         case BASE_LONG_DOUBLE:
         case BASE_SIGNED_LONG_LONG:
         case BASE_UNSIGNED_LONG_LONG:
-            return true;
         case BASE_RECORD:
-            return record_size(type->record) > 4;
+            // TODO it may be possible to pass structs of size 1, 2 and 4
+            // directly (and maybe even size 3 if changes are made to access
+            // and dereference in generate.c, though it's maybe not faster to
+            // do that since it has to be loaded and stored in three
+            // instructions.) This can be revisited later.
+            return true;
         default:
             break;
     }

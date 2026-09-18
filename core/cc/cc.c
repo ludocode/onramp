@@ -281,7 +281,7 @@ static bool starts_with(const char* string, const char* prefix) {
  * the given error if the value is missing.
  */
 static char* option_arg(char*** argv, const char* option, const char* error) {
-    int option_len = strlen(option);
+    size_t option_len = strlen(option);
     char* current = **argv;
 
     // TODO strnlen() in libc/0 or libc/1?

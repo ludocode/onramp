@@ -353,7 +353,7 @@ static void generate_access(node_t* node, int reg_out) {
     } else if (size == 4) {
         opcode = LDW;
     } else {
-        // Larger types are passed indirectly. This should have been handled
+        // Other sizes are passed indirectly. This should have been handled
         // above.
         fatal("Internal error: generate_access() direct has impossible size");
     }
