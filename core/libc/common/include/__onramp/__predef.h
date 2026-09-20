@@ -34,10 +34,10 @@
 
 #include <__onramp/__bool.h>
 
-#define __STDC_NO_THREADS__
-#define __STDC_NO_ATOMICS__
-#define __STDC_NO_COMPLEX__
-#define __STDC_NO_VLA__
+#define __STDC_NO_THREADS__ 1
+#define __STDC_NO_ATOMICS__ 1
+#define __STDC_NO_COMPLEX__ 1
+#define __STDC_NO_VLA__ 1
 
 #define __STDC_DEFER_TS25755__ 1
 
