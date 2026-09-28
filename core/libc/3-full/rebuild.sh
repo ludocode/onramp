@@ -53,6 +53,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/assert.c \
     -o output/intermediate/libc-3-full-re/assert.oo
 
+echo Compiling libc/2-opc bigint.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/bigint.c \
+    -o output/intermediate/libc-3-full-re/bigint.oo
+
 echo Compiling libc/2-opc ctype.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -240,6 +246,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-3-full-re/string-fast.oo \
     \
     output/intermediate/libc-3-full-re/assert.oo \
+    output/intermediate/libc-3-full-re/bigint.oo \
     output/intermediate/libc-3-full-re/ctype.oo \
     output/intermediate/libc-3-full-re/environ.oo \
     output/intermediate/libc-3-full-re/errno.oo \

@@ -56,6 +56,7 @@ OBJS=\
 		$(OUT)/string-fast.oo \
 		\
 		$(OUT)/assert.oo \
+		$(OUT)/bigint.oo \
 		$(OUT)/ctype.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/errno.oo \
@@ -161,6 +162,12 @@ $(OUT)/assert.oo: $(SRC2)/assert.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/assert.c -o $(OUT)/assert.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/assert.c -o $@
+
+$(OUT)/bigint.oo: $(SRC2)/bigint.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/bigint.c -o $(OUT)/bigint.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/bigint.c -o $@
 
 $(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
 	@rm -f $@

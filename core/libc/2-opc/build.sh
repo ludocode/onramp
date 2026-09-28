@@ -2,7 +2,7 @@
 
 # The MIT License (MIT)
 #
-# Copyright (c) 2023-2025 Fraser Heavy Software
+# Copyright (c) 2023-2026 Fraser Heavy Software
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -40,6 +40,12 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/assert.c \
     -o output/intermediate/libc-2-opc/assert.oo
+
+echo Compiling libc/2-opc bigint.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/bigint.c \
+    -o output/intermediate/libc-2-opc/bigint.oo
 
 echo Compiling libc/2-opc ctype.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -164,6 +170,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-1-omc/strtol.oo \
     \
     output/intermediate/libc-2-opc/assert.oo \
+    output/intermediate/libc-2-opc/bigint.oo \
     output/intermediate/libc-2-opc/ctype.oo \
     output/intermediate/libc-2-opc/environ.oo \
     output/intermediate/libc-2-opc/errno.oo \

@@ -71,6 +71,7 @@ OBJS_ALL=\
 		$(BUILD1)/string-fast.oo \
 		\
 		$(BUILD2)/assert.oo \
+		$(BUILD2)/bigint.oo \
 		$(BUILD2)/ctype.oo \
 		$(BUILD2)/environ.oo \
 		$(BUILD2)/errno.oo \
