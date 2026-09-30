@@ -167,11 +167,34 @@ void __bigint_shru(const uint32_t n, uint32_t* dest, const uint32_t* src, uint32
 }
 
 void __bigint_mul_u16(const uint32_t n, uint32_t* dest, const uint32_t* left, uint16_t right) {
-    (void)n;
-    (void)dest;
-    (void)left;
-    (void)right;
-    __fatal("TODO");
+    assert(n > 0u);
+    if (n == 1u) {
+        *dest = *left * right;
+        return;
+    }
+
+    // Long multiplication base 2^16.
+    //
+    // Starting from the low bits, we multiply every 16-bit short in the
+    // multiplicand with the 16-bit multiplier. The results are shifted and
+    // added properly, propagating the carry up as we go.
+
+    uint32_t carry = 0;
+    for (size_t i = 0u; i < n; ++i) {
+        uint32_t left_word = left[i];
+
+        uint32_t low = (left_word & 0xffffu) * right;
+        uint32_t high = (left_word >> 16u) * right;
+
+        uint32_t high_raised = high << 16u;
+        uint32_t high_lowered = high >> 16u;
+
+        uint32_t dest_word = low + carry;
+        carry = (dest_word < low) + high_lowered;
+        dest_word += high_raised;
+        carry += (dest_word < high_raised);
+        dest[i] = dest_word;
+    }
 }
 
 uint16_t __bigint_div_to_u16(const uint32_t n, const uint32_t* left, const uint32_t* right) {

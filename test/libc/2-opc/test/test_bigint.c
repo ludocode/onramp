@@ -21,7 +21,7 @@
     }
 
     // this test case can be compiled standalone with a native C compiler:
-    // gcc -Wall -Wextra -Wpedantic -fsanitize=address -g test/test_bigint.c -o /tmp/a && /tmp/a
+    // gcc -Wall -Wextra -fsanitize=address -g test/test_bigint.c -o /tmp/a && /tmp/a
     #include "../../../../core/libc/2-opc/src/bigint.c"
 #endif
 
@@ -407,6 +407,102 @@ static void test_bigint_shru(void) {
     CHECK(8, z, "0x0000000000000000000000000000000000000000000000000000000000000000");
 }
 
+static void test_bigint_mul_u16(void) {
+    uint32_t x[8];
+    uint32_t z[8];
+
+    x[0] = 0x10001;
+    x[1] = 0x10001;
+    CHECK(2, x, "0x0001000100010001");
+    __bigint_mul_u16(2, z, x, 0);
+    CHECK(2, z, "0x0000000000000000");
+    __bigint_mul_u16(2, z, x, 1);
+    CHECK(2, z, "0x0001000100010001");
+    __bigint_mul_u16(2, z, x, 2);
+    CHECK(2, z, "0x0002000200020002");
+    __bigint_mul_u16(2, z, x, 4);
+    CHECK(2, z, "0x0004000400040004");
+    __bigint_mul_u16(2, z, x, 0xffff);
+    CHECK(2, z, "0xffffffffffffffff");
+
+    x[0] = 0xaaaaaaaa;
+    x[1] = 0x55555555;
+    CHECK(2, x, "0x55555555aaaaaaaa");
+    __bigint_mul_u16(2, z, x, 0);
+    CHECK(2, z, "0x0000000000000000");
+    __bigint_mul_u16(2, z, x, 1);
+    CHECK(2, z, "0x55555555aaaaaaaa");
+    __bigint_mul_u16(2, z, x, 2);
+    CHECK(2, z, "0xaaaaaaab55555554");
+    __bigint_mul_u16(2, z, x, 0xffff);
+    CHECK(2, z, "0x00005554ffff5556");
+
+    // random numbers
+    x[0] = 0xee2f25ae;
+    x[1] = 0x656efc09;
+    x[2] = 0x9c5718e6;
+    x[3] = 0x59889bae;
+    x[4] = 0x6716dc3a;
+    CHECK(5, x, "0x6716dc3a59889bae9c5718e6656efc09ee2f25ae");
+    __bigint_mul_u16(5, z, x, 0);
+    CHECK(5, z, "0x0000000000000000000000000000000000000000");
+    __bigint_mul_u16(5, z, x, 1);
+    CHECK(5, z, "0x6716dc3a59889bae9c5718e6656efc09ee2f25ae");
+    __bigint_mul_u16(5, z, x, 2);
+    CHECK(5, z, "0xce2db874b311375d38ae31cccaddf813dc5e4b5c");
+    __bigint_mul_u16(5, z, x, 3);
+    CHECK(5, z, "0x354494af0c99d30bd5054ab3304cf41dca8d710a");
+    __bigint_mul_u16(5, z, x, 10);
+    CHECK(5, z, "0x06e49a477f5614d21b66f8fff655d8634dd778cc");
+    __bigint_mul_u16(5, z, x, 0xfffe);
+    CHECK(5, z, "0x0e0ca113e89d64f9e03833a2312bf61b494fb4a4");
+    __bigint_mul_u16(5, z, x, 0xffff);
+    CHECK(5, z, "0x75237d4e422600a87c8f4c88969af225377eda52");
+}
+
+#ifdef __GNUC__
+static void test_bigint_mul_u16_loop() {
+    for (size_t i = 0;; ++i) {
+        if (i != 0 && (i % 1000000) == 0) printf("testing __bigint_mul_u16(): %zi...\n",i);
+
+        typedef union {
+            unsigned __int128 u128;
+            uint32_t u32[4];
+        } uu;
+
+        // random 128-bit number
+        uu l;
+        l.u32[0] = arc4random();
+        l.u32[1] = arc4random();
+        l.u32[2] = arc4random();
+        l.u32[3] = arc4random();
+
+        // random 16-bit number
+        uint16_t r = (uint16_t)arc4random();
+
+        // expected result
+        uu e = {.u128 = l.u128 * r};
+
+        // actual result
+        uu a;
+        __bigint_mul_u16(4, a.u32, l.u32, r);
+
+        if (e.u128 != a.u128) {
+            printf("__bigint_mul_u16() FAILED:\n");
+            char buf[256];
+            __bigint_print_hex(4, l.u32, buf, sizeof(buf));
+            printf("    left:     %s\n", buf);
+            printf("    right:    %u\n", r);
+            __bigint_print_hex(4, e.u32, buf, sizeof(buf));
+            printf("    expected: %s\n", buf);
+            __bigint_print_hex(4, a.u32, buf, sizeof(buf));
+            printf("    actual:   %s\n", buf);
+            exit(1);
+        }
+    }
+}
+#endif
+
 #endif
 
 int main(void) {
@@ -417,6 +513,12 @@ int main(void) {
     test_bigint_sub();
     test_bigint_shl();
     test_bigint_shru();
+    test_bigint_mul_u16();
+
+    #ifdef __GNUC__
+    (void)test_bigint_mul_u16_loop;
+    //test_bigint_mul_u16_loop();
+    #endif
 #endif
 }
 
