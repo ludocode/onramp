@@ -2,20 +2,27 @@
 // Copyright (c) 2025-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
+#include <math.h>
 #include <stdbool.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
+#include <stdlib.h>
+#include <string.h>
 
 #ifdef __onramp__
     #include <__onramp/__arithmetic.h>
+    #define onramp_strtof strtof
 #endif
 #ifndef __onramp__
-    // this test case can be compiled standalone with a native C compiler or onrampcc:
+    #include <time.h>
+    #define strtof onramp_strtof
+
+    // this test case can be compiled standalone with a native C compiler:
     // gcc -Wall -Wextra -Wpedantic -fsanitize=address -g test/test_float.c -o /tmp/a && /tmp/a
     #include "../../../../core/libc/2-opc/src/float.c"
-    #include <time.h>
+
+    #undef strtof
+    #define native_strtof strtof
 #endif
 
             // TODO all of this is disabled on onramp until we get float parsing in
@@ -464,7 +471,7 @@ static void test_fpclassify_impl(float x, int expected) {
     floatunion_t xf;
     xf.f = x;
     int actual = __float_fpclassify(xf.u);
-    printf("fpclassify(%.9g) expected %i, got %i\n", x, expected, actual);
+    //printf("fpclassify(%.9g) expected %i, got %i\n", x, expected, actual);
 
     if (test_sigfpe_count) {
         fprintf(stderr, "fpclassify(%.9g) signaled.\n", x);
@@ -499,7 +506,7 @@ static void test_issignaling_impl(float x, int expected) {
     floatunion_t xf;
     xf.f = x;
     int actual = __float_issignaling(xf.u);
-    printf("issignaling(%.9g) expected %i, got %i\n", x, expected, actual);
+    //printf("issignaling(%.9g) expected %i, got %i\n", x, expected, actual);
 
     if (test_sigfpe_count) {
         fprintf(stderr, "issignaling(%.9g) signaled.\n", x);
@@ -646,6 +653,82 @@ static void test_sub_loop(void) {
 }
 #endif
 
+static void test_strtof_case(const char* str, float expected_float, uint32_t expected_bits) {
+    if (f2u(expected_float) != expected_bits) {
+        printf("invalid test, float %g has bits %#x, not %#x\n",
+                expected_float, f2u(expected_float), expected_bits);
+        exit(1);
+    }
+
+    char* end;
+
+    #ifndef __onramp__
+    // compare to native libc strtof
+    float nf = native_strtof(str, &end);
+    if (end != str + strlen(str)) {
+        printf("native failed to parse %s\n", str);
+        exit(1);
+    }
+    if (f2u(nf) != expected_bits) {
+        printf("native strtof(\"%s\") == %g %#x, expected %g %#x\n",
+                str, nf, f2u(nf), expected_float, expected_bits);
+        exit(1);
+    }
+    #endif
+
+    // compare to onramp strtof
+    uint32_t of = onramp_strtof(str, &end);
+    if (end != str + strlen(str)) {
+        printf("onramp failed to parse %s\n", str);
+        exit(1);
+    }
+    if (of != expected_bits) {
+        printf("onramp strtof(\"%s\") == %g %#x, expected %g %#x\n",
+                str, u2f(of), of, expected_float, expected_bits);
+        exit(1);
+    }
+}
+
+static void test_strtof(void) {
+
+    // small integers
+    test_strtof_case("1", 1.f, 0b0'01111111'00000000000000000000000);
+    test_strtof_case("2.0", 2.0f, 0b0'10000000'00000000000000000000000);
+    test_strtof_case("3e0", 3e0f, 0b0'10000000'10000000000000000000000);
+    test_strtof_case("4.0e0", 4.0e0f, 0b0'10000001'00000000000000000000000);
+    test_strtof_case("1e1", 1e1f, 0b0'10000010'01000000000000000000000); // 10
+    test_strtof_case("1000.00e-1", 1000.00e-1f, 0b0'10000101'10010000000000000000000); // 100
+
+    // integer boundary cases
+    test_strtof_case("8388607",   8388607.0f, 0b0'10010101'11111111111111111111110); // exact
+    test_strtof_case("8388607.5", 8388607.5f, 0b0'10010101'11111111111111111111111); // exact
+    test_strtof_case("8388608",   8388608.0f, 0b0'10010110'00000000000000000000000); // exact
+    test_strtof_case("8388608.5", 8388608.5f, 0b0'10010110'00000000000000000000000); // rounds to 8388608
+    test_strtof_case("8388609",   8388609.0f, 0b0'10010110'00000000000000000000001); // exact
+    test_strtof_case("16777215", 16777215.0f, 0b0'10010110'11111111111111111111111); // exact
+    test_strtof_case("16777216", 16777216.0f, 0b0'10010111'00000000000000000000000); // exact
+    test_strtof_case("16777217", 16777217.0f, 0b0'10010111'00000000000000000000000); // rounds to 16777216
+
+    // integers too large
+    test_strtof_case("602214076000000000000000", 602214076000000000000000.f, 0b0'11001101'11111110000110000101110); // 1 mol
+
+    // small fractions
+    test_strtof_case("0.5", 0.5f, 0b0'01111110'00000000000000000000000);
+    test_strtof_case("0.25", 0.25f, 0b0'01111101'00000000000000000000000);
+    test_strtof_case("0.125", 0.125f, 0b0'01111100'00000000000000000000000);
+    test_strtof_case("0.1", 0.1f, 0b0'11110111'0011001100110011001101);
+    test_strtof_case("10.00000000000000000e-2", 10.00000000000000000e-2f, 0b0'11110111'0011001100110011001101);
+    test_strtof_case("0.000001", 0.000001f, 0b0'11010110'0001100011011110111101);
+    test_strtof_case("0.000000000000000000000000000001", 0.000000000000000000000000000001f, 0b0'00110110'1000100100001001100000);
+    test_strtof_case("0.0000000000000000000000000000000000001", 0.0000000000000000000000000000000000001f, 0b0'00001000'0010000001110011101010);
+    test_strtof_case("1.602176634e-19", 1.602176634e-19f, 0b0'01000000'01111010010011011010001); // 1 eV in J
+
+    // misc decimal numbers
+    test_strtof_case("123.456", 123.456f, 0b0'10000101'11101101110100101111001);
+    test_strtof_case("3.14159265358", 3.14159265358f, 0b0'10000000'10010010000111111011011);
+
+}
+
             #endif
 
 int main(void) {
@@ -681,6 +764,9 @@ int main(void) {
     test_iszero();
     test_issubnormal();
     #endif
+
+    // parse
+    test_strtof();
 
     (void)f2u;
 

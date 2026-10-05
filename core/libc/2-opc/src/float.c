@@ -41,10 +41,13 @@
 #define __ONRAMP_LIBC_FLOAT_IMPL
 
 #include <assert.h>   // TODO define NDEBUG when compiling final stages
+#include <ctype.h>
+#include <errno.h>
 #include <math.h>
 #include <signal.h>
-#include <stdint.h>
 #include <stdbool.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 #ifdef __onramp__
     #include <__onramp/__arithmetic.h>
@@ -787,9 +790,484 @@ unsigned copysignf(unsigned magnitude, unsigned sign) {
     return (magnitude & ~FLOAT_SIGN_BIT) | (sign & FLOAT_SIGN_BIT);
 }
 
-#include <stdio.h>
 int __float_issignaling(unsigned x) {
     uint32_t xe = FLOAT_EXPONENT(x);
     uint32_t xf = FLOAT_SIGNIFICAND(x);
     return xe == FLOAT_EXPONENT_MASK && xf != 0 && !(xf & FLOAT_QUIET_BIT);
+}
+
+/**
+ * An arbitrary precision decimal.
+ *
+ * The digits are stored as 8-bit binary coded decimal in the given buffer.
+ * Each byte is a decimal digit (in range 0-9, not offset by '0'.) The buffer
+ * represents an integer; there is no fractional part.
+ *
+ * The exponent is the power of ten multiplier. A positive exponent is a
+ * positive power of ten; a negative exponent is a negative power of ten. In
+ * other words, a positive exponent indicates a number of extra zeroes, and a
+ * negative exponent indicates how many digits are after the decimal point.
+ * TODO we don't check for overflow on the exponent yet so it has to be reasonable.
+ *
+ * The capacity is fixed; it must be pre-allocated correctly. If there is
+ * insufficient capacity for an operation, a fatal error occurs.
+ *
+ * Leading and trailing zeroes should be avoided. A value of 0 is normally
+ * represented by length 0.
+ */
+typedef struct bigdec_t {
+    size_t capacity;
+    size_t length;
+    unsigned char* buffer;
+    int exponent;
+} bigdec_t;
+
+void __bigdec_print(bigdec_t* bigdec, char* out, size_t outsize) {
+    unsigned char* buffer = bigdec->buffer;
+    size_t length = bigdec->length;
+    int exponent = bigdec->exponent;
+
+    // make sure we have enough space
+    size_t needed = bigdec->length;
+    if (length == 0) {
+        needed = 1;
+    } else if (exponent > 0) {
+        needed += (size_t)exponent;
+    } else if ((size_t)-exponent >= length) {
+        needed += (size_t)-exponent - length + 2;
+    } else if (exponent < 0) {
+        needed += 1;
+    }
+    if (needed >= outsize) {
+        __fatal("buffer too small");
+    }
+
+//printf("    print length %i exponent %i\n", (int)length, exponent);
+    if (length == 0) {
+        *out++ = '0';
+    } else if (exponent >= 0) {
+        for (size_t i = 0; i != length; ++i) {
+//printf("    print buffer %i is %i\n", (int)i, buffer[i]);
+            *out++ = '0' + buffer[i];
+        }
+        for (size_t i = 0; i != (size_t)exponent; ++i) {
+            *out++ = '0';
+        }
+    } else if (length > (size_t)-exponent) {
+        size_t c = length + exponent;
+        size_t i = 0;
+//printf("    print c %i length %i exponent %i\n", (int)c, (int)length, (int)exponent);
+        for (; i != c; ++i) {
+            *out++ = '0' + buffer[i];
+        }
+        *out++ = '.';
+        for (; i != length; ++i) {
+            *out++ = '0' + buffer[i];
+        }
+    } else {
+        *out++ = '0';
+        *out++ = '.';
+        size_t z = -exponent - length;
+        for (size_t i = 0; i < z; ++i) {
+            *out++ = '0';
+        }
+        for (size_t i = 0; i != length; ++i) {
+            *out++ = '0' + buffer[i];
+        }
+    }
+
+    *out = 0;
+}
+
+static void __bigdec_trim_leading_zeroes(bigdec_t* bigdec) {
+    size_t length = bigdec->length;
+    if (length == 0) {
+        return;
+    }
+
+    unsigned char* buffer = bigdec->buffer;
+    if (buffer[0] != 0) {
+        return;
+    }
+
+    size_t shift = 0;
+    while (buffer[shift] == 0 && shift < length) {
+        ++shift;
+    }
+
+    if (shift == length) {
+        bigdec->length = 0;
+        bigdec->exponent = 0;
+        return;
+    }
+
+    length -= shift;
+    for (size_t i = 0; i < length; ++i) {
+        buffer[i] = buffer[i + shift];
+    }
+    bigdec->length = length;
+}
+
+// TODO merge into above
+static void __bigdec_trim_trailing_zeroes(bigdec_t* bigdec) {
+    size_t length = bigdec->length;
+    if (length == 0) {
+        return;
+    }
+
+    unsigned char* buffer = bigdec->buffer;
+    while (length > 0 && buffer[length - 1] == 0) {
+        --length;
+        ++bigdec->exponent;
+    }
+    bigdec->length = length;
+}
+
+// TODO need to break up the below into separate functions. mul2, div2
+
+/**
+ * Multiply an arbitrary precision decimal by the given power of two,
+ * maintaining full precision.
+ *
+ * The result is computed by iterating a multiplication or division by 2 the
+ * given number of times.
+ *
+ * There must be no leading zeroes. Any trailing zeroes will be trimmed.
+ */
+static void __bigdec_mul_pow2(bigdec_t* bigdec, int pow2) {
+    if (pow2 == 0) {
+        return;
+    }
+
+    size_t length = bigdec->length;
+    if (length == 0) {
+        return;
+    }
+    assert(bigdec->buffer[0] != 0); // no leading zeroes
+
+    unsigned char* buffer = bigdec->buffer;
+    size_t capacity = bigdec->capacity;
+    int exponent = bigdec->exponent;
+
+    if (pow2 > 0) {
+
+        // Multiply.
+        while (pow2-- != 0) {
+
+            // First we check if we will need an extra digit. This happens if the
+            // first digit is 5 or greater.
+            size_t extra_digit = buffer[0] >= 5;
+            if (length + extra_digit > capacity) {
+                __fatal("Internal error: insufficient capacity for bigdec pow2 multiply");
+            }
+
+            // Next we multiply each digit by two starting at the bottom.
+            uint32_t carry = 0;
+            for (size_t k = length; k-- > 0;) {
+                uint32_t result = (buffer[k] << 1) + carry;
+                if (result >= 10) {
+                    result -= 10;
+                    carry = 1;
+                } else {
+                    carry = 0;
+                }
+                buffer[k + extra_digit] = (unsigned char)result;
+            }
+            assert(extra_digit == carry);
+            if (extra_digit) {
+                buffer[0] = 1;
+            }
+            length += extra_digit;
+
+            // Trim trailing zeroes.
+            while (buffer[length - 1] == 0) {
+                --length;
+                ++exponent;
+            }
+        }
+
+    } else {
+
+        // Divide.
+
+        // Start by trimming trailing zeroes. (A divide can never add a
+        // trailing zero.)
+        // TODO no, should be done separately
+        while (buffer[length - 1] == 0) {
+            --length;
+            ++exponent;
+        }
+
+        while (pow2++ != 0) {
+            uint32_t carry = 0;
+
+            // If the first digit is 1, we're going to eliminate it.
+            size_t eliminate_digit = 0;
+            if (buffer[0] == 1) {
+                //printf("eliminate digit\n");
+                eliminate_digit = 1;
+                --length;
+                carry = 10;
+            }
+
+            // Divide through each digit, carrying a 5 wherever we get an odd number
+            for (size_t k = 0; k < length; ++k) {
+                uint32_t sum = buffer[k + eliminate_digit] + carry;
+                //printf("digit %u carry %u sum %u\n",buffer[k + eliminate_digit], carry,sum);
+                carry = (sum & 1) * 10;
+                buffer[k] = (unsigned char)(sum >> 1);
+            }
+
+            // If the last digit was odd, add the 5
+            //printf("final carry %u\n",carry);
+            if (carry != 0) {
+                buffer[length++] = 5;
+                --exponent;
+            }
+        }
+    }
+
+    bigdec->length = length;
+    bigdec->exponent = exponent;
+}
+
+/**
+ * Gets the integer portion of a big decimal.
+ *
+ * Any remaining fraction is truncated. If the number is too large, it will
+ * overflow.
+ */
+uint32_t __bigdec_uint(bigdec_t* bigdec, bool round) {
+    size_t length = bigdec->length;
+    if (length == 0) {
+        return 0;
+    }
+
+    unsigned char* buffer = bigdec->buffer;
+    int integer_digits = bigdec->exponent + length;
+    if (integer_digits < 0) {
+        // If we have less than zero integer digits, the number is 0.0X, so we
+        // round or truncate down to zero. If we have exactly zero integer
+        // digits, we may need to round correctly.
+        return 0;
+    }
+
+    // Convert the integer portion of the bigdecimal to an integer
+    uint32_t decint = 0;
+    size_t real_digits = ((size_t)integer_digits < length) ? (size_t)integer_digits : length;
+    size_t i = 0;
+    for (; i < real_digits; ++i) {
+        decint = (decint * 10) + buffer[i];
+    }
+    for (; i < (size_t)integer_digits; ++i) {
+        decint *= 10;
+    }
+
+    if (round) {
+        if (length > (size_t)integer_digits) {
+            // We have a fraction.
+            uint32_t fraction_digit = buffer[integer_digits];
+            if (fraction_digit > 5) {
+                ++decint;
+            } else if (fraction_digit == 5) {
+                if (length > ((size_t)integer_digits + 1)) {
+                    ++decint; // the fraction digit is 5, but we have additional digits; round up
+                } else if (integer_digits != 0 && (buffer[integer_digits - 1] & 1)) {
+                    ++decint; // the fraction is exactly 5 and the previous digit is odd; round to even
+                }
+            }
+        }
+    }
+
+    return decint;
+}
+
+/**
+ * Compares a big decimal to a uint32_t.
+ *
+ * Returns -1 if the big decimal is smaller, +1 if it's larger, and 0 if they
+ * are equal.
+ */
+int __bigdec_cmp_u32(bigdec_t* bigdec, uint32_t value) {
+    size_t length = bigdec->length;
+    if (length == 0) {
+        return (value == 0) ? 0 : -1;
+    }
+
+    // No leading or trailing zeroes
+    unsigned char* buffer = bigdec->buffer;
+    assert(buffer[0] != 0);
+    assert(buffer[length - 1] != 0);
+
+    // Check if the decimal is outside the range of a uint32_t. In this case we
+    // don't need to compare at all.
+    int exponent = bigdec->exponent;
+    int integer_digits = exponent + length;
+    if (integer_digits < 0) {
+        return -1;
+    }
+    if (integer_digits > 10) {
+        return 1;
+    }
+
+    // Compare integer portion of the value
+    uint32_t uint = __bigdec_uint(bigdec, false);
+    if (uint < value) {
+        return -1;
+    }
+    if (uint > value) {
+        return 1;
+    }
+
+    // Integer portion is equal. Decimal is larger if it has a fraction.
+    return (length > (size_t)integer_digits) ? 1 : 0;
+}
+
+/**
+ * Parse a string to a float.
+ *
+ * We return uint32_t instead of float so this can be compiled with our earlier
+ * bootstrapping stages.
+ *
+ * The implementation is based on iterated multiplication/division by 2 of
+ * arbitrary precision decimals. It's very slow but it's also very simple.
+ * Printing is described by the following article; parsing is the reverse:
+ *
+ *     https://research.swtch.com/ftoa
+ */
+uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) {
+
+    // Skip leading whitespace
+    const unsigned char* restrict p = (const unsigned char*)str;
+    while (isspace(*p)) {
+        ++p;
+    }
+
+    // TODO check for inf, infinity, nan. infinity might have +/- sign, nan can't
+
+    // Parse the sign
+    uint32_t sign = 0;
+    if (*p == '-') {
+        sign = 1;
+        ++p;
+    } else if (*p == '+') {
+        ++p;
+    }
+
+    if (*p == '0' && (p[1] == 'x' || p[1] == 'X')) {
+        __fatal("TODO hex float parsing");
+    }
+
+    // Count the decimal digits
+    const unsigned char* digits = p;
+    size_t digit_count = 0;
+    int dec_exponent = 0;
+    while (isdigit(*p)) {
+        ++p;
+        ++digit_count;
+    }
+    if (*p == '.') {
+        dec_exponent = 0;
+        ++p;
+        while (isdigit(*p)) {
+            ++p;
+            ++digit_count;
+            --dec_exponent;
+        }
+    }
+
+    // Make sure we have at least one digit
+    if (digit_count == 0) {
+        if (out_end) {
+            *out_end = (char*)str;
+        }
+        return 0;
+    }
+
+    // Allocate a big decimal sufficiently large
+    bigdec_t bigdec;
+    bigdec.capacity = 150 + digit_count; // probably overkill, TODO shorten it later, TODO use alloca if it's small enough
+    bigdec.length = digit_count;
+    bigdec.buffer = malloc(bigdec.capacity);
+    if (bigdec.buffer == 0) {
+        errno = ENOMEM; // not a legal error code
+        *out_end = (char*)str;
+        return 0;
+    }
+
+    // Fill in the digits
+    for (size_t i = 0; digits != p; ++digits) {
+        if (*digits != '.') {
+            bigdec.buffer[i++] = *digits - '0';
+        }
+    }
+
+    // Get the exponent if any.
+    // (If the exponent is incomplete, we ignore it, and out_end will be set to
+    // the start of the bad exponent.)
+    const unsigned char* end = p;
+    if (*p == 'e' || *p == 'E') {
+        ++p;
+        if (isdigit(*p) || *p == '+' || *p == '-') {
+            const unsigned char* exp_end = p;
+            long decl_exponent = strtol((const char*)p, (char**)&exp_end, 10);
+            if (p != exp_end) {
+
+                // Limit the range
+                // (We'll limit again once we convert decimal to binary; this
+                // is just to prevent an overflow in our big decimal
+                // calculation.)
+                if (decl_exponent > 40 || decl_exponent < -60) {
+                    free(bigdec.buffer);
+                    errno = ERANGE;
+                    // TODO this is wrong, if exponent is too small we should return FLT_MIN and set ERANGE
+                    return FLOAT_INFINITY | (sign << FLOAT_SIGN_SHIFT);
+                }
+
+                // We have a valid exponent.
+                dec_exponent += decl_exponent;
+                end = exp_end;
+            }
+        }
+    }
+    bigdec.exponent = dec_exponent;
+
+    __bigdec_trim_leading_zeroes(&bigdec);
+    __bigdec_trim_trailing_zeroes(&bigdec);
+    //{char buf[256]; __bigdec_print(&bigdec, buf, sizeof(buf)); printf("loaded %s\n", buf);}
+
+    // Our mantissa must be exactly a 24-bit number (with a leading 1.) We need
+    // to multiply or divide by 2 until the integer part of the big decimal
+    // fits in exactly this many bits.
+    int pow2 = FLOAT_SIGNIFICAND_BITS + FLOAT_EXPONENT_BIAS;
+    if (-1 == __bigdec_cmp_u32(&bigdec, 1 << FLOAT_SIGNIFICAND_BITS)) {
+        // Our number is too small. We have to multiply by 2.
+        do {
+            --pow2;
+            __bigdec_mul_pow2(&bigdec, 1);
+        } while (-1 == __bigdec_cmp_u32(&bigdec, 1 << FLOAT_SIGNIFICAND_BITS));
+    } else {
+        // Our number may be too large. We have to divide by two.
+        while (-1 != __bigdec_cmp_u32(&bigdec, 1 << (FLOAT_SIGNIFICAND_BITS + 1))) {
+            ++pow2;
+            __bigdec_mul_pow2(&bigdec, -1);
+        }
+    }
+
+    if (pow2 <= 0) {
+        __fatal("TODO subnormal");
+    }
+    if (pow2 > (1 << FLOAT_EXPONENT_BITS)) {
+        errno = ERANGE;
+        // supposed to return HUGE_VALF, which is infinity
+        __fatal("TODO infinity");
+    }
+
+    uint32_t mantissa = __bigdec_uint(&bigdec, true);
+
+    *out_end = (char*)end;
+    free(bigdec.buffer);
+    return (sign << FLOAT_SIGN_SHIFT)
+            | ((uint32_t)pow2 << FLOAT_EXPONENT_SHIFT)
+            | (mantissa & FLOAT_SIGNIFICAND_MASK);
 }

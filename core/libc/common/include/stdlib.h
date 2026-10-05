@@ -76,9 +76,11 @@ unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int
 long long int atoll(const char* nptr);
 double atof(const char* nptr);
 
-double strtod(const char* restrict nptr, char** restrict endptr);
+#ifndef __ONRAMP_LIBC_FLOAT_IMPL
 float strtof(const char* restrict nptr, char** restrict endptr);
+double strtod(const char* restrict nptr, char** restrict endptr);
 long double strtold(const char* restrict nptr, char** restrict endptr);
+#endif
 
 long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);
 unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);
