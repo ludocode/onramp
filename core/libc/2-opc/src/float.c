@@ -48,6 +48,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <strings.h>
 
 #ifdef __onramp__
     #include <__onramp/__arithmetic.h>
@@ -1143,7 +1144,15 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
         ++p;
     }
 
-    // TODO check for inf, infinity, nan. infinity might have +/- sign, nan can't
+    // Check for nan
+    // TODO need to use strncasecmp_l() in the C locale
+    if (0 == strncasecmp((char*)p, "nan", 3)) {
+        // TODO glibc supports a following (...) containing a decimal, 0 octal,
+        // or 0x hexadecimal number representing the mantissa of the nan. if
+        // necessary we could easily implement it.
+        *out_end = (char*)p + 3;
+        return FLOAT_QUIET_NAN;
+    }
 
     // Parse the sign
     uint32_t sign = 0;
@@ -1156,6 +1165,17 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
 
     if (*p == '0' && (p[1] == 'x' || p[1] == 'X')) {
         __fatal("TODO hex float parsing");
+    }
+
+    // Check for infinity
+    // TODO need to use strncasecmp_l() in the C locale
+    if (0 == strncasecmp((char*)p, "inf", 3)) {
+        p += 3;
+        if (0 == strncasecmp((char*)p, "inity", 5)) {
+            p += 5;
+        }
+        *out_end = (char*)p;
+        return FLOAT_INFINITY | (sign << FLOAT_SIGN_SHIFT);
     }
 
     // Count the decimal digits
@@ -1231,10 +1251,15 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
         }
     }
     bigdec.exponent = dec_exponent;
+    *out_end = (char*)end;
 
     __bigdec_trim_leading_zeroes(&bigdec);
     __bigdec_trim_trailing_zeroes(&bigdec);
     //{char buf[256]; __bigdec_print(&bigdec, buf, sizeof(buf)); printf("loaded %s\n", buf);}
+    if (bigdec.length == 0) {
+        free(bigdec.buffer);
+        return sign << FLOAT_SIGN_SHIFT;
+    }
 
     // Our mantissa must be exactly a 24-bit number (with a leading 1.) We need
     // to multiply or divide by 2 until the integer part of the big decimal
@@ -1245,7 +1270,7 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
         do {
             --pow2;
             __bigdec_mul_pow2(&bigdec, 1);
-        } while (-1 == __bigdec_cmp_u32(&bigdec, 1 << FLOAT_SIGNIFICAND_BITS));
+        } while (pow2 > 1 && -1 == __bigdec_cmp_u32(&bigdec, 1 << FLOAT_SIGNIFICAND_BITS));
     } else {
         // Our number may be too large. We have to divide by two.
         while (-1 != __bigdec_cmp_u32(&bigdec, 1 << (FLOAT_SIGNIFICAND_BITS + 1))) {
@@ -1253,19 +1278,22 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
             __bigdec_mul_pow2(&bigdec, -1);
         }
     }
+    //{char buf[256]; __bigdec_print(&bigdec, buf, sizeof(buf)); printf("result %s\n", buf);}
 
-    if (pow2 <= 0) {
-        __fatal("TODO subnormal");
-    }
     if (pow2 > (1 << FLOAT_EXPONENT_BITS)) {
+        free(bigdec.buffer);
         errno = ERANGE;
-        // supposed to return HUGE_VALF, which is infinity
-        __fatal("TODO infinity");
+        return FLOAT_INFINITY | (sign << FLOAT_SIGN_SHIFT);
     }
 
     uint32_t mantissa = __bigdec_uint(&bigdec, true);
 
-    *out_end = (char*)end;
+    // if the number is subnormal, we have to raise ERANGE
+    if (!(mantissa & FLOAT_HIDDEN_BIT)) {
+        pow2 = 0;
+        errno = ERANGE;
+    }
+
     free(bigdec.buffer);
     return (sign << FLOAT_SIGN_SHIFT)
             | ((uint32_t)pow2 << FLOAT_EXPONENT_SHIFT)

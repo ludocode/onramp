@@ -653,10 +653,10 @@ static void test_sub_loop(void) {
 }
 #endif
 
-static void test_strtof_case(const char* str, float expected_float, uint32_t expected_bits) {
+static void test_strtof_case(const char* str, float expected_float, uint32_t expected_bits, int error) {
     if (f2u(expected_float) != expected_bits) {
-        printf("invalid test, float %g has bits %#x, not %#x\n",
-                expected_float, f2u(expected_float), expected_bits);
+        printf("invalid test, expected float %.9g has bits %#x, expected bits %#x is float %.9g\n",
+                expected_float, f2u(expected_float), expected_bits, u2f(expected_bits));
         exit(1);
     }
 
@@ -664,27 +664,37 @@ static void test_strtof_case(const char* str, float expected_float, uint32_t exp
 
     #ifndef __onramp__
     // compare to native libc strtof
+    errno = 0;
     float nf = native_strtof(str, &end);
     if (end != str + strlen(str)) {
         printf("native failed to parse %s\n", str);
         exit(1);
     }
     if (f2u(nf) != expected_bits) {
-        printf("native strtof(\"%s\") == %g %#x, expected %g %#x\n",
+        printf("native strtof(\"%s\") == %.9g %#x, expected %.9g %#x\n",
                 str, nf, f2u(nf), expected_float, expected_bits);
+        exit(1);
+    }
+    if (errno != error) {
+        printf("native %s raised incorrect error code: expected %i, actual %i\n", str, error, errno);
         exit(1);
     }
     #endif
 
     // compare to onramp strtof
+    errno = 0;
     uint32_t of = onramp_strtof(str, &end);
     if (end != str + strlen(str)) {
         printf("onramp failed to parse %s\n", str);
         exit(1);
     }
     if (of != expected_bits) {
-        printf("onramp strtof(\"%s\") == %g %#x, expected %g %#x\n",
+        printf("onramp strtof(\"%s\") == %.9g %#x, expected %.9g %#x\n",
                 str, u2f(of), of, expected_float, expected_bits);
+        exit(1);
+    }
+    if (errno != error) {
+        printf("onramp %s raised incorrect error code: expected %i, actual %i\n", str, error, errno);
         exit(1);
     }
 }
@@ -692,40 +702,86 @@ static void test_strtof_case(const char* str, float expected_float, uint32_t exp
 static void test_strtof(void) {
 
     // small integers
-    test_strtof_case("1", 1.f, 0b0'01111111'00000000000000000000000);
-    test_strtof_case("2.0", 2.0f, 0b0'10000000'00000000000000000000000);
-    test_strtof_case("3e0", 3e0f, 0b0'10000000'10000000000000000000000);
-    test_strtof_case("4.0e0", 4.0e0f, 0b0'10000001'00000000000000000000000);
-    test_strtof_case("1e1", 1e1f, 0b0'10000010'01000000000000000000000); // 10
-    test_strtof_case("1000.00e-1", 1000.00e-1f, 0b0'10000101'10010000000000000000000); // 100
+    test_strtof_case("1", 1.f, 0b0'01111111'00000000000000000000000, 0);
+    test_strtof_case("2.0", 2.0f, 0b0'10000000'00000000000000000000000, 0);
+    test_strtof_case("3e0", 3e0f, 0b0'10000000'10000000000000000000000, 0);
+    test_strtof_case("4.0e0", 4.0e0f, 0b0'10000001'00000000000000000000000, 0);
+    test_strtof_case("1e1", 1e1f, 0b0'10000010'01000000000000000000000, 0); // 10
+    test_strtof_case("1000.00e-1", 1000.00e-1f, 0b0'10000101'10010000000000000000000, 0); // 100
 
     // integer boundary cases
-    test_strtof_case("8388607",   8388607.0f, 0b0'10010101'11111111111111111111110); // exact
-    test_strtof_case("8388607.5", 8388607.5f, 0b0'10010101'11111111111111111111111); // exact
-    test_strtof_case("8388608",   8388608.0f, 0b0'10010110'00000000000000000000000); // exact
-    test_strtof_case("8388608.5", 8388608.5f, 0b0'10010110'00000000000000000000000); // rounds to 8388608
-    test_strtof_case("8388609",   8388609.0f, 0b0'10010110'00000000000000000000001); // exact
-    test_strtof_case("16777215", 16777215.0f, 0b0'10010110'11111111111111111111111); // exact
-    test_strtof_case("16777216", 16777216.0f, 0b0'10010111'00000000000000000000000); // exact
-    test_strtof_case("16777217", 16777217.0f, 0b0'10010111'00000000000000000000000); // rounds to 16777216
+    test_strtof_case("8388607",   8388607.0f, 0b0'10010101'11111111111111111111110, 0); // exact
+    test_strtof_case("8388607.5", 8388607.5f, 0b0'10010101'11111111111111111111111, 0); // exact
+    test_strtof_case("8388608",   8388608.0f, 0b0'10010110'00000000000000000000000, 0); // exact
+    test_strtof_case("8388608.5", 8388608.5f, 0b0'10010110'00000000000000000000000, 0); // rounds to 8388608
+    test_strtof_case("8388609",   8388609.0f, 0b0'10010110'00000000000000000000001, 0); // exact
+    test_strtof_case("16777215", 16777215.0f, 0b0'10010110'11111111111111111111111, 0); // exact
+    test_strtof_case("16777216", 16777216.0f, 0b0'10010111'00000000000000000000000, 0); // exact
+    test_strtof_case("16777217", 16777217.0f, 0b0'10010111'00000000000000000000000, 0); // rounds to 16777216
 
     // integers too large
-    test_strtof_case("602214076000000000000000", 602214076000000000000000.f, 0b0'11001101'11111110000110000101110); // 1 mol
+    test_strtof_case("602214076000000000000000", 602214076000000000000000.f, 0b0'11001101'11111110000110000101110, 0); // 1 mol
 
     // small fractions
-    test_strtof_case("0.5", 0.5f, 0b0'01111110'00000000000000000000000);
-    test_strtof_case("0.25", 0.25f, 0b0'01111101'00000000000000000000000);
-    test_strtof_case("0.125", 0.125f, 0b0'01111100'00000000000000000000000);
-    test_strtof_case("0.1", 0.1f, 0b0'11110111'0011001100110011001101);
-    test_strtof_case("10.00000000000000000e-2", 10.00000000000000000e-2f, 0b0'11110111'0011001100110011001101);
-    test_strtof_case("0.000001", 0.000001f, 0b0'11010110'0001100011011110111101);
-    test_strtof_case("0.000000000000000000000000000001", 0.000000000000000000000000000001f, 0b0'00110110'1000100100001001100000);
-    test_strtof_case("0.0000000000000000000000000000000000001", 0.0000000000000000000000000000000000001f, 0b0'00001000'0010000001110011101010);
-    test_strtof_case("1.602176634e-19", 1.602176634e-19f, 0b0'01000000'01111010010011011010001); // 1 eV in J
+    test_strtof_case("0.5", 0.5f, 0b0'01111110'00000000000000000000000, 0);
+    test_strtof_case("0.25", 0.25f, 0b0'01111101'00000000000000000000000, 0);
+    test_strtof_case("0.125", 0.125f, 0b0'01111100'00000000000000000000000, 0);
+    test_strtof_case("0.1", 0.1f, 0b0'01111011'10011001100110011001101, 0);
+    test_strtof_case("10.00000000000000000e-2", 10.00000000000000000e-2f, 0b0'01111011'10011001100110011001101, 0);
+    test_strtof_case("0.000001", 0.000001f, 0b0'01101011'00001100011011110111101, 0);
+    test_strtof_case("0.000000000000000000000000000001", 0.000000000000000000000000000001f, 0b0'00011011'01000100100001001100000, 0);
+    test_strtof_case("0.0000000000000000000000000000000000001", 0.0000000000000000000000000000000000001f, 0b0'00000100'00010000001110011101010, 0);
+    test_strtof_case("1.602176634e-19", 1.602176634e-19f, 0b0'01000000'01111010010011011010001, 0); // 1 eV in J
 
     // misc decimal numbers
-    test_strtof_case("123.456", 123.456f, 0b0'10000101'11101101110100101111001);
-    test_strtof_case("3.14159265358", 3.14159265358f, 0b0'10000000'10010010000111111011011);
+    test_strtof_case("123.456", 123.456f, 0b0'10000101'11101101110100101111001, 0);
+    test_strtof_case("3.14159265358", 3.14159265358f, 0b0'10000000'10010010000111111011011, 0);
+
+    // subnormals
+    test_strtof_case("1.175494351e-38", 1.175494351e-38, 0b0'00000001'00000000000000000000000, 0); // smallest normalized number (FLT_MIN)
+    test_strtof_case("1.175494211e-38", 1.175494211e-38, 0b0'00000000'11111111111111111111111, ERANGE); // largest subnormal number
+    test_strtof_case("9.999946101e-41", 9.999946101e-41, 0b0'00000000'00000010001011011000010, ERANGE);
+    test_strtof_case("1e-40", 1e-40f, 0b0'00000000'00000010001011011000010, ERANGE);
+    test_strtof_case("1e-42", 1e-42f, 0b0'00000000'00000000000001011001010, ERANGE);
+    test_strtof_case("1.401298464e-45", 1.401298464e-45, 0b0'00000000'00000000000000000000001, ERANGE); // smallest subnormal
+    test_strtof_case("1e-45", 1e-45f, 0b0'00000000'00000000000000000000001, ERANGE); // also smallest subnormal
+    test_strtof_case("1e-46", 0 /*avoid gcc warning on 1e-46f*/, 0, ERANGE); // too small to be representable
+
+    // zero
+    test_strtof_case("0", 0, 0, 0);
+    test_strtof_case("00000", 00000, 0, 0);
+    test_strtof_case("0.0", 0.0f, 0, 0);
+    test_strtof_case("00000.0000000000000", 00000.0000000000000f, 0, 0);
+
+    // negative numbers, whitespace
+    test_strtof_case("-0.1", -0.1f, 0b1'011110111'0011001100110011001101, 0);
+    test_strtof_case("    -123.456", -123.456f, 0b1'10000101'11101101110100101111001, 0);
+    test_strtof_case("\t\t\t-3.14159265358", -3.14159265358f, 0b1'10000000'10010010000111111011011, 0);
+    test_strtof_case("-0", -0.f, 0b1'000000000'0000000000000000000000, 0);
+
+    // explicit plus sign, whitespace
+    test_strtof_case("+0.1", +0.1f, 0b0'01111011'10011001100110011001101, 0);
+    test_strtof_case(" \t \t+123.456", +123.456f, 0b0'10000101'11101101110100101111001, 0);
+    test_strtof_case("\t    \t   +3.14159265358", +3.14159265358f, 0b0'10000000'10010010000111111011011, 0);
+    test_strtof_case("+0", +0.f, 0, 0);
+
+    // infinity
+    test_strtof_case("inf", INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("infinity", INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("INF", INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("INFINITY", INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("InF", INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("iNfInItY", INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("+inf", +INFINITY, 0b0'11111111'00000000000000000000000, 0);
+    test_strtof_case("-INFINITY", -INFINITY, 0b1'11111111'00000000000000000000000, 0);
+
+    // nan
+    test_strtof_case("nan", NAN, 0b0'11111111'10000000000000000000000, 0);
+    test_strtof_case("NAN", NAN, 0b0'11111111'10000000000000000000000, 0);
+    test_strtof_case("NaN", NAN, 0b0'11111111'10000000000000000000000, 0);
+    test_strtof_case("nAn", NAN, 0b0'11111111'10000000000000000000000, 0);
+
+    // TODO test that it rejects errors correctly
 
 }
 

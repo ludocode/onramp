@@ -1,8 +1,9 @@
 // The MIT License (MIT)
-// Copyright (c) 2025 Fraser Heavy Software
+// Copyright (c) 2025-2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
 #include <string.h>
+#include <strings.h>
 
 int main(void) {
     if (0 != strcmp("abcd", "abcd")) {
@@ -23,5 +24,13 @@ int main(void) {
     if (0 <= strcmp("", "b")) {
         return 6;
     }
+
+    #if 0
+    // TODO move to separate strncasecmp test
+    if (0 != strncasecmp("abcdef", "abcxyz", 3)) {
+        return 7;
+    }
+    #endif
+
     return 0;
 }
