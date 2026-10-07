@@ -24,6 +24,9 @@
 
 #include "parse_expr.h"
 
+#include <ctype.h>
+#include <stdlib.h>
+
 #include "common.h"
 #include "function.h"
 #include "record.h"
@@ -130,9 +133,9 @@ static base_t parse_number_type(token_t* token, u64_t* number, int base,
 }
 
 /**
- * Parses a number.
+ * Parses an integer.
  */
-static node_t* parse_number(void) {
+static node_t* parse_integer(void) {
     assert(lexer_token->type == token_type_number);
     node_t* node = node_new_lexer(NODE_NUMBER);
     token_t* token = node->token;
@@ -266,7 +269,7 @@ static node_t* parse_number(void) {
         if (((*p == '.') | ((*p == 'e') | (*p == 'E'))) |
                 ((*p == 'p') | (*p == 'P')))
         {
-            fatal_token(token, "TODO floating point literals are not yet supported");
+            fatal_token(token, "Internal error: floating point literals should have been handled separately.");
         }
         fatal_token(token, "Malformed number literal.");
     }
@@ -284,6 +287,61 @@ static node_t* parse_number(void) {
 
 out_of_range:
     fatal_token(token, "Number does not fit in a 64-bit integer.");
+}
+
+static node_t* parse_float(void) {
+    assert(lexer_token->type == token_type_number);
+    node_t* node = node_new_lexer(NODE_NUMBER);
+    token_t* token = node->token;
+    base_t base = BASE_DOUBLE;
+
+    // TODO need to move this stuff to a utility library, maybe libo
+    #ifndef __onramp__
+    #define __strtof_u(...) ((union {float f; unsigned u;}){.f=strtof(__VA_ARGS__)}.u)
+    #endif
+
+    const char* p = string_cstr(token->value);
+    char* end;
+    node->u32 = __strtof_u(p, &end);
+    if (tolower(*end) == 'f') {
+        base = BASE_FLOAT;
+        ++end;
+    }
+    if (end != p + strlen(p)) {
+        fatal_token(token, "Failed to parse floating point number.");
+    }
+
+    node->type = type_new_base(base);
+    return node;
+}
+
+static node_t* parse_number(void) {
+    token_t* token = lexer_token;
+    assert(token->type == token_type_number);
+    const char* p = string_cstr(token->value);
+    size_t len = strlen(p);
+
+    // If the number contains '.', or contains an 'e' in decimal or a 'p' in
+    // hex, it's a float.
+
+    bool hex = false;
+    if (*p == '0' && (p[1] == 'x' || p[1] == 'X')) {
+        hex = true;
+        p += 2;
+        len -= 2;
+    }
+
+    for (size_t i = 0; i < len; ++i) {
+        unsigned char c = tolower(p[i]);
+        if (c == '.'
+                || (hex && c == 'p')
+                || (!hex && c == 'e'))
+        {
+            return parse_float();
+        }
+    }
+
+    return parse_integer();
 }
 
 static node_t* parse_character(void) {
