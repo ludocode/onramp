@@ -68,16 +68,6 @@ int atoi(const char* nptr);
 long int atol(const char* nptr);
 long int strtol(const char* restrict nptr, char** restrict endptr, int base);
 unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);
-
-        // TODO this is a mess, we'll need to figure out how to define functions that
-        // bridge floats for the bootstrapping compilers
-        #ifdef __onramp_cci_opc__
-            unsigned strtof(const char* restrict nptr, char** restrict endptr);
-            #define __strtof_u strtof
-        #endif
-        #ifndef __onramp_cci_opc__
-            unsigned __strtof_u(const char* restrict nptr, char** restrict endptr) __asm__("strtof");
-        #endif
 #endif
 
 #ifndef __onramp_cci_omc__

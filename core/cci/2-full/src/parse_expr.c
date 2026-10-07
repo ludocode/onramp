@@ -27,23 +27,24 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+#include "arithmetic.h"
 #include "common.h"
+#include "emit.h"
 #include "function.h"
-#include "record.h"
-#include "strings.h"
-#include "libo-error.h"
-#include "node.h"
-#include "type.h"
-#include "token.h"
 #include "lexer.h"
-#include "type.h"
-#include "symbol.h"
+#include "libo-error.h"
+#include "libo-float.h"
+#include "node.h"
 #include "options.h"
-#include "scope.h"
 #include "parse_decl.h"
 #include "parse_stmt.h"
-#include "emit.h"
-#include "arithmetic.h"
+#include "record.h"
+#include "scope.h"
+#include "strings.h"
+#include "symbol.h"
+#include "token.h"
+#include "type.h"
+#include "type.h"
 
 static int next_string;
 
@@ -294,11 +295,6 @@ static node_t* parse_float(void) {
     node_t* node = node_new_lexer(NODE_NUMBER);
     token_t* token = node->token;
     base_t base = BASE_DOUBLE;
-
-    // TODO need to move this stuff to a utility library, maybe libo
-    #ifndef __onramp__
-    #define __strtof_u(...) ((union {float f; unsigned u;}){.f=strtof(__VA_ARGS__)}.u)
-    #endif
 
     const char* p = string_cstr(token->value);
     char* end;
