@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <inttypes.h>
 
 #ifdef __onramp__
     #include <__onramp/__arithmetic.h>
@@ -18,7 +19,7 @@
     #define strtof onramp_strtof
 
     // this test case can be compiled standalone with a native C compiler:
-    // gcc -Wall -Wextra -Wpedantic -fsanitize=address -g test/test_float.c -o /tmp/a && /tmp/a
+    // gcc -O -Wall -Wextra -fsanitize=address -g test/test_float.c -o /tmp/a && /tmp/a
     #include "../../../../core/libc/2-opc/src/float.c"
 
     #undef strtof
@@ -785,6 +786,199 @@ static void test_strtof(void) {
 
 }
 
+static void test_float_from_u32_impl(unsigned value, float expected_float, unsigned expected_bits) {
+    if (f2u(expected_float) != expected_bits) {
+        printf("invalid test: expected float %.9g with bits %#x does not match expected bits %#x\n",
+                expected_float, f2u(expected_float), expected_bits);
+        exit(1);
+    }
+
+    #ifndef __onramp__
+    if (expected_bits != f2u((float)value)) {
+        printf("u32 %u has float value %.9g %#x, does not match expected %.9g %#x",
+                value, (float)value, f2u((float)value), expected_float, expected_bits);
+        exit(1);
+    }
+    #endif
+
+    uint32_t result = __float_from_u32(value);
+    if (expected_bits != result) {
+        printf("__float_from_u32(%u) returned %.9g %#x, expected %.9g %#x\n",
+                value, u2f(result), result, expected_float, expected_bits);
+        exit(1);
+    }
+}
+
+static void test_float_from_u32(void) {
+    test_float_from_u32_impl(0u, 0.0f, 0);
+    test_float_from_u32_impl(1u, 1.0f, 0b0'01111111'00000000000000000000000);
+    test_float_from_u32_impl(2u, 2.0f, 0b0'10000000'00000000000000000000000);
+    test_float_from_u32_impl(3u, 3.0f, 0b0'10000000'10000000000000000000000);
+    test_float_from_u32_impl(4u, 4.0f, 0b0'10000001'00000000000000000000000);
+    test_float_from_u32_impl(123456u, 123456.0f, 0b0'10001111'11100010010000000000000);
+    test_float_from_u32_impl(8388609u, 8388609.0f, 0b0'10010110'00000000000000000000001); // exact
+    test_float_from_u32_impl(16777215u, 16777215.0f, 0b0'10010110'11111111111111111111111); // exact
+    test_float_from_u32_impl(16777216u, 16777216.0f, 0b0'10010111'00000000000000000000000); // exact
+    test_float_from_u32_impl(16777217u, 16777217.0f, 0b0'10010111'00000000000000000000000); // rounded to even
+    test_float_from_u32_impl(16777218u, 16777218.0f, 0b0'10010111'00000000000000000000001); // exact
+    test_float_from_u32_impl(33554432u, 33554432.0f, 0b0'10011000'00000000000000000000000); // exact
+    test_float_from_u32_impl(44444444u, 44444444.0f, 0b0'10011000'01010011000101011000111); // apparently exact
+    test_float_from_u32_impl(67108864u, 67108864.0f, 0b0'10011001'00000000000000000000000); // exact
+    test_float_from_u32_impl(4294967295, 4294967295.0f, 0b0'10011111'00000000000000000000000); // rounded, UINT32_MAX
+
+    // try all numbers (recommend adding -O3 for this)
+    #ifdef DISABLED
+    for (uint32_t i = 1; i != 0; ++i) {
+        if ((i % 50000000) == 0) printf("testing __float_from_u32(): %u... (%f%%)\n",i, 100.0*(double)i/(double)UINT32_MAX);
+        test_float_from_u32_impl(i, (float)i, f2u((float)i));
+    }
+    printf("testing __float_from_u32(): done.\n");
+    #endif
+}
+
+static void test_float_from_i32_impl(int value, float expected_float, unsigned expected_bits) {
+    if (f2u(expected_float) != expected_bits) {
+        printf("invalid test: expected float %.9g with bits %#x does not match expected bits %#x\n",
+                expected_float, f2u(expected_float), expected_bits);
+        exit(1);
+    }
+
+    #ifndef __onramp__
+    if (expected_bits != f2u((float)value)) {
+        printf("u32 %u has float value %.9g %#x, does not match expected %.9g %#x",
+                value, (float)value, f2u((float)value), expected_float, expected_bits);
+        exit(1);
+    }
+    #endif
+
+    uint32_t result = __float_from_i32(value);
+    if (expected_bits != result) {
+        printf("__float_from_u32(%i) returned %.9g %#x, expected %.9g %#x\n",
+                value, u2f(result), result, expected_float, expected_bits);
+        exit(1);
+    }
+}
+
+static void test_float_from_i32(void) {
+    // some tests from unsigned
+    test_float_from_i32_impl(1, 1.0f, 0b0'01111111'00000000000000000000000);
+    test_float_from_i32_impl(123456, 123456.0f, 0b0'10001111'11100010010000000000000);
+    test_float_from_i32_impl(33554432, 33554432.0f, 0b0'10011000'00000000000000000000000);
+
+    // negative numbers
+    test_float_from_i32_impl(-1, -1.0f, 0b1'01111111'00000000000000000000000);
+    test_float_from_i32_impl(-123456, -123456.0f, 0b1'10001111'11100010010000000000000);
+    test_float_from_i32_impl(-33554432, -33554432.0f, 0b1'10011000'00000000000000000000000);
+
+    // TODO better tests, boundary conditions
+}
+
+static void test_float_from_u64_impl(uint64_t value, float expected_float, unsigned expected_bits) {
+    if (f2u(expected_float) != expected_bits) {
+        printf("invalid test: expected float %.9g with bits %#x does not match expected bits %#x\n",
+                expected_float, f2u(expected_float), expected_bits);
+        exit(1);
+    }
+
+    #ifndef __onramp__
+    if (expected_bits != f2u((float)value)) {
+        printf("u64 %" PRIu64 " has float value %.9g %#x, does not match expected %.9g %#x",
+                value, (float)value, f2u((float)value), expected_float, expected_bits);
+        exit(1);
+    }
+    #endif
+
+    unsigned result = __float_from_u64((unsigned*)&value); // assumes little-endian, also illegal type-punned pointer
+    if (expected_bits != result) {
+        printf("__float_from_u64(%" PRIu64 ") returned %.9g %#x, expected %.9g %#x\n",
+                value, u2f(result), result, expected_float, expected_bits);
+        exit(1);
+    }
+}
+
+static void test_float_from_u64(void) {
+
+    // same tests as u32
+    test_float_from_u64_impl(0u, 0.0f, 0);
+    test_float_from_u64_impl(1u, 1.0f, 0b0'01111111'00000000000000000000000);
+    test_float_from_u64_impl(2u, 2.0f, 0b0'10000000'00000000000000000000000);
+    test_float_from_u64_impl(3u, 3.0f, 0b0'10000000'10000000000000000000000);
+    test_float_from_u64_impl(4u, 4.0f, 0b0'10000001'00000000000000000000000);
+    test_float_from_u64_impl(123456u, 123456.0f, 0b0'10001111'11100010010000000000000);
+    test_float_from_u64_impl(8388609u, 8388609.0f, 0b0'10010110'00000000000000000000001); // exact
+    test_float_from_u64_impl(16777215u, 16777215.0f, 0b0'10010110'11111111111111111111111); // exact
+    test_float_from_u64_impl(16777216u, 16777216.0f, 0b0'10010111'00000000000000000000000); // exact
+    test_float_from_u64_impl(16777217u, 16777217.0f, 0b0'10010111'00000000000000000000000); // rounded to even
+    test_float_from_u64_impl(16777218u, 16777218.0f, 0b0'10010111'00000000000000000000001); // exact
+    test_float_from_u64_impl(33554432u, 33554432.0f, 0b0'10011000'00000000000000000000000); // exact
+    test_float_from_u64_impl(44444444u, 44444444.0f, 0b0'10011000'01010011000101011000111); // apparently exact
+    test_float_from_u64_impl(67108864u, 67108864.0f, 0b0'10011001'00000000000000000000000); // exact
+    test_float_from_u64_impl(4294967295, 4294967295.0f, 0b0'10011111'00000000000000000000000); // rounded, UINT64_MAX
+
+    // tests of u64
+    test_float_from_u64_impl(4294967296ULL, 4294967296.0f, 0b0'10011111'00000000000000000000000); // rounded, UINT64_MAX+1
+    test_float_from_u64_impl(1234567890123ULL, 1.23456795e+12, 0b0'10100111'00011111011100011111110);
+    test_float_from_u64_impl(1234567890123456ULL, 1.23456795e+15, 0b0'10110001'00011000101101010101000);
+    test_float_from_u64_impl(8765432187654321ULL, 8.76543232e+15, 0b0'10110011'11110010010000011101010); // less than 58 bits
+    test_float_from_u64_impl(144115188075855872ULL, 144115188075855872.0f, 0b0'10111000'00000000000000000000000); // exactly 58 bits, 26-bit high word, smallest value
+    test_float_from_u64_impl(288230376151711743ULL, 288230376151711743.0f, 0b0'10111001'00000000000000000000000); // exactly 58 bits, 26-bit high word, largest value
+    test_float_from_u64_impl(987654321987654321ULL, 987654321987654321.0f, 0b0'10111010'10110110100110110100110); // more than 58 bits
+
+    // bugs uncovered from random testing
+    test_float_from_u64_impl(75433444109690124ULL, 75433444109690124.0f, 0b0'10110111'00001011111111100101001);
+
+    // random testing
+    #ifdef DISABLED
+    for (size_t i = 0;; ++i) {
+        if ((i % 50000000) == 0) printf("testing __float_from_u64(): %zu...\n", i);
+        uint64_t value;
+        arc4random_buf(&value, sizeof(value)); // random value
+        value >>= (arc4random() & 63); // random number of bits
+        test_float_from_u64_impl(value, (float)value, f2u((float)value));
+    }
+    printf("testing __float_from_u64(): done.\n");
+    #endif
+}
+
+static void test_float_from_i64_impl(int64_t value, float expected_float, unsigned expected_bits) {
+    if (f2u(expected_float) != expected_bits) {
+        printf("invalid test: expected float %.9g with bits %#x does not match expected bits %#x\n",
+                expected_float, f2u(expected_float), expected_bits);
+        exit(1);
+    }
+
+    #ifndef __onramp__
+    if (expected_bits != f2u((float)value)) {
+        printf("u64 %" PRId64 " has float value %.9g %#x, does not match expected %.9g %#x",
+                value, (float)value, f2u((float)value), expected_float, expected_bits);
+        exit(1);
+    }
+    #endif
+
+    unsigned result = __float_from_i64((unsigned*)&value); // assumes little-endian, also illegal type-punned pointer
+    if (expected_bits != result) {
+        printf("__float_from_u64(%" PRId64 ") returned %.9g %#x, expected %.9g %#x\n",
+                value, u2f(result), result, expected_float, expected_bits);
+        exit(1);
+    }
+}
+
+static void test_float_from_i64(void) {
+    // some tests from unsigned
+    test_float_from_i64_impl(1, 1.0f, 0b0'01111111'00000000000000000000000);
+    test_float_from_i64_impl(123456, 123456.0f, 0b0'10001111'11100010010000000000000);
+    test_float_from_i64_impl(33554432, 33554432.0f, 0b0'10011000'00000000000000000000000);
+    test_float_from_i64_impl(288230376151711743LL, 288230376151711743.0f, 0b0'10111001'00000000000000000000000);
+
+    // negative numbers
+    test_float_from_i64_impl(-1, -1.0f, 0b1'01111111'00000000000000000000000);
+    test_float_from_i64_impl(-123456, -123456.0f, 0b1'10001111'11100010010000000000000);
+    test_float_from_i64_impl(-33554432, -33554432.0f, 0b1'10011000'00000000000000000000000);
+    test_float_from_i64_impl(-288230376151711743LL, -288230376151711743.0f, 0b1'10111001'00000000000000000000000);
+
+    // TODO better tests, boundary conditions
+}
+
             #endif
 
 int main(void) {
@@ -820,6 +1014,12 @@ int main(void) {
     test_iszero();
     test_issubnormal();
     #endif
+
+    // conversion
+    test_float_from_u32();
+    test_float_from_i32();
+    test_float_from_u64();
+    test_float_from_i64();
 
     // parse
     test_strtof();

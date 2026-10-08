@@ -22,7 +22,7 @@
 
 .SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic
+CPPFLAGS := -Wall -Wextra
 
 -include ../../local.mk
 

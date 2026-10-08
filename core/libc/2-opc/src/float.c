@@ -43,6 +43,7 @@
 #include <assert.h>   // TODO define NDEBUG when compiling final stages
 #include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <math.h>
 #include <signal.h>
 #include <stdbool.h>
@@ -59,6 +60,7 @@
 #ifndef __onramp__
     // We support compiling this with an ordinary C compiler, this way we can
     // test against hardware floating point math among other things.
+    // TODO we need to move all of this to libo
     #include <stdio.h>
     #include <stdlib.h>
     static void __attribute__((unused)) __fatal(const char* message) {
@@ -68,6 +70,7 @@
     }
     #define stdc_leading_zerosui __builtin_clz
     #define copysignf __onramp_copysignf
+    #define __llong_negate(out, x) ({unsigned* __out=(out); (*(uint64_t*)__out = -*(uint64_t*)(x)); __out;})
 #endif
 
 
@@ -1298,4 +1301,151 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
     return (sign << FLOAT_SIGN_SHIFT)
             | ((uint32_t)pow2 << FLOAT_EXPONENT_SHIFT)
             | (mantissa & FLOAT_SIGNIFICAND_MASK);
+}
+
+
+
+/*
+ * Conversions from integers
+ */
+
+// To do the conversion, we need to shift the integer to exactly 26 bits: the
+// significand bits, the hidden bit, a round bit and a sticky bit.
+#define FLOAT_FROM_INT_BITS (FLOAT_SIGNIFICAND_BITS + 1u + 2u)
+
+// A helper to create a float from a 26 bit significand. The significand must
+// have the hidden bit plus a round bit and a sticky bit.
+static unsigned __float_from_u26_impl(unsigned x, unsigned exponent) {
+
+    // Round. If the round bit is set, we round up if the sticky bit is set,
+    // otherwise we round to even.
+    //printf("__float_from_u26_impl() value x %u %#x\n",x,x);
+    if ((x & 2u) && ((x & 1u) || (x & 4u))) {
+        //printf("+4\n");
+        x += 4u;
+    }
+
+    // This may have caused us to grow by one bit, in which case we need to down
+    // shift again.
+    if (x >= (1u << FLOAT_FROM_INT_BITS)) {
+        //printf("round again\n");
+        x >>= 1;
+        ++exponent;
+    }
+
+    // remove the rs bits
+    x >>= 2u;
+    //printf("downshifted %u %#x\n",x,x);
+
+    // trim hidden bit
+    x &= FLOAT_SIGNIFICAND_MASK;
+
+    // assemble float
+    //printf("exponent %u mantissa %u\n",exponent,x);
+    return (exponent << FLOAT_EXPONENT_SHIFT) | x;
+}
+
+unsigned __float_from_u32(unsigned x) {
+    if (x == 0u) {
+        return 0u;
+    }
+
+    // Find the first set bit
+    unsigned bits = 32u - stdc_leading_zerosui(x);
+    unsigned exponent = FLOAT_EXPONENT_BIAS + bits - 1u;
+
+    // Shift up (normal) or down (sticky!) until 26 bits are set
+    // TODO we should probably optimize this to not have to call shru_sticky().
+    // we should create a mask for the bits to be shifted off; we only need to
+    // shift once.
+    //printf("x %#x bits %u FLOAT_FROM_INT_BITS %u exponent %u\n", x, bits, FLOAT_FROM_INT_BITS, exponent);
+    if (bits > FLOAT_FROM_INT_BITS) {
+        x = float_shru_sticky(x, bits - FLOAT_FROM_INT_BITS);
+    } else {
+        x <<= FLOAT_FROM_INT_BITS - bits;
+    }
+    //printf("shifted %#x\n", x);
+
+    return __float_from_u26_impl(x, exponent);
+}
+
+unsigned __float_from_u64(const unsigned* x) {
+    unsigned x0 = x[0];
+    unsigned x1 = x[1];
+
+    // Find the first set bit
+    unsigned bits;
+    if (x1 == 0u) {
+        if (x0 == 0u) {
+            return 0u;
+        }
+        bits = 32u - stdc_leading_zerosui(x0);
+    } else {
+        bits = 64u - stdc_leading_zerosui(x1);
+    }
+    //printf("x %lu bits %u\n",*(uint64_t*)x,bits);
+    unsigned exponent = FLOAT_EXPONENT_BIAS + bits - 1u;
+
+    // Shift bits around until exactly 26 bits are set
+    unsigned m;
+    if (bits <= FLOAT_FROM_INT_BITS) {
+        // not enough bits, shift low word up
+        m = x0 << (FLOAT_FROM_INT_BITS - bits);
+    } else if (bits <= 32u) {
+        // all bits in the low word, shift it down
+        unsigned shift = bits - FLOAT_FROM_INT_BITS;
+        m = x0 >> shift;
+        m |= !!(x0 & ((1u << shift) - 1u)); // sticky bit
+    } else if (bits == 32u + FLOAT_FROM_INT_BITS) {
+        // exactly 26 bits in the high word
+        m = x1 | !!x0; // sticky bit
+    } else if (bits > 32u + FLOAT_FROM_INT_BITS) {
+        // more than 26 bits in the high word, shift it down
+        unsigned shift = bits - 32u - FLOAT_FROM_INT_BITS;
+        m = x1 >> shift;
+        m |= !!x0 | !!(x1 & ((1u << shift) - 1u)); // sticky bit
+    } else {
+        // less than 26 bits in the high word. we need bits from both words.
+        unsigned shift = 32 + FLOAT_FROM_INT_BITS - bits;
+        m = (x1 << shift) | (x0 >> (32 - shift));
+        //printf("!!!!!!!!!!! high %#x low %#x shift %u m %#x sticky %u stickymask %u\n",x1,x0,shift,m,(x0 & ((1u << shift) - 1u)),((1u << (32 - shift)) - 1u));
+        m |= !!(x0 & ((1u << (32 - shift)) - 1u)); // sticky bit
+    }
+
+    return __float_from_u26_impl(m, exponent);
+}
+
+unsigned __float_from_i32(int x) {
+
+    // Handle INT_MIN specially
+    if (x == INT_MIN) {
+        return FLOAT_SIGN_BIT | __float_from_u32((unsigned)INT_MAX + 1);
+    }
+
+    // Non-negative numbers
+    if (x >= 0) {
+        return __float_from_u32((unsigned)x);
+    }
+
+    // For negative numbers, flip the sign and attach the sign bit
+    return FLOAT_SIGN_BIT | __float_from_u32((unsigned)-x);
+
+}
+
+unsigned __float_from_i64(const unsigned* x) {
+
+    // Handle INT64_MIN specially
+    if (x[0] == 0 && x[1] == 0x8000000) {
+        return FLOAT_SIGN_BIT | __float_from_u64(x);
+    }
+
+    // Non-negative numbers
+    if (!(x[1] >> 31)) {
+        return __float_from_u64(x);
+    }
+
+    // For negative numbers, flip the sign and attach the sign bit
+    unsigned ux[2];
+    return FLOAT_SIGN_BIT | __float_from_u64(__llong_negate(ux, x));
+
 }

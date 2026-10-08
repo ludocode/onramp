@@ -22,7 +22,7 @@
 
 .SUFFIXES:
 CFLAGS := -g
-CPPFLAGS := -Wall -Wextra -Wpedantic \
+CPPFLAGS := -Wall -Wextra \
 			-Wno-int-to-pointer-cast \
 			-Wno-pointer-to-int-cast
 
