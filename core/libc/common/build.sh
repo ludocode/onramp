@@ -62,6 +62,7 @@ cp core/libc/common/include/dirent.h output/final/include/dirent.h
 cp core/libc/common/include/errno.h output/final/include/errno.h
 cp core/libc/common/include/fcntl.h output/final/include/fcntl.h
 cp core/libc/common/include/features.h output/final/include/features.h
+cp core/libc/common/include/fenv.h output/final/include/fenv.h
 cp core/libc/common/include/inttypes.h output/final/include/inttypes.h
 cp core/libc/common/include/iso646.h output/final/include/iso646.h
 cp core/libc/common/include/limits.h output/final/include/limits.h

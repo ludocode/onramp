@@ -43,6 +43,7 @@
 #include <assert.h>   // TODO define NDEBUG when compiling final stages
 #include <ctype.h>
 #include <errno.h>
+#include <fenv.h>
 #include <limits.h>
 #include <math.h>
 #include <signal.h>
@@ -50,6 +51,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <strings.h>
+
+unsigned __float_env;
 
 #ifdef __onramp__
     #include <__onramp/__arithmetic.h>

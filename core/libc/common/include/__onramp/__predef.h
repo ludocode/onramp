@@ -45,18 +45,21 @@
 // declared in our libc headers (even those of earlier stages) to match the
 // standards but we don't want to bother recognizing these keywords in cci/0.
 #ifdef __onramp_cci_omc__
-    #define _Noreturn
-    #define restrict
+    #define _Noreturn /*nothing*/
+    #define restrict /*nothing*/
+    #define inline /*nothing*/
     typedef int long;
 #endif
 
 // TODO some builtins will be defined here as well, at least until we implement
 // them properly in cci/2
 #ifdef __onramp_cci_opc__
+    // TODO should be __abort(), abort() is in stdlib.h
     #define __builtin_unreachable abort
 #endif
 #ifndef __onramp_cci_opc__
     #ifndef __onramp_cci_omc__
+        // TODO this is not right, abort() should raise SIGABRT, need __abort()
         _Noreturn void __builtin_unreachable(void) __asm__("abort");
     #endif
 #endif
