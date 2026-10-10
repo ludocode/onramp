@@ -25,7 +25,19 @@
 # This wrapper script is part of the Onramp compiler project. It runs the
 # Onramp archiver in a POSIX environment.
 
+
+# TODO our second stage ar tool is not ready yet so in the meantime we'll add
+# workarounds to this script.
+
+# our ar only supports "rc", not "cr" which is the same thing, so we swap them around
+if [ "$1" != "rc" -a "$1" != "cr" ]; then
+    echo "ERROR: Expected rc or cr"
+fi
+shift
+
+
 exec \
     "$(dirname "$0")"/onrampvm \
     "$(dirname "$0")"/../share/onramp/bin/ar.oe \
+    rc \
     "$@"
