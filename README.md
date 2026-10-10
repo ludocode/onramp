@@ -124,7 +124,7 @@ Contributions are welcome! I am especially looking for bug reports, general feed
 
 The primary Onramp repository is hosted [here on GitHub][upstream] but you don't have to use GitHub if you don't want to. Feel free to host a fork or mirror anywhere. Code contributions can be done by GitHub pull request, by sending me links to your external fork, or simply by emailing me patches.
 
-Authors retain copyright over their code contributions, but all code in this repository must be MIT licensed. By contributing to Onramp you agree to license your contributions under the MIT license and you assert that you have the right to do so.
+Authors retain copyright over their code contributions, but all code in this repository must be MIT licensed (except for the patches in [`ports/`](ports/) whose licenses must be compatible with the projects they patch.) By contributing to Onramp you agree to license your contributions under the MIT license and you assert that you have the right to do so.
 
 Onramp is handwritten by humans. Please do not use large language models in your contributions. LLM-generated pull requests and LLM-generated bug reports will be rejected, and autonomous agents are not permitted to interact with the project. If you are not comfortable in English, feel free to file bug reports in your native language.
 
