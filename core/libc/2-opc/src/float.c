@@ -133,6 +133,14 @@ unsigned __float_env;
 #endif
 
 /**
+ * Raise SIGFPE, called when performing arithmetic with a signaling NaN.
+ */
+static void __float_sigfpe(void) {
+    // TODO this is disabled.
+    //raise(SIGFPE);
+}
+
+/**
  * Shifts the significand of a float right by the given number of bits,
  * preserving any shifted off bits in the sticky bit.
  */
@@ -514,7 +522,7 @@ uint32_t __float_add(uint32_t a, uint32_t b) {
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
-            raise(SIGFPE);
+            __float_sigfpe();
         }
 
         // If either argument is NaN, we return the NaN quieted. (If both are
@@ -583,7 +591,7 @@ uint32_t __float_sub(uint32_t a, uint32_t b) {
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
-            raise(SIGFPE);
+            __float_sigfpe();
         }
 
         // If either argument is NaN, we return the NaN quieted. (If both are
@@ -622,16 +630,27 @@ uint32_t __float_sub(uint32_t a, uint32_t b) {
 }
 
 /**
- * Returns true if the given floats are equal.
+ * Flips the sign of the given float.
+ *
+ * TODO the compiler should probably just do it inline instead of calling this
+ * (unless we need to raise SIGFPE I guess)
+ */
+unsigned __float_negate(unsigned __f) {
+    // TODO check if this is legal on NaN
+    return __f ^ FLOAT_SIGN_BIT;
+}
+
+/**
+ * Returns false if the given floats are equal, true if not or if NaN.
  *
  * Positive zero equals negative zero, and NaN does not equal anything (not
  * even itself.) Otherwise, floats are equal if they have the same bit
  * representation.
  *
- * A call to this function is emitted by the compiler for operator== and
- * operator!= (with the result inverted) on floats.
+ * A call to this function is emitted by the compiler for operator!= and
+ * operator== (with the result inverted) on floats.
  */
-_Bool __float_eq(unsigned a, unsigned b) {
+_Bool __float_ne(unsigned a, unsigned b) {
 
     // Handle NaNs
     uint32_t ae = FLOAT_EXPONENT(a);
@@ -644,27 +663,27 @@ _Bool __float_eq(unsigned a, unsigned b) {
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
-            raise(SIGFPE);
+            __float_sigfpe();
         }
 
-        // If either argument is NaN, we return false.
+        // If either argument is NaN, we return unequal.
         if (ae == FLOAT_EXPONENT_MASK && af != 0u) {
-            return false;
+            return true;
         }
         if (be == FLOAT_EXPONENT_MASK && bf != 0u) {
-            return false;
+            return true;
         }
     }
 
     // Negative zero equals positive zero. We can use bitwise or to check if
     // any bits are set.
     if (((a | b) & ~FLOAT_SIGN_BIT) == 0) {
-        return true;
+        return false;
     }
 
     // Otherwise the numbers are equal if and only if the bit representation
     // exactly matches.
-    return a == b;
+    return a != b;
 }
 
 /**
@@ -689,7 +708,7 @@ _Bool __float_lt(unsigned a, unsigned b) {
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
-            raise(SIGFPE);
+            __float_sigfpe();
         }
 
         // If either argument is NaN, we return false.
@@ -745,7 +764,7 @@ _Bool __float_lte(unsigned a, unsigned b) {
         if ((ae == FLOAT_EXPONENT_MASK && !(af & FLOAT_QUIET_BIT)) ||
             (be == FLOAT_EXPONENT_MASK && !(bf & FLOAT_QUIET_BIT)))
         {
-            raise(SIGFPE);
+            __float_sigfpe();
         }
 
         // If either argument is NaN, we return false.

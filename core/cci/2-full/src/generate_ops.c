@@ -504,7 +504,22 @@ void generate_greater(node_t* node, int reg_out) {
 }
 
 void generate_less_or_equal(node_t* node, int reg_out) {
-    generate_less_impl(node, node->last_child, node->first_child, reg_out);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+
+    // for floats we need to call __float_lte() to get correct behaviour on NaN
+    assert(type_equal(left->type, right->type));
+    if (type_matches_base(left->type, BASE_FLOAT)) {
+        generate_arithmetic_function(node, left, right, reg_out, "__float_lte");
+        return;
+    }
+    if (type_matches_base(left->type, BASE_DOUBLE)) {
+        generate_arithmetic_function(node, left, right, reg_out, "__double_lt");
+        return;
+    }
+
+    // otherwise we use ltu and flip the result
+    generate_less_impl(node, right, left, reg_out);
     instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
     instruction_set_arg_temporary(instruction, 0, reg_out);
     instruction_set_arg_number(instruction, 1, 1);
@@ -512,7 +527,22 @@ void generate_less_or_equal(node_t* node, int reg_out) {
 }
 
 void generate_greater_or_equal(node_t* node, int reg_out) {
-    generate_less_impl(node, node->first_child, node->last_child, reg_out);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+
+    // for floats we need to call __float_lte() to get correct behaviour on NaN
+    assert(type_equal(left->type, right->type));
+    if (type_matches_base(left->type, BASE_FLOAT)) {
+        generate_arithmetic_function(node, right, left, reg_out, "__float_lte");
+        return;
+    }
+    if (type_matches_base(left->type, BASE_DOUBLE)) {
+        generate_arithmetic_function(node, right, left, reg_out, "__double_lt");
+        return;
+    }
+
+    // otherwise we use ltu and flip the result
+    generate_less_impl(node, left, right, reg_out);
     instruction_t* instruction = block_append(current_block, node->token, SUB, 3);
     instruction_set_arg_temporary(instruction, 0, reg_out);
     instruction_set_arg_number(instruction, 1, 1);
@@ -520,8 +550,11 @@ void generate_greater_or_equal(node_t* node, int reg_out) {
 }
 
 /**
- * Generates code for == and != operators. The result is zero if the types
- * match and non-zero otherwise.
+ * Generates code for == and != operators.
+ *
+ * For integers, the result is zero if the types match and non-zero otherwise.
+ *
+ * For floats, the result is zero if the types match and one (true) otherwise.
  */
 static void generate_equality(node_t* node, int out) {
     type_t* type = node->first_child->type;
@@ -586,19 +619,9 @@ static void generate_equality(node_t* node, int out) {
                 OR, 3), out, temp_diff_low, temp_diff_high);
 
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        #ifdef OLD_ASSEMBLY_BACKEND
-        generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__float_ne");
-        #endif
-        #ifndef OLD_ASSEMBLY_BACKEND
-        fatal("TODO IR generate_equality float");
-        #endif
+        generate_arithmetic_function(node, node->first_child, node->last_child, out, "__float_ne");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        #ifdef OLD_ASSEMBLY_BACKEND
-        generate_arithmetic_function(node, node->first_child, node->last_child, reg_left, "__double_ne");
-        #endif
-        #ifndef OLD_ASSEMBLY_BACKEND
-        fatal("TODO IR generate_equality double");
-        #endif
+        generate_arithmetic_function(node, node->first_child, node->last_child, out, "__double_ne");
     } else {
         int left = generate_temporary(NULL);
         int right = generate_temporary(NULL);
@@ -611,20 +634,30 @@ static void generate_equality(node_t* node, int out) {
     }
 }
 
-void generate_equal(node_t* node, int reg_out) {
-    generate_equality(node, reg_out);
+void generate_equal(node_t* node, int temp_out) {
+    int temp = generate_temporary(NULL);
+    generate_equality(node, temp);
 
-    instruction_t* instruction = block_append(current_block, node->token, ISZ, 2);
-    instruction_set_arg_temporary(instruction, 0, reg_out);
-    instruction_set_arg_temporary(instruction, 1, reg_out);
+    // flip the result to a boolean
+    instruction_set_args_tt(block_append(current_block, node->token,
+            ISZ, 2), temp_out, temp);
 }
 
-void generate_not_equal(node_t* node, int reg_out) {
-    generate_equality(node, reg_out);
+void generate_not_equal(node_t* node, int temp_out) {
 
-    instruction_t* instruction = block_append(current_block, node->token, BOOL, 2);
-    instruction_set_arg_temporary(instruction, 0, reg_out);
-    instruction_set_arg_temporary(instruction, 1, reg_out);
+    // For floats, the result is already boolean. We generate directly into the
+    // output temporary.
+    type_t* type = node->first_child->type;
+    if (type_matches_base(type, BASE_FLOAT) || type_matches_base(type, BASE_DOUBLE)) {
+        generate_equality(node, temp_out);
+        return;
+    }
+
+    // Otherwise we have to convert the result into a boolean.
+    int temp = generate_temporary(NULL);
+    generate_equality(node, temp);
+    instruction_set_args_tt(block_append(current_block, node->token,
+            BOOL, 2), temp_out, temp);
 }
 
 /*

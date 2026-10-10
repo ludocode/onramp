@@ -72,9 +72,10 @@ unsigned __float_divu(unsigned a, unsigned b);
 unsigned __float_divs(unsigned a, unsigned b);
 unsigned __float_modu(unsigned a, unsigned b);
 unsigned __float_mods(unsigned a, unsigned b);
-_Bool __float_eq(unsigned a, unsigned b);
+_Bool __float_ne(unsigned a, unsigned b);
 _Bool __float_lt(unsigned a, unsigned b);
 _Bool __float_lte(unsigned a, unsigned b);
+unsigned __float_negate(unsigned __f);
 
 int __double_to_int(unsigned* a);
 void __double_to_llong(unsigned* out, unsigned* a);
