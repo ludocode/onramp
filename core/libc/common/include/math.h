@@ -29,6 +29,12 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__math_float.h>
+
+#define HUGE_VALF INFINITY
+#define HUGE_VAL ((double)INFINITY)
+#define HUGE_VALL ((long double)INFINITY)
+
 #define FP_INFINITE 1
 #define FP_NAN 2
 #define FP_NORMAL 3

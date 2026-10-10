@@ -2,9 +2,7 @@
 // Copyright (c) 2026 Fraser Heavy Software
 // This test case is part of the Onramp compiler project.
 
-// TODO INFINITY is moved to <float.h> in C23
-// TODO INFINITY and NAN are missing
-//#include <math.h>
+#include <math.h>
 
 int main(void) {
     float a = 1.0f;
@@ -60,16 +58,7 @@ int main(void) {
     if (!(c >= n)) return 55;
     if (c <= n) return 56;
 
-    // TODO we don't have an INFINITY constant yet
-    union {
-        float f;
-        unsigned u;
-    } u;
-    u.u = 0b0'11111111'00000000000000000000000u;
-    float i = u.f;
-    u.u = 0b1'11111111'00000000000000000000000u;
-    float ii = u.f;
-
+    float i = INFINITY;
     if (i != i) return 71;
     if (!(i == i)) return 72;
     if (i < i) return 73;
@@ -77,6 +66,7 @@ int main(void) {
     if (!(i <= i)) return 75;
     if (!(i >= i)) return 76;
 
+    float ii = -INFINITY;
     if (ii == i) return 91;
     if (!(ii != i)) return 92;
     if (!(ii < i)) return 93;
@@ -91,9 +81,7 @@ int main(void) {
     if (!(ii <= c)) return 105;
     if (ii >= c) return 106;
 
-    u.u = 0b0'11111111'10000000000000000000000u; // quiet nan
-    float nn = u.f;
-
+    float nn = NAN;
     if (nn == nn) return 111;
     if (!(nn != nn)) return 112;
     if (nn < nn) return 113;
