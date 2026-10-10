@@ -56,8 +56,8 @@ _Bool __llong_ne(const unsigned* a, const unsigned* b);
 
 unsigned __float_to_u32(unsigned __f);
 int __float_to_i32(unsigned __f);
-void __float_to_u64(unsigned* __out, unsigned __f);
-void __float_to_i64(unsigned* __out, unsigned __f);
+unsigned* __float_to_u64(unsigned* __out, unsigned __f);
+unsigned* __float_to_i64(unsigned* __out, unsigned __f);
 unsigned __float_from_u32(unsigned __x);
 unsigned __float_from_i32(int __x);
 unsigned __float_from_u64(unsigned* __x);

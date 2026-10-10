@@ -74,6 +74,7 @@ unsigned __float_env;
     #define stdc_leading_zerosui __builtin_clz
     #define copysignf __onramp_copysignf
     #define __llong_negate(out, x) ({unsigned* __out=(out); (*(uint64_t*)__out = -*(uint64_t*)(x)); __out;})
+    #define __llong_shl(out, in, bits) ({unsigned* __out=(out); (*(uint64_t*)__out = *(uint64_t*)(in) << bits); __out;})
 #endif
 
 
@@ -1451,4 +1452,154 @@ unsigned __float_from_i64(const unsigned* x) {
     unsigned ux[2];
     return FLOAT_SIGN_BIT | __float_from_u64(__llong_negate(ux, x));
 
+}
+
+
+
+/*
+ * Conversions to integers
+ */
+
+unsigned __float_to_u32(unsigned x) {
+    //printf("__float_to_u32() %u %#x\n", x, x);
+
+    // When converting a float to unsigned, we simply ignore the sign bit.
+    // This does not match the behaviour of gcc on x86_64 linux, where e.g.
+    // `((unsigned)(-1.0f))` is 0xFFFFFFFF. Since the value -1.0f is not
+    // representable as unsigned, the conversion is undefined behaviour, but
+    // this may be a problem if some software inadvertently casts float to
+    // unsigned to signed and expects it to work.
+    //
+    // We can probably fix this by renaming this to _impl() and adding some
+    // logic in a wrapper function that negates it despite being unsigned. Or
+    // we make one function that works "as expected" for all numbers in range
+    // [INT_MIN, UINT_MAX] and make both these functions aliases of it.
+
+    // Unpack the float
+    // (We add the hidden bit unconditionally. We don't need to worry about
+    // subnormals because the exponent will be too low so it will truncate to 0
+    // anyway.)
+    uint32_t xe = FLOAT_EXPONENT(x);
+    uint32_t xf = FLOAT_SIGNIFICAND(x) | FLOAT_HIDDEN_BIT;
+
+    uint32_t midpoint = FLOAT_EXPONENT_BIAS + FLOAT_SIGNIFICAND_BITS;
+
+    if (xe < midpoint) {
+        uint32_t shift = midpoint - xe;
+        //printf("xe %#x xf %#x shift %u\n", xe, xf, shift);
+        if (shift >= FLOAT_BITS) {
+            //printf("too many bits\n");
+            return 0u;
+        }
+        return xf >> shift;
+    }
+
+    uint32_t shift = xe - midpoint;
+    if (shift > FLOAT_EXPONENT_BITS) {
+        // Value is not representable; undefined behaviour. This includes
+        // infinity and NAN. GCC and Clang return 0 in this case, but they only
+        // raise FE_INVALID sometimes. On 64-bit platforms, if the integer
+        // value fits in 64-bits, FE_INVALID won't be raised even if the float
+        // is cast to unsigned. On 32-bit platforms it always seems to raise
+        // FE_INVALID. Since we're a 32-bit machine we raise FE_INVALID.
+        feraiseexcept(FE_INVALID);
+        return 0;
+    }
+    return xf << shift;
+}
+
+int __float_to_i32(unsigned f) {
+    unsigned result = __float_to_u32(f);
+
+    // Handle INT_MIN specially because it's representable as negative but not
+    // as positive
+    if (result == (unsigned)INT_MAX + 1 && (f & FLOAT_SIGN_BIT)) {
+        return INT_MIN;
+    }
+
+    // Check if the high bit is set
+    if (result & (1u << 31u)) {
+        // Value is too large to be representable in an int32_t. TODO we
+        // should raise FE_INVALID only if __float_to_u32() didn't.
+        return INT_MIN;
+    }
+
+    // Flip the sign if it's negative
+    if (f & FLOAT_SIGN_BIT) {
+        return -result;
+    }
+    return result;
+}
+
+unsigned* __float_to_u64(unsigned* out, unsigned x) {
+
+    // This is the same implementation as __float_to_u32().
+
+    // Unpack the float
+    uint32_t xe = FLOAT_EXPONENT(x);
+    uint32_t xf = FLOAT_SIGNIFICAND(x) | FLOAT_HIDDEN_BIT;
+
+    uint32_t midpoint = FLOAT_EXPONENT_BIAS + FLOAT_SIGNIFICAND_BITS;
+
+    if (xe < midpoint) {
+        uint32_t shift = midpoint - xe;
+        //printf("xe %#x xf %#x shift %u\n", xe, xf, shift);
+        if (shift >= FLOAT_BITS) {
+            //printf("too many bits\n");
+            out[0] = 0;
+        } else {
+            out[0] = xf >> shift;
+        }
+        out[1] = 0;
+        return out;
+    }
+
+    uint32_t shift = xe - midpoint;
+    if (shift > (32u + FLOAT_EXPONENT_BITS)) {
+        // Value is not representable; undefined behaviour. This includes
+        // infinity and NAN. GCC and Clang return 0 in this case, but they only
+        // raise FE_INVALID sometimes. On 64-bit platforms, if the integer
+        // value fits in 64-bits, FE_INVALID won't be raised even if the float
+        // is cast to unsigned. On 32-bit platforms it always seems to raise
+        // FE_INVALID. Since we're a 32-bit machine we raise FE_INVALID.
+        out[0] = 0;
+        out[1] = 0;
+        feraiseexcept(FE_INVALID);
+        return 0;
+    }
+
+    unsigned u[2];
+    u[0] = xf;
+    u[1] = 0;
+    return __llong_shl(out, u, shift);
+}
+
+unsigned* __float_to_i64(unsigned* out, unsigned f) {
+    unsigned result[2];
+    __float_to_u64(result, f);
+
+    // Handle INT64_MIN specially because it's representable as negative but not
+    // as positive
+    if (result[0] == 0u && result[1] == 0x80000000u && (f & FLOAT_SIGN_BIT)) {
+        out[0] = 0;
+        out[1] = 0x80000000u;
+        return out;
+    }
+
+    // Check if the high bit is set
+    if (result[1] & (1u << 31u)) {
+        // Value is too large to be representable in an int32_t. TODO we
+        // should raise FE_INVALID only if __float_to_u64() didn't.
+        out[0] = 0;
+        out[1] = 0x80000000u;
+        return out;
+    }
+
+    // Flip the sign if it's negative
+    if (f & FLOAT_SIGN_BIT) {
+        return __llong_negate(out, result);
+    }
+    out[0] = result[0];
+    out[1] = result[1];
+    return out;
 }
