@@ -1673,6 +1673,7 @@ static void generate_builtin(node_t* node, int reg_out) {
         case BUILTIN_VA_END: generate_builtin_va_end(node, reg_out); return;
         case BUILTIN_VA_COPY: generate_builtin_va_copy(node, reg_out); return;
         case BUILTIN_FUNC: generate_builtin_func(node, reg_out); return;
+        case BUILTIN_BIT_CAST: generate_node(node->first_child, reg_out); return;
     }
 
     fatal("Internal error: cannot generate unrecognized builtin.");

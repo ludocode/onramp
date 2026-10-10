@@ -89,4 +89,5 @@ void symbol_create_builtins(void) {
     symbol_create_builtin("__builtin_va_copy", BUILTIN_VA_COPY);
     symbol_create_builtin("__func__", BUILTIN_FUNC);
     symbol_create_builtin("__FUNCTION__", BUILTIN_FUNC);
+    symbol_create_builtin("__builtin_bit_cast", BUILTIN_BIT_CAST);
 }

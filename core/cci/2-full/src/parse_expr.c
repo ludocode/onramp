@@ -1445,6 +1445,33 @@ static node_t* parse_builtin_func(node_t* builtin) {
     return builtin;
 }
 
+static node_t* parse_builtin_bit_cast(node_t* builtin) {
+    lexer_expect(STR_PAREN_OPEN, "Expected `(` after `__builtin_bit_cast`.");
+
+    // parse type
+    builtin->type = try_parse_type();
+    if (builtin->type == NULL) {
+        fatal_token(lexer_token, "Expected type as first argument of `__builtin_bit_cast`.");
+    }
+    lexer_expect(STR_COMMA, "Expected `,` after type in `__builtin_bit_cast`.");
+
+    // parse expression
+    node_t* expr = parse_assignment_expression();
+    if (type_size(builtin->type) != type_size(expr->type)) {
+        fatal_token(builtin->token, "The types in a `__builtin_bit_cast` must have the same size.");
+    }
+    if (!type_is_arithmetic(builtin->type) || !type_is_arithmetic(expr->type)) {
+        // TODO: structs are passed indirectly even if they fit in a register.
+        // in order to implement struct bit casting we may need to convert
+        // between direct and indirect even if they are the same size.
+        fatal_token(builtin->token, "`__builtin_bit_cast` for non-arithmetic types is not yet implemented.");
+    }
+    node_append(builtin, expr);
+
+    lexer_expect(STR_PAREN_CLOSE, "Expected `)` after expression of `__builtin_bit_cast`.");
+    return builtin;
+}
+
 node_t* parse_builtin(builtin_t builtin) {
     node_t* node = node_new_lexer(NODE_BUILTIN);
     node->builtin = builtin;
@@ -1455,6 +1482,7 @@ node_t* parse_builtin(builtin_t builtin) {
         case BUILTIN_VA_END: return parse_builtin_va_end(node);
         case BUILTIN_VA_COPY: return parse_builtin_va_copy(node);
         case BUILTIN_FUNC: return parse_builtin_func(node);
+        case BUILTIN_BIT_CAST: return parse_builtin_bit_cast(node);
     }
 
     fatal("Internal error: cannot parse unrecognized builtin.");

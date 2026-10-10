@@ -70,6 +70,7 @@ typedef enum builtin_t {
     BUILTIN_VA_END,
     BUILTIN_VA_COPY,
     BUILTIN_FUNC, // __func__, __FUNCTION__
+    BUILTIN_BIT_CAST,
 } builtin_t;
 
 #define TEMPORARY_INVALID (-1)
