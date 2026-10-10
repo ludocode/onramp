@@ -3,5 +3,6 @@
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
-    float x = 1.0f;
+    float x = 0.0f;
+    return x;
 }

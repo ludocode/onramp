@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024-2025 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -128,5 +128,19 @@ void generate_indirection_add_sub(struct node_t* node, int reg_out);
 
 void generate_unary_plus(struct node_t* node, int reg_out);
 void generate_unary_minus(struct node_t* node, int reg_out);
+
+/**
+ * Generates an arithmetic or other binary calculation that must be done with a
+ * libc function. This is used for long long, float and double.
+ *
+ * If the return value is 32 bits (i.e. float), it is placed in reg_out. If the
+ * return value is 64 bits, reg_out must contain the address of storage for the
+ * return value.
+ *
+ * TODO this has 5 arguments, need to remove one. probably can remove both children; implied by parent except they are sometimes swapped
+ */
+void generate_arithmetic_function(struct node_t* parent,
+        struct node_t* first, struct node_t* /*nullable*/ second,
+        int reg_out, const char* function_name);
 
 #endif

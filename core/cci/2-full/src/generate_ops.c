@@ -40,7 +40,7 @@
  * return value is 64 bits, reg_out must contain the address of storage for the
  * return value.
  */
-static void generate_arithmetic_function(node_t* parent,
+void generate_arithmetic_function(node_t* parent,
         node_t* first, node_t* /*nullable*/ second,
         int reg_out, const char* function_name)
 {

@@ -561,6 +561,8 @@ static void generate_call(node_t* call, int reg_out) {
  * only when necessary, for example when promoting to int for arithmetic. If
  * the result of the cast is just to store a byte in memory for example, we
  * don't care about the upper bits, so sign extension is unnecessary.
+ *
+ * TODO this needs separate input and output registers but we're limited to 4 arguments if we want to be compilable by cci/0
  */
 void generate_int_cast(token_t* token, int reg, base_t source, base_t target) {
     if (source == target)
@@ -873,30 +875,34 @@ static void generate_cast_direct_to_direct(node_t* node,
     assert(!type_is_passed_indirectly(source));
     assert(!type_is_passed_indirectly(target));
 
-    // The to and from types both fit in registers. We can use the same
-    // register for both and convert in place.
-    generate_node(node->first_child, reg_out);
-
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
 
     if (target_base == BASE_FLOAT) {
-        if (type_is_signed_integer(source)) {
-            generate_int_cast(node->token, reg_out, source_base, BASE_SIGNED_INT);
-            fatal("TODO cast signed integer to float");
+        if (source_base == BASE_FLOAT) {
+            // nothing to do
+            generate_node(node->first_child, reg_out);
+        } else if (type_is_signed_integer(source)) {
+            // since this is a direct cast, it has to be 32-bit.
+            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_from_i32");
         } else {
-            generate_int_cast(node->token, reg_out, source_base, BASE_UNSIGNED_INT);
-            fatal("TODO cast unsigned integer to float");
+            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_from_u32");
         }
-    } else if (source_base == BASE_FLOAT) {
-        if (type_is_signed_integer(target)) {
-            fatal("TODO cast float to signed integer");
-        } else {
-            fatal("TODO cast float to unsigned integer");
-        }
-    } else {
-        generate_int_cast(node->token, reg_out, source_base, target_base);
+        return;
     }
+
+    if (source_base == BASE_FLOAT) {
+        if (type_is_signed_integer(target)) {
+            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_to_i32");
+        } else {
+            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_to_u32");
+        }
+        return;
+    }
+
+    // integer to integer cast
+    generate_node(node->first_child, reg_out);
+    generate_int_cast(node->token, reg_out, source_base, target_base);
 }
 
 static void generate_initializer_scalar(node_t* expr, type_t* target, int reg_base, size_t offset) {
