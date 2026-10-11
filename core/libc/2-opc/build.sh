@@ -53,6 +53,12 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/ctype.c \
     -o output/intermediate/libc-2-opc/ctype.oo
 
+echo Compiling libc/2-opc double.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/double.c \
+    -o output/intermediate/libc-2-opc/double.oo
+
 echo Compiling libc/2-opc environ.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
@@ -172,6 +178,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-2-opc/assert.oo \
     output/intermediate/libc-2-opc/bigint.oo \
     output/intermediate/libc-2-opc/ctype.oo \
+    output/intermediate/libc-2-opc/double.oo \
     output/intermediate/libc-2-opc/environ.oo \
     output/intermediate/libc-2-opc/errno.oo \
     output/intermediate/libc-2-opc/float.oo \

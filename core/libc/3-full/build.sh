@@ -108,6 +108,7 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-2-opc/assert.oo \
     output/intermediate/libc-2-opc/bigint.oo \
     output/intermediate/libc-2-opc/ctype.oo \
+    output/intermediate/libc-2-opc/double.oo \
     output/intermediate/libc-2-opc/environ.oo \
     output/intermediate/libc-2-opc/errno.oo \
     output/intermediate/libc-2-opc/float.oo \

@@ -58,6 +58,7 @@ OBJS=\
 		$(OUT)/assert.oo \
 		$(OUT)/bigint.oo \
 		$(OUT)/ctype.oo \
+		$(OUT)/double.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/errno.oo \
 		$(OUT)/float.oo \
@@ -175,6 +176,12 @@ $(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/ctype.c -o $(OUT)/ctype.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/ctype.c -o $@
+
+$(OUT)/double.oo: $(SRC2)/double.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/double.c -o $(OUT)/double.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/double.c -o $@
 
 $(OUT)/environ.oo: $(SRC2)/environ.c Makefile
 	@rm -f $@

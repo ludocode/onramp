@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2024 Fraser Heavy Software
+ * Copyright (c) 2024-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -43,7 +43,7 @@
 
 // TODO we declare these as taking float but the implementation takes unsigned.
 // We need to sort out a better solution.
-#ifndef __ONRAMP_LIBC_FLOAT_IMPL
+#ifndef __ONRAMP_LIBC_FLOATING_IMPL
 int __float_fpclassify(float __x);
 int __float_signbit(float __x);
 int __float_signbit(float __x);
@@ -86,7 +86,7 @@ float copysignf(float __magnitude, float __sign);
 
 // TODO C99 quiet macros isless(), isgreater(), etc.
 
-#ifndef __ONRAMP_LIBC_FLOAT_IMPL
+#ifndef __ONRAMP_LIBC_FLOATING_IMPL
 float frexpf(float __f, int __exp);
 float ldexpf(float __f, int __exp);
 #endif

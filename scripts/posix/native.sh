@@ -307,6 +307,7 @@ srcs_onramp libc-3-full \
     \
     core/libc/2-opc/src/assert.c \
     core/libc/2-opc/src/ctype.c \
+    core/libc/2-opc/src/double.c \
     core/libc/2-opc/src/environ.c \
     core/libc/2-opc/src/errno.c \
     core/libc/2-opc/src/float.c \

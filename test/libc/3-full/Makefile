@@ -73,6 +73,7 @@ OBJS_ALL=\
 		$(BUILD2)/assert.oo \
 		$(BUILD2)/bigint.oo \
 		$(BUILD2)/ctype.oo \
+		$(BUILD2)/double.oo \
 		$(BUILD2)/environ.oo \
 		$(BUILD2)/errno.oo \
 		$(BUILD2)/float.oo \

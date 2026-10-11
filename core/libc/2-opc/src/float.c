@@ -23,7 +23,7 @@
  */
 
 /*
- * Functions for floating point math.
+ * Functions for `float` math.
  *
  * This is intended to eventually be a mostly correct software implementation
  * of IEEE 754.
@@ -38,7 +38,7 @@
  * operations are themselves emulated on Onramp.)
  */
 
-#define __ONRAMP_LIBC_FLOAT_IMPL
+#define __ONRAMP_LIBC_FLOATING_IMPL
 
 #include <assert.h>   // TODO define NDEBUG when compiling final stages
 #include <ctype.h>
