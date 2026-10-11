@@ -95,6 +95,7 @@ CCARGS=\
 
 # Arguments for external compiler
 CPPFLAGS += \
+		-fno-builtin \
 		-nostdinc -nostdlib \
 		-D__onramp_libc__=1 \
 		-D__onramp_libc_opc__=1 \

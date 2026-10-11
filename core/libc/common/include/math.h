@@ -86,4 +86,9 @@ float copysignf(float __magnitude, float __sign);
 
 // TODO C99 quiet macros isless(), isgreater(), etc.
 
+#ifndef __ONRAMP_LIBC_FLOAT_IMPL
+float frexpf(float __f, int __exp);
+float ldexpf(float __f, int __exp);
+#endif
+
 #endif

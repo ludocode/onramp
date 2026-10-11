@@ -17,6 +17,7 @@
 #ifndef __onramp__
     #include <time.h>
     #define strtof onramp_strtof
+    #define ldexpf onramp_ldexpf
 
     // this test case can be compiled standalone with a native C compiler:
     // gcc -lm -O -Wall -Wextra -fsanitize=address -g test/test_float.c -o /tmp/a && /tmp/a
@@ -24,6 +25,8 @@
 
     #undef strtof
     #define native_strtof strtof
+    #undef ldexpf
+    #define native_ldexpf ldexpf
 #endif
 
             // TODO all of this is disabled on onramp until we get float parsing in
@@ -167,7 +170,7 @@ static void test_eq_impl(float x, float y, bool expected) {
     floatunion_t xf, yf;
     xf.f = x;
     yf.f = y;
-    bool actual = __float_eq(xf.u, yf.u);
+    bool actual = !__float_ne(xf.u, yf.u); // TODO __float_eq() was changed to __float_ne()
     //printf("0x%x == 0x%x   e %i a %i\n",xf.u,yf.u,expected,actual);
 
     if (expected != actual) {
@@ -1310,6 +1313,61 @@ static void test_float_to_i64(void) {
     // TODO random testing
 }
 
+static void test_ldexpf_impl(unsigned value, int exp, unsigned expected) {
+    //printf("-------------\nfloat %.9g %#x exp %i\n",u2f(value),value,exp);
+
+    #ifndef __onramp__
+    if (expected != f2u(native_ldexpf(u2f(value), exp))) {
+        printf("invalid test: ldexp(%.9g %#x, %i) == %.9g %#x, not expected %.9g %#x\n",
+                u2f(value), value, exp,
+                native_ldexpf(u2f(value), exp), f2u(native_ldexpf(u2f(value), exp)),
+                u2f(expected), expected);
+        exit(1);
+    }
+    #endif
+
+    if (expected != onramp_ldexpf(value, exp)) {
+        printf("onramp ldexp(%.9g %#x, %i) == %.9g %#x, not expected %.9g %#x\n",
+                u2f(value), value, exp,
+                u2f(onramp_ldexpf(value, exp)), onramp_ldexpf(value, exp),
+                u2f(expected), expected);
+        exit(1);
+    }
+}
+
+static void test_ldexpf(void) {
+
+    // normal
+    test_ldexpf_impl(f2u(1.0f), 2, f2u(4.0f));
+    test_ldexpf_impl(0b1'01010101'11111111111111111111111, 16, 0b1'01100101'11111111111111111111111);
+    test_ldexpf_impl(0b1'01010101'11111111111111111111111, -16, 0b1'01000101'11111111111111111111111);
+
+    // normal to subnormal
+    test_ldexpf_impl(0b1'00000001'00000000000000000000000, -5, 0b1'00000000'00001000000000000000000); // FE_UNDERFLOW, result subnormal
+    test_ldexpf_impl(0b1'00000001'11111111111111111111111, -5, 0b1'00000000'00010000000000000000000); // FE_UNDERFLOW, result subnormal
+
+    // normal to subnormal, then rounds back to normal
+    test_ldexpf_impl(0b1'00000001'11111111111111111111111, -1, 0b1'00000001'00000000000000000000000); // FE_UNDERFLOW
+
+    // subnormal to zero
+    test_ldexpf_impl(0b0'00000000'00000000000000000000001, -1, 0); // FE_UNDERFLOW, rounded to zero
+
+    // subnormal
+    test_ldexpf_impl(0b1'00000000'00000000000000000000100, 5, 0b1'00000000'00000000000000010000000); // FE_UNDERFLOW, result subnormal
+
+    // subnormal to normal
+    test_ldexpf_impl(0b1'00000000'10000000000000000000000, 1, 0b1'00000001'00000000000000000000000);
+    test_ldexpf_impl(0b1'00000000'01111000000000000000000, 3, 0b1'00000010'11100000000000000000000);
+
+    // to infinity
+    test_ldexpf_impl(0b0'00011011'11111111111111111111111, 300, 0b0'11111111'00000000000000000000000);
+    test_ldexpf_impl(0b1'00000000'01111000000000000000000, 300, 0b1'11111111'00000000000000000000000);
+
+    // inf, nan
+    test_ldexpf_impl(0b1'11111111'00000000000000000000000, -3, 0b1'11111111'00000000000000000000000);
+    test_ldexpf_impl(0b1'11111111'11111111111111111111111, -3, 0b1'11111111'11111111111111111111111);
+}
+
             #endif
 
 int main(void) {
@@ -1358,6 +1416,9 @@ int main(void) {
 
     // parse
     test_strtof();
+
+    // misc
+    test_ldexpf();
 
     (void)f2u;
 

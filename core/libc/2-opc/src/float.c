@@ -1622,3 +1622,105 @@ unsigned* __float_to_i64(unsigned* out, unsigned f) {
     out[1] = result[1];
     return out;
 }
+
+unsigned ldexpf(unsigned x, int exp) {
+    if (exp == 0) {
+        return x;
+    }
+
+    // Unpack the float
+    uint32_t xs = x & FLOAT_SIGN_BIT;
+    uint32_t xe = FLOAT_EXPONENT(x);
+    uint32_t xm = FLOAT_SIGNIFICAND(x);
+    //printf("float %#x xs %u xe %u xm %u exp %i\n",x,xs,xe,xm,exp);
+
+    if (xe == FLOAT_EXPONENT_MASK) {
+        // Infinity or NaN
+        //printf("inf or nan\n");
+        return x;
+    }
+
+    // If not subnormal, add the hidden bit.
+    if (xe == 0u) {
+        if (xm == 0) {
+            // zero
+            //printf("zero\n");
+            return x;
+        }
+        xe = 1u;
+    } else {
+        xm |= FLOAT_HIDDEN_BIT;
+    }
+
+    // Adjust exponent
+    if (exp > 0) {
+        unsigned uexp = (unsigned)exp;
+
+        // Shift up subnormal
+        if (!(xm & FLOAT_HIDDEN_BIT)) {
+            unsigned bits = 32u - stdc_leading_zerosui(xm);
+            //printf("subnormal bits %u\n",bits);
+            if (uexp > (FLOAT_SIGNIFICAND_BITS - bits)) {
+                // Number becomes normal
+                unsigned shift = FLOAT_SIGNIFICAND_BITS - bits + 1;
+                //printf("number becomes normal, shift %u\n",shift);
+                xm <<= shift;
+                xe = 1 + exp - shift;
+            } else {
+                // Number remains subnormal
+                xm <<= uexp;
+                xe = 0;
+                //printf("number remains subnormal, xm %u\n", xm);
+            }
+        } else {
+            // For normal numbers, just adjust exponent
+            xe += uexp;
+            if (xe >= FLOAT_EXPONENT_MASK) {
+                feraiseexcept(FE_OVERFLOW);
+                return xs | FLOAT_INFINITY;
+            }
+        }
+    } else {
+        unsigned uexp = (unsigned)-exp;
+        if (xe > uexp) {
+            //printf("%i uexp %u xe %u\n",__LINE__,uexp,xe);
+            xe -= uexp;
+        } else {
+            //printf("subnormal xm %u\n",xm);
+            // Subnormal.
+            feraiseexcept(FE_UNDERFLOW);
+
+            // Add guard, round and sticky bits
+            // (TODO guard is not needed but we want to use float_round_grs().
+            // We need a different helper for only rs().)
+            xm <<= 3;
+            //printf("raised xm %u\n",xm);
+
+            // Shift down sticky
+            //printf("exp %u xe %u exp-(xe-1) %u\n",exp,xe,(unsigned)exp - (xe - 1));
+            xm = float_shru_sticky(xm, uexp - (xe - 1));
+            //printf("shifted xm %u\n",xm);
+            xe = 0;
+
+            // Round
+            xm = float_round_grs(xm);
+            //printf("rounded xm %u\n",xm);
+            if (xm >= FLOAT_HIDDEN_BIT) {
+                // Rounding caused it to be normal again.
+                //printf("rounded back to normal\n");
+                xe = 1;
+            }
+        }
+    }
+
+    if (xe >= FLOAT_EXPONENT_MASK) {
+        // infinity
+        xe = FLOAT_EXPONENT_MASK;
+        xm = 0;
+    }
+
+    // Assemble the float
+    return xs
+            | (xe << FLOAT_EXPONENT_SHIFT)
+            | (xm & FLOAT_SIGNIFICAND_MASK);
+}
