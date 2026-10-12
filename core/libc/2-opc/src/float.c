@@ -1724,3 +1724,13 @@ unsigned ldexpf(unsigned x, int exp) {
             | (xe << FLOAT_EXPONENT_SHIFT)
             | (xm & FLOAT_SIGNIFICAND_MASK);
 }
+
+unsigned __float_mul(unsigned __l, unsigned __r) {
+    __fatal("TODO __float_mul");
+    return -1;
+}
+
+unsigned __float_div(unsigned __l, unsigned __r) {
+    __fatal("TODO __float_div");
+    return -1;
+}

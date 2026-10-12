@@ -58,40 +58,41 @@ unsigned __float_to_u32(unsigned __f);
 int __float_to_i32(unsigned __f);
 unsigned* __float_to_u64(unsigned* __out, unsigned __f);
 unsigned* __float_to_i64(unsigned* __out, unsigned __f);
-unsigned __float_from_u32(unsigned __x);
-unsigned __float_from_i32(int __x);
-unsigned __float_from_u64(unsigned* __x);
-unsigned __float_from_i64(unsigned* __x);
+unsigned __float_from_u32(unsigned __u);
+unsigned __float_from_i32(int __i);
+unsigned __float_from_u64(const unsigned* __u);
+unsigned __float_from_i64(const unsigned* __i);
 
-void __float_to_double(unsigned* out, unsigned a);
+unsigned __float_add(unsigned __l, unsigned __r);
+unsigned __float_sub(unsigned __l, unsigned __r);
+unsigned __float_mul(unsigned __l, unsigned __r);
+unsigned __float_div(unsigned __l, unsigned __r);
+unsigned __float_negate(unsigned __f);
 
-unsigned __float_add(unsigned a, unsigned b);
-unsigned __float_sub(unsigned a, unsigned b);
-unsigned __float_mul(unsigned a, unsigned b);
-unsigned __float_divu(unsigned a, unsigned b);
-unsigned __float_divs(unsigned a, unsigned b);
-unsigned __float_modu(unsigned a, unsigned b);
-unsigned __float_mods(unsigned a, unsigned b);
 _Bool __float_ne(unsigned a, unsigned b);
 _Bool __float_lt(unsigned a, unsigned b);
 _Bool __float_lte(unsigned a, unsigned b);
-unsigned __float_negate(unsigned __f);
 
-int __double_to_int(unsigned* a);
-void __double_to_llong(unsigned* out, unsigned* a);
-void __double_from_int(unsigned* out, int a);
-void __double_from_llong(unsigned* out, unsigned* a);
-unsigned __double_to_float(unsigned* a);
+unsigned* __double_from_float(unsigned* __d, unsigned __f);
+unsigned __double_to_float(const unsigned* __d);
 
-unsigned* __double_add(unsigned* out, const unsigned* a, const unsigned* b);
-unsigned* __double_sub(unsigned* out, const unsigned* a, const unsigned* b);
-unsigned* __double_mul(unsigned* out, const unsigned* a, const unsigned* b);
-unsigned* __double_divu(unsigned* out, const unsigned* a, const unsigned* b);
-unsigned* __double_divs(unsigned* out, const unsigned* a, const unsigned* b);
-unsigned* __double_modu(unsigned* out, const unsigned* a, const unsigned* b);
-unsigned* __double_mods(unsigned* out, const unsigned* a, const unsigned* b);
-_Bool __double_eq(const unsigned* a, const unsigned* b);
-_Bool __double_lt(const unsigned* a, const unsigned* b);
-_Bool __double_lte(const unsigned* a, const unsigned* b);
+unsigned __double_to_u32(const unsigned* __d);
+int __double_to_i32(const unsigned* __d);
+unsigned* __double_to_u64(unsigned* __out, const unsigned* __d);
+unsigned* __double_to_i64(unsigned* __out, const unsigned* __d);
+unsigned* __double_from_u32(unsigned* __d, unsigned __u);
+unsigned* __double_from_i32(unsigned* __d, int __i);
+unsigned* __double_from_u64(unsigned* __d, const unsigned* __u);
+unsigned* __double_from_i64(unsigned* __d, const unsigned* __i);
+
+unsigned* __double_add(unsigned* __d, const unsigned* __l, const unsigned* __r);
+unsigned* __double_sub(unsigned* __d, const unsigned* __l, const unsigned* __r);
+unsigned* __double_mul(unsigned* __d, const unsigned* __l, const unsigned* __r);
+unsigned* __double_div(unsigned* __d, const unsigned* __l, const unsigned* __r);
+unsigned* __double_negate(unsigned* __out, const unsigned* __in);
+
+_Bool __double_ne(const unsigned* __l, const unsigned* __r);
+_Bool __double_lt(const unsigned* __l, const unsigned* __r);
+_Bool __double_lte(const unsigned* __l, const unsigned* __r);
 
 #endif
