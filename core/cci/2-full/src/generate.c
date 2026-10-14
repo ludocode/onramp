@@ -242,8 +242,9 @@ static void generate_sequence(node_t* node, bool location, int reg_out) {
 static void generate_number(node_t* node, int reg_out) {
     assert(node->kind == NODE_NUMBER);
     assert(node->first_child == NULL);
+    type_t* type = node->type;
 
-    if (type_is_long_long(node->type)) {
+    if (type_is_long_long(type)) {
         u64_t* llong = &node->u64;
 
         // store low
@@ -262,6 +263,11 @@ static void generate_number(node_t* node, int reg_out) {
         instruction = block_append(current_block, node->token, STW, 2);
         instruction_set_arg_number(instruction, 0, u64_high(llong));
         instruction_set_arg_temporary(instruction, 1, temp);
+    } else if (type_matches_base(type, BASE_DOUBLE) || type_matches_base(type, BASE_LONG_DOUBLE)) {
+        // for now double is 32 bits
+        instruction_t* instruction = block_append(current_block, node->token, STW, 2);
+        instruction_set_arg_number(instruction, 0, node->u32);
+        instruction_set_arg_temporary(instruction, 1, reg_out);
     } else {
         instruction_t* instruction = block_append(current_block, node->token, MOV, 2);
         instruction_set_arg_temporary(instruction, 0, reg_out);
@@ -688,8 +694,11 @@ static void generate_cast_indirect_to_indirect(node_t* node,
 
     // Both the source and target are indirect. Records cannot be cast
     // so the only possibility is a 64-bit value.
-    assert(type_size(source) == 8);
-    assert(type_size(target) == 8);
+    //assert(type_size(source) == 8);
+    //assert(type_size(target) == 8);
+    // TODO for now we also allow a 32-bit double
+    assert(type_size(source) == 4 || type_size(source) == 8);
+    assert(type_size(target) == 4 || type_size(target) == 8);
 
     // The register already contains a pointer to 64-bit space. We can
     // use it to generate our source, then convert to target in-place.
@@ -702,12 +711,32 @@ static void generate_cast_indirect_to_indirect(node_t* node,
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
 
-    if (source_base == BASE_DOUBLE &&
-            (target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG)) {
-        fatal("TODO cast from double to llong, emit function call");
+    if ((source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) &&
+            (target_base == BASE_SIGNED_LONG_LONG || target_base == BASE_UNSIGNED_LONG_LONG))
+    {
+        // convert via function call
+        bool target_signed = type_is_signed_integer(target);
+        instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+        instruction_set_arg_sentinel(instruction, 0);
+        instruction_set_arg_absolute_cstr(instruction, 1,
+                target_signed ? "__double_to_i64" : "__double_to_u64");
+        instruction_set_arg_temporary(instruction, 2, reg_out);
+        instruction_set_arg_temporary(instruction, 3, reg_out);
     } else if ((source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) &&
-            target_base == BASE_DOUBLE) {
-        fatal("TODO cast from llong to double, emit function call");
+            (target_base == BASE_DOUBLE || target_base == BASE_LONG_DOUBLE))
+    {
+        // convert via function call
+        bool source_signed = type_is_signed_integer(source);
+        instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+        instruction_set_arg_sentinel(instruction, 0);
+        instruction_set_arg_absolute_cstr(instruction, 1,
+                source_signed ? "__double_from_i64" : "__double_from_u64");
+        instruction_set_arg_temporary(instruction, 2, reg_out);
+        instruction_set_arg_temporary(instruction, 3, reg_out);
+    } else if ((source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) &&
+            (target_base == BASE_DOUBLE || target_base == BASE_LONG_DOUBLE))
+    {
+        // casting between double and long double. our long double is 64 bits so nothing to do.
     } else {
         // casting between signed and unsigned. nothing to do.
         assert(source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG);
@@ -724,6 +753,7 @@ static void generate_cast_indirect_to_direct(node_t* node,
     // The source is indirect but the target is direct. The source is
     // either a 64-bit value or a record (being cast to void), and the
     // target fits in a register.
+    // TODO the source may also be a 32-bit double until we convert double to 64 bits.
     assert(type_size(target) <= 4);
 
     base_t source_base = cast_base(source);
@@ -742,23 +772,55 @@ static void generate_cast_indirect_to_direct(node_t* node,
     generate_node(node->first_child, temp_value);
 
     // convert source to target
-    if (source_base == BASE_DOUBLE) {
+    if (source_base == BASE_DOUBLE || source_base == BASE_LONG_DOUBLE) {
         // It's a double. We're either casting to float or to an
         // integer type.
         if (target_base == BASE_FLOAT) {
-            fatal("TODO cast from double to float, emit function call");
-        } else if (target_base == BASE_BOOL) {
-            fatal("TODO cast from double to bool");
-        } else if (type_is_signed_integer(target)) {
-            fatal("TODO cast from double to signed int, emit function call");
+            // convert via function call
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+            instruction_set_arg_sentinel(instruction, 0);
+            instruction_set_arg_absolute_cstr(instruction, 1, "__double_to_float");
+            instruction_set_arg_temporary(instruction, 2, reg_out);
+            instruction_set_arg_temporary(instruction, 3, temp_value);
         } else {
             assert(type_is_integer(target));
-            fatal("TODO cast from double to unsigned int");
+            bool target_signed = type_is_signed_integer(target);
+
+            // in case of bool, use an extra temporary
+            int bool_out = reg_out;
+            if (target_base == BASE_BOOL) {
+                reg_out = generate_temporary(NULL);
+            }
+
+            // convert via function call
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+            instruction_set_arg_sentinel(instruction, 0);
+            instruction_set_arg_absolute_cstr(instruction, 1,
+                    target_signed ? "__double_to_i32" : "__double_to_u32");
+            instruction_set_arg_temporary(instruction, 2, reg_out);
+            instruction_set_arg_temporary(instruction, 3, temp_value);
+
+            // TODO we should raise FE_OVERFLOW or FE_INVALID if it doesn't fit
+            // in the target type. We may need 16, 8, and bool variants of
+            // these functions.
+
+            if (target_base == BASE_BOOL) {
+                // convert result to bool
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        BOOL, 2), bool_out, reg_out);
+            }
         }
     } else if (source_base == BASE_SIGNED_LONG_LONG || source_base == BASE_UNSIGNED_LONG_LONG) {
         // It's llong.
         if (target_base == BASE_FLOAT) {
-            fatal("TODO cast from long long to float, emit function call");
+            // convert via function call
+            bool source_signed = type_is_signed_integer(source);
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+            instruction_set_arg_sentinel(instruction, 0);
+            instruction_set_arg_absolute_cstr(instruction, 1,
+                    source_signed ? "__float_from_i64" : "__float_from_u64");
+            instruction_set_arg_temporary(instruction, 2, reg_out);
+            instruction_set_arg_temporary(instruction, 3, temp_value);
         } else {
             assert(type_is_integer(source));
             // Cast from llong to a register-size or smaller integer
@@ -806,10 +868,11 @@ static void generate_cast_direct_to_indirect(node_t* node,
     assert(type_is_passed_indirectly(target));
 
     // The source is direct but the target is indirect. Records cannot
-    // be cast so the source fits in a register and the only
-    // possibility for target is a 64-bit value.
+    // be cast so the source fits in a register and the target a base type.
+    // TODO we are currently compiling with a 32-bit double. All other base
+    // types are 64 bits.
     assert(type_size(source) <= 4);
-    assert(type_size(target) == 8);
+    assert(type_size(target) == 4 || type_size(target) == 8); // TODO eventually remove 32-bit double
 
     // The source fits in a temporary.
     int reg_src = generate_temporary(NULL);
@@ -818,17 +881,54 @@ static void generate_cast_direct_to_indirect(node_t* node,
     base_t source_base = cast_base(source);
     base_t target_base = cast_base(target);
 
-    if (target_base == BASE_DOUBLE) {
+    if (target_base == BASE_DOUBLE || target_base == BASE_LONG_DOUBLE) {
         if (source_base == BASE_FLOAT) {
-            fatal("TODO cast from float to double, emit function call");
+            // convert via function call
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+            instruction_set_arg_sentinel(instruction, 0);
+            instruction_set_arg_absolute_cstr(instruction, 1, "__double_from_float");
+            instruction_set_arg_temporary(instruction, 2, reg_out);
+            instruction_set_arg_temporary(instruction, 3, reg_src);
         } else {
             assert(type_is_integer(source));
-            fatal("TODO cast from register integer to double, sign-extend and emit function call");
+            bool source_signed = type_is_signed_integer(source);
+
+            /*
+            // truncate or sign extend to fill the register
+            // TODO I don't think we need to do this. the value in the register
+            // should already be sign extended or truncated. we do it on
+            // casting or on loading; we don't do it lazily.
+            size_t source_size = type_size(source);
+            if (source_size < 4) {
+                int reg_temp = generate_temporary(NULL);
+                opcode_t opcode = source_signed ?
+                        (source_size == 1 ? SXB : SXS) :
+                        (source_size == 1 ? TRB : TRS);
+                instruction_set_args_tt(block_append(current_block, node->token,
+                        opcode, 2), reg_temp, reg_src);
+                reg_src = reg_temp;
+            }
+            */
+
+            // convert via function call
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+            instruction_set_arg_sentinel(instruction, 0);
+            instruction_set_arg_absolute_cstr(instruction, 1,
+                    source_signed ? "__double_from_i32" : "__double_from_u32");
+            instruction_set_arg_temporary(instruction, 2, reg_out);
+            instruction_set_arg_temporary(instruction, 3, reg_src);
         }
     } else {
         assert(type_is_integer(target));
         if (source_base == BASE_FLOAT) {
-            fatal("TODO cast from float to long long, emit function call");
+            // convert via function call
+            bool target_signed = type_is_signed_integer(target);
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
+            instruction_set_arg_sentinel(instruction, 0);
+            instruction_set_arg_absolute_cstr(instruction, 1,
+                    target_signed ? "__float_to_i64" : "__float_to_u64");
+            instruction_set_arg_temporary(instruction, 2, reg_out);
+            instruction_set_arg_temporary(instruction, 3, reg_src);
         } else {
             // Cast from register integer to long long.
             assert(type_is_integer(source));

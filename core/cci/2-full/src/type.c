@@ -477,13 +477,13 @@ size_t base_size(base_t base) {
         #ifdef __onramp_abi_bootstrap__
         case BASE_BOOL:
         #endif
+        case BASE_DOUBLE: // TODO: for now double is 32 bits (but still passed indirectly)
+        case BASE_LONG_DOUBLE:
             return 4;
 
         // long
         case BASE_SIGNED_LONG_LONG:
         case BASE_UNSIGNED_LONG_LONG:
-        case BASE_DOUBLE:
-        case BASE_LONG_DOUBLE:
             return 8;
 
         case BASE_RECORD:
