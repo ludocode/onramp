@@ -514,7 +514,7 @@ void generate_less_or_equal(node_t* node, int reg_out) {
         return;
     }
     if (type_matches_base(left->type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, left, right, reg_out, "__double_lt");
+        generate_arithmetic_function(node, left, right, reg_out, "__double_lte");
         return;
     }
 
@@ -537,7 +537,7 @@ void generate_greater_or_equal(node_t* node, int reg_out) {
         return;
     }
     if (type_matches_base(left->type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, right, left, reg_out, "__double_lt");
+        generate_arithmetic_function(node, right, left, reg_out, "__double_lte");
         return;
     }
 
