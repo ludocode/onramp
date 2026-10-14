@@ -55,22 +55,28 @@ OBJS=\
 		\
 		$(OUT)/string-fast.oo \
 		\
+		$(OUT)/math/bigdec.oo \
+		$(OUT)/math/bigint.oo \
+		$(OUT)/math/double_funcs.oo \
+		$(OUT)/math/double_ops.oo \
+		$(OUT)/math/double_util.oo \
+		$(OUT)/math/float_funcs.oo \
+		$(OUT)/math/float_ops.oo \
+		$(OUT)/math/float_util.oo \
+		$(OUT)/math/llong.oo \
+		$(OUT)/math/int.oo \
+		\
 		$(OUT)/assert.oo \
-		$(OUT)/bigint.oo \
 		$(OUT)/ctype.oo \
-		$(OUT)/double.oo \
 		$(OUT)/environ.oo \
 		$(OUT)/errno.oo \
-		$(OUT)/float.oo \
 		$(OUT)/format.oo \
-		$(OUT)/llong.oo \
 		$(OUT)/multibyte.oo \
 		$(OUT)/path.oo \
 		$(OUT)/posixio.oo \
 		$(OUT)/setjmp.oo \
 		$(OUT)/stdbit.oo \
 		$(OUT)/stdio.oo \
-		$(OUT)/stdlib.oo \
 		$(OUT)/string.oo \
 		$(OUT)/strings.oo \
 		$(OUT)/stubs.oo \
@@ -159,29 +165,81 @@ $(OUT)/syscalls.oo: $(SRC2)/syscalls.os Makefile
 # syscalls for Linux.)
 
 
+# math
+
+$(OUT)/math/bigdec.oo: $(SRC2)/math/bigdec.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/bigdec.c -o $(OUT)/bigdec.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/bigdec.c -o $@
+
+$(OUT)/math/bigint.oo: $(SRC2)/math/bigint.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/bigint.c -o $(OUT)/bigint.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/bigint.c -o $@
+
+$(OUT)/math/double_funcs.oo: $(SRC2)/math/double_funcs.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_funcs.c -o $(OUT)/double_funcs.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/double_funcs.c -o $@
+
+$(OUT)/math/double_ops.oo: $(SRC2)/math/double_ops.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_ops.c -o $(OUT)/double_ops.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/double_ops.c -o $@
+
+$(OUT)/math/double_util.oo: $(SRC2)/math/double_util.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_util.c -o $(OUT)/double_util.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/double_util.c -o $@
+
+$(OUT)/math/float_funcs.oo: $(SRC2)/math/float_funcs.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_funcs.c -o $(OUT)/float_funcs.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/float_funcs.c -o $@
+
+$(OUT)/math/float_ops.oo: $(SRC2)/math/float_ops.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_ops.c -o $(OUT)/float_ops.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/float_ops.c -o $@
+
+$(OUT)/math/float_util.oo: $(SRC2)/math/float_util.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_util.c -o $(OUT)/float_util.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/float_util.c -o $@
+
+$(OUT)/math/llong.oo: $(SRC2)/math/llong.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)/math
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/llong.c -o $(OUT)/llong.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/llong.c -o $@
+
+$(OUT)/math/int.oo: $(SRC2)/math/int.c Makefile
+	@rm -f $@
+	@mkdir -p $(OUT)
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/int.c -o $(OUT)/math/int.o
+	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/int.c -o $@
+
+# misc
+
 $(OUT)/assert.oo: $(SRC2)/assert.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/assert.c -o $(OUT)/assert.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/assert.c -o $@
 
-$(OUT)/bigint.oo: $(SRC2)/bigint.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/bigint.c -o $(OUT)/bigint.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/bigint.c -o $@
-
 $(OUT)/ctype.oo: $(SRC2)/ctype.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/ctype.c -o $(OUT)/ctype.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/ctype.c -o $@
-
-$(OUT)/double.oo: $(SRC2)/double.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/double.c -o $(OUT)/double.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/double.c -o $@
 
 $(OUT)/environ.oo: $(SRC2)/environ.c Makefile
 	@rm -f $@
@@ -195,23 +253,11 @@ $(OUT)/errno.oo: $(SRC2)/errno.c Makefile
 	$(CC) $(CPPFLAGS) -c $(SRC2)/errno.c -o $(OUT)/errno.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/errno.c -o $@
 
-$(OUT)/float.oo: $(SRC2)/float.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/float.c -o $(OUT)/float.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/float.c -o $@
-
 $(OUT)/format.oo: $(SRC2)/format.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/format.c -o $(OUT)/format.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/format.c -o $@
-
-$(OUT)/llong.oo: $(SRC2)/llong.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/llong.c -o $(OUT)/llong.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/llong.c -o $@
 
 $(OUT)/multibyte.oo: $(SRC2)/multibyte.c Makefile
 	@rm -f $@
@@ -242,12 +288,6 @@ $(OUT)/stdio.oo: $(SRC2)/stdio.c Makefile
 	@mkdir -p $(OUT)
 	$(CC) $(CPPFLAGS) -c $(SRC2)/stdio.c -o $(OUT)/stdio.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stdio.c -o $@
-
-$(OUT)/stdlib.oo: $(SRC2)/stdlib.c Makefile
-	@rm -f $@
-	@mkdir -p $(OUT)
-	$(CC) $(CPPFLAGS) -c $(SRC2)/stdlib.c -o $(OUT)/stdlib.o
-	$(TOOL_CC) $(CCARGS) -c $(SRC2)/stdlib.c -o $@
 
 $(OUT)/string.oo: $(SRC2)/string.c Makefile
 	@rm -f $@

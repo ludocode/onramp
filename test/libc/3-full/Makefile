@@ -70,22 +70,28 @@ OBJS_ALL=\
 		\
 		$(BUILD1)/string-fast.oo \
 		\
+		$(BUILD2)/math/bigdec.oo \
+		$(BUILD2)/math/bigint.oo \
+		$(BUILD2)/math/double_funcs.oo \
+		$(BUILD2)/math/double_ops.oo \
+		$(BUILD2)/math/double_util.oo \
+		$(BUILD2)/math/float_funcs.oo \
+		$(BUILD2)/math/float_ops.oo \
+		$(BUILD2)/math/float_util.oo \
+		$(BUILD2)/math/llong.oo \
+		$(BUILD2)/math/int.oo \
+		\
 		$(BUILD2)/assert.oo \
-		$(BUILD2)/bigint.oo \
 		$(BUILD2)/ctype.oo \
-		$(BUILD2)/double.oo \
 		$(BUILD2)/environ.oo \
 		$(BUILD2)/errno.oo \
-		$(BUILD2)/float.oo \
 		$(BUILD2)/format.oo \
-		$(BUILD2)/llong.oo \
 		$(BUILD2)/multibyte.oo \
 		$(BUILD2)/path.oo \
 		$(BUILD2)/posixio.oo \
 		$(BUILD2)/setjmp.oo \
 		$(BUILD2)/stdbit.oo \
 		$(BUILD2)/stdio.oo \
-		$(BUILD2)/stdlib.oo \
 		$(BUILD2)/string.oo \
 		$(BUILD2)/strings.oo \
 		$(BUILD2)/syscalls.oo \

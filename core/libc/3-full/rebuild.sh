@@ -24,6 +24,7 @@
 
 set -e
 mkdir -p output/intermediate/libc-3-full-re
+mkdir -p output/intermediate/libc-3-full-re/math
 mkdir -p output/final/lib
 
 echo
@@ -41,6 +42,70 @@ onrampvm output/intermediate/cc/cc.oe \
 
 # libc/2 sources
 
+# math
+
+echo Compiling libc/2-opc math/bigdec.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/bigdec.c \
+    -o output/intermediate/libc-3-full-re/math/bigdec.oo
+
+echo Compiling libc/2-opc math/bigint.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/bigint.c \
+    -o output/intermediate/libc-3-full-re/math/bigint.oo
+
+echo Compiling libc/2-opc math/double_funcs.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/double_funcs.c \
+    -o output/intermediate/libc-3-full-re/math/double_funcs.oo
+
+echo Compiling libc/2-opc math/double_ops.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/double_ops.c \
+    -o output/intermediate/libc-3-full-re/math/double_ops.oo
+
+echo Compiling libc/2-opc math/double_util.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/double_util.c \
+    -o output/intermediate/libc-3-full-re/math/double_util.oo
+
+echo Compiling libc/2-opc math/float_funcs.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/float_funcs.c \
+    -o output/intermediate/libc-3-full-re/math/float_funcs.oo
+
+echo Compiling libc/2-opc math/float_ops.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/float_ops.c \
+    -o output/intermediate/libc-3-full-re/math/float_ops.oo
+
+echo Compiling libc/2-opc math/float_util.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/float_util.c \
+    -o output/intermediate/libc-3-full-re/math/float_util.oo
+
+echo Compiling libc/2-opc math/llong.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/llong.c \
+    -o output/intermediate/libc-3-full-re/math/llong.oo
+
+echo Compiling libc/2-opc math/int.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/3-full/rebuild-ccargs \
+    -c core/libc/2-opc/src/math/int.c \
+    -o output/intermediate/libc-3-full-re/math/int.oo
+
+# misc
+
 echo Assembling libc/2-opc start.os
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
@@ -53,23 +118,11 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/assert.c \
     -o output/intermediate/libc-3-full-re/assert.oo
 
-echo Compiling libc/2-opc bigint.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/2-opc/src/bigint.c \
-    -o output/intermediate/libc-3-full-re/bigint.oo
-
 echo Compiling libc/2-opc ctype.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
     -c core/libc/2-opc/src/ctype.c \
     -o output/intermediate/libc-3-full-re/ctype.oo
-
-echo Compiling libc/2-opc double.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/2-opc/src/double.c \
-    -o output/intermediate/libc-3-full-re/double.oo
 
 echo Compiling libc/2-opc environ.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -83,23 +136,11 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/errno.c \
     -o output/intermediate/libc-3-full-re/errno.oo
 
-echo Compiling libc/2-opc float.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/2-opc/src/float.c \
-    -o output/intermediate/libc-3-full-re/float.oo
-
 echo Compiling libc/2-opc format.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
     -c core/libc/2-opc/src/format.c \
     -o output/intermediate/libc-3-full-re/format.oo
-
-echo Compiling libc/2-opc llong.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/2-opc/src/llong.c \
-    -o output/intermediate/libc-3-full-re/llong.oo
 
 echo Compiling libc/2-opc multibyte.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -136,12 +177,6 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/rebuild-ccargs \
     -c core/libc/2-opc/src/stdio.c \
     -o output/intermediate/libc-3-full-re/stdio.oo
-
-echo Compiling libc/2-opc stdlib.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/3-full/rebuild-ccargs \
-    -c core/libc/2-opc/src/stdlib.c \
-    -o output/intermediate/libc-3-full-re/stdlib.oo
 
 echo Compiling libc/2-opc string.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -251,22 +286,28 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     output/intermediate/libc-3-full-re/string-fast.oo \
     \
+    output/intermediate/libc-3-full-re/math/bigdec.oo \
+    output/intermediate/libc-3-full-re/math/bigint.oo \
+    output/intermediate/libc-3-full-re/math/double_funcs.oo \
+    output/intermediate/libc-3-full-re/math/double_ops.oo \
+    output/intermediate/libc-3-full-re/math/double_util.oo \
+    output/intermediate/libc-3-full-re/math/float_funcs.oo \
+    output/intermediate/libc-3-full-re/math/float_ops.oo \
+    output/intermediate/libc-3-full-re/math/float_util.oo \
+    output/intermediate/libc-3-full-re/math/llong.oo \
+    output/intermediate/libc-3-full-re/math/int.oo \
+    \
     output/intermediate/libc-3-full-re/assert.oo \
-    output/intermediate/libc-3-full-re/bigint.oo \
     output/intermediate/libc-3-full-re/ctype.oo \
-    output/intermediate/libc-3-full-re/double.oo \
     output/intermediate/libc-3-full-re/environ.oo \
     output/intermediate/libc-3-full-re/errno.oo \
-    output/intermediate/libc-3-full-re/float.oo \
     output/intermediate/libc-3-full-re/format.oo \
-    output/intermediate/libc-3-full-re/llong.oo \
     output/intermediate/libc-3-full-re/multibyte.oo \
     output/intermediate/libc-3-full-re/path.oo \
     output/intermediate/libc-3-full-re/posixio.oo \
     output/intermediate/libc-3-full-re/setjmp.oo \
     output/intermediate/libc-3-full-re/stdbit.oo \
     output/intermediate/libc-3-full-re/stdio.oo \
-    output/intermediate/libc-3-full-re/stdlib.oo \
     output/intermediate/libc-3-full-re/string.oo \
     output/intermediate/libc-3-full-re/strings.oo \
     output/intermediate/libc-3-full-re/syscalls.oo \

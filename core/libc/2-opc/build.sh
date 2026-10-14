@@ -24,6 +24,7 @@
 
 set -e
 mkdir -p output/intermediate/libc-2-opc
+mkdir -p output/intermediate/libc-2-opc/math
 
 echo
 echo === Building libc/2-opc
@@ -34,6 +35,69 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/start.os \
     -o output/intermediate/libc-2-opc/start.oo
 
+# math
+
+echo Compiling libc/2-opc math/bigdec.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/bigdec.c \
+    -o output/intermediate/libc-2-opc/math/bigdec.oo
+
+echo Compiling libc/2-opc math/bigint.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/bigint.c \
+    -o output/intermediate/libc-2-opc/math/bigint.oo
+
+echo Compiling libc/2-opc math/float_funcs.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/float_funcs.c \
+    -o output/intermediate/libc-2-opc/math/float_funcs.oo
+
+echo Compiling libc/2-opc math/float_ops.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/float_ops.c \
+    -o output/intermediate/libc-2-opc/math/float_ops.oo
+
+echo Compiling libc/2-opc math/float_util.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/float_util.c \
+    -o output/intermediate/libc-2-opc/math/float_util.oo
+
+echo Compiling libc/2-opc math/double_funcs.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/double_funcs.c \
+    -o output/intermediate/libc-2-opc/math/double_funcs.oo
+
+echo Compiling libc/2-opc math/double_ops.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/double_ops.c \
+    -o output/intermediate/libc-2-opc/math/double_ops.oo
+
+echo Compiling libc/2-opc math/double_util.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/double_util.c \
+    -o output/intermediate/libc-2-opc/math/double_util.oo
+
+echo Compiling libc/2-opc math/llong.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/llong.c \
+    -o output/intermediate/libc-2-opc/math/llong.oo
+
+echo Compiling libc/2-opc math/int.c
+onrampvm output/intermediate/cc/cc.oe \
+    @core/libc/2-opc/build-ccargs \
+    -c core/libc/2-opc/src/math/int.c \
+    -o output/intermediate/libc-2-opc/math/int.oo
+
+# misc
 
 echo Compiling libc/2-opc assert.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -41,23 +105,11 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/assert.c \
     -o output/intermediate/libc-2-opc/assert.oo
 
-echo Compiling libc/2-opc bigint.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/bigint.c \
-    -o output/intermediate/libc-2-opc/bigint.oo
-
 echo Compiling libc/2-opc ctype.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/ctype.c \
     -o output/intermediate/libc-2-opc/ctype.oo
-
-echo Compiling libc/2-opc double.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/double.c \
-    -o output/intermediate/libc-2-opc/double.oo
 
 echo Compiling libc/2-opc environ.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -71,23 +123,11 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/2-opc/src/errno.c \
     -o output/intermediate/libc-2-opc/errno.oo
 
-echo Compiling libc/2-opc float.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/float.c \
-    -o output/intermediate/libc-2-opc/float.oo
-
 echo Compiling libc/2-opc format.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/format.c \
     -o output/intermediate/libc-2-opc/format.oo
-
-echo Compiling libc/2-opc llong.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/llong.c \
-    -o output/intermediate/libc-2-opc/llong.oo
 
 echo Compiling libc/2-opc multibyte.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -124,12 +164,6 @@ onrampvm output/intermediate/cc/cc.oe \
     @core/libc/2-opc/build-ccargs \
     -c core/libc/2-opc/src/stdio.c \
     -o output/intermediate/libc-2-opc/stdio.oo
-
-echo Compiling libc/2-opc stdlib.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/2-opc/build-ccargs \
-    -c core/libc/2-opc/src/stdlib.c \
-    -o output/intermediate/libc-2-opc/stdlib.oo
 
 echo Compiling libc/2-opc string.c
 onrampvm output/intermediate/cc/cc.oe \
@@ -175,22 +209,28 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-1-omc/string-fast.oo \
     output/intermediate/libc-1-omc/strtol.oo \
     \
+    output/intermediate/libc-2-opc/math/bigdec.oo \
+    output/intermediate/libc-2-opc/math/bigint.oo \
+    output/intermediate/libc-2-opc/math/double_funcs.oo \
+    output/intermediate/libc-2-opc/math/double_ops.oo \
+    output/intermediate/libc-2-opc/math/double_util.oo \
+    output/intermediate/libc-2-opc/math/float_funcs.oo \
+    output/intermediate/libc-2-opc/math/float_ops.oo \
+    output/intermediate/libc-2-opc/math/float_util.oo \
+    output/intermediate/libc-2-opc/math/llong.oo \
+    output/intermediate/libc-2-opc/math/int.oo \
+    \
     output/intermediate/libc-2-opc/assert.oo \
-    output/intermediate/libc-2-opc/bigint.oo \
     output/intermediate/libc-2-opc/ctype.oo \
-    output/intermediate/libc-2-opc/double.oo \
     output/intermediate/libc-2-opc/environ.oo \
     output/intermediate/libc-2-opc/errno.oo \
-    output/intermediate/libc-2-opc/float.oo \
     output/intermediate/libc-2-opc/format.oo \
-    output/intermediate/libc-2-opc/llong.oo \
     output/intermediate/libc-2-opc/multibyte.oo \
     output/intermediate/libc-2-opc/path.oo \
     output/intermediate/libc-2-opc/posixio.oo \
     output/intermediate/libc-2-opc/setjmp.oo \
     output/intermediate/libc-2-opc/stdbit.oo \
     output/intermediate/libc-2-opc/stdio.oo \
-    output/intermediate/libc-2-opc/stdlib.oo \
     output/intermediate/libc-2-opc/string.oo \
     output/intermediate/libc-2-opc/strings.oo \
     output/intermediate/libc-2-opc/stubs.oo \

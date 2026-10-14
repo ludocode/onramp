@@ -105,22 +105,28 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     \
     output/intermediate/libc-1-omc/string-fast.oo \
     \
+    output/intermediate/libc-2-opc/math/bigdec.oo \
+    output/intermediate/libc-2-opc/math/bigint.oo \
+    output/intermediate/libc-2-opc/math/double_funcs.oo \
+    output/intermediate/libc-2-opc/math/double_ops.oo \
+    output/intermediate/libc-2-opc/math/double_util.oo \
+    output/intermediate/libc-2-opc/math/float_funcs.oo \
+    output/intermediate/libc-2-opc/math/float_ops.oo \
+    output/intermediate/libc-2-opc/math/float_util.oo \
+    output/intermediate/libc-2-opc/math/llong.oo \
+    output/intermediate/libc-2-opc/math/int.oo \
+    \
     output/intermediate/libc-2-opc/assert.oo \
-    output/intermediate/libc-2-opc/bigint.oo \
     output/intermediate/libc-2-opc/ctype.oo \
-    output/intermediate/libc-2-opc/double.oo \
     output/intermediate/libc-2-opc/environ.oo \
     output/intermediate/libc-2-opc/errno.oo \
-    output/intermediate/libc-2-opc/float.oo \
     output/intermediate/libc-2-opc/format.oo \
-    output/intermediate/libc-2-opc/llong.oo \
     output/intermediate/libc-2-opc/multibyte.oo \
     output/intermediate/libc-2-opc/path.oo \
     output/intermediate/libc-2-opc/posixio.oo \
     output/intermediate/libc-2-opc/setjmp.oo \
     output/intermediate/libc-2-opc/stdbit.oo \
     output/intermediate/libc-2-opc/stdio.oo \
-    output/intermediate/libc-2-opc/stdlib.oo \
     output/intermediate/libc-2-opc/string.oo \
     output/intermediate/libc-2-opc/strings.oo \
     output/intermediate/libc-2-opc/syscalls.oo \
