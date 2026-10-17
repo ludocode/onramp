@@ -22,4 +22,6 @@
  * SOFTWARE.
  */
 
+#define __ONRAMP_LIBC_FLOATING_IMPL
 
+#include "double_defs.h"

@@ -22,4 +22,7 @@
  * SOFTWARE.
  */
 
+#ifndef DOUBLE_DEFS_H_INCLUDED
+#define DOUBLE_DEFS_H_INCLUDED
 
+#endif
