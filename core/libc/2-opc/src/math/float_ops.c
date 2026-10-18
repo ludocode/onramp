@@ -76,7 +76,7 @@ unsigned __float_env;
         fputc('\n', stderr);
         exit(1);
     }
-    #define stdc_leading_zerosui __builtin_clz
+    #define stdc_leading_zeros_ui __builtin_clz
     #define copysignf __onramp_copysignf
     #define __llong_negate(out, x) ({unsigned* __out=(out); (*(uint64_t*)__out = -*(uint64_t*)(x)); __out;})
     #define __llong_shl(out, in, bits) ({unsigned* __out=(out); (*(uint64_t*)__out = *(uint64_t*)(in) << bits); __out;})
@@ -366,11 +366,11 @@ static uint32_t float_sub_impl(uint32_t ae, uint32_t be, uint32_t af, uint32_t b
     }
 
     // Find the position of the highest bit in the resulting significand.
-    //printf("af has %i leading zeroes\n", stdc_leading_zerosui(af));
-    //printf("tf has %i leading zeroes\n", stdc_leading_zerosui(tf));
-    //printf("tf bits %i\n", 32 - stdc_leading_zerosui(tf));
-    //printf("af bits %i\n", 32 - stdc_leading_zerosui(af));
-    int bits = 32 - stdc_leading_zerosui(tf);
+    //printf("af has %i leading zeroes\n", stdc_leading_zeros_ui(af));
+    //printf("tf has %i leading zeroes\n", stdc_leading_zeros_ui(tf));
+    //printf("tf bits %i\n", 32 - stdc_leading_zeros_ui(tf));
+    //printf("af bits %i\n", 32 - stdc_leading_zeros_ui(af));
+    int bits = 32 - stdc_leading_zeros_ui(tf);
     //fflush(stdout);abort();
 
     // Shift the result up and exponent down as much as possible. We want our
@@ -1000,7 +1000,7 @@ unsigned __float_from_u32(unsigned x) {
     }
 
     // Find the first set bit
-    unsigned bits = 32u - stdc_leading_zerosui(x);
+    unsigned bits = 32u - stdc_leading_zeros_ui(x);
     unsigned exponent = FLOAT_EXPONENT_BIAS + bits - 1u;
 
     // Shift up (normal) or down (sticky!) until 26 bits are set
@@ -1028,9 +1028,9 @@ unsigned __float_from_u64(const unsigned* x) {
         if (x0 == 0u) {
             return 0u;
         }
-        bits = 32u - stdc_leading_zerosui(x0);
+        bits = 32u - stdc_leading_zeros_ui(x0);
     } else {
-        bits = 64u - stdc_leading_zerosui(x1);
+        bits = 64u - stdc_leading_zeros_ui(x1);
     }
     //printf("x %lu bits %u\n",*(uint64_t*)x,bits);
     unsigned exponent = FLOAT_EXPONENT_BIAS + bits - 1u;
@@ -1284,7 +1284,7 @@ unsigned ldexpf(unsigned x, int exp) {
 
         // Shift up subnormal
         if (!(xm & FLOAT_HIDDEN_BIT)) {
-            unsigned bits = 32u - stdc_leading_zerosui(xm);
+            unsigned bits = 32u - stdc_leading_zeros_ui(xm);
             //printf("subnormal bits %u\n",bits);
             if (uexp > (FLOAT_SIGNIFICAND_BITS - bits)) {
                 // Number becomes normal

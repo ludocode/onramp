@@ -86,13 +86,13 @@
     #endif
     #ifdef __has_builtin
         #if __has_builtin(__builtin_stdc_leading_zeros)
-            #define stdc_leading_zerosus __builtin_stdc_leading_zeros
+            #define stdc_leading_zeros_us __builtin_stdc_leading_zeros
         #endif
     #endif
-    #if !defined(stdc_leading_zeros) && !defined(stdc_leading_zerosus)
+    #if !defined(stdc_leading_zeros) && !defined(stdc_leading_zeros_us)
         #include <limits.h>
-        #define stdc_leading_zerosus onramp_test_stdc_leading_zerosus
-        static inline int onramp_test_stdc_leading_zerosus(unsigned x) {
+        #define stdc_leading_zeros_us onramp_test_stdc_leading_zeros_us
+        static inline int onramp_test_stdc_leading_zeros_us(unsigned x) {
             int ret = CHAR_BIT * sizeof(x);
             while (x) {
                 --ret;

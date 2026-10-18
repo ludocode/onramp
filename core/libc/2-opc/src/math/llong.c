@@ -311,7 +311,7 @@ void __llong_divmodu(unsigned* quotient_out, unsigned* /*nullable*/ remainder_ou
 
     unsigned short normalized_dividend[5];
     unsigned short normalized_divisor[4];
-    unsigned shift = stdc_leading_zerosus(divisor_digits[divisor_length - 1]);
+    unsigned shift = stdc_leading_zeros_us(divisor_digits[divisor_length - 1]);
 //printf("shift %u\n", shift);
 
     normalized_dividend[0] = dividend_digits[0] << shift;

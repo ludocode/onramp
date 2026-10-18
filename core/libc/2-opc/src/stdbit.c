@@ -32,7 +32,7 @@
 // (e.g. __builtin_clz) will wrap these. For now we just implement what we need
 // for other things (e.g. llong division.)
 
-int stdc_leading_zerosui(unsigned int v) {
+int stdc_leading_zeros_ui(unsigned int v) {
     if (v == 0)
         return 32;
 
@@ -65,10 +65,10 @@ int stdc_leading_zerosui(unsigned int v) {
     return 31 - r;
 }
 
-int stdc_leading_zerosus(unsigned short value) {
-    return stdc_leading_zerosui(value) - 16;
+int stdc_leading_zeros_us(unsigned short value) {
+    return stdc_leading_zeros_ui(value) - 16;
 }
 
-int stdc_leading_zerosuc(unsigned char value) {
-    return stdc_leading_zerosui(value) - 24;
+int stdc_leading_zeros_uc(unsigned char value) {
+    return stdc_leading_zeros_ui(value) - 24;
 }

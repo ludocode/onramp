@@ -35,23 +35,23 @@
  * integer.
  */
 
-int stdc_leading_zerosuc(unsigned char value);
-int stdc_leading_zerosus(unsigned short value);
-int stdc_leading_zerosui(unsigned int value);
+int stdc_leading_zeros_uc(unsigned char value);
+int stdc_leading_zeros_us(unsigned short value);
+int stdc_leading_zeros_ui(unsigned int value);
 
 #ifndef __onramp_cci_opc__
-int stdc_leading_zerosul(unsigned long value) __asm__("stdc_leading_zerosui");
-int stdc_leading_zerosull(unsigned long long value);
+int stdc_leading_zeros_ul(unsigned long value) __asm__("stdc_leading_zeros_ui");
+int stdc_leading_zeros_ull(unsigned long long value);
 #endif
 
 #ifndef __onramp_cpp_omc__
 #define stdc_leading_zeros(value) \
             _Generic((value), \
-                unsigned long long: stdc_leading_zerosull, \
-                unsigned long: stdc_leading_zerosul, \
-                unsigned int: stdc_leading_zerosui, \
-                unsigned short: stdc_leading_zerosui, \
-                unsigned char: stdc_leading_zerosuc)(value)
+                unsigned long long: stdc_leading_zeros_ull, \
+                unsigned long: stdc_leading_zeros_ul, \
+                unsigned int: stdc_leading_zeros_ui, \
+                unsigned short: stdc_leading_zeros_ui, \
+                unsigned char: stdc_leading_zeros_uc)(value)
 #endif
 
 

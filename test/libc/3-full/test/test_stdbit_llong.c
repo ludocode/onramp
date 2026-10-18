@@ -6,18 +6,18 @@
 
 #include <stdlib.h>
 
-static void test_stdc_leading_zerosull(void) {
-    if (stdc_leading_zerosull(0) != 64) exit(1);
-    if (stdc_leading_zerosull(1) != 63) exit(2);
-    if (stdc_leading_zerosull(2) != 62) exit(3);
-    if (stdc_leading_zerosull(3) != 62) exit(4);
-    if (stdc_leading_zerosull(4) != 61) exit(5);
-    if (stdc_leading_zerosull(0xffffffffffffffff) != 0) exit(6);
-    if (stdc_leading_zerosull(0x100000001u) != 31) exit(7);
-    if (stdc_leading_zerosull(0x7fffffffffffffff) != 1) exit(8);
-    if (stdc_leading_zerosull(0x7000000000000000) != 1) exit(9);
+static void test_stdc_leading_zeros_ull(void) {
+    if (stdc_leading_zeros_ull(0) != 64) exit(1);
+    if (stdc_leading_zeros_ull(1) != 63) exit(2);
+    if (stdc_leading_zeros_ull(2) != 62) exit(3);
+    if (stdc_leading_zeros_ull(3) != 62) exit(4);
+    if (stdc_leading_zeros_ull(4) != 61) exit(5);
+    if (stdc_leading_zeros_ull(0xffffffffffffffff) != 0) exit(6);
+    if (stdc_leading_zeros_ull(0x100000001u) != 31) exit(7);
+    if (stdc_leading_zeros_ull(0x7fffffffffffffff) != 1) exit(8);
+    if (stdc_leading_zeros_ull(0x7000000000000000) != 1) exit(9);
 }
 
 int main(void) {
-    test_stdc_leading_zerosull();
+    test_stdc_leading_zeros_ull();
 }

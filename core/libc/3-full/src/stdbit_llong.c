@@ -29,10 +29,10 @@
 
 #include <stdbit.h>
 
-int stdc_leading_zerosull(unsigned long long value) {
+int stdc_leading_zeros_ull(unsigned long long value) {
     unsigned* words = (unsigned*)&value;
     if (words[1] != 0) {
-        return stdc_leading_zerosui(words[1]);
+        return stdc_leading_zeros_ui(words[1]);
     }
-    return 32 + stdc_leading_zerosui(words[0]);
+    return 32 + stdc_leading_zeros_ui(words[0]);
 }
