@@ -1344,9 +1344,110 @@ unsigned ldexpf(unsigned x, int exp) {
             | (xm & FLOAT_SIGNIFICAND_MASK);
 }
 
-unsigned __float_mul(unsigned __l, unsigned __r) {
-    __fatal("TODO __float_mul");
-    return -1;
+#include <stdio.h>
+unsigned __float_mul(unsigned a, unsigned b) {
+    //printf("----------------------------------------\n");
+    //printf("mul\n");
+    //printf("0x%08x\n", a);
+    //printf("0x%08x\n", b);
+
+    // Unpack arguments
+    uint32_t as = a & FLOAT_SIGN_BIT;
+    uint32_t bs = b & FLOAT_SIGN_BIT;
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    uint32_t am = FLOAT_SIGNIFICAND(a);
+    uint32_t bm = FLOAT_SIGNIFICAND(b);
+
+    // Handle infinity and NaNs
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+
+        // Signal (once) if either NaN is signaling.
+        if ((ae == FLOAT_EXPONENT_MASK && !(am & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bm & FLOAT_QUIET_BIT)))
+        {
+            __float_sigfpe();
+        }
+
+        // If either argument is NaN, we return the NaN quieted. (If both are
+        // NaN, we return the first argument quieted.)
+        if (ae == FLOAT_EXPONENT_MASK && am != 0u) {
+            return a | FLOAT_QUIET_BIT;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bm != 0u) {
+            return b | FLOAT_QUIET_BIT;
+        }
+
+        // At least one argument is infinity. The result is infinity with the
+        // product of the signs.
+        return (as ^ bs) | FLOAT_INFINITY;
+    }
+
+    // If not subnormal, add the hidden bit.
+    // If subnormal, normalize the exponent to 1. (The exponent of subnormals
+    // is the same as the lowest normal exponent, just without the hidden bit.)
+    if (ae == 0u) {
+        ae = 1u;
+    } else {
+        am |= FLOAT_HIDDEN_BIT;
+    }
+    if (be == 0u) {
+        be = 1u;
+    } else {
+        bm |= FLOAT_HIDDEN_BIT;
+    }
+    //printf("%#08x %#08x\n", am, bm);
+
+    // Multiply the mantissas. We're multiplying two 24-bit numbers; the result
+    // is 48 bits, so we need two words to store it.
+    // TODO we're using __llong_mul() here but this is way overkill, only need
+    // four multiplications
+    unsigned amll[2];
+    amll[0] = am;
+    amll[1] = 0;
+    unsigned bmll[2];
+    bmll[0] = bm;
+    bmll[1] = 0;
+    unsigned rmll[2];
+    __llong_mul(rmll, amll, bmll);
+    //printf("llu %#llx\n",*(long long*)rmll);
+
+    // Shift the result back down sticky, keeping 3 grs bits
+    const unsigned shift_bits = FLOAT_SIGNIFICAND_BITS - 3;
+    bool sticky = rmll[0] & ((1 << shift_bits) - 1);
+    __llong_shru(rmll, rmll, shift_bits);
+    uint32_t rm = rmll[0] | sticky;
+
+    // Add the exponents.
+    uint32_t re = ae + be;
+    if (re < FLOAT_EXPONENT_BIAS + 1) {
+        // should be simple, just shift more
+        __fatal("TODO subnormal");
+    }
+    re -= FLOAT_EXPONENT_BIAS;
+    if (re >= FLOAT_EXPONENT_MASK) {
+        // overflow
+        return (as ^ bs) | FLOAT_INFINITY;
+    }
+
+    // Round
+    rm = float_round_grs(rm);
+
+    // Rounding may have caused it to grow again.
+    //printf("  max significand without grs: 0x%x\n", (1u << (FLOAT_SIGNIFICAND_BITS + 1u)));
+    if (rm >= (1u << (FLOAT_SIGNIFICAND_BITS + 1u))) {
+        //printf("  significand too large after rounding. shifting down again\n");
+        ++re;
+        if (re == FLOAT_EXPONENT_MASK) {
+            // overflow
+            return (as ^ bs) | FLOAT_INFINITY;
+        }
+        rm >>= 1u;
+    }
+    //printf("%#08x %#08x %#08x\n", am, bm, rm);
+
+    // Assemble result
+    return (as ^ bs) | (re << FLOAT_EXPONENT_SHIFT) | (rm & FLOAT_SIGNIFICAND_MASK);
 }
 
 unsigned __float_div(unsigned a, unsigned b) {

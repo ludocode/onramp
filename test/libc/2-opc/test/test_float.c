@@ -125,7 +125,7 @@ static void test_sub_impl(float x, float y, float expected) {
 
 static void test_add(void) {
 
-    // integers less than 1<<24 should be exact
+    // integers less than 1<<23 should be exact
     test_add_impl(1.f, 4.f, 5.f);
     test_add_impl(47.f, 325.f, 372.f);
 
@@ -168,7 +168,7 @@ static void test_add(void) {
 
 static void test_sub(void) {
 
-    // integers less than 1<<24 should be exact
+    // integers less than 1<<23 should be exact
     test_sub_impl(4.f, 1.f, 3.f);
     test_sub_impl(400.f, 10.f, 390.f);
 
@@ -186,6 +186,84 @@ static void test_sub(void) {
     test_sub_impl(u2f(0x69ce4ba), u2f(0x6a0db3c6), u2f(0xea0db3c6));
     test_sub_impl(u2f(0x4a32ce32), u2f(0x56800000), u2f(0xd67fffff));
     test_sub_impl(u2f(0x73f8f94d), u2f(0x73f8f94d), u2f(0));
+
+}
+
+static void test_mul_impl(float x, float y, float expected) {
+
+    #ifndef __onramp__
+    // compare to native float operation
+    if (!isnanf(u2f(expected)) && f2u(x * y) != f2u(expected)) {
+        fprintf(stderr, "Test invalid: native mul %.9g (%#x) * %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), y, f2u(y), expected, f2u(expected), x * y, f2u(x * y));
+        exit(1);
+    }
+    #endif
+
+    unsigned onramp_result = __float_mul(f2u(x), f2u(y));
+    if (onramp_result != f2u(expected)) {
+        fprintf(stderr, "Test failed: onramp mul %.9g (%#x) * %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), y, f2u(y), expected, f2u(expected),
+                u2f(onramp_result), onramp_result);
+        exit(1);
+    }
+}
+
+static void test_mul(void) {
+
+    // integers less than 1<<23 should be exact
+    test_mul_impl(1.f, 2.f, 2.f);
+    test_mul_impl(-2.f, 1.f, -2.f);
+    test_mul_impl(2.f, 2.f, 4.f);
+    test_mul_impl(2.f, -2.f, -4.f);
+    test_mul_impl(3.f, 7.f, 21.f);
+    test_mul_impl(-12345.f, 678.f, -8369910.f);
+
+    // fractions
+    test_mul_impl(1.234f, 56.78f, 70.06651f);
+    test_mul_impl(7.1000035e20f, 0.140845e-20f, 1.f);
+
+    // any non-NaN multiplied by 1 stays the same
+    test_mul_impl(1.f, 10.f, 10.f);
+    test_mul_impl(100.f, 1.f, 100.f);
+    test_mul_impl(1.f, 1.e20f, 1.e20f);
+
+    // any non-NaN multiplied by -1 flips sign
+    test_mul_impl(-1.f, 10.f, -10.f);
+    test_mul_impl(100.f, -1.f, -100.f);
+    test_mul_impl(-1.f, 1.e20f, -1.e20f);
+
+    // signs should be xor'd
+    test_mul_impl(1.f, 1.f, 1.f);
+    test_mul_impl(-1.f, 1.f, -1.f);
+    test_mul_impl(1.f, -1.f, -1.f);
+    test_mul_impl(-1.f, -1.f, 1.f);
+
+    // infinity times itself is infinity
+    test_mul_impl(INFINITY, INFINITY, INFINITY);
+    test_mul_impl(INFINITY, -INFINITY, -INFINITY);
+    test_mul_impl(-INFINITY, INFINITY, -INFINITY);
+    test_mul_impl(-INFINITY, -INFINITY, INFINITY);
+
+    // infinity times any number is infinity
+    test_mul_impl(INFINITY, 1.f, INFINITY);
+    test_mul_impl(INFINITY, -2.f, -INFINITY);
+    test_mul_impl(-INFINITY, 1e20f, -INFINITY);
+    test_mul_impl(-INFINITY, -1e-20f, INFINITY);
+    test_mul_impl(1.f, INFINITY, INFINITY);
+    test_mul_impl(-2.f, INFINITY, -INFINITY);
+    test_mul_impl(1e20f, -INFINITY, -INFINITY);
+    test_mul_impl(-1e-20f, -INFINITY, INFINITY);
+
+    // any number times NaN is NaN.
+    // (Onramp returns the first NaN quieted. TODO tests.)
+    test_mul_impl(NAN, 1.f, NAN);
+    test_mul_impl(NAN, INFINITY, NAN);
+    test_mul_impl(-1.f, NAN, NAN);
+    test_mul_impl(INFINITY, NAN, NAN);
+    test_mul_impl(NAN, NAN, NAN);
 
 }
 
@@ -1407,6 +1485,7 @@ int main(void) {
     // arithmetic
     test_add();
     test_sub();
+    test_mul();
 
     // comparisons
     test_eq();
