@@ -76,23 +76,37 @@
  * Note that we don't fallback to __builtin_clz() because its behaviour is
  * undefined on 0.
  */
-#ifndef __onramp_libc__
+#ifndef ONRAMP_LIBC_TEST
     #ifdef __has_include
         #if __has_include(<stdbit.h>)
             #include <stdbit.h>
         #endif
-    #else
-        #include <stdbit.h>
     #endif
-    #ifdef __has_builtin
-        #if __has_builtin(__builtin_stdc_leading_zeros)
-            #define stdc_leading_zeros_us __builtin_stdc_leading_zeros
+    #if __has_builtin(__builtin_stdc_leading_zeros)
+        #ifndef stdc_leading_zeros_uc
+            #define stdc_leading_zeros_uc(x) (__builtin_stdc_leading_zeros((unsigned char)(x)))
+        #endif
+        #ifndef stdc_leading_zeros_us
+            #define stdc_leading_zeros_us(x) (__builtin_stdc_leading_zeros((unsigned short)(x)))
+        #endif
+        #ifndef stdc_leading_zeros_ui
+            #define stdc_leading_zeros_ui(x) (__builtin_stdc_leading_zeros((unsigned int)(x)))
+        #endif
+        #ifndef stdc_leading_zeros_ul
+            #define stdc_leading_zeros_ul(x) (__builtin_stdc_leading_zeros((unsigned long)(x)))
+        #endif
+        #ifndef stdc_leading_zeros_ull
+            #define stdc_leading_zeros_ull(x) (__builtin_stdc_leading_zeros((unsigned long long)(x)))
         #endif
     #endif
-    #if !defined(stdc_leading_zeros) && !defined(stdc_leading_zeros_us)
+    #if !defined(stdc_leading_zeros_uc) \
+            || !defined(stdc_leading_zeros_us) \
+            || !defined(stdc_leading_zeros_ui) \
+            || !defined(stdc_leading_zeros_ul) \
+            || !defined(stdc_leading_zeros_ull)
         #include <limits.h>
-        #define stdc_leading_zeros_us onramp_test_stdc_leading_zeros_us
-        static inline int onramp_test_stdc_leading_zeros_us(unsigned x) {
+
+        static inline int onramp_test_stdc_leading_zeros_ull(unsigned long long x) {
             int ret = CHAR_BIT * sizeof(x);
             while (x) {
                 --ret;
@@ -100,6 +114,26 @@
             }
             return ret;
         }
+
+        #ifndef stdc_leading_zeros_uc
+            #define stdc_leading_zeros_uc(x) (onramp_test_stdc_leading_zeros_ull((unsigned char)(x)) \
+                    - CHAR_BIT * (sizeof(unsigned long long) - sizeof(unsigned char)))
+        #endif
+        #ifndef stdc_leading_zeros_us
+            #define stdc_leading_zeros_us(x) (onramp_test_stdc_leading_zeros_ull((unsigned short)(x)) \
+                    - CHAR_BIT * (sizeof(unsigned long long) - sizeof(unsigned short)))
+        #endif
+        #ifndef stdc_leading_zeros_ui
+            #define stdc_leading_zeros_ui(x) (onramp_test_stdc_leading_zeros_ull((unsigned int)(x)) \
+                    - CHAR_BIT * (sizeof(unsigned long long) - sizeof(unsigned int)))
+        #endif
+        #ifndef stdc_leading_zeros_ul
+            #define stdc_leading_zeros_ul(x) (onramp_test_stdc_leading_zeros_ull((unsigned long)(x)) \
+                    - CHAR_BIT * (sizeof(unsigned long long) - sizeof(unsigned long)))
+        #endif
+        #ifndef stdc_leading_zeros_ull
+            #define stdc_leading_zeros_ull onramp_test_stdc_leading_zeros_ull
+        #endif
     #endif
 #endif
 

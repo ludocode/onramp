@@ -49,22 +49,9 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-#ifdef __onramp__
-    #include <__onramp/__arithmetic.h>
-    #include "internal.h"
-#endif
-#ifndef __onramp__
-    // We support compiling this with an ordinary C compiler, this way we can
-    // test against a native 64-bit divide among other things.
-    #include <stdio.h>
-    #include <stdlib.h>
-    static void __fatal(const char* message) {
-        fputs(message, stderr);
-        fputc('\n', stderr);
-        exit(1);
-    }
-    unsigned* __llong_negate(unsigned* out, const unsigned* src);
-#endif
+#include <__onramp/__arithmetic.h>
+
+#include "internal.h"
 
 unsigned* __llong_add(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;

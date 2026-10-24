@@ -103,9 +103,12 @@ CCARGS=\
 # Arguments for external compiler
 CPPFLAGS += \
 		-fno-builtin \
-		-nostdinc -nostdlib \
+		-fvisibility=hidden \
+		-nostdinc \
+		-nostdlib \
 		-D__onramp_libc__=1 \
 		-D__onramp_libc_opc__=1 \
+		-DONRAMP_LIBC_TEST=1 \
 		-I$(ROOT)/core/libc/common/include \
 		-I$(ROOT)/core/libc/common/src \
 		-include $(ROOT)/test/portability.h \
@@ -160,9 +163,7 @@ $(OUT)/syscalls.oo: $(SRC2)/syscalls.os Makefile
 
 
 # Each C file is compiled with the external C compiler first because it has
-# much better error checking than our Onramp compiler. We can't actually link
-# the resulting objects (at least, not unless we want to implement all of our
-# syscalls for Linux.)
+# much better error checking than our Onramp compiler.
 
 
 # math
@@ -170,55 +171,55 @@ $(OUT)/syscalls.oo: $(SRC2)/syscalls.os Makefile
 $(OUT)/math/bigdec.oo: $(SRC2)/math/bigdec.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/bigdec.c -o $(OUT)/bigdec.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/bigdec.c -o $(OUT)/math/bigdec.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/bigdec.c -o $@
 
 $(OUT)/math/bigint.oo: $(SRC2)/math/bigint.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/bigint.c -o $(OUT)/bigint.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/bigint.c -o $(OUT)/math/bigint.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/bigint.c -o $@
 
 $(OUT)/math/double_funcs.oo: $(SRC2)/math/double_funcs.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_funcs.c -o $(OUT)/double_funcs.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_funcs.c -o $(OUT)/math/double_funcs.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/double_funcs.c -o $@
 
 $(OUT)/math/double_ops.oo: $(SRC2)/math/double_ops.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_ops.c -o $(OUT)/double_ops.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_ops.c -o $(OUT)/math/double_ops.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/double_ops.c -o $@
 
 $(OUT)/math/double_util.oo: $(SRC2)/math/double_util.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_util.c -o $(OUT)/double_util.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/double_util.c -o $(OUT)/math/double_util.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/double_util.c -o $@
 
 $(OUT)/math/float_funcs.oo: $(SRC2)/math/float_funcs.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_funcs.c -o $(OUT)/float_funcs.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_funcs.c -o $(OUT)/math/float_funcs.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/float_funcs.c -o $@
 
 $(OUT)/math/float_ops.oo: $(SRC2)/math/float_ops.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_ops.c -o $(OUT)/float_ops.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_ops.c -o $(OUT)/math/float_ops.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/float_ops.c -o $@
 
 $(OUT)/math/float_util.oo: $(SRC2)/math/float_util.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_util.c -o $(OUT)/float_util.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/float_util.c -o $(OUT)/math/float_util.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/float_util.c -o $@
 
 $(OUT)/math/llong.oo: $(SRC2)/math/llong.c Makefile
 	@rm -f $@
 	@mkdir -p $(OUT)/math
-	$(CC) $(CPPFLAGS) -c $(SRC2)/math/llong.c -o $(OUT)/llong.o
+	$(CC) $(CPPFLAGS) -c $(SRC2)/math/llong.c -o $(OUT)/math/llong.o
 	$(TOOL_CC) $(CCARGS) -c $(SRC2)/math/llong.c -o $@
 
 $(OUT)/math/int.oo: $(SRC2)/math/int.c Makefile

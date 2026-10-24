@@ -25,6 +25,8 @@
 #ifndef FLOAT_DEFS_H_INCLUDED
 #define FLOAT_DEFS_H_INCLUDED
 
+#include <stdint.h>
+
 #define FLOAT_BITS 32u
 
 #define FLOAT_EXPONENT_BITS 8u

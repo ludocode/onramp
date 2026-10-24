@@ -31,6 +31,10 @@
 
 #include "bigdec.h"
 
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include "internal.h"
 
 void __bigdec_print(bigdec_t* bigdec, char* out, size_t outsize) {

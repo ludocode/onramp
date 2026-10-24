@@ -56,31 +56,22 @@
 
 #include "bigdec.h"
 #include "float_defs.h"
+#include "internal.h"
 
-unsigned __float_env;
+#include <__onramp/__arithmetic.h>
+#include <stdbit.h>
+#include "internal.h"
 
-#ifdef __onramp__
-    #include <__onramp/__arithmetic.h>
-    #include <stdbit.h>
-    #include "internal.h"
-            //#define printf(...)
-#endif
 #ifndef __onramp__
     // We support compiling this with an ordinary C compiler, this way we can
     // test against hardware floating point math among other things.
     // TODO we need to move all of this to libo
-    #include <stdio.h>
-    #include <stdlib.h>
-    static void __attribute__((unused)) __fatal(const char* message) {
-        fputs(message, stderr);
-        fputc('\n', stderr);
-        exit(1);
-    }
-    #define stdc_leading_zeros_ui __builtin_clz
     #define copysignf __onramp_copysignf
     #define __llong_negate(out, x) ({unsigned* __out=(out); (*(uint64_t*)__out = -*(uint64_t*)(x)); __out;})
     #define __llong_shl(out, in, bits) ({unsigned* __out=(out); (*(uint64_t*)__out = *(uint64_t*)(in) << bits); __out;})
 #endif
+
+unsigned __float_env;
 
 
 
@@ -1356,7 +1347,9 @@ unsigned __float_mul(unsigned __l, unsigned __r) {
     return -1;
 }
 
-unsigned __float_div(unsigned __l, unsigned __r) {
+unsigned __float_div(unsigned a, unsigned b) {
+    (void)a;
+    (void)b;
     __fatal("TODO __float_div");
     return -1;
 }

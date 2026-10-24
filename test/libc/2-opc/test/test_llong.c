@@ -13,6 +13,14 @@
 #ifndef __onramp__
     // this test case can be compiled standalone with a native C compiler or onrampcc:
     // gcc -DTEST_DIV_LOOP -Wall -Wextra -Wpedantic -fsanitize=address -g test/test_llong.c -o /tmp/a && /tmp/a
+
+    static void __fatal(const char* message) {
+        fputs(message, stderr);
+        fputc('\n', stderr);
+        exit(1);
+    }
+    unsigned* __llong_negate(unsigned* out, const unsigned* src);
+
     #include "../../../../core/libc/2-opc/src/llong.c"
     #include <time.h>
 #endif

@@ -16,13 +16,23 @@
 #endif
 #ifndef __onramp__
     #include <time.h>
+
+    unsigned* __llong_negate(unsigned* out, const unsigned* src);
+
+    #define copysignf onramp_copysignf
     #define strtof onramp_strtof
     #define ldexpf onramp_ldexpf
 
     // this test case can be compiled standalone with a native C compiler:
     // gcc -lm -O -Wall -Wextra -fsanitize=address -g test/test_float.c -o /tmp/a && /tmp/a
-    #include "../../../../core/libc/2-opc/src/float.c"
+    #include "../../../../core/libc/2-opc/src/math/bigdec.c"
+    #include "../../../../core/libc/2-opc/src/math/llong.c"
+    #include "../../../../core/libc/2-opc/src/math/float_funcs.c"
+    #include "../../../../core/libc/2-opc/src/math/float_ops.c"
+    #include "../../../../core/libc/2-opc/src/math/float_util.c"
 
+    #undef copysignf
+    #define native_copysignf copysignf
     #undef strtof
     #define native_strtof strtof
     #undef ldexpf
@@ -350,16 +360,16 @@ static void test_copysignf_impl(float x, float y, float expected) {
     xf.f = x;
     yf.f = y;
     ef.f = expected;
-    af.u = copysignf(xf.u, yf.u);
-    //printf("copysignf(%.9g, %.9g) expected %.9g, got %.9g\n", x, y, expected, af.f);
+    af.u = onramp_copysignf(xf.u, yf.u);
+    //printf("onramp_copysignf(%.9g, %.9g) expected %.9g, got %.9g\n", x, y, expected, af.f);
 
     if (test_sigfpe_count) {
-        fprintf(stderr, "copysignf(%.9g, %.9g) signaled.\n", x, y);
+        fprintf(stderr, "onramp_copysignf(%.9g, %.9g) signaled.\n", x, y);
         exit(1);
     }
 
     if (ef.u != af.u) {
-        fprintf(stderr, "copysignf(%.9g, %.9g) incorrect: expected %.9g, got %.9g\n",
+        fprintf(stderr, "onramp_copysignf(%.9g, %.9g) incorrect: expected %.9g, got %.9g\n",
                 x, y, expected, af.f);
         exit(1);
     }
