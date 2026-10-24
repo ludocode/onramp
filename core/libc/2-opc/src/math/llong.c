@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2023-2025 Fraser Heavy Software
+ * Copyright (c) 2023-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -49,9 +49,10 @@
 #include <stdbool.h>
 #include <stddef.h>
 
+#ifndef ONRAMP_STANDALONE_TEST
 #include <__onramp/__arithmetic.h>
-
 #include "internal.h"
+#endif
 
 unsigned* __llong_add(unsigned* out, const unsigned* a, const unsigned* b) {
     unsigned a0 = *a;

@@ -31,8 +31,10 @@
 #ifndef __ONRAMP_LIBC_ONRAMP_ARITHMETIC_H_INCLUDED
 #define __ONRAMP_LIBC_ONRAMP_ARITHMETIC_H_INCLUDED
 
+#ifndef ONRAMP_STANDALONE_TEST
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
+#endif
 #endif
 
 unsigned* __llong_add(unsigned* out, const unsigned* a, const unsigned* b);

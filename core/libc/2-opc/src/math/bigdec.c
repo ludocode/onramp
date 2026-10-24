@@ -35,7 +35,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#ifndef ONRAMP_STANDALONE_TEST
 #include "internal.h"
+#endif
 
 void __bigdec_print(bigdec_t* bigdec, char* out, size_t outsize) {
     unsigned char* buffer = bigdec->buffer;

@@ -25,8 +25,11 @@
 #ifndef INTERNAL_H_INCLUDED
 #define INTERNAL_H_INCLUDED
 
+#ifndef ONRAMP_STANDALONE_TEST
 #include <__onramp/__fatal.h>
 #include <__onramp/__size_t.h>
+#endif
+
 #include <assert.h>
 #include <stddef.h>
 #include <stdint.h>

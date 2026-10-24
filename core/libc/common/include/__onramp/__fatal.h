@@ -1,7 +1,7 @@
 /*
  * The MIT License (MIT)
  *
- * Copyright (c) 2025 Fraser Heavy Software
+ * Copyright (c) 2025-2026 Fraser Heavy Software
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -25,8 +25,10 @@
 #ifndef __ONRAMP_LIBC_ONRAMP_FATAL_H_INCLUDED
 #define __ONRAMP_LIBC_ONRAMP_FATAL_H_INCLUDED
 
+#ifndef ONRAMP_STANDALONE_TEST
 #ifndef __onramp_libc__
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
+#endif
 #endif
 
 // An internal function to exit with the given error message. This is used when

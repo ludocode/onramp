@@ -56,20 +56,22 @@
 
 #include "bigdec.h"
 #include "float_defs.h"
-#include "internal.h"
 
+#ifndef ONRAMP_STANDALONE_TEST
 #include <__onramp/__arithmetic.h>
 #include <stdbit.h>
 #include "internal.h"
+#endif
 
+/*
 #ifndef __onramp__
     // We support compiling this with an ordinary C compiler, this way we can
     // test against hardware floating point math among other things.
     // TODO we need to move all of this to libo
-    #define copysignf __onramp_copysignf
     #define __llong_negate(out, x) ({unsigned* __out=(out); (*(uint64_t*)__out = -*(uint64_t*)(x)); __out;})
     #define __llong_shl(out, in, bits) ({unsigned* __out=(out); (*(uint64_t*)__out = *(uint64_t*)(in) << bits); __out;})
 #endif
+*/
 
 unsigned __float_env;
 

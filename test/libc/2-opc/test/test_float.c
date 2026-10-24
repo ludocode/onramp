@@ -23,13 +23,26 @@
     #define strtof onramp_strtof
     #define ldexpf onramp_ldexpf
 
-    // this test case can be compiled standalone with a native C compiler:
-    // gcc -lm -O -Wall -Wextra -fsanitize=address -g test/test_float.c -o /tmp/a && /tmp/a
+    /* TODO the test harness can't run this against a native libc yet, but in
+     * the meantime this test case can be compiled standalone with a native C
+     * compiler:
+    gcc -DONRAMP_STANDALONE_TEST \
+        -include ../../../core/libc/common/include/__onramp/__arithmetic.h \
+        -include ../../../core/libc/common/include/__onramp/__fatal.h \
+        -lm -O -Wall -Wextra -fsanitize=address -g \
+        test/test_float.c -o /tmp/a && /tmp/a
+    TODO when we finally fix this so we can link libc as an overlay, we need to sweep out ONRAMP_STANDALONE_TEST */
     #include "../../../../core/libc/2-opc/src/math/bigdec.c"
     #include "../../../../core/libc/2-opc/src/math/llong.c"
     #include "../../../../core/libc/2-opc/src/math/float_funcs.c"
     #include "../../../../core/libc/2-opc/src/math/float_ops.c"
     #include "../../../../core/libc/2-opc/src/math/float_util.c"
+
+    void __fatal(const char* message) {
+        fputs(message, stderr);
+        fputc('\n', stderr);
+        exit(1);
+    }
 
     #undef copysignf
     #define native_copysignf copysignf
