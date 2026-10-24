@@ -70,12 +70,6 @@ onrampvm output/intermediate/cc/cc.oe \
     -c core/libc/3-full/src/signal.c \
     -o output/intermediate/libc-3-full/signal.oo
 
-echo Compiling libc/3-full stdbit_llong.c
-onrampvm output/intermediate/cc/cc.oe \
-    @core/libc/3-full/build-ccargs \
-    -c core/libc/3-full/src/stdbit_llong.c \
-    -o output/intermediate/libc-3-full/stdbit_llong.oo
-
 echo Compiling libc/3-full stdlib_3.c
 onrampvm output/intermediate/cc/cc.oe \
     @core/libc/3-full/build-ccargs \
@@ -139,7 +133,6 @@ onrampvm output/intermediate/ar-0-cat/ar.oe \
     output/intermediate/libc-3-full/qsort.oo \
     output/intermediate/libc-3-full/rand.oo \
     output/intermediate/libc-3-full/signal.oo \
-    output/intermediate/libc-3-full/stdbit_llong.oo \
     output/intermediate/libc-3-full/stdlib_3.oo \
     output/intermediate/libc-3-full/strtol.oo \
     output/intermediate/libc-3-full/time.oo \

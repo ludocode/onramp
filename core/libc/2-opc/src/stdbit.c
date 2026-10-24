@@ -26,6 +26,8 @@
  * Bit manipulation functions from C23.
  */
 
+#define __ONRAMP_LIBC_STDBIT_IMPL
+
 #include <stdbit.h>
 
 // Eventually we will implement everything in C23, and the compiler builtins
@@ -71,4 +73,11 @@ int stdc_leading_zeros_us(unsigned short value) {
 
 int stdc_leading_zeros_uc(unsigned char value) {
     return stdc_leading_zeros_ui(value) - 24;
+}
+
+int stdc_leading_zeros_ull(unsigned* v) {
+    if (v[1] != 0) {
+        return stdc_leading_zeros_ui(v[1]);
+    }
+    return 32 + stdc_leading_zeros_ui(v[0]);
 }

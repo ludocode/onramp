@@ -39,9 +39,11 @@ int stdc_leading_zeros_uc(unsigned char value);
 int stdc_leading_zeros_us(unsigned short value);
 int stdc_leading_zeros_ui(unsigned int value);
 
+#ifndef __ONRAMP_LIBC_STDBIT_IMPL
 #ifndef __onramp_cci_opc__
 int stdc_leading_zeros_ul(unsigned long value) __asm__("stdc_leading_zeros_ui");
 int stdc_leading_zeros_ull(unsigned long long value);
+#endif
 #endif
 
 #ifndef __onramp_cpp_omc__
