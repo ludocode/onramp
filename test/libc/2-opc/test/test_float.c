@@ -193,7 +193,7 @@ static void test_mul_impl(float x, float y, float expected) {
 
     #ifndef __onramp__
     // compare to native float operation
-    if (!isnanf(u2f(expected)) && f2u(x * y) != f2u(expected)) {
+    if (!isnanf(expected) && f2u(x * y) != f2u(expected)) {
         fprintf(stderr, "Test invalid: native mul %.9g (%#x) * %.9g (%#x)"
                 " expected %.9g (%#x), got %.9g (%#x)\n",
                 x, f2u(x), y, f2u(y), expected, f2u(expected), x * y, f2u(x * y));
@@ -247,7 +247,17 @@ static void test_mul(void) {
     test_mul_impl(-INFINITY, INFINITY, -INFINITY);
     test_mul_impl(-INFINITY, -INFINITY, INFINITY);
 
-    // infinity times any number is infinity
+    // infinity times zero is NaN. (Onramp preserves signs.)
+    test_mul_impl(INFINITY, 0.0, NAN);
+    test_mul_impl(0.0, INFINITY, NAN);
+    test_mul_impl(-INFINITY, 0.0, -NAN);
+    test_mul_impl(-0.0, INFINITY, -NAN);
+    test_mul_impl(INFINITY, -0.0, -NAN);
+    test_mul_impl(0.0, -INFINITY, -NAN);
+    test_mul_impl(-INFINITY, -0.0, NAN);
+    test_mul_impl(-0.0, -INFINITY, NAN);
+
+    // infinity times any othre number is infinity
     test_mul_impl(INFINITY, 1.f, INFINITY);
     test_mul_impl(INFINITY, -2.f, -INFINITY);
     test_mul_impl(-INFINITY, 1e20f, -INFINITY);
@@ -264,6 +274,21 @@ static void test_mul(void) {
     test_mul_impl(-1.f, NAN, NAN);
     test_mul_impl(INFINITY, NAN, NAN);
     test_mul_impl(NAN, NAN, NAN);
+
+    // subnormal arguments
+    test_mul_impl(1.e-40f, 1.e+20f, 0.999994637e-20f);
+
+    // subnormal results
+    test_mul_impl(1.e-20f, 1.e-20f, 1.e-40f);
+
+    // subnormal arguments and results
+    test_mul_impl(1.f, 1.e-40f, 1.e-40f);
+
+    // errors found in random testing
+    test_mul_impl(u2f(0x5e7b4ebf), u2f(0x3ec37d11), u2f(0x5dbfe7c2));
+    test_mul_impl(u2f(0x00000005), u2f(0x4ec2e155), u2f(0x057399aa));
+    test_mul_impl(u2f(0x19b22ada), u2f(0x2637eabc), u2f(0x00800000));
+    test_mul_impl(u2f(0x684dda5d), u2f(0x00000000), u2f(0x00000000));
 
 }
 
@@ -748,6 +773,42 @@ static void test_sub_loop(void) {
 
         if (ef.u != af.u) {
             printf("__float_sub() FAILED:\n");
+            printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
+            printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
+            printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
+            printf("    actual: %.9g  0x%08x\n", af.f, af.u);
+            exit(1);
+        }
+    }
+}
+
+static void test_mul_loop(void) {
+    #ifdef __onramp__
+    // TODO onramp doesn't have time() yet
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f) {
+        unsigned x;
+        (void)fread(&x, 1, sizeof(x), f);
+        (void)fclose(f);
+        srand(x);
+    }
+    #else
+    srand(time(NULL));
+    #endif
+
+    for (size_t i = 0;; ++i) {
+        if (i != 0 && (i % 1000000) == 0) printf("testing float multiplication: %zi...\n",i);
+
+        floatunion_t xf, yf, ef, af;
+        xf.u = random_float();
+        yf.u = random_float();
+        ef.f = xf.f * yf.f;
+        //printf("Multiplying %.9g (0x%x) * %.9g (0x%x), expected %.9g (0x%x)\n", xf.f, xf.u, yf.f, yf.u, ef.f, ef.u);
+        af.u = __float_mul(xf.u, yf.u);
+        //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
+
+        if (ef.u != af.u) {
+            printf("__float_mul() FAILED:\n");
             printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
             printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
             printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
@@ -1528,8 +1589,10 @@ int main(void) {
     #ifndef __onramp__
     //test_add_loop();
     //test_sub_loop();
+    //test_mul_loop();
     #endif
     (void)test_add_loop;
     (void)test_sub_loop;
+    (void)test_mul_loop;
             #endif
 }

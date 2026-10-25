@@ -339,7 +339,6 @@ srcs_onramp libc-3-full \
     core/libc/3-full/src/qsort.c \
     core/libc/3-full/src/rand.c \
     core/libc/3-full/src/signal.c \
-    core/libc/3-full/src/stdbit_llong.c \
     core/libc/3-full/src/stdlib_3.c \
     core/libc/3-full/src/strtol.c \
     core/libc/3-full/src/time.c
