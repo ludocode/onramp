@@ -44,6 +44,8 @@ unsigned* __llong_divu(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __llong_divs(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __llong_modu(unsigned* out, const unsigned* a, const unsigned* b);
 unsigned* __llong_mods(unsigned* out, const unsigned* a, const unsigned* b);
+void __llong_divmodu(unsigned* __quotient_out, unsigned* /*nullable*/ __remainder_out,
+        const unsigned* __dividend, const unsigned* __divisor);
 unsigned* __llong_shl(unsigned* out, const unsigned* a, unsigned bits);
 unsigned* __llong_shru(unsigned* out, const unsigned* a, unsigned bits);
 unsigned* __llong_shrs(unsigned* out, const unsigned* a, unsigned bits);

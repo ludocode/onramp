@@ -292,6 +292,108 @@ static void test_mul(void) {
 
 }
 
+static void test_div_impl(float x, float y, float expected) {
+
+    #ifndef __onramp__
+    // compare to native float operation
+    if (!isnanf(expected) && f2u(x / y) != f2u(expected)) {
+        fprintf(stderr, "Test invalid: native div %.9g (%#x) / %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), y, f2u(y), expected, f2u(expected), x * y, f2u(x * y));
+        exit(1);
+    }
+    #endif
+
+    unsigned onramp_result = __float_div(f2u(x), f2u(y));
+    if (onramp_result != f2u(expected)) {
+        fprintf(stderr, "Test failed: onramp div %.9g (%#x) / %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), y, f2u(y), expected, f2u(expected),
+                u2f(onramp_result), onramp_result);
+        exit(1);
+    }
+}
+
+static void test_div(void) {
+
+    // integers less than 1<<23 should be exact
+    test_div_impl(1.0f, 1.0f, 1.0f);
+    test_div_impl(2.0f, 1.0f, 2.0f);
+    test_div_impl(2.0f, 2.0f, 1.0f);
+    test_div_impl(4.0f, 2.0f, 2.0f);
+    test_div_impl(8.0f, 4.0f, 2.0f);
+    test_div_impl(8.0f, 2.0f, 4.0f);
+    test_div_impl(8.0f, 1.0f, 8.0f);
+    test_div_impl(100.0f, 10.0f, 10.0f);
+    test_div_impl(6404580.0f, 7735.0f, 828.0f);
+
+    // misc fractions
+    test_div_impl(1.0f, 2.0f, 0.5f);
+    test_div_impl(1.0f, 3.0f, 0.3333333333333333f);
+    test_div_impl(1.0f, 5.0f, 0.2f);
+    test_div_impl(3.0f, 7.0f, 0.42857142857142857143f);
+
+    // bugs from random testing
+    test_div_impl(3.07295084e-39, 1.78104513e+34, 0);
+    test_div_impl(4.46250256e-16, 2.84400095e-33, 1.56909329e+17);
+    test_div_impl(5.51148766e-22, 3.64337601e-44, 1.51274189e+22);
+
+    // subnormals
+    test_div_impl(1e-40f, 1.0f, 1e-40f);
+
+    // any nan involved, result is first nan
+    test_div_impl(NAN, 0.0f, NAN);
+    test_div_impl(NAN, -0.0f,  NAN);
+    test_div_impl(-NAN, 0.0f, -NAN);
+    test_div_impl(-NAN, -0.0f, -NAN);
+    test_div_impl(NAN, 1.0f, NAN);
+    test_div_impl(NAN, -1.0f, NAN);
+    test_div_impl(-NAN, 1.0f, -NAN);
+    test_div_impl(-NAN, -1.0f, -NAN);
+    test_div_impl(NAN, INFINITY, NAN);
+    test_div_impl(NAN, -INFINITY, NAN);
+    test_div_impl(-NAN, INFINITY, -NAN);
+    test_div_impl(-NAN, -INFINITY, -NAN);
+    test_div_impl(0.0f, NAN, NAN);
+    test_div_impl(-0.0f, NAN, NAN);
+    test_div_impl(0.0f, -NAN, -NAN);
+    test_div_impl(-0.0f, -NAN, -NAN);
+    test_div_impl(1.0f, NAN, NAN);
+    test_div_impl(-1.0f, NAN, NAN);
+    test_div_impl(1.0f, -NAN, -NAN);
+    test_div_impl(-1.0f, -NAN, -NAN);
+    test_div_impl(INFINITY, NAN, NAN);
+    test_div_impl(-INFINITY, NAN, NAN);
+    test_div_impl(INFINITY, -NAN, -NAN);
+    test_div_impl(-INFINITY, -NAN, -NAN);
+    test_div_impl(NAN, NAN, NAN);
+    test_div_impl(-NAN, NAN, -NAN);
+    test_div_impl(NAN, -NAN, NAN);
+    test_div_impl(-NAN, -NAN, -NAN);
+
+    // zero divided by zero is nan
+    test_div_impl(0.0f, 0.0f, NAN);
+    test_div_impl(0.0f, -0.0f, -NAN);
+    test_div_impl(-0.0f, 0.0f, -NAN);
+    test_div_impl(-0.0f, -0.0f, NAN);
+
+    // zero divided by any non-zero number is zero
+    test_div_impl(0.0f, 1.0f, 0.0f);
+    test_div_impl(-0.0f, 1.0f, -0.0f);
+    test_div_impl(0.0f, -1.0f, -0.0f);
+    test_div_impl(-0.0f, -1.0f, 0.0f);
+    test_div_impl(0.0f, INFINITY, 0.0f);
+    test_div_impl(-0.0f, INFINITY, -0.0f);
+    test_div_impl(0.0f, -INFINITY, -0.0f);
+    test_div_impl(-0.0f, -INFINITY, 0.0f);
+
+    // infinity divided by infinity is nan
+    test_div_impl(INFINITY, INFINITY, NAN);
+    test_div_impl(INFINITY, -INFINITY, -NAN);
+    test_div_impl(-INFINITY, INFINITY, -NAN);
+    test_div_impl(-INFINITY, -INFINITY, NAN);
+}
+
 static void test_eq_impl(float x, float y, bool expected) {
     floatunion_t xf, yf;
     xf.f = x;
@@ -809,6 +911,42 @@ static void test_mul_loop(void) {
 
         if (ef.u != af.u) {
             printf("__float_mul() FAILED:\n");
+            printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
+            printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
+            printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
+            printf("    actual: %.9g  0x%08x\n", af.f, af.u);
+            exit(1);
+        }
+    }
+}
+
+static void test_div_loop(void) {
+    #ifdef __onramp__
+    // TODO onramp doesn't have time() yet
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f) {
+        unsigned x;
+        (void)fread(&x, 1, sizeof(x), f);
+        (void)fclose(f);
+        srand(x);
+    }
+    #else
+    srand(time(NULL));
+    #endif
+
+    for (size_t i = 0;; ++i) {
+        if (i != 0 && (i % 1000000) == 0) printf("testing float division: %zi...\n",i);
+
+        floatunion_t xf, yf, ef, af;
+        xf.u = random_float();
+        yf.u = random_float();
+        ef.f = xf.f / yf.f;
+        //printf("Multiplying %.9g (0x%x) * %.9g (0x%x), expected %.9g (0x%x)\n", xf.f, xf.u, yf.f, yf.u, ef.f, ef.u);
+        af.u = __float_div(xf.u, yf.u);
+        //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
+
+        if (ef.u != af.u) {
+            printf("__float_div() FAILED:\n");
             printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
             printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
             printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
@@ -1547,6 +1685,7 @@ int main(void) {
     test_add();
     test_sub();
     test_mul();
+    test_div();
 
     // comparisons
     test_eq();
@@ -1590,9 +1729,11 @@ int main(void) {
     //test_add_loop();
     //test_sub_loop();
     //test_mul_loop();
+    //test_div_loop();
     #endif
     (void)test_add_loop;
     (void)test_sub_loop;
     (void)test_mul_loop;
+    (void)test_div_loop;
             #endif
 }

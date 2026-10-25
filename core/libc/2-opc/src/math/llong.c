@@ -545,13 +545,13 @@ unsigned* __llong_shl(unsigned* out, const unsigned* a, unsigned bits) {
 unsigned* __llong_shru(unsigned* out, const unsigned* a, unsigned bits) {
     if (bits >= 32) {
         if (bits == 32) {
-            *(out + 1) = 0;
             *out = *(a + 1);
+            *(out + 1) = 0;
             return out;
         }
 
-        *(out + 1) = 0;
         *out = (*(a + 1) >> (bits - 32));
+        *(out + 1) = 0;
         return out;
     }
 

@@ -1358,7 +1358,6 @@ unsigned ldexpf(unsigned x, int exp) {
             | (xm & FLOAT_SIGNIFICAND_MASK);
 }
 
-                                    #include <stdio.h>
 unsigned __float_mul(unsigned a, unsigned b) {
     //printf("----------------------------------------\n");
     //printf("mul\n");
@@ -1539,8 +1538,178 @@ unsigned __float_mul(unsigned a, unsigned b) {
 }
 
 unsigned __float_div(unsigned a, unsigned b) {
-    (void)a;
-    (void)b;
-    __fatal("TODO __float_div");
-    return -1;
+    //printf("----------------------------------------\n");
+    //printf("div\n");
+    //printf("a %#08x\n", a);
+    //printf("b %#08x\n", b);
+
+    // Unpack arguments
+    uint32_t as = a & FLOAT_SIGN_BIT;
+    uint32_t bs = b & FLOAT_SIGN_BIT;
+    uint32_t ae = FLOAT_EXPONENT(a);
+    uint32_t be = FLOAT_EXPONENT(b);
+    uint32_t am = FLOAT_SIGNIFICAND(a);
+    uint32_t bm = FLOAT_SIGNIFICAND(b);
+
+    // Handle NaNs
+    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
+
+        // Signal (once) if either NaN is signaling.
+        if ((ae == FLOAT_EXPONENT_MASK && !(am & FLOAT_QUIET_BIT)) ||
+            (be == FLOAT_EXPONENT_MASK && !(bm & FLOAT_QUIET_BIT)))
+        {
+            __float_sigfpe();
+        }
+
+        // If either argument is NaN, we return the NaN quieted. (If both are
+        // NaN, we return the first argument quieted.)
+        if (ae == FLOAT_EXPONENT_MASK && am != 0u) {
+            return a | FLOAT_QUIET_BIT;
+        }
+        if (be == FLOAT_EXPONENT_MASK && bm != 0u) {
+            return b | FLOAT_QUIET_BIT;
+        }
+    }
+
+    // Handle zero
+    if (ae == 0u && am == 0u) {
+        if (be == 0u && bm == 0u) {
+            // 0/0 is NaN.
+            feraiseexcept(FE_INVALID);
+            return (as ^ bs) | FLOAT_QUIET_NAN;
+        }
+        // Zero divided by any non-zero number (including infinity) is zero
+        // (with correct sign.)
+        return as ^ bs;
+    }
+    if (be == 0u && bm == 0u) {
+        // Any non-zero number (including infinity) divided by zero is infinity
+        // (with correct sign.)
+        feraiseexcept(FE_DIVBYZERO);
+        return (as ^ bs) | FLOAT_INFINITY;
+    }
+
+    // Handle infinity
+    if (ae == FLOAT_EXPONENT_MASK) {
+        if (be == FLOAT_EXPONENT_MASK) {
+            // Infinity divided by infinity is NaN (preserving sign.)
+            // TODO probably this should raise FE_INVALID
+            return (as ^ bs) | FLOAT_QUIET_NAN;
+        }
+        // Infinity divided by a finite number is infinity (with the correct
+        // sign.)
+        return (as ^ bs) | FLOAT_INFINITY;
+    }
+    if (be == FLOAT_EXPONENT_MASK) {
+        // A finite number divided by infinity is zero (with the correct sign.)
+        return as ^ bs;
+    }
+
+    // Both numbers are non-zero and finite. We can proceed with division.
+
+    // If not subnormal, add the hidden bit.
+    // If subnormal, normalize the exponent to 1. (The exponent of subnormals
+    // is the same as the lowest normal exponent, just without the hidden bit.)
+    if (ae == 0u) {
+        ae = 1u;
+    } else {
+        am |= FLOAT_HIDDEN_BIT;
+    }
+    if (be == 0u) {
+        be = 1u;
+    } else {
+        bm |= FLOAT_HIDDEN_BIT;
+    }
+
+    // Subtract the exponents preserving bias. Bias by another 500 so we have
+    // room to subtract off for subnormals.
+    uint32_t re = ae - be + FLOAT_EXPONENT_BIAS + 500;
+    //printf("ae %u be %u bias %u re %u\n", ae, be, FLOAT_EXPONENT_BIAS, re);
+
+    // Shift the dividend up before doing the division so we preserve as much
+    // precision as possible.
+    // TODO this is probably not necessary if the dividend isn't subnormal but
+    // we do it anyway for simplicity.
+    unsigned up_shift = stdc_leading_zeros_ui(am);
+    am <<= up_shift;
+    re -= up_shift;
+    //printf("upshifted am by %u to %#x00000000, re %u\n", up_shift, am, re);
+    //printf("bm %#x\n", bm);
+
+    // Divide the mantissas. We'll use __llong_div(), placing the dividend in
+    // the upper 32 bits for simplicity. There is surely a much faster way to
+    // do this.
+    unsigned amll[2];
+    amll[0] = 0;
+    amll[1] = am;
+    unsigned bmll[2];
+    bmll[0] = bm;
+    bmll[1] = 0;
+    unsigned rmll[2];
+    unsigned modll[2];
+    __llong_divmodu(rmll, modll, amll, bmll);
+    //printf("result %#016llx\n", *(unsigned long long*)rmll);
+
+    // Downshift sticky to get 27 bits (significand plus hidden bit plus grs
+    // bits.)
+    unsigned bits = 64 - stdc_leading_zeros_ull_p(rmll);
+    assert(bits >= 40); // should not be possible to have less than this left
+    unsigned desired = FLOAT_SIGNIFICAND_BITS + 3 + 1;
+    unsigned down = bits - desired;
+    bool sticky = ((down >= 32) ? // sticky bit needs to collapse all the bits we shift off
+            ((rmll[1] & ((1 << ((down - 32) - 1)))) | rmll[0]) :
+            (rmll[0] & ((1 << down) - 1)));
+    sticky |= modll[0]; // if there's a remainder, the sticky bit is set
+    assert(modll[1] == 0);
+    __llong_shru(rmll, rmll, down);
+    unsigned rm = rmll[0] | sticky;
+    //printf("bits %u, shifted down by %u bits, result %#x %#x sticky %u\n", bits, down, rmll[1], rmll[0], sticky);
+    re += down - 6; // TODO explain this 6 better, FLOAT_SIGNIFICAND_BITS cancels out except for grs + hidden bits?
+
+    // Check if the result is subnormal
+    if (re <= 500) {
+        // shift more
+        unsigned shift = 500 - re + 1;
+        //printf("subnormal, need to shift by %u more\n", shift);
+        if (shift <= FLOAT_SIGNIFICAND_BITS + 3) {
+            rm = float_shru_sticky(rm, shift);
+            //printf("more downshift result rm %#x\n", rm);
+        } else {
+            // underflow to zero
+            //printf("underflow to zero\n");
+            rm = 0;
+        }
+        re = 0;
+    } else {
+        re -= 500;
+    }
+    //printf("re %u\n", re);
+
+    // Check for overflow
+    if (re >= FLOAT_EXPONENT_MASK) {
+        return (as ^ bs) | FLOAT_INFINITY;
+    }
+
+    // Round
+    rm = float_round_grs(rm);
+    //printf("rounded %#08x\n", rm);
+
+    // Rounding may have caused it to grow again.
+    if (rm >= (1u << (FLOAT_SIGNIFICAND_BITS + 1u))) {
+        //printf("  significand %#x too large after rounding. shifting down again\n", rm);
+        ++re;
+        if (re == FLOAT_EXPONENT_MASK) {
+            // overflow
+            return (as ^ bs) | FLOAT_INFINITY;
+        }
+        rm >>= 1u;
+    }
+    if (re == 0 && rm >= (1u << FLOAT_SIGNIFICAND_BITS)) {
+        // Rounding caused us to become normal.
+        re = 1u;
+    }
+    //printf("am %#08x bm %#08x rm %#08x re %u\n", am, bm, rm, re);
+
+    // Assemble result
+    return (as ^ bs) | (re << FLOAT_EXPONENT_SHIFT) | (rm & FLOAT_SIGNIFICAND_MASK);
 }
