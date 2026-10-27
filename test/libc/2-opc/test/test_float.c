@@ -22,6 +22,7 @@
     #define copysignf onramp_copysignf
     #define strtof onramp_strtof
     #define ldexpf onramp_ldexpf
+    #define sqrtf onramp_sqrtf
 
     /* TODO the test harness can't run this against a native libc yet, but in
      * the meantime this test case can be compiled standalone with a native C
@@ -50,6 +51,8 @@
     #define native_strtof strtof
     #undef ldexpf
     #define native_ldexpf ldexpf
+    #undef sqrtf
+    #define native_sqrtf sqrtf
 #endif
 
             // TODO all of this is disabled on onramp until we get float parsing in
@@ -77,6 +80,39 @@ static int test_sigfpe_count = 0;
 static void test_sigfpe(int signo) {
     (void)signo;
     ++test_sigfpe_count;
+}
+
+static void seed_random(void) {
+    #ifdef __onramp__
+    // TODO onramp doesn't have time() yet
+    FILE* f = fopen("/dev/urandom", "rb");
+    if (f) {
+        unsigned x;
+        (void)fread(&x, 1, sizeof(x), f);
+        (void)fclose(f);
+        srand(x);
+    }
+    #else
+    srand(time(NULL));
+    #endif
+}
+
+
+// Tests that the two values are within the given number of significand bits of
+// each other.
+#if 0
+static bool test_value_close(float x, float y, unsigned bits) {
+    float largest = fmaxf(fabsf(x), fabsf(y));
+    float delta = 1.f / (23 - bits);
+    return y >= x - delta && y <= x + delta;
+}
+#endif
+static bool test_value_close(unsigned actual, unsigned expected, unsigned bits) {
+    // TODO handle infinity/overflow
+    unsigned diff = 1u << (bits - 1);
+    //printf("%u %u %u %u %u\n", y, x, diff, x-diff, x+diff);
+    return (int64_t)expected >= (int64_t)actual - diff
+        && (int64_t)expected <= (int64_t)actual + diff;
 }
 
 static void test_add_impl(float x, float y, float expected) {
@@ -813,18 +849,7 @@ static uint32_t random_float(void) {
 }
 
 static void test_add_loop(void) {
-    #ifdef __onramp__
-    // TODO onramp doesn't have time() yet
-    FILE* f = fopen("/dev/urandom", "rb");
-    if (f) {
-        unsigned x;
-        (void)fread(&x, 1, sizeof(x), f);
-        (void)fclose(f);
-        srand(x);
-    }
-    #else
-    srand(time(NULL));
-    #endif
+    seed_random();
 
     for (size_t i = 0;; ++i) {
         if (i != 0 && (i % 100000) == 0) printf("testing float addition: %zi...\n",i);
@@ -849,18 +874,7 @@ static void test_add_loop(void) {
 }
 
 static void test_sub_loop(void) {
-    #ifdef __onramp__
-    // TODO onramp doesn't have time() yet
-    FILE* f = fopen("/dev/urandom", "rb");
-    if (f) {
-        unsigned x;
-        (void)fread(&x, 1, sizeof(x), f);
-        (void)fclose(f);
-        srand(x);
-    }
-    #else
-    srand(time(NULL));
-    #endif
+    seed_random();
 
     for (size_t i = 0;; ++i) {
         if (i != 0 && (i % 100000) == 0) printf("testing float subtraction: %zi...\n",i);
@@ -885,18 +899,7 @@ static void test_sub_loop(void) {
 }
 
 static void test_mul_loop(void) {
-    #ifdef __onramp__
-    // TODO onramp doesn't have time() yet
-    FILE* f = fopen("/dev/urandom", "rb");
-    if (f) {
-        unsigned x;
-        (void)fread(&x, 1, sizeof(x), f);
-        (void)fclose(f);
-        srand(x);
-    }
-    #else
-    srand(time(NULL));
-    #endif
+    seed_random();
 
     for (size_t i = 0;; ++i) {
         if (i != 0 && (i % 1000000) == 0) printf("testing float multiplication: %zi...\n",i);
@@ -921,18 +924,7 @@ static void test_mul_loop(void) {
 }
 
 static void test_div_loop(void) {
-    #ifdef __onramp__
-    // TODO onramp doesn't have time() yet
-    FILE* f = fopen("/dev/urandom", "rb");
-    if (f) {
-        unsigned x;
-        (void)fread(&x, 1, sizeof(x), f);
-        (void)fclose(f);
-        srand(x);
-    }
-    #else
-    srand(time(NULL));
-    #endif
+    seed_random();
 
     for (size_t i = 0;; ++i) {
         if (i != 0 && (i % 1000000) == 0) printf("testing float division: %zi...\n",i);
@@ -1668,6 +1660,78 @@ static void test_ldexpf(void) {
     test_ldexpf_impl(0b1'11111111'11111111111111111111111, -3, 0b1'11111111'11111111111111111111111);
 }
 
+// TODO for now we allow some rounding error. It is supposed to be exact
+// according to IEEE 754.
+#define SQRTF_BITS_THRESHOLD 1
+
+static void test_sqrtf_impl(float x, float expected) {
+
+    #ifndef __onramp__
+    // compare to native float operation
+    if (!isnanf(expected) && f2u(native_sqrtf(x)) != f2u(expected)) {
+        fprintf(stderr, "Test invalid: native sqrtf %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), expected, f2u(expected), sqrtf(x), f2u(sqrtf(x)));
+        exit(1);
+    }
+    #endif
+
+    unsigned onramp_result = onramp_sqrtf(f2u(x));
+    if (!test_value_close(onramp_result, f2u(expected), SQRTF_BITS_THRESHOLD)) {
+        fprintf(stderr, "Test failed: onramp sqrtf %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), expected, f2u(expected),
+                u2f(onramp_result), onramp_result);
+        exit(1);
+    }
+}
+
+static void test_sqrtf(void) {
+
+    // special cases
+    test_sqrtf_impl(NAN, NAN);
+    test_sqrtf_impl(-NAN, -NAN);
+    test_sqrtf_impl(INFINITY, INFINITY);
+    test_sqrtf_impl(-INFINITY, NAN);
+    test_sqrtf_impl(0.0f, 0.0f);
+    test_sqrtf_impl(-0.0f, -0.0f);
+
+    // exact numbers
+    test_sqrtf_impl(4.f, 2.f);
+    test_sqrtf_impl(9.f, 3.f);
+    test_sqrtf_impl(16.f, 4.f);
+
+    // misc
+    test_sqrtf_impl(2.f, 1.4142135623730950488f);
+    test_sqrtf_impl(u2f(1), 3.74339207e-23f); // smallest subnormal
+
+    // bugs from random testing
+    test_sqrtf_impl(2.09874153e-39, 4.5812025e-20);
+}
+
+static void test_sqrtf_loop(void) {
+    seed_random();
+
+    for (size_t i = 0;; ++i) {
+        if (i != 0 && (i % 1000000) == 0) printf("testing float sqrtf: %zi...\n",i);
+
+        floatunion_t xf, ef, af;
+        xf.u = random_float();
+        ef.f = native_sqrtf(xf.f);
+        //printf("sqrtf %.9g (0x%x) expected %.9g (0x%x)\n", xf.f, xf.u, ef.f, ef.u);
+        af.u = onramp_sqrtf(xf.u);
+        //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
+
+        if (!test_value_close(ef.u, af.u, SQRTF_BITS_THRESHOLD)) {
+            printf("onramp sqrtf() FAILED:\n");
+            printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
+            printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
+            printf("    actual: %.9g  0x%08x\n", af.f, af.u);
+            exit(1);
+        }
+    }
+}
+
             #endif
 
 int main(void) {
@@ -1722,6 +1786,9 @@ int main(void) {
     // misc
     test_ldexpf();
 
+    // functions
+    test_sqrtf();
+
     (void)f2u;
 
     // long-running tests
@@ -1730,10 +1797,12 @@ int main(void) {
     //test_sub_loop();
     //test_mul_loop();
     //test_div_loop();
+    //test_sqrtf_loop();
     #endif
     (void)test_add_loop;
     (void)test_sub_loop;
     (void)test_mul_loop;
     (void)test_div_loop;
+    (void)test_sqrtf_loop;
             #endif
 }

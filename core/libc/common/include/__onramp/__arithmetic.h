@@ -77,6 +77,8 @@ _Bool __float_ne(unsigned a, unsigned b);
 _Bool __float_lt(unsigned a, unsigned b);
 _Bool __float_lte(unsigned a, unsigned b);
 
+void __float_sigfpe(void);
+
 unsigned* __double_from_float(unsigned* __d, unsigned __f);
 unsigned __double_to_float(const unsigned* __d);
 

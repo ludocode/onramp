@@ -25,3 +25,11 @@
 #define __ONRAMP_LIBC_FLOATING_IMPL
 
 #include "float_defs.h"
+
+/**
+ * Raise SIGFPE, called when performing arithmetic with a signaling NaN.
+ */
+void __float_sigfpe(void) {
+    // TODO this is disabled.
+    //raise(SIGFPE);
+}

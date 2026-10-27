@@ -89,17 +89,6 @@
 
 unsigned __float_env;
 
-
-
-
-/**
- * Raise SIGFPE, called when performing arithmetic with a signaling NaN.
- */
-static void __float_sigfpe(void) {
-    // TODO this is disabled.
-    //raise(SIGFPE);
-}
-
 /**
  * Shifts the significand of a float right by the given number of bits,
  * preserving any shifted off bits in the sticky bit.
