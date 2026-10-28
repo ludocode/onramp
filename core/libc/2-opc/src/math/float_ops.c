@@ -298,7 +298,7 @@ static uint32_t float_sub_impl(uint32_t ae, uint32_t be, uint32_t af, uint32_t b
 
         // If the second argument is also infinity, return NaN.
         if (be == FLOAT_EXPONENT_MASK) {
-            assert(be == 0);
+            assert(bf == 0);
             return FLOAT_QUIET_NAN;
         }
 

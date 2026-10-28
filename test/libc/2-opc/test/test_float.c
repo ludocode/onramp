@@ -10,6 +10,9 @@
 #include <string.h>
 #include <inttypes.h>
 
+static float u2f(uint32_t u);
+static uint32_t f2u(float f);
+
 #ifdef __onramp__
     #include <__onramp/__arithmetic.h>
     #define onramp_strtof strtof
@@ -23,6 +26,10 @@
     #define strtof onramp_strtof
     #define ldexpf onramp_ldexpf
     #define sqrtf onramp_sqrtf
+    #define logf onramp_logf
+    #define expm1f onramp_expm1f
+    #define expf onramp_expf
+    #define exp2f onramp_exp2f
 
     /* TODO the test harness can't run this against a native libc yet, but in
      * the meantime this test case can be compiled standalone with a native C
@@ -53,6 +60,14 @@
     #define native_ldexpf ldexpf
     #undef sqrtf
     #define native_sqrtf sqrtf
+    #undef logf
+    #define native_logf logf
+    #undef expm1f
+    #define native_expm1f expm1f
+    #undef expf
+    #define native_expf expf
+    #undef exp2f
+    #define native_exp2f exp2f
 #endif
 
             // TODO all of this is disabled on onramp until we get float parsing in
@@ -1664,26 +1679,33 @@ static void test_ldexpf(void) {
 // according to IEEE 754.
 #define SQRTF_BITS_THRESHOLD 1
 
-static void test_sqrtf_impl(float x, float expected) {
-
+static void test_1arity_impl(float x, float expected, int threshold_bits, const char* name,
+        float (*native_fn)(float), unsigned (*onramp_fn)(unsigned))
+{
     #ifndef __onramp__
     // compare to native float operation
-    if (!isnanf(expected) && f2u(native_sqrtf(x)) != f2u(expected)) {
-        fprintf(stderr, "Test invalid: native sqrtf %.9g (%#x)"
+    float native_result = native_fn(x);
+    if (!isnanf(expected) && f2u(native_result) != f2u(expected)) {
+        fprintf(stderr, "Test invalid: native %s %.9g (%#x)"
                 " expected %.9g (%#x), got %.9g (%#x)\n",
-                x, f2u(x), expected, f2u(expected), sqrtf(x), f2u(sqrtf(x)));
+                name, x, f2u(x), expected, f2u(expected),
+                native_result, f2u(native_result));
         exit(1);
     }
     #endif
 
-    unsigned onramp_result = onramp_sqrtf(f2u(x));
-    if (!test_value_close(onramp_result, f2u(expected), SQRTF_BITS_THRESHOLD)) {
-        fprintf(stderr, "Test failed: onramp sqrtf %.9g (%#x)"
+    unsigned onramp_result = onramp_fn(f2u(x));
+    if (!test_value_close(onramp_result, f2u(expected), threshold_bits)) {
+        fprintf(stderr, "Test failed: onramp %s %.9g (%#x)"
                 " expected %.9g (%#x), got %.9g (%#x)\n",
-                x, f2u(x), expected, f2u(expected),
+                name, x, f2u(x), expected, f2u(expected),
                 u2f(onramp_result), onramp_result);
         exit(1);
     }
+}
+
+static void test_sqrtf_impl(float x, float expected) {
+    test_1arity_impl(x, expected, SQRTF_BITS_THRESHOLD, "sqrtf", native_sqrtf, onramp_sqrtf);
 }
 
 static void test_sqrtf(void) {
@@ -1730,6 +1752,35 @@ static void test_sqrtf_loop(void) {
             exit(1);
         }
     }
+}
+
+// Positive numbers seem to be accurate to within 2 bits. Negative numbers have
+// quite bad precision at the moment.
+#define EXPM1F_BITS_THRESHOLD 11
+
+static void test_expm1f_impl(float x, float expected) {
+    test_1arity_impl(x, expected, EXPM1F_BITS_THRESHOLD, "expm1f", native_expm1f, onramp_expm1f);
+}
+
+static void test_expm1f(void) {
+    test_expm1f_impl(0.0f, 0.0f);
+
+    test_expm1f_impl(1.0f, 1.71828187f);
+    test_expm1f_impl(10.0f, 22025.4648f);
+    test_expm1f_impl(50.0f, 5.18470546e+21f);
+
+    test_expm1f_impl(0.1f, 0.10517092f);
+    test_expm1f_impl(-0.1f, -0.0951625854f);
+
+    test_expm1f_impl(-1.0f, -0.63212055f);
+    test_expm1f_impl(-5.0f, -0.993262053f);
+    test_expm1f_impl(-7.0f, -0.999088109f);
+    test_expm1f_impl(-8.0f, -0.999664545f);
+    test_expm1f_impl(-9.0f, -0.999876618f);
+    test_expm1f_impl(-10.0f, -0.999954581f);
+    test_expm1f_impl(-16.0f, -0.999999881f);
+    test_expm1f_impl(-100.0f, -1.0f);
+    test_expm1f_impl(-10000.0f, -1.0f);
 }
 
             #endif
@@ -1788,6 +1839,7 @@ int main(void) {
 
     // functions
     test_sqrtf();
+    test_expm1f();
 
     (void)f2u;
 
