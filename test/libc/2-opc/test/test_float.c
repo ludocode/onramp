@@ -26,6 +26,7 @@ static uint32_t f2u(float f);
     #define strtof onramp_strtof
     #define ldexpf onramp_ldexpf
     #define sqrtf onramp_sqrtf
+    #define log1pf onramp_log1pf
     #define logf onramp_logf
     #define expm1f onramp_expm1f
     #define expf onramp_expf
@@ -60,6 +61,8 @@ static uint32_t f2u(float f);
     #define native_ldexpf ldexpf
     #undef sqrtf
     #define native_sqrtf sqrtf
+    #undef log1pf
+    #define native_log1pf log1pf
     #undef logf
     #define native_logf logf
     #undef expm1f
@@ -123,6 +126,10 @@ static bool test_value_close(float x, float y, unsigned bits) {
 }
 #endif
 static bool test_value_close(unsigned actual, unsigned expected, unsigned bits) {
+    if (bits == 0) {
+        return actual == expected;
+    }
+
     // TODO handle infinity/overflow
     unsigned diff = 1u << (bits - 1);
     //printf("%u %u %u %u %u\n", y, x, diff, x-diff, x+diff);
@@ -1798,6 +1805,67 @@ static void test_expm1f_loop(void) {
     test_1arity_loop(EXPM1F_THRESHOLD_BITS, "expm1f", native_expm1f, onramp_expm1f);
 }
 
+#define LOG1PF_THRESHOLD_BITS 2
+
+static void test_log1pf_impl(float x, float expected) {
+    test_1arity_impl(x, expected, LOG1PF_THRESHOLD_BITS, "log1pf", native_log1pf, onramp_log1pf);
+}
+
+static void test_log1pf(void) {
+    test_log1pf_impl(0.0f, 0.0f);
+    test_log1pf_impl(-0.0f, -0.0f);
+
+    test_log1pf_impl(1.71828187f, 1.0f);
+    test_log1pf_impl(1.0f, 0.693147182f);
+
+    test_log1pf_impl(10.0f, 2.39789534f);
+    test_log1pf_impl(22025.4648f, 10.0f);
+    test_log1pf_impl(5.18470546e+21f, 50.0f);
+    test_log1pf_impl(1e+30f, 69.0775528);
+
+    test_log1pf_impl(0.1f, 0.0953101814f);
+    test_log1pf_impl(-0.1f, -0.105360515f);
+
+    // these should use log1pf_impl()
+    test_log1pf_impl(0.5f, 0.405465096f);
+    test_log1pf_impl(-0.5f, -0.693147182f);
+
+    // these defer to logf_impl()
+    test_log1pf_impl(0.51f, 0.412109643f);
+    test_log1pf_impl(-0.51f, -0.713349879f);
+
+    //test_log1pf_impl(-0.9999f, -9.21017456);
+    //test_log1pf_impl(-0.999999f, -13.8023186);
+
+    test_log1pf_impl(-1.0f, -INFINITY);
+}
+
+static void test_log1pf_loop(void) {
+    test_1arity_loop(LOG1PF_THRESHOLD_BITS, "log1pf", native_log1pf, onramp_log1pf);
+}
+
+#define LOGF_THRESHOLD_BITS 2
+
+static void test_logf_impl(float x, float expected) {
+    test_1arity_impl(x, expected, LOGF_THRESHOLD_BITS, "logf", native_logf, onramp_logf);
+}
+
+static void test_logf(void) {
+    test_logf_impl(0.0f, -INFINITY);
+    test_logf_impl(-0.0f, -INFINITY);
+
+    test_logf_impl(2.71828187f, 1.0f);
+
+    test_logf_impl(11.0f, 2.39789534f);
+
+    test_logf_impl(1.1f, 0.0953102037f);
+    test_logf_impl(0.9f, -0.105360545);
+
+    test_logf_impl(-0.5f, NAN);
+    test_logf_impl(-1.1f, NAN);
+    test_logf_impl(-INFINITY, NAN);
+}
+
             #endif
 
 int main(void) {
@@ -1855,6 +1923,8 @@ int main(void) {
     // functions
     test_sqrtf();
     test_expm1f();
+    test_log1pf();
+    test_logf();
 
     (void)f2u;
 
@@ -1866,6 +1936,7 @@ int main(void) {
     //test_div_loop();
     //test_sqrtf_loop();
     //test_expm1f_loop();
+    //test_log1pf_loop();
     #endif
     (void)test_add_loop;
     (void)test_sub_loop;
@@ -1873,5 +1944,6 @@ int main(void) {
     (void)test_div_loop;
     (void)test_sqrtf_loop;
     (void)test_expm1f_loop;
+    (void)test_log1pf_loop;
             #endif
 }
