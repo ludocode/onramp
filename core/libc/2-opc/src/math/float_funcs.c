@@ -39,7 +39,6 @@
 // TODO these should be constants
 #define ONE __float_from_u32(1)
 #define TWO __float_from_u32(2)
-#define TEN __float_from_u32(10)
 #define LOG_TWO logf(TWO)
 
 unsigned sqrtf(unsigned x) {
@@ -165,20 +164,18 @@ unsigned expm1f(unsigned x) {
         return x;
     }
 
-    // Special case for very negative numbers which can cause the Taylor series
-    // to go to infinity.
-    // TODO we should be able to give accurate results for numbers larger than
-    // ten (e.g. expm1f(16.f) should be 0xbf7ffffe, not quite -1.)
-    // Unfortunately we don't have enough precision so numbers that large give
-    // terrible results.
-    if (xs && (x & ~FLOAT_SIGN_BIT) > TEN) {
-        return FLOAT_SIGN_BIT | ONE;
+    // If the argument is negative, the Taylor series diverges (destroying
+    // precision or going to infinity) because the terms alternate between
+    // positive and negative. Instead we can compute the exponential of the
+    // positive value and use the identity `1/e^x==e^-x` to flip it afterwards.
+    if (xs) {
+        x &= ~FLOAT_SIGN_BIT;
     }
 
     // This is a simple Taylor series expansion:
     //     https://en.wikipedia.org/wiki/Exponential_function#Computation
-    // It's very slow and it can be quite inaccurate for negative numbers but
-    // at least it's extremely simple to implement so it'll do for now.
+    // It's very slow and a bit inaccurate on very large numbers but it's
+    // extremely simple to implement so it'll do for now.
 
     unsigned sum = x;
     unsigned term = x;
@@ -196,10 +193,10 @@ unsigned expm1f(unsigned x) {
         sum = next;
     }
 
-    // We have some pretty terrible rounding errors that can cause our sum to
-    // be less than -1. This doesn't make sense so we limit it to -1.
-    if ((FLOAT_SIGN_BIT & sum) && (sum & ~FLOAT_SIGN_BIT) > ONE) {
-        return FLOAT_SIGN_BIT | ONE;
+    // If our argument was negative, we need to flip it now. `1/e^x==e^-x`, but
+    // we're actually computing `(e^x)-1`, so we have `(e^-x)-1==(1/((e^x-1)+1))-1`.
+    if (xs) {
+        return __float_sub(__float_div(ONE, __float_add(ONE, sum)), ONE);
     }
 
     return sum;

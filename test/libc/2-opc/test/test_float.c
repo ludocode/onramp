@@ -1677,7 +1677,7 @@ static void test_ldexpf(void) {
 
 // TODO for now we allow some rounding error. It is supposed to be exact
 // according to IEEE 754.
-#define SQRTF_BITS_THRESHOLD 1
+#define SQRTF_THRESHOLD_BITS 1
 
 static void test_1arity_impl(float x, float expected, int threshold_bits, const char* name,
         float (*native_fn)(float), unsigned (*onramp_fn)(unsigned))
@@ -1705,7 +1705,7 @@ static void test_1arity_impl(float x, float expected, int threshold_bits, const 
 }
 
 static void test_sqrtf_impl(float x, float expected) {
-    test_1arity_impl(x, expected, SQRTF_BITS_THRESHOLD, "sqrtf", native_sqrtf, onramp_sqrtf);
+    test_1arity_impl(x, expected, SQRTF_THRESHOLD_BITS, "sqrtf", native_sqrtf, onramp_sqrtf);
 }
 
 static void test_sqrtf(void) {
@@ -1731,21 +1731,24 @@ static void test_sqrtf(void) {
     test_sqrtf_impl(2.09874153e-39, 4.5812025e-20);
 }
 
-static void test_sqrtf_loop(void) {
+static void test_1arity_loop(int threshold_bits, const char* name,
+        float (*native_fn)(float), unsigned (*onramp_fn)(unsigned))
+{
     seed_random();
 
     for (size_t i = 0;; ++i) {
-        if (i != 0 && (i % 1000000) == 0) printf("testing float sqrtf: %zi...\n",i);
+        if (i != 0 && (i % 1000000) == 0) printf("testing float %s: %zi...\n", name, i);
 
         floatunion_t xf, ef, af;
         xf.u = random_float();
-        ef.f = native_sqrtf(xf.f);
+        ef.f = native_fn(xf.f);
         //printf("sqrtf %.9g (0x%x) expected %.9g (0x%x)\n", xf.f, xf.u, ef.f, ef.u);
-        af.u = onramp_sqrtf(xf.u);
+        af.u = onramp_fn(xf.u);
         //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
+        //if (isinf(af.f))continue;
 
-        if (!test_value_close(ef.u, af.u, SQRTF_BITS_THRESHOLD)) {
-            printf("onramp sqrtf() FAILED:\n");
+        if (!test_value_close(ef.u, af.u, threshold_bits)) {
+            printf("onramp %s() FAILED:\n", name);
             printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
             printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
             printf("    actual: %.9g  0x%08x\n", af.f, af.u);
@@ -1754,12 +1757,16 @@ static void test_sqrtf_loop(void) {
     }
 }
 
-// Positive numbers seem to be accurate to within 2 bits. Negative numbers have
-// quite bad precision at the moment.
-#define EXPM1F_BITS_THRESHOLD 11
+static void test_sqrtf_loop(void) {
+    test_1arity_loop(SQRTF_THRESHOLD_BITS, "sqrtf", native_sqrtf, onramp_sqrtf);
+}
+
+// Most numbers of "reasonable" size are accurate to within four bits. It gets
+// worse around very large numbers (>60 or so.)
+#define EXPM1F_THRESHOLD_BITS 7
 
 static void test_expm1f_impl(float x, float expected) {
-    test_1arity_impl(x, expected, EXPM1F_BITS_THRESHOLD, "expm1f", native_expm1f, onramp_expm1f);
+    test_1arity_impl(x, expected, EXPM1F_THRESHOLD_BITS, "expm1f", native_expm1f, onramp_expm1f);
 }
 
 static void test_expm1f(void) {
@@ -1781,6 +1788,14 @@ static void test_expm1f(void) {
     test_expm1f_impl(-16.0f, -0.999999881f);
     test_expm1f_impl(-100.0f, -1.0f);
     test_expm1f_impl(-10000.0f, -1.0f);
+
+    // very large numbers, bugs from random testing
+    test_expm1f_impl(67.2140961f, 1.55135444e+29f);
+    test_expm1f_impl(86.5838547f, 4.00765481e+37f);
+}
+
+static void test_expm1f_loop(void) {
+    test_1arity_loop(EXPM1F_THRESHOLD_BITS, "expm1f", native_expm1f, onramp_expm1f);
 }
 
             #endif
@@ -1850,11 +1865,13 @@ int main(void) {
     //test_mul_loop();
     //test_div_loop();
     //test_sqrtf_loop();
+    //test_expm1f_loop();
     #endif
     (void)test_add_loop;
     (void)test_sub_loop;
     (void)test_mul_loop;
     (void)test_div_loop;
     (void)test_sqrtf_loop;
+    (void)test_expm1f_loop;
             #endif
 }
