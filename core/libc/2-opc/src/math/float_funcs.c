@@ -40,9 +40,12 @@
 #define ONE __float_from_u32(1)
 #define TWO __float_from_u32(2)
 #define THREE __float_from_u32(3)
+#define TEN __float_from_u32(10)
 #define HALF __float_div(ONE, TWO)
+#define ONE_THIRD __float_div(ONE, THREE)
 #define THREE_HALFS __float_div(THREE, TWO)
 #define LOG_TWO logf(TWO)
+#define LOG_TEN logf(TEN)
 
 unsigned expf(unsigned x);
 

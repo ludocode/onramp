@@ -63,20 +63,6 @@
 #include "internal.h"
 #endif
 
-// TODO we should move this to internal.h or something, this will need to be shared
-#ifdef __onramp__
-    #ifdef __onramp_cci_opc__
-        int stdc_leading_zeros_ull(unsigned* v);
-        #define stdc_leading_zeros_ull_p stdc_leading_zeros_ull
-    #endif
-    #ifndef __onramp_cci_opc__
-        int stdc_leading_zeros_ull_p(unsigned* v) __asm__("stdc_leading_zeros_ull");
-    #endif
-#endif
-#ifndef __onramp__
-    #define stdc_leading_zeros_ull_p(x) stdc_leading_zeros_ull(*(long long*)x)
-#endif
-
 /*
 #ifndef __onramp__
     // We support compiling this with an ordinary C compiler, this way we can
@@ -88,66 +74,6 @@
 */
 
 unsigned __float_env;
-
-/**
- * Shifts the significand of a float right by the given number of bits,
- * preserving any shifted off bits in the sticky bit.
- */
-static uint32_t float_shru_sticky(uint32_t significand, uint32_t bits) {
-    //printf("float_shru_sticky() 0x%x by %u\n", significand, bits);
-    if (bits == 0) {
-        //printf("no shift\n");
-        return significand;
-    }
-
-    if (bits >= FLOAT_BITS) {
-        // We're shifting the entire number out. Collapse the whole number into
-        // the sticky bit.
-        //printf("collapse: %u\n",!!significand);
-        return !!significand;
-    }
-
-    uint32_t mask = (1u << bits) - 1u;
-    uint32_t sticky = !!(significand & mask);
-    //printf("shifted: 0x%x | %u\n",(significand >> bits), 0|sticky);
-    return (significand >> bits) | sticky;
-}
-
-/**
- * Rounds a significand that has additional guard-round-sticky bits. The three
- * extra bits are shifted off.
- *
- * Note that this may cause the significand to grow to an extra bit. In this
- * case it needs to be downshifted and the exponent incremented again.
- *
- * @param tf target significand (fraction)
- */
-static uint32_t float_round_grs(uint32_t tf) {
-    uint32_t grs = tf & 7u;
-    //printf("float_round_grs() rounding 0x%x", tf);
-    tf >>= 3u;
-    //printf("  downshifted 0x%x\n", tf);
-    //printf("  grs 0x%x %u%u%u\n", grs, grs>>2, !!(grs&2), grs&1);
-
-    // TODO support other rounding modes
-    if (grs == 0b100u) {
-        // round to even
-        if (tf & 1u) {
-            //printf("  round up to even\n");
-            ++tf;
-        } else {
-            //printf("  round down to even\n");
-        }
-    } else if (grs >= 0b100u) {
-        //printf("  round up\n");
-        ++tf;
-    } else {
-        //printf("  round down\n");
-    }
-    //printf("  tf after rounding 0x%x\n", tf);
-    //printf("  tf after removing grs bits 0x%x\n", tf);
-    return tf;
-}
 
 /**
  * Add the given unpacked unsigned floats, returning the packed result.
@@ -1243,108 +1169,6 @@ unsigned* __float_to_i64(unsigned* out, unsigned f) {
     out[0] = result[0];
     out[1] = result[1];
     return out;
-}
-
-unsigned ldexpf(unsigned x, int exp) {
-    if (exp == 0) {
-        return x;
-    }
-
-    // Unpack the float
-    uint32_t xs = x & FLOAT_SIGN_BIT;
-    uint32_t xe = FLOAT_EXPONENT(x);
-    uint32_t xm = FLOAT_SIGNIFICAND(x);
-    //printf("float %#x xs %u xe %u xm %u exp %i\n",x,xs,xe,xm,exp);
-
-    if (xe == FLOAT_EXPONENT_MASK) {
-        // Infinity or NaN
-        //printf("inf or nan\n");
-        return x;
-    }
-
-    // If not subnormal, add the hidden bit.
-    if (xe == 0u) {
-        if (xm == 0) {
-            // zero
-            //printf("zero\n");
-            return x;
-        }
-        xe = 1u;
-    } else {
-        xm |= FLOAT_HIDDEN_BIT;
-    }
-
-    // Adjust exponent
-    if (exp > 0) {
-        unsigned uexp = (unsigned)exp;
-
-        // Shift up subnormal
-        if (!(xm & FLOAT_HIDDEN_BIT)) {
-            unsigned bits = 32u - stdc_leading_zeros_ui(xm);
-            //printf("subnormal bits %u\n",bits);
-            if (uexp > (FLOAT_SIGNIFICAND_BITS - bits)) {
-                // Number becomes normal
-                unsigned shift = FLOAT_SIGNIFICAND_BITS - bits + 1;
-                //printf("number becomes normal, shift %u\n",shift);
-                xm <<= shift;
-                xe = 1 + exp - shift;
-            } else {
-                // Number remains subnormal
-                xm <<= uexp;
-                xe = 0;
-                //printf("number remains subnormal, xm %u\n", xm);
-            }
-        } else {
-            // For normal numbers, just adjust exponent
-            xe += uexp;
-            if (xe >= FLOAT_EXPONENT_MASK) {
-                feraiseexcept(FE_OVERFLOW);
-                return xs | FLOAT_INFINITY;
-            }
-        }
-    } else {
-        unsigned uexp = (unsigned)-exp;
-        if (xe > uexp) {
-            //printf("%i uexp %u xe %u\n",__LINE__,uexp,xe);
-            xe -= uexp;
-        } else {
-            //printf("subnormal xm %u\n",xm);
-            // Subnormal.
-            feraiseexcept(FE_UNDERFLOW);
-
-            // Add guard, round and sticky bits
-            // (TODO guard is not needed but we want to use float_round_grs().
-            // We need a different helper for only rs().)
-            xm <<= 3;
-            //printf("raised xm %u\n",xm);
-
-            // Shift down sticky
-            //printf("exp %u xe %u exp-(xe-1) %u\n",exp,xe,(unsigned)exp - (xe - 1));
-            xm = float_shru_sticky(xm, uexp - (xe - 1));
-            //printf("shifted xm %u\n",xm);
-            xe = 0;
-
-            // Round
-            xm = float_round_grs(xm);
-            //printf("rounded xm %u\n",xm);
-            if (xm >= FLOAT_HIDDEN_BIT) {
-                // Rounding caused it to be normal again.
-                //printf("rounded back to normal\n");
-                xe = 1;
-            }
-        }
-    }
-
-    if (xe >= FLOAT_EXPONENT_MASK) {
-        // infinity
-        xe = FLOAT_EXPONENT_MASK;
-        xm = 0;
-    }
-
-    // Assemble the float
-    return xs
-            | (xe << FLOAT_EXPONENT_SHIFT)
-            | (xm & FLOAT_SIGNIFICAND_MASK);
 }
 
 unsigned __float_mul(unsigned a, unsigned b) {

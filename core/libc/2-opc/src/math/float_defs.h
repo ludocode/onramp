@@ -49,6 +49,9 @@
 // Our canonical NaN has only the quiet bit set.
 #define FLOAT_QUIET_NAN (FLOAT_INFINITY | FLOAT_QUIET_BIT)
 
+uint32_t float_shru_sticky(uint32_t significand, uint32_t bits);
+uint32_t float_round_grs(uint32_t tf);
+
 /**
  * Returns the biased exponent field of the given float.
  */
@@ -73,6 +76,20 @@
 #endif
 #ifndef __onramp_cpp_omc__
     #define FLOAT_SIGNIFICAND(x) ((x) & FLOAT_SIGNIFICAND_MASK)
+#endif
+
+// TODO we should move this to internal.h or something, this will need to be shared
+#ifdef __onramp__
+    #ifdef __onramp_cci_opc__
+        int stdc_leading_zeros_ull(unsigned* v);
+        #define stdc_leading_zeros_ull_p stdc_leading_zeros_ull
+    #endif
+    #ifndef __onramp_cci_opc__
+        int stdc_leading_zeros_ull_p(unsigned* v) __asm__("stdc_leading_zeros_ull");
+    #endif
+#endif
+#ifndef __onramp__
+    #define stdc_leading_zeros_ull_p(x) stdc_leading_zeros_ull(*(long long*)x)
 #endif
 
 #endif

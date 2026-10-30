@@ -31,6 +31,8 @@ static uint32_t f2u(float f);
     #define expm1f onramp_expm1f
     #define expf onramp_expf
     #define exp2f onramp_exp2f
+    #define logbf onramp_logbf
+    #define frexpf onramp_frexpf
 
     /* TODO the test harness can't run this against a native libc yet, but in
      * the meantime this test case can be compiled standalone with a native C
@@ -71,6 +73,10 @@ static uint32_t f2u(float f);
     #define native_expf expf
     #undef exp2f
     #define native_exp2f exp2f
+    #undef logbf
+    #define native_logbf logbf
+    #undef frexpf
+    #define native_frexpf frexpf
 #endif
 
             // TODO all of this is disabled on onramp until we get float parsing in
@@ -1627,12 +1633,73 @@ static void test_float_to_i64(void) {
     // TODO random testing
 }
 
+static void test_logbf_impl(unsigned value, unsigned expected) {
+    //printf("-------------\ntest logbf %.9g %#x expected %.9g %#x\n", u2f(value), value, u2f(expected), expected);
+    unsigned actual;
+
+    #ifndef __onramp__
+    actual = f2u(native_logbf(u2f(value)));
+    if (expected != actual) {
+        printf("invalid test: logbf(%.9g %#x) returned %.9g %#x, not expected %.9g %#x\n",
+                u2f(value), value,
+                u2f(actual), actual,
+                u2f(expected), expected);
+        exit(1);
+    }
+    #endif
+
+    actual = onramp_logbf(value);
+    if (expected != actual) {
+        printf("onramp logbf(%.9g %#x) returned %.9g %#x, not expected %.9g %#x\n",
+                u2f(value), value,
+                u2f(actual), actual,
+                u2f(expected), expected);
+        exit(1);
+    }
+}
+
+static void test_logbf(void) {
+    // 1 or larger
+    test_logbf_impl(f2u(1.0f), f2u(0.0f));
+    test_logbf_impl(f2u(2.0f), f2u(1.0f));
+    test_logbf_impl(f2u(3.0f), f2u(1.0f));
+    test_logbf_impl(f2u(4.0f), f2u(2.0f));
+    test_logbf_impl(f2u(-5.0f), f2u(2.0f));
+    test_logbf_impl(f2u(6.0f), f2u(2.0f));
+    test_logbf_impl(f2u(-7.0f), f2u(2.0f));
+    test_logbf_impl(f2u(8.0f), f2u(3.0f));
+    test_logbf_impl(f2u(-9.0f), f2u(3.0f));
+
+    // smaller than 1
+    test_logbf_impl(f2u(0.5f), f2u(-1.0f));
+    test_logbf_impl(f2u(0.4f), f2u(-2.0f));
+    test_logbf_impl(f2u(0.25f), f2u(-2.0f));
+    test_logbf_impl(f2u(0.24f), f2u(-3.0f));
+
+    // subnormals
+    test_logbf_impl(0b0'00000001'00000000000000000000000, f2u(-126.0f));
+    test_logbf_impl(0b0'00000000'11111111111111111111111, f2u(-127.0f));
+    test_logbf_impl(0b0'00000000'10000000000000000000000, f2u(-127.0f));
+    test_logbf_impl(0b0'00000000'01111111111111111111111, f2u(-128.0f));
+    test_logbf_impl(0b1'00000000'01000000000000000000000, f2u(-128.0f));
+    test_logbf_impl(0b1'00000000'00111111111111111111111, f2u(-129.0f));
+    test_logbf_impl(0b1'00000000'00100000000000000000000, f2u(-129.0f));
+    test_logbf_impl(0b1'00000000'00000000000000000000001, f2u(-149.0f));
+
+    // special cases
+    test_logbf_impl(f2u(0.f), f2u(-INFINITY));
+    test_logbf_impl(f2u(-0.f), f2u(-INFINITY));
+    test_logbf_impl(f2u(INFINITY), f2u(INFINITY));
+    test_logbf_impl(f2u(-INFINITY), f2u(INFINITY));
+    test_logbf_impl(f2u(NAN), f2u(NAN));
+}
+
 static void test_ldexpf_impl(unsigned value, int exp, unsigned expected) {
     //printf("-------------\nfloat %.9g %#x exp %i\n",u2f(value),value,exp);
 
     #ifndef __onramp__
     if (expected != f2u(native_ldexpf(u2f(value), exp))) {
-        printf("invalid test: ldexp(%.9g %#x, %i) == %.9g %#x, not expected %.9g %#x\n",
+        printf("invalid test: ldexpf(%.9g %#x, %i) == %.9g %#x, not expected %.9g %#x\n",
                 u2f(value), value, exp,
                 native_ldexpf(u2f(value), exp), f2u(native_ldexpf(u2f(value), exp)),
                 u2f(expected), expected);
@@ -1641,7 +1708,7 @@ static void test_ldexpf_impl(unsigned value, int exp, unsigned expected) {
     #endif
 
     if (expected != onramp_ldexpf(value, exp)) {
-        printf("onramp ldexp(%.9g %#x, %i) == %.9g %#x, not expected %.9g %#x\n",
+        printf("onramp ldexpf(%.9g %#x, %i) == %.9g %#x, not expected %.9g %#x\n",
                 u2f(value), value, exp,
                 u2f(onramp_ldexpf(value, exp)), onramp_ldexpf(value, exp),
                 u2f(expected), expected);
@@ -1680,6 +1747,66 @@ static void test_ldexpf(void) {
     // inf, nan
     test_ldexpf_impl(0b1'11111111'00000000000000000000000, -3, 0b1'11111111'00000000000000000000000);
     test_ldexpf_impl(0b1'11111111'11111111111111111111111, -3, 0b1'11111111'11111111111111111111111);
+}
+
+static void test_frexpf_impl(float value, float expected_fraction, int expected_exponent) {
+    //printf("-------------\nfrexpf %.9g %#x expected fraction %.9g %#x exponent %i\n", value, f2u(value), expected_fraction, f2u(expected_fraction), expected_exponent);
+
+    int actual_exponent;
+    unsigned actual_fraction;
+
+    #ifndef __onramp__
+    actual_exponent = 777777;
+    actual_fraction = f2u(native_frexpf(value, &actual_exponent));
+    if (f2u(expected_fraction) != actual_fraction || (isfinite(value) && actual_exponent != expected_exponent)) {
+        printf("invalid frexpf() test: frexpf(%.9g %#x) returned fraction %.9g %#x exponent %i,"
+                " not expected fraction %.9g %#x exponent %i\n",
+                value, f2u(value),
+                u2f(actual_fraction), actual_fraction, actual_exponent,
+                expected_fraction, f2u(expected_fraction), expected_exponent);
+        exit(1);
+    }
+    #endif
+
+    actual_exponent = 777777;
+    actual_fraction = onramp_frexpf(f2u(value), &actual_exponent);
+    if (f2u(expected_fraction) != actual_fraction || actual_exponent != expected_exponent) {
+        printf("onramp frexpf() failed: frexpf(%.9g %#x) returned fraction %.9g %#x exponent %i,"
+                " not expected fraction %.9g %#x exponent %i\n",
+                value, f2u(value),
+                u2f(actual_fraction), actual_fraction, actual_exponent,
+                expected_fraction, f2u(expected_fraction), expected_exponent);
+        exit(1);
+    }
+}
+
+static void test_frexpf(void) {
+    test_frexpf_impl(1.0f, 0.5f, 1);
+    test_frexpf_impl(2.0f, 0.5f, 2);
+    test_frexpf_impl(4.0f, 0.5f, 3);
+    test_frexpf_impl(8.0f, 0.5f, 4);
+    test_frexpf_impl(16.0f, 0.5f, 5);
+
+    test_frexpf_impl(1.5f, 0.75f, 1);
+    test_frexpf_impl(3.0f, 0.75f, 2);
+    test_frexpf_impl(6.0f, 0.75f, 3);
+
+    // subnormals
+    test_frexpf_impl(
+            u2f(0b0'00000000'11111111111111111111111u),
+            u2f(0b0'01111110'11111111111111111111110u),
+            -126);
+    test_frexpf_impl(
+            u2f(0b0'00000000'00001000000101010100000u),
+            u2f(0b0'01111110'00000010101010000000000u),
+            -130);
+
+    // special cases
+    test_frexpf_impl(0.f, 0.f, 0);
+    test_frexpf_impl(-0.f, -0.f, 0);
+    test_frexpf_impl(INFINITY, INFINITY, 0);
+    test_frexpf_impl(-INFINITY, -INFINITY, 0);
+    test_frexpf_impl(NAN, NAN, 0);
 }
 
 // TODO for now we allow some rounding error. It is supposed to be exact
@@ -1917,8 +2044,10 @@ int main(void) {
     // parse
     test_strtof();
 
-    // misc
+    // util
+    test_logbf();
     test_ldexpf();
+    test_frexpf();
 
     // functions
     test_sqrtf();
