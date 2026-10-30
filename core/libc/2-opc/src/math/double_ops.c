@@ -47,7 +47,9 @@
     unsigned ldexpf(unsigned x, int exp);
 #endif
 #ifndef __onramp__
+    #include "float_funcs.c"
     #include "float_ops.c"
+    #include "float_util.c"
 #endif
 
 
