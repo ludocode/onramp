@@ -28,11 +28,16 @@ static uint32_t f2u(float f);
     #define sqrtf onramp_sqrtf
     #define log1pf onramp_log1pf
     #define logf onramp_logf
+    #define log2f onramp_log2f
+    #define log10f onramp_log10f
     #define expm1f onramp_expm1f
     #define expf onramp_expf
     #define exp2f onramp_exp2f
     #define logbf onramp_logbf
     #define frexpf onramp_frexpf
+    #define cbrtf onramp_cbrtf
+    #define hypotf onramp_hypotf
+    #define powf onramp_powf
 
     /* TODO the test harness can't run this against a native libc yet, but in
      * the meantime this test case can be compiled standalone with a native C
@@ -67,6 +72,10 @@ static uint32_t f2u(float f);
     #define native_log1pf log1pf
     #undef logf
     #define native_logf logf
+    #undef log2f
+    #define native_log2f log2f
+    #undef log10f
+    #define native_log10f log10f
     #undef expm1f
     #define native_expm1f expm1f
     #undef expf
@@ -77,7 +86,31 @@ static uint32_t f2u(float f);
     #define native_logbf logbf
     #undef frexpf
     #define native_frexpf frexpf
+    #undef cbrtf
+    #define native_cbrtf cbrtf
+    #undef hypotf
+    #define native_hypotf hypotf
+    #undef powf
+    #define native_powf powf
 #endif
+
+// TODO for now we allow some rounding error in square root. It is supposed to
+// be exact according to IEEE 754.
+#define SQRTF_THRESHOLD_BITS 1
+
+#define LOG1PF_THRESHOLD_BITS 2
+#define LOGF_THRESHOLD_BITS 2
+
+// Most numbers of "reasonable" size are accurate to within four bits. It gets
+// worse around very large numbers (>60 or so.)
+#define EXPM1F_THRESHOLD_BITS 7
+
+// We'll need a lot more precision here to make power functions good
+#define POWF_THRESHOLD_BITS 5
+#define CBTRF_THRESHOLD_BITS 1
+#define HYPOTF_THRESHOLD_BITS 1
+#define LOG2F_THRESHOLD_BITS 1
+#define LOG10F_THRESHOLD_BITS 1
 
             // TODO all of this is disabled on onramp until we get float parsing in
             #ifndef __onramp__
@@ -138,7 +171,8 @@ static bool test_value_close(unsigned actual, unsigned expected, unsigned bits) 
 
     // TODO handle infinity/overflow
     unsigned diff = 1u << (bits - 1);
-    //printf("%u %u %u %u %u\n", y, x, diff, x-diff, x+diff);
+    //printf("%s:%i %s()\n", __FILE__,__LINE__,__func__);
+    //printf("actual %u %#x expected %u %#x diff %u x-diff %u x+diff%u\n", actual, actual, expected, expected, diff, expected-diff, expected+diff);
     return (int64_t)expected >= (int64_t)actual - diff
         && (int64_t)expected <= (int64_t)actual + diff;
 }
@@ -1809,10 +1843,6 @@ static void test_frexpf(void) {
     test_frexpf_impl(NAN, NAN, 0);
 }
 
-// TODO for now we allow some rounding error. It is supposed to be exact
-// according to IEEE 754.
-#define SQRTF_THRESHOLD_BITS 1
-
 static void test_1arity_impl(float x, float expected, int threshold_bits, const char* name,
         float (*native_fn)(float), unsigned (*onramp_fn)(unsigned))
 {
@@ -1834,6 +1864,42 @@ static void test_1arity_impl(float x, float expected, int threshold_bits, const 
                 " expected %.9g (%#x), got %.9g (%#x)\n",
                 name, x, f2u(x), expected, f2u(expected),
                 u2f(onramp_result), onramp_result);
+        exit(1);
+    }
+}
+
+static void test_2arity_impl(float x, float y, float expected, int exceptions,
+        int threshold_bits, const char* name,
+        float (*native_fn)(float, float), unsigned (*onramp_fn)(unsigned, unsigned))
+{
+    #ifndef __onramp__
+    // compare to native float operation
+    float native_result = native_fn(x, y);
+    if (!isnanf(expected) && f2u(native_result) != f2u(expected)) {
+        fprintf(stderr, "Test invalid: native %s(%.9g %#x, %.9g %#x)"
+                " expected %.9g %#x, got %.9g %#x\n",
+                name, x, f2u(x), y, f2u(y),
+                expected, f2u(expected),
+                native_result, f2u(native_result));
+        exit(1);
+    }
+    #endif
+
+    feclearexcept(FE_ALL_EXCEPT);
+    unsigned onramp_result = onramp_fn(f2u(x), f2u(y));
+    //printf("%s:%i except %i\n", __FILE__,__LINE__,fetestexcept(FE_ALL_EXCEPT));
+    if (!test_value_close(onramp_result, f2u(expected), threshold_bits)) {
+        fprintf(stderr, "Test failed: onramp %s(%.9g %#x, %.9g %#x)"
+                " expected %.9g %#x, got %.9g %#x\n",
+                name, x, f2u(x), y, f2u(y),
+                expected, f2u(expected),
+                u2f(onramp_result), onramp_result);
+        exit(1);
+    }
+    if (exceptions != -1 && exceptions != fetestexcept(FE_ALL_EXCEPT)) {
+        printf("onramp %s(%.9g %#x, %.9g %#x) raised %#x, expected %#x\n",
+                name, x, f2u(x), y, f2u(y),
+                fetestexcept(FE_ALL_EXCEPT), exceptions);
         exit(1);
     }
 }
@@ -1895,10 +1961,6 @@ static void test_sqrtf_loop(void) {
     test_1arity_loop(SQRTF_THRESHOLD_BITS, "sqrtf", native_sqrtf, onramp_sqrtf);
 }
 
-// Most numbers of "reasonable" size are accurate to within four bits. It gets
-// worse around very large numbers (>60 or so.)
-#define EXPM1F_THRESHOLD_BITS 7
-
 static void test_expm1f_impl(float x, float expected) {
     test_1arity_impl(x, expected, EXPM1F_THRESHOLD_BITS, "expm1f", native_expm1f, onramp_expm1f);
 }
@@ -1931,8 +1993,6 @@ static void test_expm1f(void) {
 static void test_expm1f_loop(void) {
     test_1arity_loop(EXPM1F_THRESHOLD_BITS, "expm1f", native_expm1f, onramp_expm1f);
 }
-
-#define LOG1PF_THRESHOLD_BITS 2
 
 static void test_log1pf_impl(float x, float expected) {
     test_1arity_impl(x, expected, LOG1PF_THRESHOLD_BITS, "log1pf", native_log1pf, onramp_log1pf);
@@ -1971,8 +2031,6 @@ static void test_log1pf_loop(void) {
     test_1arity_loop(LOG1PF_THRESHOLD_BITS, "log1pf", native_log1pf, onramp_log1pf);
 }
 
-#define LOGF_THRESHOLD_BITS 2
-
 static void test_logf_impl(float x, float expected) {
     test_1arity_impl(x, expected, LOGF_THRESHOLD_BITS, "logf", native_logf, onramp_logf);
 }
@@ -1991,6 +2049,157 @@ static void test_logf(void) {
     test_logf_impl(-0.5f, NAN);
     test_logf_impl(-1.1f, NAN);
     test_logf_impl(-INFINITY, NAN);
+}
+
+static void test_powf_impl(float base, float exponent, float expected, int exceptions) {
+    test_2arity_impl(base, exponent, expected, exceptions,
+            POWF_THRESHOLD_BITS,
+            "powf", native_powf, onramp_powf);
+}
+
+static void test_powf(void) {
+    test_powf_impl(1.0f, 1.0f, 1.0f, 0);
+    test_powf_impl(-1.0f, 1.0f, -1.0f, 0);
+    test_powf_impl(0.0f, 0.0f, 1.0f, 0);
+
+    // integers exact
+    test_powf_impl(-2.0f, 2.0f, 4.0f, 0);
+    test_powf_impl(-2.0f, 3.0f, -8.0f, 0);
+    test_powf_impl(-2.0f, 4.0f, 16.0f, 0);
+    test_powf_impl(-3.0f, 2.0f, 9.0f, 0);
+    test_powf_impl(-3.0f, 3.0f, -27.0f, 0);
+    test_powf_impl(-3.0f, 4.0f, 81.0f, 0);
+
+    // misc
+    test_powf_impl(2.5f, 2.5f, 9.88211727f, 0);
+    test_powf_impl(2.5f, -2.5f, 0.101192884f, 0);
+    test_powf_impl(-2.5f, 2.5f, NAN, FE_INVALID);
+    test_powf_impl(-2.5f, -2.5f, NAN, FE_INVALID);
+
+    // the below cases implement cppreference's powf() error handling list
+
+    test_powf_impl(+0.f, -3.f, INFINITY, FE_DIVBYZERO);
+    test_powf_impl(-0.f, -3.f, -INFINITY, FE_DIVBYZERO);
+    test_powf_impl(+0.f, -4.f, INFINITY, FE_DIVBYZERO);
+    test_powf_impl(-0.f, -4.f, INFINITY, FE_DIVBYZERO);
+    test_powf_impl(+0.f, -3.5f, INFINITY, FE_DIVBYZERO);
+    test_powf_impl(-0.f, -3.5f, INFINITY, FE_DIVBYZERO);
+    test_powf_impl(+0.f, -INFINITY, INFINITY, 0); // not allowed to raise FE_DIVBYZERO in C23
+    test_powf_impl(-0.f, -INFINITY, INFINITY, 0); // same
+    test_powf_impl(+0.f, 3.f, 0.f, 0);
+    test_powf_impl(-0.f, 3.f, -0.f, 0);
+    test_powf_impl(+0.f, 4.f, 0.f, 0);
+    test_powf_impl(-0.f, 4.f, 0.f, 0);
+    test_powf_impl(+0.f, 4.5f, 0.f, 0);
+    test_powf_impl(-0.f, 4.5f, 0.f, 0);
+
+    test_powf_impl(-1.f, INFINITY, 1.f, 0);
+    test_powf_impl(-1.f, -INFINITY, 1.f, 0);
+    test_powf_impl(1.f, -NAN, 1.f, 0); // no exceptions, unsure whether it should signal
+    test_powf_impl(1.f, NAN, 1.f, 0); // same
+    test_powf_impl(1.f, 0.f, 1.f, 0);
+    test_powf_impl(1.f, -0.f, 1.f, 0);
+    test_powf_impl(1.f, INFINITY, 1.f, 0);
+    test_powf_impl(1.f, -INFINITY, 1.f, 0);
+    test_powf_impl(1.f, 3.f, 1.f, 0);
+    test_powf_impl(1.f, -3.f, 1.f, 0);
+    test_powf_impl(1.f, 4.f, 1.f, 0);
+    test_powf_impl(1.f, -4.f, 1.f, 0);
+    test_powf_impl(1.f, 3.5f, 1.f, 0);
+    test_powf_impl(1.f, -3.5f, 1.f, 0);
+    test_powf_impl(1.f, u2f(1), 1.f, 0);
+    test_powf_impl(1.f, -u2f(1), 1.f, 0);
+
+    test_powf_impl(NAN, 0.f, 1.f, 0); // no exceptions, unsure whether it should signal
+    test_powf_impl(-NAN, 0.f, 1.f, 0); // same
+    test_powf_impl(NAN, -0.f, 1.f, 0); // same
+    test_powf_impl(-NAN, -0.f, 1.f, 0); // same
+    test_powf_impl(0.f, 0.f, 1.f, 0);
+    test_powf_impl(0.f, -0.f, 1.f, 0);
+    test_powf_impl(-0.f, 0.f, 1.f, 0);
+    test_powf_impl(-0.f, -0.f, 1.f, 0);
+    test_powf_impl(INFINITY, 0.f, 1.f, 0);
+    test_powf_impl(INFINITY, -0.f, 1.f, 0);
+    test_powf_impl(-INFINITY, 0.f, 1.f, 0);
+    test_powf_impl(-INFINITY, -0.f, 1.f, 0);
+    test_powf_impl(u2f(1), -0.f, 1.f, 0);
+    test_powf_impl(-u2f(1), -0.f, 1.f, 0);
+    test_powf_impl(-1.0f, 3.5f, NAN, FE_INVALID);
+    test_powf_impl(-1.0f, -3.5f, NAN, FE_INVALID);
+    test_powf_impl(u2f(1), -INFINITY, INFINITY, 0);
+    test_powf_impl(0.5f, -INFINITY, INFINITY, 0);
+    test_powf_impl(0.9999f, -INFINITY, INFINITY, 0);
+    test_powf_impl(1.0001f, -INFINITY, 0.f, 0);
+    test_powf_impl(1.e30f, -INFINITY, 0.f, 0);
+    test_powf_impl(INFINITY, -INFINITY, 0.f, 0);
+    test_powf_impl(u2f(1), INFINITY, 0.f, 0);
+    test_powf_impl(0.5f, INFINITY, 0.f, 0);
+    test_powf_impl(0.9999f, INFINITY, 0.f, 0);
+    test_powf_impl(1.0001f, INFINITY, INFINITY, 0);
+    test_powf_impl(1.e30f, INFINITY, INFINITY, 0);
+    test_powf_impl(INFINITY, INFINITY, INFINITY, 0);
+
+    test_powf_impl(-INFINITY, -3.f, -0.f, 0);
+    test_powf_impl(-INFINITY, -4.f, 0.f, 0);
+    test_powf_impl(-INFINITY, -4.5f, 0.f, 0);
+    test_powf_impl(-INFINITY, 3.f, -INFINITY, 0);
+    test_powf_impl(-INFINITY, 4.f, INFINITY, 0);
+    test_powf_impl(-INFINITY, 4.5f, INFINITY, 0);
+    test_powf_impl(+INFINITY, -u2f(1), 0.f, 0);
+    test_powf_impl(+INFINITY, -1.0f, 0.f, 0);
+    test_powf_impl(+INFINITY, -INFINITY, 0.f, 0);
+    test_powf_impl(+INFINITY, u2f(1), INFINITY, 0);
+    test_powf_impl(+INFINITY, 1.0f, INFINITY, 0);
+    test_powf_impl(+INFINITY, INFINITY, INFINITY, 0);
+
+    test_powf_impl(NAN, NAN, NAN, 0);
+    test_powf_impl(NAN, 2.0f, NAN, 0);
+    test_powf_impl(2.0f, NAN, NAN, 0);
+}
+
+static void test_cbrtf_impl(float x, float expected) {
+    test_1arity_impl(x, expected, CBTRF_THRESHOLD_BITS, "cbrtf", native_cbrtf, onramp_cbrtf);
+}
+
+void test_cbrtf(void) {
+    test_cbrtf_impl(1.0f, 1.0f);
+    test_cbrtf_impl(0.0f, 0.0f);
+    test_cbrtf_impl(8.0f, 2.0f);
+    test_cbrtf_impl(27.0f, 3.0f);
+    // TODO lots more tests
+}
+
+static void test_hypotf_impl(float x, float y, float expected, int exceptions) {
+    test_2arity_impl(x, y, expected, exceptions,
+            HYPOTF_THRESHOLD_BITS,
+            "hypotf", native_hypotf, onramp_hypotf);
+}
+
+void test_hypotf(void) {
+    test_hypotf_impl(3.0f, 4.0f, 5.0f, 0);
+    // TODO lots more tests
+}
+
+static void test_log2f_impl(float x, float expected) {
+    test_1arity_impl(x, expected, LOG2F_THRESHOLD_BITS, "log2f", native_log2f, onramp_log2f);
+}
+
+void test_log2f(void) {
+    test_log2f_impl(1.0f, 0.0f);
+    test_log2f_impl(2.0f, 1.0f);
+    test_log2f_impl(4.0f, 2.0f);
+    // TODO lots more tests
+}
+
+static void test_log10f_impl(float x, float expected) {
+    test_1arity_impl(x, expected, LOG10F_THRESHOLD_BITS, "log10f", native_log10f, onramp_log10f);
+}
+
+void test_log10f(void) {
+    test_log10f_impl(1.0f, 0.0f);
+    test_log10f_impl(10.0f, 1.0f);
+    test_log10f_impl(100.0f, 2.0f);
+    // TODO lots more tests
 }
 
             #endif
@@ -2054,6 +2263,11 @@ int main(void) {
     test_expm1f();
     test_log1pf();
     test_logf();
+    test_powf();
+    test_cbrtf();
+    test_hypotf();
+    test_log2f();
+    test_log10f();
 
     (void)f2u;
 

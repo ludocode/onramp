@@ -221,7 +221,8 @@ static int logbf_impl(unsigned v) {
     }
 
     // Subnormal. Count the zeroes.
-    return (32 - FLOAT_SIGNIFICAND_BITS -(int)FLOAT_EXPONENT_BIAS) - stdc_leading_zeros_ui(vm);
+    return (int)FLOAT_BITS - (int)FLOAT_SIGNIFICAND_BITS
+            - (int)FLOAT_EXPONENT_BIAS - stdc_leading_zeros_ui(vm);
 }
 
 unsigned logbf(unsigned v) {
