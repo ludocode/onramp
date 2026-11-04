@@ -36,6 +36,8 @@
 #ifndef __ONRAMP_LIBC_FENV_H_INCLUDED
 #define __ONRAMP_LIBC_FENV_H_INCLUDED
 
+#include <__onramp/__fegetround.h>
+
 #define FE_DIVBYZERO    (1u << 0u)
 #define FE_INEXACT      (1u << 1u)
 #define FE_INVALID      (1u << 2u)
@@ -43,18 +45,13 @@
 #define FE_UNDERFLOW    (1u << 4u)
 #define FE_ALL_EXCEPT  ((1u << 5u) - 1u)
 
-#define __FE_ROUND_SHIFT 29u
-#define __FE_ROUND_MASK (~((1u << __FE_ROUND_SHIFT) - 1u))
-#define __FE_ROUND_MAX 3u
-
-#define FE_TONEAREST   (0u << __FE_ROUND_SHIFT)
-#define FE_DOWNWARD    (1u << __FE_ROUND_SHIFT)
+// values must match: https://en.cppreference.com/c/types/limits/FLT_ROUNDS
+#define FE_TOWARDZERO  (0u << __FE_ROUND_SHIFT)
+#define FE_TONEAREST   (1u << __FE_ROUND_SHIFT)
 #define FE_UPWARD      (2u << __FE_ROUND_SHIFT)
-#define FE_TOWARDZERO  (3u << __FE_ROUND_SHIFT)
+#define FE_DOWNWARD    (3u << __FE_ROUND_SHIFT)
 
 #define FE_DFL_ENV 0u
-
-extern unsigned __float_env;
 
 typedef unsigned fexcept_t;
 typedef unsigned fenv_t;
@@ -86,10 +83,6 @@ static inline int fesetexceptflag(const fexcept_t* flags, int exceptions) {
     __float_env &= ~((unsigned)exceptions & FE_ALL_EXCEPT);
     __float_env |= *flags & (unsigned)exceptions & FE_ALL_EXCEPT;
     return 0;
-}
-
-static inline int fegetround(void) {
-    return __float_env >> __FE_ROUND_SHIFT;
 }
 
 static inline int fesetround(int round) {

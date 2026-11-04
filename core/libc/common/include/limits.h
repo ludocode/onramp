@@ -29,6 +29,7 @@
     #error "__onramp/__predef.h must be force-included by the preprocessor before any libc headers."
 #endif
 
+#include <__onramp/__fegetround.h>
 #include <__onramp/__name_max.h>
 #include <features.h>
 
@@ -73,6 +74,9 @@
 #define MB_CUR_MAX 4
 
 #define BITINT_MAXWIDTH 64
+
+#define FLT_RADIX 2
+#define FLT_ROUNDS (fegetround())
 
 // TODO required by unistd.h
 //#ifdef __onramp_ftm_susv2

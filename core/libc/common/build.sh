@@ -39,6 +39,7 @@ echo Copying internal headers
 cp core/libc/common/include/__onramp/__arithmetic.h output/final/include/__onramp/__arithmetic.h
 cp core/libc/common/include/__onramp/__bool.h output/final/include/__onramp/__bool.h
 cp core/libc/common/include/__onramp/__fatal.h output/final/include/__onramp/__fatal.h
+cp core/libc/common/include/__onramp/__fegetround.h output/final/include/__onramp/__fegetround.h
 cp core/libc/common/include/__onramp/__math_float.h output/final/include/__onramp/__math_float.h
 cp core/libc/common/include/__onramp/__mode_t.h output/final/include/__onramp/__mode_t.h
 cp core/libc/common/include/__onramp/__name_max.h output/final/include/__onramp/__name_max.h
