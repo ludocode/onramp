@@ -34,6 +34,7 @@
 
 #ifndef ONRAMP_STANDALONE_TEST
 #include <__onramp/__arithmetic.h>
+#include <__onramp/__fatal.h>
 #include "internal.h"
 #endif
 
@@ -593,4 +594,90 @@ unsigned expf(unsigned x) {
 
 unsigned exp2f(unsigned x) {
     return expf(__float_mul(x, LOG_TWO));
+}
+
+unsigned sinf(unsigned v) {
+    (void)v;
+    __fatal("TODO sinf()");
+}
+
+unsigned cosf(unsigned v) {
+    (void)v;
+    __fatal("TODO cosf()");
+}
+
+unsigned tanf(unsigned v) {
+    (void)v;
+    __fatal("TODO tanf()");
+}
+
+unsigned asinf(unsigned v) {
+    (void)v;
+    __fatal("TODO asinf()");
+}
+
+unsigned acosf(unsigned v) {
+    (void)v;
+    __fatal("TODO acosf()");
+}
+
+unsigned atanf(unsigned v) {
+    (void)v;
+    __fatal("TODO atanf()");
+}
+
+unsigned atan2f(unsigned x, unsigned y) {
+    (void)x;
+    (void)y;
+    __fatal("TODO atan2f()");
+}
+
+unsigned sinhf(unsigned v) {
+    (void)v;
+    __fatal("TODO sinhf()");
+}
+
+unsigned coshf(unsigned v) {
+    (void)v;
+    __fatal("TODO coshf()");
+}
+
+unsigned tanhf(unsigned v) {
+    (void)v;
+    __fatal("TODO tanhf()");
+}
+
+unsigned asinhf(unsigned v) {
+    (void)v;
+    __fatal("TODO asinhf()");
+}
+
+unsigned acoshf(unsigned v) {
+    (void)v;
+    __fatal("TODO acoshf()");
+}
+
+unsigned atanhf(unsigned v) {
+    (void)v;
+    __fatal("TODO atanhf()");
+}
+
+unsigned erff(unsigned v) {
+    (void)v;
+    __fatal("TODO erff()");
+}
+
+unsigned erfcf(unsigned v) {
+    (void)v;
+    __fatal("TODO erfcf()");
+}
+
+unsigned tgammaf(unsigned v) {
+    (void)v;
+    __fatal("TODO tgammaf()");
+}
+
+unsigned lgammaf(unsigned v) {
+    (void)v;
+    __fatal("TODO lgammaf()");
 }

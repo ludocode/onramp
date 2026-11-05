@@ -32,6 +32,7 @@
 
 #ifndef ONRAMP_STANDALONE_TEST
 #include <__onramp/__arithmetic.h>
+#include <__onramp/__fatal.h>
 #include <stdbit.h>
 #endif
 
@@ -297,4 +298,132 @@ unsigned frexpf(unsigned v, int* e) {
         *e = 1 + logbf_impl(v);
     }
     return ldexpf(v, -*e);
+}
+
+unsigned fabsf(unsigned v) {
+    // TODO handle nan properly
+    return v & ~FLOAT_SIGN_BIT;
+}
+
+unsigned fmodf(unsigned dividend, unsigned divisor) {
+    (void)dividend;
+    (void)divisor;
+    __fatal("TODO fmodf()");
+}
+
+unsigned remainderf(unsigned dividend, unsigned divisor) {
+    (void)dividend;
+    (void)divisor;
+    __fatal("TODO fmodf()");
+}
+
+unsigned remquof(unsigned dividend, unsigned divisor,
+        unsigned* partial_quotient)
+{
+    (void)dividend;
+    (void)divisor;
+    (void)partial_quotient;
+    __fatal("TODO fmodf()");
+}
+
+unsigned fmaf(unsigned factor1, unsigned factor2, unsigned addend) {
+    // TODO should be done in full precision
+    return __float_add(__float_mul(factor1, factor2), addend);
+}
+
+unsigned fmaxf(unsigned x, unsigned y) {
+    // TODO handle nan
+    return ((int)x >= (int)y) ? x : y;
+}
+
+unsigned fminf(unsigned x, unsigned y) {
+    // TODO handle nan
+    return ((int)x <= (int)y) ? x : y;
+}
+
+unsigned fdimf(unsigned x, unsigned y) {
+    (void)x;
+    (void)y;
+    __fatal("TODO fdimf()");
+}
+
+unsigned nanf(const char* __repr) {
+    // TODO we should parse repr and stuff it in the low bits
+    (void)__repr;
+    return FLOAT_QUIET_NAN;
+}
+
+unsigned modff(unsigned v, unsigned* integer_part) {
+    (void)v;
+    (void)integer_part;
+    __fatal("TODO modff()");
+}
+
+int ilogbf(unsigned v) {
+    (void)v;
+    __fatal("TODO ilogbf()");
+}
+
+unsigned nextafterf(unsigned from, unsigned to) {
+    (void)from;
+    (void)to;
+    __fatal("TODO nextafterf()");
+}
+
+unsigned nexttowardf(unsigned from, unsigned to) {
+    (void)from;
+    (void)to;
+    __fatal("TODO nexttowardf()");
+}
+
+unsigned ceilf(unsigned v) {
+    (void)v;
+    __fatal("TODO ceilf()");
+}
+
+unsigned floorf(unsigned v) {
+    (void)v;
+    __fatal("TODO floorf()");
+}
+
+unsigned truncf(unsigned v) {
+    (void)v;
+    __fatal("TODO truncf()");
+}
+
+unsigned roundf(unsigned v) {
+    (void)v;
+    __fatal("TODO roundf()");
+}
+
+long lroundf(unsigned v) {
+    (void)v;
+    __fatal("TODO lroundf()");
+}
+
+void llroundf(unsigned* ll_out, unsigned v) {
+    (void)ll_out;
+    (void)v;
+    __fatal("TODO llroundf()");
+}
+
+unsigned nearbyintf(unsigned v) {
+    (void)v;
+    __fatal("TODO nearbyintf()");
+}
+
+unsigned rintf(unsigned v) {
+    (void)v;
+    __fatal("TODO rintf()");
+}
+
+long lrintf(unsigned v) {
+    (void)v;
+    __fatal("TODO lrintf()");
+}
+
+void llrintf(unsigned* ll_out, unsigned v) {
+    (void)ll_out;
+    (void)v;
+    __fatal("TODO llrintf()");
 }
