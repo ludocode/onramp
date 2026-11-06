@@ -165,7 +165,3 @@ _Bool __double_lte(const unsigned* l, const unsigned* r) {
 void strtod(unsigned* out, const char* restrict str, char** /*nullable*/ restrict out_end) {
     __double_from_float(out, strtof(str, out_end));
 }
-
-void ldexp(unsigned* out, unsigned x, int exp) {
-    __double_from_float(out, ldexpf(x, exp));
-}

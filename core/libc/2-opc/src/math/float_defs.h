@@ -92,4 +92,67 @@ uint32_t float_round_grs(uint32_t tf);
     #define stdc_leading_zeros_ull_p(x) stdc_leading_zeros_ull(*(long long*)x)
 #endif
 
+/*
+ * funcs
+ */
+unsigned sqrtf(unsigned v);
+unsigned cbrtf(unsigned v);
+unsigned hypotf(unsigned x, unsigned y);
+unsigned powf(unsigned base, unsigned exponent);
+unsigned logf(unsigned v);
+unsigned log1pf(unsigned v);
+unsigned log2f(unsigned v);
+unsigned log10f(unsigned v);
+unsigned expf(unsigned v);
+unsigned expm1f(unsigned v);
+unsigned exp2f(unsigned v);
+unsigned sinf(unsigned v);
+unsigned cosf(unsigned v);
+unsigned tanf(unsigned v);
+unsigned asinf(unsigned v);
+unsigned acosf(unsigned v);
+unsigned atanf(unsigned v);
+unsigned atan2f(unsigned x, unsigned y);
+unsigned sinhf(unsigned v);
+unsigned coshf(unsigned v);
+unsigned tanhf(unsigned v);
+unsigned asinhf(unsigned v);
+unsigned acoshf(unsigned v);
+unsigned atanhf(unsigned v);
+unsigned erff(unsigned v);
+unsigned erfcf(unsigned v);
+unsigned tgammaf(unsigned v);
+unsigned lgammaf(unsigned v);
+
+/*
+ * util
+ */
+unsigned ldexpf(unsigned v, int exp);
+unsigned logbf(unsigned v);
+unsigned frexpf(unsigned v, int* exp);
+unsigned fabsf(unsigned v);
+unsigned fmodf(unsigned dividend, unsigned divisor);
+unsigned remainderf(unsigned dividend, unsigned divisor);
+unsigned remquof(unsigned dividend, unsigned divisor,
+        unsigned* partial_quotient);
+unsigned fmaf(unsigned factor1, unsigned factor2, unsigned addend);
+unsigned fmaxf(unsigned x, unsigned y);
+unsigned fminf(unsigned x, unsigned y);
+unsigned fdimf(unsigned x, unsigned y);
+unsigned nanf(const char* __repr);
+unsigned modff(unsigned v, unsigned* integer_part);
+int ilogbf(unsigned v);
+unsigned nextafterf(unsigned from, unsigned to);
+unsigned nexttowardf(unsigned from, unsigned to);
+unsigned ceilf(unsigned v);
+unsigned floorf(unsigned v);
+unsigned truncf(unsigned v);
+unsigned roundf(unsigned v);
+long lroundf(unsigned v);
+void llroundf(unsigned* ll_out, unsigned v);
+unsigned nearbyintf(unsigned v);
+unsigned rintf(unsigned v);
+long lrintf(unsigned v);
+void llrintf(unsigned* ll_out, unsigned v);
+
 #endif
