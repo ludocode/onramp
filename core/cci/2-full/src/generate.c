@@ -777,11 +777,10 @@ static void generate_cast_indirect_to_direct(node_t* node,
         // integer type.
         if (target_base == BASE_FLOAT) {
             // convert via function call
-            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
-            instruction_set_arg_sentinel(instruction, 0);
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 3);
+            instruction_set_arg_temporary(instruction, 0, reg_out);
             instruction_set_arg_absolute_cstr(instruction, 1, "__double_to_float");
-            instruction_set_arg_temporary(instruction, 2, reg_out);
-            instruction_set_arg_temporary(instruction, 3, temp_value);
+            instruction_set_arg_temporary(instruction, 2, temp_value);
         } else {
             assert(type_is_integer(target));
             bool target_signed = type_is_signed_integer(target);
@@ -793,12 +792,11 @@ static void generate_cast_indirect_to_direct(node_t* node,
             }
 
             // convert via function call
-            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
-            instruction_set_arg_sentinel(instruction, 0);
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 3);
+            instruction_set_arg_temporary(instruction, 0, reg_out);
             instruction_set_arg_absolute_cstr(instruction, 1,
                     target_signed ? "__double_to_i32" : "__double_to_u32");
-            instruction_set_arg_temporary(instruction, 2, reg_out);
-            instruction_set_arg_temporary(instruction, 3, temp_value);
+            instruction_set_arg_temporary(instruction, 2, temp_value);
 
             // TODO we should raise FE_OVERFLOW or FE_INVALID if it doesn't fit
             // in the target type. We may need 16, 8, and bool variants of
@@ -815,12 +813,11 @@ static void generate_cast_indirect_to_direct(node_t* node,
         if (target_base == BASE_FLOAT) {
             // convert via function call
             bool source_signed = type_is_signed_integer(source);
-            instruction_t* instruction = block_append(current_block, node->token, CALL, 4);
-            instruction_set_arg_sentinel(instruction, 0);
+            instruction_t* instruction = block_append(current_block, node->token, CALL, 3);
+            instruction_set_arg_temporary(instruction, 0, reg_out);
             instruction_set_arg_absolute_cstr(instruction, 1,
                     source_signed ? "__float_from_i64" : "__float_from_u64");
-            instruction_set_arg_temporary(instruction, 2, reg_out);
-            instruction_set_arg_temporary(instruction, 3, temp_value);
+            instruction_set_arg_temporary(instruction, 2, temp_value);
         } else {
             assert(type_is_integer(source));
             // Cast from llong to a register-size or smaller integer

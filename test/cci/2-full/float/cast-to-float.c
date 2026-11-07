@@ -3,6 +3,12 @@
 // This test case is part of the Onramp compiler project.
 
 int main(void) {
-    float x = 0.0f;
-    return x;
+    float f1 = 1;
+    if (f1 != 1) return 1;
+
+    float f2 = 2ll;
+    if (f2 != 2) return 2;
+
+    float f3 = 3llu;
+    if (f3 != 3) return 3;
 }
