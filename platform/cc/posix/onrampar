@@ -29,12 +29,23 @@
 # TODO our second stage ar tool is not ready yet so in the meantime we'll add
 # workarounds to this script.
 
-# our ar only supports "rc", not "cr" which is the same thing, so we swap them around
-if [ "$1" != "rc" -a "$1" != "cr" ]; then
-    echo "ERROR: Expected rc or cr"
-fi
+# our ar only supports "rc", not "cr" which is the same thing, so we swap them
+# around. we also ignore s, which may appear anywhere.
+# TODO improve parsing of this.
+case $1 in
+    rc) ;;
+    cr) ;;
+    rcs) ;;
+    crs) ;;
+    rsc) ;;
+    csr) ;;
+    src) ;;
+    scr) ;;
+    *)
+        echo "ERROR: onrampar only supports rc or rcs"
+        exit 1
+esac
 shift
-
 
 exec \
     "$(dirname "$0")"/onrampvm \
