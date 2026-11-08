@@ -77,7 +77,7 @@ static inline int sem_wait(sem_t* __sem) {
     return 0;
 }
 
-int sem_timedwait(sem_t* restrict __sem, const struct timespec* restrict __timespec) {
+static inline int sem_timedwait(sem_t* restrict __sem, const struct timespec* restrict __timespec) {
     if (__sem->__value == 0) {
         __fatal("sem_timedwait() was called on a semaphore with value 0. Onramp does not yet support threads.");
     }
