@@ -61,6 +61,7 @@ echo Copying standard headers
 cp core/libc/common/include/assert.h output/final/include/assert.h
 cp core/libc/common/include/ctype.h output/final/include/ctype.h
 cp core/libc/common/include/dirent.h output/final/include/dirent.h
+cp core/libc/common/include/dlfcn.h output/final/include/dlfcn.h
 cp core/libc/common/include/errno.h output/final/include/errno.h
 cp core/libc/common/include/fcntl.h output/final/include/fcntl.h
 cp core/libc/common/include/features.h output/final/include/features.h
