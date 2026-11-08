@@ -475,40 +475,77 @@ void cases_sort(node_t* switch_, node_t** cases, size_t count) {
     #endif
 }
 
-void generate_case_match(node_t* switch_, int reg_out, node_t* case_) {
+// Returns true if start and end of the case statement differ, i.e. it has a
+// non-trivial range. Ranges are a GNU extension.
+static bool generate_case_has_range(node_t* switch_, node_t* case_) {
+    type_t* type = switch_->first_child->type;
+    if (type_size(type) == 4) {
+        return case_->start32 != case_->end32;
+    } else if (type_size(type) == 8) {
+        return !llong_eq(&case_->start64, &case_->end64);
+    } else {
+        fatal("TODO generate_case_has_range() 128-bit");
+    }
+}
+
+void generate_case_match(node_t* switch_, int temp_value, node_t* case_) {
     type_t* type = switch_->first_child->type;
 
-    if (type_size(type) == 8) {
-        fatal("TODO compare llong case");
-    } else {
-        if (case_->start32 == case_->end32) {
-            int result = generate_temporary(NULL);
+    if (!generate_case_has_range(switch_, case_)) {
+        int result = generate_temporary(NULL);
 
-            instruction_t* instruction = block_append(current_block, case_->token, SUB, 3);
-            instruction_set_arg_temporary(instruction, 0, result);
-            instruction_set_arg_temporary(instruction, 1, reg_out);
-            instruction_set_arg_number(instruction, 2, case_->start32);
-
-            instruction = block_append_br(current_block, case_->token,
-                    next_label, case_->jump_label);
-            instruction_set_arg_temporary(instruction, 0, result);
-
-            current_block = block_new(next_label++);
-            function_add_block(current_function, current_block);
+        if (type_size(type) == 4) {
+            instruction_set_args_ttn(block_append(current_block, case_->token, SUB, 3),
+                    result, temp_value, case_->start32);
         } else {
-            fatal("TODO compare case range");
+            // load low word
+            int temp_low = generate_temporary(NULL);
+            instruction_set_args_tt(block_append(current_block, case_->token,
+                    LDW, 2), temp_low, temp_value);
+
+            // load high word
+            int temp_high_addr = generate_temporary(NULL);
+            instruction_set_args_ttn(block_append(current_block, case_->token,
+                    ADD, 3), temp_high_addr, temp_value, 4);
+            int temp_high = generate_temporary(NULL);
+            instruction_set_args_tt(block_append(current_block, case_->token,
+                    LDW, 2), temp_high, temp_high_addr);
+
+            // diff words
+            int temp_diff_low = generate_temporary(NULL);
+            instruction_set_args_ttn(block_append(current_block, case_->token,
+                    SUB, 3), temp_diff_low, temp_low, u64_low(&case_->start64));
+            int temp_diff_high = generate_temporary(NULL);
+            instruction_set_args_ttn(block_append(current_block, case_->token,
+                    SUB, 3), temp_diff_high, temp_high, u64_high(&case_->start64));
+
+            // bitwise 'or' differences together
+            instruction_set_args_ttt(block_append(current_block, case_->token,
+                    OR, 3), result, temp_diff_low, temp_diff_high);
+        }
+
+        instruction_t* instruction = block_append_br(current_block, case_->token,
+                next_label, case_->jump_label);
+        instruction_set_arg_temporary(instruction, 0, result);
+
+        current_block = block_new(next_label++);
+        function_add_block(current_function, current_block);
+    } else {
+        fatal("TODO compare case range");
+        if (type_size(type) != 4) {
+            fatal("TODO compare case range llong");
         }
     }
 }
 
-void generate_switch_linear_search(node_t* switch_, int reg_out, node_t** cases, size_t count) {
+void generate_switch_linear_search(node_t* switch_, int temp_value, node_t** cases, size_t count) {
     for (size_t i = 0; i < count; ++i) {
-        generate_case_match(switch_, reg_out, cases[i]);
+        generate_case_match(switch_, temp_value, cases[i]);
     }
 }
 
 /*
-void generate_switch_binary_search(node_t* switch_, int reg_out, node_t** cases, size_t start, size_t end) {
+void generate_switch_binary_search(node_t* switch_, int temp_value, node_t** cases, size_t start, size_t end) {
     if (start == end) {
         generate_case_match(switch_, cases[start]);
         return;
@@ -519,17 +556,18 @@ void generate_switch_binary_search(node_t* switch_, int reg_out, node_t** cases,
 }
 */
 
-void generate_switch(node_t* switch_, int reg_out) {
+void generate_switch(node_t* switch_, int reg_ignored) {
+    (void)reg_ignored; // TODO remove this
     assert(switch_->kind == NODE_SWITCH);
 
-    // generate the expression into reg_out
-    if (type_size(switch_->first_child->type) > 4) {
-        // switch has void type so we aren't given space to store our llong, we
-        // need to allocate it ourselves
-        fatal("TODO switch llong");
-    } else {
-        generate_node(switch_->first_child, reg_out);
+    type_t* type = switch_->first_child->type;
+    int temp_value = generate_temporary(NULL);
+    if (type_size(type) != 4) {
+        // The value doesn't fit in a register. We need to allocate stack space
+        // for it.
+        function_add_variable(current_function, temp_value, type, switch_->token);
     }
+    generate_node(switch_->first_child, temp_value);
 
     // count our case/default labels
     size_t count = 0;
@@ -574,10 +612,10 @@ void generate_switch(node_t* switch_, int reg_out) {
 
         // TODO if the cases are highly compressed we should make a jump table. Our
         // fallback is a binary search so for now we just use that all the time.
-        //generate_switch_binary_search(switch_, reg_out, cases, 0, count - 1);
+        //generate_switch_binary_search(switch_, temp_value, cases, 0, count - 1);
 
         // TODO for now not even doing the binary search, we'll just linear search
-        generate_switch_linear_search(switch_, reg_out, cases, count);
+        generate_switch_linear_search(switch_, temp_value, cases, count);
     }
 
     free(cases);
@@ -596,7 +634,7 @@ void generate_switch(node_t* switch_, int reg_out) {
     // Generate the contents of the switch. Note that this still happens even
     // if it has no case or default labels because it could contain a named
     // label reachable with `goto`.
-    generate_node(switch_->last_child, reg_out);
+    generate_node(switch_->last_child, -1);
 
     // Finally, jump to the exit block and open it. We're done.
     block_append_jmp(current_block, switch_->token, switch_->break_label);

@@ -81,6 +81,7 @@ static inline uint32_t u64_high(u64_t* u64) {
 void llong_clear(u64_t* llong);
 void llong_set(u64_t* llong, const u64_t* other);
 void llong_set_u(u64_t* llong, uint32_t other);
+void llong_set_i(u64_t* llong, int32_t other);
 void llong_add(u64_t* llong, const u64_t* other);
 void llong_add_u(u64_t* llong, unsigned other);
 void llong_sub(u64_t* llong, const u64_t* other);

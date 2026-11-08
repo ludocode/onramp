@@ -63,6 +63,17 @@ void llong_set_u(u64_t* llong, uint32_t other) {
     #endif
 }
 
+void llong_set_i(u64_t* llong, int32_t other) {
+    #ifdef ONRAMP_U64_NATIVE
+    llong->value = (int64_t)other;
+    #endif
+
+    #ifndef ONRAMP_U64_NATIVE
+    llong->words[0] = other;
+    llong->words[1] = ((uint32_t)other >> 31) ? 0xFFFFFFFF : 0;
+    #endif
+}
+
 void llong_add(u64_t* llong, const u64_t* other) {
     #ifdef ONRAMP_U64_NATIVE
     llong->value += other->value;

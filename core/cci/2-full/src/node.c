@@ -1030,7 +1030,11 @@ void node_eval_64(node_t* node, u64_t* out) {
                 }
 
                 uint32_t value = node_eval_32(child);
-                llong_set_u(out, value);
+                if (type_is_signed_integer(node->type)) {
+                    llong_set_i(out, (int32_t)value);
+                } else {
+                    llong_set_u(out, value);
+                }
                 return;
             }
 

@@ -266,11 +266,24 @@ static void parse_case(node_t* parent) {
     switch_list->next_case = node;
     switch_list = node;
 
-    // parse constant expression (cast to switch expression type)
+    // parse constant expression, cast to switch expression type
     type_t* type = switch_container->first_child->type;
     node_t* start = node_cast(parse_constant_expression(), type, NULL);
-    // TODO llong expr, for now assume 32-bit
-    node->start32 = node_eval_32(start);
+    if (type_size(type) == 4) {
+        // TODO there's a problem here which is that if a case statement has a
+        // 64-bit type but the switch expression is 32 bits, the case will be
+        // truncated to 32 bits so the truncated case value may match even if
+        // it differs in 64 bits. we need to decide what to do here, and also
+        // see what the standard says and what other compilers do. at the very
+        // least it should warn if it truncates a case; probably it should
+        // error. (another option is to make the case unreachable if it doesn't
+        // fit in 32 bits. I assume this is not valid either.)
+        node->start32 = node_eval_32(start);
+    } else if (type_size(type) == 8) {
+        node_eval_64(start, &node->start64);
+    } else {
+        fatal("TODO 128-bit case");
+    }
 
     // parse optional case range
     node_t* end = NULL;
@@ -278,9 +291,21 @@ static void parse_case(node_t* parent) {
         warn(warning_gnu_case_range, lexer_token, "Case ranges are a GNU extension.");
         lexer_consume();
         end = node_cast(parse_constant_expression(), type, NULL);
-        node->end32 = node_eval_32(end);
+        if (type_size(type) == 4) {
+            node->end32 = node_eval_32(end);
+        } else if (type_size(type) == 8) {
+            node_eval_64(end, &node->end64);
+        } else {
+            fatal("TODO 128-bit case range eval end");
+        }
     } else {
-        node->end32 = node->start32;
+        if (type_size(type) == 4) {
+            node->end32 = node->start32;
+        } else if (type_size(type) == 8) {
+            llong_set(&node->end64, &node->start64);
+        } else {
+            fatal("TODO 128-bit case range copy end");
+        }
     }
 
     // We attach the case expressions for debugging purposes (so the user can
