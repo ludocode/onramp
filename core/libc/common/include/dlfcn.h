@@ -35,7 +35,7 @@ static inline int dlclose(void*) {
 }
 
 static inline char* dlerror(void) {
-    return "Onramp does not support dynamic libraries,";
+    return "Onramp does not support dynamic libraries.";
 }
 
 static inline void* dlopen(const char*, int) {

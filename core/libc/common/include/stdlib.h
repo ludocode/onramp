@@ -65,15 +65,14 @@ int at_quick_exit(void (*func)(void));
 int atoi(const char* nptr);
 
 #ifndef __onramp_cci_omc__
-long int atol(const char* nptr);
-long int strtol(const char* restrict nptr, char** restrict endptr, int base);
-unsigned long int strtoul(const char* restrict nptr, char** restrict endptr, int base);
+long strtol(const char* restrict nptr, char** restrict endptr, int base);
+unsigned long strtoul(const char* restrict nptr, char** restrict endptr, int base);
 #endif
 
 #ifndef __onramp_cci_omc__
 #ifndef __onramp_cci_opc__
-
-long long int atoll(const char* nptr);
+long atol(const char* nptr) __asm__("atoi");
+long long atoll(const char* nptr);
 double atof(const char* nptr);
 
 #ifndef __ONRAMP_LIBC_FLOATING_IMPL
@@ -82,8 +81,8 @@ double strtod(const char* restrict nptr, char** restrict endptr);
 long double strtold(const char* restrict nptr, char** restrict endptr);
 #endif
 
-long long int strtoll(const char* restrict nptr, char** restrict endptr, int base);
-unsigned long long int strtoull(const char* restrict nptr, char** restrict endptr, int base);
+long long strtoll(const char* restrict nptr, char** restrict endptr, int base);
+unsigned long long strtoull(const char* restrict nptr, char** restrict endptr, int base);
 
 #endif
 #endif
@@ -136,8 +135,8 @@ long long llabs(long long x);
 #endif
 #endif
 //div_t div(int numer, int denom);
-//ldiv_t ldiv(long int numer, long int denom);
-//lldiv_t lldiv(long long int numer, long long int denom
+//ldiv_t ldiv(long numer, long denom);
+//lldiv_t lldiv(long long numer, long long denom);
 
 
 

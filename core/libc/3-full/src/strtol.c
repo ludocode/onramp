@@ -56,11 +56,11 @@ static bool parse_sign(const char* restrict* p) {
     return false;
 }
 
-static int parse_base(const char* restrict* p, int base) {
+static unsigned parse_base(const char* restrict* p, unsigned base) {
 
     // base check
-    if (base < 0 || base == 1 || base > 36) {
-        return -1;
+    if (base == 1 || base > 36) {
+        return UINT_MAX;
     }
 
     // skip leading hex 0x/0X
@@ -99,142 +99,199 @@ static int parse_base(const char* restrict* p, int base) {
     return base;
 }
 
-static int parse_digit(const char* p) {
+static unsigned parse_digit(const char* p) {
     unsigned char c = (unsigned char)*p;
     if (c >= '0' && c <= '9') {
         return c - '0';
     }
     if (c >= 'a' && c <= 'z') {
-        return c - 'a' + 10;
+        return c - 'a' + 10u;
     }
     if (c >= 'A' && c <= 'Z') {
-        return c - 'A' + 10;
+        return c - 'A' + 10u;
     }
-    return 99;
+    return 99u;
 }
 
-long long strtoll(const char* restrict p, char** restrict end, int base) {
+// Implementations of strtol() and strtoll() follow. They are identical except
+// for the types and ranges.
+
+static long strtol_impl(const char* restrict p, char** restrict end, int base_arg,
+        bool is_signed, bool set_errno)
+{
     bool negative = parse_sign(&p);
-    base = parse_base(&p, base);
-    if (base == -1) {
+    unsigned base = parse_base(&p, base_arg);
+    if (base == UINT_MAX) {
+        // no need to check set_errno, it's only false on base 10
         errno = EINVAL;
         return 0;
     }
 
     // accumulate digits
-    long long value = 0;
+    unsigned long value = 0;
     bool overflow = false;
-    while (1) {
-        int digit = parse_digit(p);
+    for (;;) {
+        unsigned digit = parse_digit(p);
         if (digit >= base) {
             break;
         }
-
-        // TODO we currently parse negative because omC didn't have unsigned
-        // when this was written. This should be converted to unsigned math.
-        long long new_value = ((value * base) - digit);
-        if (new_value > value) {
-            // on overflow we're supposed to continue parsing the whole number
+        unsigned long new_value = ((value * base) + digit);
+        if (new_value < value) {
             overflow = true;
+            // On overflow we're supposed to continue parsing the whole number
+            // to set the correct end pointer. This is only necessary if we
+            // actually have an end pointer to assign.
+            if (!end) {
+                break;
+            }
         }
         value = new_value;
-        p = (p + 1);
+        ++p;
     }
     if (end) {
         *end = (char*)p;
     }
 
-    // range and sign checks
-    if (negative) {
-        if (overflow) {
-            errno = ERANGE;
-            return LLONG_MIN;
-        }
-        return value;
-    }
+    // check for overflow of unsigned value
     if (overflow) {
-        errno = ERANGE;
-        return LLONG_MAX;
-    }
-    if (value == LLONG_MIN) {
-        // -LLONG_MIN is not representable.
-        errno = ERANGE;
-        return LLONG_MAX;
-    }
-    return -value;
-}
-
-// strtol() sets errno but atol() doesn't. We use this helper that can set it
-// optionally.
-static long strtol_impl(const char* restrict p, char** restrict end, int base, bool set_errno) {
-    bool negative = parse_sign(&p);
-    base = parse_base(&p, base);
-    if (base == -1) {
-        // no need to check set_errno, it's only clear on base 10
-        errno = EINVAL;
-        return 0;
-    }
-
-    // accumulate digits
-    long value = 0;
-    bool overflow = false;
-    while (1) {
-        int digit = parse_digit(p);
-        if (digit >= base) {
-            break;
+        if (set_errno) {
+            errno = ERANGE;
         }
-
-        // We accumulate the number negative so we can do a proper range check.
-        // (We don't have unsigned and if we accumulated positive we couldn't
-        // parse LONG_MIN.)
-        // TODO we currently parse negative because omC didn't have unsigned
-        // when this was written. This should be converted to unsigned math.
-        long new_value = ((value * base) - digit);
-        if (new_value > value) {
-            // on overflow we're supposed to continue parsing the whole number
-            overflow = true;
+        if (is_signed) {
+            if (negative) {
+                return LONG_MIN;
+            } else {
+                return LONG_MAX;
+            }
         }
-        value = new_value;
-        p = (p + 1);
-    }
-    if (end) {
-        *end = (char*)p;
+        return (long)ULONG_MAX;
     }
 
-    // range and sign checks
+    // for unsigned we don't have to do any more checks
+    if (!is_signed) {
+        return (long)(negative ? (-value) : value);
+    }
+
+    // for signed we have to check range of signed value
     if (negative) {
-        if (overflow) {
+        if (value > ((unsigned long)LONG_MAX + 1)) {
             if (set_errno) {
                 errno = ERANGE;
             }
             return LONG_MIN;
         }
-        return value;
+        return (long)(-value);
     }
+    if (value > ((unsigned long)LONG_MAX)) {
+        if (set_errno) {
+            errno = ERANGE;
+        }
+        return LONG_MAX;
+    }
+    return (long)value;
+}
+
+static long long strtoll_impl(const char* restrict p, char** restrict end, int base_arg,
+        bool is_signed, bool set_errno)
+{
+    bool negative = parse_sign(&p);
+    unsigned base = parse_base(&p, base_arg);
+    if (base == UINT_MAX) {
+        // no need to check set_errno, it's only false on base 10
+        errno = EINVAL;
+        return 0;
+    }
+
+    // accumulate digits
+    unsigned long long value = 0;
+    bool overflow = false;
+    for (;;) {
+        unsigned digit = parse_digit(p);
+        if (digit >= base) {
+            break;
+        }
+        // TODO since base is always small we could optimize this a lot by
+        // implementing a __llong_mul_u16() function. We'll probably want such
+        // a function for other purposes as well.
+        unsigned long long new_value = ((value * base) + digit);
+        if (new_value < value) {
+            overflow = true;
+            // On overflow we're supposed to continue parsing the whole number
+            // to set the correct end pointer. This is only necessary if we
+            // actually have an end pointer to assign.
+            if (!end) {
+                break;
+            }
+        }
+        value = new_value;
+        ++p;
+    }
+    if (end) {
+        *end = (char*)p;
+    }
+
+    // check for overflow of unsigned value
     if (overflow) {
         if (set_errno) {
             errno = ERANGE;
         }
-        return LONG_MAX;
+        if (is_signed) {
+            if (negative) {
+                return LLONG_MIN;
+            } else {
+                return LLONG_MAX;
+            }
+        }
+        return (long long)ULLONG_MAX;
     }
-    if (value == LONG_MIN) {
-        // -LONG_MIN is not representable.
+
+    // for unsigned we don't have to do any more checks
+    if (!is_signed) {
+        return (long long)(negative ? (-value) : value);
+    }
+
+    // for signed we have to check range of signed value
+    if (negative) {
+        if (value > ((unsigned long long)LLONG_MAX + 1)) {
+            if (set_errno) {
+                errno = ERANGE;
+            }
+            return LLONG_MIN;
+        }
+        return (long long)(-value);
+    }
+    if (value > ((unsigned long long)LLONG_MAX)) {
         if (set_errno) {
             errno = ERANGE;
         }
-        return LONG_MAX;
+        return LLONG_MAX;
     }
-    return -value;
+    return (long long)value;
+}
+
+// The below wrappers are the public functions. The strto*() functions set
+// errno but ato*() don't.
+
+long long strtoll(const char* restrict p, char** restrict end, int base) {
+    return strtoll_impl(p, end, base, true, true);
+}
+
+unsigned long long strtoull(const char* restrict p, char** restrict end, int base) {
+    return (unsigned long long)strtoll_impl(p, end, base, false, true);
+}
+
+long long atoll(const char* p) {
+    return strtoll_impl(p, NULL, 10, true, false);
 }
 
 long strtol(const char* restrict p, char** restrict end, int base) {
-    return strtol_impl(p, end, base, true);
+    return strtol_impl(p, end, base, true, true);
+}
+
+unsigned long strtoul(const char* restrict p, char** restrict end, int base) {
+    return strtol_impl(p, end, base, false, true);
 }
 
 int atoi(const char* p) {
-    return strtol_impl(p, NULL, 10, false);
-}
-
-long atol(const char* p) {
-    return strtol_impl(p, NULL, 10, false);
+    return strtol_impl(p, NULL, 10, true, false);
 }
