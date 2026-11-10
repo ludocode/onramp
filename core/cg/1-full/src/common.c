@@ -31,7 +31,7 @@
 FILE* input_file;
 FILE* output_file;
 
-int pass_id;
+unsigned current_pass_id;
 
 _Noreturn
 void fatal_loc(location_t* location, const char* message) {

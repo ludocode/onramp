@@ -123,7 +123,7 @@ test-cci0-opt: build $(CCI2) FORCE
 			--tests test/cci/0-omc \
 			--output output/test/cg-1-full/cci0 \
 			--cg output/test/cg-1-full/cg \
-			--cci output/test/cci-2-full/cci-ir --cci-id full )
+			--cci output/test/cci-2-full/cci --cci-id full )
 
 test-cci1-opt: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
@@ -131,7 +131,7 @@ test-cci1-opt: build $(CCI2) FORCE
 			--tests test/cci/1-opc \
 			--output output/test/cg-1-full/cci1 \
 			--cg output/test/cg-1-full/cg \
-			--cci output/test/cci-2-full/cci-ir --cci-id full )
+			--cci output/test/cci-2-full/cci --cci-id full )
 
 test-cci2-opt: build $(CCI2) FORCE
 	( cd ../../.. && test/cci/run.sh \
@@ -140,7 +140,7 @@ test-cci2-opt: build $(CCI2) FORCE
 			--nonstd \
 			--output output/test/cg-1-full/cci2 \
 			--cg output/test/cg-1-full/cg \
-			--cci output/test/cci-2-full/cci-ir --cci-id full )
+			--cci output/test/cci-2-full/cci --cci-id full )
 
 test: FORCE \
 	test-cci0 \

@@ -161,6 +161,8 @@ int main(int argc, char** argv) {
             fatal("TODO empty symbol");
         }
 
+        vector_reserve(blocks_to_visit, vector_count(symbol->blocks));
+
         // perform initial analysis and conversions
         analyze_block_parents(symbol);
         transform_parameters(symbol);
@@ -185,7 +187,7 @@ int main(int argc, char** argv) {
         symbol_delete(symbol);
 
         // reset state
-        pass_id = 0;
+        current_pass_id = 0;
         temporaries_clear();
         variables_clear();
         blocks_clear();

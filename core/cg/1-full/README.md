@@ -217,3 +217,15 @@ There's a bit of tricky register permutation necessary. For example if the first
 The quality of the resulting assembly isn't great but it works. We may need to rely on optimization of the final assembly (similar to cg/0) to clean up the results. For example, register renaming could move the computation of function arguments directly into registers r0-r3. This is not yet implemented.
 
 (An eventual optimization pass will tentatively assign temporaries to the registers they need to occupy in call instructions to reduce register moves. This is not yet implemented either.)
+
+
+
+## Walking the Block Graph
+
+Many of the transformation steps walk the block graph in order to affect only reachable blocks. As soon as a block is no longer reachable, we don't care about transforming it anymore.
+
+There are several ways that blocks can become unreachable, and unreachable blocks may still link to each other (for example in a loop.) Rather than trying to detect when blocks are no longer reachable, most transformation passes simply walk the block graph. This way they naturally only affect reachable blocks.
+
+Unfortunately, we can't use recursion for this. Some very large functions have thousands of blocks, but Onramp has only a 128 kB stack. So, we accumulate blocks yet to be visited in the `blocks_to_visit` vector.
+
+We mark blocks to ensure we visit each block only once. In order to avoid having to clear marks, instead of using a boolean flag, the mark is set to a number that changes on each pass. If a block's mark matches that of the current pass, the block has been marked.

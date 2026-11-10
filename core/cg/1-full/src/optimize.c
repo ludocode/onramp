@@ -42,53 +42,58 @@ int optimize;
  * the IR to pure SSA form so this wouldn't be necessary, but for now most
  * temporaries can still be reassigned.
  */
-static void optimize_scan_temporaries(symbol_t* symbol, block_t* block, int visited) {
-    assert(block);
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
+static void optimize_scan_temporaries(symbol_t* symbol) {
+    unsigned mark = ++current_pass_id;
 
-    // for each instruction
-    size_t instruction_count = vector_count(block->instructions);
-    for (size_t i = 0; i != instruction_count; ++i) {
-        instruction_t* instruction = vector_at(block->instructions, i);
-        if (instruction_mode(instruction) == argument_mode_read) {
-            continue;
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
+
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
+
+        // for each instruction
+        size_t instruction_count = vector_count(block->instructions);
+        for (size_t i = 0; i != instruction_count; ++i) {
+            instruction_t* instruction = vector_at(block->instructions, i);
+            if (instruction_mode(instruction) == argument_mode_read) {
+                continue;
+            }
+
+            // get the output temporary
+            argument_t* argument = instruction_argument(instruction, 0);
+            if (argument->type != argument_type_temporary) {
+                // the call instruction allows a sentinel output.
+                continue;
+            }
+            temporary_t* temporary = argument_temporary(argument);
+
+            if (!temporary->instruction) {
+                // this is the first output to this temporary
+                temporary->instruction = instruction;
+                temporary->is_ssa = true;
+            } else {
+                // this is an additional output to this temporary.
+                // (We don't store the source block; we only do during forward
+                // propagation so we don't use a non-SSA temporary before it is
+                // assigned.)
+                temporary->is_ssa = false;
+            }
         }
 
-        // get the output temporary
-        argument_t* argument = instruction_argument(instruction, 0);
-        if (argument->type != argument_type_temporary) {
-            // the call instruction allows a sentinel output.
-            continue;
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
         }
-        temporary_t* temporary = argument_temporary(argument);
-
-        if (!temporary->instruction) {
-            // this is the first output to this temporary
-            temporary->instruction = instruction;
-            temporary->is_ssa = true;
-        } else {
-            // this is an additional output to this temporary.
-            // (We don't store the source block; we only do during forward
-            // propagation so we don't use a non-SSA temporary before it is
-            // assigned.)
-            temporary->is_ssa = false;
-        }
-    }
-
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        optimize_scan_temporaries(symbol, block_find(label), visited);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        optimize_scan_temporaries(symbol, block_find(true_label), visited);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        optimize_scan_temporaries(symbol, block_find(false_label), visited);
-    }
+    } while (!vector_is_empty(blocks_to_visit));
 }
 
 /**
@@ -288,35 +293,40 @@ static void optimize_forward_instruction(symbol_t* symbol,
     }
 }
 
-static void optimize_forward_block(symbol_t* symbol, block_t* block, int visited) {
-    assert(block);
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
+static void optimize_forward_impl(symbol_t* symbol) {
+    unsigned mark = ++current_pass_id;
 
-    // Run forward propagation on each instruction
-    size_t count = vector_count(block->instructions);
-    for (size_t i = 0; i != count; ++i) {
-        instruction_t* instruction = vector_at(block->instructions, i);
-        optimize_forward_instruction(symbol, block, instruction);
-    }
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
 
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        optimize_forward_block(symbol, block_find(label), visited);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        optimize_forward_block(symbol, block_find(true_label), visited);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        optimize_forward_block(symbol, block_find(false_label), visited);
-    }
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
+
+        // Run forward propagation on each instruction
+        size_t count = vector_count(block->instructions);
+        for (size_t i = 0; i != count; ++i) {
+            instruction_t* instruction = vector_at(block->instructions, i);
+            optimize_forward_instruction(symbol, block, instruction);
+        }
+
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
+        }
+    } while (!vector_is_empty(blocks_to_visit));
 }
 
 void optimize_forward(symbol_t* symbol) {
-    optimize_scan_temporaries(symbol, vector_first(symbol->blocks), pass_id++);
+    optimize_scan_temporaries(symbol);
 
     // TODO optimizations in the forward pass:
     // - [x] constant propagation: replace any constant temporary inputs with their values
@@ -329,44 +339,49 @@ void optimize_forward(symbol_t* symbol) {
     // - [ ] br constant, replace with jmp, orphan other block recursively
     // - [ ] jmp, merge block if sole parent
 
-    optimize_forward_block(symbol, vector_first(symbol->blocks), pass_id++);
+    optimize_forward_impl(symbol);
 }
 
 /*
  * Scan all instructions in the given block, marking any input temporaries as used.
  */
-static void optimize_dead_store_scan(symbol_t* symbol, block_t* block, int visited) {
-    assert(block);
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
+static void optimize_dead_store_scan(symbol_t* symbol) {
+    unsigned mark = ++current_pass_id;
 
-    // Check each instruction for temporary inputs
-    size_t count = vector_count(block->instructions);
-    for (size_t i = 0; i != count; ++i) {
-        instruction_t* instruction = vector_at(block->instructions, i);
-        size_t j = (instruction_mode(instruction) == argument_mode_write) ? 1 : 0;
-        size_t count = vector_count(instruction->arguments);
-        for (; j < count; ++j) {
-            argument_t* argument = instruction_argument(instruction, j);
-            if (argument_is_temporary(argument)) {
-                argument_temporary(argument)->is_used = true;
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
+
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
+
+        // Check each instruction for temporary inputs
+        size_t count = vector_count(block->instructions);
+        for (size_t i = 0; i != count; ++i) {
+            instruction_t* instruction = vector_at(block->instructions, i);
+            size_t j = (instruction_mode(instruction) == argument_mode_write) ? 1 : 0;
+            size_t count = vector_count(instruction->arguments);
+            for (; j < count; ++j) {
+                argument_t* argument = instruction_argument(instruction, j);
+                if (argument_is_temporary(argument)) {
+                    argument_temporary(argument)->is_used = true;
+                }
             }
         }
-    }
 
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        optimize_dead_store_scan(symbol, block_find(label), visited);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        optimize_dead_store_scan(symbol, block_find(true_label), visited);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        optimize_dead_store_scan(symbol, block_find(false_label), visited);
-    }
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
+        }
+    } while (!vector_is_empty(blocks_to_visit));
 }
 
 /*
@@ -380,50 +395,55 @@ static void optimize_dead_store_scan(symbol_t* symbol, block_t* block, int visit
  * should iterate until nothing more is deleted. This is just a quick first
  * pass implementation.
  */
-static void optimize_dead_store_remove(symbol_t* symbol, block_t* block, int visited) {
-    assert(block);
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
+static void optimize_dead_store_remove(symbol_t* symbol) {
+    unsigned mark = ++current_pass_id;
 
-    // Check each instruction for a temporary output
-    size_t count = vector_count(block->instructions);
-    for (size_t i = 0; i != count; ++i) {
-        instruction_t* instruction = vector_at(block->instructions, i);
-        if (instruction_mode(instruction) == argument_mode_read) {
-            continue;
-        }
-        argument_t* argument = instruction_argument(instruction, 0);
-        if (!argument_is_temporary(argument)) {
-            continue;
-        }
-        if (!argument_temporary(argument)->is_used) {
-            // This is a dead store.
-            if (instruction->opcode == opcode_call) {
-                // TODO if this is a pure function we can delete the call. We'd
-                // have to pass the pure attribute into the IR.
-                argument_set_sentinel(argument);
-            } else {
-                instruction_set_nop(instruction);
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
+
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
+
+        // Check each instruction for a temporary output
+        size_t count = vector_count(block->instructions);
+        for (size_t i = 0; i != count; ++i) {
+            instruction_t* instruction = vector_at(block->instructions, i);
+            if (instruction_mode(instruction) == argument_mode_read) {
+                continue;
+            }
+            argument_t* argument = instruction_argument(instruction, 0);
+            if (!argument_is_temporary(argument)) {
+                continue;
+            }
+            if (!argument_temporary(argument)->is_used) {
+                // This is a dead store.
+                if (instruction->opcode == opcode_call) {
+                    // TODO if this is a pure function we can delete the call. We'd
+                    // have to pass the pure attribute into the IR.
+                    argument_set_sentinel(argument);
+                } else {
+                    instruction_set_nop(instruction);
+                }
             }
         }
-    }
 
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        optimize_dead_store_remove(symbol, block_find(label), visited);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        optimize_dead_store_remove(symbol, block_find(true_label), visited);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        optimize_dead_store_remove(symbol, block_find(false_label), visited);
-    }
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
+        }
+    } while (!vector_is_empty(blocks_to_visit));
 }
 
 void optimize_dead_store(symbol_t* symbol) {
-    optimize_dead_store_scan(symbol, vector_first(symbol->blocks), pass_id++);
-    optimize_dead_store_remove(symbol, vector_first(symbol->blocks), pass_id++);
+    optimize_dead_store_scan(symbol);
+    optimize_dead_store_remove(symbol);
 }

@@ -900,49 +900,53 @@ static size_t transform_call(block_t* block, instruction_t* instruction, size_t 
     return index + count - 1;
 }
 
-static void transform_registers_block(symbol_t* symbol, block_t* block, int visited) {
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
-
-    // The instruction count will change as we walk through the block.
-    for (size_t j = 0; j != vector_count(block->instructions); ++j) {
-        instruction_t* instruction = vector_at(block->instructions, j);
-
-        // Some instructions have to be handled specially.
-        switch (instruction->opcode) {
-            case opcode_call:
-                j = transform_call(block, instruction, j);
-                break;
-
-            case opcode_stw:
-            case opcode_sts:
-            case opcode_stb:
-                j = transform_registers_store(block, instruction, j);
-                break;
-
-            default:
-                j = transform_registers_normal(block, instruction, j);
-                break;
-        }
-    }
-
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        transform_registers_block(symbol, block_find(label), visited);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        transform_registers_block(symbol, block_find(true_label), visited);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        transform_registers_block(symbol, block_find(false_label), visited);
-    }
-}
-
 void transform_registers(symbol_t* symbol) {
+
     // Transform only reachable blocks. (Unreachable temporaries are not
     // considered by the register allocator.)
-    transform_registers_block(symbol, vector_first(symbol->blocks), pass_id++);
+
+    unsigned mark = ++current_pass_id;
+
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
+
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
+
+        // The instruction count will change as we walk through the block.
+        for (size_t j = 0; j != vector_count(block->instructions); ++j) {
+            instruction_t* instruction = vector_at(block->instructions, j);
+
+            // Some instructions have to be handled specially.
+            switch (instruction->opcode) {
+                case opcode_call:
+                    j = transform_call(block, instruction, j);
+                    break;
+
+                case opcode_stw:
+                case opcode_sts:
+                case opcode_stb:
+                    j = transform_registers_store(block, instruction, j);
+                    break;
+
+                default:
+                    j = transform_registers_normal(block, instruction, j);
+                    break;
+            }
+        }
+
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
+        }
+    } while (!vector_is_empty(blocks_to_visit));
 }

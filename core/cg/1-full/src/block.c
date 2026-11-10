@@ -24,6 +24,7 @@
 
 #include "block.h"
 
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -33,13 +34,14 @@
 #include "libo-vector.h"
 
 static table_t* block_table;
+vector_t* blocks_to_visit;
 
 block_t* block_new(const char* name, location_t* location) {
     block_t* block = calloc(1, sizeof(block_t));
     block->name = string_intern_cstr(name);
     block->location = location;
     block->instructions = vector_new();
-    block->visited = -1;
+    block->mark = UINT_MAX;
     block->parent_blocks = vector_new();
     block->live_temps = otable_new();
     table_put(block_table, &block->entry, string_hash(block->name));
@@ -60,9 +62,11 @@ void block_delete(block_t* block) {
 
 void blocks_setup(void) {
     block_table = table_new();
+    blocks_to_visit = vector_new();
 }
 
 void blocks_teardown(void) {
+    vector_delete(blocks_to_visit);
     blocks_clear();
     table_delete(block_table);
 }
@@ -90,4 +94,11 @@ block_t* block_find(const string_t* name) {
         }
     }
     fatal("Block not found");
+}
+
+void block_append_if_not_marked(vector_t* vector, block_t* block, unsigned mark) {
+    if (block->mark != mark) {
+        block->mark = mark;
+        vector_append(blocks_to_visit, block);
+    }
 }

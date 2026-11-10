@@ -34,6 +34,23 @@ struct otable_t;
 struct string_t;
 struct vector_t;
 
+/**
+ * A vector of blocks to be visited by the various analysis, optimization and
+ * transformation passes. During any of these passes, whenever a block is
+ * visited, its children are appended to this list.
+ *
+ * We keep the same vector and re-use it on each pass in order to avoid
+ * reallocating it.
+ */
+extern struct vector_t* blocks_to_visit;
+
+/**
+ * A basic block.
+ *
+ * A basic block contains a list of instructions. When first parsed, the last
+ * instruction is always one of ret, jmp, or br; these link to zero, one or two
+ * child blocks respectively.
+ */
 typedef struct block_t {
     table_entry_t entry;
     struct location_t* location;
@@ -45,8 +62,9 @@ typedef struct block_t {
     // place into assembly.
     struct vector_t* instructions;
 
-    // A marker to tell whether a transformation pass has visited this block.
-    int visited;
+    // A marker to tell whether a pass has handled this block. A block is
+    // marked if this value matches that of the current pass.
+    unsigned mark;
 
     // List of blocks that jump/branch to this one. See analyze_block_parents().
     struct vector_t* parent_blocks;
@@ -79,5 +97,11 @@ void blocks_clear(void);
  * Raises a fatal error if the block is not found.
  */
 struct block_t* block_find(const struct string_t* name);
+
+/**
+ * If the given block doesn't have the given mark, append it to the given
+ * vector and mark it.
+ */
+void block_append_if_not_marked(struct vector_t* vector, block_t* block, unsigned mark);
 
 #endif

@@ -76,9 +76,9 @@ void analyze_block_parents(symbol_t* symbol) {
 
 /**
  * Collects all blocks that end in a `ret` instruction into the given
- * ret_blocks vector, marking them visited.
+ * ret_blocks vector, marking them.
  */
-static void analyze_collect_ret_blocks(symbol_t* symbol, vector_t* ret_blocks, int visited) {
+static void analyze_collect_ret_blocks(symbol_t* symbol, vector_t* ret_blocks, unsigned mark) {
     size_t count = vector_count(symbol->blocks);
     for (size_t i = 0; i < count; ++i) {
         block_t* block = vector_at(symbol->blocks, i);
@@ -88,48 +88,51 @@ static void analyze_collect_ret_blocks(symbol_t* symbol, vector_t* ret_blocks, i
             printf("Found ret block %s\n", block->name->bytes);
             #endif
             vector_append(ret_blocks, block);
-            block->visited = visited;
+            block->mark = mark;
         }
     }
 }
 
 /**
- * A recursive depth-first search from the start block to find blocks reachable
- * from start but not reachable backwards from a `ret` instruction (i.e.
- * infinite loops.)
+ * A depth-first search from the start block to find blocks reachable from
+ * start but not reachable backwards from a `ret` instruction (i.e. infinite
+ * loops.)
  *
- * Any blocks found this way are inserted at the front of the vector so that
- * their order is reversed.
+ * Any blocks found this way are inserted at the initial end index of the
+ * vector so that their order is reversed.
  */
-static void analyze_liveness_block_order_forward(vector_t* blocks,
-        block_t* block, int visited)
+static void analyze_liveness_block_order_forward(vector_t* block_order,
+        block_t* start, unsigned mark)
 {
-    if (block->visited == visited) {
-        return;
-    }
+    size_t insert_index = vector_count(block_order);
 
-    block->visited = visited;
-    vector_insert(blocks, 0, block);
+    assert(vector_is_empty(blocks_to_visit));
+    block_append_if_not_marked(blocks_to_visit, start, mark);
 
-    instruction_t* last = vector_last(block->instructions);
-    switch (last->opcode) {
-        block_t* child;
+    while (!vector_is_empty(blocks_to_visit)) {
+        block_t* block = vector_remove_last(blocks_to_visit);
+        vector_insert(block_order, insert_index, block);
 
-        case opcode_br:
-            child = block_find(instruction_argument(last, 1)->string);
-            analyze_liveness_block_order_forward(blocks, child, visited);
+        instruction_t* last = vector_last(block->instructions);
+        switch (last->opcode) {
+            block_t* child;
 
-            child = block_find(instruction_argument(last, 2)->string);
-            analyze_liveness_block_order_forward(blocks, child, visited);
-            break;
+            case opcode_br:
+                child = block_find(instruction_argument(last, 1)->string);
+                block_append_if_not_marked(blocks_to_visit, child, mark);
 
-        case opcode_jmp:
-            child = block_find(instruction_argument(last, 0)->string);
-            analyze_liveness_block_order_forward(blocks, child, visited);
-            break;
+                child = block_find(instruction_argument(last, 2)->string);
+                block_append_if_not_marked(blocks_to_visit, child, mark);
+                break;
 
-        default:
-            break;
+            case opcode_jmp:
+                child = block_find(instruction_argument(last, 0)->string);
+                block_append_if_not_marked(blocks_to_visit, child, mark);
+                break;
+
+            default:
+                break;
+        }
     }
 }
 
@@ -144,42 +147,46 @@ static void analyze_liveness_block_order_forward(vector_t* blocks,
  * found.
  */
 static vector_t* analyze_liveness_block_order(symbol_t* symbol) {
-    int visited = pass_id++;
+    unsigned mark = ++current_pass_id;
 
-    vector_t* blocks = vector_new();
-    vector_reserve(blocks, vector_count(symbol->blocks));
+    vector_t* block_order = vector_new();
+    vector_reserve(block_order, vector_count(symbol->blocks));
 
     // Start with all `ret` blocks.
-    analyze_collect_ret_blocks(symbol, blocks, visited);
+    analyze_collect_ret_blocks(symbol, block_order, mark);
 
     // Now we step through the blocks array, appending any parent nodes that
-    // have not been visited yet. Note that the vector count here grows as we
+    // have not been marked yet. Note that the vector count here grows as we
     // walk through it.
-    for (size_t i = 0; i < vector_count(blocks); ++i) {
-        block_t* block = vector_at(blocks, i);
+    for (size_t i = 0; i < vector_count(block_order); ++i) {
+        block_t* block = vector_at(block_order, i);
         #ifdef LOG_REGISTER_ALLOCATOR
         printf("Block order visiting: %s\n", block->name->bytes);
         #endif
         for (size_t j = vector_count(block->parent_blocks); j-- != 0;) {
             block_t* parent = vector_at(block->parent_blocks, j);
-            if (parent->visited != visited) {
-                parent->visited = visited;
-                vector_append(blocks, parent);
+            if (parent->mark != mark) {
+                parent->mark = mark;
+                vector_append(block_order, parent);
             }
         }
     }
 
     // Now we walk forward from the start block to find any blocks that were
-    // missed. They get inserted in reverse order.
+    // missed. They get appended in reverse order.
     block_t* start = vector_first(symbol->blocks);
-    analyze_liveness_block_order_forward(blocks, start, visited);
+    analyze_liveness_block_order_forward(block_order, start, mark);
 
-    // The blocks array now contains all reachable blocks in a good order for
-    // iteration of liveness analysis.
-    return blocks;
+    // The block_order array now contains all reachable blocks in a good order
+    // for iteration of liveness analysis.
+    return block_order;
 }
 
-void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instruction) {
+/**
+ * Updates the given live_temps table with liveness changes made by this
+ * instruction.
+ */
+static void analyze_liveness_instruction(otable_t* live_temps, instruction_t* instruction) {
     //printf("  instruction %s\n", opcode_to_string(instruction->opcode));
     argument_mode_t mode = instruction_mode(instruction);
 
@@ -302,67 +309,60 @@ void analyze_liveness(symbol_t* symbol) {
  * We walk in depth-first order, following false blocks before true blocks in
  * branches.
  */
-static size_t analyze_number_instructions(block_t* block, size_t index, int visited) {
+static void analyze_number_instructions(symbol_t* symbol) {
+    unsigned mark = ++current_pass_id;
+    size_t index = 0;
 
-    // only scan blocks once
-    if (block->visited == visited) {
-        return index;
-    }
-    block->visited = visited;
-    //printf("analyze_number_instructions() visiting block %s\n", block->name->bytes);
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
 
-    // number all instructions in the block
-    size_t count = vector_count(block->instructions);
-    instruction_t* instruction;
-    for (size_t i = 0; i < count; ++i) {
-        instruction = vector_at(block->instructions, i);
-        instruction->index = index++;
-        //printf("analyze_number_instructions() numbering instruction %zu: %s\n",
-        //        instruction->index, opcode_to_string(instruction->opcode));
-    }
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
 
-    switch (instruction->opcode) {
-        block_t* child;
+        //printf("analyze_number_instructions() visiting block %s\n", block->name->bytes);
 
-        case opcode_ret:
-            //printf("ret no children\n");
-            // no child blocks
-            break;
+        // number all instructions in the block
+        size_t count = vector_count(block->instructions);
+        instruction_t* instruction;
+        for (size_t i = 0; i < count; ++i) {
+            instruction = vector_at(block->instructions, i);
+            instruction->index = ++index;
+            //printf("analyze_number_instructions() numbering instruction %zu: %s\n",
+            //        instruction->index, opcode_to_string(instruction->opcode));
+        }
 
-        case opcode_br:
-            //printf("br looking up false block %s\n", argument_label(instruction_argument(instruction, 2))->bytes);
-            child = block_find(argument_label(instruction_argument(instruction, 2)));
-            if (!child) {
-                fatal("Block not found");
-            }
-            vector_append(child->parent_blocks, block);
-            index = analyze_number_instructions(child, index, visited);
+        switch (instruction->opcode) {
+            block_t* child;
 
-            //printf("br looking up true block %s\n", argument_label(instruction_argument(instruction, 1))->bytes);
-            child = block_find(argument_label(instruction_argument(instruction, 1)));
-            if (!child) {
-                fatal("Block not found");
-            }
-            vector_append(child->parent_blocks, block);
-            index = analyze_number_instructions(child, index, visited);
-            break;
+            case opcode_ret:
+                //printf("ret no children\n");
+                // no child blocks
+                break;
 
-        case opcode_jmp:
-            //printf("jmp looking up dest block %s\n", argument_label(instruction_argument(instruction, 0))->bytes);
-            child = block_find(argument_label(instruction_argument(instruction, 0)));
-            if (!child) {
-                fatal("Block not found");
-            }
-            vector_append(child->parent_blocks, block);
-            index = analyze_number_instructions(child, index, visited);
-            break;
+            case opcode_br:
+                //printf("br looking up true block %s\n", argument_label(instruction_argument(instruction, 1))->bytes);
+                child = block_find(argument_label(instruction_argument(instruction, 1)));
+                block_append_if_not_marked(blocks_to_visit, child, mark);
 
-        default:
-            // this should have been checked during parsing
-            fatal("Internal error: invalid end of block");
-    }
+                //printf("br looking up false block %s\n", argument_label(instruction_argument(instruction, 2))->bytes);
+                child = block_find(argument_label(instruction_argument(instruction, 2)));
+                block_append_if_not_marked(blocks_to_visit, child, mark);
+                break;
 
-    return index;
+            case opcode_jmp:
+                //printf("jmp looking up dest block %s\n", argument_label(instruction_argument(instruction, 0))->bytes);
+                child = block_find(argument_label(instruction_argument(instruction, 0)));
+                block_append_if_not_marked(blocks_to_visit, child, mark);
+                break;
+
+            default:
+                // this should have been checked during parsing
+                fatal("Internal error: invalid end of block");
+        }
+
+    } while (!vector_is_empty(blocks_to_visit));
 }
 
 /**
@@ -396,113 +396,117 @@ static void analyze_expand_live_intervals(otable_t* live_temps, size_t index) {
     }
 }
 
-static void analyze_live_intervals(block_t* block, int visited) {
+static void analyze_live_intervals(symbol_t* symbol) {
+    unsigned mark = ++current_pass_id;
 
-    // Only visit each block once
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
 
-    // Start with the table of live temporaries at the end of this block
-    otable_t* live_temps = otable_new_copy(block->live_temps);
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
 
-    // Any live temporaries at the end of this block must have their live
-    // interval expanded to include it.
-    size_t end_index = ((instruction_t*)vector_last(block->instructions))->index;
-    #ifdef LOG_REGISTER_ALLOCATOR
-    printf("Visiting block: %s\n", block->name->bytes);
-    printf("Expanding live intervals at end %zu for temporaries:", end_index);
-    temporaries_print_table(live_temps);
-    putchar('\n');
-    #endif
-    analyze_expand_live_intervals(live_temps, end_index);
+        // Start with the table of live temporaries at the end of this block
+        otable_t* live_temps = otable_new_copy(block->live_temps);
 
-    // Walk backwards through the block. We're looking for instructions that
-    // make temporaries live or dead.
-    for (size_t i = vector_count(block->instructions); i-- != 0;) {
-        instruction_t* instruction = vector_at(block->instructions, i);
-        argument_mode_t mode = instruction_mode(instruction);
+        // Any live temporaries at the end of this block must have their live
+        // interval expanded to include it.
+        size_t end_index = ((instruction_t*)vector_last(block->instructions))->index;
+        #ifdef LOG_REGISTER_ALLOCATOR
+        printf("Visiting block: %s\n", block->name->bytes);
+        printf("Expanding live intervals at end %zu for temporaries:", end_index);
+        temporaries_print_table(live_temps);
+        putchar('\n');
+        #endif
+        analyze_expand_live_intervals(live_temps, end_index);
 
-        // Look for temporary outputs
-        if (mode != argument_mode_read) {
-            // The instruction writes to its first argument (which must exist.)
-            // If the temporary was live, it becomes dead.
-            argument_t* argument = instruction_argument(instruction, 0);
-            if (argument->type == argument_type_temporary) {
-                temporary_t* temporary = argument_temporary(argument);
-                otable_remove(live_temps, temporary, temporary_hash(temporary));
-                analyze_expand_interval(temporary, instruction->index);
-            }
-        }
+        // Walk backwards through the block. We're looking for instructions that
+        // make temporaries live or dead.
+        for (size_t i = vector_count(block->instructions); i-- != 0;) {
+            instruction_t* instruction = vector_at(block->instructions, i);
+            argument_mode_t mode = instruction_mode(instruction);
 
-        // Look for call instructions. All live temporaries must be preserved
-        // across the call so we make sure each one has stack space reserved.
-        if (instruction->opcode == opcode_call) {
-            for (void** entry = otable_begin(live_temps); entry;
-                    entry = otable_next(live_temps, entry))
-            {
-                temporary_t* temporary = *entry;
-                if (temporary->variable == NULL) {
-                    temporary->variable = variable_create(temporary->name, 4, 4);
-                    #ifdef LOG_REGISTER_ALLOCATOR
-                    printf("Creating variable $%zu to preserve live temporary %s across a function call\n",
-                            temporary->variable->id, temporary->name->bytes);
-                    #endif
+            // Look for temporary outputs
+            if (mode != argument_mode_read) {
+                // The instruction writes to its first argument (which must exist.)
+                // If the temporary was live, it becomes dead.
+                argument_t* argument = instruction_argument(instruction, 0);
+                if (argument->type == argument_type_temporary) {
+                    temporary_t* temporary = argument_temporary(argument);
+                    otable_remove(live_temps, temporary, temporary_hash(temporary));
+                    analyze_expand_interval(temporary, instruction->index);
                 }
             }
 
-            // Store the set of live temps in the instruction so we can
-            // preserve them.
-            assert(!instruction->live_temps);
-            instruction->live_temps = otable_new_copy(live_temps);
-        }
+            // Look for call instructions. All live temporaries must be preserved
+            // across the call so we make sure each one has stack space reserved.
+            if (instruction->opcode == opcode_call) {
+                for (void** entry = otable_begin(live_temps); entry;
+                        entry = otable_next(live_temps, entry))
+                {
+                    temporary_t* temporary = *entry;
+                    if (temporary->variable == NULL) {
+                        temporary->variable = variable_create(temporary->name, 4, 4);
+                        #ifdef LOG_REGISTER_ALLOCATOR
+                        printf("Creating variable $%zu to preserve live temporary %s across a function call\n",
+                                temporary->variable->id, temporary->name->bytes);
+                        #endif
+                    }
+                }
 
-        // Look for temporary inputs
-        size_t j = (mode == argument_mode_write) ? 1 : 0;
-        size_t count = vector_count(instruction->arguments);
-        for (; j < count; ++j) {
-            argument_t* argument = instruction_argument(instruction, j);
-            if (argument->type == argument_type_temporary) {
-                // The instruction is reading this temporary. It is live from
-                // the *previous* instruction.
-                //
-                // (If it is never read again, it becomes dead here after we
-                // read from it. We don't include this instruction because the
-                // output of this instruction may become live; this way it can
-                // use the same register.)
-                temporary_t* temporary = argument_temporary(argument);
-                otable_put(live_temps, temporary, temporary_hash(temporary));
-                assert(instruction->index != 0);
-                analyze_expand_interval(temporary, instruction->index - 1);
+                // Store the set of live temps in the instruction so we can
+                // preserve them.
+                assert(!instruction->live_temps);
+                instruction->live_temps = otable_new_copy(live_temps);
             }
+
+            // Look for temporary inputs
+            size_t j = (mode == argument_mode_write) ? 1 : 0;
+            size_t count = vector_count(instruction->arguments);
+            for (; j < count; ++j) {
+                argument_t* argument = instruction_argument(instruction, j);
+                if (argument->type == argument_type_temporary) {
+                    // The instruction is reading this temporary. It is live from
+                    // the *previous* instruction.
+                    //
+                    // (If it is never read again, it becomes dead here after we
+                    // read from it. We don't include this instruction because the
+                    // output of this instruction may become live; this way it can
+                    // use the same register.)
+                    temporary_t* temporary = argument_temporary(argument);
+                    otable_put(live_temps, temporary, temporary_hash(temporary));
+                    assert(instruction->index != 0);
+                    analyze_expand_interval(temporary, instruction->index - 1);
+                }
+            }
+
         }
 
-    }
+        // Any live temporaries at the start of this block must have their live
+        // interval expanded to include it.
+        size_t start_index = ((instruction_t*)vector_first(block->instructions))->index;
+        #ifdef LOG_REGISTER_ALLOCATOR
+        printf("Expanding live intervals at start %zu for temporaries:", start_index);
+        temporaries_print_table(live_temps);
+        putchar('\n');
+        #endif
+        analyze_expand_live_intervals(live_temps, start_index);
 
-    // Any live temporaries at the start of this block must have their live
-    // interval expanded to include it.
-    size_t start_index = ((instruction_t*)vector_first(block->instructions))->index;
-    #ifdef LOG_REGISTER_ALLOCATOR
-    printf("Expanding live intervals at start %zu for temporaries:", start_index);
-    temporaries_print_table(live_temps);
-    putchar('\n');
-    #endif
-    analyze_expand_live_intervals(live_temps, start_index);
+        otable_delete(live_temps);
 
-    otable_delete(live_temps);
-
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        analyze_live_intervals(block_find(label), visited);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        analyze_live_intervals(block_find(true_label), visited);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        analyze_live_intervals(block_find(false_label), visited);
-    }
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
+        }
+    } while (!vector_is_empty(blocks_to_visit));
 }
 
 /**
@@ -643,10 +647,10 @@ static void analyze_linear_scan(symbol_t* symbol) {
 void analyze_register_allocation(symbol_t* symbol) {
 
     // Assign a unique index to all instructions.
-    analyze_number_instructions(vector_first(symbol->blocks), 1, pass_id++);
+    analyze_number_instructions(symbol);
 
     // Convert the liveness data to live intervals.
-    analyze_live_intervals(vector_first(symbol->blocks), pass_id++);
+    analyze_live_intervals(symbol);
 
     // Perform linear scan
     analyze_linear_scan(symbol);
@@ -669,54 +673,57 @@ static void analyze_variable_assign(variable_t* variable, size_t* frame_size) {
     }
 }
 
-static void analyze_variable_offsets_block(block_t* block, int visited, size_t* frame_size) {
+void analyze_stack_frame(symbol_t* symbol) {
 
-    // Only visit each block once
-    if (block->visited == visited) {
-        return;
-    }
-    block->visited = visited;
+    // Walk through the reachable block graph to find used variables. Each live
+    // variable is assigned an offset. We want to avoid assigning stack space
+    // to variables that have been eliminated.
 
-    // For each instruction, look for variable inputs
-    for (size_t i = vector_count(block->instructions); i-- != 0;) {
-        instruction_t* instruction = vector_at(block->instructions, i);
+    unsigned mark = ++current_pass_id;
+    size_t frame_size = 0;
 
-        argument_mode_t mode = instruction_mode(instruction);
-        size_t j = (mode == argument_mode_write) ? 1 : 0;
-        size_t count = vector_count(instruction->arguments);
-        for (; j < count; ++j) {
-            argument_t* argument = instruction_argument(instruction, j);
+    block_t* start = vector_first(symbol->blocks);
+    assert(vector_is_empty(blocks_to_visit));
+    vector_append(blocks_to_visit, start);
+    start->mark = mark;
 
-            if (argument->type == argument_type_variable) {
-                analyze_variable_assign(argument_variable(argument), frame_size);
-            } else if (argument->type == argument_type_temporary) {
-                variable_t* variable = argument_temporary(argument)->variable;
-                if (variable) {
-                    analyze_variable_assign(variable, frame_size);
+    do {
+        block_t* block = vector_remove_last(blocks_to_visit);
+
+        // For each instruction, look for variable inputs
+        for (size_t i = vector_count(block->instructions); i-- != 0;) {
+            instruction_t* instruction = vector_at(block->instructions, i);
+
+            argument_mode_t mode = instruction_mode(instruction);
+            size_t j = (mode == argument_mode_write) ? 1 : 0;
+            size_t count = vector_count(instruction->arguments);
+            for (; j < count; ++j) {
+                argument_t* argument = instruction_argument(instruction, j);
+
+                if (argument->type == argument_type_variable) {
+                    analyze_variable_assign(argument_variable(argument), &frame_size);
+                } else if (argument->type == argument_type_temporary) {
+                    variable_t* variable = argument_temporary(argument)->variable;
+                    if (variable) {
+                        analyze_variable_assign(variable, &frame_size);
+                    }
                 }
             }
         }
-    }
 
-    // Continue to any blocks reachable from this one
-    instruction_t* last = vector_last(block->instructions);
-    if (last->opcode == opcode_jmp) {
-        string_t* label = argument_label(instruction_argument(last, 0));
-        analyze_variable_offsets_block(block_find(label), visited, frame_size);
-    } else if (last->opcode == opcode_br) {
-        string_t* true_label = argument_label(instruction_argument(last, 1));
-        analyze_variable_offsets_block(block_find(true_label), visited, frame_size);
-        string_t* false_label = argument_label(instruction_argument(last, 2));
-        analyze_variable_offsets_block(block_find(false_label), visited, frame_size);
-    }
-}
-
-void analyze_stack_frame(symbol_t* symbol) {
-    // Walk through each instruction to find used variables. We want to avoid
-    // assigning stack space to variables that have been eliminated.
-    analyze_variable_offsets_block(vector_first(symbol->blocks), pass_id++,
-            &symbol->frame_size);
+        // Continue to any blocks reachable from this one
+        instruction_t* last = vector_last(block->instructions);
+        if (last->opcode == opcode_jmp) {
+            string_t* label = argument_label(instruction_argument(last, 0));
+            block_append_if_not_marked(blocks_to_visit, block_find(label), mark);
+        } else if (last->opcode == opcode_br) {
+            string_t* true_label = argument_label(instruction_argument(last, 1));
+            block_append_if_not_marked(blocks_to_visit, block_find(true_label), mark);
+            string_t* false_label = argument_label(instruction_argument(last, 2));
+            block_append_if_not_marked(blocks_to_visit, block_find(false_label), mark);
+        }
+    } while (!vector_is_empty(blocks_to_visit));
 
     // Align the stack
-    symbol->frame_size = (symbol->frame_size + 3u) & ~(size_t)3u;
+    symbol->frame_size = (frame_size + 3u) & ~(size_t)3u;
 }

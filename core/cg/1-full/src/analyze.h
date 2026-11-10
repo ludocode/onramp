@@ -51,12 +51,6 @@ struct instruction_t;
 void analyze_block_parents(struct symbol_t* symbol);
 
 /**
- * Updates the given live_temps table with liveness changes made by this
- * instruction.
- */
-void analyze_liveness_instruction(struct otable_t* live_temps, struct instruction_t* instruction);
-
-/**
  * Perform a liveness analysis of temporaries.
  *
  * Once complete, each block's live_temps will contain a complete set of all

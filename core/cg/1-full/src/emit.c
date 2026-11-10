@@ -204,21 +204,21 @@ static void emit_instruction(instruction_t* instruction) {
     emit_char('\n');
 }
 
-static void emit_block_append(vector_t* blocks, block_t* child, int visited) {
-    if (child->visited != visited) {
-        child->visited = visited;
+static void emit_block_append(vector_t* blocks, block_t* child, unsigned mark) {
+    if (child->mark != mark) {
+        child->mark = mark;
         vector_append(blocks, child);
     }
 }
 
 /**
- * Emits the given block, appending any unvisited reachable blocks to the given
+ * Emits the given block, appending any unmarked reachable blocks to the given
  * array.
  *
  * (The register allocator runs only on reachable blocks. Unreachable blocks
  * haven't been transformed to assembly so we can't emit them.)
  */
-static void emit_block(symbol_t* symbol, block_t* block, vector_t* blocks, int visited) {
+static void emit_block(symbol_t* symbol, block_t* block, vector_t* blocks, unsigned mark) {
 
     emit_char('\n');
     emit_location(block->location);
@@ -236,12 +236,12 @@ static void emit_block(symbol_t* symbol, block_t* block, vector_t* blocks, int v
             case opcode_jmp:
                 emit_block_append(blocks,
                         block_find(argument_label(instruction_argument(instruction, 0))),
-                        visited);
+                        mark);
                 break;
             case opcode_jz:
                 emit_block_append(blocks,
                         block_find(argument_label(instruction_argument(instruction, 1))),
-                        visited);
+                        mark);
                 break;
             default:
                 break;
@@ -273,11 +273,11 @@ void emit_symbol(symbol_t* symbol) {
     // emit reachable blocks. the vector grows as we iterate.
     vector_t* blocks = vector_new();
     block_t* first = vector_first(symbol->blocks);
-    int visited = pass_id++;
-    first->visited = visited;
+    unsigned mark = ++current_pass_id;
+    first->mark = mark;
     vector_append(blocks, first);
     for (size_t i = 0; i < vector_count(blocks); ++i) {
-        emit_block(symbol, vector_at(blocks, i), blocks, visited);
+        emit_block(symbol, vector_at(blocks, i), blocks, mark);
     }
     vector_delete(blocks);
 
