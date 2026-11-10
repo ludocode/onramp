@@ -724,7 +724,9 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
         // TODO glibc supports a following (...) containing a decimal, 0 octal,
         // or 0x hexadecimal number representing the mantissa of the nan. if
         // necessary we could easily implement it.
-        *out_end = (char*)p + 3;
+        if (out_end) {
+            *out_end = (char*)p + 3;
+        }
         return FLOAT_QUIET_NAN;
     }
 
@@ -748,7 +750,9 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
         if (0 == strncasecmp((char*)p, "inity", 5)) {
             p += 5;
         }
-        *out_end = (char*)p;
+        if (out_end) {
+            *out_end = (char*)p;
+        }
         return FLOAT_INFINITY | (sign << FLOAT_SIGN_SHIFT);
     }
 
@@ -785,7 +789,9 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
     bigdec.buffer = malloc(bigdec.capacity);
     if (bigdec.buffer == 0) {
         errno = ENOMEM; // not a legal error code
-        *out_end = (char*)str;
+        if (out_end) {
+            *out_end = (char*)str;
+        }
         return 0;
     }
 
@@ -825,7 +831,9 @@ uint32_t strtof(const char* restrict str, char** /*nullable*/ restrict out_end) 
         }
     }
     bigdec.exponent = dec_exponent;
-    *out_end = (char*)end;
+    if (out_end) {
+        *out_end = (char*)end;
+    }
 
     __bigdec_trim_leading_zeroes(&bigdec);
     __bigdec_trim_trailing_zeroes(&bigdec);
