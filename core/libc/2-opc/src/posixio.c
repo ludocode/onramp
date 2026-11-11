@@ -681,6 +681,13 @@ ssize_t read(int fd, void* buffer, size_t count) {
         return -1;
     }
 
+    // The Onramp read syscall does not allow a read of zero bytes. If the
+    // given count is zero, we may diagnose the above errors (which we do), and
+    // we otherwise simply return zero.
+    if (count == 0) {
+        return 0;
+    }
+
     int result;
     for (;;) {
         result = __sys_read(fdn->handle, buffer, count);
@@ -763,6 +770,13 @@ ssize_t write(int fd, const void* buffer, size_t count) {
     if (fdn->is_dir || (fdn->flags & O_RDONLY)) {
         errno = EBADF; // this is not writeable
         return -1;
+    }
+
+    // The Onramp write syscall does not allow a write of zero bytes. If the
+    // given count is zero, we may diagnose the above errors (which we do), and
+    // we otherwise simply return zero.
+    if (count == 0) {
+        return 0;
     }
 
     int result;
