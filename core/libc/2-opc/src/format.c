@@ -64,8 +64,12 @@ typedef struct directive_t {
     // A pointer to the opening `[` for a charset conversion specifier.
     char* charset;
 
-    // If argument_positions is true, these indicate the argument position.
-    // Otherwise they indicate the literal value.
+    // If argument_positions is true and the matching _as_argument flag below
+    // is true, these indicate the argument position. Otherwise, if
+    // argument_positions is false, they indicate the literal value (or zero if
+    // not provided.) If argument_positions is true and the corresponding
+    // _as_argument flag is false, these fields are unused, and the value is
+    // taken from the next argument.
     int field_width;
     int precision;
 
@@ -467,6 +471,26 @@ static bool directive_parse(directive_t* directive, const char** s, const char* 
 
     // Conversion specifier
     return directive_parse_conversion_specifier(directive, s, end);
+}
+
+static int directive_resolve_field_width(directive_t* directive, va_list* args) {
+    if (!directive->field_width_as_argument) {
+        return directive->field_width;
+    }
+    if (directive->argument_positions) {
+        __fatal("TODO: printf() $ argument positions are not yet supported");
+    }
+    return va_arg(*args, int);
+}
+
+static int directive_resolve_precision(directive_t* directive, va_list* args) {
+    if (!directive->precision_as_argument) {
+        return directive->precision;
+    }
+    if (directive->argument_positions) {
+        __fatal("TODO: printf() $ argument positions are not yet supported");
+    }
+    return va_arg(*args, int);
 }
 
 /**
@@ -873,6 +897,47 @@ static void print_d(output_t* output, directive_t* directive, va_list* args) {
     print_number(output, directive, buffer, length, negative);
 }
 
+/**
+ * Print a %s.
+ */
+static void print_s(output_t* output, directive_t* directive, va_list* args) {
+
+    // TODO length modifier
+    if (directive->length_modifier != length_modifier_none) {
+        __fatal("printf() string length modifiers not yet implemented.");
+        output->error = true;
+        return;
+    }
+
+    // resolve field width and precision by argument
+    unsigned field_width = directive_resolve_field_width(directive, args);
+    unsigned precision = directive_resolve_precision(directive, args);
+
+    // get the arg
+    const char* str = va_arg(*args, const char*);
+
+    // calculate precision
+    size_t length = strlen(str);
+    if (precision != 0 && length > precision) {
+        length = precision;
+    }
+
+    // calculate field width padding
+    size_t padding = 0;
+    if (field_width != 0 && field_width > length) {
+        padding = field_width - length;
+    }
+
+    // print with padding
+    if (padding && !directive->left_adjusted) {
+        print_char_repeated(output, ' ', padding);
+    }
+    print_output(output, str, length);
+    if (padding && directive->left_adjusted) {
+        print_char_repeated(output, ' ', padding);
+    }
+}
+
 // Parses a digit. Returns -1 if the character is not a digit in the given
 // base.
 static int parse_digit(unsigned char c, unsigned base) {
@@ -1117,15 +1182,7 @@ static void print(const char* format, output_t* output, va_list args) {
 
             // string
             case 's': {
-                // TODO length modifier
-                if (directive.length_modifier != length_modifier_none) {
-                    __fatal("printf() string length modifiers not yet implemented.");
-                    output->error = true;
-                    return;
-                }
-                const char* str = va_arg(args, const char*);
-                size_t length = strlen(str);
-                print_output(output, str, length);
+                print_s(output, &directive, (va_list*)&args);
                 break;
             }
 
