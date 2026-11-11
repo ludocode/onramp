@@ -70,8 +70,12 @@ static void vm_print_stats(struct vm_t* vm);
 // TODO maybe a separate command-line option, don't run in debugger by default
 // but break into it if something goes wrong
 vm_ghost_noreturn
-static void panic(const char* e) {
-    fprintf(stderr, "VM PANIC: %s\n", e);
+static void panic(const char* e, ...) {
+    va_list args;
+    va_start(args, e);
+    fputs("VM PANIC: ", stderr);
+    vfprintf(stderr, e, args);
+    fputc('\n', stderr);
     print_callstack();
     //vm_ghost_debugbreak();
     exit(125);
@@ -340,10 +344,13 @@ static void vm_mark_page(vm_t* vm, uint32_t addr) {
 
 static void vm_store_u32(vm_t* vm, uint32_t addr, uint32_t value) {
     //printf("storeu32 addr 0x%X rpp 0x%X value 0x%X\n",addr,vm->registers[VM_RPP],value);
-    if (!vm_is_addr_valid(vm, addr))
-        panic("Invalid address");
-    if (!vm_is_addr_aligned(vm, addr))
-        panic("Address not aligned");
+    if (!vm_is_addr_valid(vm, addr)) {
+        panic("Invalid address for u32 store: %#x", addr);
+    }
+    if (!vm_is_addr_aligned(vm, addr)) {
+        panic("Address not aligned for u32 store: %#x", addr);
+    }
+
     //printf("%u %u\n",addr,value);
     vm_ghost_store_le_u32(vm->memory + (addr - vm->memory_base), value);
     vm_mark_page(vm, addr);
@@ -352,25 +359,28 @@ static void vm_store_u32(vm_t* vm, uint32_t addr, uint32_t value) {
 static uint32_t vm_load_u32(vm_t* vm, uint32_t addr) {
     //printf("loadu32 addr 0x%X rpp 0x%X ",addr,vm->registers[VM_RPP]);
     if (!vm_is_addr_valid(vm, addr)){
-        panic("Invalid address");
+        panic("Invalid address for u32 load: %#x", addr);
     }
-    if (!vm_is_addr_aligned(vm, addr))
-        panic("Address not aligned");
+    if (!vm_is_addr_aligned(vm, addr)) {
+        panic("Address not aligned for u32 load: %#x", addr);
+    }
     uint32_t ret = vm_ghost_load_le_u32(vm->memory + (addr - vm->memory_base));
     //printf("value 0x%X\n",ret);
     return ret;
 }
 
 static void vm_store_u8(vm_t* vm, uint32_t addr, uint8_t value) {
-    if (!vm_is_addr_valid(vm, addr))
-        panic("Invalid address");
+    if (!vm_is_addr_valid(vm, addr)) {
+        panic("Invalid address for u8 store: %#x", addr);
+    }
     vm->memory[addr - vm->memory_base] = value;
     vm_mark_page(vm, addr);
 }
 
 static uint8_t vm_load_u8(vm_t* vm, uint32_t addr) {
-    if (!vm_is_addr_valid(vm, addr))
-        panic("Invalid address");
+    if (!vm_is_addr_valid(vm, addr)) {
+        panic("Invalid address for u8 load: %#x", addr);
+    }
     return vm->memory[addr - vm->memory_base];
 }
 
