@@ -32,6 +32,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "instruction.h"
+
 struct node_t;
 struct type_t;
 struct token_t;
@@ -100,8 +102,7 @@ void generate_zero_scalar(struct token_t* token, struct type_t* type, int reg_ba
  * the address of storage for the value.
  */
 void generate_assign(struct node_t* node, int temp_out_opt);
-void generate_add_assign(struct node_t* node, int reg_out);
-void generate_sub_assign(struct node_t* node, int reg_out);
+void generate_add_sub_assign(struct node_t* node, int reg_out);
 void generate_mul_assign(struct node_t* node, int reg_out);
 void generate_div_assign(struct node_t* node, int reg_out);
 void generate_mod_assign(struct node_t* node, int reg_out);
@@ -121,10 +122,14 @@ void generate_post_dec(struct node_t* node, int reg_out);
  * array and an integer. The integer is multiplied by the size of the
  * pointed-to type.
  *
+ * The left operand must be in temp_left. The right operand will be generated
+ * from the last child of the given node. The result is placed in temp_out.
+ *
  * One child of the node must be a pointer or array and the other side must be
  * a (signed or unsigned) 32-bit integer.
  */
-void generate_indirection_add_sub(struct node_t* node, int reg_out);
+void generate_indirection_add_sub(struct node_t* node, int temp_out,
+        opcode_t opcode, int temp_left);
 
 void generate_unary_plus(struct node_t* node, int reg_out);
 void generate_unary_minus(struct node_t* node, int reg_out);
@@ -138,8 +143,10 @@ void generate_unary_minus(struct node_t* node, int reg_out);
  * return value.
  *
  * TODO this has 5 arguments, need to remove one. probably can remove both children; implied by parent except they are sometimes swapped
+ *
+ * TODO this is deprecated
  */
-void generate_arithmetic_function(struct node_t* parent,
+void generate_arithmetic_function_OLD(struct node_t* parent,
         struct node_t* first, struct node_t* /*nullable*/ second,
         int reg_out, const char* function_name);
 

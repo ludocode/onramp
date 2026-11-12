@@ -32,15 +32,7 @@
 #include "type.h"
 #include "token.h"
 
-/**
- * Generates an arithmetic or other binary calculation that must be done with a
- * libc function. This is used for long long, float and double.
- *
- * If the return value is 32 bits (i.e. float), it is placed in reg_out. If the
- * return value is 64 bits, reg_out must contain the address of storage for the
- * return value.
- */
-void generate_arithmetic_function(node_t* parent,
+void generate_arithmetic_function_OLD(node_t* parent,
         node_t* first, node_t* /*nullable*/ second,
         int reg_out, const char* function_name)
 {
@@ -94,37 +86,129 @@ void generate_arithmetic_function(node_t* parent,
     }
 }
 
+// In the below four functions, the parent node is implied from the right node.
+// (It is not passed explicitly because the argument count is limited to four to
+// maintain compatibility with cci/0.)
+
 /**
- * Generates a simple arithmetic calculation.
+ * Generates a two-argument arithmetic operation that is done in a single
+ * assembly instruction, where the left operand is already generated (typically
+ * for use in a compound assignment.).
+ *
+ * The left operand must be in temp_left. The right operand will be generated
+ * from the given node. The result is placed in temp_out.
  */
-static void generate_simple_arithmetic(node_t* node, int temp_out,
-        opcode_t opcode, const char* llong_func,
-        const char* float_func, const char* double_func)
+static void generate_arithmetic_assembly_compound(int temp_out,
+        opcode_t opcode, int temp_left, node_t* node_right)
 {
-    type_t* type = node->type;
+    // generate right
+    int temp_right = generate_temporary(NULL);
+    assert(!type_is_passed_indirectly(node_right->type));
+    generate_node(node_right, temp_right);
 
-    const char* function =
-            type_is_long_long(type)              ? llong_func :
-            type_matches_base(type, BASE_FLOAT)  ? float_func :
-            type_matches_base(type, BASE_DOUBLE) ? double_func :
-            NULL;
+    // get parent
+    node_t* parent = node_right->parent;
+    assert(!type_is_passed_indirectly(parent->type));
 
-    if (function) {
-        generate_arithmetic_function(node, node->first_child, node->last_child, temp_out, function);
-    } else {
-        assert(!type_is_passed_indirectly(node->last_child->type));
-
-        int temp_left = generate_temporary(NULL);
-        int temp_right = generate_temporary(NULL);
-        generate_node(node->first_child, temp_left);
-        generate_node(node->last_child, temp_right);
-
-        instruction_t* instruction = block_append(current_block, node->token, opcode, 3);
-        instruction_set_arg_temporary(instruction, 0, temp_out);
-        instruction_set_arg_temporary(instruction, 1, temp_left);
-        instruction_set_arg_temporary(instruction, 2, temp_right);
-    }
+    // generate arithmetic instruction
+    instruction_set_args_ttt(block_append(current_block, parent->token,
+            opcode, 3), temp_out, temp_left, temp_right);
 }
+
+/**
+ * Generates a two-argument arithmetic operation that is done in a single
+ * assembly instruction.
+ *
+ * The left and right operands are generated from the given nodes. The result
+ * is placed in temp_out.
+ */
+static void generate_arithmetic_assembly(int temp_out,
+        opcode_t opcode, node_t* node_left, node_t* node_right)
+{
+    // generate left
+    int temp_left = generate_temporary(NULL);
+    assert(!type_is_passed_indirectly(node_left->type));
+    generate_node(node_left, temp_left);
+
+    // forward to compound version
+    generate_arithmetic_assembly_compound(temp_out, opcode, temp_left, node_right);
+}
+
+/**
+ * Generates a two-argument arithmetic operation that is done with a libc
+ * function call, where the left operand is already generated (typically for
+ * use in a compound assignment.)
+ *
+ * The left operand must be in temp_left. The right operand will be generated
+ * from the given node. The result is placed in temp_out.
+ *
+ * If the left and out types are indirect, temp_left and temp_out must contain
+ * the addresses at which to load and store the values.
+ */
+static void generate_arithmetic_function_compound(int temp_out,
+        const char* function_name, int temp_left, node_t* node_right)
+{
+    // get parent
+    node_t* parent = node_right->parent;
+
+    // generate right
+    int temp_right = generate_temporary(NULL);
+    if (type_is_passed_indirectly(node_right->type)) {
+        function_add_variable(current_function, temp_right, node_right->type, node_right->token);
+    }
+    generate_node(node_right, temp_right);
+
+    // generate call instruction
+    bool return_indirect = type_is_passed_indirectly(parent->type);
+    instruction_t* instruction = block_append(current_block, parent->token, CALL,
+            return_indirect ? 5 : 4);
+
+    // add the (direct) return value
+    if (return_indirect) {
+        instruction_set_arg_sentinel(instruction, 0);
+    } else {
+        instruction_set_arg_temporary(instruction, 0, temp_out);
+    }
+
+    // add the function name
+    instruction_set_arg_absolute_cstr(instruction, 1, function_name);
+
+    // if the return value is indirect, add it now
+    size_t arg = 2;
+    if (return_indirect) {
+        instruction_set_arg_temporary(instruction, arg++, temp_out);
+    }
+
+    // add operands
+    instruction_set_arg_temporary(instruction, arg++, temp_left);
+    instruction_set_arg_temporary(instruction, arg++, temp_right);
+}
+
+/**
+ * Generates a two-argument arithmetic operation that is done with a libc
+ * function call.
+ *
+ * The left and right operands are generated from the given nodes. The result
+ * is placed in temp_out.
+ *
+ * If the out type is indirect, temp_out must contain the address at which to
+ * store the value.
+ */
+static void generate_arithmetic_function(int temp_out,
+        const char* function_name, node_t* node_left, node_t* node_right)
+{
+    // generate left
+    int temp_left = generate_temporary(NULL);
+    if (type_is_passed_indirectly(node_left->type)) {
+        function_add_variable(current_function, temp_left, node_left->type, node_left->token);
+    }
+    generate_node(node_left, temp_left);
+
+    // forward to compound version
+    generate_arithmetic_function_compound(temp_out, function_name, temp_left, node_right);
+}
+
+
 
 /**
  * Adds two values where one side is a pointer or array and the other is an
@@ -137,7 +221,7 @@ static void generate_simple_arithmetic(node_t* node, int temp_out,
  * location for compound assignment. If so, it's already been dereferenced into
  * the given register.)
  */
-static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_left) {
+void generate_indirection_add_sub(node_t* node, int temp_out, opcode_t op, int reg_left) {
     int reg_right = generate_temporary(NULL);
     assert(!type_is_passed_indirectly(node->last_child->type));
     generate_node(node->last_child, reg_right);
@@ -167,19 +251,8 @@ static void generate_pointer_add_sub_impl(node_t* node, opcode_t op, int reg_lef
     }
 
     // Perform the addition or subtraction
-    instruction_t* instruction = block_append(current_block, node->token, op, 3);
-    instruction_set_arg_temporary(instruction, 0, reg_left);
-    instruction_set_arg_temporary(instruction, 1, reg_left);
-    instruction_set_arg_temporary(instruction, 2, reg_right);
-}
-
-void generate_indirection_add_sub(node_t* node, int reg_out) {
-    generate_node(node->first_child, reg_out);
-
-    // This is used for NODE_ADD, NODE_SUB and NODE_ARRAY_SUBSCRIPT (which is
-    // also ADD.)
-    opcode_t op = node->kind == NODE_SUB ? SUB : ADD;
-    generate_pointer_add_sub_impl(node, op, reg_out);
+    instruction_set_args_ttt(block_append(current_block, node->token, op, 3),
+            temp_out, reg_left, reg_right);
 }
 
 static void generate_pointers_sub(node_t* node, int reg_left) {
@@ -210,66 +283,185 @@ static void generate_pointers_sub(node_t* node, int reg_left) {
     }
 }
 
+static void generate_add_non_indirection(node_t* node, int reg_out) {
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_add", left, right);
+    } else if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function(reg_out, "__float_add", left, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_add", left, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_add", left, right); // TODO __ldouble_add
+    } else {
+        generate_arithmetic_assembly(reg_out, ADD, left, right);
+    }
+}
+
 void generate_add(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
-        generate_indirection_add_sub(node, reg_out);
+
+        // generate left
+        int temp_left = generate_temporary(NULL);
+        assert(!type_is_passed_indirectly(node->first_child->type));
+        generate_node(node->first_child, temp_left);
+
+        // add right into out
+        generate_indirection_add_sub(node, reg_out, ADD, temp_left);
     } else {
-        generate_simple_arithmetic(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
+        generate_add_non_indirection(node, reg_out);
+    }
+}
+
+static void generate_sub_non_indirection(node_t* node, int reg_out) {
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_sub", left, right);
+    } else if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function(reg_out, "__float_sub", left, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_sub", left, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_sub", left, right); // TODO __ldouble_sub
+    } else {
+        generate_arithmetic_assembly(reg_out, SUB, left, right);
     }
 }
 
 void generate_sub(node_t* node, int reg_out) {
     if (type_is_indirection(node->type)) {
-        generate_indirection_add_sub(node, reg_out);
-    } else if (type_is_indirection(node->first_child->type)) {
-        generate_pointers_sub(node, reg_out);
-    } else {
-        generate_simple_arithmetic(node, reg_out, SUB, "__llong_sub", "__float_sub", "__double_sub");
+
+        // generate left
+        int temp_left = generate_temporary(NULL);
+        assert(!type_is_passed_indirectly(node->first_child->type));
+        generate_node(node->first_child, temp_left);
+
+        // subtract right into out
+        generate_indirection_add_sub(node, reg_out, SUB, temp_left);
+        return;
     }
+
+    if (type_is_indirection(node->first_child->type)) {
+        generate_pointers_sub(node, reg_out);
+        return;
+    }
+
+    generate_sub_non_indirection(node, reg_out);
 }
 
 void generate_mul(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, MUL, "__llong_mul", "__float_mul", "__double_mul");
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_mul", left, right);
+    } else if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function(reg_out, "__float_mul", left, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_mul", left, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_mul", left, right); // TODO __ldouble_mul
+    } else {
+        generate_arithmetic_assembly(reg_out, MUL, left, right);
+    }
 }
 
 void generate_div(node_t* node, int reg_out) {
-    if (type_is_signed_integer(node->type)) {
-        generate_simple_arithmetic(node, reg_out, DIVS, "__llong_divs", NULL, NULL);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+
+    if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function(reg_out, "__float_div", left, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_div", left, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function(reg_out, "__double_div", left, right); // TODO __ldouble_div
     } else {
-        generate_simple_arithmetic(node, reg_out, DIVU, "__llong_divu", "__float_div", "__double_div");
+        bool is_signed = type_is_signed_integer(node->type);
+        if (type_is_long_long(node->type)) {
+            generate_arithmetic_function(reg_out,
+                    is_signed ? "__llong_divs" : "__llong_divu",
+                    left, right);
+        } else  {
+            generate_arithmetic_assembly(reg_out,
+                    is_signed ? DIVS : DIVU,
+                    left, right);
+        }
     }
 }
 
 void generate_mod(node_t* node, int reg_out) {
-    if (type_is_signed_integer(node->type)) {
-        generate_simple_arithmetic(node, reg_out, MODS, "__llong_mods", NULL, NULL);
-    } else {
-        generate_simple_arithmetic(node, reg_out, MODU, "__llong_modu", "__float_mod", "__double_mod");
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+    bool is_signed = type_is_signed_integer(node->type);
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out,
+                is_signed ? "__llong_mods" : "__llong_modu",
+                left, right);
+    } else  {
+        generate_arithmetic_assembly(reg_out,
+                is_signed ? MODS : MODU,
+                left, right);
     }
 }
 
 void generate_shl(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, SHL, "__llong_shl", NULL, NULL);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_shl", left, right);
+    } else  {
+        generate_arithmetic_assembly(reg_out, SHL, left, right);
+    }
 }
 
 void generate_shr(node_t* node, int reg_out) {
-    if (type_is_signed_integer(node->type)) {
-        generate_simple_arithmetic(node, reg_out, SHRS, "__llong_shrs", NULL, NULL);
-    } else {
-        generate_simple_arithmetic(node, reg_out, SHRU, "__llong_shru", NULL, NULL);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+    bool is_signed = type_is_signed_integer(node->type);
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out,
+                is_signed ? "__llong_shrs" : "__llong_shru",
+                left, right);
+    } else  {
+        generate_arithmetic_assembly(reg_out,
+                is_signed ? SHRS : SHRU,
+                left, right);
     }
 }
 
 void generate_bit_or(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, OR, "__llong_or", NULL, NULL);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_or", left, right);
+    } else  {
+        generate_arithmetic_assembly(reg_out, OR, left, right);
+    }
 }
 
 void generate_bit_and(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, AND, "__llong_and", NULL, NULL);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_and", left, right);
+    } else  {
+        generate_arithmetic_assembly(reg_out, AND, left, right);
+    }
 }
 
 void generate_bit_xor(node_t* node, int reg_out) {
-    generate_simple_arithmetic(node, reg_out, XOR, "__llong_xor", NULL, NULL);
+    node_t* left = node->first_child;
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function(reg_out, "__llong_xor", left, right);
+    } else  {
+        generate_arithmetic_assembly(reg_out, XOR, left, right);
+    }
 }
 
 void generate_bit_not(node_t* node, int reg_out) {
@@ -475,13 +667,13 @@ static void generate_less_impl(node_t* node, node_t* left, node_t* right, int te
         #ifndef OLD_ASSEMBLY_BACKEND
         // TODO for now we just call the helper. We can translate the non-IR to
         // IR later.
-        generate_arithmetic_function(node, left, right, temp_out,
+        generate_arithmetic_function_OLD(node, left, right, temp_out,
                 type_is_signed_integer(type) ? "__llong_lts" : "__llong_ltu");
         #endif
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        generate_arithmetic_function(node, left, right, temp_out, "__float_lt");
+        generate_arithmetic_function_OLD(node, left, right, temp_out, "__float_lt");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, left, right, temp_out, "__double_lt");
+        generate_arithmetic_function_OLD(node, left, right, temp_out, "__double_lt");
     } else {
         int temp_left = generate_temporary(NULL);
         int temp_right = generate_temporary(NULL);
@@ -510,11 +702,11 @@ void generate_less_or_equal(node_t* node, int reg_out) {
     // for floats we need to call __float_lte() to get correct behaviour on NaN
     assert(type_equal(left->type, right->type));
     if (type_matches_base(left->type, BASE_FLOAT)) {
-        generate_arithmetic_function(node, left, right, reg_out, "__float_lte");
+        generate_arithmetic_function_OLD(node, left, right, reg_out, "__float_lte");
         return;
     }
     if (type_matches_base(left->type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, left, right, reg_out, "__double_lte");
+        generate_arithmetic_function_OLD(node, left, right, reg_out, "__double_lte");
         return;
     }
 
@@ -533,11 +725,11 @@ void generate_greater_or_equal(node_t* node, int reg_out) {
     // for floats we need to call __float_lte() to get correct behaviour on NaN
     assert(type_equal(left->type, right->type));
     if (type_matches_base(left->type, BASE_FLOAT)) {
-        generate_arithmetic_function(node, right, left, reg_out, "__float_lte");
+        generate_arithmetic_function_OLD(node, right, left, reg_out, "__float_lte");
         return;
     }
     if (type_matches_base(left->type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, right, left, reg_out, "__double_lte");
+        generate_arithmetic_function_OLD(node, right, left, reg_out, "__double_lte");
         return;
     }
 
@@ -619,9 +811,9 @@ static void generate_equality(node_t* node, int out) {
                 OR, 3), out, temp_diff_low, temp_diff_high);
 
     } else if (type_matches_base(type, BASE_FLOAT)) {
-        generate_arithmetic_function(node, node->first_child, node->last_child, out, "__float_ne");
+        generate_arithmetic_function_OLD(node, node->first_child, node->last_child, out, "__float_ne");
     } else if (type_matches_base(type, BASE_DOUBLE)) {
-        generate_arithmetic_function(node, node->first_child, node->last_child, out, "__double_ne");
+        generate_arithmetic_function_OLD(node, node->first_child, node->last_child, out, "__double_ne");
     } else {
         int left = generate_temporary(NULL);
         int right = generate_temporary(NULL);
@@ -984,97 +1176,306 @@ void generate_assign(node_t* node, int temp_out_opt) {
     generate_store(node->token, node->type, temp_out_opt, reg_loc);
 }
 
-void generate_add_sub_assign(node_t* node, int reg_val,
-        opcode_t opcode, const char* llong_func,
-        const char* float_func, const char* double_func)
-{
+void generate_add_sub_assign(node_t* node, int temp_out) {
+
     // generate the storage location
     int reg_loc = generate_temporary(NULL);
     generate_location(node->first_child, reg_loc);
 
-    // load it into the output register
-    generate_dereference_impl(node, reg_val, reg_loc, 0);
+    // load it
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(node, left_val, reg_loc, 0);
 
     // do the operation
+    bool add = node->kind == NODE_ADD_ASSIGN;
     if (type_is_indirection(node->type)) {
-        generate_pointer_add_sub_impl(node, opcode, reg_val);
-    } else {
-        generate_simple_arithmetic(node, reg_val, opcode, llong_func, float_func, double_func);
+        generate_indirection_add_sub(node, temp_out, add ? ADD : SUB, left_val);
+    } else if (add) {
+        generate_add_non_indirection(node, temp_out);
+    } else if (node->kind == NODE_SUB_ASSIGN) {
+        generate_sub_non_indirection(node, temp_out);
     }
 
     // store the result
-    generate_store(node->token, node->type, reg_val, reg_loc);
+    generate_store(node->token, node->type, temp_out, reg_loc);
 }
 
-// Generates a compound assignment other than add or sub.
-void generate_compound_assign(node_t* node, int reg_val,
-        opcode_t opcode, const char* llong_func,
-        const char* float_func, const char* double_func)
-{
-    // generate the storage location
-    int reg_loc = generate_temporary(NULL);
-    generate_location(node->first_child, reg_loc);
+void generate_mul_assign(struct node_t* node, int temp_out) {
 
-    // load it into the output register
-    generate_dereference_impl(node, reg_val, reg_loc, 0);
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
 
-    // do the operation
-    generate_simple_arithmetic(node, reg_val, opcode, llong_func, float_func, double_func);
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function_compound(temp_out, "__llong_mul", left_val, right);
+    } else if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function_compound(temp_out, "__float_mul", left_val, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function_compound(temp_out, "__double_mul", left_val, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function_compound(temp_out, "__double_mul", left_val, right); // TODO __ldouble_mul
+    } else {
+        generate_arithmetic_assembly_compound(temp_out, MUL, left_val, right);
+    }
 
     // store the result
-    generate_store(node->token, node->type, reg_val, reg_loc);
+    generate_store(node->token, node->type, temp_out, left_loc);
 }
 
-void generate_add_assign(node_t* node, int reg_out) {
-    generate_add_sub_assign(node, reg_out, ADD, "__llong_add", "__float_add", "__double_add");
-}
+void generate_div_assign(struct node_t* node, int temp_out) {
 
-void generate_sub_assign(struct node_t* node, int reg_out) {
-    generate_add_sub_assign(node, reg_out, SUB, "__llong_sub", "__float_sub", "__double_sub");
-}
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
 
-void generate_mul_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, MUL, "__llong_mul", "__float_mul", "__double_mul");
-}
-
-void generate_div_assign(struct node_t* node, int reg_out) {
-    if (type_is_signed_integer(node->type)) {
-        generate_compound_assign(node, reg_out, DIVS, "__llong_divs", NULL, NULL);
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
     } else {
-        generate_compound_assign(node, reg_out, DIVU, "__llong_divu", "__float_div", "__double_div");
+        left_val = generate_temporary(NULL);
     }
-}
+    generate_dereference_impl(left, left_val, left_loc, 0);
 
-void generate_mod_assign(struct node_t* node, int reg_out) {
-    if (type_is_signed_integer(node->type)) {
-        generate_compound_assign(node, reg_out, MODS, "__llong_mods", NULL, NULL);
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+
+    if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function_compound(temp_out, "__float_div", left_val, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function_compound(temp_out, "__double_div", left_val, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function_compound(temp_out, "__double_div", left_val, right); // TODO __ldouble_div
     } else {
-        generate_compound_assign(node, reg_out, MODU, "__llong_modu", "__float_mod", "__double_mod");
+        bool is_signed = type_is_signed_integer(node->type);
+        if (type_is_long_long(node->type)) {
+            generate_arithmetic_function_compound(temp_out,
+                    is_signed ? "__llong_divs" : "__llong_divu",
+                    left_val, right);
+        } else  {
+            generate_arithmetic_assembly_compound(temp_out,
+                    is_signed ? DIVS : DIVU,
+                    left_val, right);
+        }
     }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
 }
 
-void generate_and_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, AND, "__llong_and", NULL, NULL);
-}
+void generate_mod_assign(struct node_t* node, int temp_out) {
 
-void generate_or_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, OR, "__llong_or", NULL, NULL);
-}
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
 
-void generate_xor_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, XOR, "__llong_xor", NULL, NULL);
-}
-
-void generate_shl_assign(struct node_t* node, int reg_out) {
-    generate_compound_assign(node, reg_out, SHL, "__llong_shl", NULL, NULL);
-}
-
-void generate_shr_assign(struct node_t* node, int reg_out) {
-    if (type_is_signed_integer(node->type)) {
-        generate_compound_assign(node, reg_out, SHRS, "__llong_shrs", NULL, NULL);
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
     } else {
-        generate_compound_assign(node, reg_out, SHRU, "__llong_shru", NULL, NULL);
+        left_val = generate_temporary(NULL);
     }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+
+    if (type_matches_base(node->type, BASE_FLOAT)) {
+        generate_arithmetic_function_compound(temp_out, "__float_mod", left_val, right);
+    } else if (type_matches_base(node->type, BASE_DOUBLE)) {
+        generate_arithmetic_function_compound(temp_out, "__double_mod", left_val, right);
+    } else if (type_matches_base(node->type, BASE_LONG_DOUBLE)) {
+        generate_arithmetic_function_compound(temp_out, "__double_mod", left_val, right); // TODO __ldouble_mod
+    } else {
+        bool is_signed = type_is_signed_integer(node->type);
+        if (type_is_long_long(node->type)) {
+            generate_arithmetic_function_compound(temp_out,
+                    is_signed ? "__llong_mods" : "__llong_modu",
+                    left_val, right);
+        } else  {
+            generate_arithmetic_assembly_compound(temp_out,
+                    is_signed ? MODS : MODU,
+                    left_val, right);
+        }
+    }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
+}
+
+void generate_and_assign(struct node_t* node, int temp_out) {
+
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
+
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function_compound(temp_out, "__llong_and", left_val, right);
+    } else {
+        generate_arithmetic_assembly_compound(temp_out, AND, left_val, right);
+    }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
+}
+
+void generate_or_assign(struct node_t* node, int temp_out) {
+
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
+
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function_compound(temp_out, "__llong_or", left_val, right);
+    } else {
+        generate_arithmetic_assembly_compound(temp_out, OR, left_val, right);
+    }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
+}
+
+void generate_xor_assign(struct node_t* node, int temp_out) {
+
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
+
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function_compound(temp_out, "__llong_xor", left_val, right);
+    } else {
+        generate_arithmetic_assembly_compound(temp_out, XOR, left_val, right);
+    }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
+}
+
+void generate_shl_assign(struct node_t* node, int temp_out) {
+
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
+
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function_compound(temp_out, "__llong_shl", left_val, right);
+    } else {
+        generate_arithmetic_assembly_compound(temp_out, SHL, left_val, right);
+    }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
+}
+
+void generate_shr_assign(struct node_t* node, int temp_out) {
+
+    // generate left location
+    node_t* left = node->first_child;
+    int left_loc = generate_temporary(NULL);
+    generate_location(node->first_child, left_loc);
+
+    // load the value
+    int left_val;
+    if (type_is_passed_indirectly(node->first_child->type)) {
+        // use the output in-place
+        left_val = temp_out;
+    } else {
+        left_val = generate_temporary(NULL);
+    }
+    generate_dereference_impl(left, left_val, left_loc, 0);
+
+    // generate the arithmetic operation
+    node_t* right = node->last_child;
+
+    bool is_signed = type_is_signed_integer(node->type);
+    if (type_is_long_long(node->type)) {
+        generate_arithmetic_function_compound(temp_out,
+                is_signed ? "__llong_shrs" : "__llong_shru",
+                left_val, right);
+    } else  {
+        generate_arithmetic_assembly_compound(temp_out,
+                is_signed ? SHRS : SHRU,
+                left_val, right);
+    }
+
+    // store the result
+    generate_store(node->token, node->type, temp_out, left_loc);
 }
 
 static void generate_inc_dec(node_t* node, int reg_in, int reg_out, bool inc) {
@@ -1224,7 +1625,7 @@ void generate_unary_minus(node_t* node, int reg_out) {
     }
 
     if (func) {
-        generate_arithmetic_function(node, node->first_child, NULL, reg_out, func);
+        generate_arithmetic_function_OLD(node, node->first_child, NULL, reg_out, func);
     } else {
         generate_node(node->first_child, reg_out);
         instruction_t* instruction = block_append(current_block, node->token, SUB, 3);

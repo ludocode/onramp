@@ -981,18 +981,18 @@ static void generate_cast_direct_to_direct(node_t* node,
             generate_node(node->first_child, reg_out);
         } else if (type_is_signed_integer(source)) {
             // since this is a direct cast, it has to be 32-bit.
-            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_from_i32");
+            generate_arithmetic_function_OLD(node, node->first_child, NULL, reg_out, "__float_from_i32");
         } else {
-            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_from_u32");
+            generate_arithmetic_function_OLD(node, node->first_child, NULL, reg_out, "__float_from_u32");
         }
         return;
     }
 
     if (source_base == BASE_FLOAT) {
         if (type_is_signed_integer(target)) {
-            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_to_i32");
+            generate_arithmetic_function_OLD(node, node->first_child, NULL, reg_out, "__float_to_i32");
         } else {
-            generate_arithmetic_function(node, node->first_child, NULL, reg_out, "__float_to_u32");
+            generate_arithmetic_function_OLD(node, node->first_child, NULL, reg_out, "__float_to_u32");
         }
         return;
     }
@@ -1231,8 +1231,15 @@ static void generate_location_member_ptr(node_t* node, int reg_out) {
     instruction_set_arg_number(add, 2, node->member_offset);
 }
 
-static void generate_location_array_subscript(node_t* node, int reg_out) {
-    generate_indirection_add_sub(node, reg_out);
+static void generate_location_array_subscript(node_t* node, int temp_out) {
+
+    // generate left
+    int temp_left = generate_temporary(NULL);
+    assert(!type_is_passed_indirectly(node->first_child->type));
+    generate_node(node->first_child, temp_left);
+
+    // add right into out
+    generate_indirection_add_sub(node, temp_out, ADD, temp_left);
 }
 
 static void generate_sizeof(node_t* node, int reg_out) {
@@ -1486,8 +1493,8 @@ void generate_node(node_t* node, int reg_out_opt) {
 
         // assignment expressions
         case NODE_ASSIGN: generate_assign(node, reg_out); break;
-        case NODE_ADD_ASSIGN: generate_add_assign(node, reg_out); break;
-        case NODE_SUB_ASSIGN: generate_sub_assign(node, reg_out); break;
+        case NODE_ADD_ASSIGN: // fallthrough
+        case NODE_SUB_ASSIGN: generate_add_sub_assign(node, reg_out); break;
         case NODE_MUL_ASSIGN: generate_mul_assign(node, reg_out); break;
         case NODE_DIV_ASSIGN: generate_div_assign(node, reg_out); break;
         case NODE_MOD_ASSIGN: generate_mod_assign(node, reg_out); break;
