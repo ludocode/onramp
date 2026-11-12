@@ -10,8 +10,7 @@ typedef struct {
 } point_t;
 
 int main(void) {
-    point_t points[3];
-    memset(points, 0, sizeof(points));
+    point_t points[3] = {};
 
     point_t* point = &points[0];
 

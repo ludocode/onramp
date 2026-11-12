@@ -1090,11 +1090,8 @@ static void generate_initializer_list(node_t* list, type_t* type, int reg_base, 
     // Zero out the rest of the array
     if (type_is_array(type) && i < type->count) {
         int reg_loc = generate_temporary(NULL);
-        instruction_t* add = block_append(current_block, list->token, ADD, 3);
-        instruction_set_arg_temporary(add, 0, reg_loc);
-        instruction_set_arg_temporary(add, 1, reg_base);
-        instruction_set_arg_number(add, 2, base_offset + i * type_size(type->ref));
-
+        instruction_set_args_ttn(block_append(current_block, list->token, ADD, 3),
+                reg_loc, reg_base, base_offset + i * type_size(type->ref));
         generate_zero_array(list->token, type->ref, type->count - i, reg_loc);
 
     // Zero out the rest of the struct

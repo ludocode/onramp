@@ -884,12 +884,10 @@ void generate_zero_array(token_t* token, type_t* type, size_t count, int reg_loc
 
     // If the number of steps is small, unroll it.
     if (steps <= 8) {
-        for (size_t i = 0; i < count; i += step) {
+        for (size_t i = 0; i < total; i += step) {
             int temp = generate_temporary(NULL);
-            instruction_t* add = block_append(current_block, token, ADD, 3);
-            instruction_set_arg_temporary(add, 0, temp);
-            instruction_set_arg_temporary(add, 1, reg_loc);
-            instruction_set_arg_number(add, 2, i);
+            instruction_set_args_ttn(block_append(current_block, token, ADD, 3),
+                    temp, reg_loc, i);
 
             instruction_t* store = block_append(current_block, token, opcode, 2);
             instruction_set_arg_number(store, 0, 0);
