@@ -18,7 +18,7 @@ Starting in machine code, we implement...
 - ...a [partial C99 compiler][cci1] and [libc][libc2], in which we implement...
 - ...a C17 [compiler][cci2], [preprocessor][cpp2], [assembler][as2], [linker][ld2], [libc][libc3] and related tools.
 
-The resulting toolchain can (soon) bootstrap a native C compiler (e.g. TinyCC), which can bootstrap GCC, which can compile an entire system.
+The resulting toolchain can bootstrap a native C compiler (e.g. [TinyCC](ports/tinycc/)), which can bootstrap GCC, which can compile an entire system.
 
 Only the first two steps are platform-specific. The entire rest of the process operates on a platform-independent bytecode. Onramp bytecode is simple to implement, simple to hand-write, and simple to compile to, making the entire bootstrap process as simple and portable as possible.
 
@@ -40,9 +40,9 @@ Once you have a VM, Onramp bootstraps itself. Read the [full bootstrapping path]
 
 ## Under Construction!
 
-Onramp is not yet complete. [It can compile Doom][doom], but not much else at the moment. It is missing floating point support and most libc functionality.
+Onramp is not yet complete. It can compile some interesting programs like [TinyCC](ports/tinycc/) and [Doom][doom]. The libc is incomplete however, and patches are likely required to compile arbitrary programs.
 
-A near-term goal is to compile native compilers and tools: [TinyCC], [cproc]+[QBE], [chibicc]/[Kefir]+[binutils], etc. A medium-term goal is to be able to boot a computer directly into a freestanding Onramp VM in order to bootstrap a modern OS kernel from source.
+A near-term goal is to compile more native compilers and tools: [cproc]+[QBE], [chibicc]/[Kefir]+[binutils], etc. A medium-term goal is to be able to boot a computer directly into a freestanding Onramp VM in order to bootstrap a modern OS kernel from source.
 
 Onramp is an experiment in implementing C completely from scratch on a custom architecture, retaining all bootstrap stages in between. It is essentially three compilers, three preprocessors/assemblers/linkers, a multi-stage libc, a custom instruction set, several virtual machines, a debugger... It will take a long time to complete and there are many directions it can take in the future.
 
@@ -64,7 +64,7 @@ That's it! This installs Onramp in `~/.local/` so you'll need `~/.local/bin/` on
 
 Since Onramp is self-bootstrapping, this works even on a system that does not have a C compiler, binutils, make or any other build tools. Try it on a barebones x86\_64 Linux with nothing but coreutils.
 
-Try `./configure.sh --help` for many more options. See the [Setup Guide][docsetup] for installation instructions and the [Usage Guide][docusage] for how to use it.
+Try `./configure.sh --help` for many more options. See the [Setup Guide][docsetup] for installation instructions and the [Usage Guide][docusage] for how to use it. Also see [ports/](ports/) for build instructions for supported programs.
 
 
 

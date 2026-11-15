@@ -1,0 +1,103 @@
+From 1c1b24071735c4b59ab3edee45e1036708cea5a2 Mon Sep 17 00:00:00 2001
+From: Nicholas Fraser <nick@ludocode.com>
+Date: Sun, 15 Nov 2026 10:33:36 -0500
+Subject: [PATCH] TinyCC hacks to support Onramp
+
+---
+ libtcc.c   | 4 ++++
+ tcc.h      | 7 ++++++-
+ tccpp.c    | 8 ++++++++
+ tcctools.c | 2 ++
+ 4 files changed, 20 insertions(+), 1 deletion(-)
+
+diff --git libtcc.c libtcc.c
+index b6998ddf..195538cb 100644
+--- libtcc.c
++++ libtcc.c
+@@ -2205,6 +2205,9 @@ PUB_FUNC void tcc_print_stats(TCCState *s1, unsigned total_time)
+ {
+     if (!total_time)
+         total_time = 1;
++    #ifdef __onramp__
++    fprintf(stderr, "# tcc stats not yet working on Onramp\n");
++    #else
+     fprintf(stderr, "# %d idents, %d lines, %u bytes\n"
+                     "# %0.3f s, %u lines/s, %0.1f MB/s\n",
+            total_idents, total_lines, total_bytes,
+@@ -2217,6 +2220,7 @@ PUB_FUNC void tcc_print_stats(TCCState *s1, unsigned total_time)
+            s1->total_output[2],
+            s1->total_output[3]
+            );
++    #endif
+ #ifdef MEM_DEBUG
+     fprintf(stderr, "# memory usage");
+ #ifdef TCC_IS_NATIVE
+diff --git tcc.h tcc.h
+index 452a723a..b7736551 100644
+--- tcc.h
++++ tcc.h
+@@ -107,6 +107,10 @@ extern long double strtold (const char *__nptr, char **__endptr);
+ # define NORETURN __declspec(noreturn)
+ # define ALIGNED(x) __declspec(align(x))
+ # define PRINTF_LIKE(x,y)
++#elif defined(__onramp_cci__)
++# define NORETURN _Noreturn
++# define ALIGNED(x) /*nothing*/
++# define PRINTF_LIKE(x,y) /*nothing*/
+ #else
+ # define NORETURN __attribute__((noreturn))
+ # define ALIGNED(x) __attribute__((aligned(x)))
+@@ -225,7 +229,8 @@ extern long double strtold (const char *__nptr, char **__endptr);
+    cross-compilers made by a mingw-GCC */
+ #if defined TCC_TARGET_PE \
+     || (defined TCC_TARGET_MACHO && defined TCC_TARGET_ARM64) \
+-    || (defined _WIN32 && !defined __GNUC__)
++    || (defined _WIN32 && !defined __GNUC__) \
++    || defined __onramp__
+ # define TCC_USING_DOUBLE_FOR_LDOUBLE 1
+ #endif
+ 
+diff --git tccpp.c tccpp.c
+index d5c01fe4..343a792b 100644
+--- tccpp.c
++++ tccpp.c
+@@ -3414,6 +3414,13 @@ static int macro_subst_tok(
+             goto add_cstr;
+ 
+         } else if (v == TOK___DATE__ || v == TOK___TIME__) {
++            #ifdef __onramp__
++            if (v == TOK___DATE__) {
++                snprintf(buf, sizeof(buf), "Jan 1 1970");
++            } else {
++                snprintf(buf, sizeof(buf), "00:00:00");
++            }
++            #else
+             time_t ti;
+             struct tm *tm;
+             time(&ti);
+@@ -3429,6 +3436,7 @@ static int macro_subst_tok(
+                 snprintf(buf, sizeof(buf), "%02d:%02d:%02d",
+                     tm->tm_hour, tm->tm_min, tm->tm_sec);
+             }
++            #endif
+         add_cstr:
+             t = TOK_STR;
+         add_cstr1:
+diff --git tcctools.c tcctools.c
+index 0f7acef7..a6cc495b 100644
+--- tcctools.c
++++ tcctools.c
+@@ -563,8 +563,10 @@ ST_FUNC int tcc_tool_cross(TCCState *s1, char **argv, int target)
+ #endif
+         , prefix, a0, target == 64 ? "x86_64" : "i386");
+ 
++    #ifndef __onramp__
+     if (strcmp(a0, program))
+         execvp(argv[0] = program, argv);
++    #endif
+     tcc_error_noabort("could not run '%s'", program);
+     return 1;
+ }
+-- 
+2.56.1
+
