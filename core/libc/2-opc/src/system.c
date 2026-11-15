@@ -218,6 +218,11 @@ static void call_destructors(void) {
     #endif
 }
 
+/*
+ * Some debug helpers are below. __debugwrite() and __debugprint_*() can be
+ * used to debug things before the libc is initialized. See internal.h
+ */
+
 void __debugwrite(const char* bytes, size_t count) {
     while (count > 0) {
         int ret = __sys_write(__process_info_table[__ONRAMP_PIT_ERROR], bytes, count);
@@ -242,5 +247,21 @@ void __debugprint_su(const char* cstr, unsigned u) {
     __debugprint(cstr);
     __debugprint(" ");
     __debugwrite(buf, __utod(u, buf));
+    __debugprint("\n");
+}
+
+void __debugprint_ss(const char* cstr1, const char* cstr2) {
+    __debugprint(cstr1);
+    __debugprint(" ");
+    __debugprint(cstr2);
+    __debugprint("\n");
+}
+
+void __debugprint_sss(const char* cstr1, const char* cstr2, const char* cstr3) {
+    __debugprint(cstr1);
+    __debugprint(" ");
+    __debugprint(cstr2);
+    __debugprint(" ");
+    __debugprint(cstr3);
     __debugprint("\n");
 }

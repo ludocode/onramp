@@ -235,25 +235,62 @@ int open(const char* path, int flags, ...) {
 
     // TODO normalize the path. should append it onto the working directory
 
-    // If the file is being opened for creation only, we have to make sure the
-    // file doesn't exist first. We do that by opening for reading.
-    if ((flags & O_CREAT) && (flags & O_EXCL)) {
+    // We may need to check whether the file exists:
+    // - If O_CREAT is not specified but the file is being opened writable, we
+    // have to fail if it doesn't exist. The Onramp open syscall always creates
+    // the file if it is opened writeable.
+    // - If O_CREATE and O_EXCL are both specified, we have to fail if the file
+    // already exists.
+    // - If the chmod syscall is implemented, we have to set the mode after
+    // opening it, but only if the file didn't exist.
+    bool check_exists = false;
+    if (!(flags & O_CREAT)) {
+        if (writeable) {
+            check_exists = true;
+        }
+    } else {
+        // O_CREAT is specified
+        if (flags & O_EXCL) {
+            check_exists = true;
+        } else if (__syscall_is_supported(__SYS_CHMOD)) {
+            check_exists = true;
+        }
+    }
+
+    bool exists = false;
+    if (check_exists) {
+        // We check if the file exists by opening for reading.
+        // TODO once we add the stat syscall we should probably use that if
+        // implemented and only fallback to open if we don't have stat.
         int handle = __sys_open(path, false);
         if (handle >= 0) {
-            // The file exists and O_EXCL was specified.
+            // The file exists.
+
             if (0 != __sys_close(handle)) {
                 // TODO we've leaked a file descriptor, this should panic.
                 __fatal("Failed to close a file!");
             }
-            errno = EEXIST;
-            return -1;
-        }
 
-        // It is possible to specify (O_CREAT | O_EXCL | O_RDONLY). In this
-        // case we have to open the file for writing to create it, but we'll
-        // still store O_RDONLY in the file description flags so we won't allow
-        // write() on it.
-        writeable = true;
+            if (flags & O_EXCL) {
+                errno = EEXIST;
+                return -1;
+            }
+
+            exists = true;
+        } else {
+            // The file doesn't exist.
+
+            if (!(flags & O_CREAT)) {
+                errno = ENOENT;
+                return -1;
+            }
+
+            // It is possible to specify (O_CREAT | O_RDONLY). In this
+            // case we have to open the file for writing to create it, but we'll
+            // still store O_RDONLY in the file description flags so we won't allow
+            // write() on it.
+            writeable = true;
+        }
     }
 
     // Open it.
@@ -262,6 +299,24 @@ int open(const char* path, int flags, ...) {
         // TODO parse out the different error types.
         errno = EACCES;
         return -1;
+    }
+
+    // If we created the file under O_CREAT, we need to chmod it.
+    if ((flags & O_CREAT) && !exists && __syscall_is_supported(__SYS_CHMOD)) {
+        va_list args;
+        va_start(args, flags);
+        mode_t mode = va_arg(args, mode_t);
+        va_end(args);
+        if (0 != chmod(path, mode)) {
+            //TODO for now we ignore the chmod error. maybe we should try to
+            //delete the file and return an error. note that chmod() has set
+            //errno
+            /*
+            (void)__sys_close(handle);
+            errno = EACCES; // failed to change file mode
+            return -1;
+            */
+        }
     }
 
     // Create the file description
@@ -291,11 +346,14 @@ int open(const char* path, int flags, ...) {
 
     // Check if this could be a directory.
     bool maybe_directory = true;
-    if ((flags & O_CREAT) && (flags & O_EXCL)) {
+    if (check_exists && !exists) {
+        // We just created this file. It can't be a directory.
         maybe_directory = false;
     } else if (__process_info_table[__ONRAMP_PIT_VERSION] < 4) {
         maybe_directory = false;
     } else if (!has_dirent) {
+        // We're assuming a VM without a dirent syscall hasn't allowed us to
+        // open a directory.
         maybe_directory = false;
     }
 
@@ -344,19 +402,6 @@ int open(const char* path, int flags, ...) {
         close(fd);
         errno = ENOTDIR;
         return -1;
-    }
-
-    // Change the mode (if the file was created)
-    if (0/*TODO !stat_ok*/) {
-        va_list args;
-        va_start(args, flags);
-        mode_t mode = va_arg(args, mode_t);
-        va_end(args);
-        if (0 != chmod(path, mode)) {
-            (void)__sys_close(handle);
-            errno = EACCES; // failed to change file mode
-            return -1;
-        }
     }
 
     // Truncate
@@ -904,6 +949,7 @@ int chmod(const char* path, mode_t mode) {
     if (__sys_chmod(path, mode) < 0) {
         // TODO parse out error codes
         errno = EACCES;
+        return -1;
     }
     return 0;
 }

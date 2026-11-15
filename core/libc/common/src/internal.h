@@ -103,4 +103,14 @@ void __debugprint(const char* cstr);
 void __debugprint_su(const char* cstr, unsigned u);
         #endif
 
+/**
+ * Writes two strings separated by a space and followed by a newline.
+ */
+void __debugprint_ss(const char* cstr1, const char* cstr2);
+
+/**
+ * Writes three strings separated by spaces and followed by a newline.
+ */
+void __debugprint_sss(const char* cstr1, const char* cstr2, const char* cstr3);
+
 #endif
