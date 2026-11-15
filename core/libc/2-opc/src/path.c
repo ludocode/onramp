@@ -33,6 +33,8 @@
 #include <__onramp/__fatal.h>
 #include <__onramp/__pit.h>
 
+char* realpath(const char* restrict path, char* restrict out_path);
+
 static char* realpath_impl(const char* restrict path, char* restrict buffer,
         const char* restrict workdir);
 

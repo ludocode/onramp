@@ -32,6 +32,7 @@
 #include <__onramp/__size_t.h>
 #include <__onramp/__wchar_t.h>
 #include <__onramp/__null.h>
+#include <features.h>
 
 
 
@@ -193,8 +194,10 @@ int setenv(const char* name, const char* value, int overwrite);
 int unsetenv(const char* name);
 int clearenv(void);
 
-#ifdef __onramp_ftm_posix_2008 // TODO or xopen>=500 or default source
-    char* realpath(const char* restrict path, char* restrict out_path);
+#ifndef __onramp_cpp_omc__
+    #if defined(__onramp_ftm_posix_1995) || defined(__onramp_ftm_susv2)
+        char* realpath(const char* restrict __path, char* restrict __out_path);
+    #endif
 #endif
 
 #endif

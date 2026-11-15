@@ -195,6 +195,10 @@
  * ignored in this case.
  */
 
+// TODO we need to sort out what this file does during bootstrapping. We do a
+// lot of comparisons that don't work in the bootstrapping preprocessor, but we
+// need POSIX extensions declared in the headers.
+#ifndef __onramp_cpp_omc__
 #ifdef _XOPEN_SOURCE
 
     // 700
@@ -252,6 +256,7 @@
     #define __onramp_ftm_xpg4
 
 #endif
+#endif
 
 
 
@@ -262,6 +267,7 @@
  * _POSIX_C_SOURCE is.
  */
 
+#ifndef __onramp_cpp_omc__
 #ifdef _POSIX_C_SOURCE
     #if _POSIX_C_SOURCE >= 1
         #define __onramp_ftm_posix_1990
@@ -284,6 +290,7 @@
             #define _ATFILE_SOURCE 1
         #endif
     #endif
+#endif
 #endif
 
 #ifndef _POSIX_SOURCE
