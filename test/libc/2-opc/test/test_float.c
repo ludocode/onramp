@@ -38,6 +38,46 @@ static uint32_t f2u(float f);
     #define cbrtf onramp_cbrtf
     #define hypotf onramp_hypotf
     #define powf onramp_powf
+    #define sinf onramp_sinf
+    #define cosf onramp_cosf
+    #define tanf onramp_tanf
+    #define asinf onramp_asinf
+    #define acosf onramp_acosf
+    #define atanf onramp_atanf
+    #define atan2f onramp_atan2f
+    #define sinhf onramp_sinhf
+    #define coshf onramp_coshf
+    #define tanhf onramp_tanhf
+    #define asinhf onramp_asinhf
+    #define acoshf onramp_acoshf
+    #define atanhf onramp_atanhf
+    #define fmaf onramp_fmaf
+    #define fmaxf onramp_fmaxf
+    #define fminf onramp_fminf
+    #define fdimf onramp_fdimf
+    #define nanf onramp_nanf
+    #define modff onramp_modff
+    #define ilogbf onramp_ilogbf
+    #define nextafterf onramp_nextafterf
+    #define nexttowardf onramp_nexttowardf
+    #define ceilf onramp_ceilf
+    #define floorf onramp_floorf
+    #define truncf onramp_truncf
+    #define roundf onramp_roundf
+    #define lroundf onramp_lroundf
+    #define llroundf onramp_llroundf
+    #define nearbyintf onramp_nearbyintf
+    #define rintf onramp_rintf
+    #define lrintf onramp_lrintf
+    #define llrintf onramp_llrintf
+    #define erff onramp_erff
+    #define erfcf onramp_erfcf
+    #define tgammaf onramp_tgammaf
+    #define lgammaf onramp_lgammaf
+    #define fabsf onramp_fabsf
+    #define fmodf onramp_fmodf
+    #define remainderf onramp_remainderf
+    #define remquof onramp_remquof
 
     /* TODO the test harness can't run this against a native libc yet, but in
      * the meantime this test case can be compiled standalone with a native C
@@ -288,6 +328,7 @@ static void test_sub(void) {
 }
 
 static void test_mul_impl(float x, float y, float expected) {
+    //fprintf(stderr, "\ntesting %.9g * %.9g expect %.9g\n", x, y, expected);
 
     #ifndef __onramp__
     // compare to native float operation
@@ -387,6 +428,9 @@ static void test_mul(void) {
     test_mul_impl(u2f(0x00000005), u2f(0x4ec2e155), u2f(0x057399aa));
     test_mul_impl(u2f(0x19b22ada), u2f(0x2637eabc), u2f(0x00800000));
     test_mul_impl(u2f(0x684dda5d), u2f(0x00000000), u2f(0x00000000));
+    test_mul_impl(u2f(0x283d0330), u2f(0x0e48f051), u2f(0x00000013));
+    test_mul_impl(u2f(0x30cd7757), u2f(0x0f02fdac), u2f(0x00692233));
+    test_mul_impl(u2f(0x0b27af3d), u2f(0x1b027bc6), u2f(0x00000000));
 
 }
 

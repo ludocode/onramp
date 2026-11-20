@@ -52,6 +52,63 @@
 uint32_t float_shru_sticky(uint32_t significand, uint32_t bits);
 uint32_t float_round_grs(uint32_t tf);
 
+#define UFLOAT_MANTISSA_SHIFT (FLOAT_BITS - FLOAT_SIGNIFICAND_BITS - 1u)
+#define UFLOAT_EXPONENT_BIAS (1u << (FLOAT_BITS - 1u))
+
+#define GRS_BITS 3u
+
+typedef enum ufloat_error_t {
+    ufloat_ok = 0,
+    ufloat_error_zero, // underflow
+    ufloat_error_infinity, // overflow
+    ufloat_error_nan, // invalid
+} ufloat_error_t;
+
+/**
+ * An unpacked float.
+ *
+ * It has a 32-bit exponent and a 32-bit normalized mantissa with no hidden
+ * bit.
+ *
+ * It does not have a sign bit, and it is never zero, subnormal, infinity or
+ * NaN. The high bit of mantissa is always set.
+ */
+typedef struct ufloat_t {
+    uint32_t exponent;
+    uint32_t mantissa;
+} ufloat_t;
+
+/**
+ * Unpacks the given float, returning the appropriate error if the float is
+ * zero, infinity or NaN.
+ *
+ * If the number is subnormal, it is converted to normal.
+ */
+ufloat_error_t __ufloat_unpack(ufloat_t* uf, uint32_t f);
+
+/**
+ * Packs the given float with the given sign bit (in its proper top position.)
+ *
+ * If the error is ufloat_ok but the number does not fit in a float, it is
+ * converted to zero or infinity and the appropriate underflow or overflow
+ * exception is raised.
+ *
+ * If the error is not ufloat_ok, the given ufloat is ignored and the
+ * exceptional float value corresponding to the error is returned instead. No
+ * exceptions are raised in this case as the relevant exception is assumed to
+ * have been raised already by some other operation.
+ */
+uint32_t __ufloat_pack(const ufloat_t* uf, ufloat_error_t error, uint32_t sign_bit);
+
+ufloat_error_t __ufloat_add(ufloat_t* dest, const ufloat_t* src);
+ufloat_error_t __ufloat_sub(ufloat_t* dest, const ufloat_t* src);
+ufloat_error_t __ufloat_mul(ufloat_t* dest, const ufloat_t* src);
+ufloat_error_t __ufloat_div(ufloat_t* dest, const ufloat_t* src);
+
+/*
+ * TODO all the below macros are deprecated. ufloat above is replacing them
+ */
+
 /**
  * Returns the biased exponent field of the given float.
  */

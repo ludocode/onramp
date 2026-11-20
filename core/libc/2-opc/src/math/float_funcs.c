@@ -76,6 +76,10 @@ unsigned powf(unsigned x, unsigned y);
  * function arguments and if we pack them in a struct it will be a mess to
  * allocate temporaries (and will be extremely slow during bootstrapping.) I
  * haven't completely figured out what to do there yet.
+ *
+ * ^ This is now being implemented; see ufloat_t, __ufloat_pack(),
+ * __ufloat_unpack(), __ufloat_mul(), etc. The below functions need to be
+ * converted to use them.
  */
 
 

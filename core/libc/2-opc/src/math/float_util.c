@@ -36,6 +36,123 @@
 #include <stdbit.h>
 #endif
 
+ufloat_error_t __ufloat_unpack(ufloat_t* uf, uint32_t f) {
+    uint32_t exponent = ((f >> FLOAT_EXPONENT_SHIFT) & FLOAT_EXPONENT_MASK);
+    uint32_t mantissa = (f & FLOAT_SIGNIFICAND_MASK);
+
+    if (exponent == FLOAT_EXPONENT_MASK) {
+        // infinity or nan
+        return mantissa ? ufloat_error_nan : ufloat_error_infinity;
+    }
+
+    if (exponent == 0) {
+        if (mantissa == 0) {
+            return ufloat_error_zero;
+        }
+        // subnormal
+        unsigned shift = (unsigned)stdc_leading_zeros_ui(mantissa);
+        //printf("unpack subnormal %#x %#x %#x\n", mantissa, shift, mantissa<<shift);
+        mantissa <<= shift;
+        exponent += (FLOAT_BITS - FLOAT_SIGNIFICAND_BITS) - shift;
+    } else {
+        // normal
+        //printf("unpack exponent %u\n", exponent);
+        mantissa = (mantissa | FLOAT_HIDDEN_BIT) << UFLOAT_MANTISSA_SHIFT;
+    }
+
+    uf->mantissa = mantissa;
+    uf->exponent = exponent + (UFLOAT_EXPONENT_BIAS - FLOAT_EXPONENT_BIAS);
+    //printf("unpacked %#x to e %#x m %#x\n", f, uf->exponent, uf->mantissa);
+    return ufloat_ok;
+}
+
+uint32_t __ufloat_pack(const ufloat_t* uf, ufloat_error_t error, uint32_t sign_bit) {
+    switch (error) {
+        case ufloat_ok: break;
+        case ufloat_error_zero: return sign_bit;
+        case ufloat_error_infinity: return sign_bit | FLOAT_INFINITY;
+        case ufloat_error_nan: return sign_bit | FLOAT_QUIET_NAN;
+        default: // TODO unreachable
+    }
+
+    uint32_t exponent = uf->exponent;
+    uint32_t mantissa = uf->mantissa;
+    assert(mantissa >> (FLOAT_BITS - 1u)); // number must always be normalized
+
+    // Check for subnormals. They are rounded differently.
+    if (exponent <= UFLOAT_EXPONENT_BIAS - FLOAT_EXPONENT_BIAS) {
+
+        // Subnormal. Calculate bits to shift
+        uint32_t shift = (UFLOAT_MANTISSA_SHIFT - GRS_BITS)
+                + (UFLOAT_EXPONENT_BIAS - FLOAT_EXPONENT_BIAS)
+                - exponent + 1u;
+        if (shift > (FLOAT_BITS - GRS_BITS)) {
+            // TODO raise underflow exception
+            return sign_bit; // underflow; return zero
+        }
+        //printf("%s() subnormal exponent %#x shift bits %u\n", __func__, exponent, shift);
+
+        // Shift sticky
+        uint32_t mask = (1u << shift) - 1u;
+        uint32_t sticky = !!(mantissa & mask);
+        //printf("shifted: 0x%x | %u\n",(mantissa >> shift), 0|sticky);
+        //printf("before shift %#x\n", mantissa);
+        mantissa = (mantissa >> shift) | sticky;
+        //printf("after shift %#x\n", mantissa);
+
+        // Round
+        mantissa = float_round_grs(mantissa);
+        //printf("result after first round %#x\n", mantissa);
+        if (mantissa == 0) {
+            // TODO raise underflow exception
+            return sign_bit; // zero
+        }
+
+        // Rounding may have caused us to become normal. Exponent is 0 if we're
+        // still subnormal, 1 if we're not.
+        exponent = !!(mantissa & (1u << FLOAT_SIGNIFICAND_BITS));
+
+    } else {
+
+        // Normal. The amount to shift is fixed
+        uint32_t shift = UFLOAT_MANTISSA_SHIFT - GRS_BITS;
+
+        // Shift sticky
+        uint32_t mask = (1u << shift) - 1u;
+        uint32_t sticky = !!(mantissa & mask);
+        //printf("shifted: 0x%x | %u\n",(mantissa >> shift), 0|sticky);
+        //printf("before shift %#x\n", mantissa);
+        mantissa = (mantissa >> shift) | sticky;
+        //printf("after shift %#x\n", mantissa);
+
+        // Round
+        mantissa = float_round_grs(mantissa);
+        //printf("result after first round %#x\n", mantissa);
+
+        // Rounding may have caused us to grow.
+        if (mantissa & (1u << (FLOAT_SIGNIFICAND_BITS + 1u))) {
+            //printf("  significand %#x too large after rounding. shifting down again\n", mantissa);
+            // don't need to check for overflow here, we subtract a fixed
+            // amount before checking just below this
+            ++exponent;
+            mantissa >>= 1u;
+        }
+
+        // Lastly, convert exponent
+        exponent -= UFLOAT_EXPONENT_BIAS - FLOAT_EXPONENT_BIAS;
+        //printf("exponent %u\n", exponent);
+        if (exponent >= FLOAT_EXPONENT_MASK) {
+            // TODO raise overflow exception
+            return sign_bit | FLOAT_INFINITY;
+        }
+    }
+
+    //printf("returning %#x\n", sign_bit | (exponent << FLOAT_EXPONENT_SHIFT) | (mantissa & FLOAT_SIGNIFICAND_MASK));
+    return sign_bit
+        | (exponent << FLOAT_EXPONENT_SHIFT)
+        | (mantissa & FLOAT_SIGNIFICAND_MASK);
+}
+
 /**
  * Raise SIGFPE, called when performing arithmetic with a signaling NaN.
  */

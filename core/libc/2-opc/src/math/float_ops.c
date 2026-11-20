@@ -1179,183 +1179,106 @@ unsigned* __float_to_i64(unsigned* out, unsigned f) {
     return out;
 }
 
-unsigned __float_mul(unsigned a, unsigned b) {
-    //printf("----------------------------------------\n");
-    //printf("mul\n");
-    //printf("a %#08x\n", a);
-    //printf("b %#08x\n", b);
+ufloat_error_t __ufloat_mul(ufloat_t* dest, const ufloat_t* src) {
+    //printf("%s() mul e %#x m %#x * e %#x m %#x\n", __func__, dest->exponent, dest->mantissa, src->exponent, src->mantissa);
 
-    // Unpack arguments
-    uint32_t as = a & FLOAT_SIGN_BIT;
-    uint32_t bs = b & FLOAT_SIGN_BIT;
-    uint32_t ae = FLOAT_EXPONENT(a);
-    uint32_t be = FLOAT_EXPONENT(b);
-    uint32_t am = FLOAT_SIGNIFICAND(a);
-    uint32_t bm = FLOAT_SIGNIFICAND(b);
+    // Numbers must be normalized
+    assert(src->mantissa >> (FLOAT_BITS - 1u));
+    assert(dest->mantissa >> (FLOAT_BITS - 1u));
 
-    // Handle infinity and NaNs
-    if (ae == FLOAT_EXPONENT_MASK || be == FLOAT_EXPONENT_MASK) {
-
-        // Signal (once) if either NaN is signaling.
-        if ((ae == FLOAT_EXPONENT_MASK && !(am & FLOAT_QUIET_BIT)) ||
-            (be == FLOAT_EXPONENT_MASK && !(bm & FLOAT_QUIET_BIT)))
-        {
-            __float_sigfpe();
+    // Add the exponents, checking for overflow
+    // (TODO we should figure out how to optimize this in cases where we know
+    // it can't overflow to get rid of all the branches. Perhaps an alternate
+    // __ufloat_mul_unchecked().)
+    unsigned exponent;
+    if (src->exponent < UFLOAT_EXPONENT_BIAS) {
+        exponent = dest->exponent - (UFLOAT_EXPONENT_BIAS - src->exponent);
+        if (exponent > dest->exponent) {
+            return ufloat_error_zero; // underflow
         }
-
-        // If either argument is NaN, we return the NaN quieted. (If both are
-        // NaN, we return the first argument quieted.)
-        if (ae == FLOAT_EXPONENT_MASK && am != 0u) {
-            return a | FLOAT_QUIET_BIT;
-        }
-        if (be == FLOAT_EXPONENT_MASK && bm != 0u) {
-            return b | FLOAT_QUIET_BIT;
-        }
-
-        // At least one argument is infinity. Check if the other is zero.
-        if ((ae == 0u && am == 0u) || (be == 0u && bm == 0u)) {
-            // Infinity times zero is NaN. We carry the signs because why not.
-            return (as ^ bs) | FLOAT_QUIET_NAN;
-        }
-
-        // One argument is infinity and the other is finite. The result is
-        // infinity with the product of the signs.
-        return (as ^ bs) | FLOAT_INFINITY;
-    }
-
-    // If not subnormal, add the hidden bit.
-    // If subnormal, normalize the exponent to 1. (The exponent of subnormals
-    // is the same as the lowest normal exponent, just without the hidden bit.)
-    bool subnormal = false;
-    if (ae == 0u) {
-        ae = 1u;
-        subnormal = true;
     } else {
-        am |= FLOAT_HIDDEN_BIT;
+        exponent = dest->exponent + (src->exponent - UFLOAT_EXPONENT_BIAS);
+        if (exponent < dest->exponent) {
+            return ufloat_error_infinity; // overflow
+        }
     }
-    if (be == 0u) {
-        be = 1u;
-        subnormal = true;
-    } else {
-        bm |= FLOAT_HIDDEN_BIT;
-    }
-    //printf("am %#08x bm %#08x\n", am, bm);
+    dest->exponent = exponent;
 
-    // Multiply the mantissas. We're multiplying two 24-bit numbers; the result
-    // is 48 bits, so we need two words to store it.
+    // Multiply the mantissas
     // TODO we're using __llong_mul() here but this is way overkill, only need
     // four multiplications
     unsigned amll[2];
-    amll[0] = am;
+    amll[0] = src->mantissa;
     amll[1] = 0;
     unsigned bmll[2];
-    bmll[0] = bm;
+    bmll[0] = dest->mantissa;
     bmll[1] = 0;
     unsigned rmll[2];
     __llong_mul(rmll, amll, bmll);
     //printf("llu %#llx\n",*(long long*)rmll);
 
-    // Add the exponents. Bias by another 100 so we have room to subtract off
-    // for subnormals.
-    uint32_t re = ae + be + 100;
+    // The new mantissa is 63 or 64 bits. If it's 63, shift the high word up by
+    // one (and adjust exponent) to keep it normal. Either way, the lower 32
+    // bits are collapsed into the sticky bit.
+    unsigned high_bit = rmll[1] >> 31;
+    dest->mantissa = (rmll[1] << (1 - high_bit)) | !!rmll[0];
+    dest->exponent = exponent + high_bit;
+    //printf("    %s() result e %#x m %#x\n", __func__, dest->exponent, dest->mantissa);
+    return ufloat_ok;
+}
 
-    // Determine how many bits to shift to get back our full significand
-    // bits. We want to shift sticky and keep three grs bits.
-    uint32_t rm;
-    if (subnormal) {
-        // For subnormals we have to calculate how many bits to shift.
-        unsigned bits = 64 - stdc_leading_zeros_ull_p(rmll);
-        //printf("subnormal bits %u\n", bits);
-        if (bits > FLOAT_SIGNIFICAND_BITS + 3) {
-            // We can shift down.
-            unsigned shift_bits = bits - (FLOAT_SIGNIFICAND_BITS + 3 + 1);
-            //printf("shifting by %u\n", shift_bits);
-            bool sticky = rmll[0] & ((1 << shift_bits) - 1);
-            __llong_shru(rmll, rmll, shift_bits);
-            rm = rmll[0] | sticky;
-            re -= FLOAT_SIGNIFICAND_BITS - 3 - shift_bits;
-            //printf("subnormal downshift result re %u rm %#x\n", re, rm);
-        } else {
-            // Check for zero.
-            if (rmll[0] == 0) {
-                return as ^ bs;
-            }
+unsigned __float_mul(unsigned af, unsigned bf) {
 
-            // We have less than 27 bits. We need to shift up by up to three
-            // bits because we're going to round off the grs bits later and we
-            // don't want to lose additional precision.
-            unsigned shift_bits = FLOAT_SIGNIFICAND_BITS + 3 + 1 - bits;
-            //printf("shifting up by %u\n", shift_bits);
-            if (shift_bits > 3) {
-                shift_bits = 3;
-            }
-            rm = rmll[0] << shift_bits;
-            re -= FLOAT_SIGNIFICAND_BITS - 3 + shift_bits;
+    // Unpack floats
+    ufloat_t au;
+    ufloat_t bu;
+    ufloat_error_t ae = __ufloat_unpack(&au, af);
+    ufloat_error_t be = __ufloat_unpack(&bu, bf);
+    unsigned sign = (af ^ bf) & FLOAT_SIGN_BIT;
+
+    // Fast path in the case that both numbers are normal
+    if (ae == ufloat_ok && be == ufloat_ok) {
+        // Forward to __ufloat_mul()
+        ufloat_error_t re =__ufloat_mul(&au, &bu);
+        return __ufloat_pack(&au, re, sign);
+    }
+
+    // Signal (once) if either argument is NaN
+    if (ae == ufloat_error_nan || be == ufloat_error_nan) {
+        if (!(af & FLOAT_QUIET_BIT) || !(bf & FLOAT_QUIET_BIT)) {
+            __float_sigfpe();
         }
-    } else {
-        // If both numbers are normal, the result has 47 or 48 bits.
-        unsigned shift_bits;
-        if (rmll[1] >= (1u << (FLOAT_SIGNIFICAND_BITS + FLOAT_SIGNIFICAND_BITS + 1 - 32))) {
-            shift_bits = FLOAT_SIGNIFICAND_BITS + 1 - 3;
-            ++re;
-        } else {
-            shift_bits = FLOAT_SIGNIFICAND_BITS - 3;
+        // Return the first NaN quieted
+        return FLOAT_QUIET_BIT | ((ae == ufloat_error_nan) ? af : bf);
+    }
+
+    // Handle left side zero and infinity
+    if (ae == ufloat_error_zero) {
+        if (be == ufloat_error_infinity) {
+            // Infinity times zero is NaN.
+            return sign | FLOAT_QUIET_NAN;
         }
-        bool sticky = rmll[0] & ((1 << shift_bits) - 1);
-        __llong_shru(rmll, rmll, shift_bits);
-        rm = rmll[0] | sticky;
-        //printf("shifted down by %u bits, rmll[0] %#x sticky %u rm %#x\n", shift_bits, rmll[0], sticky, rm);
+        // Zero times any other number is zero.
+        return sign;
     }
-
-    // Check if the result is subnormal
-    if (re <= FLOAT_EXPONENT_BIAS + 100) {
-        // shift more
-        unsigned shift = FLOAT_EXPONENT_BIAS + 100 - re + 1;
-        //printf("subnormal, need to shift by %u more\n", shift);
-        if (shift <= FLOAT_SIGNIFICAND_BITS + 3) {
-            rm = float_shru_sticky(rm, shift);
-            //printf("more downshift result rm %#x\n", rm);
-        } else {
-            // underflow to zero
-            //printf("underflow to zero\n");
-            rm = 0;
+    if (ae == ufloat_error_infinity) {
+        if (be == ufloat_error_zero) {
+            // Infinity times zero is NaN.
+            return sign | FLOAT_QUIET_NAN;
         }
-        re = 0;
-    } else {
-        re -= FLOAT_EXPONENT_BIAS + 100;
+        // Infinity times any other number is infinity.
+        return sign | FLOAT_INFINITY;
     }
 
-    // Check for overflow
-    if (re >= FLOAT_EXPONENT_MASK) {
-        return (as ^ bs) | FLOAT_INFINITY;
+    // Handle right side zero and infinity
+    assert(ae == ufloat_ok);
+    if (be == ufloat_error_zero) {
+        // Zero times any normal number is zero.
+        return sign;
     }
-
-    // Round
-    rm = float_round_grs(rm);
-    //printf("rounded %#08x\n", rm);
-
-    // Rounding may have caused it to grow again.
-    //printf("  max significand without grs: 0x%x\n", (1u << (FLOAT_SIGNIFICAND_BITS + 1u)));
-    if (rm >= (1u << (FLOAT_SIGNIFICAND_BITS + 1u))) {
-        //printf("  significand %#x too large after rounding. shifting down again\n", rm);
-        ++re;
-        if (re == FLOAT_EXPONENT_MASK) {
-            // overflow
-            return (as ^ bs) | FLOAT_INFINITY;
-        }
-        rm >>= 1u;
-    }
-    if (re == 0 && rm >= (1u << FLOAT_SIGNIFICAND_BITS)) {
-        // Rounding caused us to become normal.
-        re = 1u;
-    }
-    //printf("am %#08x bm %#08x rm %#08x re %#08x\n", am, bm, rm, re);
-
-    // TODO we're supposed to raise an exception for underflow. There are a few
-    // cases above.
-
-    // Assemble result
-    return (as ^ bs) | (re << FLOAT_EXPONENT_SHIFT) | (rm & FLOAT_SIGNIFICAND_MASK);
+    // Infinity times any normal number is infinity.
+    assert(be == ufloat_error_infinity);
+    return sign | FLOAT_INFINITY;
 }
 
 unsigned __float_div(unsigned a, unsigned b) {
