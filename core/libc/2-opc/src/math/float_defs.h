@@ -52,6 +52,7 @@
 uint32_t float_shru_sticky(uint32_t significand, uint32_t bits);
 uint32_t float_round_grs(uint32_t tf);
 
+#define UFLOAT_MANTISSA_BITS 32u
 #define UFLOAT_MANTISSA_SHIFT (FLOAT_BITS - FLOAT_SIGNIFICAND_BITS - 1u)
 #define UFLOAT_EXPONENT_BIAS (1u << (FLOAT_BITS - 1u))
 

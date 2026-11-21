@@ -218,6 +218,8 @@ static bool test_value_close(unsigned actual, unsigned expected, unsigned bits) 
 }
 
 static void test_add_impl(float x, float y, float expected) {
+    //fprintf(stderr, "\ntesting %.9g + %.9g expect %.9g\n", x, y, expected);
+
     floatunion_t xf, yf, ef, af;
     xf.f = x;
     yf.f = y;
@@ -240,6 +242,8 @@ static void test_add_impl(float x, float y, float expected) {
 }
 
 static void test_sub_impl(float x, float y, float expected) {
+    //fprintf(stderr, "\ntesting %.9g - %.9g expect %.9g\n", x, y, expected);
+
     floatunion_t xf, yf, ef, af;
     xf.f = x;
     yf.f = y;
@@ -286,6 +290,7 @@ static void test_add(void) {
     test_add_impl(((floatunion_t){.u=0x25e807}).f, ((floatunion_t){.u=0x185343}).f,
             ((floatunion_t){.u=0x25e807}).f + ((floatunion_t){.u=0x185343}).f); // both subnormal
     test_add_impl(3.00332328e+38, 1.92066509e+38, (float)INFINITY);
+    test_add_impl(1.76285089e-30, 1.39259273e-30, 3.15544362e-30);
 
     // infinity
     test_add_impl((float)INFINITY, 1.f, (float)INFINITY);
@@ -324,6 +329,7 @@ static void test_sub(void) {
     test_sub_impl(u2f(0x69ce4ba), u2f(0x6a0db3c6), u2f(0xea0db3c6));
     test_sub_impl(u2f(0x4a32ce32), u2f(0x56800000), u2f(0xd67fffff));
     test_sub_impl(u2f(0x73f8f94d), u2f(0x73f8f94d), u2f(0));
+    test_sub_impl(1.26626203e-08, 1.45831107e-08, -1.92049043e-09);
 
 }
 
