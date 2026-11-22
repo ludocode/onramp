@@ -26,6 +26,7 @@
 #define FLOAT_DEFS_H_INCLUDED
 
 #include <stdint.h>
+#include <stdbool.h>
 
 #define FLOAT_BITS 32u
 
@@ -73,11 +74,32 @@ typedef enum ufloat_error_t {
  *
  * It does not have a sign bit, and it is never zero, subnormal, infinity or
  * NaN. The high bit of mantissa is always set.
+ *
+ * Note: Our 32-bit intermediate mantissa is smaller than the 64-bit
+ * intermediate mantissa used by x87 when performing computations on 32-bit
+ * floats. This can cause differences in rounding on compound operations like
+ * fmaf() by up to one bit.
+ *
+ * I'm not sure if IEEE 754 has a minimum intermediate precision requirement
+ * for fmaf() or other operations. Apparently SSE2 requires 64-bit intermediate
+ * precision but we don't implement that.
  */
 typedef struct ufloat_t {
     uint32_t exponent;
     uint32_t mantissa;
 } ufloat_t;
+
+static inline bool __ufloat_eq(ufloat_t* left, ufloat_t* right) {
+    return left->exponent == right->exponent
+            && left->mantissa == right->mantissa;
+}
+
+static inline bool __ufloat_lt(ufloat_t* left, ufloat_t* right) {
+    if (left->exponent != right->exponent) {
+        return left->exponent < right->exponent;
+    }
+    return left->mantissa < right->mantissa;
+}
 
 /**
  * Unpacks the given float, returning the appropriate error if the float is

@@ -79,7 +79,7 @@ unsigned __float_env;
  * Adds two unpacked floats.
  */
 ufloat_error_t __ufloat_add(ufloat_t* dest, const ufloat_t* src) {
-    //printf("%s() e %#x m %#x * e %#x m %#x\n", __func__, dest->exponent, dest->mantissa, src->exponent, src->mantissa);
+    //printf("%s() e %#x m %#x + e %#x m %#x\n", __func__, dest->exponent, dest->mantissa, src->exponent, src->mantissa);
     uint32_t dx = dest->exponent;
     uint32_t sx = src->exponent;
 
@@ -100,24 +100,30 @@ ufloat_error_t __ufloat_add(ufloat_t* dest, const ufloat_t* src) {
         sm = dest->mantissa;
         shift = sx - dx;
     }
-    //printf("%s() larger exp %#x, smaller shift %#x\n",  __func__, tx, shift);
+    //printf("%s() larger exp %#x, smaller shift %u\n",  __func__, tx, shift);
 
-    // Shift down sticky the smaller mantissa
-    // TODO probably should inline this
-    sm = float_shru_sticky(sm, shift);
-    //printf("%s() after shift, lm %#x sm %#x\n",  __func__, lm, sm);
-    // TODO inline below untested
-    /*
-    if (shift) {
-        if (shift >= UFLOAT_MANTISSA_BITS) {
-            sm = 1u;
-        } else {
-            uint32_t mask = (1u << shift) - 1u;
-            uint32_t sticky = !!(significand & mask);
-            sm = (sm >> shift) | sticky;
-        }
+    if (shift > UFLOAT_MANTISSA_BITS) {
+        // The smaller number is completely shifted out. Don't add; only set
+        // the sticky bit.
+        //printf("%s() shifted out, setting sticky bit of %#x\n",  __func__, lm);
+        dest->exponent = tx;
+        dest->mantissa = lm | 1;
+        return ufloat_ok;
     }
-    */
+
+    if (shift == UFLOAT_MANTISSA_BITS) {
+        // We're adding at least 0.5. If the sticky bit is set, that means
+        // there would be additional bits in infinite precision; this will
+        // definitely round up, so we can add 1. If the sticky bit is not set,
+        // we can set it also by adding 1. So we just add 1.
+        sm = 1;
+    } else if (shift) {
+        // Shift down sticky the smaller mantissa
+        uint32_t mask = (1u << shift) - 1u;
+        uint32_t sticky = !!(sm & mask);
+        sm = (sm >> shift) | sticky;
+        //printf("%s() after shift, lm %#x sm %#x\n",  __func__, lm, sm);
+    }
 
     // Add the mantissas, checking for overflow
     uint32_t tm = lm + sm;
@@ -131,6 +137,7 @@ ufloat_error_t __ufloat_add(ufloat_t* dest, const ufloat_t* src) {
         tm = (tm >> 1u) | (tm & 1u) | (1u << (UFLOAT_MANTISSA_BITS - 1u));
     }
 
+    //printf("%s() result x %#x m %#x\n",  __func__, tx, tm);
     dest->exponent = tx;
     dest->mantissa = tm;
     return ufloat_ok;
@@ -143,7 +150,7 @@ ufloat_error_t __ufloat_add(ufloat_t* dest, const ufloat_t* src) {
  * it indicates a bug in our float math.)
  */
 ufloat_error_t __ufloat_sub(ufloat_t* dest, const ufloat_t* src) {
-    //printf("%s() e %#x m %#x * e %#x m %#x\n", __func__, dest->exponent, dest->mantissa, src->exponent, src->mantissa);
+    //printf("%s() e %#x m %#x - e %#x m %#x\n", __func__, dest->exponent, dest->mantissa, src->exponent, src->mantissa);
     uint32_t dx = dest->exponent;
     uint32_t sx = src->exponent;
 
@@ -155,24 +162,30 @@ ufloat_error_t __ufloat_sub(ufloat_t* dest, const ufloat_t* src) {
     uint32_t tx = dx;
     uint32_t shift = dx - sx;
 
-    // Shift down sticky the subtrahend mantissa
-    // TODO probably should inline this
-    //printf("shift %u\n", shift);
     uint32_t dm = dest->mantissa;
     uint32_t sm = src->mantissa;
-    sm = float_shru_sticky(sm, shift);
-    // TODO inline below untested
-    /*
-    if (shift) {
-        if (shift >= UFLOAT_MANTISSA_BITS) {
-            sm = 1u;
+
+    if (shift >= UFLOAT_MANTISSA_BITS) {
+        // The mantissa of the subtrahend is completely shifted out.
+        if (dm & 1) {
+            // The sticky bit of the minuend is set. We can't tell what would
+            // happen in infinite precision so we do nothing.
+            return ufloat_ok;
         } else {
-            uint32_t mask = (1u << shift) - 1u;
-            uint32_t sticky = !!(significand & mask);
-            sm = (sm >> shift) | sticky;
+            // The sticky bit of the minuend is clear which means in infinite
+            // precision there would be no set bits after it. The subtrahend is
+            // not zero so, no matter how small it is, it must reduce the
+            // minuend at least a little bit. We subtract 1 which will result
+            // in a set sticky bit.
+            sm = 1;
         }
+    } else if (shift) {
+        // Shift down sticky the subtrahend mantissa
+        //printf("shift %u\n", shift);
+        uint32_t mask = (1u << shift) - 1u;
+        uint32_t sticky = !!(sm & mask);
+        sm = (sm >> shift) | sticky;
     }
-    */
 
     // Subtract the mantissas.
     uint32_t tm = dm - sm;
@@ -1319,4 +1332,129 @@ unsigned __float_div(unsigned a, unsigned b) {
 
     // Assemble result
     return (as ^ bs) | (re << FLOAT_EXPONENT_SHIFT) | (rm & FLOAT_SIGNIFICAND_MASK);
+}
+
+/**
+ * Performs a fused multiply-add with only one rounding, as required by
+ * IEEE 754.
+ */
+unsigned fmaf(unsigned factor1, unsigned factor2, unsigned addend) {
+
+    // Unpack floats
+    ufloat_t f1u;
+    ufloat_t f2u;
+    ufloat_t a2u;
+    ufloat_error_t f1e = __ufloat_unpack(&f1u, factor1);
+    ufloat_error_t f2e = __ufloat_unpack(&f2u, factor2);
+    ufloat_error_t a2e = __ufloat_unpack(&a2u, addend);
+    //printf("%s() f1e %u f2e %u a2e %u\n", __func__, f1e, f2e, a2e);
+    uint32_t f1s = factor1 & FLOAT_SIGN_BIT;
+    uint32_t f2s = factor2 & FLOAT_SIGN_BIT;
+    uint32_t a1s = f1s ^ f2s;
+    uint32_t a2s = addend & FLOAT_SIGN_BIT;
+
+    // Fast path in the case that all numbers are normal
+    if (f1e == ufloat_ok && f2e == ufloat_ok && a2e == ufloat_ok) {
+        //printf("%s() all normal\n", __func__);
+
+        // Multiply
+        ufloat_error_t a1e =__ufloat_mul(&f1u, &f2u);
+        assert(a1e == ufloat_ok);
+        /*
+        if (a1e != ufloat_ok) {
+            if (a1e == ufloat_error_zero) {
+                // TODO this will have signaled an underflow, which is not the
+                // case if the addend is large enough. not sure if that's correct.
+                return addend;
+            }
+            // nan is not possible from __ufloat_mul()
+            assert(a1e == ufloat_error_infinity);
+            return a1s | FLOAT_INFINITY;
+        }
+        */
+
+        // Add (if same signs)
+        if (a1s == a2s) {
+            //printf("%s() add same signs\n", __func__);
+            ufloat_error_t re =__ufloat_add(&f1u, &a2u);
+            return __ufloat_pack(&f1u, re, a1s);
+        }
+
+        // Differing signs.
+
+        // (x+-x) is always +0. I'm not sure if we need this special case for
+        // fma but we may as well do it.
+        if (__ufloat_eq(&f1u, &a2u)) {
+            //printf("  result is zero. returning +0\n");
+            return 0;
+        }
+
+        // Subtract the smaller magnitude from the larger one
+        // with __ufloat_sub(), and keep the sign of the larger number.
+        if (__ufloat_lt(&a2u, &f1u)) {
+            ufloat_error_t re =__ufloat_sub(&f1u, &a2u);
+            return __ufloat_pack(&f1u, re, a1s);
+        } else {
+            ufloat_error_t re =__ufloat_sub(&a2u, &f1u);
+            return __ufloat_pack(&a2u, re, a2s);
+        }
+    }
+
+    // Signal (once) if any argument is NaN
+    if (f1e == ufloat_error_nan
+            || f2e == ufloat_error_nan
+            || a2e == ufloat_error_nan)
+    {
+        if (!(f1e & FLOAT_QUIET_BIT)
+                || !(f2e & FLOAT_QUIET_BIT)
+                || !(a2e & FLOAT_QUIET_BIT))
+        {
+            __float_sigfpe();
+        }
+
+        // Return the first NaN quieted
+        if (f1e == ufloat_error_nan) {
+            return FLOAT_QUIET_BIT | factor1;
+        }
+        if (f2e == ufloat_error_nan) {
+            return FLOAT_QUIET_BIT | factor2;
+        }
+        return FLOAT_QUIET_BIT | addend;
+    }
+
+    // If one of the factors is zero, the result is the addend
+    if (f1e == ufloat_error_zero || f2e == ufloat_error_zero) {
+        if (addend == 0) {
+            // (0+-0) is always +0. Again not sure if we need to check this but
+            // we do anyway.
+            return 0;
+        }
+        return addend;
+    }
+
+    // If the addend is zero, the result is the product
+    if (a2e == ufloat_error_zero) {
+        ufloat_error_t re =__ufloat_mul(&f1u, &f2u);
+        return __ufloat_pack(&f1u, re, a1s);
+    }
+
+    // One of the factors must be infinity. The result is infinity or NaN; just
+    // need to get the signs right.
+    if (f1e == ufloat_error_infinity) {
+        if (f2e == ufloat_error_infinity && f1s != f2s) {
+            return FLOAT_QUIET_NAN;
+        }
+        if (a2e == ufloat_error_infinity && f1s != a2s) {
+            return FLOAT_QUIET_NAN;
+        }
+        return factor1;
+    }
+    if (f2e == ufloat_error_infinity) {
+        if (a2e == ufloat_error_infinity && f2s != a2s) {
+            return FLOAT_QUIET_NAN;
+        }
+        return factor2;
+    }
+    assert(a2e == ufloat_error_infinity);
+    return addend;
 }

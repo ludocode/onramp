@@ -132,11 +132,21 @@ static uint32_t f2u(float f);
     #define native_hypotf hypotf
     #undef powf
     #define native_powf powf
+    #undef fmaf
+    #define native_fmaf fmaf
 #endif
 
 // TODO for now we allow some rounding error in square root. It is supposed to
 // be exact according to IEEE 754.
 #define SQRTF_THRESHOLD_BITS 1
+
+// Our implementation of fmaf() is as good as possible under the limitation
+// that our intermediate precision for 32-bit floats has only a 32 bit
+// mantissa. There are cases where we can be off by one bit when compared to
+// the 64 bit intermediate mantissa of x87 floating point. One such case is
+// listed in test_fmaf(). We could fix this by switching ufloat_t to a 64-bit
+// mantissa but this would significantly reduce performance.
+#define FMAF_THRESHOLD_BITS 1
 
 #define LOG1PF_THRESHOLD_BITS 2
 #define LOGF_THRESHOLD_BITS 2
@@ -154,6 +164,8 @@ static uint32_t f2u(float f);
 
             // TODO all of this is disabled on onramp until we get float parsing in
             #ifndef __onramp__
+
+static uint32_t random_float(void);
 
 typedef union {
     unsigned u;
@@ -540,6 +552,75 @@ static void test_div(void) {
     test_div_impl(INFINITY, -INFINITY, -NAN);
     test_div_impl(-INFINITY, INFINITY, -NAN);
     test_div_impl(-INFINITY, -INFINITY, NAN);
+}
+
+static void test_fmaf_impl(float x, float y, float z, float expected) {
+    //fprintf(stderr, "\ntesting %.9g * %.9g + %.9g expect %.9g\n", x, y, z, expected);
+
+    #ifndef __onramp__
+    // compare to native float operation
+    if (!isnanf(expected) && f2u(native_fmaf(x, y, z)) != f2u(expected)) {
+        fprintf(stderr, "Test invalid: native fmaf %.9g (%#x) * %.9g (%#x) + %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), y, f2u(y), z, f2u(z),
+                expected, f2u(expected),
+                native_fmaf(x, y, z), f2u(native_fmaf(x, y, z)));
+        exit(1);
+    }
+    #endif
+
+    unsigned onramp_result = onramp_fmaf(f2u(x), f2u(y), f2u(z));
+    if (!test_value_close(onramp_result, f2u(expected), FMAF_THRESHOLD_BITS)) {
+        fprintf(stderr, "Test failed: onramp fmaf %.9g (%#x) * %.9g (%#x) + %.9g (%#x)"
+                " expected %.9g (%#x), got %.9g (%#x)\n",
+                x, f2u(x), y, f2u(y), z, f2u(z), expected, f2u(expected),
+                u2f(onramp_result), onramp_result);
+        exit(1);
+    }
+}
+
+static void test_fmaf(void) {
+    test_fmaf_impl(2.f, 3.f, 4.f, 10.f);
+    test_fmaf_impl(-2.f, 3.f, -4.f, -10.f);
+
+    // bugs in random testing
+    test_fmaf_impl(5.98287565e+10, 2.332331e-09, 1.7902517e+31, 1.7902517e+31);
+    test_fmaf_impl(1.43951969e+25, 6.00421346e-34, 1.6496961e-24, 8.64318306e-09);
+    test_fmaf_impl(3.33049819e-08, 2.44418839e+11, 1.60734407e-06, 8140.36523);
+
+    // We are off by 1 bit in the below test when compared to x87 fmaf(). This
+    // is unavoidable without increasing the size of our intermediate mantissa
+    // to match that of x87.
+    // - x87:    1.46880973e-06 (0x35c523eb)
+    // - onramp: 1.46880984e-06 (0x35c523ec)
+    test_fmaf_impl(8.51469337e+11, 1.72502954e-18, 2.7123767e-14, 1.46880973e-06);
+}
+
+static void test_fmaf_loop(void) {
+    seed_random();
+
+    for (size_t i = 0;; ++i) {
+        if (i != 0 && (i % 1000000) == 0) printf("testing fmaf: %zi...\n",i);
+
+        floatunion_t xf, yf, zf, ef, af;
+        xf.u = random_float();
+        yf.u = random_float();
+        zf.u = random_float();
+        ef.f = native_fmaf(xf.f, yf.f, zf.f);
+        //printf("fmaf %.9g (%#x) * %.9g (%#x) + %.9g (%#x), expected %.9g (%#x)\n", xf.f, xf.u, yf.f, yf.u, zf.f, zf.u, ef.f, ef.u);
+        af.u = onramp_fmaf(xf.u, yf.u, zf.u);
+        //printf("Actual result: %.9g (%#x)\n", af.f, af.u);
+
+        if (!test_value_close(ef.u, af.u, FMAF_THRESHOLD_BITS)) {
+            printf("fmaf() FAILED:\n");
+            printf("    x: %.9g  0x%08x\n", xf.f, xf.u);
+            printf("    y: %.9g  0x%08x\n", yf.f, yf.u);
+            printf("    z: %.9g  0x%08x\n", zf.f, zf.u);
+            printf("    expected: %.9g  0x%08x\n", ef.f, ef.u);
+            printf("    actual: %.9g  0x%08x\n", af.f, af.u);
+            exit(1);
+        }
+    }
 }
 
 static void test_eq_impl(float x, float y, bool expected) {
@@ -2270,6 +2351,7 @@ int main(void) {
     test_sub();
     test_mul();
     test_div();
+    test_fmaf();
 
     // comparisons
     test_eq();
@@ -2327,6 +2409,7 @@ int main(void) {
     //test_sub_loop();
     //test_mul_loop();
     //test_div_loop();
+    //test_fmaf_loop();
     //test_sqrtf_loop();
     //test_expm1f_loop();
     //test_log1pf_loop();
@@ -2335,6 +2418,7 @@ int main(void) {
     (void)test_sub_loop;
     (void)test_mul_loop;
     (void)test_div_loop;
+    (void)test_fmaf_loop;
     (void)test_sqrtf_loop;
     (void)test_expm1f_loop;
     (void)test_log1pf_loop;

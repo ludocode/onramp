@@ -113,6 +113,7 @@ uint32_t __ufloat_pack(const ufloat_t* uf, ufloat_error_t error, uint32_t sign_b
         exponent = !!(mantissa & (1u << FLOAT_SIGNIFICAND_BITS));
 
     } else {
+        //printf("%s() normal\n", __func__);
 
         // Normal. The amount to shift is fixed
         uint32_t shift = UFLOAT_MANTISSA_SHIFT - GRS_BITS;
@@ -120,18 +121,16 @@ uint32_t __ufloat_pack(const ufloat_t* uf, ufloat_error_t error, uint32_t sign_b
         // Shift sticky
         uint32_t mask = (1u << shift) - 1u;
         uint32_t sticky = !!(mantissa & mask);
-        //printf("shifted: 0x%x | %u\n",(mantissa >> shift), 0|sticky);
-        //printf("before shift %#x\n", mantissa);
+        //printf("%s() mantissa %#x shifted by %u: %#x | !!%u == %#x\n", __func__, mantissa, shift, (mantissa >> shift), sticky, (mantissa >> shift) | sticky);
         mantissa = (mantissa >> shift) | sticky;
-        //printf("after shift %#x\n", mantissa);
 
         // Round
         mantissa = float_round_grs(mantissa);
-        //printf("result after first round %#x\n", mantissa);
+        //printf("%s() result after first round %#x\n", __func__, mantissa);
 
         // Rounding may have caused us to grow.
         if (mantissa & (1u << (FLOAT_SIGNIFICAND_BITS + 1u))) {
-            //printf("  significand %#x too large after rounding. shifting down again\n", mantissa);
+            //printf("%s() significand %#x too large after rounding. shifting down again\n", __func__, mantissa);
             // don't need to check for overflow here, we subtract a fixed
             // amount before checking just below this
             ++exponent;
@@ -140,14 +139,14 @@ uint32_t __ufloat_pack(const ufloat_t* uf, ufloat_error_t error, uint32_t sign_b
 
         // Lastly, convert exponent
         exponent -= UFLOAT_EXPONENT_BIAS - FLOAT_EXPONENT_BIAS;
-        //printf("exponent %u\n", exponent);
+        //printf("%s() exponent %u\n", __func__, exponent);
         if (exponent >= FLOAT_EXPONENT_MASK) {
             // TODO raise overflow exception
             return sign_bit | FLOAT_INFINITY;
         }
     }
 
-    //printf("returning %#x\n", sign_bit | (exponent << FLOAT_EXPONENT_SHIFT) | (mantissa & FLOAT_SIGNIFICAND_MASK));
+    //printf("%s() returning %#x\n", __func__, sign_bit | (exponent << FLOAT_EXPONENT_SHIFT) | (mantissa & FLOAT_SIGNIFICAND_MASK));
     return sign_bit
         | (exponent << FLOAT_EXPONENT_SHIFT)
         | (mantissa & FLOAT_SIGNIFICAND_MASK);
@@ -441,11 +440,6 @@ unsigned remquof(unsigned dividend, unsigned divisor,
     (void)divisor;
     (void)partial_quotient;
     __fatal("TODO fmodf()");
-}
-
-unsigned fmaf(unsigned factor1, unsigned factor2, unsigned addend) {
-    // TODO should be done in full precision
-    return __float_add(__float_mul(factor1, factor2), addend);
 }
 
 unsigned fmaxf(unsigned x, unsigned y) {

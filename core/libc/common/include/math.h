@@ -41,6 +41,7 @@
 #define FP_SUBNORMAL 4
 #define FP_ZERO 5 // not zero
 
+#define FP_FAST_FMAF 1
 
 
 /*
