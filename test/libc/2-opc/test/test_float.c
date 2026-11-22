@@ -1033,11 +1033,7 @@ static uint32_t random_float(void) {
         exponent = 0u;
     }
     uint32_t significand = rand() & FLOAT_SIGNIFICAND_MASK;
-
-    // TODO for now only generate positive numbers
-    //uint32_t sign = rand() & 1u;
-    uint32_t sign = 0;
-
+    uint32_t sign = rand() & 1u;
     return (sign << FLOAT_SIGN_SHIFT) | (exponent << FLOAT_EXPONENT_SHIFT) | significand;
 }
 

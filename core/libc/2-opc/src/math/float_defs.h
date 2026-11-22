@@ -55,6 +55,10 @@ uint32_t float_round_grs(uint32_t tf);
 
 #define UFLOAT_MANTISSA_BITS 32u
 #define UFLOAT_MANTISSA_SHIFT (FLOAT_BITS - FLOAT_SIGNIFICAND_BITS - 1u)
+
+// The bias we use for the exponent makes it equivalent to a signed two's
+// complement 32-bit number. We still use unsigned math because the Onramp VM
+// doesn't have signed operations.
 #define UFLOAT_EXPONENT_BIAS (1u << (FLOAT_BITS - 1u))
 
 #define GRS_BITS 3u
