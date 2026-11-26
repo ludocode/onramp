@@ -136,9 +136,8 @@ static uint32_t f2u(float f);
     #define native_fmaf fmaf
 #endif
 
-// TODO for now we allow some rounding error in square root. It is supposed to
-// be exact according to IEEE 754.
-#define SQRTF_THRESHOLD_BITS 1
+// Our sqrtf() exactly matches glibc for all values including infinity and NaNs.
+#define SQRTF_THRESHOLD_BITS 0
 
 // Our implementation of fmaf() is as good as possible under the limitation
 // that our intermediate precision for 32-bit floats has only a 32 bit
@@ -2041,7 +2040,7 @@ static void test_sqrtf(void) {
     test_sqrtf_impl(NAN, NAN);
     test_sqrtf_impl(-NAN, -NAN);
     test_sqrtf_impl(INFINITY, INFINITY);
-    test_sqrtf_impl(-INFINITY, NAN);
+    test_sqrtf_impl(-INFINITY, -NAN);
     test_sqrtf_impl(0.0f, 0.0f);
     test_sqrtf_impl(-0.0f, -0.0f);
 
@@ -2056,6 +2055,8 @@ static void test_sqrtf(void) {
 
     // bugs from random testing
     test_sqrtf_impl(2.09874153e-39, 4.5812025e-20);
+    test_sqrtf_impl(4.23907801e-33, 6.51082e-17);
+    test_sqrtf_impl(0.0452244245, 0.212660357);
 }
 
 static void test_1arity_loop(int threshold_bits, const char* name,
@@ -2063,13 +2064,15 @@ static void test_1arity_loop(int threshold_bits, const char* name,
 {
     seed_random();
 
-    for (size_t i = 0;; ++i) {
-        if (i != 0 && (i % 1000000) == 0) printf("testing float %s: %zi...\n", name, i);
+    // test every possible value
+    uint32_t i = 0;
+    do {
+        if (i != 0 && (i % 1000000u) == 0) printf("testing float %s: %u...\n", name, i);
 
         floatunion_t xf, ef, af;
-        xf.u = random_float();
+        xf.u = i;
         ef.f = native_fn(xf.f);
-        //printf("sqrtf %.9g (0x%x) expected %.9g (0x%x)\n", xf.f, xf.u, ef.f, ef.u);
+        //printf("%s %.9g (0x%x) expected %.9g (0x%x)\n", name, xf.f, xf.u, ef.f, ef.u);
         af.u = onramp_fn(xf.u);
         //printf("Actual result: %.9g (0x%x)\n", af.f, af.u);
         //if (isinf(af.f))continue;
@@ -2081,7 +2084,7 @@ static void test_1arity_loop(int threshold_bits, const char* name,
             printf("    actual: %.9g  0x%08x\n", af.f, af.u);
             exit(1);
         }
-    }
+    } while (++i != 0);
 }
 
 static void test_sqrtf_loop(void) {

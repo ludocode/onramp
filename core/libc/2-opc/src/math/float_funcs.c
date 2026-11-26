@@ -88,86 +88,102 @@ unsigned powf(unsigned x, unsigned y);
  * Power functions
  */
 
-unsigned sqrtf(unsigned x) {
+unsigned sqrtf(unsigned vf) {
     //printf("----------------------------------------\n");
     //printf("sqrtf\n");
-    //printf("%.9g == %#08x\n", u2f(x), x);
-
-    // If the value is zero, the result is zero (with the sign unchanged.)
-    if ((x & ~FLOAT_SIGN_BIT) == 0) {
-        //printf("zero\n");
-        return x;
-    }
+    //printf("%.9g == %#08x\n", u2f(vf), vf);
 
     // Unpack the float
-    uint32_t xs = x & FLOAT_SIGN_BIT;
-    uint32_t xe = FLOAT_EXPONENT(x);
-    uint32_t xm = FLOAT_SIGNIFICAND(x);
+    ufloat_t vu;
+    ufloat_error_t ve = __ufloat_unpack(&vu, vf);
+    uint32_t vs = vf & FLOAT_SIGN_BIT;
 
-    // Handle infinity and NaN
-    if (xe == FLOAT_EXPONENT_MASK) {
-
-        // Check for infinity
-        if (xm == 0) {
-            if (xs) {
+    // Handle errors
+    if (ve != ufloat_ok) {
+        if (ve == ufloat_error_zero) {
+            // Zero is returned preserving sign.
+            return vf;
+        }
+        if (ve == ufloat_error_infinity) {
+            if (vs) {
                 // Negative infinity results in NaN
+                // (we make it negative to match glibc)
                 feraiseexcept(FE_INVALID);
-                return FLOAT_QUIET_NAN;
+                return FLOAT_SIGN_BIT | FLOAT_QUIET_NAN;
             } else {
                 // Positive infinity stays the same
-                return x;
+                return vf;
             }
         }
 
         // NaN. Signal if it's signaling.
-        if (!(xm & FLOAT_QUIET_BIT)) {
+        if (!(vf & FLOAT_QUIET_BIT)) {
             __float_sigfpe();
         }
 
         // Return the NaN quieted.
-        return x | FLOAT_QUIET_BIT;
+        return vf | FLOAT_QUIET_BIT;
     }
 
     // If the value is negative, the result is NaN.
-    if (xs) {
+    if (vs) {
         feraiseexcept(FE_INVALID);
-        return FLOAT_QUIET_NAN;
+        // glibc returns negative NaN here so we do the same.
+        return FLOAT_SIGN_BIT | FLOAT_QUIET_NAN;
     }
 
     // We use the classic Newton's method (or Babylonian method.) We start with
     // an initial guess, then iterate: each time we divide the number through
     // and average the current guess with the result. This is very slow because,
-    // among other things, we have a division in each iteration.
+    // among other things, we have a division in each iteration. Still, it is
+    // extremely simple, and it gives perfect results exactly matching glibc
+    // (at least on x86_64) for all values without needing a 64-bit
+    // intermediate mantissa.
 
-    // TODO: sqrtf() is required by IEEE 754 to have perfect rounding, i.e. it
-    // should exactly match the infinite precision result. This isn't supported
-    // yet so the answer may be off by one bit (or perhaps two; I haven't
-    // exhaustively tested it yet.) We will need to do the below math in higher
-    // precision to get that last bit right. (At the same time it would be
-    // worth switching to a faster algorithm. This is the simplest thing that
-    // could possibly work but it's incredibly slow.)
-
-    // For our initial guess, we ignore the mantissa and cut the exponent in
-    // half (by averaging it with the bias.)
-    uint32_t y = ((FLOAT_EXPONENT_BIAS + xe) >> 1) << FLOAT_EXPONENT_SHIFT;
-    //printf("initial approximation %.9g\n", u2f(y));
+    // For our initial guess, we cut the exponent in half (by averaging it with
+    // the bias), and replace the mantissa m with 0.5+0.5m. See the "Binary
+    // estimates" section:
+    //     https://en.wikipedia.org/wiki/Square_root_algorithms#Binary_estimates
+    ufloat_t result;
+    result.exponent = (vu.exponent >> 1u) + (UFLOAT_EXPONENT_BIAS >> 1u);
+    result.mantissa = (1u << (UFLOAT_MANTISSA_BITS - 1u)) | (vu.mantissa >> 1u);
+    //printf("unpacked %.9g e %#x m %#x\n", u2f(__ufloat_pack(&vu, ufloat_ok, 0)), vu.exponent, vu.mantissa);
+    //printf("initial approximation %.9g e %#x m %#x\n", u2f(__ufloat_pack(&result, ufloat_ok, 0)), result.exponent, result.mantissa);
 
     // We support a large number of iterations but we stop as soon as the
     // number stops changing. The number of correct bits should roughly double
     // each iteration so really this should only take a number of iterations
-    // equal to the square root of the length of the significand. We cap the
-    // iteration count at the length of the significand to be safe.
+    // equal to the log base 2 of the length of the significand. We cap the
+    // iteration count at the length of the significand to make sure this can't
+    // cause an infinite loop.
     for (size_t i = 0; i < FLOAT_SIGNIFICAND_BITS; ++i) {
-        uint32_t next = __float_div(__float_add(y, __float_div(x, y)), TWO);
-        //printf("next %.9g\n", u2f(next));
-        if (y == next) {
+        // temp = (value + result / value) / 2;
+        ufloat_t temp;
+        temp.exponent = vu.exponent;
+        temp.mantissa = vu.mantissa;
+        __ufloat_div(&temp, &result);
+        __ufloat_add(&temp, &result);
+        --temp.exponent; // divide by 2
+        //printf("step %.9g e %#x m %#x\n", u2f(__ufloat_pack(&temp, ufloat_ok, 0)), temp.exponent, temp.mantissa);
+
+        // Break if the result hasn't changed in the grs bits. We don't care
+        // about lower bits (they can't affect the result.)
+        const unsigned EXTRA_BITS = UFLOAT_MANTISSA_BITS - FLOAT_SIGNIFICAND_BITS - GRS_BITS;
+        // TODO pull this math out into a helper
+        bool done = temp.exponent == result.exponent
+                && (((1u << (EXTRA_BITS - 1)) + temp.mantissa - result.mantissa)
+                    & ~((1u << EXTRA_BITS) - 1u)) == 0;
+        //printf("tm %#x rm %#x bias %#x mask %#x diff %#x result %#x\n", temp.mantissa, result.mantissa, (1u << (EXTRA_BITS - 1)), ~((1u << EXTRA_BITS) - 1u),((1u << (EXTRA_BITS - 1)) + temp.mantissa - result.mantissa), (((1u << (EXTRA_BITS - 1)) + temp.mantissa - result.mantissa)) & ~((1u << EXTRA_BITS) - 1u));
+        result.exponent = temp.exponent;
+        result.mantissa = temp.mantissa;
+        if (done) {
+            // number hasn't significantly changed.
+            //printf("insignificant change, done\n");
             break;
         }
-        y = next;
     }
 
-    //printf("result %.9g\n", u2f(y));
-    return y;
+    return __ufloat_pack(&result, ufloat_ok, 0);
 }
 
 unsigned cbrtf(unsigned f) {
